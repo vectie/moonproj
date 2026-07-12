@@ -1,0 +1,68 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/marketing"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+}
+
+// Values
+
+// Errors
+pub(all) suberror MarketingError {
+  EmptyIdentifier
+  InvalidAmount
+  CurrencyMismatch
+  BudgetExceeded
+  InvalidState
+  InvalidLeads
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) enum CampaignState {
+  Planning
+  Active
+  Completed
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+pub(all) struct MarketingCampaign {
+  campaign_id : String
+  principal_id : String
+  project_scope : String
+  name : String
+  budget : @finance.Money
+  actual_cost : @finance.Money
+  state : CampaignState
+} derive(Eq, @debug.Debug)
+pub fn MarketingCampaign::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MarketingError
+pub fn MarketingCampaign::complete(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MarketingError
+pub fn MarketingCampaign::new(campaign_id~ : String, principal_id~ : String, project_scope~ : String, name~ : String, budget~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MarketingError
+pub fn MarketingCampaign::record_spend(Self, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MarketingError
+
+pub(all) struct MarketingPlacement {
+  placement_id : String
+  campaign_id : String
+  principal_id : String
+  project_scope : String
+  channel : String
+  amount : @finance.Money
+  leads : Int
+  state : PlacementState
+} derive(Eq, @debug.Debug)
+pub fn MarketingPlacement::new(placement_id~ : String, MarketingCampaign, channel~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MarketingError
+pub fn MarketingPlacement::place(Self, leads~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MarketingError
+
+pub(all) enum PlacementState {
+  Planned
+  Placed
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

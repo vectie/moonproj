@@ -1,0 +1,84 @@
+{
+  "mapping_version": "mapped-cbs-cost-links-v1-review-001",
+  "money_policy": {
+    "minor_units_per_unit": 100,
+    "rounding": "half_even",
+    "allow_rounding": false
+  },
+  "cbs_by_project": {
+    "proj-0001": {
+      "version_id": "cbs-proj-0001-v1",
+      "principal_id": "co-001",
+      "project_scope": "project:proj-0001",
+      "currency": "CNY",
+      "amount_field": "target_cost",
+      "subject_by_cost_code": {
+        "CB-101": {
+          "subject_id": "cbs-proj-0001-101",
+          "code": "CB-101",
+          "name": "建安工程",
+          "parent_code": "",
+          "target_minor": 2400000000
+        },
+        "CB-101-JZ": {
+          "subject_id": "cbs-proj-0001-101-jz",
+          "code": "CB-101-JZ",
+          "name": "主体建安",
+          "parent_code": "CB-101",
+          "target_minor": 1850000000
+        },
+        "CB-102-MQ": {
+          "subject_id": "cbs-proj-0001-102-mq",
+          "code": "CB-102-MQ",
+          "name": "幕墙工程",
+          "parent_code": "CB-101",
+          "target_minor": 700000000
+        },
+        "CB-103-NJ": {
+          "subject_id": "cbs-proj-0001-103-nj",
+          "code": "CB-103-NJ",
+          "name": "内装精装",
+          "parent_code": "CB-101",
+          "target_minor": 450000000
+        },
+        "CB-104-JD": {
+          "subject_id": "cbs-proj-0001-104-jd",
+          "code": "CB-104-JD",
+          "name": "机电安装",
+          "parent_code": "CB-101",
+          "target_minor": 380000000
+        },
+        "CB-105-YL": {
+          "subject_id": "cbs-proj-0001-105-yl",
+          "code": "CB-105-YL",
+          "name": "园林绿化",
+          "parent_code": "CB-101",
+          "target_minor": 120000000
+        },
+        "CB-106-PT": {
+          "subject_id": "cbs-proj-0001-106-pt",
+          "code": "CB-106-PT",
+          "name": "配套设施",
+          "parent_code": "CB-101",
+          "target_minor": 90000000
+        }
+      }
+    },
+    "proj-0002": {
+      "version_id": "cbs-proj-0002-v1",
+      "principal_id": "co-001",
+      "project_scope": "project:proj-0002",
+      "currency": "CNY",
+      "amount_field": "target_cost",
+      "subject_by_cost_code": {
+        "CB-201": {
+          "subject_id": "cbs-proj-0002-201",
+          "code": "CB-201",
+          "name": "重庆项目成本",
+          "parent_code": "",
+          "target_minor": 100000000
+        }
+      }
+    }
+  }
+}

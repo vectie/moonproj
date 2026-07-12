@@ -1,0 +1,17 @@
+import {
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/settlement",
+  "vectie/moonproj/migration/manifest",
+  "vectie/moonproj/migration/erp",
+  "vectie/moonproj/migration/run",
+  "vectie/moonproj/migration/shadow",
+  "vectie/moonproj/persistence/schema",
+  "vectie/moonproj/persistence/sql",
+  "vectie/moonproj/persistence/store",
+}
+
+options(
+  "is-main": true,
+)

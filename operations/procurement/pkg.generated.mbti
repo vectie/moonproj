@@ -1,0 +1,127 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/procurement"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror SupplierError {
+  EmptyIdentifier
+  InvalidState
+  InvalidEvaluation
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror TenderError {
+  EmptyIdentifier
+  InvalidAmount
+  CurrencyMismatch
+  InvalidState
+  SupplierNotEligible
+  NoMatchingBid
+  DuplicateBid
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  Commitment(@commitment.CommitmentError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Supplier {
+  supplier_id : String
+  principal_id : String
+  scope : String
+  supplier_code : String
+  name : String
+  category_code : String
+  state : SupplierState
+  evaluation : SupplierEvaluation
+  events : Array[SupplierEvent]
+} derive(Eq, @debug.Debug)
+pub fn Supplier::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise SupplierError
+pub fn Supplier::blacklist(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
+pub fn Supplier::new(supplier_id~ : String, principal_id~ : String, scope~ : String, supplier_code~ : String, name~ : String, category_code~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
+pub fn Supplier::review(Self, evaluation~ : SupplierEvaluation, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
+pub fn Supplier::submit_review(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
+
+pub(all) enum SupplierEvaluation {
+  Unrated
+  Reviewed
+  Qualified
+  Unqualified
+  Strategic
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SupplierEvent {
+  from : SupplierState
+  to : SupplierState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SupplierState {
+  Draft
+  PendingReview
+  Active
+  Suspended
+  Blacklisted
+  Voided
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TenderBid {
+  supplier_id : String
+  amount : @finance.Money
+  actor_id : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TenderEvent {
+  from : TenderState
+  to : TenderState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TenderPlan {
+  tender_id : String
+  principal_id : String
+  project_scope : String
+  name : String
+  category : String
+  estimated_amount : @finance.Money
+  state : TenderState
+  bids : Array[TenderBid]
+  awarded_supplier_id : String?
+  awarded_amount : @finance.Money?
+  events : Array[TenderEvent]
+} derive(Eq, @debug.Debug)
+pub fn TenderPlan::add_bid(Self, Supplier, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TenderError
+pub fn TenderPlan::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TenderError
+pub fn TenderPlan::award(Self, Supplier, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TenderError
+pub fn TenderPlan::complete(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TenderError
+pub fn TenderPlan::create_commitment(Self, commitment_id~ : String, actor_id~ : String, award_grant~ : @foundation.AuthorityGrant, commitment_grant~ : @foundation.AuthorityGrant) -> @commitment.Commitment raise TenderError
+pub fn TenderPlan::new(tender_id~ : String, principal_id~ : String, project_scope~ : String, name~ : String, category~ : String, estimated_amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TenderError
+pub fn TenderPlan::open_bidding(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TenderError
+pub fn TenderPlan::publish(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TenderError
+
+pub(all) enum TenderState {
+  Planning
+  Publishing
+  Bidding
+  Awarded
+  Completed
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

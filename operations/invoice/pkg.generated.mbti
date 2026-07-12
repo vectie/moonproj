@@ -1,0 +1,63 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/invoice"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/receivable",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror InvoiceError {
+  EmptyIdentifier
+  InvalidAmount
+  InvalidTransition
+  InvalidState
+  Overpayment
+  Receivable(@receivable.ReceivableError)
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Invoice {
+  invoice_id : String
+  principal_id : String
+  customer_id : String
+  source_id : String
+  amount : @finance.Money
+  paid_minor : Int64
+  state : InvoiceState
+  events : Array[InvoiceEvent]
+} derive(Eq, @debug.Debug)
+pub fn Invoice::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise InvoiceError
+pub fn Invoice::new(invoice_id~ : String, principal_id~ : String, customer_id~ : String, source_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvoiceError
+pub fn Invoice::open_receivable(Self, receivable_id~ : String, actor_id~ : String, invoice_grant~ : @foundation.AuthorityGrant, receivable_grant~ : @foundation.AuthorityGrant) -> @receivable.Receivable raise InvoiceError
+pub fn Invoice::outstanding_minor(Self) -> Int64
+pub fn Invoice::record_payment(Self, amount_minor~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvoiceError
+pub fn Invoice::transition(Self, InvoiceState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvoiceError
+
+pub(all) struct InvoiceEvent {
+  from : InvoiceState
+  to : InvoiceState
+  actor_id : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum InvoiceState {
+  Draft
+  Issued
+  Accepted
+  PartiallyPaid
+  Paid
+  Voided
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

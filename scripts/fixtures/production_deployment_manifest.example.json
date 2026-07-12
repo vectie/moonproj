@@ -1,0 +1,47 @@
+{
+  "format": "moonproj.company.production-deployment.v1",
+  "environment": "production",
+  "database": {
+    "engine": "postgresql",
+    "dsn_env": "MOONCOMPANY_DATABASE_URL",
+    "pool": {
+      "min": 5,
+      "max": 30,
+      "acquire_timeout_seconds": 30
+    },
+    "tls": {
+      "required": true,
+      "verify_server_certificate": true
+    },
+    "encryption_at_rest": {
+      "provider": "managed-database",
+      "key_management": "managed-kms-key"
+    }
+  },
+  "backup": {
+    "schedule": "0 */6 * * *",
+    "retention_days": 35,
+    "destination": "managed-object-storage/company-db",
+    "encryption": "managed-kms-key",
+    "cross_region": true
+  },
+  "restore": {
+    "rpo_minutes": 15,
+    "rto_minutes": 60,
+    "verification_command": "company-db-restore-verify",
+    "runbook": "ops/runbooks/company-db-restore.md"
+  },
+  "operations": {
+    "migration_lock": "advisory-lock:company-schema",
+    "rollback_runbook": "ops/runbooks/company-migration-rollback.md",
+    "observability": {
+      "metrics": "company-db-metrics",
+      "audit_log": "company-admin-audit",
+      "alerts": "company-oncall"
+    }
+  },
+  "approvals": {
+    "approved_roles": [],
+    "records": []
+  }
+}

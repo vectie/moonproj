@@ -1,0 +1,9 @@
+import {
+  "vectie/moonproj/persistence/schema",
+  "vectie/moonproj/persistence/store",
+  "moonbitlang/core/string",
+}
+
+import {
+  "moonbitlang/x/fs",
+} for "test"

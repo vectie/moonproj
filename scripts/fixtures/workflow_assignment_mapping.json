@@ -1,0 +1,30 @@
+{
+  "mapping_version": "mapped-workflow-assignments-v1-review-001",
+  "assignee_by_user": {
+    "user-tgl-0001": "user-tgl-0001",
+    "user-lmj-0001": "user-lmj-0001",
+    "user-ls-0001": "user-ls-0001"
+  },
+  "principal_by_process": {
+    "proc-def-expense-7step": "co-001",
+    "proc-def-loan-5step": "co-001"
+  },
+  "scope_by_process": {
+    "proc-def-expense-7step": "workflow:proc-def-expense-7step",
+    "proc-def-loan-5step": "workflow:proc-def-loan-5step"
+  },
+  "workflow_capability_by_step": {
+    "step-1": "expense:initiate",
+    "step-2": "expense:user-approve",
+    "step-3": "expense:department-approve",
+    "step-4": "expense:owner-approve",
+    "step-5": "expense:hr-approve",
+    "step-6": "expense:general-approve",
+    "step-7": "expense:archive",
+    "lstep-1": "advance:initiate",
+    "lstep-2": "advance:department-approve",
+    "lstep-3": "advance:finance-approve",
+    "lstep-4": "advance:general-approve",
+    "lstep-5": "advance:archive"
+  }
+}

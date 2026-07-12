@@ -1,0 +1,11 @@
+import {
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/investment/domain",
+  "vectie/moonproj/persistence/store",
+  "moonbitlang/core/json",
+}
+
+import {
+  "vectie/moonproj/persistence/schema",
+} for "test"

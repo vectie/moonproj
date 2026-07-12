@@ -1,0 +1,29 @@
+{
+  "mapping_version": "mapped-accounting-v3-offset-review-001",
+  "accounting_by_source": {
+    "vcb_loan_simple:loan-001": {
+      "event_id": "acct-advance-loan-001",
+      "event_type": "advance.issued",
+      "journal_id": "journal-advance-loan-001",
+      "description": "Open employee advance loan-001",
+      "debit_account": "employee-advances",
+      "credit_account": "cash",
+      "principal_id": "co-001",
+      "scope": "employee:employee-lmj-0001",
+      "amount_minor": 500000,
+      "currency": "CNY"
+    },
+    "cb_loan_offset:off-001": {
+      "event_id": "acct-advance-offset-off-001",
+      "event_type": "advance.offset",
+      "journal_id": "journal-advance-offset-off-001",
+      "description": "Offset employee advance off-001",
+      "debit_account": "travel-expense",
+      "credit_account": "employee-advances",
+      "principal_id": "co-001",
+      "scope": "employee:employee-lmj-0001",
+      "amount_minor": 150000,
+      "currency": "CNY"
+    }
+  }
+}

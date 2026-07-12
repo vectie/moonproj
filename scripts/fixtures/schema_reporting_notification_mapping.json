@@ -1,0 +1,31 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-reporting-notification-v1-review-001",
+  "wave": "reporting-notification",
+  "tables": [
+    {
+      "table": "sys_message",
+      "target": {"owner": "intelligence/notification", "record_type": "user_message", "source_identity": "msg_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["user_identity_map_required", "scope_and_visibility_required", "message_content_review"]
+    },
+    {
+      "table": "sys_email_outbox",
+      "target": {"owner": "intelligence/notification outbox", "record_type": "email_delivery_evidence", "source_identity": "eid"},
+      "disposition": "evidence_only",
+      "security_controls": ["addresses_redacted_or_reviewed", "body_and_error_retention_review", "no_implicit_resend"]
+    },
+    {
+      "table": "sys_report_template",
+      "target": {"owner": "intelligence/reporting", "record_type": "report_template", "source_identity": "template_id"},
+      "disposition": "typed_import",
+      "security_controls": ["base_dataset_allowlist", "column_and_filter_review", "data_scope_required"]
+    },
+    {
+      "table": "report_share_link",
+      "target": {"owner": "intelligence/reporting", "record_type": "report_share_evidence", "source_identity": "token"},
+      "disposition": "exclude_sensitive",
+      "security_controls": ["share_token_never_imported", "expiry_and_revoke_review", "recipient_scope_review"]
+    }
+  ]
+}

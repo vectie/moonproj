@@ -1,0 +1,102 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/tax"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror TaxError {
+  EmptyIdentifier
+  EmptyCategory
+  EmptyJurisdiction
+  EmptyFilingPeriod
+  EmptyAuthorityReference
+  InvalidAmount
+  InvalidRate
+  CurrencyMismatch
+  InvalidTransition
+  InvalidFilingState
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct TaxEvent {
+  from : TaxObligationState
+  to : TaxObligationState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TaxFiling {
+  filing_id : String
+  tax_id : String
+  principal_id : String
+  project_scope : String
+  jurisdiction : String
+  category : String
+  filing_period : String
+  authority_reference : String
+  reported_tax_amount : @finance.Money
+  state : TaxFilingState
+  events : Array[TaxFilingEvent]
+} derive(Eq, @debug.Debug)
+pub fn TaxFiling::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TaxError
+pub fn TaxFiling::transition(Self, TaxFilingState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
+
+pub(all) struct TaxFilingEvent {
+  from : TaxFilingState
+  to : TaxFilingState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum TaxFilingState {
+  Prepared
+  Submitted
+  Accepted
+  Rejected
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TaxObligation {
+  tax_id : String
+  principal_id : String
+  project_scope : String
+  source_reference : String
+  jurisdiction : String
+  category : String
+  base_amount : @finance.Money
+  tax_rate_bps : Int64
+  withholding_rate_bps : Int64
+  tax_amount : @finance.Money
+  withholding_amount : @finance.Money
+  state : TaxObligationState
+  events : Array[TaxEvent]
+} derive(Eq, @debug.Debug)
+pub fn TaxObligation::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TaxError
+pub fn TaxObligation::calculate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
+pub fn TaxObligation::new(tax_id~ : String, principal_id~ : String, project_scope~ : String, source_reference~ : String, jurisdiction~ : String, category~ : String, base_amount~ : @finance.Money, tax_rate_bps~ : Int64, withholding_rate_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
+pub fn TaxObligation::prepare_filing(Self, filing_id~ : String, filing_period~ : String, authority_reference~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> TaxFiling raise TaxError
+pub fn TaxObligation::transition(Self, TaxObligationState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
+
+pub(all) enum TaxObligationState {
+  Draft
+  Calculated
+  Reviewed
+  Filed
+  Paid
+  Voided
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

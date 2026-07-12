@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/persistence/schema"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn apply_migration(SchemaState, MigrationStep) -> SchemaState raise MigrationError
+
+pub fn validate_chain(SchemaState, Array[MigrationStep]) -> SchemaState raise MigrationError
+
+// Errors
+pub(all) suberror MigrationError {
+  InvalidVersion
+  EmptyMigrationId
+  EmptyChecksum
+  EmptyDescription
+  NonSequential
+  AlreadyApplied
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct MigrationStep {
+  version : Int
+  migration_id : String
+  checksum : String
+  description : String
+} derive(Eq, @debug.Debug)
+pub fn MigrationStep::new(version~ : Int, migration_id~ : String, checksum~ : String, description~ : String) -> Self raise MigrationError
+
+pub(all) struct SchemaState {
+  version : Int
+  checksum : String
+} derive(Eq, @debug.Debug)
+pub fn SchemaState::initial() -> Self
+
+// Type aliases
+
+// Traits
+

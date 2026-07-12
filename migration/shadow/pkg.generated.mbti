@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/migration/shadow"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/migration/parity",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ShadowError {
+  EmptyIdentifier
+  NegativeValue
+  NegativeTolerance
+  DuplicateMetric
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ShadowComparison {
+  report : @parity.ParityReport
+  summary : @parity.ParitySummary
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ShadowExpectation {
+  metric_id : String
+  domain : String
+  dimension : String
+  measure : ShadowMeasure
+  source_value : Int64
+  tolerance : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ShadowMeasure {
+  RecordCount(String)
+  ProvidedValue(Int64)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ShadowPlan {
+  run_id : String
+  source_snapshot_id : String
+  expectations : Array[ShadowExpectation]
+} derive(Eq, @debug.Debug)
+pub fn ShadowPlan::add_expectation(Self, ShadowExpectation) -> Self raise ShadowError
+pub fn ShadowPlan::compare(Self, @store.RecordStore) -> ShadowComparison
+pub fn ShadowPlan::new(run_id~ : String, source_snapshot_id~ : String) -> Self raise ShadowError
+
+// Type aliases
+
+// Traits
+

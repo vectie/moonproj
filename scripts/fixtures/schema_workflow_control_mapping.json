@@ -1,0 +1,49 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-workflow-control-v1-review-001",
+  "wave": "workflow-control",
+  "tables": [
+    {
+      "table": "wf_approval_rule",
+      "target": {"owner": "operations/workflow approval policy", "record_type": "approval_rule", "source_identity": "rule_id"},
+      "disposition": "typed_import",
+      "security_controls": ["capability_mapping_required", "scope_required", "segregation_of_duties_review"]
+    },
+    {
+      "table": "wf_runtime_assignee",
+      "target": {"owner": "operations/workflow runtime assignment", "record_type": "runtime_assignment_candidate", "source_identity": "rid"},
+      "disposition": "typed_import",
+      "security_controls": ["process_identity_required", "assignment_does_not_grant_permission", "decision_time_authority_rechecked"]
+    },
+    {
+      "table": "sys_warning",
+      "target": {"owner": "intelligence/warning finding", "record_type": "warning_finding", "source_identity": "warning_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["principal_scope_required", "evidence_reference_required", "resolution_requires_authority"]
+    },
+    {
+      "table": "sys_warning_scan",
+      "target": {"owner": "intelligence/warning scan evidence", "record_type": "warning_scan", "source_identity": "scan_id"},
+      "disposition": "evidence_only",
+      "security_controls": ["scan_is_not_business_state", "source_integrity_required", "error_text_review"]
+    },
+    {
+      "table": "sys_warning_subscription",
+      "target": {"owner": "intelligence/warning notification boundary", "record_type": "warning_subscription", "source_identity": "sub_id"},
+      "disposition": "evidence_only",
+      "security_controls": ["user_identity_map_required", "no_authority_effect", "channel_allowlist"]
+    },
+    {
+      "table": "sys_warning_rule_custom",
+      "target": {"owner": "intelligence/warning rule definition", "record_type": "warning_rule_definition", "source_identity": "rule_code"},
+      "disposition": "typed_import",
+      "security_controls": ["sql_template_never_executed_implicitly", "rule_owner_required", "scope_and_data_access_review"]
+    },
+    {
+      "table": "sys_warning_ticket",
+      "target": {"owner": "intelligence/warning remediation", "record_type": "warning_ticket", "source_identity": "ticket_id"},
+      "disposition": "typed_import",
+      "security_controls": ["warning_identity_required", "assignee_identity_required", "status_transition_authority"]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+import {
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/cost",
+  "vectie/moonproj/finance/employee_finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/foundation/evidence",
+  "vectie/moonproj/foundation/organization",
+  "vectie/moonproj/migration/shadow",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/contract",
+  "vectie/moonproj/operations/expense",
+  "vectie/moonproj/operations/invoice",
+  "vectie/moonproj/operations/procurement",
+  "vectie/moonproj/operations/project",
+  "vectie/moonproj/operations/settlement",
+  "vectie/moonproj/operations/workflow",
+  "vectie/moonproj/investment/model",
+  "vectie/moonproj/persistence/store",
+  "moonbitlang/core/json",
+}
+
+import {
+  "vectie/moonproj/persistence/schema",
+  "vectie/moonproj/persistence/store",
+} for "test"

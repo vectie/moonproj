@@ -1,0 +1,61 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/intelligence/warning"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance/cost",
+  "vectie/moonproj/foundation",
+}
+
+// Values
+pub fn warning_for_cost_forecast(warning_id~ : String, principal_id~ : String, @cost.CostForecast, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> WarningFinding? raise WarningError
+
+// Errors
+pub(all) suberror WarningError {
+  EmptyIdentifier
+  InvalidState
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct WarningEvent {
+  from : WarningState
+  to : WarningState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WarningFinding {
+  warning_id : String
+  principal_id : String
+  scope : String
+  rule_code : String
+  target_type : String
+  target_id : String
+  message : String
+  severity : WarningSeverity
+  state : WarningState
+  events : Array[WarningEvent]
+} derive(Eq, @debug.Debug)
+pub fn WarningFinding::acknowledge(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
+pub fn WarningFinding::new(warning_id~ : String, principal_id~ : String, scope~ : String, rule_code~ : String, target_type~ : String, target_id~ : String, message~ : String, severity~ : WarningSeverity, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
+pub fn WarningFinding::resolve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
+pub fn WarningFinding::suppress(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
+
+pub(all) enum WarningSeverity {
+  Info
+  Warning
+  Critical
+} derive(Eq, @debug.Debug)
+
+pub(all) enum WarningState {
+  Open
+  Acknowledged
+  Resolved
+  Suppressed
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,110 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/project"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PlanError {
+  EmptyIdentifier
+  DuplicateTask
+  SelfDependency
+  MissingDependency
+  InvalidProgress
+  InvalidState
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ProjectError {
+  EmptyIdentifier
+  EmptyName
+  InvalidStageTransition
+  InvalidStateTransition
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Project {
+  project_id : String
+  principal_id : String
+  code : String
+  name : String
+  stage : ProjectStage
+  state : ProjectState
+  events : Array[ProjectEvent]
+} derive(Eq, @debug.Debug)
+pub fn Project::advance(Self, ProjectStage, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ProjectError
+pub fn Project::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ProjectError
+pub fn Project::new(project_id~ : String, principal_id~ : String, code~ : String, name~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ProjectError
+pub fn Project::suspend(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ProjectError
+
+pub(all) struct ProjectEvent {
+  from_stage : ProjectStage
+  to_stage : ProjectStage
+  actor_id : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProjectPlan {
+  project_id : String
+  principal_id : String
+  tasks : Array[ProjectTask]
+} derive(Eq, @debug.Debug)
+pub fn ProjectPlan::add_task(Self, task_id~ : String, name~ : String, planned_cost~ : @finance.Money?, dependencies~ : Array[String], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PlanError
+pub fn ProjectPlan::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PlanError
+pub fn ProjectPlan::block_task(Self, task_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PlanError
+pub fn ProjectPlan::new(Project) -> Self
+pub fn ProjectPlan::report_progress(Self, task_id~ : String, progress_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PlanError
+pub fn ProjectPlan::start_task(Self, task_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PlanError
+
+pub(all) enum ProjectStage {
+  Initiation
+  Planning
+  Design
+  Development
+  Sales
+  Delivery
+  Settlement
+  Closed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ProjectState {
+  Draft
+  Active
+  Suspended
+  Completed
+  Closed
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProjectTask {
+  task_id : String
+  project_id : String
+  principal_id : String
+  name : String
+  planned_cost : @finance.Money?
+  dependencies : Array[String]
+  progress_bps : Int64
+  state : TaskState
+} derive(Eq, @debug.Debug)
+
+pub(all) enum TaskState {
+  Planned
+  InProgress
+  Completed
+  Blocked
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

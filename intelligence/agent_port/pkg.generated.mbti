@@ -1,0 +1,45 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/intelligence/agent_port"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct AgentRequest {
+  request_id : String
+  principal_id : String
+  actor_id : String
+  capability : String
+  authority_ceiling_minor : Int64
+  input_evidence : Array[String]
+  expected_result_schema : String
+  idempotency_key : String
+} derive(Eq, @debug.Debug)
+pub fn AgentRequest::is_well_formed(Self) -> Bool
+
+pub(all) struct AgentResult {
+  request_id : String
+  status : String
+  findings : String
+  confidence_percent : Int
+  evidence : Array[String]
+  proposed_commands : Array[ProposedCommand]
+  error_classification : String
+} derive(Eq, @debug.Debug)
+pub fn AgentResult::is_terminal(Self) -> Bool
+
+pub(all) struct ProposedCommand {
+  command_id : String
+  capability : String
+  payload : String
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

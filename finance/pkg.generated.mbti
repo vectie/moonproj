@@ -1,0 +1,93 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn journal_total(JournalEntry) -> Money raise LedgerError
+
+pub fn validate_journal(JournalEntry) -> Unit raise LedgerError
+
+// Errors
+pub(all) suberror BudgetError {
+  EmptyIdentifier
+  EmptyScope
+  InvalidCurrency
+  NegativeAmount
+  InsufficientAvailable
+  InsufficientReserved
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror LedgerError {
+  EmptyEntryId
+  NoPostings
+  EmptyAccount
+  NonPositiveAmount
+  Unbalanced
+  MixedCurrencies
+  DuplicateEntry
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror MoneyError {
+  InvalidCurrency(String)
+  CurrencyMismatch
+  NegativeResult
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct BudgetLine {
+  line_id : String
+  principal_id : String
+  scope : String
+  currency : String
+  allocated_minor : Int64
+  reserved_minor : Int64
+  consumed_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn BudgetLine::available_minor(Self) -> Int64
+pub fn BudgetLine::consume(Self, amount_minor~ : Int64) -> Self raise BudgetError
+pub fn BudgetLine::new(line_id~ : String, principal_id~ : String, scope~ : String, currency~ : String, allocated_minor~ : Int64) -> Self raise BudgetError
+pub fn BudgetLine::release(Self, amount_minor~ : Int64) -> Self raise BudgetError
+pub fn BudgetLine::reserve(Self, amount_minor~ : Int64) -> Self raise BudgetError
+
+pub(all) struct JournalEntry {
+  entry_id : String
+  description : String
+  postings : Array[Posting]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Ledger {
+  entries : Array[JournalEntry]
+} derive(Eq, @debug.Debug)
+pub fn Ledger::empty() -> Self
+pub fn Ledger::length(Self) -> Int
+pub fn Ledger::post(Self, JournalEntry) -> Self raise LedgerError
+
+pub(all) struct Money {
+  minor : Int64
+  currency : String
+} derive(Eq, @debug.Debug)
+pub fn Money::add(Self, Self) -> Self raise MoneyError
+pub fn Money::is_non_negative(Self) -> Bool
+pub fn Money::is_zero(Self) -> Bool
+pub fn Money::new(minor~ : Int64, currency~ : String) -> Self raise MoneyError
+pub fn Money::subtract(Self, Self) -> Self raise MoneyError
+pub fn Money::zero(currency~ : String) -> Self raise MoneyError
+
+pub(all) struct Posting {
+  account : String
+  side : PostingSide
+  amount : Money
+} derive(Eq, @debug.Debug)
+
+pub(all) enum PostingSide {
+  Debit
+  Credit
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

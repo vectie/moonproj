@@ -1,0 +1,81 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/contract"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/settlement",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror MilestoneError {
+  EmptyIdentifier
+  InvalidCommitment
+  InvalidSequence
+  InvalidPercentage
+  InvalidAmount
+  CurrencyMismatch
+  AmountExceedsCommitment
+  InvalidState
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+  Settlement(@settlement.SettlementError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ContractMilestone {
+  milestone_id : String
+  commitment_id : String
+  principal_id : String
+  project_scope : String
+  sequence : Int
+  node_name : String
+  trigger : MilestoneTrigger
+  plan_amount : @finance.Money
+  plan_pct_bps : Int64
+  actual_amount : @finance.Money
+  state : MilestoneState
+  events : Array[MilestoneEvent]
+} derive(Eq, @debug.Debug)
+pub fn ContractMilestone::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise MilestoneError
+pub fn ContractMilestone::cancel(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MilestoneError
+pub fn ContractMilestone::mark_eligible(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MilestoneError
+pub fn ContractMilestone::mark_overdue(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MilestoneError
+pub fn ContractMilestone::mark_paid(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MilestoneError
+pub fn ContractMilestone::new(@commitment.Commitment, milestone_id~ : String, sequence~ : Int, node_name~ : String, trigger~ : MilestoneTrigger, plan_amount~ : @finance.Money, plan_pct_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MilestoneError
+pub fn ContractMilestone::reach(Self, actual_amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise MilestoneError
+pub fn ContractMilestone::request_settlement(Self, @commitment.Commitment, settlement_id~ : String, actor_id~ : String, milestone_grant~ : @foundation.AuthorityGrant, settlement_grant~ : @foundation.AuthorityGrant) -> @settlement.Settlement raise MilestoneError
+
+pub(all) struct MilestoneEvent {
+  from : MilestoneState
+  to : MilestoneState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum MilestoneState {
+  Planned
+  Eligible
+  Reached
+  Paid
+  Overdue
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+pub(all) enum MilestoneTrigger {
+  Time
+  Progress
+  Event
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

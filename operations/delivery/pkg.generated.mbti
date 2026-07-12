@@ -1,0 +1,91 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/delivery"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
+  "vectie/moonproj/finance/cost",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror DeliveryError {
+  EmptyIdentifier
+  InvalidProgress
+  InvalidAmount
+  MissingEvidence
+  InvalidState
+  AccountingEvent(@accounting.AccountingEventError)
+  CostForecast(@cost.ForecastError)
+  CurrencyMismatch
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Deliverable {
+  deliverable_id : String
+  project_id : String
+  principal_id : String
+  project_scope : String
+  name : String
+  evidence_ids : Array[String]
+  state : DeliverableState
+  events : Array[DeliveryEvent]
+} derive(Eq, @debug.Debug)
+pub fn Deliverable::accept(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn Deliverable::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise DeliveryError
+pub fn Deliverable::new(deliverable_id~ : String, project_id~ : String, principal_id~ : String, project_scope~ : String, name~ : String, evidence_ids~ : Array[String], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn Deliverable::reject(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn Deliverable::submit(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+
+pub(all) enum DeliverableState {
+  Planned
+  Submitted
+  Accepted
+  Rejected
+  Remediation
+} derive(Eq, @debug.Debug)
+
+pub(all) struct DeliveryEvent {
+  from : String
+  to : String
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProgressReport {
+  report_id : String
+  project_id : String
+  principal_id : String
+  project_scope : String
+  progress_bps : Int64
+  completed_value : @finance.Money
+  evidence_ids : Array[String]
+  state : ProgressState
+  events : Array[DeliveryEvent]
+} derive(Eq, @debug.Debug)
+pub fn ProgressReport::accept(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn ProgressReport::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise DeliveryError
+pub fn ProgressReport::new(report_id~ : String, project_id~ : String, principal_id~ : String, project_scope~ : String, progress_bps~ : Int64, completed_value~ : @finance.Money, evidence_ids~ : Array[String], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn ProgressReport::reject(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn ProgressReport::submit(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn ProgressReport::to_cost_forecast(Self, target~ : @finance.Money, committed~ : @finance.Money, actual~ : @finance.Money) -> @cost.CostForecast raise DeliveryError
+pub fn ProgressReport::to_recognition_event(Self, event_id~ : String, event_type~ : String, contract_asset_account~ : String, revenue_account~ : String) -> @accounting.AccountingEvent raise DeliveryError
+
+pub(all) enum ProgressState {
+  Draft
+  Submitted
+  Accepted
+  Rejected
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

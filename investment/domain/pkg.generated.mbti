@@ -1,0 +1,113 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/investment/domain"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/investment/analytics",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror InvestmentError {
+  EmptyIdentifier
+  InvalidAmount
+  InvalidQuantity
+  CurrencyMismatch
+  MandateLimitExceeded
+  InvalidState
+  AnalysisMismatch
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  Journal(@finance.LedgerError)
+  AccountingEvent(@accounting.AccountingEventError)
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct InvestmentMandate {
+  mandate_id : String
+  principal_id : String
+  project_scope : String
+  base_currency : String
+  max_exposure : @finance.Money
+  max_single_position : @finance.Money
+  state : MandateState
+  events : Array[MandateEvent]
+} derive(Eq, @debug.Debug)
+pub fn InvestmentMandate::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvestmentError
+pub fn InvestmentMandate::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise InvestmentError
+pub fn InvestmentMandate::new(mandate_id~ : String, principal_id~ : String, project_scope~ : String, base_currency~ : String, max_exposure~ : @finance.Money, max_single_position~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvestmentError
+pub fn InvestmentMandate::propose(Self, proposal_id~ : String, instrument~ : String, quantity~ : Int64, price~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> InvestmentProposal raise InvestmentError
+pub fn InvestmentMandate::suspend(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvestmentError
+
+pub(all) struct InvestmentPosition {
+  position_id : String
+  mandate_id : String
+  instrument : String
+  quantity : Int64
+  cost_basis : @finance.Money
+} derive(Eq, @debug.Debug)
+pub fn InvestmentPosition::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise InvestmentError
+pub fn InvestmentPosition::to_accounting_event(Self, event_id~ : String, event_type~ : String, principal_id~ : String, investment_account~ : String, cash_account~ : String) -> @accounting.AccountingEvent raise InvestmentError
+pub fn InvestmentPosition::to_acquisition_journal(Self, investment_account~ : String, cash_account~ : String) -> @finance.JournalEntry raise InvestmentError
+
+pub(all) struct InvestmentProposal {
+  proposal_id : String
+  mandate_id : String
+  principal_id : String
+  project_scope : String
+  instrument : String
+  quantity : Int64
+  price : @finance.Money
+  notional : @finance.Money
+  analysis : @analytics.AnalysisReport?
+  state : ProposalState
+  events : Array[ProposalEvent]
+} derive(Eq, @debug.Debug)
+pub fn InvestmentProposal::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise InvestmentError
+pub fn InvestmentProposal::approve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvestmentError
+pub fn InvestmentProposal::attach_analysis(Self, report~ : @analytics.AnalysisReport, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvestmentError
+pub fn InvestmentProposal::execute(Self, position_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (Self, InvestmentPosition) raise InvestmentError
+pub fn InvestmentProposal::submit(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise InvestmentError
+
+pub(all) struct MandateEvent {
+  from : MandateState
+  to : MandateState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum MandateState {
+  Draft
+  Active
+  Suspended
+  Closed
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProposalEvent {
+  from : ProposalState
+  to : ProposalState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ProposalState {
+  Draft
+  Analyzed
+  Submitted
+  Approved
+  Rejected
+  Executed
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

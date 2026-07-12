@@ -1,0 +1,72 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/cbs"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror CbsError {
+  EmptyIdentifier
+  EmptySubject
+  NegativeTarget
+  InvalidAmount
+  InvalidCurrency
+  UnknownSubject
+  DuplicateCode
+  Frozen
+  InvalidTransition
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct CbsVersion {
+  version_id : String
+  project_scope : String
+  state : CbsVersionState
+  subjects : Array[CostSubject]
+} derive(Eq, @debug.Debug)
+pub fn CbsVersion::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
+pub fn CbsVersion::add_subject(Self, subject~ : CostSubject, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
+pub fn CbsVersion::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CbsError
+pub fn CbsVersion::freeze(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
+pub fn CbsVersion::link_cost(Self, link_id~ : String, source_id~ : String, subject_code~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> CostSubjectLink raise CbsError
+pub fn CbsVersion::new(version_id~ : String, project_scope~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
+pub fn CbsVersion::target_total_minor(Self) -> Int64
+
+pub(all) enum CbsVersionState {
+  Draft
+  Active
+  Frozen
+} derive(Eq, @debug.Debug)
+
+pub(all) struct CostSubject {
+  subject_id : String
+  code : String
+  name : String
+  parent_code : String
+  target_minor : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct CostSubjectLink {
+  link_id : String
+  source_id : String
+  version_id : String
+  project_scope : String
+  subject_code : String
+  principal_id : String
+  amount : @finance.Money
+} derive(Eq, @debug.Debug)
+pub fn CostSubjectLink::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CbsError
+
+// Type aliases
+
+// Traits
+

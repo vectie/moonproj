@@ -1,0 +1,51 @@
+{
+  "format": "moonproj.erp.business-acceptance.v1",
+  "source_snapshot_id": "from-source-export-evidence",
+  "decisions": [
+    {
+      "id": "task-state-proj-0001",
+      "owner_role": "business",
+      "decision": null,
+      "decided_by": null,
+      "decided_at": null,
+      "rationale": null,
+      "evidence_refs": []
+    },
+    {
+      "id": "erp-schema-coverage",
+      "owner_role": "migration-owner",
+      "decision": null,
+      "decided_by": null,
+      "decided_at": null,
+      "rationale": null,
+      "evidence_refs": []
+    },
+    {
+      "id": "production-database-deployment",
+      "owner_role": "operations",
+      "decision": null,
+      "decided_by": null,
+      "decided_at": null,
+      "rationale": null,
+      "evidence_refs": []
+    },
+    {
+      "id": "accounting-reconciliation",
+      "owner_role": "finance",
+      "decision": null,
+      "decided_by": null,
+      "decided_at": null,
+      "rationale": null,
+      "evidence_refs": []
+    },
+    {
+      "id": "shadow-period",
+      "owner_role": "operations",
+      "decision": null,
+      "decided_by": null,
+      "decided_at": null,
+      "rationale": null,
+      "evidence_refs": []
+    }
+  ]
+}

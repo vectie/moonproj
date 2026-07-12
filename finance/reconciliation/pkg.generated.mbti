@@ -1,0 +1,47 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/reconciliation"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+}
+
+// Values
+pub fn reconcile_journal(scope~ : String, reference_id~ : String, expected~ : @finance.Money, journal~ : @finance.JournalEntry, side~ : @finance.PostingSide) -> ReconciliationReport raise ReconciliationError
+
+// Errors
+pub(all) suberror ReconciliationError {
+  EmptyScope
+  EmptyReference
+  DuplicateReference
+  NoLines
+  NegativeExpected
+  NegativeActual
+  CurrencyMismatch
+  Unbalanced(Int64)
+  Journal(@finance.LedgerError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ReconciliationLine {
+  reference_id : String
+  expected : @finance.Money
+  actual : @finance.Money
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ReconciliationReport {
+  scope : String
+  lines : Array[ReconciliationLine]
+  expected_total : @finance.Money
+  actual_total : @finance.Money
+  difference_minor : Int64
+  balanced : Bool
+} derive(Eq, @debug.Debug)
+pub fn ReconciliationReport::new(scope~ : String, lines~ : Array[ReconciliationLine]) -> Self raise ReconciliationError
+pub fn ReconciliationReport::require_balanced(Self) -> Unit raise ReconciliationError
+
+// Type aliases
+
+// Traits
+

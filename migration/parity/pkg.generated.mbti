@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/migration/parity"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ParityError {
+  EmptyIdentifier
+  NegativeTolerance
+  DuplicateMetric
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ParityFinding {
+  metric_id : String
+  status : ParityStatus
+  delta : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ParityMetric {
+  metric_id : String
+  domain : String
+  dimension : String
+  source_value : Int64
+  target_value : Int64
+  tolerance : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ParityReport {
+  run_id : String
+  source_snapshot_id : String
+  metrics : Array[ParityMetric]
+} derive(Eq, @debug.Debug)
+pub fn ParityReport::add_metric(Self, ParityMetric) -> Self raise ParityError
+pub fn ParityReport::evaluate(Self) -> ParitySummary
+pub fn ParityReport::new(run_id~ : String, source_snapshot_id~ : String) -> Self raise ParityError
+
+pub(all) enum ParityStatus {
+  Exact
+  WithinTolerance
+  Mismatch
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ParitySummary {
+  findings : Array[ParityFinding]
+  exact_count : Int
+  within_tolerance_count : Int
+  mismatch_count : Int
+  accepted : Bool
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

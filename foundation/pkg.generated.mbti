@@ -1,0 +1,109 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/foundation"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn require_authority(AuthorityGrant, principal_id~ : String, actor_id~ : String, capability~ : String, scope~ : String, amount_minor~ : Int64) -> Unit raise AuthorityError
+
+// Errors
+pub(all) suberror AuthorityError {
+  InactiveGrant
+  WrongActor
+  WrongPrincipal
+  WrongCapability
+  ScopeMismatch
+  AmountExceeded
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror IdentityError {
+  EmptyIdentifier(String)
+  EmptyName
+  InvalidCurrency(String)
+  DuplicateUser
+  NotAuthorized(AuthorityError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ParameterError {
+  EmptyIdentifier
+  DuplicateOption
+  InvalidOrder
+  NotAuthorized(AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct AuthorityGrant {
+  grant_id : String
+  principal_id : String
+  actor_id : String
+  capability : String
+  scope : String
+  max_amount_minor : Int64
+  active : Bool
+} derive(Eq, @debug.Debug)
+pub fn AuthorityGrant::allows(Self, principal_id~ : String, actor_id~ : String, capability~ : String, scope~ : String, amount_minor~ : Int64) -> Bool
+
+pub(all) struct LegalEntity {
+  entity_id : String
+  legal_name : String
+  functional_currency : String
+} derive(Eq, @debug.Debug)
+pub fn LegalEntity::new(entity_id~ : String, legal_name~ : String, functional_currency~ : String) -> Self raise IdentityError
+
+pub(all) struct ParameterDictionary {
+  parameter_name : String
+  principal_id : String
+  scope : String
+  options : Array[ParameterOption]
+} derive(Eq, @debug.Debug)
+pub fn ParameterDictionary::add_option(Self, ParameterOption, actor_id~ : String, grant~ : AuthorityGrant) -> Self raise ParameterError
+pub fn ParameterDictionary::new(parameter_name~ : String, principal_id~ : String, scope~ : String, actor_id~ : String, grant~ : AuthorityGrant) -> Self raise ParameterError
+
+pub(all) struct ParameterOption {
+  parameter_id : String
+  code : String
+  value : String
+  display_order : Int
+  enabled : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Principal {
+  id : String
+  kind : PrincipalKind
+} derive(Eq, @debug.Debug)
+pub fn Principal::new(id~ : String, kind~ : PrincipalKind) -> Self raise IdentityError
+
+pub(all) enum PrincipalKind {
+  Entity
+  Person
+  Service
+} derive(Eq, @debug.Debug)
+
+pub(all) struct UserAccount {
+  user_id : String
+  user_code : String
+  display_name : String
+  principal_id : String
+  business_unit_id : String
+  department_id : String?
+  state : UserAccountState
+} derive(Eq, @debug.Debug)
+pub fn UserAccount::new(user_id~ : String, user_code~ : String, display_name~ : String, principal_id~ : String, business_unit_id~ : String, department_id~ : String?, enabled~ : Bool, actor_id~ : String, grant~ : AuthorityGrant) -> Self raise IdentityError
+
+pub(all) enum UserAccountState {
+  Active
+  Disabled
+} derive(Eq, @debug.Debug)
+
+pub(all) struct UserDirectory {
+  users : Array[UserAccount]
+} derive(Eq, @debug.Debug)
+pub fn UserDirectory::append(Self, UserAccount) -> Self raise IdentityError
+pub fn UserDirectory::empty() -> Self
+
+// Type aliases
+
+// Traits
+

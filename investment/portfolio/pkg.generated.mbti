@@ -1,0 +1,81 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/investment/portfolio"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/investment/domain",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PortfolioError {
+  EmptyIdentifier
+  InvalidAmount
+  CurrencyMismatch
+  WrongMandate
+  DuplicatePosition
+  ExposureExceeded
+  MissingQuote
+  InvalidScenario
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct MarketQuote {
+  instrument : String
+  price : @finance.Money
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Portfolio {
+  portfolio_id : String
+  mandate_id : String
+  principal_id : String
+  project_scope : String
+  currency : String
+  max_exposure : @finance.Money
+  max_single_position : @finance.Money
+  positions : Array[@domain.InvestmentPosition]
+} derive(Eq, @debug.Debug)
+pub fn Portfolio::add_position(Self, @domain.InvestmentPosition, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PortfolioError
+pub fn Portfolio::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+pub fn Portfolio::new(@domain.InvestmentMandate, portfolio_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PortfolioError
+pub fn Portfolio::stress(Self, Array[MarketQuote], RiskScenario) -> StressReport raise PortfolioError
+pub fn Portfolio::value(Self, Array[MarketQuote]) -> ValuationReport raise PortfolioError
+
+pub(all) struct RiskScenario {
+  scenario_id : String
+  name : String
+  shock_bps : Int64
+  max_loss_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn RiskScenario::new(scenario_id~ : String, name~ : String, shock_bps~ : Int64, max_loss_minor~ : Int64) -> Self raise PortfolioError
+
+pub(all) struct StressReport {
+  portfolio_id : String
+  scenario_id : String
+  stressed_market_value : @finance.Money
+  loss_minor : Int64
+  within_mandate : Bool
+  within_loss_limit : Bool
+} derive(Eq, @debug.Debug)
+pub fn StressReport::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+
+pub(all) struct ValuationReport {
+  portfolio_id : String
+  total_market_value : @finance.Money
+  largest_position_value : @finance.Money
+  position_count : Int
+  within_mandate : Bool
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,67 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/migration/manifest"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ManifestError {
+  EmptyIdentifier
+  DuplicateSource
+  InvalidDisposition
+  InvalidState
+  QuarantineReasonRequired
+  MissingTarget
+  RecordCountMismatch
+  RecordTargetMismatch
+  NotAuthorized(@foundation.AuthorityError)
+  Store(@store.StoreError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) enum MigrationDisposition {
+  Imported
+  Quarantined
+  Skipped
+} derive(Eq, @debug.Debug)
+
+pub(all) struct MigrationItem {
+  source_type : String
+  source_id : String
+  target_type : String
+  target_id : String?
+  disposition : MigrationDisposition
+  reason : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct MigrationManifest {
+  run_id : String
+  source_snapshot_id : String
+  principal_id : String
+  items : Array[MigrationItem]
+  state : MigrationRunState
+} derive(Eq, @debug.Debug)
+pub fn MigrationManifest::add_item(Self, MigrationItem, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ManifestError
+pub fn MigrationManifest::apply(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ManifestError
+pub fn MigrationManifest::apply_records(Self, @store.RecordStore, Array[@store.StoredRecord], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (Self, @store.RecordStore) raise ManifestError
+pub fn MigrationManifest::count(Self, MigrationDisposition) -> Int
+pub fn MigrationManifest::new(run_id~ : String, source_snapshot_id~ : String, principal_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ManifestError
+pub fn MigrationManifest::rollback(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ManifestError
+pub fn MigrationManifest::validate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ManifestError
+
+pub(all) enum MigrationRunState {
+  Planned
+  Validated
+  Applied
+  RolledBack
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

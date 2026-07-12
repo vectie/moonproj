@@ -1,0 +1,92 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/assets"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror AssetError {
+  EmptyIdentifier
+  InvalidAmount
+  InvalidResidualValue
+  InvalidUsefulLife
+  CurrencyMismatch
+  InvalidStateTransition
+  InvalidDepreciationState
+  FullyDepreciated
+  InvalidDisposalState
+  InvalidDisposalProceeds
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+  Journal(@finance.LedgerError)
+  AccountingEvent(@accounting.AccountingEventError)
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Asset {
+  asset_id : String
+  principal_id : String
+  project_scope : String
+  description : String
+  acquisition_cost : @finance.Money
+  residual_value : @finance.Money
+  useful_life_months : Int
+  accumulated_depreciation : Int64
+  state : AssetState
+  events : Array[AssetEvent]
+} derive(Eq, @debug.Debug)
+pub fn Asset::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise AssetError
+pub fn Asset::depreciate(Self, period_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (Self, DepreciationEntry) raise AssetError
+pub fn Asset::new(asset_id~ : String, principal_id~ : String, project_scope~ : String, description~ : String, acquisition_cost~ : @finance.Money, residual_value~ : @finance.Money, useful_life_months~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AssetError
+pub fn Asset::to_disposal_entry(Self, proceeds~ : @finance.Money) -> DisposalEntry raise AssetError
+pub fn Asset::transition(Self, AssetState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AssetError
+
+pub(all) struct AssetEvent {
+  from : AssetState
+  to : AssetState
+  actor_id : String
+  capability : String
+  detail : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum AssetState {
+  Proposed
+  Capitalized
+  Active
+  Impaired
+  Disposed
+} derive(Eq, @debug.Debug)
+
+pub(all) struct DepreciationEntry {
+  asset_id : String
+  period_id : String
+  amount : @finance.Money
+  remaining_book_value_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn DepreciationEntry::to_accounting_event(Self, event_id~ : String, event_type~ : String, principal_id~ : String, expense_account~ : String, accumulated_depreciation_account~ : String) -> @accounting.AccountingEvent raise AssetError
+pub fn DepreciationEntry::to_journal(Self, expense_account~ : String, accumulated_depreciation_account~ : String) -> @finance.JournalEntry raise AssetError
+
+pub(all) struct DisposalEntry {
+  asset_id : String
+  proceeds : @finance.Money
+  acquisition_cost_minor : Int64
+  accumulated_depreciation_minor : Int64
+  carrying_value_minor : Int64
+  gain_loss_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn DisposalEntry::to_accounting_event(Self, event_id~ : String, event_type~ : String, principal_id~ : String, cash_or_receivable_account~ : String, asset_account~ : String, accumulated_depreciation_account~ : String, gain_account~ : String, loss_account~ : String) -> @accounting.AccountingEvent raise AssetError
+pub fn DisposalEntry::to_journal(Self, cash_or_receivable_account~ : String, asset_account~ : String, accumulated_depreciation_account~ : String, gain_account~ : String, loss_account~ : String) -> @finance.JournalEntry raise AssetError
+
+// Type aliases
+
+// Traits
+

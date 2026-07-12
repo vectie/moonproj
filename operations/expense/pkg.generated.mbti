@@ -1,0 +1,75 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/expense"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
+  "vectie/moonproj/finance/employee_finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ExpenseError {
+  EmptyIdentifier
+  InvalidIdentifier
+  InvalidAllocation
+  AllocationCurrencyMismatch
+  AllocationTotalMismatch
+  InvalidAmount
+  InvalidTransition
+  InvalidState
+  OffsetExceedsExpense
+  Advance(@employee_finance.AdvanceError)
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  Journal(@finance.LedgerError)
+  AccountingEvent(@accounting.AccountingEventError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ExpenseAllocation {
+  project_scope : String
+  cost_subject : String
+  amount : @finance.Money
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ExpenseClaim {
+  expense_id : String
+  principal_id : String
+  employee_id : String
+  amount : @finance.Money
+  allocations : Array[ExpenseAllocation]
+  offset_minor : Int64
+  state : ExpenseState
+  events : Array[ExpenseEvent]
+} derive(Eq, @debug.Debug)
+pub fn ExpenseClaim::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ExpenseError
+pub fn ExpenseClaim::new(expense_id~ : String, principal_id~ : String, employee_id~ : String, amount~ : @finance.Money, allocations~ : Array[ExpenseAllocation], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ExpenseError
+pub fn ExpenseClaim::offset_advance(Self, @employee_finance.EmployeeAdvance, amount_minor~ : Int64, actor_id~ : String, expense_grant~ : @foundation.AuthorityGrant, advance_grant~ : @foundation.AuthorityGrant) -> (Self, @employee_finance.EmployeeAdvance) raise ExpenseError
+pub fn ExpenseClaim::to_accounting_event(Self, event_id~ : String, event_type~ : String, expense_account~ : String, payable_account~ : String) -> @accounting.AccountingEvent raise ExpenseError
+pub fn ExpenseClaim::to_recognition_journal(Self, expense_account~ : String, payable_account~ : String) -> @finance.JournalEntry raise ExpenseError
+pub fn ExpenseClaim::transition(Self, ExpenseState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ExpenseError
+
+pub(all) struct ExpenseEvent {
+  from : ExpenseState
+  to : ExpenseState
+  actor_id : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ExpenseState {
+  Draft
+  Submitted
+  Approved
+  Rejected
+  Paid
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

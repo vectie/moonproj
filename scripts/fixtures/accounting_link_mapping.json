@@ -1,0 +1,53 @@
+{
+  "mapping_version": "mapped-accounting-v2-review-001",
+  "accounting_by_source": {
+    "cb_contract:ht-tj-001": {
+      "event_id": "acct-commitment-ht-tj-001",
+      "event_type": "commitment.performed",
+      "journal_id": "journal-commitment-ht-tj-001",
+      "description": "Recognize performed commitment ht-tj-001",
+      "debit_account": "project-cost",
+      "credit_account": "accounts-payable",
+      "principal_id": "co-001",
+      "scope": "project:proj-0001",
+      "amount_minor": 1800000000,
+      "currency": "CNY"
+    },
+    "cb_contract:ht-tj-002": {
+      "event_id": "acct-commitment-ht-tj-002",
+      "event_type": "commitment.performed",
+      "journal_id": "journal-commitment-ht-tj-002",
+      "description": "Recognize performed commitment ht-tj-002",
+      "debit_account": "project-cost",
+      "credit_account": "accounts-payable",
+      "principal_id": "co-001",
+      "scope": "project:proj-0001",
+      "amount_minor": 680000000,
+      "currency": "CNY"
+    },
+    "vcb_loan_simple:loan-001": {
+      "event_id": "acct-advance-loan-001",
+      "event_type": "advance.issued",
+      "journal_id": "journal-advance-loan-001",
+      "description": "Open employee advance loan-001",
+      "debit_account": "employee-advances",
+      "credit_account": "cash",
+      "principal_id": "co-001",
+      "scope": "employee:employee-lmj-0001",
+      "amount_minor": 500000,
+      "currency": "CNY"
+    },
+    "cb_loan_offset:off-001": {
+      "event_id": "acct-advance-offset-off-001",
+      "event_type": "advance.offset",
+      "journal_id": "journal-advance-offset-off-001",
+      "description": "Offset employee advance off-001",
+      "debit_account": "travel-expense",
+      "credit_account": "employee-advances",
+      "principal_id": "co-001",
+      "scope": "employee:employee-lmj-0001",
+      "amount_minor": 150000,
+      "currency": "CNY"
+    }
+  }
+}

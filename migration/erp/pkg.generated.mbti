@@ -1,0 +1,577 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/migration/erp"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/cost",
+  "vectie/moonproj/finance/employee_finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/foundation/evidence",
+  "vectie/moonproj/foundation/organization",
+  "vectie/moonproj/investment/model",
+  "vectie/moonproj/migration/shadow",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/contract",
+  "vectie/moonproj/operations/expense",
+  "vectie/moonproj/operations/invoice",
+  "vectie/moonproj/operations/procurement",
+  "vectie/moonproj/operations/project",
+  "vectie/moonproj/operations/settlement",
+  "vectie/moonproj/operations/workflow",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+pub fn advance_record(LegacyAdvanceRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn audit_record(LegacyAuditRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn business_unit_record(LegacyBusinessUnitRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn contract_record(LegacyContractRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn cost_record(LegacyCostRow, cost_id~ : String, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn expense_record(LegacyExpenseRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn import_advance(LegacyAdvanceRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @employee_finance.EmployeeAdvance raise ErpImportError
+
+pub fn import_advance_offsets(Array[@employee_finance.EmployeeAdvance], Array[LegacyAdvanceOffsetRow], Array[LegacyAdvanceOffsetMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> Array[@employee_finance.EmployeeAdvance] raise ErpImportError
+
+pub fn import_advances(Array[LegacyAdvanceRow], Array[LegacyAdvanceMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> Array[@employee_finance.EmployeeAdvance] raise ErpImportError
+
+pub fn import_audit_records(Array[LegacyAuditRow], Array[LegacyAuditMapping], Array[@foundation.AuthorityGrant]) -> @evidence.AuditTrail raise ErpImportError
+
+pub fn import_business_unit(LegacyBusinessUnitRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @organization.OrganizationUnit raise ErpImportError
+
+pub fn import_business_units(Array[LegacyBusinessUnitRow], Array[LegacyBusinessUnitMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> @organization.OrganizationRegistry raise ErpImportError
+
+pub fn import_commitment_state(@commitment.Commitment, @commitment.CommitmentState, Array[@foundation.AuthorityGrant], actor_id~ : String) -> @commitment.Commitment raise ErpImportError
+
+pub fn import_contract(LegacyContractRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @commitment.Commitment raise ErpImportError
+
+pub fn import_contracts(Array[LegacyContractRow], Array[LegacyContractMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> Array[@commitment.Commitment] raise ErpImportError
+
+pub fn import_cost(LegacyCostRow) -> @cost.DynamicCost raise ErpImportError
+
+pub fn import_costs(Array[LegacyCostPromotionRow]) -> Array[ImportedDynamicCost] raise ErpImportError
+
+pub fn import_expense(LegacyExpenseRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @expense.ExpenseClaim raise ErpImportError
+
+pub fn import_investment_model(LegacyInvestmentVersionRow, Array[LegacyInvestmentIndexRow], principal_id~ : String, actor_id~ : String, version_grant~ : @foundation.AuthorityGrant, index_grant~ : @foundation.AuthorityGrant) -> @model.InvestmentModel raise ErpImportError
+
+pub fn import_investment_models(Array[LegacyInvestmentVersionRow], Array[LegacyInvestmentIndexRow], Array[LegacyInvestmentModelMapping], actor_id~ : String) -> Array[@model.InvestmentModel] raise ErpImportError
+
+pub fn import_invoice(LegacyInvoiceRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @invoice.Invoice raise ErpImportError
+
+pub fn import_milestone(LegacyMilestoneRow, @commitment.Commitment, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @contract.ContractMilestone raise ErpImportError
+
+pub fn import_parameter_dictionaries(Array[Array[LegacyParameterRow]], Array[LegacyParameterMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> Array[@foundation.ParameterDictionary] raise ErpImportError
+
+pub fn import_payment_application(LegacyPaymentApplicationRow, @commitment.Commitment, currency~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @settlement.Settlement raise ErpImportError
+
+pub fn import_project(LegacyProjectRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @project.Project raise ErpImportError
+
+pub fn import_project_lifecycle(@project.Project, Array[LegacyLifecycleInstanceRow], Array[LegacyLifecycleMapping], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @project.Project raise ErpImportError
+
+pub fn import_project_task_states(@project.ProjectPlan, Array[LegacyTaskRow], actor_id~ : String, start_grant~ : @foundation.AuthorityGrant, progress_grant~ : @foundation.AuthorityGrant, block_grant~ : @foundation.AuthorityGrant) -> @project.ProjectPlan raise ErpImportError
+
+pub fn import_project_tasks(@project.Project, Array[LegacyTaskRow], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @project.ProjectPlan raise ErpImportError
+
+pub fn import_projects(Array[LegacyProjectRow], Array[LegacyProjectMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> Array[@project.Project] raise ErpImportError
+
+pub fn import_supplier(LegacySupplierRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @procurement.Supplier raise ErpImportError
+
+pub fn import_tender(LegacyTenderRow, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @procurement.TenderPlan raise ErpImportError
+
+pub fn import_users(Array[LegacyUserRow], Array[LegacyUserMapping], Array[@foundation.AuthorityGrant], actor_id~ : String) -> @foundation.UserDirectory raise ErpImportError
+
+pub fn import_workflow_definition(LegacyWorkflowDefinitionRow, Array[LegacyWorkflowStepRow], Array[LegacyWorkflowCapability]) -> @workflow.ProcessDefinition raise ErpImportError
+
+pub fn import_workflow_definitions(Array[LegacyWorkflowDefinitionRow], Array[LegacyWorkflowStepRow], Array[LegacyWorkflowCapability]) -> Array[@workflow.ProcessDefinition] raise ErpImportError
+
+pub fn investment_index_record(LegacyInvestmentIndexRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn investment_version_record(LegacyInvestmentVersionRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn invoice_record(LegacyInvoiceRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn lifecycle_instance_record(LegacyLifecycleInstanceRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn lifecycle_stage_record(LegacyLifecycleStageRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn loan_offset_record(LegacyLoanOffsetRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn milestone_record(LegacyMilestoneRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn parameter_record(LegacyParameterRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn payment_application_record(LegacyPaymentApplicationRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn payment_plan_record(LegacyPaymentPlanRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn proceeding_record(LegacyProceedingRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn project_record(LegacyProjectRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn raw_record(LegacyRawRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn raw_records(Array[LegacyRawRow], schema_version~ : Int) -> Array[@store.StoredRecord] raise ErpImportError
+
+pub fn sanitized_v0_1_0_snapshot() -> SnapshotInventory
+
+pub fn supplier_record(LegacySupplierRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn task_record(LegacyTaskRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn task_report_record(LegacyTaskReportRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn tender_record(LegacyTenderRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn user_record(LegacyUserRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn workflow_assignee_record(LegacyWorkflowAssigneeRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn workflow_definition_record(LegacyWorkflowDefinitionRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+pub fn workflow_step_record(LegacyWorkflowStepRow, schema_version~ : Int) -> @store.StoredRecord raise ErpImportError
+
+// Errors
+pub(all) suberror ErpImportError {
+  MissingIdentifier
+  InvalidValue
+  DuplicateRecord
+  DuplicateSource
+  Organization(@organization.OrganizationError)
+  Project(@project.ProjectError)
+  Plan(@project.PlanError)
+  Workflow(@workflow.WorkflowError)
+  Model(@model.ModelError)
+  Commitment(@commitment.CommitmentError)
+  Settlement(@settlement.SettlementError)
+  Supplier(@procurement.SupplierError)
+  Tender(@procurement.TenderError)
+  Milestone(@contract.MilestoneError)
+  Invoice(@invoice.InvoiceError)
+  Expense(@expense.ExpenseError)
+  Advance(@employee_finance.AdvanceError)
+  Cost(@cost.CostError)
+  Money(@finance.MoneyError)
+  Store(@store.StoreError)
+  MissingMapping
+  Identity(@foundation.IdentityError)
+  Evidence(@evidence.EvidenceError)
+  Parameter(@foundation.ParameterError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror SnapshotInventoryError {
+  EmptyIdentifier
+  NegativeRowCount
+  DuplicateTable
+  MissingTargetType
+  Shadow(@shadow.ShadowError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ImportedDynamicCost {
+  cost_id : String
+  project_scope : String
+  value : @cost.DynamicCost
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyAdvanceMapping {
+  advance_id : String
+  principal_id : String
+  employee_id : String
+  authority_scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyAdvanceOffsetMapping {
+  offset_id : String
+  principal_id : String
+  employee_id : String
+  authority_scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyAdvanceOffsetRow {
+  offset_guid : String
+  loan_guid : String
+  amount_minor : Int64
+  offset_date : String
+  related_expense_guid : String?
+  operator_guid : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyAdvanceRow {
+  loan_guid : String
+  bu_guid : String
+  employee_guid : String
+  amount_minor : Int64
+  currency : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyAuditMapping {
+  audit_id : String
+  principal_id : String
+  scope : String
+  target_type : String
+  target_id : String
+  outcome : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyAuditRow {
+  log_id : String
+  user_id : String?
+  action : String
+  target_type : String?
+  target_id : String?
+  ip : String?
+  created_at : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyBusinessUnitMapping {
+  bu_guid : String
+  principal_id : String
+  authority_scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyBusinessUnitRow {
+  bu_guid : String
+  parent_guid : String?
+  bu_code : String
+  bu_name : String
+  bu_type : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyContractMapping {
+  contract_id : String
+  principal_id : String
+  project_scope : String
+  counterparty_id : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyContractRow {
+  contract_guid : String
+  bu_guid : String
+  proj_guid : String
+  provider_guid : String
+  ht_amount_minor : Int64
+  currency : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyCostPromotionRow {
+  cost_id : String
+  project_scope : String
+  cost : LegacyCostRow
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyCostRow {
+  currency : String
+  direct_minor : Int64
+  indirect_minor : Int64
+  contingency_minor : Int64
+  other_minor : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyExpenseRow {
+  expense_guid : String
+  bu_guid : String
+  employee_guid : String
+  proj_guid : String
+  cost_subject : String
+  amount_minor : Int64
+  currency : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyInvestmentIndexRow {
+  index_guid : String
+  version_guid : String
+  proj_guid : String
+  dimension : String
+  full_code : String
+  index_name : String
+  parent_code : String?
+  unit : String?
+  value_repr : String?
+  remark : String?
+  sort_order : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyInvestmentModelMapping {
+  version_id : String
+  principal_id : String
+  version_grant : @foundation.AuthorityGrant
+  index_grant : @foundation.AuthorityGrant
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyInvestmentVersionRow {
+  version_guid : String
+  proj_guid : String
+  bu_guid : String
+  version_name : String
+  version_no : Int
+  current : Bool
+  created_by : String
+  created_at : String
+  remark : String?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyInvoiceRow {
+  invoice_guid : String
+  bu_guid : String
+  customer_guid : String
+  source_id : String
+  amount_minor : Int64
+  currency : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyLifecycleInstanceRow {
+  instance_id : String
+  proj_guid : String
+  stage_code : String
+  planned_start : String?
+  planned_end : String?
+  actual_start : String?
+  actual_end : String?
+  status : String
+  progress_bps : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyLifecycleMapping {
+  source_code : String
+  target_stage : @project.ProjectStage
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyLifecycleStageRow {
+  stage_code : String
+  stage_name : String
+  stage_order : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyLoanOffsetRow {
+  offset_guid : String
+  loan_guid : String
+  amount_minor : Int64
+  offset_date : String
+  related_expense_guid : String?
+  remark : String?
+  operator_guid : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyMilestoneRow {
+  milestone_guid : String
+  contract_guid : String
+  sequence : Int
+  node_name : String
+  trigger_type : String
+  plan_amount_minor : Int64
+  plan_pct_bps : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyParameterMapping {
+  parameter_name : String
+  principal_id : String
+  scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyParameterRow {
+  parameter_id : String
+  parameter_name : String
+  parameter_code : String
+  parameter_value : String
+  display_order : Int
+  enabled : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyPaymentApplicationRow {
+  apply_guid : String
+  apply_code : String
+  contract_guid : String
+  plan_guid : String?
+  apply_class : Int
+  apply_type_code : String?
+  apply_state : String
+  pay_state : String
+  subject : String?
+  apply_dept_guid : String
+  applied_by : String
+  apply_date : String
+  amount_minor : Int64
+  amount_bz_minor : Int64
+  proj_guid : String?
+  proj_type : String?
+  contract_class : Int?
+  bu_guid : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyPaymentPlanRow {
+  plan_guid : String
+  contract_guid : String
+  bu_guid : String
+  plan_period : String
+  planned_date : String
+  amount_minor : Int64
+  currency : String
+  approval_state : String
+  handler_guid : String?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyProceedingRow {
+  proceeding_guid : String
+  proceeding_code : String
+  proceeding_name : String
+  manager_guid : String?
+  apply_dept_guid : String?
+  cost_code : String?
+  enabled : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyProjectMapping {
+  project_id : String
+  principal_id : String
+  authority_scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyProjectRow {
+  proj_guid : String
+  bu_guid : String
+  proj_code : String
+  proj_name : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyRawRow {
+  table_name : String
+  record_id : String
+  payload : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacySupplierRow {
+  provider_guid : String
+  bu_guid : String
+  provider_code : String
+  provider_name : String
+  category_code : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyTaskReportRow {
+  report_guid : String
+  task_guid : String
+  report_date : String
+  progress_bps : Int64
+  summary : String?
+  operator_guid : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyTaskRow {
+  task_guid : String
+  proj_guid : String
+  bu_guid : String
+  parent_task_guid : String?
+  task_code : String?
+  task_name : String
+  task_type : String
+  plan_begin_date : String
+  plan_end_date : String
+  actual_begin_date : String?
+  actual_end_date : String?
+  progress_bps : Int64
+  owner_guid : String?
+  status : String
+  sort_order : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyTenderRow {
+  tender_guid : String
+  bu_guid : String
+  proj_guid : String
+  tender_name : String
+  category : String
+  estimated_amount_minor : Int64
+  currency : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyUserMapping {
+  user_id : String
+  principal_id : String
+  authority_scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyUserRow {
+  user_id : String
+  user_code : String
+  user_name : String
+  emp_name : String?
+  super_user : Bool
+  bu_guid : String?
+  dept_guid : String?
+  enabled : Bool
+  fail_login_count : Int
+  last_login_time : String?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyWorkflowAssigneeRow {
+  assignee_guid : String
+  step_guid : String
+  user_guid : String?
+  weight : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyWorkflowCapability {
+  step_guid : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyWorkflowDefinitionRow {
+  process_guid : String
+  process_key : String
+  process_name : String
+  biz_type : String
+  active : Bool
+  mandatory : Bool
+  bu_guid : String?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct LegacyWorkflowStepRow {
+  step_guid : String
+  process_guid : String
+  step_key : String
+  step_order : Int
+  step_type : Int
+  step_name : String
+  threshold : Int
+  remind_days : Int?
+  warn_days : Int?
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SnapshotInventory {
+  snapshot_id : String
+  source_path : String
+  tables : Array[SnapshotTable]
+  total_rows : Int64
+} derive(Eq, @debug.Debug)
+pub fn SnapshotInventory::count_disposition(Self, SnapshotTableDisposition) -> Int
+pub fn SnapshotInventory::new(snapshot_id~ : String, source_path~ : String, tables~ : Array[SnapshotTable]) -> Self raise SnapshotInventoryError
+pub fn SnapshotInventory::rows_for(Self, SnapshotTableDisposition) -> Int64
+pub fn SnapshotInventory::table(Self, table_name~ : String) -> SnapshotTable?
+pub fn SnapshotInventory::to_shadow_plan(Self, run_id~ : String) -> @shadow.ShadowPlan raise SnapshotInventoryError
+
+pub(all) struct SnapshotTable {
+  table_name : String
+  row_count : Int64
+  target_record_type : String
+  disposition : SnapshotTableDisposition
+} derive(Eq, @debug.Debug)
+pub fn SnapshotTable::new(table_name~ : String, row_count~ : Int64, target_record_type~ : String, disposition~ : SnapshotTableDisposition) -> Self raise SnapshotInventoryError
+
+pub(all) enum SnapshotTableDisposition {
+  Mapped
+  TypedStaged
+  Planned
+  EmptySource
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

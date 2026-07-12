@@ -1,0 +1,65 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/investment/model"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ModelError {
+  EmptyIdentifier
+  InvalidVersion
+  InvalidOrder
+  DuplicateIndex
+  VersionMismatch
+  InvalidIndex
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct InvestmentModel {
+  version : ModelVersion
+  indexes : Array[ModelIndex]
+} derive(Eq, @debug.Debug)
+pub fn InvestmentModel::add_index(Self, ModelIndex, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ModelError
+pub fn InvestmentModel::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ModelError
+pub fn InvestmentModel::new(ModelVersion) -> Self
+
+pub(all) struct ModelIndex {
+  index_id : String
+  version_id : String
+  project_id : String
+  dimension : String
+  full_code : String
+  name : String
+  parent_code : String?
+  unit : String?
+  value_repr : String?
+  remark : String?
+  sort_order : Int
+} derive(Eq, @debug.Debug)
+pub fn ModelIndex::new(index_id~ : String, version_id~ : String, project_id~ : String, dimension~ : String, full_code~ : String, name~ : String, parent_code~ : String?, unit~ : String?, value_repr~ : String?, remark~ : String?, sort_order~ : Int) -> Self raise ModelError
+
+pub(all) struct ModelVersion {
+  version_id : String
+  project_id : String
+  principal_id : String
+  name : String
+  version_no : Int
+  current : Bool
+  created_by : String
+  created_at : String
+  remark : String?
+} derive(Eq, @debug.Debug)
+pub fn ModelVersion::new(version_id~ : String, project_id~ : String, principal_id~ : String, name~ : String, version_no~ : Int, current~ : Bool, created_by~ : String, created_at~ : String, remark~ : String?, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ModelError
+
+// Type aliases
+
+// Traits
+

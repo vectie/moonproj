@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/accounting_link"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance/accounting",
+}
+
+// Values
+
+// Errors
+pub(all) suberror LinkError {
+  InvalidArguments
+  InvalidInput
+  Quarantined(String)
+  Io(@fs.IOError)
+  Accounting(@accounting.AccountingEventError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,49 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-procurement-contract-v1-review-001",
+  "wave": "procurement-contract",
+  "tables": [
+    {
+      "table": "srm_provider",
+      "target": {"owner": "operations/procurement.Supplier", "record_type": "supplier", "source_identity": "provider_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["principal_and_scope_required", "qualification_review_required", "contact_data_redaction"]
+    },
+    {
+      "table": "srm_provider_bu",
+      "target": {"owner": "operations/procurement supplier scope", "record_type": "supplier_business_unit", "source_identity": "provider_guid:bu_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["supplier_identity_map_required", "business_unit_map_required", "scope_does_not_grant_award"]
+    },
+    {
+      "table": "srm_category",
+      "target": {"owner": "operations/procurement", "record_type": "supplier_category", "source_identity": "category_code"},
+      "disposition": "typed_import",
+      "security_controls": ["duplicate_code_rejection", "owner_review_required", "no_supplier_qualification_inference"]
+    },
+    {
+      "table": "tender_plan",
+      "target": {"owner": "operations/procurement.TenderPlan", "record_type": "tender_plan", "source_identity": "tender_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["project_and_principal_map_required", "amount_currency_required", "publish_and_award_are_separate"]
+    },
+    {
+      "table": "tender_award",
+      "target": {"owner": "operations/procurement tender award", "record_type": "tender_award_candidate", "source_identity": "award_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["qualified_supplier_required", "award_authority_required", "no_implicit_commitment_or_payment"]
+    },
+    {
+      "table": "contract_split",
+      "target": {"owner": "operations/contract + operations/commitment", "record_type": "contract_split", "source_identity": "split_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["parent_contract_required", "amount_and_percentage_reconcile", "no_duplicate_commitment_effect"]
+    },
+    {
+      "table": "cb_contract_milestone",
+      "target": {"owner": "operations/contract.ContractMilestone", "record_type": "contract_milestone", "source_identity": "milestone_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["contract_identity_required", "planned_vs_actual_separate", "payment_requires_reached_milestone"]
+    }
+  ]
+}

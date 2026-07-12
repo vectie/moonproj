@@ -1,0 +1,55 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-sales-receivables-v1-review-001",
+  "wave": "sales-receivables",
+  "tables": [
+    {
+      "table": "sale_customer",
+      "target": {"owner": "operations/sales.Customer", "record_type": "customer", "source_identity": "customer_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["principal_and_scope_required", "customer_identity_deduplication", "contact_data_review"]
+    },
+    {
+      "table": "sale_subscription",
+      "target": {"owner": "operations/sales", "record_type": "sales_subscription", "source_identity": "subscription_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["customer_identity_required", "terms_and_periods_required", "no_revenue_or_cash_effect_on_import"]
+    },
+    {
+      "table": "sale_contract",
+      "target": {"owner": "operations/sales", "record_type": "sales_agreement", "source_identity": "contract_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["customer_and_principal_required", "agreement_state_map_required", "fulfillment_separate_from_revenue"]
+    },
+    {
+      "table": "sale_mortgage",
+      "target": {"owner": "operations/sales", "record_type": "customer_mortgage", "source_identity": "mortgage_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["contract_identity_required", "approval_and_release_separate", "cash_effect_requires_payment_event"]
+    },
+    {
+      "table": "sale_refund",
+      "target": {"owner": "operations/sales", "record_type": "sales_refund", "source_identity": "refund_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["original_sale_required", "refund_approval_required", "cash_and_revenue_reversal_separate"]
+    },
+    {
+      "table": "sale_revenue",
+      "target": {"owner": "finance/receivable + finance/tax", "record_type": "revenue_schedule_evidence", "source_identity": "revenue_guid"},
+      "disposition": "evidence_only",
+      "security_controls": ["invoice_and_contract_reconciliation", "period_and_currency_required", "revenue_policy_not_inferred"]
+    },
+    {
+      "table": "invoice_in",
+      "target": {"owner": "operations/invoice + finance/payable", "record_type": "supplier_invoice", "source_identity": "invoice_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["supplier_and_contract_map_required", "acceptance_separate_from_payment", "payable_opening_requires_authority"]
+    },
+    {
+      "table": "invoice_out",
+      "target": {"owner": "operations/invoice + finance/receivable", "record_type": "customer_invoice", "source_identity": "invoice_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["customer_and_contract_map_required", "invoice_acceptance_required", "collection_and_revenue_separate"]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+import {
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/receivable",
+  "vectie/moonproj/foundation",
+}

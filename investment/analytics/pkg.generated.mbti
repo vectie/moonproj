@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/investment/analytics"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn analyze_closes(instrument~ : String, closes~ : Array[Int64]) -> AnalysisReport raise AnalysisError
+
+pub fn moving_average(Array[Int64], Int) -> Int64 raise AnalysisError
+
+// Errors
+pub(all) suberror AnalysisError {
+  EmptyInstrument
+  EmptySeries
+  InvalidWindow
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct AnalysisReport {
+  instrument : String
+  sample_size : Int
+  first_close_minor : Int64
+  last_close_minor : Int64
+  trend : Trend
+  moving_average_minor : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Trend {
+  Rising
+  Falling
+  Flat
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

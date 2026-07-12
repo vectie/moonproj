@@ -1,0 +1,91 @@
+#!/bin/sh
+set -eu
+
+# Promote typed ERP cohorts through the native domain boundary, then persist
+# each receipt as a separately versioned SQLite projection and require exact
+# source/target parity. The target database must already contain the raw
+# rehearsal schema; this script never writes to the source ERP.
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+EXPORT_DIR=${1:?usage: erp_typed_cohort_rehearsal.sh EXPORT_DIR MAPPING TARGET_DB WORK_DIR}
+MAPPING_PATH=${2:?usage: erp_typed_cohort_rehearsal.sh EXPORT_DIR MAPPING TARGET_DB WORK_DIR}
+TARGET_DB=${3:?usage: erp_typed_cohort_rehearsal.sh EXPORT_DIR MAPPING TARGET_DB WORK_DIR}
+WORK_DIR=${4:-/tmp/moonproj-typed-cohort-rehearsal}
+
+mkdir -p "$WORK_DIR"
+
+run_cohort() {
+  label=$1
+  planner=$2
+  variant="$WORK_DIR/$label-mapping.json"
+  plan="$WORK_DIR/$label-plan.json"
+  receipt="$WORK_DIR/$label-promotion.json"
+  apply="$WORK_DIR/$label-projection-apply.json"
+  parity="$WORK_DIR/$label-projection-parity.json"
+
+  "$SCRIPT_DIR/erp_mapping_variant.py" \
+    "$MAPPING_PATH" "$variant" "erp-typed-$label-v1-review-001" >/dev/null
+  "$SCRIPT_DIR/$planner" "$EXPORT_DIR" "$variant" "$plan"
+  echo "${label}_plan=$plan"
+  moon run --target native cmd/promote -- "$plan" "$receipt"
+  echo "${label}_promotion=$receipt"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$apply"
+  echo "${label}_projection_apply=$apply"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" "$receipt" "$TARGET_DB" "$parity"
+  echo "${label}_projection_parity=$parity"
+  replay="$WORK_DIR/$label-projection-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$replay"
+  echo "${label}_projection_replay=$replay"
+}
+
+run_cohort workflow erp_workflow_promotion_plan.py
+run_cohort lifecycle erp_lifecycle_promotion_plan.py
+run_cohort task-structure erp_task_promotion_plan.py
+
+run_task_state_clean() {
+  label=task-state-project2
+  variant="$WORK_DIR/$label-mapping.json"
+  plan="$WORK_DIR/$label-plan.json"
+  receipt="$WORK_DIR/$label-promotion.json"
+  apply="$WORK_DIR/$label-projection-apply.json"
+  parity="$WORK_DIR/$label-projection-parity.json"
+
+  "$SCRIPT_DIR/erp_mapping_variant.py" \
+    "$MAPPING_PATH" "$variant" "erp-typed-task-state-project2-v1-review-001" >/dev/null
+  "$SCRIPT_DIR/erp_task_state_promotion_plan.py" \
+    "$EXPORT_DIR" "$variant" "$plan" --project-id proj-0002
+  echo "${label}_plan=$plan"
+  moon run --target native cmd/promote -- "$plan" "$receipt"
+  echo "${label}_promotion=$receipt"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$apply"
+  echo "${label}_projection_apply=$apply"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" "$receipt" "$TARGET_DB" "$parity"
+  echo "${label}_projection_parity=$parity"
+  replay="$WORK_DIR/$label-projection-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$replay"
+  echo "${label}_projection_replay=$replay"
+}
+
+run_task_state_clean
+
+# Produce a review-only artifact for the full task-state cohort. The native
+# command is intentionally not called for this plan because quarantined rows
+# must remain source evidence until a business owner decides how to resolve
+# the dependency conflicts.
+TASK_STATE_REVIEW_PLAN="$WORK_DIR/task-state-review-plan.json"
+"$SCRIPT_DIR/erp_task_state_promotion_plan.py" \
+  "$EXPORT_DIR" "$MAPPING_PATH" "$TASK_STATE_REVIEW_PLAN"
+echo "task_state_review_plan=$TASK_STATE_REVIEW_PLAN"
+TASK_STATE_EXCEPTION_REVIEW="$WORK_DIR/task-state-exception-review.json"
+"$SCRIPT_DIR/erp_task_state_exception_review.py" \
+  "$TASK_STATE_REVIEW_PLAN" "$TASK_STATE_EXCEPTION_REVIEW"
+echo "task_state_exception_review=$TASK_STATE_EXCEPTION_REVIEW"
+
+run_cohort evidence erp_typed_evidence_promotion_plan.py
+run_cohort investment erp_investment_promotion_plan.py
+run_cohort payment erp_payment_promotion_plan.py
+run_cohort users erp_user_promotion_plan.py
+run_cohort audit erp_audit_promotion_plan.py
+run_cohort parameter erp_parameter_promotion_plan.py
+
+echo "typed_cohort_work_dir=$WORK_DIR"

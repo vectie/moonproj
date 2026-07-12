@@ -1,0 +1,61 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-cost-investment-v1-review-001",
+  "wave": "cost-investment",
+  "tables": [
+    {
+      "table": "cb_r_master",
+      "target": {"owner": "finance/cbs", "record_type": "cbs_rule_master", "source_identity": "r_id"},
+      "disposition": "typed_import",
+      "security_controls": ["principal_and_scope_required", "rule_version_required", "no_budget_effect_on_import"]
+    },
+    {
+      "table": "cb_subject_dict",
+      "target": {"owner": "finance/cbs", "record_type": "cbs_subject_dictionary", "source_identity": "subject_code"},
+      "disposition": "typed_import",
+      "security_controls": ["subject_identity_map_required", "hierarchy_review", "duplicate_code_rejection"]
+    },
+    {
+      "table": "cb_plan_version",
+      "target": {"owner": "finance/cbs", "record_type": "cbs_plan_version", "source_identity": "version_id"},
+      "disposition": "typed_import",
+      "security_controls": ["version_state_review", "target_total_reconciliation", "activation_requires_authority"]
+    },
+    {
+      "table": "cb_change_apply",
+      "target": {"owner": "finance/cbs change control", "record_type": "cbs_change_application", "source_identity": "apply_id"},
+      "disposition": "typed_import",
+      "security_controls": ["source_version_required", "approval_evidence_required", "no_implicit_budget_mutation"]
+    },
+    {
+      "table": "tzsy_excel_import",
+      "target": {"owner": "investment/model", "record_type": "investment_model_import", "source_identity": "import_id"},
+      "disposition": "evidence_only",
+      "security_controls": ["file_hash_required", "formula_semantics_not_inferred", "source_retention_review"]
+    },
+    {
+      "table": "tzsy_excel_sheet",
+      "target": {"owner": "investment/model", "record_type": "investment_model_sheet", "source_identity": "sheet_id"},
+      "disposition": "evidence_only",
+      "security_controls": ["parent_import_required", "cell_values_preserved_as_evidence", "no_execution_of_embedded_code"]
+    },
+    {
+      "table": "tzsy_profit_table",
+      "target": {"owner": "investment/analytics", "record_type": "investment_profit_table", "source_identity": "table_id"},
+      "disposition": "evidence_only",
+      "security_controls": ["calculation_definition_required", "currency_and_period_required", "no_accounting_posting_on_import"]
+    },
+    {
+      "table": "tzsy_plan_line",
+      "target": {"owner": "investment/model", "record_type": "investment_plan_line", "source_identity": "line_id"},
+      "disposition": "typed_import",
+      "security_controls": ["model_version_required", "principal_scope_required", "approval_separate_from_import"]
+    },
+    {
+      "table": "tzsy_subject_mapping",
+      "target": {"owner": "investment/model + finance/cbs", "record_type": "investment_subject_mapping", "source_identity": "mapping_id"},
+      "disposition": "evidence_only",
+      "security_controls": ["both_domains_mapped", "mapping_review_required", "no_cost_or_accounting_effect"]
+    }
+  ]
+}

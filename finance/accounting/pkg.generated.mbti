@@ -1,0 +1,115 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/accounting"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/reconciliation",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror AccountingError {
+  EmptyIdentifier
+  InvalidCurrency
+  DuplicateAccount
+  MissingAccount
+  DuplicatePeriod
+  InvalidPeriod
+  PeriodNotOpen
+  InactiveAccount
+  CurrencyMismatch
+  ReconciliationRequired
+  Reconciliation(@reconciliation.ReconciliationError)
+  NotAuthorized(@foundation.AuthorityError)
+  Ledger(@finance.LedgerError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror AccountingEventError {
+  EmptyIdentifier
+  DuplicateEvent
+  DuplicateSource
+  Journal(@finance.LedgerError)
+  Store(@store.StoreError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Account {
+  account_id : String
+  account_code : String
+  name : String
+  kind : AccountKind
+  currency : String
+  active : Bool
+} derive(Eq, @debug.Debug)
+pub fn Account::new(account_id~ : String, account_code~ : String, name~ : String, kind~ : AccountKind, currency~ : String) -> Self raise AccountingError
+
+pub(all) enum AccountKind {
+  Asset
+  Liability
+  Equity
+  Revenue
+  Expense
+} derive(Eq, @debug.Debug)
+
+pub(all) struct AccountingBook {
+  book_id : String
+  principal_id : String
+  scope : String
+  chart : ChartOfAccounts
+  periods : Array[AccountingPeriod]
+  ledger : @finance.Ledger
+} derive(Eq, @debug.Debug)
+pub fn AccountingBook::add_account(Self, Account, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+pub fn AccountingBook::close(Self, period_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+pub fn AccountingBook::close_reconciled(Self, period_id~ : String, reports~ : Array[@reconciliation.ReconciliationReport], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+pub fn AccountingBook::new(book_id~ : String, principal_id~ : String, scope~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+pub fn AccountingBook::open_period(Self, period_id~ : String, label~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+pub fn AccountingBook::post(Self, period_id~ : String, @finance.JournalEntry, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+pub fn AccountingBook::soft_close(Self, period_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+
+pub(all) struct AccountingEvent {
+  event_id : String
+  principal_id : String
+  source_type : String
+  source_id : String
+  event_type : String
+  journal : @finance.JournalEntry
+} derive(Eq, @debug.Debug)
+pub fn AccountingEvent::new(event_id~ : String, principal_id~ : String, source_type~ : String, source_id~ : String, event_type~ : String, journal~ : @finance.JournalEntry) -> Self raise AccountingEventError
+pub fn AccountingEvent::to_record(Self, schema_version~ : Int) -> @store.StoredRecord raise AccountingEventError
+
+pub(all) struct AccountingEventLog {
+  events : Array[AccountingEvent]
+} derive(Eq, @debug.Debug)
+pub fn AccountingEventLog::append(Self, AccountingEvent, scope~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingEventError
+pub fn AccountingEventLog::empty() -> Self
+pub fn AccountingEventLog::to_records(Self, schema_version~ : Int) -> Array[@store.StoredRecord] raise AccountingEventError
+
+pub(all) struct AccountingPeriod {
+  period_id : String
+  label : String
+  state : PeriodState
+} derive(Eq, @debug.Debug)
+pub fn AccountingPeriod::new(period_id~ : String, label~ : String, actor_id~ : String, principal_id~ : String, scope~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccountingError
+
+pub(all) struct ChartOfAccounts {
+  accounts : Array[Account]
+} derive(Eq, @debug.Debug)
+pub fn ChartOfAccounts::add(Self, Account) -> Self raise AccountingError
+pub fn ChartOfAccounts::empty() -> Self
+
+pub(all) enum PeriodState {
+  Open
+  SoftClosed
+  Closed
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,91 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-foundation-security-v1-review-001",
+  "wave": "foundation-security",
+  "tables": [
+    {
+      "table": "attachment",
+      "target": {
+        "owner": "foundation/evidence.Evidence",
+        "record_type": "evidence_attachment",
+        "source_identity": "att_guid"
+      },
+      "disposition": "typed_import",
+      "security_controls": [
+        "content_hash_required",
+        "file_path_not_authoritative",
+        "retention_and_access_review"
+      ]
+    },
+    {
+      "table": "sys_param",
+      "target": {
+        "owner": "foundation.ParameterDictionary",
+        "record_type": "opaque_system_parameter",
+        "source_identity": "pk"
+      },
+      "disposition": "evidence_only",
+      "security_controls": [
+        "value_remains_opaque",
+        "principal_and_scope_required",
+        "no_policy_inference"
+      ]
+    },
+    {
+      "table": "sys_password_history",
+      "target": {
+        "owner": "foundation/identity security boundary",
+        "record_type": "credential_history_review",
+        "source_identity": "user_id:changed_at"
+      },
+      "disposition": "exclude_sensitive",
+      "security_controls": [
+        "password_hash_never_imported",
+        "authentication_owned_by_provider",
+        "security_retention_review"
+      ]
+    },
+    {
+      "table": "sys_role",
+      "target": {
+        "owner": "foundation/access.Role",
+        "record_type": "role_definition",
+        "source_identity": "role_code"
+      },
+      "disposition": "typed_import",
+      "security_controls": [
+        "permissions_require_review",
+        "data_scope_not_widened",
+        "no_implicit_assignment"
+      ]
+    },
+    {
+      "table": "sys_user_pref",
+      "target": {
+        "owner": "foundation user-preference boundary",
+        "record_type": "user_preference",
+        "source_identity": "user_id:pref_key"
+      },
+      "disposition": "evidence_only",
+      "security_controls": [
+        "user_scope_required",
+        "no_authority_effect",
+        "sensitive_value_review"
+      ]
+    },
+    {
+      "table": "sys_user_role",
+      "target": {
+        "owner": "foundation/access.RoleAssignment",
+        "record_type": "role_assignment_candidate",
+        "source_identity": "user_id:role_code"
+      },
+      "disposition": "typed_import",
+      "security_controls": [
+        "user_and_role_identity_map_required",
+        "principal_and_scope_required",
+        "assignment_does_not_bypass_sod"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/sales"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/receivable",
+  "vectie/moonproj/foundation",
+}
+
+// Values
+
+// Errors
+pub(all) suberror SalesError {
+  EmptyIdentifier
+  InvalidTransition
+  Receivable(@receivable.ReceivableError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror SalesRecordError {
+  EmptyIdentifier
+  InvalidAmount
+  InvalidRate
+  CurrencyMismatch
+  InvalidState
+  OverRefund
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Customer {
+  customer_id : String
+  principal_id : String
+  project_scope : String
+  customer_code : String
+  name : String
+  contact_reference : String
+  state : CustomerState
+} derive(Eq, @debug.Debug)
+pub fn Customer::block(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+pub fn Customer::new(customer_id~ : String, principal_id~ : String, project_scope~ : String, customer_code~ : String, name~ : String, contact_reference~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+
+pub(all) enum CustomerState {
+  Active
+  Blocked
+  Archived
+} derive(Eq, @debug.Debug)
+
+pub(all) struct MortgageApplication {
+  mortgage_id : String
+  contract_id : String
+  customer_id : String
+  principal_id : String
+  project_scope : String
+  bank_reference : String
+  loan_amount : @finance.Money
+  annual_rate_bps : Int64
+  state : MortgageState
+} derive(Eq, @debug.Debug)
+pub fn MortgageApplication::approve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+pub fn MortgageApplication::new(mortgage_id~ : String, contract_id~ : String, Customer, bank_reference~ : String, loan_amount~ : @finance.Money, annual_rate_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+pub fn MortgageApplication::release(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+
+pub(all) enum MortgageState {
+  Applying
+  Approved
+  Released
+  Rejected
+} derive(Eq, @debug.Debug)
+
+pub(all) struct RefundRequest {
+  refund_id : String
+  contract_id : String
+  customer_id : String
+  principal_id : String
+  project_scope : String
+  reason : String
+  amount : @finance.Money
+  state : RefundState
+} derive(Eq, @debug.Debug)
+pub fn RefundRequest::approve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+pub fn RefundRequest::new(refund_id~ : String, contract_id~ : String, Customer, reason~ : String, amount~ : @finance.Money, contract_amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+pub fn RefundRequest::pay(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+
+pub(all) enum RefundState {
+  Requested
+  Approved
+  Paid
+  Rejected
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Reservation {
+  subscription_id : String
+  customer_id : String
+  principal_id : String
+  project_scope : String
+  unit_reference : String
+  amount : @finance.Money
+  state : SubscriptionState
+} derive(Eq, @debug.Debug)
+pub fn Reservation::convert(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+pub fn Reservation::new(subscription_id~ : String, Customer, unit_reference~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesRecordError
+
+pub(all) struct SalesAgreement {
+  agreement_id : String
+  principal_id : String
+  customer_id : String
+  project_scope : String
+  amount : @finance.Money
+  state : SalesState
+  events : Array[SalesEvent]
+} derive(Eq, @debug.Debug)
+pub fn SalesAgreement::new(agreement_id~ : String, principal_id~ : String, customer_id~ : String, project_scope~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesError
+pub fn SalesAgreement::open_receivable(Self, receivable_id~ : String, actor_id~ : String, sales_grant~ : @foundation.AuthorityGrant, receivable_grant~ : @foundation.AuthorityGrant) -> @receivable.Receivable raise SalesError
+pub fn SalesAgreement::transition(Self, SalesState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SalesError
+
+pub(all) struct SalesEvent {
+  from : SalesState
+  to : SalesState
+  actor_id : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SalesState {
+  Draft
+  Reserved
+  Signed
+  Fulfilled
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SubscriptionState {
+  Reserved
+  Converted
+  Cancelled
+  Refunded
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

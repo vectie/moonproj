@@ -1,0 +1,14 @@
+{
+  "mapping_version": "mapped-delivery-progress-v1-review-001",
+  "report_by_id": {
+    "rep-001": {
+      "project_id": "proj-0001",
+      "principal_id": "co-001",
+      "project_scope": "project:proj-0001",
+      "currency": "CNY",
+      "completed_value_minor": 0,
+      "evidence_ids": ["erp:jd_task_report:rep-001"],
+      "actor_id": "migration"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "format": "moonproj.erp.schema-cohort-mapping.v1",
+  "mapping_version": "erp-schema-delivery-treasury-v1-review-001",
+  "wave": "delivery-treasury",
+  "tables": [
+    {
+      "table": "proj_progress",
+      "target": {"owner": "operations/delivery", "record_type": "project_progress", "source_identity": "progress_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["project_and_principal_required", "evidence_required", "acceptance_separate_from_recognition"]
+    },
+    {
+      "table": "proj_output",
+      "target": {"owner": "operations/delivery", "record_type": "project_output", "source_identity": "output_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["project_identity_required", "content_evidence_required", "acceptance_authority_required"]
+    },
+    {
+      "table": "fund_plan",
+      "target": {"owner": "finance/treasury", "record_type": "cash_plan", "source_identity": "plan_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["principal_and_currency_required", "plan_not_cash_effect", "confirmation_requires_authority"]
+    },
+    {
+      "table": "fund_dispatch",
+      "target": {"owner": "finance/treasury", "record_type": "fund_dispatch", "source_identity": "dispatch_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["source_and_target_scope_required", "approval_release_posting_separate", "overdraw_protection"]
+    },
+    {
+      "table": "mkt_campaign",
+      "target": {"owner": "operations/marketing", "record_type": "marketing_campaign", "source_identity": "campaign_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["owner_and_budget_scope_required", "activation_authority_required", "spend_separate_from_plan"]
+    },
+    {
+      "table": "mkt_channel",
+      "target": {"owner": "operations/marketing", "record_type": "marketing_channel", "source_identity": "channel_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["owner_review_required", "channel_identity_deduplication", "no_spend_effect_on_import"]
+    },
+    {
+      "table": "mkt_material",
+      "target": {"owner": "operations/marketing", "record_type": "marketing_material", "source_identity": "material_guid"},
+      "disposition": "evidence_only",
+      "security_controls": ["content_hash_required", "retention_review", "no_campaign_activation_on_import"]
+    },
+    {
+      "table": "mkt_placement",
+      "target": {"owner": "operations/marketing", "record_type": "marketing_placement", "source_identity": "placement_guid"},
+      "disposition": "typed_import",
+      "security_controls": ["campaign_and_channel_required", "budget_effect_separate", "completion_evidence_required"]
+    }
+  ]
+}

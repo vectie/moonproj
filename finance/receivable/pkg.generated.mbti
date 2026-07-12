@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/receivable"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ReceivableError {
+  EmptyIdentifier
+  InvalidAmount
+  InvalidState
+  OverCollection
+  Journal(@finance.LedgerError)
+  AccountingEvent(@accounting.AccountingEventError)
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Receivable {
+  receivable_id : String
+  source_id : String
+  principal_id : String
+  customer_id : String
+  amount : @finance.Money
+  collected_minor : Int64
+  state : ReceivableState
+} derive(Eq, @debug.Debug)
+pub fn Receivable::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ReceivableError
+pub fn Receivable::collect(Self, amount_minor~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReceivableError
+pub fn Receivable::open(receivable_id~ : String, source_id~ : String, principal_id~ : String, customer_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReceivableError
+pub fn Receivable::outstanding_minor(Self) -> Int64
+pub fn Receivable::to_opening_event(Self, event_id~ : String, event_type~ : String, receivable_account~ : String, revenue_account~ : String) -> @accounting.AccountingEvent raise ReceivableError
+
+pub(all) enum ReceivableState {
+  Open
+  PartiallyCollected
+  Collected
+  WrittenOff
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

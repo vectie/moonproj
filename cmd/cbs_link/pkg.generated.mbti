@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/cbs_link"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/cbs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror CbsLinkError {
+  InvalidInput
+  Quarantined(String)
+  Io(@fs.IOError)
+  Cbs(@cbs.CbsError)
+  Money(@finance.MoneyError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

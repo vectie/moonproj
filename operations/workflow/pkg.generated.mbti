@@ -1,0 +1,97 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/workflow"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+pub fn start_process(ProcessDefinition, instance_id~ : String, principal_id~ : String, subject_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> ProcessInstance raise WorkflowError
+
+// Errors
+pub(all) suberror WorkflowError {
+  EmptyIdentifier
+  EmptyStep
+  UnknownStep
+  EmptyAssignment
+  AssignmentProcessMismatch
+  DuplicateAssignment
+  NotAssigned
+  InvalidWeight
+  DuplicateStep
+  InvalidState
+  WrongStep
+  DuplicateAction
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ApprovalAction {
+  step_id : String
+  actor_id : String
+  decision : Decision
+  weight : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ApprovalStep {
+  step_id : String
+  capability : String
+  required_weight : Int
+} derive(Eq, @debug.Debug)
+
+pub(all) enum Decision {
+  Approve
+  Reject
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProcessDefinition {
+  process_id : String
+  process_key : String
+  steps : Array[ApprovalStep]
+  assignments : Array[WorkflowAssignment]
+} derive(Eq, @debug.Debug)
+pub fn ProcessDefinition::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
+pub fn ProcessDefinition::assign_step(Self, assignment_id~ : String, step_id~ : String, assignee_id~ : String, principal_id~ : String, scope~ : String, weight~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> WorkflowAssignment raise WorkflowError
+pub fn ProcessDefinition::attach_assignment(Self, WorkflowAssignment) -> Self raise WorkflowError
+pub fn ProcessDefinition::new(process_id~ : String, process_key~ : String, steps~ : Array[ApprovalStep]) -> Self raise WorkflowError
+
+pub(all) struct ProcessInstance {
+  instance_id : String
+  process_key : String
+  principal_id : String
+  subject_id : String
+  steps : Array[ApprovalStep]
+  assignments : Array[WorkflowAssignment]
+  current_step : Int
+  status : ProcessStatus
+  actions : Array[ApprovalAction]
+} derive(Eq, @debug.Debug)
+pub fn ProcessInstance::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
+pub fn ProcessInstance::decide(Self, step_id~ : String, decision~ : Decision, weight~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WorkflowError
+
+pub(all) enum ProcessStatus {
+  Pending
+  Approved
+  Rejected
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WorkflowAssignment {
+  assignment_id : String
+  process_id : String
+  step_id : String
+  assignee_id : String
+  principal_id : String
+  scope : String
+  weight : Int
+} derive(Eq, @debug.Debug)
+pub fn WorkflowAssignment::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
+
+// Type aliases
+
+// Traits
+

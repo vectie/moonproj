@@ -1,0 +1,425 @@
+# ERP-to-Target Translation Map
+
+Recorded: 2026-07-13  
+Source: `../erp/erp_new`  
+Target: this repository
+
+This map records semantic translation, not a promise that target tables will
+match legacy tables one-for-one. The new product owns its aggregates and emits
+its own business and accounting events. Legacy identifiers remain migration
+references.
+
+The current `persistence/store` package is a reference adapter for this
+envelope. It now provides deterministic JSON snapshots, a thin file adapter,
+validated backup/restore helpers, and all-or-nothing in-memory batches. The
+`persistence/sql` package adds a version-checked, parameterized command and
+transaction-plan boundary, while `persistence/store` adds a pending-snapshot
+transaction journal and append-only aggregate projections. A concrete database
+driver is still required for production. Every adapter must preserve the same
+record identity, schema-version, source-event, and duplicate guarantees.
+
+The `migration/erp` package now has executable fixture translators for
+`ep_project`, `cb_contract`, classified dynamic-cost rows, suppliers, tenders,
+milestones, invoices, expenses, and employee loans. They also produce
+schema-bound JSON envelopes with stable source identities for repeatable batch
+import. These translators are deliberately small and reject invalid input
+instead of silently coercing it.
+
+For source tables without a domain translator, `LegacyRawRow` preserves the
+read-only extractor payload as `legacy/raw/<table>` evidence. Raw staging is
+not a company aggregate and must pass a later domain translation and authority
+validation step before it can become target-owned business data.
+
+The checked-in SQLite fixture can be exported with
+`scripts/erp_snapshot_export.sh` into a credential-safe, per-table hashed
+bundle, then staged with `scripts/erp_snapshot_stage_raw.sh`. The staging
+bridge consumes only that redacted bundle, emits 120 unique raw envelopes for
+the current fixture, and fails closed if a secret-shaped key or stable source
+identity is missing.
+
+The source-row envelope layer now covers the snapshot's task/progress, payment
+plan/application, workflow definition/step/assignee, lifecycle,
+investment-version/index, loan-offset, parameter, proceeding, and credential-
+safe user/audit shapes. These are typed preservation seams; their target-owned
+state machines and accounting links remain migration gates.
+
+`migration/manifest` records the source snapshot, target identity, disposition,
+quarantine reason, and apply/rollback state for each migration item. Validated
+manifests can now atomically apply matching target envelopes to the record store;
+target mismatches fail before any record is appended.
+
+`migration/parity` provides the shadow-run comparison primitive for counts and
+minor-unit totals. A report is accepted only when every metric is exact or
+within its declared tolerance; mismatches remain visible rather than being
+silently rounded away.
+
+`migration/run` wraps a validated manifest apply in an immutable receipt. It
+retains the baseline, records parity certification, and refuses rollback when
+the applied target has changed since the receipt was issued.
+
+`migration/shadow` builds parity reports from the actual target record store:
+record counts are derived directly, while domain control totals are supplied
+by the sanitized extractor. This keeps shadow evidence reproducible without
+coupling the migration package to a database vendor.
+
+`migration/control` validates the opening-state control-total set before it is
+compiled into a shadow plan. Each control is keyed by domain and dimension,
+rejects duplicate or negative values, and carries an explicit tolerance. This
+is the bridge between an approved ERP opening-balance workbook and executable
+target-side reconciliation.
+
+`migration/erp/snapshot.mbt` also records the available SQLite backup as a
+metadata-only 26-table/120-row inventory. Mapped, typed-staged, planned, and empty source
+tables are all represented in the shadow plan, so the current small fixture is
+not mistaken for complete ERP coverage.
+
+`scripts/erp_schema_gap_report.py` makes that boundary executable: it parses
+the authoritative `erp_new/server/src/db/index.js` initializer, compares its
+75 table definitions with the export manifest, assigns each table to a
+baseline capability ID (for example `SAL-01`, `SRM-04`, `WF-03`, or `FIN-09`),
+and emits a machine-readable 75/26/49 scope report. Each absent table carries
+an explicit `specify_then_implement_then_import` action, except credential
+history which requires a security review exclusion. The cutover gate requires
+this report and carries the 49 schema-only tables as an explicit open scope
+exception.
+`scripts/erp_schema_cohort_plan.py` then orders those 49 tables into seven
+dependency-aware waves, preserving table-specific security actions for tokens,
+credentials, attachments, email/network data, and retention. See
+[ERP_SCHEMA_COHORTS.md](ERP_SCHEMA_COHORTS.md).
+
+`scripts/erp_relationship_audit.py` executes the reviewed relationship map
+against the read-only SQLite source because the legacy initializer does not
+declare foreign keys. The current fixture checks 60 relationships and 216
+non-empty references with zero orphan values; the result is included in the
+cutover evidence before any target promotion is considered reconciled.
+
+`scripts/erp_route_inventory.py` inventories the actual ERP route surface and
+tags every handler with a baseline capability ID. The current source reports
+30 route files, 338 handler registrations, and 28 middleware registrations;
+the route surface remains a parity inventory until each critical workflow has
+scenario evidence in the company product.
+
+`persistence/sql` supplies a versioned DDL catalog (`company_catalog`), a driver-neutral
+parameterized command/transaction contract, and executors against both the
+immutable record store and the durable file boundary for a generic company
+record envelope. `scripts/company_sqlite_rehearsal.py` applies the same four
+schema gates to SQLite, persists the sanitized raw-envelope cohort in one
+transaction, records a migration receipt, reopens the file, and proves an
+identical replay is idempotent. `scripts/company_sqlite_projection_apply.py`
+then consumes only a native, domain-validated promotion receipt and persists
+immutable aggregate revisions plus a projection receipt with idempotent replay.
+Production service integration and operational backup/restore runbooks are
+still required; the rehearsal backup/restore parity gate is now executable.
+`scripts/company_sqlite_driver.py` is the shared local driver boundary used by
+projection, accounting-link, backup, and rollback smoke paths. It centralizes
+WAL, foreign keys, busy timeout, immediate transactions, catalog application,
+and reopen checks; managed pooling, encryption, retention, and operational
+restore remain deployment gates.
+Its allow-listed prepared-command path executes the exact `company_record`
+insert emitted by `persistence/sql`, preserving parameter binding and duplicate
+failure semantics instead of exposing arbitrary SQL.
+Projection and accounting receipts hash only their own source/mapping cohort,
+so later append-only cohorts do not invalidate earlier migration receipts.
+The complete multi-cohort wrapper is rerunnable: the second run inserts zero
+projections and links while retaining every receipt.
+`scripts/company_sqlite_projection_parity.py` compares the reopened projections
+back to the receipt's source identities and target types; the mapped cohort is
+`shadow_verified` at 19/19, and a mismatched workflow cohort fails with
+explicit missing/extra findings.
+`scripts/erp_accounting_link_plan.py` then requires an explicit reviewed
+source-to-journal map for commitment and employee-advance events. The native `cmd/accounting_link`
+command validates balanced journals, principal/scope authority, and duplicate
+event/source protection before emitting a receipt. The optional fourth argument
+to `scripts/erp_migration_rehearsal.sh` applies those links transactionally to
+`company_accounting_event_link`; replay inserts zero rows and never releases
+cash or invents accounting recognition.
+The fifth wrapper argument runs the separate advance-offset promotion and its
+own accounting-link receipt when that cohort has been approved.
+Each accounting receipt is also checked by
+`scripts/company_sqlite_accounting_reconciliation.py`, which ties the reviewed
+amount/principal/currency back to the promoted source candidate and durable
+link while keeping cash and period posting false.
+The seventh wrapper argument can supply a target-type-restricted payment
+accounting map; it validates three requested-settlement/payment-application
+links from the typed payment cohort and appends them without cash release or
+period posting.
+The eighth wrapper argument can supply the independently reviewed CBS
+cost-subject map; it translates all seven non-empty `cb_cost` rows through the
+native `finance/cbs` link API, persists `cbs_cost_link` projections, and proves
+exact parity/replay without budget consumption or accounting posting. See
+[ERP_CBS_COST_LINK.md](ERP_CBS_COST_LINK.md).
+The ninth wrapper argument can supply the independently reviewed workflow
+assignment map; it translates all six `wf_step_assignee` rows through the
+native workflow assignment API and persists `workflow_assignment` projections
+without turning assignees into permissions. See
+[ERP_WORKFLOW_ASSIGNMENT.md](ERP_WORKFLOW_ASSIGNMENT.md).
+The eleventh wrapper argument can supply the independently reviewed delivery
+progress map; it translates the one `jd_task_report` row through the native
+delivery API as a `Draft` `progress_report` with explicit evidence and zero
+completed value. Acceptance, recognition, budget/cost effects, and task-state
+mutation remain separate. See
+[ERP_DELIVERY_PROGRESS.md](ERP_DELIVERY_PROGRESS.md).
+When accounting mappings are supplied, the wrapper also emits
+`period-close-control.json`; it aggregates every reconciled link cohort and
+requires the native `AccountingBook.close_reconciled` gate before a real period
+can close.
+The sixth wrapper argument (or the standalone
+`scripts/erp_typed_cohort_rehearsal.sh`) runs eight separately versioned typed
+cohorts: workflow, lifecycle, task structure, investment, payment, users,
+audit, parameters, and the clean project-2 task-state cohort. The fixture
+accepts 34 business-cohort items; every cohort is projected to SQLite and rechecked at exact
+`shadow_verified` parity. Project 1 task state remains a separate exception
+gate.
+The evidence plan additionally preserves 40 rows from task snapshots/reports,
+workflow assignees, lifecycle-instance history, lifecycle-stage catalog, and
+proceeding catalog as `typed_evidence` projections. These are queryable
+redacted evidence, not target workflow, authority, or economic state.
+Together the 34 business and 40 evidence cohort items add 74 accepted typed
+projections to the rehearsal database; evidence rows remain explicitly
+non-authoritative.
+The full wrapper also emits `cutover-gate.json`; a technical pass means
+`ready_for_business_acceptance`, not ownership transfer. The artifact records
+the unresolved project-1 dependency, managed-production database deployment,
+and 49 schema-only-table scope as explicit next actions.
+The wrapper `scripts/erp_migration_rehearsal.sh` runs export, staging, and this
+SQLite apply in one repeatable read-only-source flow.
+It finishes by backing up and reopening the target database with
+`scripts/company_sqlite_backup_restore.py`; logical counts and digests must
+match before the rehearsal can be promoted to an operational review.
+`scripts/erp_promotion_plan.py` then consumes only the sanitized export and an
+approved mapping file. It generates 19 mapped-cohort candidates (business
+units, projects, contracts, costs, and advances), converts money under an
+explicit fixed-point policy, and quarantines missing ownership/counterparty/
+employee evidence. It remains a plan for the MoonBit domain importers, not a
+shortcut around them. `cmd/promote` is the native application boundary: it
+refuses quarantined plans, calls the explicit target importers, and writes a
+domain-promotion receipt for the accepted cohort.
+`scripts/erp_lifecycle_promotion_plan.py` adds a second reviewable plan for
+project masters and lifecycle instances. Its native promotion first creates
+projects, then replays only the ordered current stage under explicit
+`project:advance` authority; source progress and dates remain preserved
+evidence. The current fixture reaches `development` and `design` for its two
+projects and refuses incomplete stage maps.
+`scripts/erp_task_promotion_plan.py` now promotes the dependency-ordered task
+structures for both projects through `migration/erp.import_project_tasks`.
+It deliberately does not replay task state/progress: the source child-state
+history is not compatible with the target dependency invariant and remains
+typed evidence until an explicit exception mapping is approved.
+The full task-state plan now also emits a review-only exception artifact with
+the two `proj-0001` dependency conflicts and empty owner decision fields;
+`scripts/erp_task_state_exception_review.py` never repairs or authorizes those
+states automatically. See [ERP_TASK_STATE_EXCEPTION.md](ERP_TASK_STATE_EXCEPTION.md).
+`scripts/erp_investment_promotion_plan.py` now promotes the fixture's one
+investment model and 26 indexes through `import_investment_models`, keeping
+index values as source representations and refusing missing principals or
+stray indexes.
+`scripts/erp_payment_promotion_plan.py` adds an explicit contract-state map:
+the native boundary replays two contracts to `performed`, converts four
+payment-plan rows into planned milestones, and converts three applications
+into requested settlements only. Approval, release, cash, and accounting
+events remain separate.
+`scripts/erp_accounting_link_plan.py` is a separate, reviewed accounting gate:
+the fixture maps two performed contracts and one employee advance to balanced
+journals, and the native receipt is persisted as three durable links. The link
+is traceability only; it does not post a journal to an accounting book or
+recognize cash.
+`scripts/erp_user_promotion_plan.py` promotes five safe user identities through
+`foundation.UserDirectory` and `import_users`; credentials, network data,
+authentication timestamps, and legacy super-user privilege remain excluded or
+evidence-only.
+`scripts/erp_audit_promotion_plan.py` promotes two audit records only after an
+explicit target/outcome interpretation and actor-scoped append grant; missing
+target mappings remain quarantined and redacted network fields stay excluded.
+`scripts/erp_parameter_promotion_plan.py` promotes the original 5-option
+`cost_subject` dictionary plus an explicitly mapped 3-option
+`expense_proceeding` catalog through the local parameter API under explicit
+principal/scope grants; values remain opaque until a later CBS/accounting or
+expense-domain map, and proceeding metadata remains source evidence.
+`scripts/erp_task_state_promotion_plan.py` simulates dependency completion:
+the full fixture quarantines two child states for `proj-0001`, while a clean
+`proj-0002` plan replays its two task states through the authority-bearing
+importer.
+
+## Implemented translation seams
+
+| ERP source | ERP meaning | Target package | Current state |
+|---|---|---|---|
+| `mu_business_unit`, `sys_user`, `sys_role` | Entity, organization, actor, role, and authority context | `foundation` + `foundation/access` + `foundation/organization` + `migration/erp` + `cmd/promote` | Legal entity, business-unit hierarchy, scoped authority, and 5 credential-free user identities are implemented. Local roles/permissions/assignments issue exact-scope bounded grants with revocation; effective-dated delegation and separation-of-duties rules reject invalid authority; passwords, legacy super-user privilege, and source `sys_role` migration remain evidence/pending because role tables are schema-only in the fixture. |
+| `ep_project`, `proj_lifecycle_*` | Project master and lifecycle stages | `operations/project` + `migration/erp` + `cmd/promote` | Ordered lifecycle and scoped transitions implemented; the real fixture promotes 2 project masters and 2 lifecycle cohorts with explicit source-stage mappings, replaying current stages as development/design while retaining historical status/progress as typed evidence. |
+| `proj_lifecycle_instance` | Historical lifecycle-stage instances and progress | `migration/erp` + `cmd/promote` + `persistence/store` | All 14 source instances are preserved as `typed_evidence` lifecycle history; only the explicitly mapped current stage is target-owned project state. Historical status/progress cannot bypass the local lifecycle invariant. |
+| `proj_lifecycle_stage` | Lifecycle-stage catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Seven source catalog rows are preserved as typed evidence; target lifecycle semantics remain governed by the explicit stage map. |
+| project and task-plan snapshots | Project persistence | `operations/project` + `persistence/store` | Lifecycle, task, dependency, planned-cost, and progress snapshots serialize as revisioned projections. |
+| `jd_task`, `jd_task_report` | Project plan, task dependencies, and progress | `operations/project` + `operations/delivery` + `migration/erp` + `cmd/promote` | The real fixture promotes 7/2 dependency-ordered task structures; all 9 source task snapshots and the report are also preserved as typed evidence. Clean `proj-0002` replays 2 states, while two `proj-0001` child states remain quarantined because their parent is still in progress. |
+| `jd_task_report` | Task progress report evidence and draft delivery intake | `operations/delivery` + `migration/erp` + `cmd/delivery_progress` + `persistence/store` | One redacted report remains a `typed_evidence` projection and, only with an explicit project/principal/value/evidence map, becomes one `Draft` `progress_report` projection. Acceptance, recognition, budget/cost consumption, and task-state mutation remain separate. |
+| `proj_progress`, `proj_output` | Evidence-backed progress and delivery acceptance | `operations/delivery` | Progress submission/acceptance and deliverable remediation states implemented. |
+| progress/deliverable snapshots | Delivery persistence | `operations/delivery` + `persistence/store` | Accepted value/progress and evidence-linked deliverables serialize as revisioned projections. |
+| accepted delivery progress | Cost, revenue, and contract-asset recognition boundary | `operations/delivery` + `finance/cost` + `finance/accounting` | Accepted evidence-backed progress feeds the project cost forecast and can construct a balanced source-to-journal recognition event; posting, cash, tax, and revenue policy remain separate. |
+| `wf_process_def`, `wf_step_def`, `wf_process_instance` | Configurable approval/workflow | `operations/workflow` + `migration/erp` + `cmd/promote` | Process definitions, weighted decisions, step authority, replay guards, and revisioned durable projections implemented; the actual fixture promotes 2 definitions/12 steps only with explicit step-to-capability maps. Workflow instances remain empty in the fixture. |
+| `wf_step_assignee` | Workflow assignment configuration | `operations/workflow` + `scripts/erp_workflow_assignment_plan.py` + `cmd/workflow_assignment` + `persistence/store` | Six assignee rows now migrate through explicit user/process/scope/capability mappings into immutable `workflow_assignment` projections; native promotion validates an explicit `attach_assignment` process/step reference, while assignment remains separate from authority and approval. |
+| `cb_contract` | Commercial commitment | `operations/commitment` + `migration/erp` | Commitment state machine implemented; promotion requires explicit principal, project-scope, counterparty, and amount-bounded authority mappings. A separate reviewed accounting-link plan can persist source-to-journal identity without posting cash. |
+| commitment snapshots and transition events | `operations/commitment` + `persistence/store` | Revisioned JSON aggregate projections with source-event anchors implemented; recognition-event adapter is implemented, while wider aggregate persistence remains pending. |
+| `srm_provider`, `srm_provider_bu` | Supplier master, qualification, blacklist | `operations/procurement` | Supplier identity, review, qualification, suspension, and blacklist controls implemented. |
+| `tender_plan`, `tender_award` | Tender planning, bidding, and award | `operations/procurement` | Planning → publishing → bidding → award → completion flow with qualified-supplier and duplicate-bid guards. |
+| supplier/tender snapshots and bid events | Procurement persistence | `operations/procurement` + `persistence/store` | Qualification and award snapshots serialize supplier/evaluation/bid evidence for reconciliation; an awarded tender now crosses into a draft commitment only through separate procurement and commitment authority grants. |
+| `cb_contract_milestone` | Time/progress/event obligation | `operations/contract` | Milestone trigger, eligibility, achievement, payment, overdue, and cancellation states implemented. |
+| milestone snapshots and payment events | Contract milestone persistence | `operations/contract` + `persistence/store` | Plan/actual amounts, triggers, and reached/paid state serialize as revisioned projections. |
+| `cb_htfkplan`, `cb_htfk_apply` | Payment plan and application | `operations/contract` + `operations/settlement` + `migration/erp` + `cmd/promote` | The real fixture promotes 4 planned milestones and 3 requested settlements after an explicit two-contract performed-state replay; reached milestones retain their ID on requested settlements and on separate immutable projections, approval/payment flags remain evidence, and release plus accounting-event links require separate target authority. |
+| `cb_cost`, `cb_subject_dict`, CBS versions | Dynamic/project cost | `finance/cost` + `finance/cbs` + `migration/erp` | `B = D + E + F + G` deterministic calculation and target/commitment/actual/progress forecast implemented; the reviewed fixture maps all 7 non-empty `cb_cost` rows to explicit active/frozen CBS subjects with durable projections, while broader schema coverage and budget consumption remain pending. |
+| dynamic-cost and forecast snapshots | Cost persistence | `finance/cost` + `persistence/store` | Component totals, progress, forecast-at-completion, and signed variance serialize as revisioned projections. |
+| CBS subject/version snapshots | Cost structure persistence | `finance/cbs` + `persistence/store` | Hierarchical subjects, targets, totals, version state, and reviewed source-to-subject link projections serialize with source identity; wider CBS link persistence remains pending. |
+| budget checks and reservations | Budget availability and consumption | `finance` + `operations/commitment` | Reservation, consumption, release, and explicit commitment link implemented. |
+| `vcb_expense`, `cb_expense_split` | Expense and multidimensional allocation | `operations/expense` | Allocation, approval, advance offsetting, durable projection, and balanced recognition journal implemented. |
+| expense snapshots and recognition events | Expense persistence/accounting | `operations/expense` + `persistence/store` + `finance/accounting` | Allocations, offsets, approval state, balanced recognition journal, and source-to-journal event adapter serialize for reconciliation. |
+| `vcb_loan_simple` | Employee advance/loan | `finance/employee_finance` + `migration/erp` | Open, partial, full repayment, scoped offset, and durable projection implemented; promotion requires explicit principal/employee scope mappings and amount-bounded creation authority. |
+| `cb_loan_offset` | Employee advance repayment/expense offset | `finance/employee_finance` + `migration/erp` + `cmd/promote` | Separate offset plan requires explicit advance, principal, employee, currency, scope, and amount mapping; native import mutates only an imported advance balance and rejects unknown/over-limit offsets. |
+| employee advance snapshots | Employee-finance persistence | `finance/employee_finance` + `persistence/store` | Advance and repayment balances serialize as revisioned projections; opening advance-to-cash and separate expense-to-advance accounting-event adapters are implemented, while cash posting and subledger reconciliation remain pending. |
+| sales customer/subscription/contract routes | Sales agreement lifecycle | `operations/sales` | Reserve/sign/fulfill lifecycle implemented. |
+| `sale_customer`, `sale_subscription`, `sale_mortgage`, `sale_refund` | Customer, reservation, mortgage, and refund controls | `operations/sales` | Customer identity, reservation conversion, mortgage approval/release, and refund approval/payment implemented; fulfilled sales agreements can now open customer receivables through a separate authority boundary. |
+| `mkt_campaign`, `mkt_placement`, `mkt_channel`, `mkt_material` | Marketing planning and spend | `operations/marketing` | Campaign budget, placement lifecycle, lead capture, and spend caps implemented; channel/material catalogs pending. |
+| `sys_warning`, warning rules/scans/tickets | Warnings and exception ownership | `intelligence/warning` | Deterministic cost-overrun finding and scoped acknowledge/resolve/suppress lifecycle implemented; scheduled scans and ticket persistence pending. |
+| `sale_revenue` | Customer receivable/revenue schedule | `finance/receivable` | Open/partial/collected balance and an explicit opening receivable-to-revenue accounting-event adapter implemented; collection cash recognition and revenue policy remain pending. |
+| receivable snapshots and collection events | Customer receivable persistence | `finance/receivable` + `persistence/store` | Revisioned snapshots serialize open/collected balances for reconciliation; revenue recognition pending. |
+| invoice routes and invoice tables | Invoice acceptance and payment | `operations/invoice` | Issue/accept/void/payment states implemented; an accepted invoice can open a customer receivable through a separate invoice-recognition grant. |
+| invoice snapshots and payment events | Invoice persistence | `operations/invoice` + `persistence/store` | Revisioned snapshots serialize invoice state and paid totals; accepted invoice-to-receivable flows retain separate source-linked invoice and receivable projections. |
+| contract payable and supplier settlement rows | Supplier obligation subledger | `finance/payable` | Open, partial/full payment, overpayment, and void controls plus an explicit opening expense-to-payable accounting-event adapter implemented; payment cash recognition and persistent posting remain pending. |
+| payable snapshots and payment events | Supplier payable persistence | `finance/payable` + `persistence/store` | Revisioned snapshots serialize open/paid/voided balances for reconciliation; persistent posting link pending. |
+| tax configuration and filing routes | Tax determination and filing | `finance/tax` | Rate-based obligation calculation and review/file/pay/void lifecycle plus separate period/authority-referenced filing preparation/submission/acceptance implemented; external filing adapters remain pending. |
+| tax obligation/filing snapshots | Tax persistence | `finance/tax` + `persistence/store` | Jurisdiction, category, rates, calculated/withheld amounts, obligation state, and separate tax-filing state serialize as revisioned projections. |
+| bank/cash and reconciliation routes | Cash position and controlled movement | `finance/treasury` + `finance/reconciliation` | Account balance, approved release, overdraw protection, expected-versus-actual journal checks, bank-statement line import/matching, and separate line-to-ledger-event traceability implemented; external bank adapters remain pending. |
+| cash account/movement/statement snapshots | Treasury persistence | `finance/treasury` + `persistence/store` | Balances, movement direction, release/reconciliation state, statement lines, balance controls, line-to-movement matches, and line-to-accounting-event matches serialize as revisioned projections. |
+| `fund_plan`, `fund_dispatch`, loan/facility routes | Treasury plan, dispatch, and corporate financing | `finance/treasury` + `finance/financing` | Cash plan confirmation/actualization, controlled project dispatch, and facility approval/draw/interest/repayment controls implemented; lender statements and covenant persistence pending. |
+| financing facility snapshots | Financing persistence | `finance/financing` + `persistence/store` | Facility limits, draw, outstanding principal, rate, and repayment state serialize as revisioned projections. |
+| chart-of-accounts, journal, period-close routes | Accounting books and close control | `finance/accounting` + `finance/reconciliation` | Account/currency validation, open/soft-close/close periods, ledger posting gate, and `close_reconciled` control implemented; subsidiary links, statement import, and financial statements remain pending. |
+| asset/register/depreciation routes | Asset ownership and depreciation/disposal | `finance/assets` | Capitalization, activation, impairment/disposal, residual-value controls, deterministic depreciation, balanced depreciation/derecognition journals, revisioned asset-register projections, and depreciation/disposal event links implemented; period-close integration and production asset-import cohorts remain pending. |
+| operational accounting event hooks | Source-to-journal traceability | `finance/accounting` | Validated source/journal links and duplicate event/source replay protection implemented. |
+| durable accounting-event links | Source-to-journal persistence | `finance/accounting` + `persistence/store` + `scripts/company_sqlite_accounting_link_apply.py` | Native balanced-journal receipt is persisted transactionally with event/source/journal uniqueness, migration receipt state `AccountingLinked`, integrity verification, and idempotent replay; production posting and subledger reconciliation remain pending. |
+| `audit_log`, `sys_error_log`, attachments | Evidence and administrative trace | `foundation/evidence` + `migration/erp` + `cmd/promote` | The fixture promotes 2 explicitly mapped audit records with actor-scoped append grants; network fields remain redacted, while error taxonomy and durable blob storage remain pending. |
+| `my_biz_param_option`, `vys_proceeding` | Configurable parameter and expense-proceeding catalogs | `foundation` + `migration/erp` + `cmd/promote` | The fixture promotes 2 dictionaries/8 options under explicit authority: the original 5-option `cost_subject` dictionary and an explicit 3-option `expense_proceeding` catalog. Values remain opaque; manager/department/cost metadata, CBS/accounting meaning, and expense state are not inferred. |
+| `vys_proceeding` | Expense/proceeding catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Three redacted proceeding rows are preserved as typed evidence; no expense policy or accounting subject is inferred. |
+| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserving source value representations; formula semantics, performance attribution, and accounting remain pending. |
+| investment mandate/proposal/position/model snapshots | Investment persistence | `investment/model` + `investment/domain` + `investment/portfolio` + `persistence/store` | Model versions/indexes, mandate limits, deterministic Moonfish analysis, proposal state, positions, shock stress evidence, and acquisition event links serialize as revisioned projections; performance attribution and full accounting remain pending. |
+| Moonfish deterministic tools | Market evidence and analysis | `investment/analytics` | Moving-average/trend seed implemented; full package absorption pending. |
+
+## Current vertical scenarios
+
+### Contract to payment
+
+```text
+cb_contract
+  -> Commitment::new
+  -> commitment:submit
+  -> commitment:approve
+  -> commitment:perform
+  -> Settlement::request
+  -> settlement:approve
+  -> settlement:release
+  -> payable/cash JournalEntry
+```
+
+Covered by the commitment and settlement tests. Budget reservation and
+recognition journal are separate explicit events so an implementation cannot
+silently equate commitment, performance, payment, and accounting.
+
+The executable CLI also demonstrates the migration side of the boundary:
+validated manifest -> canonical source/target envelope -> atomic record-store
+append.
+
+### Supplier to contract milestone
+
+```text
+srm_provider
+  -> Supplier::new
+  -> submit review
+  -> qualified
+tender_plan + tender_award
+  -> TenderPlan::new
+  -> publish -> bidding
+  -> qualified supplier bid
+  -> award
+cb_contract_milestone
+  -> ContractMilestone::new
+  -> eligible -> reached -> paid/overdue
+```
+
+Covered by procurement and contract-milestone tests. The next integration step
+is to persist the award-to-commitment link and reconcile milestone amounts with
+payment applications and payables.
+
+### Project and dynamic cost
+
+```text
+ep_project + lifecycle stages
+  -> Project::new
+  -> Project::advance
+
+cost components D/E/F/G
+  -> CostBreakdown::total_minor
+  -> DynamicCost::total_minor (B)
+```
+
+Covered by project lifecycle and cost invariant tests. The next step is attaching
+CBS subjects, budgets, progress, commitments, and actuals to a persistent project
+aggregate.
+
+### Sales to collection
+
+```text
+sales customer/agreement
+  -> SalesAgreement::new
+  -> reserve -> sign -> fulfill
+  -> Receivable::open
+  -> partial collection
+  -> complete collection
+```
+
+The target currently keeps sales agreement, invoice, and receivable as distinct
+types. This preserves the ERP's operational distinctions. A fulfilled sales
+agreement now opens a receivable through separate authority grants. Opening
+receivables emit a validated source-to-journal link. An accepted invoice now
+has the same explicit recognition boundary, with the invoice ID retained as the
+receivable source. Collection cash, revenue policy, and tax events remain
+separate accounting decisions.
+
+### Investment analysis to controlled position
+
+```text
+market closes
+  -> investment/analytics deterministic report
+  -> InvestmentMandate::propose
+  -> attach analysis -> submit -> approve
+  -> execute under local authority
+  -> InvestmentPosition
+```
+
+Covered by investment-domain tests. The proposal path is deliberately local and
+does not give Moonfish or MoonClaw direct execution authority; portfolio
+valuation and shock-risk evidence are implemented locally; investment accounting
+events and performance attribution remain future parity work.
+
+## Legacy migration rules
+
+1. Preserve every source primary key in a migration-reference field or mapping.
+2. Do not infer accounting opening balances from operational rows without an
+   approved opening-balance process.
+3. Do not dual-write the same business aggregate during cutover.
+4. Convert money to fixed-point minor units using an explicit currency and
+   rounding policy.
+5. Convert soft-deleted and voided records into explicit target lifecycle states.
+6. Quarantine records that fail target invariants; never silently coerce them.
+7. Keep source attachments, audit entries, and migration decisions searchable.
+8. Reconcile counts and totals by entity, project, counterparty, account, period,
+   currency, and source module.
+
+## Immediate mapping backlog
+
+- extract a sanitized schema snapshot and route inventory from the ERP;
+- extend executable fixtures to split expenses, loans, invoices, workflow cases, and supplier risk history;
+- map `wf_*` approval definitions into a target workflow aggregate;
+- map CBS subject/version/R0 records into persistent target cost structures;
+- persist tender-award → commitment and milestone → payment-application links;
+- translate expenses, loan offsetting, and employee finance;
+- map invoice, receivable collection, tax, and journal events without double
+  recognition (opening receivable/payable links are already explicit);
+- import investment Excel fixtures and compare deterministic analytics;
+- produce migration fixtures and reconciliation reports for each source-to-target
+  vertical scenario.

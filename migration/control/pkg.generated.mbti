@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/migration/control"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/migration/shadow",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ControlError {
+  EmptyIdentifier
+  NegativeValue
+  NegativeTolerance
+  DuplicateMetric
+  Shadow(@shadow.ShadowError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ControlTotal {
+  metric_id : String
+  domain : String
+  dimension : String
+  value : Int64
+  tolerance : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct OpeningControlSet {
+  source_snapshot_id : String
+  controls : Array[ControlTotal]
+} derive(Eq, @debug.Debug)
+pub fn OpeningControlSet::add(Self, ControlTotal) -> Self raise ControlError
+pub fn OpeningControlSet::new(source_snapshot_id~ : String) -> Self raise ControlError
+pub fn OpeningControlSet::to_shadow_plan(Self, run_id~ : String) -> @shadow.ShadowPlan raise ControlError
+
+// Type aliases
+
+// Traits
+

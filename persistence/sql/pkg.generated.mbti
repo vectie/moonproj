@@ -1,0 +1,75 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/persistence/sql"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/persistence/schema",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+pub fn company_catalog() -> Array[SqlMigration]
+
+pub fn initial_catalog() -> Array[SqlMigration]
+
+pub fn validate_catalog(@schema.SchemaState, Array[SqlMigration]) -> @schema.SchemaState raise SqlCatalogError
+
+// Errors
+pub(all) suberror SqlAdapterError {
+  EmptyBatch
+  DuplicateRecord
+  DuplicateSource
+  RecordAheadOfSchema
+  InvalidTransactionState
+  InvalidCommand
+  Store(@store.StoreError)
+  Durable(@store.DurableStoreError)
+  Catalog(SqlCatalogError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror SqlCatalogError {
+  EmptySql
+  InvalidDownMigration
+  Schema(@schema.MigrationError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct SqlAdapter {
+  schema : @schema.SchemaState
+  catalog : Array[SqlMigration]
+} derive(Eq, @debug.Debug)
+pub fn SqlAdapter::new(Array[SqlMigration]) -> Self raise SqlAdapterError
+pub fn SqlAdapter::prepare_batch(Self, Array[@store.StoredRecord]) -> SqlTransaction raise SqlAdapterError
+pub fn SqlAdapter::prepare_insert(Self, @store.StoredRecord) -> SqlCommand raise SqlAdapterError
+
+pub(all) struct SqlCommand {
+  sql : String
+  params : Array[String]
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SqlMigration {
+  step : @schema.MigrationStep
+  up_sql : String
+  down_sql : String
+} derive(Eq, @debug.Debug)
+pub fn SqlMigration::new(@schema.MigrationStep, up_sql~ : String, down_sql~ : String) -> Self raise SqlCatalogError
+
+pub(all) struct SqlTransaction {
+  commands : Array[SqlCommand]
+  state : SqlTransactionState
+} derive(Eq, @debug.Debug)
+pub fn SqlTransaction::apply_to_durable_store(Self, @store.DurableRecordStore) -> (Self, @store.DurableRecordStore) raise SqlAdapterError
+pub fn SqlTransaction::apply_to_store(Self, @store.RecordStore) -> (Self, @store.RecordStore) raise SqlAdapterError
+pub fn SqlTransaction::commit(Self) -> Self raise SqlAdapterError
+pub fn SqlTransaction::rollback(Self) -> Self raise SqlAdapterError
+
+pub(all) enum SqlTransactionState {
+  Prepared
+  Committed
+  RolledBack
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

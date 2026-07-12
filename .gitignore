@@ -1,0 +1,28 @@
+.DS_Store
+_build/
+target/
+target
+.mooncakes/
+.moonagent/
+
+# Controlled ERP migration artifacts. Keep exports and raw staging outside the
+# repository when possible; ignore them if a local rehearsal uses this tree.
+erp-export/
+erp-staging*.ndjson
+erp-staging*.json
+company*.sqlite3*
+typed-cohorts/
+__pycache__/
+erp-promotion-plan*.json
+erp-workflow-plan*.json
+erp-lifecycle-plan*.json
+erp-task-plan*.json
+erp-investment-plan*.json
+erp-payment-plan*.json
+erp-user-plan*.json
+erp-audit-plan*.json
+erp-parameter-plan*.json
+erp-task-state-plan*.json
+domain-promotion*.json
+projection-apply*.json
+projection-parity*.json

@@ -1,0 +1,63 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/cost"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+pub fn calculate_dynamic_cost(currency~ : String, CostBreakdown) -> DynamicCost raise CostError
+
+// Errors
+pub(all) suberror CostError {
+  InvalidCurrency
+  NegativeComponent
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ForecastError {
+  EmptyScope
+  InvalidAmount
+  InvalidProgress
+  CurrencyMismatch
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct CostBreakdown {
+  direct_minor : Int64
+  indirect_minor : Int64
+  contingency_minor : Int64
+  other_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn CostBreakdown::new(direct_minor~ : Int64, indirect_minor~ : Int64, contingency_minor~ : Int64, other_minor~ : Int64) -> Self raise CostError
+pub fn CostBreakdown::total_minor(Self) -> Int64
+
+pub(all) struct CostForecast {
+  project_scope : String
+  target : @finance.Money
+  committed : @finance.Money
+  actual : @finance.Money
+  progress_bps : Int64
+  forecast_at_completion : @finance.Money
+  variance_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn CostForecast::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ForecastError
+pub fn CostForecast::new(project_scope~ : String, target~ : @finance.Money, committed~ : @finance.Money, actual~ : @finance.Money, progress_bps~ : Int64) -> Self raise ForecastError
+
+pub(all) struct DynamicCost {
+  currency : String
+  breakdown : CostBreakdown
+  total_minor : Int64
+} derive(Eq, @debug.Debug)
+pub fn DynamicCost::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CostError
+
+// Type aliases
+
+// Traits
+

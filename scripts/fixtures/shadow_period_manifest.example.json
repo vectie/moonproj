@@ -1,0 +1,20 @@
+{
+  "format": "moonproj.company.shadow-period.v1",
+  "period_id": "fixture-shadow-2026-01",
+  "legacy_authoritative": true,
+  "target_mode": "read_only_shadow",
+  "target_mutations_allowed": false,
+  "duration_days": 14,
+  "comparison_interval_hours": 24,
+  "comparison_dimensions": [
+    "source_identity",
+    "target_projection_type",
+    "row_coverage",
+    "minor_unit_totals",
+    "accounting_link_identity",
+    "replay_idempotency",
+    "exception_counts"
+  ],
+  "owner_role": "operations",
+  "rollback_runbook": "ops/runbooks/company-migration-rollback.md"
+}

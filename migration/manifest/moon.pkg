@@ -1,0 +1,8 @@
+import {
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+import {
+  "vectie/moonproj/persistence/schema",
+} for "test"

@@ -1,0 +1,10 @@
+import {
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/migration/manifest",
+  "vectie/moonproj/migration/parity",
+  "vectie/moonproj/persistence/store",
+}
+
+import {
+  "vectie/moonproj/persistence/schema",
+} for "test"

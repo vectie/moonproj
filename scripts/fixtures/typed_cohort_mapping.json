@@ -1,0 +1,102 @@
+{
+  "mapping_version": "typed-cohorts-v1-review-001",
+  "principal_by_bu": {
+    "bu-group-0001": "co-001",
+    "bu-tjgs-0001": "co-001",
+    "bu-cqgs-0001": "co-001",
+    "bu-tjgs-gcjs-0001": "co-001",
+    "bu-tjgs-gcjs-sj-01": "co-001",
+    "bu-tjgs-gcjs-gc-01": "co-001",
+    "bu-tjgs-zhgl-0001": "co-001"
+  },
+  "counterparty_by_provider": {
+    "天津建工集团第三建筑工程有限公司": "supplier-tj-001",
+    "天津永大幕墙工程有限公司": "supplier-tj-002"
+  },
+  "employee_by_user": {
+    "user-lmj-0001": "employee-lmj-0001"
+  },
+  "currency_by_bu": {
+    "bu-group-0001": "CNY",
+    "bu-tjgs-0001": "CNY",
+    "bu-cqgs-0001": "CNY",
+    "bu-tjgs-gcjs-0001": "CNY",
+    "bu-tjgs-gcjs-sj-01": "CNY",
+    "bu-tjgs-gcjs-gc-01": "CNY",
+    "bu-tjgs-zhgl-0001": "CNY"
+  },
+  "money_policy": {
+    "minor_units_per_unit": 100,
+    "rounding": "half_even",
+    "allow_rounding": false
+  },
+  "cost_component_map": {
+    "direct": "ht_alter_amount",
+    "indirect": "zt_cost",
+    "contingency": "dfs_budget",
+    "other": "yg_alter"
+  },
+  "workflow_capability_by_step": {
+    "step-1": "expense:initiate",
+    "step-2": "expense:user-approve",
+    "step-3": "expense:department-approve",
+    "step-4": "expense:owner-approve",
+    "step-5": "expense:hr-approve",
+    "step-6": "expense:general-approve",
+    "step-7": "expense:archive",
+    "lstep-1": "advance:initiate",
+    "lstep-2": "advance:department-approve",
+    "lstep-3": "advance:finance-approve",
+    "lstep-4": "advance:general-approve",
+    "lstep-5": "advance:archive"
+  },
+  "lifecycle_stage_by_code": {
+    "initiation": "initiation",
+    "acquisition": "planning",
+    "planning": "design",
+    "development": "development",
+    "sales": "sales",
+    "delivery": "delivery",
+    "settlement": "settlement"
+  },
+  "commitment_state_by_contract": {
+    "ht-tj-001": "performed",
+    "ht-tj-002": "performed"
+  },
+  "audit_by_id": {
+    "1": {
+      "business_unit_id": "bu-group-0001",
+      "target_type": "identity",
+      "target_id": "user-admin-0001",
+      "outcome": "success"
+    },
+    "2": {
+      "business_unit_id": "bu-group-0001",
+      "target_type": "identity",
+      "target_id": "user-admin-0001",
+      "outcome": "success"
+    }
+  },
+  "parameter_by_name": {
+    "cost_subject": {
+      "principal_id": "co-001",
+      "scope": "organization:bu-group-0001"
+    },
+    "expense_proceeding": {
+      "principal_id": "co-001",
+      "scope": "organization:bu-group-0001"
+    }
+  },
+  "parameter_source_by_name": {
+    "cost_subject": "my_biz_param_option",
+    "expense_proceeding": "vys_proceeding"
+  },
+  "typed_evidence_class_by_table": {
+    "jd_task": "task_record_snapshot",
+    "jd_task_report": "task_progress_report",
+    "wf_step_assignee": "workflow_assignment",
+    "proj_lifecycle_instance": "lifecycle_instance_history",
+    "proj_lifecycle_stage": "lifecycle_stage_catalog",
+    "vys_proceeding": "expense_proceeding_catalog"
+  }
+}

@@ -1,0 +1,71 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/finance/financing"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
+}
+
+// Values
+
+// Errors
+pub(all) suberror FinancingError {
+  EmptyIdentifier
+  InvalidAmount
+  InvalidRate
+  CurrencyMismatch
+  InvalidState
+  LimitExceeded
+  OverRepayment
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
+  NotAuthorized(@foundation.AuthorityError)
+  Money(@finance.MoneyError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct FacilityEvent {
+  from : FacilityState
+  to : FacilityState
+  actor_id : String
+  capability : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum FacilityState {
+  Draft
+  Approved
+  Active
+  PartiallyRepaid
+  Closed
+  Defaulted
+  Cancelled
+} derive(Eq, @debug.Debug)
+
+pub(all) struct FinancingFacility {
+  facility_id : String
+  principal_id : String
+  project_scope : String
+  lender_id : String
+  limit_amount : @finance.Money
+  drawn_amount : @finance.Money
+  outstanding_principal : @finance.Money
+  annual_rate_bps : Int64
+  state : FacilityState
+  events : Array[FacilityEvent]
+} derive(Eq, @debug.Debug)
+pub fn FinancingFacility::accrue_interest(Self, Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (@finance.Money, Self) raise FinancingError
+pub fn FinancingFacility::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+pub fn FinancingFacility::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise FinancingError
+pub fn FinancingFacility::approve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+pub fn FinancingFacility::available_minor(Self) -> Int64
+pub fn FinancingFacility::default(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+pub fn FinancingFacility::draw(Self, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+pub fn FinancingFacility::new(facility_id~ : String, principal_id~ : String, project_scope~ : String, lender_id~ : String, limit_amount~ : @finance.Money, annual_rate_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+pub fn FinancingFacility::repay(Self, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+
+// Type aliases
+
+// Traits
+

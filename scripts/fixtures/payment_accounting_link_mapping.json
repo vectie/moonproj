@@ -1,0 +1,42 @@
+{
+  "mapping_version": "mapped-payment-application-accounting-v1-review-001",
+  "target_types": ["payment_application"],
+  "accounting_by_source": {
+    "cb_htfk_apply:apply-tj-001": {
+      "event_id": "acct-payment-application-apply-tj-001",
+      "event_type": "settlement.requested",
+      "journal_id": "journal-payment-application-apply-tj-001",
+      "description": "Trace requested settlement apply-tj-001",
+      "debit_account": "payable-pending-settlement",
+      "credit_account": "settlement-request-control",
+      "principal_id": "co-001",
+      "scope": "project:proj-0001",
+      "amount_minor": 360000000,
+      "currency": "CNY"
+    },
+    "cb_htfk_apply:apply-tj-002": {
+      "event_id": "acct-payment-application-apply-tj-002",
+      "event_type": "settlement.requested",
+      "journal_id": "journal-payment-application-apply-tj-002",
+      "description": "Trace requested settlement apply-tj-002",
+      "debit_account": "payable-pending-settlement",
+      "credit_account": "settlement-request-control",
+      "principal_id": "co-001",
+      "scope": "project:proj-0001",
+      "amount_minor": 204000000,
+      "currency": "CNY"
+    },
+    "cb_htfk_apply:apply-tj-003": {
+      "event_id": "acct-payment-application-apply-tj-003",
+      "event_type": "settlement.requested",
+      "journal_id": "journal-payment-application-apply-tj-003",
+      "description": "Trace requested settlement apply-tj-003",
+      "debit_account": "payable-pending-settlement",
+      "credit_account": "settlement-request-control",
+      "principal_id": "co-001",
+      "scope": "project:proj-0001",
+      "amount_minor": 360000000,
+      "currency": "CNY"
+    }
+  }
+}
