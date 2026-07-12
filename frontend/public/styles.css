@@ -1,0 +1,163 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1e293b;
+  background: #f1f5f9;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; }
+body { min-width: 320px; }
+button, input { font: inherit; }
+button { border: 0; }
+button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+
+/* The shell mirrors erp_new/web/src/views/Layout.vue. */
+.erp-layout { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+.erp-sidebar { width: 220px; flex: 0 0 220px; height: 100%; color: #cbd5e1; background: #1e293b; transition: width .2s, transform .2s; overflow-y: auto; overflow-x: hidden; }
+.erp-sidebar.is-collapsed { width: 64px; flex-basis: 64px; }
+.erp-brand { display: flex; align-items: center; height: 60px; padding: 0 16px; color: #fff; white-space: nowrap; }
+.erp-logo, .login-logo-big { display: inline-block; width: 36px; height: 36px; line-height: 36px; color: #fff; background: #3b82f6; border-radius: 8px; font-weight: 700; text-align: center; }
+.erp-brand-text { margin-left: 12px; font-weight: 600; }
+.erp-navigation { display: block; padding: 0; }
+.erp-menu-item, .erp-menu-group-title { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 20px; color: #cbd5e1; background: transparent; cursor: pointer; text-align: left; white-space: nowrap; }
+.erp-menu-item:hover, .erp-menu-group-title:hover { background: #26364c; }
+.erp-menu-item.is-active { color: #fff; background: #3b82f6; }
+.menu-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; margin-right: 12px; color: #94a3b8; font-size: 16px; line-height: 1; }
+.erp-menu-item.is-active .menu-icon { color: #fff; }
+.menu-text { overflow: hidden; text-overflow: ellipsis; }
+.erp-menu-group-title { font-weight: 500; }
+.erp-menu-group-title .menu-icon { color: #94a3b8; }
+.menu-caret { margin-left: auto; color: #94a3b8; font-size: 20px; line-height: 1; }
+.erp-menu-group.is-open > .erp-menu-group-title { color: #fff; background: #24354b; }
+.erp-menu-group .erp-menu-item { min-height: 42px; padding-left: 54px; font-size: 13px; }
+.erp-menu-group .erp-menu-item .menu-icon { width: 10px; margin-right: 8px; font-size: 17px; }
+.erp-menu-group.erp-nested .erp-menu-group-title { min-height: 42px; padding-left: 54px; font-size: 13px; }
+.erp-menu-group.erp-nested .erp-menu-group-title .menu-icon { width: 10px; margin-right: 8px; font-size: 14px; }
+.erp-menu-group.erp-nested .erp-menu-item { padding-left: 88px; font-size: 12px; }
+.erp-menu-group.erp-nested .erp-menu-item .menu-icon { width: 8px; margin-right: 6px; }
+.erp-sidebar.is-collapsed .erp-menu-item, .erp-sidebar.is-collapsed .erp-menu-group-title { justify-content: center; padding: 0; }
+.erp-sidebar.is-collapsed .menu-icon { margin-right: 0; }
+.erp-sidebar.is-collapsed .erp-menu-group .erp-menu-item { padding-left: 0; }
+.erp-navigation > .erp-menu-item:nth-child(2) .menu-icon { color: #fbbf24; }
+.erp-navigation > .erp-menu-item:nth-child(3) .menu-icon { color: #fbbf24; }
+
+.erp-main-shell { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.erp-header { display: flex; align-items: center; height: 60px; flex: 0 0 60px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.erp-toggle, .erp-mobile-toggle, .erp-header-icon { color: #475569; background: transparent; cursor: pointer; }
+.erp-toggle { width: 24px; font-size: 18px; }
+.erp-mobile-toggle { display: none; width: 24px; margin-left: 2px; font-size: 18px; }
+.erp-header-title { min-width: 0; margin-left: 16px; overflow: hidden; color: #1e293b; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.erp-header-actions { display: flex; align-items: center; gap: 16px; }
+.erp-header-icon { position: relative; padding: 2px; font-size: 18px; }
+.erp-header-icon.has-badge::after { position: absolute; top: -2px; right: -4px; width: 6px; height: 6px; content: ""; background: #ef4444; border: 2px solid #fff; border-radius: 50%; }
+.erp-user-area { padding: 0; color: #475569; background: transparent; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.erp-main { flex: 1; min-width: 0; padding: 20px; overflow: auto; background: #f1f5f9; }
+.erp-mobile-overlay { display: none; }
+
+/* Login.vue visual language, copied without Element Plus. */
+.erp-login { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 100vh; padding: 16px; overflow: hidden; gap: 60px; background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #3b82f6 100%); }
+.login-blob { position: absolute; z-index: 0; border-radius: 50%; filter: blur(80px); opacity: .4; }
+.login-blob-one { top: -50px; left: -50px; width: 300px; height: 300px; background: #6366f1; }
+.login-blob-two { right: -100px; bottom: -100px; width: 400px; height: 400px; background: #06b6d4; }
+.login-blob-three { top: 30%; right: 30%; width: 200px; height: 200px; background: #a855f7; }
+.login-brand-side { z-index: 1; max-width: 480px; color: #fff; animation: fade-up .8s ease-out; }
+.login-logo-big { width: 64px; height: 64px; line-height: 64px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); border-radius: 16px; backdrop-filter: blur(10px); font-size: 22px; }
+.login-brand-side h1 { margin: 16px 0 4px; font-size: 36px; font-weight: 700; letter-spacing: -.5px; }
+.login-subtitle { margin: 0 0 24px; color: rgba(255,255,255,.7); font-size: 16px; }
+.login-features { margin: 0; padding: 0; list-style: none; }
+.login-features li { margin: 12px 0; padding: 10px 14px; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: rgba(255,255,255,.08); backdrop-filter: blur(10px); font-size: 14px; }
+.login-time { display: block; margin-top: 24px; color: rgba(255,255,255,.6); font-family: monospace; font-size: 13px; }
+.login-card { z-index: 1; width: 380px; padding: 36px 32px; border-radius: 16px; background: #fff; box-shadow: 0 20px 60px rgba(0,0,0,.25); animation: fade-up .8s .2s both ease-out; }
+.login-card-heading { margin-bottom: 24px; text-align: center; }
+.login-card-heading h2 { margin: 0; color: #1e293b; font-size: 22px; font-weight: 600; }
+.login-card-heading span { display: block; margin-top: 4px; color: #94a3b8; font-size: 12px; }
+.login-label { display: block; margin: 14px 0 6px; color: #606266; font-size: 14px; }
+.login-input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #dcdfe6; border-radius: 4px; color: #1e293b; background: #fff; }
+.login-input::placeholder { color: #a8abb2; }
+.login-input:focus { border-color: #409eff; outline: 0; }
+.login-submit { width: 100%; height: 40px; margin-top: 20px; border-radius: 4px; color: #fff; background: #409eff; cursor: pointer; }
+.login-submit:hover { background: #66b1ff; }
+.demo-toggle { display: block; margin: 12px auto 0; color: #409eff; background: transparent; cursor: pointer; font-size: 12px; }
+.demo-list { margin-top: 12px; color: #475569; font-size: 12px; }
+.demo-row { display: flex; align-items: center; justify-content: space-between; width: 100%; margin: 4px 0; padding: 6px 10px; border-radius: 6px; color: #475569; background: #f8fafc; cursor: pointer; text-align: left; }
+.demo-row:hover { background: #eff6ff; }
+.demo-row strong { color: #1e3a8a; font-family: monospace; }
+.demo-row .demo-role { color: #94a3b8; font-size: 11px; }
+
+/* DashboardV3 uses this restrained Element Plus card/table palette. */
+.erp-dashboard { min-width: 800px; }
+.erp-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.erp-metric { padding: 10px 12px; border: 1px solid #e2e8f0; border-top: 3px solid #1d4ed8; border-radius: 6px; background: #fff; }
+.erp-metric.metric-green { border-top-color: #16a34a; }
+.erp-metric-label { display: block; margin: 4px 0 6px; color: #64748b; font-size: 11px; }
+.erp-metric-value { display: block; color: #0f172a; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.erp-metric.metric-green .erp-metric-value { color: #16a34a; }
+.erp-metric-detail { display: block; margin-top: 2px; color: #94a3b8; font-size: 10px; }
+.erp-alert-pill { display: inline-block; margin-bottom: 12px; padding: 5px 10px; border: 1px solid #fed7aa; border-radius: 4px; color: #c2410c; background: #fff7ed; font-size: 12px; }
+.erp-dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(430px, 1fr); gap: 12px; }
+.erp-panel, .erp-placeholder { padding: 14px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+.erp-panel-heading { display: flex; align-items: center; justify-content: space-between; min-height: 30px; margin-bottom: 14px; }
+.erp-panel-heading h2 { margin: 0; color: #1e293b; font-size: 15px; }
+.erp-info-tag, .erp-danger-tag { padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+.erp-info-tag { color: #64748b; background: #f1f5f9; }
+.erp-danger-tag { color: #b91c1c; background: #fef2f2; }
+.phase-list { display: flex; flex-direction: column; gap: 11px; }
+.phase-row { display: flex; align-items: center; gap: 10px; }
+.phase-label { width: 62px; flex: 0 0 62px; color: #64748b; font-size: 12px; }
+.phase-bar { position: relative; display: block; min-width: 28px; height: 24px; border-radius: 3px; background: linear-gradient(90deg, #3b82f6, #1e3a8a); }
+.phase-value { position: absolute; right: 8px; color: #fff; font-size: 12px; line-height: 24px; }
+.risk-panel { min-width: 0; overflow: hidden; }
+.risk-panel table, .erp-placeholder table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.risk-panel th, .risk-panel td, .erp-placeholder th, .erp-placeholder td { padding: 8px 5px; border-bottom: 1px solid #f1f5f9; color: #475569; font-size: 11px; text-align: left; vertical-align: middle; }
+.risk-panel th, .erp-placeholder th { color: #94a3b8; font-weight: 500; }
+.risk-panel th:nth-child(1) { width: 24%; }.risk-panel th:nth-child(2) { width: 20%; }.risk-panel th:nth-child(3) { width: 12%; }.risk-panel th:nth-child(4) { width: 44%; }
+.risk-tag { display: inline-block; min-width: 24px; padding: 2px 4px; border-radius: 3px; color: #b91c1c; background: #fef2f2; font-weight: 600; text-align: center; }
+.erp-dashboard-note { margin: 12px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.6; }
+.erp-placeholder { min-height: 320px; }
+.erp-placeholder h2 { display: inline-block; margin: 0 12px 12px 0; font-size: 20px; }
+.erp-placeholder p { max-width: 760px; margin: 8px 0 20px; color: #64748b; font-size: 13px; line-height: 1.7; }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 1100px) {
+  .erp-dashboard-grid { grid-template-columns: 1fr; }
+  .risk-panel { min-width: 0; }
+}
+
+@media (max-width: 767px) {
+  .erp-sidebar { position: fixed; z-index: 30; top: 0; bottom: 0; left: 0; width: 260px; transform: translateX(-100%); box-shadow: 8px 0 24px rgba(15,23,42,.2); }
+  .erp-sidebar.is-collapsed { width: 260px; }
+  .erp-sidebar.is-mobile-open { transform: translateX(0); }
+  .erp-mobile-overlay { position: fixed; z-index: 20; inset: 0; display: block; background: rgba(15,23,42,.38); }
+  .erp-toggle { display: none; }
+  .erp-mobile-toggle { display: inline-block; }
+  .erp-header { padding: 0 12px; }
+  .erp-header-title { margin-left: 8px; font-size: 14px; }
+  .erp-user-area { max-width: 128px; overflow: hidden; text-overflow: ellipsis; }
+  .erp-main { padding: 10px; }
+  .erp-dashboard { min-width: 0; }
+  .erp-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .erp-dashboard-grid { grid-template-columns: 1fr; }
+  .erp-risk-panel { overflow-x: auto; }
+  .login-brand-side { max-width: 100%; text-align: center; }
+  .login-brand-side h1 { font-size: 24px; }
+  .login-features { display: none; }
+  .erp-login { flex-direction: column; gap: 20px; padding: 12px; }
+  .login-card { width: 100%; max-width: 380px; padding: 24px 20px; }
+}
+
+@media (max-width: 479px) {
+  .erp-header { padding: 0 8px; }
+  .erp-header-title { max-width: 120px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .erp-header-actions { gap: 8px; }
+  .erp-user-area { max-width: 90px; font-size: 11px; }
+  .erp-main { padding: 6px; }
+  .erp-kpi-grid { gap: 6px; }
+  .erp-metric { padding: 8px; }
+  .erp-metric-value { font-size: 17px; }
+  .erp-panel { padding: 10px; }
+  .risk-panel th, .risk-panel td { padding: 5px 2px; font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

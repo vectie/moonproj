@@ -83,6 +83,9 @@ domain.
 - [PostgreSQL target setup](docs/POSTGRES_TARGET_SETUP.md) — local PostgreSQL
   target configuration and credential-free raw-envelope apply; ERP MySQL
   remains source-only.
+- [Rabbita frontend](frontend/README.md) — the ERP UI clone surface, with the
+  designer shell/login/dashboard copied into Rabbita and remaining page seams
+  tracked as explicit migration placeholders.
 - [Moon Suite boundary](docs/MOON_SUITE_BOUNDARY.md) — observed sibling
   ownership, reuse rules, and optional integration order.
 

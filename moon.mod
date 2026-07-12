@@ -27,4 +27,5 @@ description = ""
 
 import {
   "moonbitlang/x@0.4.46",
+  "moonbit-community/rabbita@0.12.4",
 }

@@ -177,3 +177,18 @@ only production target; SQLite is retained only as a deterministic rehearsal
 adapter, and the PostgreSQL adapter owns the durable target catalog, JSONB raw
 envelopes, conflict checks, migration receipt, and replay behavior. The ERP
 MySQL probe/export path remains explicitly source-only.
+
+## 9. Use Rabbita for the company frontend
+
+The company product needs its own operational surface, but that surface must
+not become a second domain implementation or a deep Moon Suite dependency.
+
+Decision: use MoonBit Rabbita for the browser frontend, built through Warren,
+with the UI consuming reviewed company projections and emitting bounded
+commands. Its visual baseline is the designer-built ERP in
+`../erp/erp_new/web`—the shell, login, menu hierarchy, and dashboard are
+copied before introducing a new product-native design system. The current
+clone is intentionally fixture-backed and read-only; live API/query/command
+wiring follows the same authority boundary as the domain and PostgreSQL
+adapters, and the remaining ERP views are migrated incrementally rather than
+being silently replaced by generic screens.

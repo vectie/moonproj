@@ -18,6 +18,7 @@ named owner action.
 | Schema-only translation | `ERP_SCHEMA_COHORTS.md` and seven cohort documents | Complete as semantic mapping; all 49 absent tables have owners/security controls, but no absent rows were fabricated. |
 | Technical parity/replay | `cutover-gate.json` | Complete for supplied cohorts; parity, replay, backup/restore, SQL-driver, relationship, and accounting checks pass. |
 | PostgreSQL target boundary | `POSTGRES_TARGET_SETUP.md`, `company_postgres_target_apply.py` | Complete for the available redacted cohort; PostgreSQL 18 catalog version 4 is applied, 120 raw envelopes are durable, and identical replay is idempotent. |
+| Company browser surface | `frontend/main`, `frontend/public` | ERP-derived Rabbita shell/login/dashboard clone is complete and rendered in desktop and 390px mobile checks. The source navigation is preserved, but the dashboard remains fixture-backed and the remaining ERP views are explicit placeholders until page-by-page migration and reviewed API/query boundaries are connected. |
 | Domain and finance controls | implementation packages and 220 tests | Complete for implemented slices; accounting links remain traceability, not posting. |
 | Business-acceptance packet | `BUSINESS_ACCEPTANCE_PACKET.md` | Contract complete; five decisions remain pending. |
 | Shadow-period contract | `SHADOW_PERIOD_CONTRACT.md` | Contract complete; target is read-only and shadow authorization is pending. |
