@@ -126,6 +126,13 @@ projections and links while retaining every receipt.
 back to the receipt's source identities and target types; the mapped cohort is
 `shadow_verified` at 19/19, and a mismatched workflow cohort fails with
 explicit missing/extra findings.
+The PostgreSQL target now has the equivalent
+`company_postgres_projection_apply.py` and
+`company_postgres_projection_parity.py` adapters. The configured local target
+has 93 reviewed aggregate projections across the base and ten typed cohorts;
+each receipt reopens as `shadow_verified` and an identical replay inserts zero
+rows. PostgreSQL receipt state is separate from cash, accounting posting, and
+business ownership.
 `scripts/erp_accounting_link_plan.py` then requires an explicit reviewed
 source-to-journal map for commitment and employee-advance events. The native `cmd/accounting_link`
 command validates balanced journals, principal/scope authority, and duplicate
@@ -292,7 +299,7 @@ importer.
 | chart-of-accounts, journal, period-close routes | Accounting books and close control | `finance/accounting` + `finance/reconciliation` | Account/currency validation, open/soft-close/close periods, ledger posting gate, and `close_reconciled` control implemented; subsidiary links, statement import, and financial statements remain pending. |
 | asset/register/depreciation routes | Asset ownership and depreciation/disposal | `finance/assets` | Capitalization, activation, impairment/disposal, residual-value controls, deterministic depreciation, balanced depreciation/derecognition journals, revisioned asset-register projections, and depreciation/disposal event links implemented; period-close integration and production asset-import cohorts remain pending. |
 | operational accounting event hooks | Source-to-journal traceability | `finance/accounting` | Validated source/journal links and duplicate event/source replay protection implemented. |
-| durable accounting-event links | Source-to-journal persistence | `finance/accounting` + `persistence/store` + `scripts/company_sqlite_accounting_link_apply.py` | Native balanced-journal receipt is persisted transactionally with event/source/journal uniqueness, migration receipt state `AccountingLinked`, integrity verification, and idempotent replay; production posting and subledger reconciliation remain pending. |
+| durable accounting-event links | Source-to-journal persistence | `finance/accounting` + `persistence/store` + `scripts/company_sqlite_accounting_link_apply.py` + `scripts/company_postgres_accounting_link_apply.py` | Native balanced-journal receipts are persisted transactionally with event/source/journal uniqueness, migration receipt state `AccountingLinked`, integrity verification, and idempotent replay in both the SQLite rehearsal and PostgreSQL target adapters; production posting and subledger reconciliation remain pending. |
 | `audit_log`, `sys_error_log`, attachments | Evidence and administrative trace | `foundation/evidence` + `migration/erp` + `cmd/promote` | The fixture promotes 2 explicitly mapped audit records with actor-scoped append grants; network fields remain redacted, while error taxonomy and durable blob storage remain pending. |
 | `my_biz_param_option`, `vys_proceeding` | Configurable parameter and expense-proceeding catalogs | `foundation` + `migration/erp` + `cmd/promote` | The fixture promotes 2 dictionaries/8 options under explicit authority: the original 5-option `cost_subject` dictionary and an explicit 3-option `expense_proceeding` catalog. Values remain opaque; manager/department/cost metadata, CBS/accounting meaning, and expense state are not inferred. |
 | `vys_proceeding` | Expense/proceeding catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Three redacted proceeding rows are preserved as typed evidence; no expense policy or accounting subject is inferred. |

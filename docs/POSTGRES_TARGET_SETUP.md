@@ -39,8 +39,24 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
 ```
 
 The local target was verified on the available redacted ERP snapshot with
-schema version `4`, `120` staged and durable records, `120` unique source
-identities, and one migration receipt. Replaying the same staging artifact
-inserted `0` rows and did not create a second receipt. Aggregate projections
-and accounting-event links remain separate, explicitly reviewed cohorts; the
-raw envelope apply does not infer business effects.
+schema version `4`, `120` staged and durable raw records, `93` aggregate
+projections, `3` reviewed accounting-event links, and `13` cohort receipts.
+Replaying the same staging artifact and reviewed receipts inserted `0` rows
+and did not create duplicate receipts. Native aggregate
+promotion receipts can now be persisted through
+`scripts/company_postgres_projection_apply.py`; reviewed accounting-link
+receipts use `scripts/company_postgres_accounting_link_apply.py`. Both adapters
+lock their target table, reject event/source/journal conflicts, preserve
+immutable revisions or links, write a cohort-scoped migration receipt, and
+make an identical replay insert `0` rows. They do not infer business effects,
+release cash, or post journals.
+
+For a reviewed receipt, use the same PostgreSQL credential mechanism:
+
+```text
+PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
+  scripts/company_postgres_projection_apply.py /path/to/domain-promotion.json
+
+PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
+  scripts/company_postgres_accounting_link_apply.py /path/to/accounting-link-receipt.json
+```

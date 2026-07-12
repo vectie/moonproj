@@ -32,7 +32,10 @@ existing ERP remains authoritative.
 | SQL migration catalog and command boundary | `persistence/sql` | Versioned up/down DDL for the generic envelope plus aggregate projections, accounting links, and migration receipts; parameterized insert commands, duplicate guards, explicit commit/rollback plans, and executors against both the immutable record store and durable file boundary. A production database driver remains outside this package. |
 | SQLite durable migration rehearsal | `scripts/company_sqlite_rehearsal.py` | Applies the four company SQL gates transactionally to a SQLite database, inserts the sanitized raw-envelope cohort with uniqueness checks, records an immutable migration receipt, reopens for integrity/count verification, and makes an identical replay idempotent. This is a rehearsal adapter, not yet the production service driver. |
 | Shared SQLite driver boundary | `scripts/company_sqlite_driver.py` + `scripts/company_sqlite_driver_smoke.py` | Centralizes WAL, foreign keys, busy timeout, immediate transactions, catalog migration, rollback, reopen, integrity, and backup behavior; it executes the exact parameterized `persistence/sql` company-record insert shape through an allow-list. The smoke gate proves an intentional failed transaction leaves zero rows and a successful command transaction commits one. This is the local service-driver prototype, not a managed production database deployment. |
-| PostgreSQL target adapter | `scripts/company_postgres_target_apply.py` + `scripts/postgres_target_schema.sql` | Applies the validated redacted raw-envelope cohort to PostgreSQL only, with the version-4 catalog, JSONB payloads, conflict checks, transaction-bound inserts, logical row hashes, durable migration receipt, and idempotent replay. The local PostgreSQL 18 target now contains 120 records and one receipt; projections and accounting links remain separately reviewed cohorts. |
+| PostgreSQL target adapter | `scripts/company_postgres_target_apply.py` + `scripts/postgres_target_schema.sql` | Applies the validated redacted raw-envelope cohort to PostgreSQL only, with the version-4 catalog, JSONB payloads, conflict checks, transaction-bound inserts, logical row hashes, durable migration receipt, and idempotent replay. The local PostgreSQL 18 target contains 120 raw records; reviewed projection and accounting cohorts are applied through separate adapters. |
+| PostgreSQL aggregate projection adapter | `scripts/company_postgres_projection_apply.py` | Persists native domain-promotion receipts to PostgreSQL with immutable aggregate revisions, source-event conflict checks, cohort-scoped `Projected` receipts, table locking, and idempotent replay. The reviewed typed cohorts are executable against the same PostgreSQL catalog; cash, accounting posting, and target ownership remain separate gates. |
+| PostgreSQL accounting-link adapter | `scripts/company_postgres_accounting_link_apply.py` | Persists native accounting-link receipts with event/source/journal/principal uniqueness and conflict checks, cohort-scoped `AccountingLinked` receipts, and idempotent replay. It records traceability only; it does not post journals, release cash, or close periods. |
+| PostgreSQL typed-cohort rehearsal | `scripts/company_postgres_cohort_rehearsal.sh` + `scripts/company_postgres_projection_parity.py` | Re-runs the raw staging and ten reviewed typed cohorts against PostgreSQL, compares every receipt by target/source identity, and replays each cohort. The configured local target reports 120 raw records, 93 aggregate projections, 3 accounting links, and 13 receipts with zero replay inserts. |
 | Rabbita ERP UI clone | `frontend/main` + `frontend/public` + `frontend/README.md` | Designer-facing ERP shell is ported with Rabbita 0.12.4 and Warren-compatible JS build output: source login gradient/copy, 220/64px dark navigation, nested ERP menu hierarchy, header actions, dashboard KPI/funnel/risk layout, and mobile drawer behavior. Major ERP route families now render source-shaped read-only fixtures for projects/plans/workflow, AI, sales, cost/procurement, finance, analysis, and system administration. Live API/query/command wiring, detail/new routes, and final page-by-page parity remain pending. |
 | Managed production deployment contract | `scripts/company_production_deployment_check.py` + `docs/PRODUCTION_DEPLOYMENT_GATE.md` | Credential-free manifest validation requires a managed PostgreSQL engine, DSN environment reference, bounded pool, verified TLS, encryption at rest, cross-region backup, restore objectives, rollback, observability, and structured operations/security/finance approval records with actor/time/rationale/evidence. The example is intentionally unapproved; provider provisioning remains open. |
 | Durable native-promotion projections | `scripts/company_sqlite_projection_apply.py` + `scripts/erp_migration_rehearsal.sh` | Persists validated native promotion candidates as immutable aggregate revisions in the same SQLite transaction boundary, records a projection receipt, verifies integrity, and makes an identical replay insert zero rows. A production connection pool/service remains pending. |
@@ -305,15 +308,13 @@ promotion of the remaining typed-staged rows, or production readiness.
 
 ## Next implementation slices
 
-1. Extend the PostgreSQL target adapter from raw envelopes to the separately
-   reviewed aggregate/accounting cohorts, then put the same invariants behind
-   the selected production service/database pool with production
-   backup/restore verification. The versioned SQL catalog, reference
-   executor, in-memory batch, file journal, SQLite rehearsal boundary,
-   PostgreSQL raw-envelope boundary, aggregate projections, accounting-link
-   receipt/apply adapter, migration manifest, and mapped-cohort planner are now
-   executable. Production pooling, encryption, retention, and restore runbooks
-   remain open.
+1. Put the PostgreSQL raw-envelope, aggregate-projection, and accounting-link
+   adapters behind the selected production service/database pool with
+   production backup/restore verification. The versioned SQL catalog,
+   reference executor, in-memory batch, file journal, SQLite rehearsal
+   boundary, PostgreSQL target boundary, cohort receipts, and mapped-cohort
+   planner are executable. Production pooling, encryption, retention, and
+   restore runbooks remain open.
 2. Reconcile the quarantined task-state/progress exception with the business
    owner; retain source evidence for rows that lack target domain state or
    approved authority. The full task-state plan now emits a review-only
