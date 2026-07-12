@@ -84,8 +84,8 @@ domain.
   target configuration and credential-free raw-envelope apply; ERP MySQL
   remains source-only.
 - [Rabbita frontend](frontend/README.md) — the ERP UI clone surface, with the
-  designer shell/login/dashboard copied into Rabbita and remaining page seams
-  tracked as explicit migration placeholders.
+  designer shell/login/dashboard and major ERP route families represented in
+  Rabbita as read-only, source-shaped fixtures.
 - [Moon Suite boundary](docs/MOON_SUITE_BOUNDARY.md) — observed sibling
   ownership, reuse rules, and optional integration order.
 
