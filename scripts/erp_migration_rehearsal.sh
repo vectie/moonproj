@@ -24,6 +24,7 @@ DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${15:-}
 PRODUCTION_SERVICE_MANIFEST=${16:-}
 CONSOLIDATED_REPORT_PLAN=${17:-}
 INVESTMENT_BENCHMARK_PLAN=${18:-}
+WARNING_PLAN=${19:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -343,6 +344,24 @@ if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
   echo "investment_benchmark_replay=$INVESTMENT_BENCHMARK_REPLAY"
 fi
 
+if [ -n "$WARNING_PLAN" ]; then
+  WARNING_RECEIPT="$WORK_DIR/warning-receipt.json"
+  moon run --target native cmd/warning -- "$WARNING_PLAN" "$WARNING_RECEIPT"
+  echo "warning_receipt=$WARNING_RECEIPT"
+  WARNING_APPLY="$WORK_DIR/warning-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$WARNING_RECEIPT" "$TARGET_DB" > "$WARNING_APPLY"
+  echo "warning_apply=$WARNING_APPLY"
+  WARNING_PARITY="$WORK_DIR/warning-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$WARNING_RECEIPT" "$TARGET_DB" "$WARNING_PARITY"
+  echo "warning_parity=$WARNING_PARITY"
+  WARNING_REPLAY="$WORK_DIR/warning-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$WARNING_RECEIPT" "$TARGET_DB" > "$WARNING_REPLAY"
+  echo "warning_replay=$WARNING_REPLAY"
+fi
+
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
 python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
@@ -403,6 +422,9 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$WARNING_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then

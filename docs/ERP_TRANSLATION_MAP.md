@@ -187,6 +187,10 @@ The eighteenth wrapper argument can supply a reviewed external benchmark
 reconciliation plan; it is passed through `cmd/investment_benchmark` and the
 same projection/parity/replay adapters. See
 [ERP_INVESTMENT_BENCHMARK.md](ERP_INVESTMENT_BENCHMARK.md).
+The nineteenth wrapper argument can supply a reviewed warning plan; it is
+passed through `cmd/warning` and persists source-bound warning evidence
+without notification delivery, workflow mutation, or cash effects. See
+[ERP_WARNING_BOUNDARY.md](ERP_WARNING_BOUNDARY.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -305,7 +309,7 @@ importer.
 | sales customer/subscription/contract routes | Sales agreement lifecycle | `operations/sales` | Reserve/sign/fulfill lifecycle implemented. |
 | `sale_customer`, `sale_subscription`, `sale_mortgage`, `sale_refund` | Customer, reservation, mortgage, and refund controls | `operations/sales` | Customer identity, reservation conversion, mortgage approval/release, and refund approval/payment implemented; fulfilled sales agreements can now open customer receivables through a separate authority boundary. |
 | `mkt_campaign`, `mkt_placement`, `mkt_channel`, `mkt_material` | Marketing planning and spend | `operations/marketing` | Campaign budget, placement lifecycle, lead capture, and spend caps implemented; channel/material catalogs pending. |
-| `sys_warning`, warning rules/scans/tickets | Warnings and exception ownership | `intelligence/warning` | Deterministic cost-overrun finding and scoped acknowledge/resolve/suppress lifecycle implemented; scheduled scans and ticket persistence pending. |
+| `sys_warning`, warning rules/scans/tickets | Warnings and exception ownership | `intelligence/warning` + `cmd/warning` + `persistence/store` | Deterministic cost-overrun finding and scoped acknowledge/resolve/suppress lifecycle are source-bound into immutable `warning_finding` projections; scheduled scans, notification delivery, and ticket persistence remain pending. |
 | `sale_revenue` | Customer receivable/revenue schedule | `finance/receivable` | Open/partial/collected balance, explicit opening receivable-to-revenue recognition, and separately identified cash-collection source-to-journal events are implemented; revenue policy and cash release remain pending. |
 | receivable snapshots and collection events | Customer receivable persistence | `finance/receivable` + `persistence/store` + `finance/accounting` | Revisioned snapshots serialize open/collected balances for reconciliation; reviewed collection events carry explicit cash/receivable postings without releasing cash or posting the book; revenue recognition policy remains pending. |
 | invoice routes and invoice tables | Invoice acceptance and payment | `operations/invoice` | Issue/accept/void/payment states implemented; an accepted invoice can open a customer receivable through a separate invoice-recognition grant. |

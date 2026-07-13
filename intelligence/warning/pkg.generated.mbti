@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/debug",
   "vectie/moonproj/finance/cost",
   "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
 }
 
 // Values
@@ -15,6 +16,8 @@ pub(all) suberror WarningError {
   EmptyIdentifier
   InvalidState
   NotAuthorized(@foundation.AuthorityError)
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -24,6 +27,14 @@ pub(all) struct WarningEvent {
   actor_id : String
   capability : String
 } derive(Eq, @debug.Debug)
+
+pub(all) struct WarningEvidence {
+  finding : WarningFinding
+  source_snapshot_id : String
+  mapping_version : String
+  evidence_id : String
+} derive(Eq, @debug.Debug)
+pub fn WarningEvidence::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WarningError
 
 pub(all) struct WarningFinding {
   warning_id : String
@@ -38,6 +49,7 @@ pub(all) struct WarningFinding {
   events : Array[WarningEvent]
 } derive(Eq, @debug.Debug)
 pub fn WarningFinding::acknowledge(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
+pub fn WarningFinding::bind_evidence(Self, source_snapshot_id~ : String, mapping_version~ : String, evidence_id~ : String) -> WarningEvidence raise WarningError
 pub fn WarningFinding::new(warning_id~ : String, principal_id~ : String, scope~ : String, rule_code~ : String, target_type~ : String, target_id~ : String, message~ : String, severity~ : WarningSeverity, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
 pub fn WarningFinding::resolve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
 pub fn WarningFinding::suppress(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WarningError
@@ -58,4 +70,3 @@ pub(all) enum WarningState {
 // Type aliases
 
 // Traits
-

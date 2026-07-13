@@ -2,4 +2,9 @@ import {
   "vectie/moonproj/finance",
   "vectie/moonproj/finance/cost",
   "vectie/moonproj/foundation",
+  "vectie/moonproj/persistence/store",
 }
+
+import {
+  "vectie/moonproj/persistence/schema",
+} for "test"

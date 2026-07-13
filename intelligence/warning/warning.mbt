@@ -36,10 +36,23 @@ pub(all) struct WarningFinding {
 } derive(Debug, Eq)
 
 ///|
+/// Source-bound warning evidence. The finding remains an authority-checked
+/// domain decision; this wrapper adds migration/source provenance so the
+/// warning can be persisted and replayed without becoming a workflow command.
+pub(all) struct WarningEvidence {
+  finding : WarningFinding
+  source_snapshot_id : String
+  mapping_version : String
+  evidence_id : String
+} derive(Debug, Eq)
+
+///|
 pub(all) suberror WarningError {
   EmptyIdentifier
   InvalidState
   NotAuthorized(@foundation.AuthorityError)
+  ProjectionIdentity
+  Projection(@store.ProjectionError)
 } derive(Debug, Eq)
 
 ///|
@@ -166,6 +179,21 @@ pub fn WarningFinding::suppress(
     actor_id~,
     grant~,
   )
+}
+
+///|
+pub fn WarningFinding::bind_evidence(
+  self : WarningFinding,
+  source_snapshot_id~ : String,
+  mapping_version~ : String,
+  evidence_id~ : String,
+) -> WarningEvidence raise WarningError {
+  if source_snapshot_id.trim() == "" ||
+    mapping_version.trim() == "" ||
+    evidence_id.trim() == "" {
+    raise WarningError::EmptyIdentifier
+  }
+  { finding: self, source_snapshot_id, mapping_version, evidence_id }
 }
 
 ///|

@@ -32,6 +32,35 @@ test "cost forecast warning is deterministic and resolvable" {
     .resolve(actor_id="alice", grant=warning_grant("warning:resolve"))
   assert_true(resolved.state == WarningState::Resolved)
   assert_true(resolved.severity == WarningSeverity::Critical)
+  let evidence = resolved.bind_evidence(
+    source_snapshot_id="erp-snapshot:warning-001",
+    mapping_version="warning-map-v1",
+    evidence_id="scan:cost-forecast:warning-001",
+  )
+  let schema = @schema.SchemaState::initial()
+  let migration = @schema.MigrationStep::new(
+    version=1,
+    migration_id="V1__foundation",
+    checksum="sha256:one",
+    description="Create foundation tables",
+  )
+  let store = @store.RecordStore::new(schema).migrate(migration)
+  let projection = @store.AggregateProjection::new(
+    store,
+    aggregate_type="warning_finding",
+    aggregate_id="warning-001",
+  )
+  let projection = evidence.append_projection(projection)
+  match projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("erp-snapshot:warning-001"))
+      assert_true(latest.payload.contains("resolved"))
+      assert_true(latest.payload.contains("notification_delivered"))
+      assert_true(latest.payload.contains("workflow_mutated"))
+      assert_true(latest.payload.contains("cash_released"))
+    }
+    None => fail("expected warning projection")
+  }
 }
 
 ///|

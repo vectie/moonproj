@@ -1,0 +1,14 @@
+{
+  "format": "moonproj.company.warning-plan.v1",
+  "warning_id": "warning-cost-001",
+  "principal_id": "co-001",
+  "scope": "project:p-001",
+  "rule_code": "COST_FORECAST_OVERRUN",
+  "target_type": "project",
+  "target_id": "project:p-001",
+  "message": "Forecast cost exceeds target baseline",
+  "severity": "critical",
+  "source_snapshot_id": "erp-snapshot:warning-001",
+  "mapping_version": "warning-map-v1",
+  "evidence_id": "scan:cost-forecast:warning-001"
+}

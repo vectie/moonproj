@@ -81,6 +81,9 @@ secret.
 An eleventh argument supplies the reviewed `jd_task_report` delivery-progress
 mapping; it creates draft progress reports only and never accepts delivery,
 recognizes value, consumes cost, or mutates task state.
+The nineteenth argument supplies a reviewed warning plan; it emits a
+source-bound `warning_finding` projection and keeps notification delivery,
+workflow mutation, and cash effects false.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed
