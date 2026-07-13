@@ -401,7 +401,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "auth"
         and handler["method"] == "GET"
-        and handler["path"] == "/me"
+        and handler["path"] in {"/me", "/my-initiated"}
     ):
         return "connected_profile_read", "accept_browser_profile_scenario_and_production_identity"
     if (

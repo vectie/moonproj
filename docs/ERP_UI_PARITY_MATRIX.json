@@ -1432,8 +1432,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_profile_read",
+      "required_next": "accept_browser_profile_scenario_and_production_identity"
     },
     {
       "module": "auth",

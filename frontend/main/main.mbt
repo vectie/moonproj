@@ -298,6 +298,18 @@ struct DynamicCostRow {
 }
 
 ///|
+struct InitiatedRow {
+  id : String
+  code : String
+  subject : String
+  amount : String
+  state : String
+  date : String
+  biz : String
+  source_kind : String
+}
+
+///|
 struct UserRosterRow {
   user_code : String
   emp_name : String
@@ -500,6 +512,9 @@ struct Model {
   profile_last_login : String
   profile_source_kind : String
   profile_note : String
+  profile_initiated_loaded : Bool
+  profile_initiated_rows : Array[InitiatedRow]
+  profile_initiated_note : String
   health_loaded : Bool
   health_table_rows : Array[HealthTableRow]
   health_source_table_count : String
@@ -626,6 +641,8 @@ enum Msg {
   DynamicCostLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
+  ProfileInitiatedLoaded(String)
+  ProfileInitiatedLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
   HealthTablesLoaded(String)
@@ -774,6 +791,9 @@ fn initial_model() -> Model {
     profile_last_login: "2026-07-13 09:38",
     profile_source_kind: "设计快照",
     profile_note: "个人资料读模型尚未加载 · 使用设计快照",
+    profile_initiated_loaded: false,
+    profile_initiated_rows: [],
+    profile_initiated_note: "本人发起读模型尚未加载 · 使用设计快照",
     health_loaded: false,
     health_table_rows: [],
     health_source_table_count: "0",
@@ -1901,6 +1921,49 @@ fn profile_from_body(body : String) -> Array[String] {
 }
 
 ///|
+fn append_initiated_rows(target : Array[InitiatedRow], value : Json) -> Unit {
+  match value {
+    Json::Object(row) =>
+      target.push({
+        id: json_object_text(row, "id", ""),
+        code: json_object_text(row, "code", ""),
+        subject: json_object_text(row, "subject", ""),
+        amount: json_object_text(row, "amount", "0"),
+        state: json_object_text(row, "state", ""),
+        date: json_object_text(row, "date", ""),
+        biz: json_object_text(row, "biz", ""),
+        source_kind: json_object_text(row, "sourceKind", "imported"),
+      })
+    _ => ()
+  }
+}
+
+///|
+fn initiated_rows_from_body(body : String) -> Array[InitiatedRow] {
+  let rows : Array[InitiatedRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "expenses") {
+            append_initiated_rows(rows, value)
+          }
+          for value in json_array_field(data, "loans") {
+            append_initiated_rows(rows, value)
+          }
+          for value in json_array_field(data, "applies") {
+            append_initiated_rows(rows, value)
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -2386,6 +2449,17 @@ fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
     match result {
       Ok(body) => emit(ProfileLoaded(body))
       Err(_) => emit(ProfileLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_profile_initiated(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
+  let code = if user_code == "" { "admin" } else { user_code }
+  @http.get("/api/company/auth/my-initiated?userCode=" + code).expect_text(result => {
+    match result {
+      Ok(body) => emit(ProfileInitiatedLoaded(body))
+      Err(_) => emit(ProfileInitiatedLoadFailed)
     }
   })
 }
@@ -3955,7 +4029,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let values = profile_from_body(body)
       if values.length() == 10 {
         (
-          none,
+          load_profile_initiated(emit, values[1]),
           {
             ..model,
             profile_loaded: true,
@@ -3970,6 +4044,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             profile_last_login: values[8],
             profile_source_kind: values[9],
             profile_note: "已加载 PostgreSQL 个人资料 · 敏感认证字段未导入",
+            profile_initiated_loaded: false,
+            profile_initiated_rows: [],
+            profile_initiated_note: "正在加载本人发起记录…",
           },
         )
       } else {
@@ -3978,7 +4055,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           {
             ..model,
             profile_loaded: false,
+            profile_initiated_loaded: false,
+            profile_initiated_rows: [],
             profile_note: "个人资料响应无效 · 使用设计快照",
+            profile_initiated_note: "本人发起读模型不可用 · 使用设计快照",
           },
         )
       }
@@ -3989,7 +4069,30 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           profile_loaded: false,
+          profile_initiated_loaded: false,
+          profile_initiated_rows: [],
           profile_note: "个人资料读模型不可用 · 使用设计快照",
+          profile_initiated_note: "本人发起读模型不可用 · 使用设计快照",
+        },
+      )
+    ProfileInitiatedLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          profile_initiated_loaded: true,
+          profile_initiated_rows: initiated_rows_from_body(body),
+          profile_initiated_note: "已加载 PostgreSQL 本人发起记录 · 空表保持可见",
+        },
+      )
+    ProfileInitiatedLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          profile_initiated_loaded: false,
+          profile_initiated_rows: [],
+          profile_initiated_note: "本人发起读模型不可用 · 使用设计快照",
         },
       )
     UsersLoaded(body) =>
@@ -8908,6 +9011,74 @@ fn users_view(model : Model) -> @html.Html {
 }
 
 ///|
+fn initiated_biz_label(biz : String) -> String {
+  match biz {
+    "vcb_expense" => "报销"
+    "vcb_loan_simple" => "借款"
+    "cb_htfk_apply" => "付款申请"
+    _ => biz
+  }
+}
+
+///|
+fn profile_initiated_table(model : Model) -> @html.Html {
+  if model.profile_initiated_loaded {
+    let rows : Array[Array[String]] = []
+    if model.profile_initiated_rows.length() == 0 {
+      rows.push([
+        "—", "当前用户在本次导出中没有发起记录", "—", "—",
+        "—", "—",
+      ])
+    } else {
+      for row in model.profile_initiated_rows {
+        rows.push([
+          row.code,
+          initiated_biz_label(row.biz) +
+          " · " +
+          row.subject +
+          " · " +
+          row.source_kind,
+          "¥" + row.amount,
+          row.state,
+          row.date,
+          "查看 · " + row.id,
+        ])
+      }
+    }
+    table_panel(
+      "我的发起 (" + model.profile_initiated_rows.length().to_string() + ")",
+      "报销 / 借款 / 付款申请 · " + model.profile_initiated_note,
+      data_table(
+        ["编号", "类型 / 主题", "金额", "状态", "日期", "操作"],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "我的发起 (6)",
+      "报销 / 借款 / 付款申请",
+      data_table(
+        ["编号", "主题 / 事由", "金额", "状态", "日期", "操作"],
+        [
+          [
+            "EXP-260712-008", "成都项目现场出差", "¥8,560", "审批中",
+            "2026-07-12", "查看",
+          ],
+          [
+            "LOAN-260713-001", "沈阳项目会议", "¥8,000", "审批中", "2026-07-13",
+            "查看",
+          ],
+          [
+            "PAY-260713-006", "主体结构施工合同付款", "¥1,280,000", "审批中",
+            "2026-07-13", "查看",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
 fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "个人中心",
@@ -8977,27 +9148,7 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           ],
         ),
       ),
-      table_panel(
-        "我的发起",
-        "报销 / 借款 / 付款申请",
-        data_table(
-          ["编号", "主题 / 事由", "金额", "状态", "日期", "操作"],
-          [
-            [
-              "EXP-260712-008", "成都项目现场出差", "¥8,560", "审批中",
-              "2026-07-12", "查看",
-            ],
-            [
-              "LOAN-260713-001", "沈阳项目会议", "¥8,000", "审批中", "2026-07-13",
-              "查看",
-            ],
-            [
-              "PAY-260713-006", "主体结构施工合同付款", "¥1,280,000",
-              "审批中", "2026-07-13", "查看",
-            ],
-          ],
-        ),
-      ),
+      profile_initiated_table(model),
     ],
   )
 }

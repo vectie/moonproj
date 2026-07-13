@@ -328,7 +328,10 @@ those capabilities as source parity.
    imported-profile reads are connected
    for the available governance rows (one group, five options, twelve quality
    rules with four unavailable dependencies, five imported users, two audit
-   events, 29 health-table coverage rows, and an empty BPM pool); super-user
+   events, 29 health-table coverage rows, and an empty BPM pool). The profile
+   vertical also preserves the source user's initiated-document rows (zero
+   expenses, one loan, and three payment applications for the imported
+   `limingjin` identity); super-user
    scope, writes, role tables, retention, source completeness, and
    security-owner acceptance remain gated. See
    [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).

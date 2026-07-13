@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, urlparse
 from company_postgres_target_apply import PostgresTargetError, run_psql, sql_literal
 from company_postgres_service import (
     auth_current_user as service_auth_current_user,
+    auth_my_initiated as service_auth_my_initiated,
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
     payment_applications as service_payment_applications,
@@ -107,6 +108,10 @@ def summary(args: argparse.Namespace) -> dict[str, Any]:
 
 def auth_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
     return service_auth_current_user(_ReadModelPool(args), user_code, 500)
+
+
+def auth_my_initiated(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
+    return service_auth_my_initiated(_ReadModelPool(args), user_code, 500)
 
 
 def receipts(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -467,6 +472,14 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/auth/me":
                     user_code = parse_qs(parsed.query).get("userCode", [""])[0]
                     result = auth_current_user(args, user_code)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"})
+                    else:
+                        response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/auth/my-initiated":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = auth_my_initiated(args, user_code)
                     if result is None:
                         response(self, 404, {"error": "user not found"})
                     else:

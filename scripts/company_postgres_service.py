@@ -4273,6 +4273,88 @@ def auth_current_user(
     }
 
 
+def auth_my_initiated(
+    pool: PsqlPool,
+    user_code: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read the source user's initiated expense/loan/payment records.
+
+    The source endpoint joins three tables.  Empty source tables stay empty;
+    the result never falls back to the designer's sample documents.
+    """
+
+    if not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    users = _raw_source_rows(pool, "sys_user", max(max_rows, 100), AUTH_SOURCE_TABLES)
+    selected = next(
+        (
+            row
+            for row in users
+            if str(row["payload"].get("user_code") or "") == user_code
+        ),
+        None,
+    )
+    if selected is None:
+        return None
+    user_id = str(selected["payload"].get("user_id") or selected["record_id"])
+
+    def initiated_rows(table: str, id_key: str, code_key: str, amount_key: str) -> list[dict[str, Any]]:
+        rows = _raw_source_rows(pool, table, max(max_rows, 100), AUTH_SOURCE_TABLES)
+        filtered = [
+            row
+            for row in rows
+            if str(row["payload"].get("applied_by") or "") == user_id
+        ]
+        filtered.sort(
+            key=lambda row: (
+                str(row["payload"].get("apply_date") or row["payload"].get("created_at") or ""),
+                str(row["payload"].get(id_key) or row["record_id"]),
+            ),
+            reverse=True,
+        )
+        result: list[dict[str, Any]] = []
+        for row in filtered[:max_rows]:
+            payload = row["payload"]
+            result.append(
+                {
+                    "id": str(payload.get(id_key) or row["record_id"]),
+                    "code": str(payload.get(code_key) or ""),
+                    "subject": str(payload.get("subject") or ""),
+                    "amount": payload.get(amount_key),
+                    "state": str(payload.get("apply_state") or ""),
+                    "date": str(payload.get("apply_date") or ""),
+                    "biz": table,
+                    "sourceKind": "imported",
+                }
+            )
+        return result
+
+    expenses = initiated_rows("vcb_expense", "expense_guid", "expense_code", "pay_amount")
+    loans = initiated_rows("vcb_loan_simple", "loan_guid", "loan_code", "loan_amount")
+    applies = initiated_rows("cb_htfk_apply", "htfk_apply_guid", "apply_code", "apply_amount")
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 100), AUTH_SOURCE_TABLES))
+        for table in sorted(AUTH_SOURCE_TABLES)
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "expenses": expenses,
+            "loans": loans,
+            "applies": applies,
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "matched_coverage": {
+            "vcb_expense": len(expenses),
+            "vcb_loan_simple": len(loans),
+            "cb_htfk_apply": len(applies),
+        },
+    }
+
+
 def admin_dict_groups(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
     groups: dict[str, dict[str, int]] = {}
@@ -5351,6 +5433,13 @@ ADMIN_SOURCE_TABLES = {
     "audit_log",
     "my_biz_param_option",
     "sys_user",
+}
+
+AUTH_SOURCE_TABLES = {
+    "sys_user",
+    "vcb_expense",
+    "vcb_loan_simple",
+    "cb_htfk_apply",
 }
 
 ADMIN_QUALITY_SOURCE_TABLES = {
@@ -7381,6 +7470,13 @@ def handler_factory(
                 elif parsed.path == "/api/company/auth/me":
                     user_code = parse_qs(parsed.query).get("userCode", [""])[0]
                     result = auth_current_user(pool, user_code, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif parsed.path == "/api/company/auth/my-initiated":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = auth_my_initiated(pool, user_code, max_response_rows)
                     if result is None:
                         response(self, 404, {"error": "user not found"}, origin)
                     else:

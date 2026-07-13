@@ -436,6 +436,24 @@ def main() -> int:
         )
         if status != 404 or missing_profile_payload is None or missing_profile_payload.get("error") != "user not found":
             raise SmokeError(f"missing auth profile should be 404: {status} {missing_profile_payload}")
+        status, initiated_payload = request(
+            args.port,
+            "/api/company/auth/my-initiated?userCode=limingjin",
+            token=token,
+        )
+        initiated_data = (initiated_payload or {}).get("data", {})
+        if (
+            status != 200
+            or initiated_payload is None
+            or len(initiated_data.get("expenses", [])) != 0
+            or len(initiated_data.get("loans", [])) != 1
+            or len(initiated_data.get("applies", [])) != 3
+            or initiated_data.get("loans", [])[0].get("code") != "JK202604200001"
+            or initiated_payload.get("source_coverage", {}).get("vcb_expense") != 0
+            or initiated_payload.get("source_coverage", {}).get("vcb_loan_simple") != 1
+            or initiated_payload.get("source_coverage", {}).get("cb_htfk_apply") != 3
+        ):
+            raise SmokeError(f"auth initiated read failed: {status} {initiated_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -1555,6 +1573,9 @@ def main() -> int:
                     "rbac_role_source_status": user_rows[0].get("rolesSourceStatus"),
                     "profile_user_code": profile_data.get("userCode"),
                     "profile_source_kind": profile_data.get("sourceKind"),
+                    "profile_initiated_expenses": len(initiated_data.get("expenses", [])),
+                    "profile_initiated_loans": len(initiated_data.get("loans", [])),
+                    "profile_initiated_applies": len(initiated_data.get("applies", [])),
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,
