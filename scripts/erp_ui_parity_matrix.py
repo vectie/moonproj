@@ -423,7 +423,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
-        and handler["path"] in {"/providers", "/providers/:guid"}
+        and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
     ):
         return "connected_supplier_read", "accept_browser_supplier_scenario_and_production_identity"
     if (

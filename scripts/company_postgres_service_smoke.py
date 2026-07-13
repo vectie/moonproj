@@ -143,6 +143,19 @@ def main() -> int:
         ):
             raise SmokeError(f"source supplier detail read failed: {status} {supplier_detail_payload}")
         supplier_detail_status = status
+        status, supplier_stats_payload = request(
+            args.port, "/api/company/srm/stats/overview", token=token,
+        )
+        supplier_stats_data = (supplier_stats_payload or {}).get("data", {})
+        if (
+            status != 200
+            or supplier_stats_payload is None
+            or supplier_stats_data.get("total") != 0
+            or supplier_stats_data.get("byEvalResult") != []
+            or supplier_stats_payload.get("source_coverage", {}).get("cb_contract") != 2
+            or supplier_stats_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source supplier stats read failed: {status} {supplier_stats_payload}")
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1634,6 +1647,8 @@ def main() -> int:
                     "supplier_source_rows": len(supplier_source_data or []),
                     "supplier_source_provider_rows": supplier_source_payload.get("source_coverage", {}).get("srm_provider"),
                     "supplier_detail_source_status": supplier_detail_status,
+                    "supplier_stats_total": supplier_stats_data.get("total"),
+                    "supplier_stats_contract_rows": supplier_stats_payload.get("source_coverage", {}).get("cb_contract"),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,

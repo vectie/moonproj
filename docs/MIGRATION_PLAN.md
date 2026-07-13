@@ -284,7 +284,8 @@ connected API groups, and 22 fixture/no-source API groups.
 
 The source-handler action register now marks the ERP `GET /srm/providers` and
 `GET /srm/providers/:guid` reads as connected through separate
-`/api/company/srm/providers[/{guid}]` boundaries.
+`/api/company/srm/providers[/{guid}]` boundaries; the supplier statistics
+overview is connected through `/api/company/srm/stats/overview` as well.
 The route-level count now includes the connected `/srm/providers/:guid`
 source-detail read; the list remains a connected command-form page with a
 separate source master read.
@@ -303,8 +304,10 @@ The supplier provider list is now an additional bounded source read:
 `/srm/providers` loads `/api/company/srm/providers`, which reproduces the ERP
 provider-list shape from imported `srm_provider`, `srm_provider_bu`,
 `srm_category`, and related contract envelopes. The detail read also returns
-linked business units and historical contract evidence. Both return source coverage,
-`authorizing=false`, and an explicit empty list when the source supplier table
+linked business units and historical contract evidence. The statistics read
+also reproduces enabled-provider, rating/source, category, and top-business
+aggregates. These reads return source coverage and `authorizing=false`; the
+list/statistics responses remain empty and detail returns a covered 404 when the source supplier table
 is absent; it never falls back to local supplier projections for a successful
 empty source read. The local `/api/company/suppliers` command projection
 remains a separate boundary for command feedback. The supplier risk board is

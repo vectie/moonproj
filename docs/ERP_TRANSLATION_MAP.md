@@ -120,8 +120,9 @@ planning/publish/open-bidding/award/complete/cancel boundary; imported tenders
 remain read-only and awards require an active qualified supplier projection.
 The supplier read model exposes qualification/scope candidates to
 `/srm/providers`; the page now also reads the source-compatible ERP provider
-master list through `/api/company/srm/providers`, and source provider detail
-through `/api/company/srm/providers/<guid>`, preserving source coverage,
+master list through `/api/company/srm/providers`, source provider detail
+through `/api/company/srm/providers/<guid>`, and supplier overview aggregates
+through `/api/company/srm/stats/overview`, preserving source coverage,
 linked BU/contract evidence, and an explicit empty-source state without
 merging it into local command projections. Local supplier
 create/update/review/blacklist/void commands,

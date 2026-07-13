@@ -33,7 +33,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/suppliers`` (POST create draft)
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
 * ``/api/company/suppliers/<id>/risk`` (GET)
-* ``/api/company/srm/providers[/{guid}]`` and ``/api/company/srm/risk-board`` (GET)
+* ``/api/company/srm/providers[/{guid}]``, ``/api/company/srm/stats/overview``,
+  and ``/api/company/srm/risk-board`` (GET)
   source-compatible, non-authorizing reads with coverage metadata
 * ``/api/company/tender-splits`` (GET/POST)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}`` (GET)
@@ -1221,6 +1222,103 @@ def supplier_source_detail(
             "serviceBus": service_bus,
             "contracts": contract_rows[:max_rows],
         },
+        **_supplier_source_metadata(coverage),
+    }
+
+
+def supplier_source_stats(
+    pool: PsqlPool,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read the ERP supplier statistics overview from imported source rows."""
+
+    coverage = _supplier_source_coverage(pool, max_rows)
+    providers = _raw_source_rows(pool, "srm_provider", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    categories = _raw_source_rows(pool, "srm_category", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    contracts = _raw_source_rows(pool, "cb_contract", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    visible = [
+        row
+        for row in providers
+        if not row["payload"].get("deleted_at")
+        and _srm_source_bool(row["payload"], "enabled", False)
+    ]
+    by_eval: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    by_category: dict[str, int] = {}
+    for row in visible:
+        payload = row["payload"]
+        eval_result = str(payload.get("eval_result") or "未定级")
+        source = str(payload.get("source") or "")
+        category_code = str(payload.get("main_category_code") or "")
+        by_eval[eval_result] = by_eval.get(eval_result, 0) + 1
+        by_source[source] = by_source.get(source, 0) + 1
+        by_category[category_code] = by_category.get(category_code, 0) + 1
+
+    def contract_matches(provider_payload: dict[str, Any]) -> list[dict[str, Any]]:
+        provider_name = str(provider_payload.get("provider_name") or "")
+        short_name = str(provider_payload.get("short_name") or "")
+        matches: list[dict[str, Any]] = []
+        for row in contracts:
+            payload = row["payload"]
+            if payload.get("deleted_at"):
+                continue
+            contract_name = str(payload.get("yf_provider_name") or "")
+            if contract_name == provider_name or contract_name == short_name or (
+                short_name and short_name in contract_name
+            ):
+                matches.append(payload)
+        return matches
+
+    top_business: list[dict[str, Any]] = []
+    for row in visible:
+        matches = contract_matches(row["payload"])
+        total_amount = sum(
+            _srm_source_number(contract, "ht_amount")
+            + _srm_source_number(contract, "sum_alter_amount")
+            for contract in matches
+        )
+        top_business.append(
+            {
+                "name": str(row["payload"].get("provider_name") or row["record_id"]),
+                "contractCount": len(matches),
+                "totalAmount": total_amount,
+            }
+        )
+    top_business.sort(key=lambda item: (-float(item["totalAmount"]), str(item["name"])))
+    category_names = {
+        str(row["payload"].get("category_code") or ""): str(row["payload"].get("category_name") or "")
+        for row in categories
+    }
+    by_category_rows = []
+    for row in sorted(
+        categories,
+        key=lambda item: (
+            str(item["payload"].get("sort_order") or ""),
+            str(item["payload"].get("category_code") or ""),
+        ),
+    ):
+        category_code = str(row["payload"].get("category_code") or "")
+        by_category_rows.append(
+            {
+                "name": category_names.get(category_code, category_code),
+                "count": by_category.get(category_code, 0),
+            }
+        )
+    result = {
+        "total": len(visible),
+        "byEvalResult": [
+            {"name": name, "count": by_eval[name]} for name in sorted(by_eval)
+        ],
+        "byCategory": by_category_rows,
+        "bySource": [
+            {"name": name, "count": by_source[name]} for name in sorted(by_source)
+        ],
+        "topBusiness": top_business[:10],
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": result,
         **_supplier_source_metadata(coverage),
     }
 
@@ -8068,6 +8166,8 @@ def handler_factory(
                     provider_guid = parsed.path.rsplit("/", 1)[-1]
                     detail = supplier_source_detail(pool, provider_guid, max_response_rows)
                     response(self, 200 if detail.get("success") is True else 404, detail, origin)
+                elif parsed.path == "/api/company/srm/stats/overview":
+                    response(self, 200, supplier_source_stats(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/supplier-risk-board":
                     response(self, 200, {"items": supplier_risk_board(pool, max_response_rows)}, origin)
                 elif parsed.path == "/api/company/srm/risk-board":

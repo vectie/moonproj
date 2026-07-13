@@ -517,6 +517,11 @@ struct Model {
   supplier_detail_loaded : Bool
   supplier_detail : SupplierDetail?
   supplier_detail_note : String
+  supplier_stats_loaded : Bool
+  supplier_stats_total : String
+  supplier_stats_contract_rows : String
+  supplier_stats_top_business : String
+  supplier_stats_note : String
   sales_loaded : Bool
   sales_family : String
   sales_rows : Array[SalesRow]
@@ -696,6 +701,8 @@ enum Msg {
   SupplierSourceLoadFailed
   SupplierDetailLoaded(String)
   SupplierDetailLoadFailed
+  SupplierStatsLoaded(String)
+  SupplierStatsLoadFailed
   SupplierRiskLoaded(String)
   SupplierRiskLoadFailed
   CreateSupplier
@@ -819,6 +826,11 @@ fn initial_model() -> Model {
     supplier_detail_loaded: false,
     supplier_detail: None,
     supplier_detail_note: "供应商源详情尚未加载 · 使用设计快照",
+    supplier_stats_loaded: false,
+    supplier_stats_total: "0",
+    supplier_stats_contract_rows: "0",
+    supplier_stats_top_business: "源表未提供",
+    supplier_stats_note: "供应商统计源读模型尚未加载 · 使用设计快照",
     sales_loaded: false,
     sales_family: "",
     sales_rows: [],
@@ -1470,6 +1482,56 @@ fn supplier_detail_from_body(body : String) -> SupplierDetail? {
       }
     _ => None
   }
+}
+
+///|
+fn supplier_stats_from_body(body : String) -> (String, String, String, String) {
+  let mut total = "0"
+  let mut contract_rows = "0"
+  let mut top_business = "源表未提供"
+  let mut missing_table_count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      missing_table_count = json_array_field(
+          fields, "missing_or_empty_source_tables",
+        )
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          total = json_object_text(data, "total", "0")
+          match fields.get("source_coverage") {
+            Some(Json::Object(coverage)) =>
+              contract_rows = json_object_text(coverage, "cb_contract", "0")
+            _ => ()
+          }
+          let mut found = false
+          for value in json_array_field(data, "topBusiness") {
+            if !found {
+              match value {
+                Json::Object(row) => {
+                  top_business = json_object_text(
+                    row, "name", "源表未提供",
+                  )
+                  found = true
+                }
+                _ => ()
+              }
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (
+    total,
+    contract_rows,
+    top_business,
+    "缺失/空源表 " + missing_table_count,
+  )
 }
 
 ///|
@@ -3061,6 +3123,16 @@ fn load_supplier_detail(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
 }
 
 ///|
+fn load_supplier_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/srm/stats/overview").expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierStatsLoaded(body))
+      Err(_) => emit(SupplierStatsLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_supplier_risk(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/srm/risk-board").expect_text(result => {
     match result {
@@ -3992,7 +4064,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     SupplierSourceLoaded(body) => {
       let (rows, missing_table_count) = supplier_source_rows_from_body(body)
       (
-        none,
+        load_supplier_stats(emit),
         {
           ..model,
           supplier_source_loaded: true,
@@ -4044,6 +4116,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           supplier_detail_loaded: false,
           supplier_detail: None,
           supplier_detail_note: "供应商源详情不可用 · 使用设计快照",
+        },
+      )
+    SupplierStatsLoaded(body) => {
+      let (total, contract_rows, top_business, stats_note) = supplier_stats_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          supplier_stats_loaded: true,
+          supplier_stats_total: total,
+          supplier_stats_contract_rows: contract_rows,
+          supplier_stats_top_business: top_business,
+          supplier_stats_note: "已加载 PostgreSQL 供应商统计源读模型 · " +
+          stats_note,
+        },
+      )
+    }
+    SupplierStatsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_stats_loaded: false,
+          supplier_stats_total: "0",
+          supplier_stats_contract_rows: "0",
+          supplier_stats_top_business: "源表未提供",
+          supplier_stats_note: "供应商统计源读模型不可用 · 使用设计快照",
         },
       )
     SupplierRiskLoaded(body) => {
@@ -7753,6 +7854,34 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     actions,
     div <| [
       div(class="erp-stat-grid") <| [
+        metric(
+          "集团供应商总数",
+          if model.supplier_stats_loaded {
+            model.supplier_stats_total
+          } else {
+            "—"
+          },
+          if model.supplier_stats_loaded {
+            "TOP 合作 " + model.supplier_stats_top_business
+          } else {
+            "等待 ERP 源统计"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "源合同证据",
+          if model.supplier_stats_loaded {
+            model.supplier_stats_contract_rows
+          } else {
+            "—"
+          },
+          if model.supplier_stats_loaded {
+            model.supplier_stats_note
+          } else {
+            "供应商统计尚未加载"
+          },
+          "metric-blue",
+        ),
         metric(
           "本地命令",
           supplier_state_label(model.supplier_state),

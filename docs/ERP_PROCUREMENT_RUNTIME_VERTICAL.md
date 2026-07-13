@@ -38,6 +38,8 @@ rows are production data.
   detail, including linked business units and historical contract evidence;
   a missing provider returns a source-covered 404 rather than a fabricated
   detail row;
+- `GET /api/company/srm/stats/overview` for source-backed enabled-provider,
+  rating, category/source, and top-business aggregates;
 - `GET /api/company/srm/risk-board` for the source-compatible ERP risk-board
   envelope. It computes the source risk formula only from imported
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
@@ -62,7 +64,9 @@ feedback and fallback. An empty source list remains an explicit empty table;
 it does not silently become fixture suppliers. The source-shaped supplier
 detail/new screen remains alongside the local command states. The detail route
 loads the source provider, BU, and contract envelope when available and keeps
-the designer form as its transport-failure fallback. `/srm/risk-board`
+the designer form as its transport-failure fallback. The provider page also
+loads the source statistics overview after the list, retaining explicit zero
+counts when source tables are empty. `/srm/risk-board`
 loads the source-compatible risk envelope and shows an explicit empty/missing-
 source state for the available snapshot; supplier risk is a derived read and
 does not mutate qualification.
