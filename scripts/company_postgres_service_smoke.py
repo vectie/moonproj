@@ -195,6 +195,57 @@ def main() -> int:
             or proceedings_payload.get("source_coverage", {}).get("vys_proceeding") != 3
         ):
             raise SmokeError(f"proceedings dictionary read failed: {status} {proceedings_payload}")
+        status, investment_versions_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/versions",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_versions_payload is None
+            or len(investment_versions_payload.get("data", [])) != 1
+            or investment_versions_payload.get("data", [])[0].get("versionGuid") != "tzsy-ver-tjhjy-v1"
+            or investment_versions_payload.get("data", [])[0].get("isCurrent") is not True
+        ):
+            raise SmokeError(f"investment version read failed: {status} {investment_versions_payload}")
+        status, investment_indices_payload = request(
+            args.port,
+            "/api/company/investment/versions/tzsy-ver-tjhjy-v1/indices",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_indices_payload is None
+            or len(investment_indices_payload.get("data", [])) != 5
+            or sum(len(group.get("items", [])) for group in investment_indices_payload["data"]) != 26
+            or investment_indices_payload.get("source_coverage", {}).get("tzsy_plan_index") != 26
+        ):
+            raise SmokeError(f"investment index read failed: {status} {investment_indices_payload}")
+        status, investment_profit_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/profit-summary",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_profit_payload is None
+            or investment_profit_payload.get("data", {}).get("revenue") != 18500.0
+            or investment_profit_payload.get("data", {}).get("netProfit") != 2890.0
+            or investment_profit_payload.get("data", {}).get("irr") != 14.8
+        ):
+            raise SmokeError(f"investment profit summary read failed: {status} {investment_profit_payload}")
+        status, investment_dimensions_payload = request(
+            args.port,
+            "/api/company/investment/meta/dimensions",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_dimensions_payload is None
+            or len(investment_dimensions_payload.get("data", [])) != 5
+            or investment_dimensions_payload.get("data", [])[0].get("code") != "key_point"
+        ):
+            raise SmokeError(f"investment dimension read failed: {status} {investment_dimensions_payload}")
         status, project_payload = request(args.port, "/api/company/projects", token=token)
         if (
             status != 200
@@ -1226,6 +1277,10 @@ def main() -> int:
                     "business_unit_rows": 7,
                     "cost_subject_rows": 5,
                     "proceeding_rows": 3,
+                    "investment_version_rows": 1,
+                    "investment_index_rows": 26,
+                    "investment_dimension_rows": 5,
+                    "investment_profit_revenue": 18500.0,
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
                     "project_count": 2,

@@ -47,6 +47,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/business-units/tree`` (GET, source-compatible MDM read)
 * ``/api/company/budget/dict/cost-subjects`` and
   ``/api/company/budget/proceedings`` (GET, source-compatible budget reads)
+* ``/api/company/investment/{projects,versions,meta}/...`` (GET,
+  source-compatible investment reads)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -3782,6 +3784,156 @@ def budget_proceedings(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     }
 
 
+INVESTMENT_DIMENSIONS = [
+    {"code": "key_point", "name": "项目关键节点", "icon": "📅"},
+    {"code": "tax", "name": "项目税费", "icon": "💸"},
+    {"code": "financing", "name": "项目融资", "icon": "🏦"},
+    {"code": "investment", "name": "项目投资及其他", "icon": "💰"},
+    {"code": "carry_over", "name": "项目结转", "icon": "📈"},
+]
+
+
+def _investment_source_rows(
+    pool: PsqlPool,
+    table: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    return _raw_source_rows(pool, table, max(max_rows, 100), INVESTMENT_SOURCE_TABLES)
+
+
+def investment_versions(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    rows = [
+        row["payload"]
+        for row in _investment_source_rows(pool, "tzsy_version", max_rows)
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and not row["payload"].get("deleted_at")
+    ]
+    users = {
+        str(row["payload"].get("user_id", row["record_id"])): str(
+            row["payload"].get("emp_name") or row["payload"].get("user_name") or ""
+        )
+        for row in _investment_source_rows(pool, "sys_user", max_rows)
+    }
+    rows.sort(key=lambda value: (-int(value.get("version_no") or 0), str(value.get("version_guid") or "")))
+    return {
+        "success": True,
+        "code": 0,
+        "data": [
+            {
+                "versionGuid": str(row.get("version_guid") or ""),
+                "versionName": str(row.get("version_name") or ""),
+                "versionNo": int(row.get("version_no") or 0),
+                "isCurrent": bool(row.get("is_current", 0)),
+                "creatorName": users.get(str(row.get("created_by") or ""), ""),
+                "createdAt": str(row.get("created_at") or ""),
+                "remark": str(row.get("remark") or ""),
+                "sourceKind": "imported",
+            }
+            for row in rows
+        ],
+        "source_kind": "imported",
+        "source_coverage": {"tzsy_version": len(rows)},
+    }
+
+
+def investment_indices(
+    pool: PsqlPool,
+    version_id: str,
+    dimension: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(version_id):
+        raise ValueError("invalid version_id")
+    if dimension is not None and not IDENTIFIER.fullmatch(dimension):
+        raise ValueError("invalid investment dimension")
+    rows = [
+        row["payload"]
+        for row in _investment_source_rows(pool, "tzsy_plan_index", max_rows)
+        if str(row["payload"].get("version_guid") or "") == version_id
+        and not row["payload"].get("deleted_at")
+        and (dimension is None or str(row["payload"].get("dimension") or "") == dimension)
+    ]
+    rows.sort(key=lambda value: (str(value.get("dimension") or ""), int(value.get("sort_order") or 0)))
+    by_dimension: dict[str, dict[str, Any]] = {
+        value["code"]: {**value, "items": []} for value in INVESTMENT_DIMENSIONS
+    }
+    for row in rows:
+        group = by_dimension.get(str(row.get("dimension") or ""))
+        if group is None:
+            continue
+        group["items"].append(
+            {
+                "indexGuid": str(row.get("index_guid") or ""),
+                "fullCode": str(row.get("full_code") or ""),
+                "indexName": str(row.get("index_name") or ""),
+                "parentCode": str(row.get("parent_code") or ""),
+                "unit": str(row.get("unit") or ""),
+                "indexValue": row.get("index_value"),
+                "remark": str(row.get("remark") or ""),
+                "sourceKind": "imported",
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": list(by_dimension.values()),
+        "source_kind": "imported",
+        "source_coverage": {"tzsy_plan_index": len(rows)},
+    }
+
+
+def investment_profit_summary(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    versions = investment_versions(pool, project_id, max_rows)["data"]
+    current = next((version for version in versions if version.get("isCurrent")), None)
+    if current is None:
+        return {"success": True, "code": 0, "data": None, "source_kind": "imported"}
+    rows = [
+        row["payload"]
+        for row in _investment_source_rows(pool, "tzsy_plan_index", max_rows)
+        if str(row["payload"].get("version_guid") or "") == current["versionGuid"]
+        and not row["payload"].get("deleted_at")
+    ]
+    values = {
+        str(row.get("full_code") or ""): _report_float(row, "index_value")
+        for row in rows
+    }
+    revenue = values.get("CO.Revenue")
+    gross_profit = values.get("CO.GrossProfit")
+    net_profit = values.get("CO.NetProfit")
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "versionGuid": current["versionGuid"],
+            "versionName": current["versionName"],
+            "revenue": revenue,
+            "cost": values.get("CO.Cost"),
+            "grossProfit": gross_profit,
+            "netProfit": net_profit,
+            "irr": values.get("CO.IRR"),
+            "npv": values.get("CO.NPV"),
+            "grossProfitMargin": round(gross_profit / revenue * 100, 2) if revenue and gross_profit is not None else None,
+            "netProfitMargin": round(net_profit / revenue * 100, 2) if revenue and net_profit is not None else None,
+            "investment": values.get("Inv.Total"),
+            "taxTotal": values.get("Tax.Total"),
+            "finTotal": values.get("Fin.Total"),
+            "sourceKind": "imported",
+        },
+        "source_kind": "imported",
+        "source_coverage": {"tzsy_version": len(versions), "tzsy_plan_index": len(rows)},
+    }
+
+
 def _shift_plan_date(value: Any, delay_days: int) -> str:
     parsed = _report_date(str(value or ""))
     if parsed is None:
@@ -3968,6 +4120,14 @@ PROJECT_SOURCE_TABLES = {
 BUDGET_SOURCE_TABLES = {
     "my_biz_param_option",
     "vys_proceeding",
+}
+
+INVESTMENT_SOURCE_TABLES = {
+    "ep_project",
+    "mu_business_unit",
+    "sys_user",
+    "tzsy_version",
+    "tzsy_plan_index",
 }
 
 
@@ -6101,6 +6261,37 @@ def handler_factory(
                     response(self, 200, budget_cost_subjects(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/budget/proceedings":
                     response(self, 200, budget_proceedings(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/investment/meta/dimensions":
+                    response(
+                        self,
+                        200,
+                        {"success": True, "code": 0, "data": INVESTMENT_DIMENSIONS, "source_kind": "imported"},
+                        origin,
+                    )
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/versions",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    response(self, 200, investment_versions(pool, project_value, max_response_rows), origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/versions/[A-Za-z0-9_.:-]{1,128}/indices",
+                    parsed.path,
+                ):
+                    version_value = parsed.path.split("/")[-2]
+                    dimension_value = parse_qs(parsed.query).get("dimension", [None])[0]
+                    response(
+                        self,
+                        200,
+                        investment_indices(pool, version_value, dimension_value, max_response_rows),
+                        origin,
+                    )
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/profit-summary",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    response(self, 200, investment_profit_summary(pool, project_value, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
                     parsed.path,

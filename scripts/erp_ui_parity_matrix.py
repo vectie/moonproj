@@ -321,6 +321,17 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_budget_read", "accept_browser_budget_scenario_and_production_identity"
     if (
+        handler["module"] == "investment"
+        and handler["method"] == "GET"
+        and handler["path"] in {
+            "/projects/:projGuid/versions",
+            "/versions/:versionGuid/indices",
+            "/projects/:projGuid/profit-summary",
+            "/meta/dimensions",
+        }
+    ):
+        return "connected_investment_read", "accept_browser_investment_scenario_and_production_identity"
+    if (
         handler["module"] == "plan"
         and handler["method"] == "GET"
         and handler["path"]
@@ -459,7 +470,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The connected exceptions are",
         "the fixed dashboard read-model and the local",
         "expense/contract/payment-application/tender command, supplier read,",
-        "MDM organization/project master, budget dictionary reads, delivery, core report read,",
+        "MDM organization/project master, budget dictionary, investment reads, delivery, core report read,",
         "read/command, project-plan read, and non-authorizing workflow-definition",
         "read verticals.",
         "",

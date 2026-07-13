@@ -2545,8 +2545,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_investment_read",
+      "required_next": "accept_browser_investment_scenario_and_production_identity"
     },
     {
       "module": "investment",
@@ -2555,8 +2555,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_investment_read",
+      "required_next": "accept_browser_investment_scenario_and_production_identity"
     },
     {
       "module": "investment",
@@ -2575,8 +2575,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_investment_read",
+      "required_next": "accept_browser_investment_scenario_and_production_identity"
     },
     {
       "module": "investment",
@@ -2585,8 +2585,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_investment_read",
+      "required_next": "accept_browser_investment_scenario_and_production_identity"
     },
     {
       "module": "investment",

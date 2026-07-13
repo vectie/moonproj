@@ -79,6 +79,12 @@ until legal-principal and role ownership are accepted.
 Expense-form dictionary reads are available at
 `/api/company/budget/dict/cost-subjects` and `/api/company/budget/proceedings`;
 dictionary and expense writes remain finance-owner gated.
+Investment read evidence is available at
+`/api/company/investment/projects/:id/versions`,
+`/api/company/investment/versions/:id/indices`,
+`/api/company/investment/projects/:id/profit-summary`, and
+`/api/company/investment/meta/dimensions`; import and valuation mutations remain
+separately gated.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
