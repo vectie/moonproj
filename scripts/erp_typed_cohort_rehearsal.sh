@@ -68,18 +68,37 @@ run_task_state_clean() {
 
 run_task_state_clean
 
-# Produce a review-only artifact for the full task-state cohort. The native
-# command is intentionally not called for this plan because quarantined rows
-# must remain source evidence until a business owner decides how to resolve
-# the dependency conflicts.
+# Produce a review artifact for the full task-state cohort. The target task
+# state remains untouched, but the undecided conflict is durably preserved as
+# non-authorizing evidence so the migration does not lose the source context.
+TASK_STATE_EVIDENCE_MAPPING="$WORK_DIR/task-state-exception-evidence-mapping.json"
+"$SCRIPT_DIR/erp_mapping_variant.py" \
+  "$MAPPING_PATH" "$TASK_STATE_EVIDENCE_MAPPING" \
+  "erp-typed-task-state-exception-evidence-v1-review-001" >/dev/null
 TASK_STATE_REVIEW_PLAN="$WORK_DIR/task-state-review-plan.json"
 "$SCRIPT_DIR/erp_task_state_promotion_plan.py" \
-  "$EXPORT_DIR" "$MAPPING_PATH" "$TASK_STATE_REVIEW_PLAN"
+  "$EXPORT_DIR" "$TASK_STATE_EVIDENCE_MAPPING" "$TASK_STATE_REVIEW_PLAN"
 echo "task_state_review_plan=$TASK_STATE_REVIEW_PLAN"
 TASK_STATE_EXCEPTION_REVIEW="$WORK_DIR/task-state-exception-review.json"
 "$SCRIPT_DIR/erp_task_state_exception_review.py" \
   "$TASK_STATE_REVIEW_PLAN" "$TASK_STATE_EXCEPTION_REVIEW"
 echo "task_state_exception_review=$TASK_STATE_EXCEPTION_REVIEW"
+TASK_STATE_EVIDENCE_RECEIPT="$WORK_DIR/task-state-exception-evidence-promotion.json"
+moon run --target native cmd/task_state_evidence -- \
+  "$TASK_STATE_EXCEPTION_REVIEW" "$TASK_STATE_EVIDENCE_RECEIPT"
+echo "task_state_exception_evidence_promotion=$TASK_STATE_EVIDENCE_RECEIPT"
+TASK_STATE_EVIDENCE_APPLY="$WORK_DIR/task-state-exception-evidence-projection-apply.json"
+"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" > "$TASK_STATE_EVIDENCE_APPLY"
+echo "task_state_exception_evidence_projection_apply=$TASK_STATE_EVIDENCE_APPLY"
+TASK_STATE_EVIDENCE_PARITY="$WORK_DIR/task-state-exception-evidence-projection-parity.json"
+"$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+  "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" "$TASK_STATE_EVIDENCE_PARITY"
+echo "task_state_exception_evidence_projection_parity=$TASK_STATE_EVIDENCE_PARITY"
+TASK_STATE_EVIDENCE_REPLAY="$WORK_DIR/task-state-exception-evidence-projection-replay.json"
+"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" > "$TASK_STATE_EVIDENCE_REPLAY"
+echo "task_state_exception_evidence_projection_replay=$TASK_STATE_EVIDENCE_REPLAY"
 
 run_cohort evidence erp_typed_evidence_promotion_plan.py
 run_cohort investment erp_investment_promotion_plan.py

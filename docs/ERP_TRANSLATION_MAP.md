@@ -328,19 +328,20 @@ When accounting mappings are supplied, the wrapper also emits
 requires the native `AccountingBook.close_reconciled` gate before a real period
 can close.
 The sixth wrapper argument (or the standalone
-`scripts/erp_typed_cohort_rehearsal.sh`) runs eight separately versioned typed
+`scripts/erp_typed_cohort_rehearsal.sh`) runs separately versioned typed
 cohorts: workflow, lifecycle, task structure, investment, payment, users,
 audit, parameters, and the clean project-2 task-state cohort. The fixture
 accepts 34 business-cohort items; every cohort is projected to SQLite and rechecked at exact
 `shadow_verified` parity. Project 1 task state remains a separate exception
-gate.
+gate, while its undecided exception is now durably preserved as a separate
+non-authorizing observation projection.
 The evidence plan additionally preserves 40 rows from task snapshots/reports,
 workflow assignees, lifecycle-instance history, lifecycle-stage catalog, and
 proceeding catalog as `typed_evidence` projections. These are queryable
 redacted evidence, not target workflow, authority, or economic state.
-Together the 34 business and 40 evidence cohort items add 74 accepted typed
-projections to the rehearsal database; evidence rows remain explicitly
-non-authoritative.
+Together the 34 business, 40 typed-evidence, and one task-state-observation
+cohort items add 75 accepted typed projections to the rehearsal database;
+evidence rows remain explicitly non-authoritative.
 The full wrapper also emits `cutover-gate.json`; a technical pass means
 `ready_for_business_acceptance`, not ownership transfer. The artifact records
 the unresolved project-1 dependency, managed-production database deployment,

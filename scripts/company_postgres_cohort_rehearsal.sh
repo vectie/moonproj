@@ -143,7 +143,7 @@ if [ -n "$BASE_ACCOUNTING_MAPPING" ]; then
   fi
 fi
 
-for label in workflow lifecycle task-structure task-state-project2 evidence investment payment users audit parameter
+for label in workflow lifecycle task-structure task-state-project2 task-state-exception-evidence evidence investment payment users audit parameter
 do
   apply_projection "$label" ""
 done

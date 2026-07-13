@@ -93,7 +93,7 @@ existing ERP remains authoritative.
 | Typed workflow-definition promotion | `scripts/erp_workflow_promotion_plan.py` + `cmd/promote` + `migration/erp` | Actual export rows produce 2 ready process definitions and 12 ordered steps under explicit capability mappings; a missing step mapping quarantines its process before domain import. |
 | Typed project-lifecycle promotion | `scripts/erp_lifecycle_promotion_plan.py` + `cmd/promote` + `migration/erp` | Actual export rows produce 2 ready project masters and 2 lifecycle cohorts; explicit stage mappings replay `proj-0001` to development and `proj-0002` to design under project-scoped authority. Missing stage mappings quarantine before domain import. |
 | Typed project-task structure promotion | `scripts/erp_task_promotion_plan.py` + `cmd/promote` + `migration/erp` | Actual export rows produce 2 ready project task plans containing 7 and 2 dependency-ordered tasks. Structure is promoted under `project:task:add`; source state/progress remains evidence because the fixture's child-state history conflicts with target dependency replay. |
-| Typed cohort durable projection/parity runner | `scripts/erp_typed_cohort_rehearsal.sh` + `scripts/erp_mapping_variant.py` | Eight separately versioned business cohorts plus the clean project-2 task-state cohort and a typed-evidence cohort promote 74 accepted typed items into SQLite projections; every reopened cohort reports exact `shadow_verified` parity, and a second run inserts zero projections. |
+| Typed cohort durable projection/parity runner | `scripts/erp_typed_cohort_rehearsal.sh` + `scripts/erp_mapping_variant.py` + `cmd/task_state_evidence` | Eight separately versioned business cohorts plus the clean project-2 task-state cohort, one quarantined task-state observation, and a typed-evidence cohort promote 75 accepted typed items into SQLite projections; every reopened cohort reports exact `shadow_verified` parity, and a second run inserts zero projections. |
 | Typed evidence preservation cohort | `scripts/erp_typed_evidence_promotion_plan.py` + `cmd/promote` + `persistence/store` | Nine task snapshots, one task report, six workflow assignees, fourteen lifecycle-instance history rows, seven lifecycle catalog rows, and three proceeding rows are preserved as 40 evidence-only projections. Secret-shaped fields are rejected, source identity is checked, and no authority, workflow, or economic state is inferred. |
 | Typed investment-model promotion and evaluation | `scripts/erp_investment_promotion_plan.py` + `cmd/promote` + `cmd/investment_model_eval` + `investment/model` | Actual export rows produce 1 ready investment model with 26 indexes under explicit version/index authority; the follow-on evaluator classifies numeric/date/source values, checks three parent totals, derives four explicit ratio metrics, and persists a source-bound analytics-only projection without execution, position, accounting, or cash effects. Unknown formula semantics remain preserved evidence. |
 | Typed commitment-state/payment promotion | `scripts/erp_payment_promotion_plan.py` + `cmd/promote` + `migration/erp` | An explicit contract-state map replays 2 commitments through performed, turns 4 payment-plan rows into planned milestones, and turns 3 applications into requested settlements; approval, cash release, reconciliation, and accounting remain separate target events. Missing state mapping quarantines the cohort. |
@@ -305,11 +305,12 @@ business items across workflow, lifecycle, task structure, investment, payment,
 credential-free users, audit, parameter, and clean project-2 task-state
 cohorts, plus 40 redacted typed-evidence rows from task snapshots/reports,
 workflow assignees, lifecycle-instance history, lifecycle-stage catalog, and
-proceeding catalog, for 74 typed items in total. Each cohort has its own
-mapping version and exact parity report; the complete database reaches 51
-projections and 13 migration receipts before task-state; with the clean
-project-2 state and typed-evidence cohorts it reaches 95 projections and 16
-receipts. A second full run is idempotent.
+proceeding catalog, plus one quarantined project-1 task-state observation, for
+75 typed items in total. Each cohort has its own mapping version and exact
+parity report; the complete database reaches 51 projections and 13 migration
+receipts before task-state; with the clean project-2 state, observed exception,
+and typed-evidence cohorts it reaches 96 projections and 17 receipts. A second
+full run is idempotent.
 With the optional eighth CBS cost-link mapping, the same target database
 reaches 103 projections and 17 migration receipts; all seven `cb_cost` links
 and the deduplicated `cbs_version` configuration report exact
