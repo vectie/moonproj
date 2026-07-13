@@ -278,10 +278,10 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 53 connected browser states, 1
-fixture-backed read-only state, 2 public states, 53 connected API groups,
-and 3 fixture/no-source API groups. The newly connected
-AI analytics, webhook configuration, report-builder, and cost-dashboard read families are
+handlers (182 mutations), with 54 connected browser states, 0
+fixture-backed read-only states, 2 public states, 54 connected API groups,
+and 2 fixture/no-source API groups. The newly connected
+AI analytics, AI Hub observation, webhook configuration, report-builder, and cost-dashboard read families are
 included in those counts; their source tables are currently empty and are not
 treated as provider, draft, notification, or report-template authority.
 
@@ -409,6 +409,17 @@ rows, so successful reads show empty-source state while preserving
 LLM/OCR execution, draft promotion, workflow authority, prompt retention,
 production identity, and AI-owner acceptance remain separate gates.
 
+The AI Hub is now a separate source-observation family. `/ai-hub` loads the
+source-compatible usage-stats, drafts, query-log, corrections, and
+correction-stats reads through PostgreSQL. The current export has no
+`ai_draft`, `ai_query_log`, `ai_correction_log`, `ai_query_session`, or
+`ai_query_turn` rows (and no AI confirmation audit rows), so the screen shows
+explicit empty-source history and usage counts while preserving the designer
+workbench. Intake, confirm, discard, natural-language query, explain, rule,
+approval-draft, global-ask, query-session, and command routes remain gated;
+provider/LLM/OCR execution, draft promotion, prompt retention, and AI-owner
+acceptance are not inferred from a successful read.
+
 Webhook configuration is now a bounded notification read family. `/webhook-config`
 loads `/api/company/webhook/config` over the three source `sys_param` platform
 names, enabled flags, and redacted URL/secret status. The export has no
@@ -531,17 +542,16 @@ remain separate gates.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 53 connected browser states, 1 fixture-backed read-only
-state, and two public states. Its API matrix records 53 connected API groups
-and 3 fixture/no-source groups across MDM organization/project, budget
+currently records 54 connected browser states, no fixture-backed read-only
+state, and two public states. Its API matrix records 54 connected API groups
+and 2 fixture/no-source groups across MDM organization/project, budget
 dictionary and expense detail, investment and cost-dashboard v3,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
-sales, invoice, delivery, dashboard v1, core reports, employee-loan, and
-workflow-definition reads; the three dashboard aliases now represent the
-bounded source-backed v1 read, while `/ai-hub` remains the only fixture-backed
-read-only browser surface because its provider/draft/query-log tables are not
-available in PostgreSQL. The remaining browser views and API groups are explicitly tracked
+sales, invoice, delivery, dashboard v1, core reports, employee-loan,
+workflow-definition, and AI Hub observation reads; the three dashboard aliases
+now represent the bounded source-backed v1 read. The remaining browser views
+and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
 rather than additional platform hardening, controls the next work.

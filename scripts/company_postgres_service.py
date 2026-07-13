@@ -69,6 +69,9 @@ The bounded service exposes these endpoints:
   remain gated)
 * ``/api/company/ai-stats/{overview,activity,badge}`` (GET, source-compatible
   AI analytics reads; LLM/OCR execution and draft mutation remain gated)
+* ``/api/company/ai-hub/{corrections,correction-stats,drafts,query-log,usage-stats}``
+  (GET, source-compatible AI Hub observation reads; provider execution and
+  draft/query mutations remain gated)
 * ``/api/company/webhook/config`` (GET, source-compatible redacted webhook
   configuration read; provider delivery, writes, and overdue scans remain gated)
 * ``/api/company/reports/templates/meta`` and ``/api/company/reports/templates``
@@ -375,6 +378,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "ocr_status_read",
             "error_log_metadata_read",
             "ai_analytics_read",
+            "ai_hub_read",
             "cost_dashboard_read",
             "webhook_config_read",
             "report_template_read",
@@ -419,6 +423,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "loan_read",
             "loan_command",
             "audit_receipt",
+            "ai_hub_read",
             "cost_dashboard_read",
         ],
         "schema_version": expected_schema_version,
@@ -7290,6 +7295,16 @@ AI_STATS_SOURCE_TABLES = {
     "sys_user",
 }
 
+AI_HUB_SOURCE_TABLES = {
+    "ai_draft",
+    "ai_query_log",
+    "ai_correction_log",
+    "ai_query_session",
+    "ai_query_turn",
+    "audit_log",
+    "sys_user",
+}
+
 WEBHOOK_SOURCE_TABLES = {
     "sys_param",
 }
@@ -9723,6 +9738,322 @@ def ai_stats_source_badge(
     return {"success": True, "code": 0, "data": data, **_ai_stats_source_metadata(coverage)}
 
 
+def _ai_hub_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "query_execution": False,
+        "secret_values_redacted": True,
+    }
+
+
+def _ai_hub_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(
+            _raw_source_rows(pool, table, max(max_rows, 500), AI_HUB_SOURCE_TABLES)
+        )
+        for table in sorted(AI_HUB_SOURCE_TABLES)
+    }
+
+
+def _ai_hub_limit(value: int | str | None, default: int = 50, maximum: int = 500) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError("invalid AI Hub limit") from error
+    if parsed < 1 or parsed > maximum:
+        raise ValueError("invalid AI Hub limit")
+    return parsed
+
+
+def _ai_hub_user_ids(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> set[str] | None:
+    if user_code in (None, ""):
+        return None
+    ids = {user_code}
+    for source in _raw_source_rows(pool, "sys_user", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        payload = source["payload"]
+        if _notification_text(payload, "user_code", "userCode") == user_code:
+            user_id = _notification_text(payload, "user_id", "userId")
+            if user_id:
+                ids.add(user_id)
+    return ids
+
+
+def _ai_hub_user_matches(payload: dict[str, Any], user_ids: set[str] | None) -> bool:
+    if user_ids is None:
+        return True
+    return _notification_text(payload, "user_id", "userId", "user_code", "userCode") in user_ids
+
+
+def _ai_hub_date_value(payload: dict[str, Any], *keys: str) -> str:
+    return _notification_text(payload, *keys)
+
+
+def ai_hub_corrections(
+    pool: PsqlPool,
+    biz_type: str | None,
+    field: str | None,
+    user_code: str | None,
+    limit: int,
+    max_rows: int,
+) -> dict[str, Any]:
+    if biz_type is not None and len(biz_type) > 128:
+        raise ValueError("invalid AI Hub bizType")
+    if field is not None and len(field) > 128:
+        raise ValueError("invalid AI Hub field")
+    if user_code is not None and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid AI Hub userCode")
+    coverage = _ai_hub_coverage(pool, max_rows)
+    user_ids = _ai_hub_user_ids(pool, user_code, max_rows)
+    rows: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "ai_correction_log", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        payload = source["payload"]
+        row_biz_type = _notification_text(payload, "biz_type", "bizType")
+        row_field = _notification_text(payload, "field_name", "fieldName")
+        if biz_type and row_biz_type != biz_type:
+            continue
+        if field and row_field != field:
+            continue
+        if not _ai_hub_user_matches(payload, user_ids):
+            continue
+        rows.append(
+            {
+                "cid": _notification_int(payload, "cid") or source["record_id"],
+                "draftId": _notification_text(payload, "draft_id", "draftId"),
+                "userId": _notification_text(payload, "user_id", "userId"),
+                "bizType": row_biz_type,
+                "fieldName": row_field,
+                "llmValue": _notification_text(payload, "llm_value", "llmValue"),
+                "userValue": _notification_text(payload, "user_value", "userValue"),
+                "descriptionSnippet": _notification_text(
+                    payload, "description_snippet", "descriptionSnippet"
+                )[:200],
+                "createdAt": _notification_text(payload, "created_at", "createdAt"),
+                "sourceKind": "imported",
+            }
+        )
+    rows.sort(key=lambda row: (str(row["createdAt"]), str(row["cid"])), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows[:limit],
+        **_ai_hub_source_metadata(coverage),
+    }
+
+
+def ai_hub_correction_stats(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _ai_hub_coverage(pool, max_rows)
+    by_field: dict[tuple[str, str], int] = {}
+    total = 0
+    for source in _raw_source_rows(pool, "ai_correction_log", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        payload = source["payload"]
+        key = (
+            _notification_text(payload, "biz_type", "bizType"),
+            _notification_text(payload, "field_name", "fieldName"),
+        )
+        by_field[key] = by_field.get(key, 0) + 1
+        total += 1
+    drafts = 0
+    for source in _raw_source_rows(pool, "ai_draft", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        if _notification_text(source["payload"], "status") == "confirmed":
+            drafts += 1
+    rows = [
+        {"bizType": key[0], "fieldName": key[1], "count": count}
+        for key, count in sorted(by_field.items(), key=lambda item: (-item[1], item[0]))[:20]
+    ]
+    correction_rate = round(total / drafts, 2) if drafts else 0
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "byField": rows,
+            "total": total,
+            "drafts": drafts,
+            "correctionRate": correction_rate,
+        },
+        **_ai_hub_source_metadata(coverage),
+    }
+
+
+def ai_hub_drafts(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if user_code is not None and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid AI Hub userCode")
+    coverage = _ai_hub_coverage(pool, max_rows)
+    user_ids = _ai_hub_user_ids(pool, user_code, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "ai_draft", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        payload = source["payload"]
+        if not _ai_hub_user_matches(payload, user_ids):
+            continue
+        result.append(
+            {
+                "draftId": _notification_text(payload, "draft_id", "draftId", fallback=source["record_id"]),
+                "bizType": _notification_text(payload, "biz_type", "bizType"),
+                "description": _notification_text(payload, "description")[:300],
+                "confidence": float(payload.get("confidence") or 0.0),
+                "status": _notification_text(payload, "status"),
+                "createdAt": _notification_text(payload, "created_at", "createdAt"),
+                "confirmedAt": _notification_text(payload, "confirmed_at", "confirmedAt"),
+                "resultBizGuid": _notification_text(payload, "result_biz_guid", "resultBizGuid"),
+                "llmProvider": _notification_text(payload, "llm_provider", "llmProvider"),
+                "llmModel": _notification_text(payload, "llm_model", "llmModel"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda row: str(row["createdAt"]), reverse=True)
+    return {"success": True, "code": 0, "data": result[:30], **_ai_hub_source_metadata(coverage)}
+
+
+def ai_hub_draft(
+    pool: PsqlPool,
+    draft_id: str,
+    user_code: str | None,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(draft_id):
+        raise ValueError("invalid AI Hub draftId")
+    if user_code is not None and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid AI Hub userCode")
+    coverage = _ai_hub_coverage(pool, max_rows)
+    user_ids = _ai_hub_user_ids(pool, user_code, max_rows)
+    for source in _raw_source_rows(pool, "ai_draft", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        payload = source["payload"]
+        candidate = _notification_text(payload, "draft_id", "draftId", fallback=source["record_id"])
+        if candidate != draft_id or not _ai_hub_user_matches(payload, user_ids):
+            continue
+        fields_value = payload.get("fields")
+        field_names: list[str] = []
+        if isinstance(fields_value, dict):
+            field_names = list(fields_value.keys())[:30]
+        elif isinstance(fields_value, str):
+            try:
+                parsed = json.loads(fields_value)
+                if isinstance(parsed, dict):
+                    field_names = list(parsed.keys())[:30]
+            except json.JSONDecodeError:
+                pass
+        result = {
+            "draftId": candidate,
+            "bizType": _notification_text(payload, "biz_type", "bizType"),
+            "bizName": _notification_text(payload, "biz_name", "bizName", "biz_type", "bizType"),
+            "bizFieldSpec": [],
+            "description": _notification_text(payload, "description")[:300],
+            "fields": {},
+            "fieldsHint": field_names,
+            "confidence": float(payload.get("confidence") or 0.0),
+            "status": _notification_text(payload, "status"),
+            "attGuid": _notification_text(payload, "att_guid", "attGuid"),
+            "ocrText": "已脱敏；源服务未导入 OCR 文本",
+            "llm": {
+                "provider": _notification_text(payload, "llm_provider", "llmProvider"),
+                "model": _notification_text(payload, "llm_model", "llmModel"),
+            },
+            "reasoning": "从导入历史草稿恢复；字段值已脱敏",
+        }
+        return {
+            "success": True,
+            "code": 0,
+            "data": result,
+            **_ai_hub_source_metadata(coverage),
+        }
+    return None
+
+
+def ai_hub_query_log(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if user_code is not None and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid AI Hub userCode")
+    coverage = _ai_hub_coverage(pool, max_rows)
+    user_ids = _ai_hub_user_ids(pool, user_code, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "ai_query_log", max(max_rows, 500), AI_HUB_SOURCE_TABLES):
+        payload = source["payload"]
+        if not _ai_hub_user_matches(payload, user_ids):
+            continue
+        result.append(
+            {
+                "qid": _notification_int(payload, "qid") or source["record_id"],
+                "question": _notification_text(payload, "question")[:300],
+                "sql": "已脱敏（源查询文本未导入）" if payload.get("sql") else None,
+                "explanation": _notification_text(payload, "explanation")[:300],
+                "rowCount": _notification_int(payload, "row_count", "rowCount"),
+                "durationMs": _notification_int(payload, "duration_ms", "durationMs"),
+                "llmProvider": _notification_text(payload, "llm_provider", "llmProvider"),
+                "llmModel": _notification_text(payload, "llm_model", "llmModel"),
+                "error": _notification_text(payload, "error"),
+                "createdAt": _notification_text(payload, "created_at", "createdAt"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda row: (str(row["createdAt"]), str(row["qid"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:50], **_ai_hub_source_metadata(coverage)}
+
+
+def ai_hub_usage_stats(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _ai_hub_coverage(pool, max_rows)
+    audit_rows = _raw_source_rows(pool, "audit_log", max(max_rows, 500), AI_HUB_SOURCE_TABLES)
+    now = date.today().isoformat()[:7]
+
+    def month_row(payload: dict[str, Any]) -> bool:
+        return _ai_hub_date_value(payload, "created_at", "createdAt")[:7] == now
+
+    intake_month = sum(
+        1
+        for source in audit_rows
+        if month_row(source["payload"])
+        and _notification_text(source["payload"], "action") == "AI_INTAKE_CONFIRM"
+    )
+    query_month = sum(
+        1
+        for source in audit_rows
+        if month_row(source["payload"])
+        and _notification_text(source["payload"], "action").startswith("AI_QUERY")
+    )
+    session_turn_month = sum(
+        1
+        for source in _raw_source_rows(pool, "ai_query_turn", max(max_rows, 500), AI_HUB_SOURCE_TABLES)
+        if month_row(source["payload"])
+    )
+    intake_total = sum(
+        1
+        for source in audit_rows
+        if _notification_text(source["payload"], "action") == "AI_INTAKE_CONFIRM"
+    )
+    minutes_saved = intake_month * 5 + query_month * 3 + session_turn_month * 2
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "monthlyTotalCalls": intake_month + query_month + session_turn_month,
+            "intakeMonth": intake_month,
+            "queryMonth": query_month,
+            "sessionTurnMonth": session_turn_month,
+            "intakeTotal": intake_total,
+            "minutesSaved": minutes_saved,
+        },
+        **_ai_hub_source_metadata(coverage),
+    }
+
+
 def _webhook_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
@@ -11987,6 +12318,56 @@ def handler_factory(
                         ai_stats_source_badge(pool, biz_type, biz_guid, max_response_rows),
                         origin,
                     )
+                elif parsed.path == "/api/company/ai-hub/corrections":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        ai_hub_corrections(
+                            pool,
+                            query.get("bizType", [None])[0],
+                            query.get("field", [None])[0],
+                            query.get("userCode", [None])[0],
+                            _ai_hub_limit(query.get("limit", [None])[0]),
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/ai-hub/correction-stats":
+                    response(self, 200, ai_hub_correction_stats(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/ai-hub/drafts":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        ai_hub_drafts(pool, query.get("userCode", [None])[0], max_response_rows),
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/ai-hub/drafts/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    query = parse_qs(parsed.query)
+                    draft_id = parsed.path.rsplit("/", 1)[-1]
+                    result = ai_hub_draft(
+                        pool, draft_id, query.get("userCode", [None])[0], max_response_rows,
+                    )
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "草稿不存在"},
+                            origin,
+                        )
+                    else:
+                        response(self, 200, result, origin)
+                elif parsed.path == "/api/company/ai-hub/query-log":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        ai_hub_query_log(pool, query.get("userCode", [None])[0], max_response_rows),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/ai-hub/usage-stats":
+                    response(self, 200, ai_hub_usage_stats(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/webhook/config":
                     response(self, 200, webhook_source_config(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/ocr/status":

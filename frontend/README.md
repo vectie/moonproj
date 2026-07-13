@@ -109,6 +109,14 @@ overview, activity, and badge evidence from PostgreSQL. The export has no
 successful reads show explicit empty-source analytics; LLM/OCR execution,
 draft confirmation, workflow authority, prompt retention, and AI-owner
 acceptance remain gated.
+The authenticated `/ai-hub` screen now reads source-compatible usage stats,
+draft history, query history, correction rows, and correction statistics from
+PostgreSQL before rendering the existing designer workbench. The current
+export has no `ai_draft`, `ai_query_log`, `ai_correction_log`,
+`ai_query_session`, or `ai_query_turn` rows, so successful reads show explicit
+empty-source metrics/history; draft field values, SQL, and OCR text remain
+redacted. Intake/confirm/discard/query/explain/rule/approval/global-ask/
+session/command routes and provider/LLM/OCR execution remain gated.
 The authenticated `/webhook-config` screen now reads the three-platform
 source-compatible webhook configuration through `/api/company/webhook/config`.
 URL and secret values are redacted, and the current export has no `sys_param`

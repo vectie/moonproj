@@ -13,7 +13,7 @@ identified, while the local expense/contract/payment-application/
 tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime, non-authorizing workflow-definition,
  cashflow, CBS, fund-plan, observed-warning, attachment-metadata, marketing,
- notification metadata, OCR-status, error-log, and AI-analytics read boundaries. No
+ notification metadata, OCR-status, error-log, AI-analytics, and AI Hub observation read boundaries. No
 workflow-instance mutation endpoint is inferred.
 """
 
@@ -237,6 +237,8 @@ def match_target(
             return function, "connected_admin_error_read"
         if path == "/ai-stats" and function == "ai_stats_view":
             return function, "connected_ai_stats_read"
+        if path == "/ai-hub" and function == "ai_hub_view":
+            return function, "connected_ai_hub_read"
         if path == "/webhook-config" and function == "webhook_view":
             return function, "connected_webhook_read"
         if path == "/report-builder" and function == "report_builder_view":
@@ -362,6 +364,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_error_log_scenario_and_super_user_owner"
     if target_state == "connected_ai_stats_read":
         return "accept_browser_ai_stats_scenario_and_production_identity"
+    if target_state == "connected_ai_hub_read":
+        return "accept_browser_ai_hub_scenario_and_production_identity"
     if target_state == "connected_webhook_read":
         return "accept_browser_webhook_scenario_and_production_identity"
     if target_state == "connected_report_builder_read":
@@ -594,6 +598,19 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_ai_stats_read", "accept_browser_ai_stats_scenario_and_production_identity"
     if (
+        handler["module"] == "ai-hub"
+        and handler["method"] == "GET"
+        and handler["path"] in {
+            "/corrections",
+            "/correction-stats",
+            "/drafts",
+            "/drafts/:draftId",
+            "/query-log",
+            "/usage-stats",
+        }
+    ):
+        return "connected_ai_hub_read", "accept_browser_ai_hub_scenario_and_production_identity"
+    if (
         handler["module"] == "webhook"
         and handler["method"] == "GET"
         and handler["path"] == "/config"
@@ -696,6 +713,8 @@ def build_matrix(
             api_state = "connected_admin_error_read"
         elif target_state == "connected_ai_stats_read":
             api_state = "connected_ai_stats_read"
+        elif target_state == "connected_ai_hub_read":
+            api_state = "connected_ai_hub_read"
         elif target_state == "connected_webhook_read":
             api_state = "connected_webhook_read"
         elif target_state == "connected_report_builder_read":
@@ -813,7 +832,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, error-log, AI-analytics, webhook-configuration, and report-builder metadata read verticals.",
+        "fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

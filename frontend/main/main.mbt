@@ -408,6 +408,39 @@ struct CostDashboardRow {
 }
 
 ///|
+struct AiHubDraftRow {
+  draft_id : String
+  biz_type : String
+  description : String
+  confidence : String
+  status : String
+  created_at : String
+  source_kind : String
+}
+
+///|
+struct AiHubQueryRow {
+  qid : String
+  question : String
+  explanation : String
+  row_count : String
+  duration_ms : String
+  error : String
+  created_at : String
+  source_kind : String
+}
+
+///|
+struct AiHubCorrectionRow {
+  biz_type : String
+  field_name : String
+  llm_value : String
+  user_value : String
+  created_at : String
+  source_kind : String
+}
+
+///|
 struct CashflowRow {
   ym : String
   planned : String
@@ -800,6 +833,17 @@ struct Model {
   ai_stats_activity_rows : Array[Array[String]]
   ai_stats_missing_table_count : String
   ai_stats_note : String
+  ai_hub_loaded : Bool
+  ai_hub_draft_rows : Array[AiHubDraftRow]
+  ai_hub_query_rows : Array[AiHubQueryRow]
+  ai_hub_correction_rows : Array[AiHubCorrectionRow]
+  ai_hub_monthly_calls : String
+  ai_hub_minutes_saved : String
+  ai_hub_intake_total : String
+  ai_hub_correction_total : String
+  ai_hub_correction_rate : String
+  ai_hub_missing_table_count : String
+  ai_hub_note : String
   webhook_loaded : Bool
   webhook_rows : Array[Array[String]]
   webhook_missing_table_count : String
@@ -1009,6 +1053,12 @@ enum Msg {
   AiStatsOverviewLoaded(String)
   AiStatsActivityLoaded(String)
   AiStatsLoadFailed
+  AiHubUsageLoaded(String)
+  AiHubDraftsLoaded(String)
+  AiHubQueryLogLoaded(String)
+  AiHubCorrectionStatsLoaded(String)
+  AiHubCorrectionsLoaded(String)
+  AiHubLoadFailed
   WebhookLoaded(String)
   WebhookLoadFailed
   ReportBuilderMetaLoaded(String)
@@ -1283,6 +1333,17 @@ fn initial_model() -> Model {
     ai_stats_activity_rows: [],
     ai_stats_missing_table_count: "0",
     ai_stats_note: "AI 分析源读模型尚未加载 · 使用设计快照",
+    ai_hub_loaded: false,
+    ai_hub_draft_rows: [],
+    ai_hub_query_rows: [],
+    ai_hub_correction_rows: [],
+    ai_hub_monthly_calls: "0",
+    ai_hub_minutes_saved: "0",
+    ai_hub_intake_total: "0",
+    ai_hub_correction_total: "0",
+    ai_hub_correction_rate: "0",
+    ai_hub_missing_table_count: "0",
+    ai_hub_note: "AI 工作台源读模型尚未加载 · 使用设计快照",
     webhook_loaded: false,
     webhook_rows: [],
     webhook_missing_table_count: "0",
@@ -3712,6 +3773,168 @@ fn ai_stats_activity_from_body(
 }
 
 ///|
+fn ai_hub_usage_from_body(
+  body : String,
+) -> (Bool, String, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          (
+            true,
+            json_object_text(data, "monthlyTotalCalls", "0"),
+            json_object_text(data, "minutesSaved", "0"),
+            json_object_text(data, "intakeTotal", "0"),
+            missing,
+          )
+        _ => (false, "0", "0", "0", missing)
+      }
+    }
+    _ => (false, "0", "0", "0", "0")
+  }
+}
+
+///|
+fn ai_hub_draft_rows_from_body(
+  body : String,
+) -> (Bool, Array[AiHubDraftRow], String) {
+  let rows : Array[AiHubDraftRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  draft_id: json_object_text(row, "draftId", ""),
+                  biz_type: json_object_text(row, "bizType", ""),
+                  description: json_object_text(row, "description", ""),
+                  confidence: json_object_text(row, "confidence", "0"),
+                  status: json_object_text(row, "status", ""),
+                  created_at: json_object_text(row, "createdAt", ""),
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn ai_hub_query_rows_from_body(
+  body : String,
+) -> (Bool, Array[AiHubQueryRow], String) {
+  let rows : Array[AiHubQueryRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  qid: json_object_text(row, "qid", ""),
+                  question: json_object_text(row, "question", ""),
+                  explanation: json_object_text(row, "explanation", ""),
+                  row_count: json_object_text(row, "rowCount", "0"),
+                  duration_ms: json_object_text(row, "durationMs", "0"),
+                  error: json_object_text(row, "error", ""),
+                  created_at: json_object_text(row, "createdAt", ""),
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn ai_hub_correction_stats_from_body(
+  body : String,
+) -> (Bool, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          (
+            true,
+            json_object_text(data, "total", "0"),
+            json_object_text(data, "correctionRate", "0"),
+            missing,
+          )
+        _ => (false, "0", "0", missing)
+      }
+    }
+    _ => (false, "0", "0", "0")
+  }
+}
+
+///|
+fn ai_hub_correction_rows_from_body(
+  body : String,
+) -> (Bool, Array[AiHubCorrectionRow], String) {
+  let rows : Array[AiHubCorrectionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  biz_type: json_object_text(row, "bizType", ""),
+                  field_name: json_object_text(row, "fieldName", ""),
+                  llm_value: json_object_text(row, "llmValue", ""),
+                  user_value: json_object_text(row, "userValue", ""),
+                  created_at: json_object_text(row, "createdAt", ""),
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
 fn webhook_config_from_body(
   body : String,
 ) -> (Bool, Array[Array[String]], String, String) {
@@ -4779,6 +5002,56 @@ fn load_ai_stats_activity(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_ai_hub_usage(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-hub/usage-stats").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiHubUsageLoaded(body))
+      Err(_) => emit(AiHubLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_ai_hub_drafts(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-hub/drafts?userCode=admin").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiHubDraftsLoaded(body))
+      Err(_) => emit(AiHubLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_ai_hub_query_log(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-hub/query-log?userCode=admin").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiHubQueryLogLoaded(body))
+      Err(_) => emit(AiHubLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_ai_hub_correction_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-hub/correction-stats").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiHubCorrectionStatsLoaded(body))
+      Err(_) => emit(AiHubLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_ai_hub_corrections(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-hub/corrections?limit=50").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiHubCorrectionsLoaded(body))
+      Err(_) => emit(AiHubLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/webhook/config").expect_text(result => {
     match result {
@@ -5393,6 +5666,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "invoices")
       } else if path == "/ai-stats" {
         load_ai_stats_overview(emit)
+      } else if path == "/ai-hub" {
+        load_ai_hub_usage(emit)
       } else if path == "/webhook-config" {
         load_webhook_config(emit)
       } else if path == "/reports" {
@@ -7460,6 +7735,125 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_stats_note: "AI 分析读模型不可用 · 使用设计快照",
         },
       )
+    AiHubUsageLoaded(body) => {
+      let (loaded, calls, minutes, intake, missing) = ai_hub_usage_from_body(
+        body,
+      )
+      (
+        if loaded {
+          load_ai_hub_drafts(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          ai_hub_loaded: loaded,
+          ai_hub_monthly_calls: calls,
+          ai_hub_minutes_saved: minutes,
+          ai_hub_intake_total: intake,
+          ai_hub_missing_table_count: missing,
+          ai_hub_note: if loaded {
+            "已加载 PostgreSQL AI 工作台使用统计 · 不执行 provider/LLM/OCR · 空源表 " +
+            missing
+          } else {
+            "AI 工作台使用统计响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiHubDraftsLoaded(body) => {
+      let (loaded, rows, missing) = ai_hub_draft_rows_from_body(body)
+      (
+        if loaded {
+          load_ai_hub_query_log(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          ai_hub_draft_rows: rows,
+          ai_hub_missing_table_count: missing,
+          ai_hub_note: if loaded {
+            model.ai_hub_note
+          } else {
+            "AI 草稿历史响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiHubQueryLogLoaded(body) => {
+      let (loaded, rows, missing) = ai_hub_query_rows_from_body(body)
+      (
+        if loaded {
+          load_ai_hub_correction_stats(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          ai_hub_loaded: model.ai_hub_loaded && loaded,
+          ai_hub_query_rows: rows,
+          ai_hub_missing_table_count: missing,
+          ai_hub_note: if loaded {
+            model.ai_hub_note + " · 草稿/问数历史保持只读"
+          } else {
+            "AI 查询历史响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiHubCorrectionStatsLoaded(body) => {
+      let (loaded, total, rate, missing) = ai_hub_correction_stats_from_body(
+        body,
+      )
+      (
+        if loaded {
+          load_ai_hub_corrections(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          ai_hub_correction_total: total,
+          ai_hub_correction_rate: rate,
+          ai_hub_missing_table_count: missing,
+          ai_hub_note: if loaded {
+            model.ai_hub_note
+          } else {
+            "AI 修正统计响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiHubCorrectionsLoaded(body) => {
+      let (loaded, rows, missing) = ai_hub_correction_rows_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          ai_hub_loaded: model.ai_hub_loaded && loaded,
+          ai_hub_correction_rows: rows,
+          ai_hub_missing_table_count: missing,
+          ai_hub_note: if loaded {
+            model.ai_hub_note + " · 修正日志保持只读"
+          } else {
+            "AI 修正日志响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiHubLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          ai_hub_loaded: false,
+          ai_hub_draft_rows: [],
+          ai_hub_query_rows: [],
+          ai_hub_correction_rows: [],
+          ai_hub_note: "AI 工作台源读模型不可用 · 起单/查询/命令仍需授权",
+        },
+      )
     WebhookLoaded(body) => {
       let (loaded, rows, missing, note) = webhook_config_from_body(body)
       (
@@ -9356,13 +9750,153 @@ fn tasks_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn ai_hub_view() -> @html.Html {
+fn ai_hub_recent_rows(model : Model) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  for row in model.ai_hub_draft_rows {
+    rows.push([
+      "AI 起单 " + row.biz_type + " · " + row.draft_id,
+      row.description,
+      "置信度 " + row.confidence,
+      row.created_at,
+      row.status + " · " + row.source_kind,
+    ])
+  }
+  for row in model.ai_hub_query_rows {
+    rows.push([
+      "AI 查询 · " + row.qid,
+      row.question,
+      if row.error == "" {
+        row.explanation +
+        " · " +
+        row.row_count +
+        " 行 · " +
+        row.duration_ms +
+        " ms"
+      } else {
+        "失败 · " + row.error
+      },
+      row.created_at,
+      if row.error == "" {
+        "已完成 · " + row.source_kind
+      } else {
+        "需复核 · " + row.source_kind
+      },
+    ])
+  }
+  for row in model.ai_hub_correction_rows {
+    rows.push([
+      "AI 修正 · " + row.biz_type,
+      row.field_name,
+      "历史值 " + row.llm_value + " → 人工值 " + row.user_value,
+      row.created_at,
+      "已记录 · " + row.source_kind,
+    ])
+  }
+  rows
+}
+
+///|
+fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let recent_rows = if model.ai_hub_loaded {
+    let source_rows = ai_hub_recent_rows(model)
+    if source_rows.length() == 0 {
+      [["—", "—", "—", "—", "无源记录"]]
+    } else {
+      source_rows
+    }
+  } else {
+    [
+      [
+        "合同要素识别", "南山居施工合同.pdf", "识别 32 个字段",
+        "今天 09:12", "设计快照",
+      ],
+      [
+        "现金流问答", "未来 90 天资金缺口？", "预计峰值 ¥2,180 万",
+        "昨天 17:06", "设计快照",
+      ],
+      [
+        "发票 OCR", "invoice_20260712.jpg", "待确认 1 个税号", "昨天 15:44",
+        "待处理",
+      ],
+    ]
+  }
   page_shell(
     "AI 工作台",
     "AI HUB",
     "把文件、自然语言问题和业务动作放进同一个工作台，AI 结果仍需业务人员确认后写入。",
-    [button(class="erp-primary-btn", "＋ 上传文件")],
+    [
+      button(class="erp-primary-btn", "＋ 上传文件"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/ai-hub")),
+        "刷新源读模型",
+      ),
+    ],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.ai_hub_loaded {
+            "PostgreSQL AI Hub 已连接"
+          } else {
+            "AI Hub 读模型"
+          },
+        ),
+        span(" · " + model.ai_hub_note),
+        span(" · provider/LLM/OCR 执行：未授权"),
+      ]),
+      div(class="erp-stat-grid") <| [
+        metric(
+          "本月调用",
+          if model.ai_hub_loaded {
+            model.ai_hub_monthly_calls
+          } else {
+            "—"
+          },
+          if model.ai_hub_loaded {
+            "源 audit/query 统计"
+          } else {
+            "等待源读模型"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "节省分钟",
+          if model.ai_hub_loaded {
+            model.ai_hub_minutes_saved
+          } else {
+            "—"
+          },
+          "按源调用记录估算",
+          "metric-green",
+        ),
+        metric(
+          "累计起单",
+          if model.ai_hub_loaded {
+            model.ai_hub_intake_total
+          } else {
+            "—"
+          },
+          "只读确认记录",
+          "metric-blue",
+        ),
+        metric(
+          "草稿/问数",
+          if model.ai_hub_loaded {
+            (model.ai_hub_draft_rows.length() + model.ai_hub_query_rows.length()).to_string()
+          } else {
+            "—"
+          },
+          if model.ai_hub_loaded {
+            "修正 " +
+            model.ai_hub_correction_total +
+            " · 率 " +
+            model.ai_hub_correction_rate
+          } else {
+            "源历史条目"
+          },
+          "metric-blue",
+        ),
+      ],
       div(class="erp-ai-grid") <| [
         section(class="erp-ai-card is-primary") <| [
           span(class="erp-ai-icon", "✦"),
@@ -9389,21 +9923,17 @@ fn ai_hub_view() -> @html.Html {
       ],
       table_panel(
         "最近 AI 任务",
-        "所有结果保留审计记录",
-        data_table(["任务", "输入", "结果", "创建时间", "状态"], [
-          [
-            "合同要素识别", "南山居施工合同.pdf", "识别 32 个字段",
-            "今天 09:12", "已完成",
-          ],
-          [
-            "现金流问答", "未来 90 天资金缺口？", "预计峰值 ¥2,180 万",
-            "昨天 17:06", "已完成",
-          ],
-          [
-            "发票 OCR", "invoice_20260712.jpg", "待确认 1 个税号", "昨天 15:44",
-            "待处理",
-          ],
-        ]),
+        if model.ai_hub_loaded {
+          "源历史只读 · 空源表 " +
+          model.ai_hub_missing_table_count +
+          " · 不触发起单、查询或命令"
+        } else {
+          "所有结果保留审计记录"
+        },
+        data_table(
+          ["任务", "输入", "结果", "创建时间", "状态"],
+          recent_rows,
+        ),
       ),
     ],
   )
@@ -14744,7 +15274,7 @@ fn business_view(
     match path {
       "/dashboard-v3" => dashboard_view(emit, initial_model())
       "/cockpit" => dashboard_view(emit, initial_model())
-      "/ai-hub" => ai_hub_view()
+      "/ai-hub" => ai_hub_view(emit, model)
       "/ai-stats" => ai_stats_view(model)
       "/projects" => project_view(emit, model)
       "/projects/CD-HJL" => project_detail_view(emit, model)

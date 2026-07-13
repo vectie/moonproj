@@ -7,7 +7,8 @@ no mutation endpoints.  It covers company, procurement/supplier-risk, sales/rece
 reviewed invoice, delivery/project-progress, dashboard v1, core-report and
 report-builder metadata/template,
 employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
-non-secret profile, AI analytics, and webhook configuration reads.
+non-secret profile, AI analytics, AI Hub observation, and webhook configuration
+reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
 stacks; they never execute a provider or expose a mutation path.
 Production authentication, pooling, TLS,
@@ -78,6 +79,12 @@ from company_postgres_service import (
     ai_stats_source_overview as service_ai_stats_source_overview,
     ai_stats_source_activity as service_ai_stats_source_activity,
     ai_stats_source_badge as service_ai_stats_source_badge,
+    ai_hub_corrections as service_ai_hub_corrections,
+    ai_hub_correction_stats as service_ai_hub_correction_stats,
+    ai_hub_drafts as service_ai_hub_drafts,
+    ai_hub_draft as service_ai_hub_draft,
+    ai_hub_query_log as service_ai_hub_query_log,
+    ai_hub_usage_stats as service_ai_hub_usage_stats,
     webhook_source_config as service_webhook_source_config,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
@@ -568,6 +575,42 @@ def ai_stats_source_badge(
     biz_guid: str | None,
 ) -> dict[str, Any]:
     return service_ai_stats_source_badge(_ReadModelPool(args), biz_type, biz_guid, 500)
+
+
+def ai_hub_corrections(
+    args: argparse.Namespace,
+    biz_type: str | None,
+    field: str | None,
+    user_code: str | None,
+    limit: int,
+) -> dict[str, Any]:
+    return service_ai_hub_corrections(
+        _ReadModelPool(args), biz_type, field, user_code, limit, 500,
+    )
+
+
+def ai_hub_correction_stats(args: argparse.Namespace) -> dict[str, Any]:
+    return service_ai_hub_correction_stats(_ReadModelPool(args), 500)
+
+
+def ai_hub_drafts(args: argparse.Namespace, user_code: str | None) -> dict[str, Any]:
+    return service_ai_hub_drafts(_ReadModelPool(args), user_code, 500)
+
+
+def ai_hub_draft(
+    args: argparse.Namespace,
+    draft_id: str,
+    user_code: str | None,
+) -> dict[str, Any] | None:
+    return service_ai_hub_draft(_ReadModelPool(args), draft_id, user_code, 500)
+
+
+def ai_hub_query_log(args: argparse.Namespace, user_code: str | None) -> dict[str, Any]:
+    return service_ai_hub_query_log(_ReadModelPool(args), user_code, 500)
+
+
+def ai_hub_usage_stats(args: argparse.Namespace) -> dict[str, Any]:
+    return service_ai_hub_usage_stats(_ReadModelPool(args), 500)
 
 
 def webhook_source_config(args: argparse.Namespace) -> dict[str, Any]:
@@ -1187,6 +1230,62 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 422, {"error": "invalid AI badge identifiers"})
                     else:
                         response(self, 200, ai_stats_source_badge(args, biz_type, biz_guid))
+                    return
+                if parsed.path == "/api/company/ai-hub/corrections":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["50"])[0])
+                    except (TypeError, ValueError):
+                        response(self, 422, {"error": "invalid AI Hub limit"})
+                    else:
+                        if limit < 1 or limit > 500:
+                            response(self, 422, {"error": "invalid AI Hub limit"})
+                        else:
+                            response(
+                                self,
+                                200,
+                                ai_hub_corrections(
+                                    args,
+                                    query.get("bizType", [None])[0],
+                                    query.get("field", [None])[0],
+                                    query.get("userCode", [None])[0],
+                                    limit,
+                                ),
+                            )
+                    return
+                if parsed.path == "/api/company/ai-hub/correction-stats":
+                    response(self, 200, ai_hub_correction_stats(args))
+                    return
+                if parsed.path == "/api/company/ai-hub/drafts":
+                    query = parse_qs(parsed.query)
+                    response(self, 200, ai_hub_drafts(args, query.get("userCode", [None])[0]))
+                    return
+                ai_hub_draft_match = re.fullmatch(
+                    r"/api/company/ai-hub/drafts/([A-Za-z0-9_.:-]{1,128})",
+                    parsed.path,
+                )
+                if ai_hub_draft_match is not None:
+                    query = parse_qs(parsed.query)
+                    result = ai_hub_draft(
+                        args,
+                        ai_hub_draft_match.group(1),
+                        query.get("userCode", [None])[0],
+                    )
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "草稿不存在"},
+                        )
+                    else:
+                        response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/ai-hub/query-log":
+                    query = parse_qs(parsed.query)
+                    response(self, 200, ai_hub_query_log(args, query.get("userCode", [None])[0]))
+                    return
+                if parsed.path == "/api/company/ai-hub/usage-stats":
+                    response(self, 200, ai_hub_usage_stats(args))
                     return
                 if parsed.path == "/api/company/webhook/config":
                     response(self, 200, webhook_source_config(args))

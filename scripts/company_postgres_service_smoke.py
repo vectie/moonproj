@@ -113,6 +113,7 @@ def main() -> int:
             or payload is None
             or payload.get("target") != "postgresql"
             or "ai_analytics_read" not in payload.get("capabilities", [])
+            or "ai_hub_read" not in payload.get("capabilities", [])
             or "webhook_config_read" not in payload.get("capabilities", [])
             or "report_template_read" not in payload.get("capabilities", [])
         ):
@@ -288,6 +289,90 @@ def main() -> int:
             or ai_badge_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source AI badge read failed: {status} {ai_badge_payload}")
+        status, ai_hub_usage_payload = request(
+            args.port, "/api/company/ai-hub/usage-stats", token=token,
+        )
+        ai_hub_usage_data = (ai_hub_usage_payload or {}).get("data", {})
+        if (
+            status != 200
+            or ai_hub_usage_payload is None
+            or ai_hub_usage_data.get("monthlyTotalCalls") != 0
+            or ai_hub_usage_data.get("minutesSaved") != 0
+            or ai_hub_usage_data.get("intakeTotal") != 0
+            or ai_hub_usage_payload.get("source_coverage", {}).get("ai_draft") != 0
+            or ai_hub_usage_payload.get("source_coverage", {}).get("ai_query_turn") != 0
+            or ai_hub_usage_payload.get("authorizing") is not False
+            or ai_hub_usage_payload.get("provider_execution") is not False
+            or ai_hub_usage_payload.get("query_execution") is not False
+        ):
+            raise SmokeError(f"source AI Hub usage read failed: {status} {ai_hub_usage_payload}")
+        status, ai_hub_drafts_payload = request(
+            args.port, "/api/company/ai-hub/drafts?userCode=admin", token=token,
+        )
+        if (
+            status != 200
+            or ai_hub_drafts_payload is None
+            or ai_hub_drafts_payload.get("data") != []
+            or ai_hub_drafts_payload.get("source_coverage", {}).get("ai_draft") != 0
+            or ai_hub_drafts_payload.get("authorizing") is not False
+            or ai_hub_drafts_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"source AI Hub drafts read failed: {status} {ai_hub_drafts_payload}")
+        status, ai_hub_draft_detail_payload = request(
+            args.port,
+            "/api/company/ai-hub/drafts/missing-draft?userCode=admin",
+            token=token,
+        )
+        if (
+            status != 404
+            or ai_hub_draft_detail_payload is None
+            or ai_hub_draft_detail_payload.get("success") is not False
+            or ai_hub_draft_detail_payload.get("code") != 43001
+        ):
+            raise SmokeError(
+                f"source AI Hub draft detail read failed: {status} {ai_hub_draft_detail_payload}"
+            )
+        ai_hub_draft_detail_status = status
+        status, ai_hub_query_payload = request(
+            args.port, "/api/company/ai-hub/query-log?userCode=admin", token=token,
+        )
+        if (
+            status != 200
+            or ai_hub_query_payload is None
+            or ai_hub_query_payload.get("data") != []
+            or ai_hub_query_payload.get("source_coverage", {}).get("ai_query_log") != 0
+            or ai_hub_query_payload.get("provider_execution") is not False
+            or ai_hub_query_payload.get("query_execution") is not False
+        ):
+            raise SmokeError(f"source AI Hub query log read failed: {status} {ai_hub_query_payload}")
+        status, ai_hub_correction_payload = request(
+            args.port, "/api/company/ai-hub/correction-stats", token=token,
+        )
+        ai_hub_correction_data = (ai_hub_correction_payload or {}).get("data", {})
+        if (
+            status != 200
+            or ai_hub_correction_payload is None
+            or ai_hub_correction_data.get("byField") != []
+            or ai_hub_correction_data.get("total") != 0
+            or ai_hub_correction_data.get("drafts") != 0
+            or ai_hub_correction_data.get("correctionRate") != 0
+            or ai_hub_correction_payload.get("source_coverage", {}).get("ai_correction_log") != 0
+            or ai_hub_correction_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source AI Hub correction stats read failed: {status} {ai_hub_correction_payload}")
+        status, ai_hub_correction_rows_payload = request(
+            args.port, "/api/company/ai-hub/corrections?limit=50", token=token,
+        )
+        if (
+            status != 200
+            or ai_hub_correction_rows_payload is None
+            or ai_hub_correction_rows_payload.get("data") != []
+            or ai_hub_correction_rows_payload.get("source_coverage", {}).get("ai_correction_log") != 0
+            or ai_hub_correction_rows_payload.get("provider_execution") is not False
+        ):
+            raise SmokeError(
+                f"source AI Hub corrections read failed: {status} {ai_hub_correction_rows_payload}"
+            )
         status, webhook_payload = request(
             args.port,
             "/api/company/webhook/config",
@@ -2298,6 +2383,13 @@ def main() -> int:
                     "ai_skip_rows": ai_kpi.get("skipTotal"),
                     "ai_activity_rows": len(ai_activity_payload.get("data", [])),
                     "ai_badge_by_ai": ai_badge_payload.get("data", {}).get("byAi"),
+                    "ai_hub_monthly_calls": ai_hub_usage_data.get("monthlyTotalCalls"),
+                    "ai_hub_minutes_saved": ai_hub_usage_data.get("minutesSaved"),
+                    "ai_hub_intake_total": ai_hub_usage_data.get("intakeTotal"),
+                    "ai_hub_draft_rows": len(ai_hub_drafts_payload.get("data", [])),
+                    "ai_hub_draft_detail_status": ai_hub_draft_detail_status,
+                    "ai_hub_query_rows": len(ai_hub_query_payload.get("data", [])),
+                    "ai_hub_correction_rows": len(ai_hub_correction_rows_payload.get("data", [])),
                     "webhook_platform_rows": len(webhook_data),
                     "webhook_configured_platforms": sum(
                         1 for platform in webhook_data.values() if platform.get("urlConfigured")
