@@ -55,7 +55,7 @@ existing ERP remains authoritative.
 | Tax/financing accounting-link boundary | `scripts/company_tax_financing_accounting_rehearsal.sh` + `cmd/tax_accounting_link` + `cmd/financing_accounting_link` + `ERP_TAX_FINANCING_ACCOUNTING.md` | Separate reviewed maps bind two native tax-obligation recognition events plus one financing draw and one repayment event; exact SQLite/PostgreSQL identity parity and zero-insert replay pass for four links. Tax filing/payment, lender calls, cash release, accounting-book posting, period close, and production source acceptance remain separate. |
 | PostgreSQL typed-cohort rehearsal | `scripts/company_postgres_cohort_rehearsal.sh` + `scripts/company_postgres_projection_parity.py` | Re-runs raw staging, the 19-item base domain receipt, ten core typed cohorts, the source-bound investment-model evaluation, and optional CBS, workflow-assignment, delivery-progress, reviewed delivery-recognition, advance-offset, payment-accounting, source budget, source warning, notification, access, reviewed accounting-posting, opening-control, tax-filing, bank-statement, financing-facility, asset-lifecycle, treasury-plan/dispatch, invoice/subledger, procurement, investment-performance, contract-milestone, and expense/advance cohorts against PostgreSQL, compares every receipt by target/source identity, and replays each cohort. The demonstrated full rehearsal reaches 142 aggregate projections and 7 accounting links; exact parity and zero-insert replay pass for every supplied cohort. Reviewed delivery recognition remains opt-in because the available report has no accepted value. |
 | Cross-domain projection parity | `scripts/company_cross_domain_projection_parity.py` + `scripts/company_postgres_cohort_rehearsal.sh` | After both targets are reopened, compares every domain-promotion receipt’s expected identities and canonical JSON payloads across the isolated SQLite rehearsal and PostgreSQL target. The demonstrated task-state/full cohort reports `shadow_verified` for all 13 receipts, including the quarantined task-state observation, with no cross-domain missing/extra identities or payload mismatches. |
-| Rabbita ERP UI clone | `frontend/main` + `frontend/public` + `frontend/README.md` | Designer-facing ERP shell is ported with Rabbita 0.12.4 and Warren-compatible JS build output: source login gradient/copy, 220/64px dark navigation, nested ERP menu hierarchy, header actions, dashboard KPI/funnel/risk layout, and mobile drawer behavior. Major ERP route families render source-shaped fixtures for projects/plans/workflow, AI, sales, cost/procurement, finance, analysis, and system administration; representative project, contract, expense, loan, and supplier detail/new flows open as responsive forms. Inbox, attachments, health, users/roles, profile, notifications, OCR, and webhook routes now have distinct source-shaped screens, the report center opens a read-only `/share/:token`-shaped cost report preview, and detail routes accept arbitrary source IDs with the source dashboard redirect aliases retained. The dashboard calls the fixed PostgreSQL read-model summary endpoint with an offline snapshot fallback; command/mutation API wiring, managed deployment, and final page-by-page parity remain pending. |
+| Rabbita ERP visual port (partial) | `frontend/main` + `frontend/public` + `frontend/README.md` | Designer-facing ERP shell is ported with Rabbita 0.12.4 and Warren-compatible JS build output: source login gradient/copy, 220/64px dark navigation, nested ERP menu hierarchy, header actions, dashboard KPI/funnel/risk layout, and mobile drawer behavior. Major ERP route families render source-shaped fixtures for projects/plans/workflow, AI, sales, cost/procurement, finance, analysis, and system administration; representative project, contract, expense, loan, and supplier detail/new flows open as responsive forms. Inbox, attachments, health, users/roles, profile, notifications, OCR, and webhook routes have distinct source-shaped screens, and the report center opens a read-only `/share/:token`-shaped preview. This is a substantial visual port, not final page-by-page parity: many views remain fixture-backed/read-only, command/mutation API wiring is not connected, and managed deployment remains pending. |
 | PostgreSQL read-model development API | `scripts/company_postgres_read_model_server.py` + `frontend/main` + `moonbit-community/rabbita/http` | Read-only `/api/health`, `/api/company/summary`, `/api/company/receipts`, and `/api/company/projections` endpoints query the PostgreSQL catalog through allow-listed SQL. The built Rabbita dashboard reports the live read-model connection and falls back to reviewed fixtures on failure. This is a development adapter, not the production authenticated service. |
 | Authenticated bounded PostgreSQL read service | `scripts/company_postgres_service.py` + `scripts/company_postgres_service_smoke.py` | Keeps reusable `psql` sessions behind a bounded fail-closed pool, requires an environment-provided bearer token and forwarded TLS, enforces the fixed read-only endpoint allow-list, rejects mutations/arbitrary paths, verifies schema readiness, and passes a local PostgreSQL smoke including missing-token and missing-TLS rejection. Managed TLS, token issuer/audience validation, telemetry sinks, and provider approval remain deployment gates. |
 | Reviewed access/role import boundary | `scripts/erp_access_plan.py` + `cmd/access_import` + `foundation/access` + `ERP_ACCESS_BOUNDARY.md` | An explicit source role/identity/scope map compiles to a reviewed access plan; the native importer builds local roles, bounded permissions, exact-scope assignments, and separation rules, emits one `access_directory` candidate with `authority_migrated=true`, and passes SQLite/PostgreSQL parity plus zero-insert replay. The fixture is synthetic because `sys_role`/`sys_user_role` are schema-only; authentication secrets and super-user privilege remain excluded. |
@@ -354,64 +354,28 @@ promotion of the remaining typed-staged rows, or production readiness.
 
 ## Next implementation slices
 
-1. Put the PostgreSQL raw-envelope, aggregate-projection, and accounting-link
-   adapters behind the selected managed production service/database pool with
-   production backup/restore verification. The executable service now provides
-   a bounded authenticated fixed-read runtime and the credential-free service gate
-   validates the required pool/auth/read-only contract; the versioned SQL catalog,
-   reference executor, in-memory batch, file journal, SQLite rehearsal
-   boundary, PostgreSQL target boundary, cohort receipts, and mapped-cohort
-   planner are executable. Production pooling, encryption, retention, and
-   restore runbooks remain open.
-2. Reconcile the quarantined task-state/progress exception with the business
-   owner; retain source evidence for rows that lack target domain state or
-   approved authority. The full task-state plan now emits a review-only
-   artifact with observed rows and exact dependency conflicts. Workflow-
-   definition, project-lifecycle, task structure, investment-model,
-   commitment-state/payment, user, audit, parameter, and draft delivery-
-   progress promotion now have durable projection/parity rehearsal gates;
-   task-state replay remains a reviewed exception cohort.
-3. Complete remaining cross-domain persistence links: production workflow
-   notification delivery and broader CBS configuration. The standalone
-   notification outbox now has a reviewed, source-bound lifecycle and exact
-   parity/replay evidence; production provider routing, consent, and retention
-   remain separate gates. Typed workflow-assignment
-   attachment, effective-dated delegation/revocation evidence, and
-   non-authorizing projection evidence are implemented, as is a separately
-   reviewed pending-posting delivery recognition projection (the available
-   source row remains quarantined). The reviewed CBS cost-link cohort now covers the seven fixture
-   cost rows, a source-bound CBS budget planner now records five explicit
-   `cb_cost.dfs_budget` reservations while the synthetic ledger exercises
-   consumption controls, and a source-bound warning scan records the two
-   explicit component overruns; full CBS schema/source coverage, real budget
-   ownership, and provider notification routing remain open. Invoice/receivable and milestone/settlement projections now
-   retain separate identities and cross-domain source links in the same store
-   boundary.
-4. Extend the reviewed accounting-link/subledger reconciliation gate from the
-   two commitment events and one advance-opening event to advance offsets,
-   loans, tax, financing, procurement, receivable collections, and payable
-   payments. Explicit receivable-collection and payable-payment event adapters
-   and allow-list entries are now in place; the reviewed invoice/subledger and
-   procurement cohorts now have durable target parity/replay, while their
-   source-to-journal links for those source cohorts now have a dedicated
-   four-link SQLite/PostgreSQL parity/replay rehearsal; the reviewed investment
-   valuation event/link has the same evidence. Opening receivable/payable
-   recognition links are covered, while production source acceptance remains
-   open.
-5. Add external bank/filing adapters and richer report access/consolidation;
-   bank-statement import/reconciliation plus statement-to-ledger evidence, tax
-   filing records, and disposal derecognition journals/accounting-event links
-   are now implemented, while period-close integration still needs production
-   statement and subledger evidence.
-6. Complete a reviewed external benchmark/performance cohort and extend the
-   explicit investment formula catalog around the persistent model, mandate,
-   proposal, position, risk, valuation, and deterministic period-performance
-   projections; numeric/date classification, parent-total checks, and four
-   known ratio derivations are now source-bound analytics evidence. The
-   reviewed performance cohort now persists portfolio, attribution, and
-   benchmark-reconciliation evidence with exact parity/replay; the separate
-   reviewed valuation event/link also has exact parity/replay. Source-feed
-   acceptance, richer formula vocabulary, and full performance/accounting
-   reconciliation remain open.
-7. Add sanitized ERP export fixtures, opening-balance workbooks, and
-   cross-domain parity reports for each migration cohort.
+1. Build the source-to-target page/route/action parity matrix for all 30 ERP
+   route files and 338 handlers. Finish the Rabbita visual/interaction gaps,
+   including exact source navigation, empty/error/loading states, forms, and
+   responsive behavior; record screenshots and scenario results per route.
+2. Connect one authenticated runtime vertical slice end to end—preferably
+   organization/project → contract or expense → approval → accounting/audit
+   evidence—through PostgreSQL command/read APIs and Rabbita. It must prove
+   authorization, idempotency, rejection/resubmission, durable audit, and
+   visible UI state changes. Do not count fixture-backed buttons as complete
+   behavior.
+3. Request, receive, and validate the missing 49-table credential-safe
+   MySQL/JSON export. The current 26-table/120-row fixture remains useful for
+   rehearsal but cannot support full ERP parity or cutover.
+4. Expand the connected runtime slice through procurement/contracts,
+   sales/receivables, delivery, treasury/financing, tax/close,
+   reporting/notifications, and investment. Reuse existing native cohorts and
+   parity gates; do not create another standalone hardening slice unless it is
+   required by the active workflow.
+5. Reconcile the quarantined project-1 task-state/progress exception with a
+   named business owner and preserve the observed evidence until a decision is
+   recorded. Then run role-based UAT and a read-only shadow period for each
+   accepted wave.
+6. Put the already-tested PostgreSQL adapters behind the approved managed
+   service, backup/restore, monitoring, and rollback runbooks only after the
+   functional/API and source-completeness gates are ready.

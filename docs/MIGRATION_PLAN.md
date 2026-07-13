@@ -29,9 +29,10 @@ cutover. The task-state planner has a clean project-2 replay and quarantines
 two project-1 dependency conflicts. The source schema report also records 75
 authoritative ERP table definitions, 26 present in this fixture, and 49
 schema-only tables requiring later cohorts. The next hard gates are a
-production SQL driver, durable target projections with reviewed accounting
-links, remaining typed-cohort promotion, shadow parity, and business-owner
-acceptance. The current fixture also proves
+page-by-page UI parity, runtime API/command wiring, and source-backed golden
+workflows. The existing technical gates will be reused and extended only when
+they protect one of those functional slices; additional standalone hardening
+is not the current priority. The current fixture also proves
 two balanced commitment links plus one employee-advance opening source-to-
 journal link, transactionally persisted and idempotently replayed; they are
 traceability receipts, not cash release or accounting-book posting.
@@ -249,6 +250,53 @@ The first schema-only wave now has an explicit six-table target/security map.
 Because the available snapshot has zero rows for `foundation-security`, this
 artifact records semantic ownership and exclusion rules only; it does not
 pretend that the wave has been imported.
+
+### Current findings and revised execution order
+
+The current repository is a verified migration foundation, not a clean
+replacement of `erp_new`. The findings that now control sequencing are:
+
+1. **Visual UI port, not final UI parity.** Rabbita has the source login,
+   navigation, dashboard, major route families, and representative forms, but
+   many views are fixture-backed/read-only and no page-by-page screenshot,
+   interaction, or route-action comparison has been accepted.
+2. **Domain rehearsals, not connected product workflows.** Native company
+   packages and SQLite/PostgreSQL rehearsals cover the available and synthetic
+   cohorts, but the browser is not wired to authenticated command/mutation
+   APIs. A button opening a form is not evidence that the company record,
+   authority, workflow, accounting, or audit trail changes correctly.
+3. **Partial source, not full ERP data.** The authoritative ERP inventory is
+   75 tables and 30 route files with 338 handlers; the controlled export has
+   only 26 tables and 120 rows. The remaining 49 tables require a real
+   credential-safe export before production migration claims can be made.
+4. **Technical safety is ahead of functional acceptance.** Local PostgreSQL
+   parity, replay, backup/restore, and cutover evidence pass for supplied
+   cohorts, but managed deployment, business acceptance, shadow operation, and
+   ownership transfer remain open.
+
+Execute the remainder in this order:
+
+1. Build a source-to-target page/route/action parity matrix and finish the
+   visual/interaction comparison for every ERP route family. Record each
+   route as `matched`, `intentionally changed`, `blocked by missing source`, or
+   `not implemented`; do not call the UI complete from screenshots of only the
+   dashboard.
+2. Connect one complete runtime vertical slice—organization/project → contract
+   or expense → approval → accounting/audit evidence—to authenticated,
+   idempotent company APIs and the Rabbita UI. Prove read, create/update,
+   rejection, resubmission, and audit behavior against PostgreSQL before
+   expanding to the next vertical.
+3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
+   Translate each schema wave into row-level plans only after hashes,
+   relationships, redaction, identity maps, and owner decisions are present.
+4. Expand runtime vertical slices to the ERP parity floor: procurement and
+   contracts, sales/receivables, delivery, treasury/financing, tax/close,
+   reporting/notifications, and investment. Synthetic rehearsals remain
+   design evidence until real source rows and user acceptance are attached.
+5. Run named-owner acceptance and a read-only shadow period for each accepted
+   wave; only then approve managed production deployment, rollback, and
+   ownership transfer. Keep the existing parity/cutover gates as evidence
+   controls, not as substitutes for functional work.
 
 ## 2. Program constraints
 
@@ -855,9 +903,12 @@ Before each wave:
 
 - retention requirements met; old write paths disabled; archive is searchable and controlled.
 
-## 9. First actions
+## 9. Initial program actions (historical baseline)
 
-These actions start the program without premature integration:
+The actions below record how the program was originally started. They are
+retained as an audit trail; execution now follows **Current findings and
+revised execution order** above, with functional UI/API parity ahead of
+additional standalone hardening.
 
 1. Approve `PRODUCT_CHARTER.md` as the product boundary.
 2. Assign owners to the capability IDs in `ERP_CAPABILITY_BASELINE.md`.
