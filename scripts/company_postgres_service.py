@@ -24,6 +24,10 @@ The bounded service exposes these endpoints:
 * ``/api/company/payment-applies/eligibility`` (GET)
 * ``/api/company/payment-applies`` (POST create draft)
 * ``/api/company/payment-applies/<id>/{submit,approve,reject,resubmit,update,void}`` (POST)
+* ``/api/company/tenders`` and ``/api/company/tenders/<id>`` (GET)
+* ``/api/company/tenders`` (POST create planning draft)
+* ``/api/company/tenders/<id>/{publish,open_bidding,award,complete,cancel}`` (POST)
+* ``/api/company/suppliers`` and ``/api/company/suppliers/<id>`` (GET)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -260,6 +264,9 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "contract_command",
             "payment_application_read",
             "payment_application_command",
+            "procurement_read",
+            "supplier_read",
+            "tender_command",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -282,6 +289,9 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "contract_command",
             "payment_application_read",
             "payment_application_command",
+            "procurement_read",
+            "supplier_read",
+            "tender_command",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -578,6 +588,435 @@ def contract_milestones(pool: PsqlPool, contract_id: str, max_rows: int) -> list
         except (ValueError, UnicodeDecodeError) as error:
             raise ServiceError("invalid contract milestone encoding") from error
     return result
+
+
+def _decode_tender_fields(line: str) -> dict[str, Any]:
+    fields = line.split("|")
+    if len(fields) != 14:
+        raise ServiceError("unexpected tender projection shape")
+    try:
+        bids = json.loads(decode_hex(fields[10]))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ServiceError("invalid tender bids projection JSON") from error
+    if not isinstance(bids, list):
+        raise ServiceError("tender bids projection is not an array")
+    try:
+        return {
+            "tender_id": decode_hex(fields[0]),
+            "name": decode_hex(fields[1]),
+            "project_scope": decode_hex(fields[2]),
+            "category": decode_hex(fields[3]),
+            "estimated_amount_minor": int(fields[4]),
+            "currency": decode_hex(fields[5]),
+            "state": decode_hex(fields[6]),
+            "awarded_supplier_id": decode_hex(fields[7]),
+            "awarded_amount_minor": int(fields[8]),
+            "commitment_id": decode_hex(fields[9]),
+            "bids": bids,
+            "source_kind": decode_hex(fields[11]),
+            "source_snapshot_id": decode_hex(fields[12]),
+            "mapping_version": decode_hex(fields[13]),
+        }
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ServiceError("invalid tender projection encoding") from error
+
+
+def tenders(
+    pool: PsqlPool,
+    tender_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if tender_id is not None and not IDENTIFIER.fullmatch(tender_id):
+        raise ValueError("invalid tender_id")
+    where = ""
+    if tender_id is not None:
+        where = f"WHERE latest.aggregate_id = {sql_literal(tender_id)}"
+    query = f"""
+    WITH latest AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, payload
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'tender'
+      ORDER BY aggregate_id, revision DESC
+    )
+    SELECT encode(convert_to(latest.aggregate_id, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'name', latest.payload->>'name', latest.aggregate_id), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'project_scope', latest.payload->>'project_scope', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'category', latest.payload->>'category', ''), 'UTF8'), 'hex'),
+           coalesce(latest.payload->'candidate'->>'estimated_amount_minor', latest.payload->>'estimated_amount_minor', '0'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'currency', latest.payload->>'currency', 'CNY'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'state', latest.payload->>'state', 'planning'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'awarded_supplier_id', latest.payload->>'awarded_supplier_id', ''), 'UTF8'), 'hex'),
+           coalesce(latest.payload->'candidate'->>'awarded_amount_minor', latest.payload->>'awarded_amount_minor', '0'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'commitment_id', latest.payload->>'commitment_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->'bids', latest.payload->'bids', '[]'::jsonb)::text, 'UTF8'), 'hex'),
+           encode(convert_to(CASE WHEN latest.payload ? 'candidate' THEN 'imported' ELSE coalesce(latest.payload->>'source_kind', 'command') END, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'source_snapshot_id', latest.payload->'candidate'->>'source_snapshot_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'mapping_version', latest.payload->'candidate'->>'mapping_version', ''), 'UTF8'), 'hex')
+    FROM latest
+    {where}
+    ORDER BY latest.aggregate_id
+    LIMIT {max_rows}
+    """
+    result = [_decode_tender_fields(line) for line in query_lines(pool, query)]
+    for item in result:
+        item["estimated_amount_display"] = f"¥{item['estimated_amount_minor'] / 100:,.2f}"
+        item["awarded_amount_display"] = (
+            f"¥{item['awarded_amount_minor'] / 100:,.2f}"
+            if item["awarded_amount_minor"] > 0
+            else "—"
+        )
+    return result
+
+
+def _decode_supplier_fields(line: str) -> dict[str, Any]:
+    fields = line.split("|")
+    if len(fields) != 11:
+        raise ServiceError("unexpected supplier projection shape")
+    try:
+        return {
+            "supplier_id": decode_hex(fields[0]),
+            "supplier_code": decode_hex(fields[1]),
+            "name": decode_hex(fields[2]),
+            "category_code": decode_hex(fields[3]),
+            "evaluation": decode_hex(fields[4]),
+            "state": decode_hex(fields[5]),
+            "scope": decode_hex(fields[6]),
+            "principal_id": decode_hex(fields[7]),
+            "source_kind": decode_hex(fields[8]),
+            "source_snapshot_id": decode_hex(fields[9]),
+            "mapping_version": decode_hex(fields[10]),
+        }
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ServiceError("invalid supplier projection encoding") from error
+
+
+def suppliers(
+    pool: PsqlPool,
+    supplier_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if supplier_id is not None and not IDENTIFIER.fullmatch(supplier_id):
+        raise ValueError("invalid supplier_id")
+    where = ""
+    if supplier_id is not None:
+        where = f"WHERE latest.aggregate_id = {sql_literal(supplier_id)}"
+    query = f"""
+    WITH latest AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, payload
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'supplier'
+      ORDER BY aggregate_id, revision DESC
+    )
+    SELECT encode(convert_to(latest.aggregate_id, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'supplier_code', latest.payload->>'supplier_code', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'name', latest.payload->>'name', latest.aggregate_id), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'category_code', latest.payload->>'category_code', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'evaluation', latest.payload->>'evaluation', 'unrated'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'state', latest.payload->>'state', 'draft'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'scope', latest.payload->>'scope', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->'candidate'->>'principal_id', latest.payload->>'principal_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(CASE WHEN latest.payload ? 'candidate' THEN 'imported' ELSE coalesce(latest.payload->>'source_kind', 'command') END, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'source_snapshot_id', latest.payload->'candidate'->>'source_snapshot_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'mapping_version', latest.payload->'candidate'->>'mapping_version', ''), 'UTF8'), 'hex')
+    FROM latest
+    {where}
+    ORDER BY latest.aggregate_id
+    LIMIT {max_rows}
+    """
+    return [_decode_supplier_fields(line) for line in query_lines(pool, query)]
+
+
+def _tender_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    identifier: bool = False,
+) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _tender_request(
+    command_type: str,
+    tender_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, dict[str, Any]]:
+    allowed = {"create", "publish", "open_bidding", "award", "complete", "cancel"}
+    if command_type not in allowed:
+        raise CommandRejected("unsupported tender command", 404)
+    if command_type == "create":
+        value = body.get("tender_id")
+        tender_id = value.strip() if isinstance(value, str) and value.strip() else "TD-" + uuid.uuid4().hex[:20]
+        if not IDENTIFIER.fullmatch(tender_id):
+            raise CommandRejected("tender_id contains unsupported characters", 422)
+        name = _tender_text(body, "name")
+        project_scope = _tender_text(body, "project_scope", identifier=True)
+        category = _tender_text(body, "category")
+        currency = _tender_text(body, "currency", identifier=True).upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            raise CommandRejected("currency must be a three-letter code", 422)
+        estimated_amount_minor = body.get("estimated_amount_minor")
+        if (
+            isinstance(estimated_amount_minor, bool)
+            or not isinstance(estimated_amount_minor, int)
+            or estimated_amount_minor <= 0
+        ):
+            raise CommandRejected("estimated_amount_minor must be a positive integer", 422)
+        bids = body.get("bids", [])
+        if not isinstance(bids, list):
+            raise CommandRejected("bids must be an array", 422)
+        normalized_bids: list[dict[str, Any]] = []
+        seen_supplier_ids: set[str] = set()
+        for index, bid in enumerate(bids):
+            if not isinstance(bid, dict):
+                raise CommandRejected(f"bids[{index}] must be an object", 422)
+            supplier_id = bid.get("supplier_id")
+            amount_minor = bid.get("amount_minor")
+            if not isinstance(supplier_id, str) or not IDENTIFIER.fullmatch(supplier_id.strip()):
+                raise CommandRejected(f"bids[{index}].supplier_id is invalid", 422)
+            supplier_id = supplier_id.strip()
+            if supplier_id in seen_supplier_ids:
+                raise CommandRejected("a supplier may bid only once", 422)
+            if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+                raise CommandRejected(f"bids[{index}].amount_minor must be positive", 422)
+            if amount_minor > estimated_amount_minor:
+                raise CommandRejected("bid amount exceeds tender estimate", 422)
+            seen_supplier_ids.add(supplier_id)
+            normalized_bids.append({
+                "supplier_id": supplier_id,
+                "amount_minor": amount_minor,
+                "currency": currency,
+            })
+        return tender_id, {
+            "command_type": command_type,
+            "tender_id": tender_id,
+            "project_scope": project_scope,
+            "name": name,
+            "category": category,
+            "estimated_amount_minor": estimated_amount_minor,
+            "currency": currency,
+            "bids": normalized_bids,
+            "actor_id": actor_id,
+        }
+    if tender_id is None or not IDENTIFIER.fullmatch(tender_id):
+        raise CommandRejected("tender_id is required", 422)
+    request: dict[str, Any] = {
+        "command_type": command_type,
+        "tender_id": tender_id,
+        "actor_id": actor_id,
+    }
+    if command_type == "award":
+        supplier_id = _tender_text(body, "awarded_supplier_id", identifier=True)
+        amount_minor = body.get("awarded_amount_minor")
+        if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+            raise CommandRejected("awarded_amount_minor must be a positive integer", 422)
+        request["awarded_supplier_id"] = supplier_id
+        request["awarded_amount_minor"] = amount_minor
+    reason = body.get("reason", "")
+    if not isinstance(reason, str):
+        raise CommandRejected("reason must be text", 422)
+    request["reason"] = reason.strip()
+    return tender_id, request
+
+
+def tender_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    tender_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    tender_id, request = _tender_request(command_type, tender_id, body, actor_id)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored tender command receipt has no result")
+        return {"command": existing, "tender": result, "idempotent_replay": True}
+    current = tenders(pool, tender_id, 1)
+    if command_type == "create" and current:
+        raise CommandRejected("tender already exists", 409)
+    if command_type != "create":
+        if not current:
+            raise CommandRejected("tender not found", 404)
+        if current[0].get("source_kind") != "command":
+            raise CommandRejected("imported tender is read-only; create a local planning draft first", 409)
+        current_state = str(current[0].get("state", ""))
+        expected = {
+            "publish": "planning",
+            "open_bidding": "publishing",
+            "award": "bidding",
+            "complete": "awarded",
+        }.get(command_type)
+        if command_type == "cancel":
+            if current_state not in {"planning", "publishing", "bidding"}:
+                raise CommandRejected(f"tender cancellation requires an active planning state, found {current_state}", 409)
+        elif current_state != expected:
+            raise CommandRejected(
+                f"tender transition {command_type} requires {expected}, found {current_state}",
+                409,
+            )
+        if command_type == "award":
+            awarded_supplier_id = str(request["awarded_supplier_id"])
+            awarded_amount_minor = int(request["awarded_amount_minor"])
+            bids = current[0].get("bids", [])
+            matching_bid = next(
+                (bid for bid in bids if isinstance(bid, dict) and bid.get("supplier_id") == awarded_supplier_id),
+                None,
+            )
+            if matching_bid is None or int(matching_bid.get("amount_minor", 0)) != awarded_amount_minor:
+                raise CommandRejected("award must match an existing bid", 422)
+            suppliers = query_lines(
+                pool,
+                f"""
+                SELECT 1
+                FROM (
+                  SELECT DISTINCT ON (aggregate_id) payload
+                  FROM company_aggregate_projection
+                  WHERE aggregate_type = 'supplier'
+                  ORDER BY aggregate_id, revision DESC
+                ) latest
+                WHERE latest.payload->'candidate'->>'supplier_id' = {sql_literal(awarded_supplier_id)}
+                  AND latest.payload->'candidate'->>'state' = 'active'
+                  AND latest.payload->'candidate'->>'evaluation' IN ('qualified', 'strategic')
+                LIMIT 1
+                """,
+            )
+            if not suppliers:
+                raise CommandRejected("award requires an active qualified supplier projection", 409)
+    event_id = f"tender:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "tender_id": tender_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'tender'
+        AND p.aggregate_id = {sql_literal(tender_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'tender already exists'; END IF;
+        next_revision := 1;
+        next_state := 'planning';
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', next_state, 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'tender not found'; END IF;
+        current_state := current_payload->>'state';
+        IF {sql_literal(command_type)} = 'publish' THEN
+          IF current_state <> 'planning' THEN RAISE EXCEPTION 'invalid tender state'; END IF;
+          next_state := 'publishing';
+        ELSIF {sql_literal(command_type)} = 'open_bidding' THEN
+          IF current_state <> 'publishing' THEN RAISE EXCEPTION 'invalid tender state'; END IF;
+          next_state := 'bidding';
+        ELSIF {sql_literal(command_type)} = 'award' THEN
+          IF current_state <> 'bidding' THEN RAISE EXCEPTION 'invalid tender state'; END IF;
+          next_state := 'awarded';
+        ELSIF {sql_literal(command_type)} = 'complete' THEN
+          IF current_state <> 'awarded' THEN RAISE EXCEPTION 'invalid tender state'; END IF;
+          next_state := 'completed';
+        ELSIF {sql_literal(command_type)} = 'cancel' THEN
+          IF current_state NOT IN ('planning', 'publishing', 'bidding') THEN RAISE EXCEPTION 'invalid tender state'; END IF;
+          next_state := 'cancelled';
+        ELSE RAISE EXCEPTION 'unsupported tender command'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'tender' AND p.aggregate_id = {sql_literal(tender_id)};
+        next_payload := current_payload || jsonb_build_object(
+          'state', next_state, 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        IF {sql_literal(command_type)} = 'award' THEN
+          next_payload := next_payload || jsonb_build_object(
+            'awarded_supplier_id', {sql_literal(request_json)}::jsonb->>'awarded_supplier_id',
+            'awarded_amount_minor', {sql_literal(request_json)}::jsonb->'awarded_amount_minor');
+        END IF;
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('tender', {sql_literal(tender_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action', 'tender.' || {sql_literal(command_type)},
+          'aggregate_type', 'tender', 'aggregate_id', {sql_literal(tender_id)}, 'actor_id', {sql_literal(actor_id)},
+          'event_id', {sql_literal(event_id)}, 'state', next_state, 'revision', next_revision),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('tender_id', {sql_literal(tender_id)}, 'state', next_state,
+        'revision', next_revision, 'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("tender command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected tender command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid tender command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("tender command receipt has no result")
+    return {"command": receipt, "tender": result, "idempotent_replay": not created}
 
 
 def _contract_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
@@ -1808,6 +2247,26 @@ def handler_factory(
                         response(self, 404, {"error": "payment plan not found"}, origin)
                     else:
                         response(self, 200, result, origin)
+                elif parsed.path == "/api/company/tenders":
+                    value = parse_qs(parsed.query).get("tender_id", [None])[0]
+                    response(self, 200, {"items": tenders(pool, value, max_response_rows)}, origin)
+                elif re.fullmatch(r"/api/company/tenders/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    tender_id = parsed.path.rsplit("/", 1)[-1]
+                    items = tenders(pool, tender_id, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "tender not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
+                elif parsed.path == "/api/company/suppliers":
+                    value = parse_qs(parsed.query).get("supplier_id", [None])[0]
+                    response(self, 200, {"items": suppliers(pool, value, max_response_rows)}, origin)
+                elif re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    supplier_id = parsed.path.rsplit("/", 1)[-1]
+                    items = suppliers(pool, supplier_id, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "supplier not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
                 elif re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     apply_value = parsed.path.rsplit("/", 1)[-1]
                     items = payment_applications(pool, apply_value, "all", max_response_rows)
@@ -1848,6 +2307,10 @@ def handler_factory(
                     command_family = "payment_application"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/tenders":
+                    command_family = "tender"
+                    command_type = "create"
+                    aggregate_id = None
                 else:
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
@@ -1861,6 +2324,10 @@ def handler_factory(
                         r"/api/company/payment-applies/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit|update|void)",
                         parsed.path,
                     )
+                    tender_match = re.fullmatch(
+                        r"/api/company/tenders/([A-Za-z0-9_.:-]{1,128})/(publish|open_bidding|award|complete|cancel)",
+                        parsed.path,
+                    )
                     if expense_match is not None:
                         aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
                     elif contract_match is not None:
@@ -1869,6 +2336,9 @@ def handler_factory(
                     elif payment_match is not None:
                         command_family = "payment_application"
                         aggregate_id, command_type = payment_match.group(1), payment_match.group(2)
+                    elif tender_match is not None:
+                        command_family = "tender"
+                        aggregate_id, command_type = tender_match.group(1), tender_match.group(2)
                     else:
                         if parsed.path.startswith("/api/"):
                             response(self, 404, {"error": "unknown company command"}, origin)
@@ -1890,6 +2360,15 @@ def handler_factory(
                         pool,
                         command_type=command_type,
                         apply_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                elif command_family == "tender":
+                    result = tender_command(
+                        pool,
+                        command_type=command_type,
+                        tender_id=aggregate_id,
                         body=body,
                         actor_id=actor,
                         idempotency_key=idempotency_key,

@@ -5,7 +5,8 @@ The browser-side Rabbita HTTP helper intentionally has no arbitrary-header
 API. This private development gateway keeps the service bearer token on the
 server, establishes an in-memory HttpOnly session, signs its actor assertion,
 converts a JSON ``idempotency_key`` field into the required
-``Idempotency-Key`` header, and forwards only the company read/expense/contract/payment-application paths.
+``Idempotency-Key`` header, and forwards only the company
+read/expense/contract/payment-application/tender paths.
 It must bind to a private address and is not a production gateway.
 """
 
@@ -35,6 +36,7 @@ class GatewayError(RuntimeError):
 EXPENSE_PATH_PREFIX = "/api/company/expenses"
 CONTRACT_PATH_PREFIX = "/api/company/contracts"
 PAYMENT_APPLICATION_PATH_PREFIX = "/api/company/payment-applies"
+TENDER_PATH_PREFIX = "/api/company/tenders"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 
@@ -307,6 +309,8 @@ def handler_factory(
                 or parsed.path.startswith(CONTRACT_PATH_PREFIX + "/")
                 or parsed.path == PAYMENT_APPLICATION_PATH_PREFIX
                 or parsed.path.startswith(PAYMENT_APPLICATION_PATH_PREFIX + "/")
+                or parsed.path == TENDER_PATH_PREFIX
+                or parsed.path.startswith(TENDER_PATH_PREFIX + "/")
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return

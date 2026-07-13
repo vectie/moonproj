@@ -104,6 +104,12 @@ def main() -> int:
         status, payload = request(args.port, "/api/company/projections?aggregate_type=notification_outbox", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"projection query failed: {status} {payload}")
+        status, payload = request(args.port, "/api/company/tenders", token=token)
+        if status != 200 or payload is None or not isinstance(payload.get("items"), list):
+            raise SmokeError(f"tender read failed: {status} {payload}")
+        status, payload = request(args.port, "/api/company/suppliers", token=token)
+        if status != 200 or payload is None or not isinstance(payload.get("items"), list):
+            raise SmokeError(f"supplier read failed: {status} {payload}")
         status, _ = request(args.port, "/api/health", token=None)
         if status != 401:
             raise SmokeError(f"missing bearer token was not rejected: {status}")
@@ -341,6 +347,52 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/payment-applies/{apply_id}", token=token)
         if status != 200 or payload is None or payload.get("operation_state") != "voided":
             raise SmokeError(f"payment application void detail failed: {status} {payload}")
+        tender_id = "TD-SMOKE-" + nonce
+        tender_payload = {
+            "tender_id": tender_id,
+            "project_scope": "project:CD-HJL",
+            "name": "service command smoke tender",
+            "category": "construction",
+            "estimated_amount_minor": 1200000,
+            "currency": "CNY",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/tenders",
+            token=token,
+            method="POST",
+            payload=tender_payload,
+            idempotency_key="tender-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("tender", {}).get("state") != "planning":
+            raise SmokeError(f"tender create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/tenders",
+            token=token,
+            method="POST",
+            payload=tender_payload,
+            idempotency_key="tender-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"tender idempotency failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/tenders/{tender_id}", token=token)
+        if status != 200 or payload is None or payload.get("state") != "planning":
+            raise SmokeError(f"tender detail failed: {status} {payload}")
+        for command, expected_state in (("publish", "publishing"), ("open_bidding", "bidding"), ("cancel", "cancelled")):
+            status, payload = request(
+                args.port,
+                f"/api/company/tenders/{tender_id}/{command}",
+                token=token,
+                method="POST",
+                payload={},
+                idempotency_key=f"tender-{command}-{nonce}",
+            )
+            if status != 200 or payload is None or payload.get("tender", {}).get("state") != expected_state:
+                raise SmokeError(f"tender {command} failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/tenders/{tender_id}", token=token)
+        if status != 200 or payload is None or payload.get("state") != "cancelled":
+            raise SmokeError(f"tender cancelled detail failed: {status} {payload}")
         print(
             json.dumps(
                 {
@@ -350,6 +402,7 @@ def main() -> int:
                     "payment_application_approval_state": "approved",
                     "payment_application_state": "voided",
                     "payment_eligibility": "early_payment_flagged",
+                    "tender_state": "cancelled",
                     "port": args.port,
                     "database": args.database,
                 },

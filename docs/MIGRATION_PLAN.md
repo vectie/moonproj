@@ -302,11 +302,20 @@ Execute the remainder in this order:
    local adapter with the reviewed production identity,
    token issuer, rotation, persistence, and owner-acceptance boundary before
    accepting the slice.
+   The `/tender` route is now the next connected procurement slice: it reads
+   latest tender projections and drives idempotent local planning,
+   publish/open-bidding, and cancellation commands. `/srm/providers` reads
+   supplier qualification and scope projections as well. Imported tenders
+   remain read-only; award requires a matching bid and an active qualified
+   supplier, and award-to-commitment remains a separate authority boundary.
+   The available ERP export has no supplier/tender rows, so the reviewed
+   procurement cohort is still synthetic evidence until a redacted export and
+   owner acceptance arrive; supplier commands are the next SRM slice.
 3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-4. Expand runtime vertical slices to the ERP parity floor: procurement/tender,
-   sales/receivables, delivery, treasury/financing, tax/close,
+4. Expand runtime vertical slices to the ERP parity floor: sales/receivables,
+   delivery, treasury/financing, tax/close,
    reporting/notifications, and investment. Synthetic rehearsals remain
    design evidence until real source rows and user acceptance are attached.
 5. Run named-owner acceptance and a read-only shadow period for each accepted

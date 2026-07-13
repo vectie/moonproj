@@ -26,6 +26,8 @@ from company_postgres_service import (
     contract_milestones as service_contract_milestones,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
+    suppliers as service_suppliers,
+    tenders as service_tenders,
 )
 
 
@@ -191,6 +193,16 @@ def payment_application_eligibility(
     return service_payment_application_eligibility(pool, plan_id, amount_minor)
 
 
+def tenders(args: argparse.Namespace, tender_id: str | None) -> list[dict[str, Any]]:
+    pool = _ReadModelPool(args)
+    return service_tenders(pool, tender_id, 500)
+
+
+def suppliers(args: argparse.Namespace, supplier_id: str | None) -> list[dict[str, Any]]:
+    pool = _ReadModelPool(args)
+    return service_suppliers(pool, supplier_id, 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -263,6 +275,30 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "payment plan not found"})
                     else:
                         response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/tenders":
+                    tender_id = parse_qs(parsed.query).get("tender_id", [None])[0]
+                    response(self, 200, {"items": tenders(args, tender_id)})
+                    return
+                if re.fullmatch(r"/api/company/tenders/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    tender_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = tenders(args, tender_id)
+                    if not rows:
+                        response(self, 404, {"error": "tender not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                if parsed.path == "/api/company/suppliers":
+                    supplier_id = parse_qs(parsed.query).get("supplier_id", [None])[0]
+                    response(self, 200, {"items": suppliers(args, supplier_id)})
+                    return
+                if re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    supplier_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = suppliers(args, supplier_id)
+                    if not rows:
+                        response(self, 404, {"error": "supplier not found"})
+                    else:
+                        response(self, 200, rows[0])
                     return
                 if re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     apply_id = parsed.path.rsplit("/", 1)[-1]

@@ -8,10 +8,9 @@ which source API module still needs a connected command/read workflow.
 
 The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the dashboard's fixed summary read-model
-and the local expense/contract command verticals are explicitly identified,
-while no other mutation endpoint is inferred.  The payment-application list
-is connected to the local PostgreSQL read/command boundary alongside expense
-and contract.
+and the local expense/contract/payment-application/tender command and
+supplier read verticals are explicitly identified, while no other mutation
+endpoint is inferred.
 """
 
 from __future__ import annotations
@@ -168,6 +167,10 @@ def match_target(
             return function, "connected_contract_read"
         if path == "/payment-applies" and function == "payment_applies_view":
             return function, "connected_payment_application_command_form"
+        if path == "/tender" and function == "tender_view":
+            return function, "connected_tender_command_form"
+        if path == "/srm/providers" and function == "srm_providers_view":
+            return function, "connected_supplier_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -205,6 +208,10 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_contract_scenario_and_production_identity"
     if target_state == "connected_payment_application_command_form":
         return "accept_browser_payment_application_scenario_and_production_identity"
+    if target_state == "connected_tender_command_form":
+        return "accept_browser_tender_scenario_and_production_identity"
+    if target_state == "connected_supplier_read":
+        return "accept_browser_supplier_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -233,6 +240,10 @@ def build_matrix(
             api_state = "connected_contract_command"
         elif target_state == "connected_payment_application_command_form":
             api_state = "connected_payment_application_command"
+        elif target_state == "connected_tender_command_form":
+            api_state = "connected_tender_command"
+        elif target_state == "connected_supplier_read":
+            api_state = "connected_supplier_read"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:
@@ -303,7 +314,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "`server/src/routes` directory, and `frontend/main/main.mbt`. This is an",
         "acceptance register, not a completion claim: mounted fixture screens do",
         "not count as connected company behavior. The connected exceptions are",
-        "the fixed dashboard read-model and the local expense/contract command",
+        "the fixed dashboard read-model and the local",
+        "expense/contract/payment-application/tender command and supplier read",
         "verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",

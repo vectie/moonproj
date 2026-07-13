@@ -109,12 +109,18 @@ identical replay is idempotent. `scripts/company_sqlite_projection_apply.py`
 then consumes only a native, domain-validated promotion receipt and persists
 immutable aggregate revisions plus a projection receipt with idempotent replay.
 The executable `scripts/company_postgres_service.py` now provides the local
-authenticated fixed-read runtime plus the reviewed expense, contract, and
-payment-application command verticals, with bounded reusable sessions, schema
+authenticated fixed-read runtime plus the reviewed expense, contract,
+payment-application, and tender command verticals, with bounded reusable sessions, schema
 readiness, idempotency, projection, and audit receipts. The payment-application
 read model joins the three real `cb_htfk_apply` rows to their contract,
 project, supplier, applicant, plan, and dual approval/payment state; its local
 command boundary also covers edit/void and milestone early/over-payment checks.
+The tender read model exposes latest procurement projections and its local
+planning/publish/open-bidding/cancel boundary; imported tenders remain
+read-only and awards require an active qualified supplier projection. The
+supplier read model exposes the same reviewed qualification/scope candidates
+to `/srm/providers`; supplier creation/review/blacklist commands remain the
+next SRM slice.
 `scripts/company_postgres_dev_gateway.py` adds the local
 HttpOnly session and signed actor assertion required by the Rabbita browser;
 managed provider deployment, token issuer/audience validation, and operational
@@ -436,8 +442,8 @@ importer.
 | `wf_step_assignee` | Workflow assignment configuration | `operations/workflow` + `foundation/access` + `scripts/erp_workflow_assignment_plan.py` + `cmd/workflow_assignment` + `persistence/store` | Six assignee rows now migrate through explicit user/process/scope/capability mappings into immutable `workflow_assignment` projections; native promotion validates typed `attach_assignment` process/step evidence, while assignments remain separate from authority and approval. Delegated decisions retain effective-window/revocation and delegation-ID evidence, and SLA policies retain due/overdue observation evidence, through the workflow boundary. |
 | `cb_contract` | Commercial commitment | `operations/commitment` + `migration/erp` | Commitment state machine implemented; promotion requires explicit principal, project-scope, counterparty, and amount-bounded authority mappings. A separate reviewed accounting-link plan can persist source-to-journal identity without posting cash. |
 | commitment snapshots and transition events | `operations/commitment` + `persistence/store` | Revisioned JSON aggregate projections with source-event anchors implemented; recognition-event adapter is implemented, while wider aggregate persistence remains pending. |
-| `srm_provider`, `srm_provider_bu` | Supplier master, qualification, blacklist | `operations/procurement` | Supplier identity, review, qualification, suspension, and blacklist controls implemented; the reviewed procurement cohort now persists qualified supplier projections with exact parity/replay, while real supplier rows remain absent from the export. |
-| `tender_plan`, `tender_award` | Tender planning, bidding, and award | `operations/procurement` | Planning → publishing → bidding → award → completion flow with qualified-supplier and duplicate-bid guards; the reviewed procurement cohort persists bid/award evidence and a separate performed commitment without settlement. |
+| `srm_provider`, `srm_provider_bu` | Supplier master, qualification, blacklist | `operations/procurement` + `scripts/company_postgres_service.py` | Supplier identity, review, qualification, suspension, and blacklist controls implemented; the reviewed procurement cohort now persists qualified supplier projections with exact parity/replay, and `/srm/providers` reads those candidates through PostgreSQL. Supplier creation/review/blacklist commands and real supplier rows remain pending. |
+| `tender_plan`, `tender_award` | Tender planning, bidding, and award | `operations/procurement` + `scripts/company_postgres_service.py` | Planning → publishing → bidding → award → completion flow with qualified-supplier and duplicate-bid guards; the reviewed procurement cohort persists bid/award evidence and a separate performed commitment without settlement. The Rabbita `/tender` route now reads PostgreSQL tender projections and drives local planning/publish/open-bidding/cancel commands; award remains gated on supplier qualification and matching bid evidence. |
 | supplier/tender snapshots and bid events | Procurement persistence | `operations/procurement` + `persistence/store` | Qualification and award snapshots serialize supplier/evaluation/bid evidence for reconciliation; an awarded tender now crosses into a draft commitment only through separate procurement and commitment authority grants. |
 | `cb_contract_milestone` | Time/progress/event obligation | `operations/contract` | Milestone trigger, eligibility, achievement, payment, overdue, and cancellation states implemented. |
 | milestone snapshots and payment events | Contract milestone persistence | `operations/contract` + `persistence/store` | Plan/actual amounts, triggers, and reached/paid state serialize as revisioned projections. |

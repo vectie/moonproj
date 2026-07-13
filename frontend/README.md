@@ -28,12 +28,19 @@ runtime is available separately as `scripts/company_postgres_service.py`. Its
 local command verticals include the expense lifecycle documented in
 `docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`, the contract lifecycle documented in
 `docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`, and the payment-application lifecycle
-documented in `docs/ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The
+documented in `docs/ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`, and the
+procurement/tender lifecycle documented in
+`docs/ERP_PROCUREMENT_RUNTIME_VERTICAL.md`. The
 new-expense and contract routes are wired to local
 create/submit/reject/resubmit/approve loops, while `/payment-applies` also
 loads real application rows and exposes edit/void plus milestone eligibility
-controls through the local-only development gateway below; the other route
-families remain fixture-backed. Command-gateway
+controls through the local-only development gateway below; `/tender` now loads
+tender projections and exposes local planning/publish/bidding/cancellation
+controls. Imported tender rows remain read-only and award requires a qualified
+supplier projection. `/srm/providers` now loads supplier qualification and
+scope projections while its detail/new command form remains fixture-backed.
+The other route families remain fixture-backed.
+Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
 Build and preview it with Warren:
@@ -52,7 +59,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   --public-dir /path/to/warren/dist
 ```
 
-To exercise the connected expense, contract, or payment-application create/submit/reject/resubmit/approve paths, keep the service token
+To exercise the connected expense, contract, payment-application, or tender
+create/submit/reject/resubmit/approve paths, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh

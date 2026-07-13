@@ -82,6 +82,35 @@ struct PaymentApplyRow {
 }
 
 ///|
+struct TenderRow {
+  tender_id : String
+  name : String
+  project_scope : String
+  category : String
+  estimated_amount_minor : String
+  estimated_amount_display : String
+  currency : String
+  state : String
+  awarded_supplier_id : String
+  awarded_amount_display : String
+  commitment_id : String
+  bid_count : String
+  source_kind : String
+}
+
+///|
+struct SupplierRow {
+  supplier_id : String
+  supplier_code : String
+  name : String
+  category_code : String
+  evaluation : String
+  state : String
+  scope : String
+  source_kind : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -109,6 +138,14 @@ struct Model {
   payment_apply_state : String
   payment_apply_note : String
   payment_apply_eligibility_note : String
+  tenders_loaded : Bool
+  tender_rows : Array[TenderRow]
+  tender_id : String
+  tender_state : String
+  tender_note : String
+  suppliers_loaded : Bool
+  supplier_rows : Array[SupplierRow]
+  supplier_note : String
 }
 
 ///|
@@ -160,6 +197,16 @@ enum Msg {
   PaymentApplyCommandFailed
   PaymentEligibilityLoaded(String)
   PaymentEligibilityLoadFailed
+  TendersLoaded(String)
+  TendersLoadFailed
+  CreateTender
+  PublishTender
+  OpenTenderBidding
+  CancelTender
+  TenderCommandFinished(String)
+  TenderCommandFailed
+  SuppliersLoaded(String)
+  SuppliersLoadFailed
 }
 
 ///|
@@ -191,6 +238,14 @@ fn initial_model() -> Model {
     payment_apply_state: "new",
     payment_apply_note: "先保存付款申请草稿，再提交审批",
     payment_apply_eligibility_note: "尚未校验付款节点条件",
+    tenders_loaded: false,
+    tender_rows: [],
+    tender_id: "TD-RABBITA-LOCAL",
+    tender_state: "new",
+    tender_note: "合约规划读模型尚未加载",
+    suppliers_loaded: false,
+    supplier_rows: [],
+    supplier_note: "供应商读模型尚未加载",
   }
 }
 
@@ -446,6 +501,190 @@ fn payment_apply_rows_from_body(body : String) -> Array[PaymentApplyRow] {
 }
 
 ///|
+fn tender_from_json(value : Json) -> TenderRow? {
+  match value {
+    Json::Object(fields) => {
+      let bids = match fields.get("bids") {
+        Some(Json::Array(values)) => values.length().to_string()
+        _ => "0"
+      }
+      Some({
+        tender_id: json_object_text(fields, "tender_id", ""),
+        name: json_object_text(fields, "name", ""),
+        project_scope: json_object_text(fields, "project_scope", ""),
+        category: json_object_text(fields, "category", ""),
+        estimated_amount_minor: json_object_text(
+          fields, "estimated_amount_minor", "0",
+        ),
+        estimated_amount_display: json_object_text(
+          fields, "estimated_amount_display", "—",
+        ),
+        currency: json_object_text(fields, "currency", "CNY"),
+        state: json_object_text(fields, "state", "planning"),
+        awarded_supplier_id: json_object_text(fields, "awarded_supplier_id", ""),
+        awarded_amount_display: json_object_text(
+          fields, "awarded_amount_display", "—",
+        ),
+        commitment_id: json_object_text(fields, "commitment_id", ""),
+        bid_count: bids,
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn tender_rows_from_body(body : String) -> Array[TenderRow] {
+  let rows : Array[TenderRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("items") {
+        Some(Json::Array(values)) =>
+          for value in values {
+            match tender_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn supplier_from_json(value : Json) -> SupplierRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        supplier_id: json_object_text(fields, "supplier_id", ""),
+        supplier_code: json_object_text(fields, "supplier_code", ""),
+        name: json_object_text(fields, "name", ""),
+        category_code: json_object_text(fields, "category_code", ""),
+        evaluation: json_object_text(fields, "evaluation", "unrated"),
+        state: json_object_text(fields, "state", "draft"),
+        scope: json_object_text(fields, "scope", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn supplier_rows_from_body(body : String) -> Array[SupplierRow] {
+  let rows : Array[SupplierRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("items") {
+        Some(Json::Array(values)) =>
+          for value in values {
+            match supplier_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn supplier_state_label(state : String) -> String {
+  match state {
+    "draft" => "草稿"
+    "pending_review" => "待审核"
+    "active" => "正常"
+    "suspended" => "暂停"
+    "blacklisted" => "黑名单"
+    "voided" => "已作废"
+    _ => state
+  }
+}
+
+///|
+fn supplier_evaluation_label(evaluation : String) -> String {
+  match evaluation {
+    "unrated" => "未定级"
+    "reviewed" => "已评审"
+    "qualified" => "合格"
+    "unqualified" => "不合格"
+    "strategic" => "战略"
+    _ => evaluation
+  }
+}
+
+///|
+fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/suppliers").expect_text(result => {
+    match result {
+      Ok(body) => emit(SuppliersLoaded(body))
+      Err(_) => emit(SuppliersLoadFailed)
+    }
+  })
+}
+
+///|
+fn tender_state_label(state : String) -> String {
+  match state {
+    "planning" => "待规划"
+    "publishing" => "公告中"
+    "bidding" => "招标中"
+    "awarded" => "已定标"
+    "completed" => "已完成"
+    "cancelled" => "已取消"
+    _ => state
+  }
+}
+
+///|
+fn load_tenders(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/tenders").expect_text(result => {
+    match result {
+      Ok(body) => emit(TendersLoaded(body))
+      Err(_) => emit(TendersLoadFailed)
+    }
+  })
+}
+
+///|
+fn tender_command_body(_model : Model, command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-tender-create-v1\",\"tender_id\":\"TD-RABBITA-LOCAL\",\"project_scope\":\"project:proj-0001\",\"name\":\"海教园主体结构工程招标\",\"category\":\"construction\",\"estimated_amount_minor\":120000000,\"currency\":\"CNY\"}"
+  } else if command_type == "cancel" {
+    "{\"idempotency_key\":\"rabbita-tender-cancel-v1\",\"reason\":\"本地演示撤回规划\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-tender-" + command_type + "-v1\"}"
+  }
+}
+
+///|
+fn issue_tender_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/tenders"
+  } else {
+    "/api/company/tenders/\{model.tender_id}/\{command_type}"
+  }
+  @http.post(path)
+  .with_text(tender_command_body(model, command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(TenderCommandFinished(body))
+      Err(_) => emit(TenderCommandFailed)
+    }
+  })
+}
+
+///|
 fn payment_apply_state_label(state : String) -> String {
   match state {
     "draft" => "草稿"
@@ -629,6 +868,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_contract(emit, path)
       } else if path == "/payment-applies" {
         load_payment_applies(emit)
+      } else if path == "/tender" {
+        load_tenders(emit)
+      } else if path == "/srm/providers" {
+        load_suppliers(emit)
       } else {
         none
       }
@@ -1045,6 +1288,139 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           payment_apply_eligibility_note: "付款节点校验服务不可用",
+        },
+      )
+    TendersLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          tenders_loaded: true,
+          tender_rows: tender_rows_from_body(body),
+          tender_note: "已加载 PostgreSQL 合约规划与招采状态",
+        },
+      )
+    TendersLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          tenders_loaded: false,
+          tender_note: "合约规划读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateTender =>
+      if model.tender_state == "planning" || model.tender_state == "publishing" {
+        (none, model)
+      } else {
+        (
+          issue_tender_command(emit, model, "create"),
+          {
+            ..model,
+            tender_state: "pending",
+            tender_note: "正在创建合约规划并写入 PostgreSQL 投影…",
+          },
+        )
+      }
+    PublishTender =>
+      if model.tender_id == "" || model.tender_state != "planning" {
+        (none, model)
+      } else {
+        (
+          issue_tender_command(emit, model, "publish"),
+          {
+            ..model,
+            tender_state: "pending",
+            tender_note: "正在发布招采计划…",
+          },
+        )
+      }
+    OpenTenderBidding =>
+      if model.tender_id == "" || model.tender_state != "publishing" {
+        (none, model)
+      } else {
+        (
+          issue_tender_command(emit, model, "open_bidding"),
+          {
+            ..model,
+            tender_state: "pending",
+            tender_note: "正在开启投标阶段…",
+          },
+        )
+      }
+    CancelTender =>
+      if model.tender_id == "" ||
+        (
+          model.tender_state != "planning" &&
+          model.tender_state != "publishing" &&
+          model.tender_state != "bidding"
+        ) {
+        (none, model)
+      } else {
+        (
+          issue_tender_command(emit, model, "cancel"),
+          {
+            ..model,
+            tender_state: "pending",
+            tender_note: "正在取消合约规划…",
+          },
+        )
+      }
+    TenderCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"planning\"") {
+        "planning"
+      } else if body.contains("\"state\":\"publishing\"") {
+        "publishing"
+      } else if body.contains("\"state\":\"bidding\"") {
+        "bidding"
+      } else if body.contains("\"state\":\"cancelled\"") {
+        "cancelled"
+      } else if body.contains("\"state\":\"awarded\"") {
+        "awarded"
+      } else if body.contains("\"state\":\"completed\"") {
+        "completed"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (none, { ..model, tender_state: "error", tender_note: body })
+      } else {
+        (
+          load_tenders(emit),
+          {
+            ..model,
+            tender_state: next_state,
+            tender_note: "已写入 PostgreSQL · 合约规划状态已更新 · 审计凭证已生成",
+          },
+        )
+      }
+    }
+    TenderCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          tender_state: "error",
+          tender_note: "公司合约规划命令服务不可用或拒绝了请求",
+        },
+      )
+    SuppliersLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          suppliers_loaded: true,
+          supplier_rows: supplier_rows_from_body(body),
+          supplier_note: "已加载 PostgreSQL 供应商资格与范围",
+        },
+      )
+    SuppliersLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          suppliers_loaded: false,
+          supplier_note: "供应商读模型不可用 · 使用已审核快照",
         },
       )
     CreateExpense =>
@@ -2839,44 +3215,278 @@ fn dynamic_cost_view() -> @html.Html {
 }
 
 ///|
-fn tender_view() -> @html.Html {
+fn fallback_tender_rows() -> Array[TenderRow] {
+  [
+    {
+      tender_id: "TP-CD-0301",
+      name: "主体结构工程",
+      project_scope: "project:CD-HJL",
+      category: "03-01 建安工程",
+      estimated_amount_minor: "26400000000",
+      estimated_amount_display: "¥264,000,000.00",
+      currency: "CNY",
+      state: "bidding",
+      awarded_supplier_id: "",
+      awarded_amount_display: "¥48,600,000.00",
+      commitment_id: "",
+      bid_count: "0",
+      source_kind: "snapshot",
+    },
+    {
+      tender_id: "TP-CD-0502",
+      name: "园林景观工程",
+      project_scope: "project:CD-HJL",
+      category: "05-02 配套工程",
+      estimated_amount_minor: "1860000000",
+      estimated_amount_display: "¥18,600,000.00",
+      currency: "CNY",
+      state: "planning",
+      awarded_supplier_id: "",
+      awarded_amount_display: "—",
+      commitment_id: "",
+      bid_count: "0",
+      source_kind: "snapshot",
+    },
+    {
+      tender_id: "TP-CQ-0403",
+      name: "营销推广服务",
+      project_scope: "project:CQ-NSJ",
+      category: "04-03 营销费用",
+      estimated_amount_minor: "4280000000",
+      estimated_amount_display: "¥42,800,000.00",
+      currency: "CNY",
+      state: "bidding",
+      awarded_supplier_id: "",
+      awarded_amount_display: "¥3,600,000.00",
+      commitment_id: "",
+      bid_count: "0",
+      source_kind: "snapshot",
+    },
+  ]
+}
+
+///|
+fn tender_table_row(row : TenderRow) -> @html.Html {
+  tr <| [
+    td(row.tender_id + " / " + row.source_kind),
+    td(row.project_scope),
+    td(row.name),
+    td(row.category),
+    td(
+      row.estimated_amount_display +
+      " " +
+      row.currency +
+      " / " +
+      row.estimated_amount_minor,
+    ),
+    td(
+      row.awarded_amount_display +
+      (if row.awarded_supplier_id == "" {
+        ""
+      } else {
+        " / " + row.awarded_supplier_id
+      }),
+    ),
+    td(row.bid_count + " 个投标"),
+    td <| [
+      span(class="erp-status-tag is-success", tender_state_label(row.state)),
+      if row.commitment_id == "" {
+        @html.nothing
+      } else {
+        span(" · 承诺 " + row.commitment_id)
+      },
+    ],
+  ]
+}
+
+///|
+fn tender_table(rows : Array[TenderRow]) -> @html.Html {
+  let rendered : Array[@html.Html] = []
+  for row in rows {
+    rendered.push(tender_table_row(row))
+  }
+  table(class="erp-data-table") <| [
+    thead <| [
+      table_header([
+        "规划编号 / 来源", "项目范围", "合约包", "CBS / 类别", "预算金额",
+        "已定标", "投标证据", "状态 / 承诺",
+      ]),
+    ],
+    tbody <| rendered,
+  ]
+}
+
+///|
+fn tender_actions(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Array[@html.Html] {
+  let actions : Array[@html.Html] = [
+    button(
+      class="erp-primary-btn",
+      on_click=emit(CreateTender),
+      "＋ 新建合约规划",
+    ),
+  ]
+  match model.tender_state {
+    "planning" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(PublishTender),
+          "发布招采计划",
+        ),
+      )
+    "publishing" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(OpenTenderBidding),
+          "开启投标",
+        ),
+      )
+    "bidding" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CancelTender),
+          "取消规划",
+        ),
+      )
+    _ => ()
+  }
+  actions
+}
+
+///|
+fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows = if model.tenders_loaded && model.tender_rows.length() > 0 {
+    model.tender_rows
+  } else {
+    fallback_tender_rows()
+  }
   page_shell(
     "合约规划",
     "COST / TENDER",
     "按项目和 CBS 科目编制合约规划，控制招采范围、预算和合同落地。",
-    [button(class="erp-primary-btn", "＋ 新建合约规划")],
+    tender_actions(emit, model),
     div <| [
+      div(class="erp-stat-grid") <| [
+        metric(
+          "规划数量",
+          rows.length().to_string(),
+          "招标计划与投标证据",
+          "metric-blue",
+        ),
+        metric(
+          "本地命令",
+          tender_state_label(model.tender_state),
+          "Rabbita 合约规划回路",
+          "metric-green",
+        ),
+        metric(
+          "数据来源",
+          if model.tenders_loaded {
+            "PostgreSQL"
+          } else {
+            "快照"
+          },
+          model.tender_note,
+          "metric-blue",
+        ),
+      ],
       filter_bar("项目 / 合约包 / CBS 科目"),
       table_panel(
         "合约规划包",
-        "共 38 个合约包",
-        data_table(
-          [
-            "规划编号", "项目", "合约包", "CBS 科目", "预算金额",
-            "已招采", "计划招标日", "状态",
-          ],
-          [
-            [
-              "TP-CD-0301", "成都和锦里", "主体结构工程", "03-01 建安工程",
-              "¥264,000,000", "¥48,600,000", "2026-01-15", "进行中",
-            ],
-            [
-              "TP-CD-0502", "成都和锦里", "园林景观工程", "05-02 配套工程",
-              "¥18,600,000", "¥0", "2026-08-10", "待招采",
-            ],
-            [
-              "TP-CQ-0403", "重庆南山居", "营销推广服务", "04-03 营销费用",
-              "¥42,800,000", "¥3,600,000", "2026-02-20", "进行中",
-            ],
-          ],
-        ),
+        model.tender_note +
+        " · award 需通过供应商资格与投标匹配校验",
+        tender_table(rows),
       ),
     ],
   )
 }
 
 ///|
-fn srm_providers_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn fallback_supplier_rows() -> Array[SupplierRow] {
+  [
+    {
+      supplier_id: "SUP-00018",
+      supplier_code: "SUP-00018",
+      name: "中建三局集团有限公司",
+      category_code: "construction",
+      evaluation: "qualified",
+      state: "active",
+      scope: "project:CD-HJL",
+      source_kind: "snapshot",
+    },
+    {
+      supplier_id: "SUP-00142",
+      supplier_code: "SUP-00142",
+      name: "众成广告传媒有限公司",
+      category_code: "marketing",
+      evaluation: "reviewed",
+      state: "active",
+      scope: "project:CQ-NSJ",
+      source_kind: "snapshot",
+    },
+    {
+      supplier_id: "SUP-00306",
+      supplier_code: "SUP-00306",
+      name: "绿城园林建设集团",
+      category_code: "landscape",
+      evaluation: "qualified",
+      state: "active",
+      scope: "project:SY-HSY",
+      source_kind: "snapshot",
+    },
+    {
+      supplier_id: "SUP-00427",
+      supplier_code: "SUP-00427",
+      name: "华北建材贸易有限公司",
+      category_code: "materials",
+      evaluation: "unqualified",
+      state: "suspended",
+      scope: "project:TJ-HJY",
+      source_kind: "snapshot",
+    },
+  ]
+}
+
+///|
+fn supplier_table(rows : Array[SupplierRow]) -> @html.Html {
+  let rendered : Array[@html.Html] = []
+  for row in rows {
+    rendered.push(
+      tr <| [
+        td(
+          row.supplier_code + " · " + row.supplier_id + " / " + row.source_kind,
+        ),
+        td(row.name),
+        td(row.category_code),
+        td(row.scope),
+        td(supplier_evaluation_label(row.evaluation)),
+        td(supplier_state_label(row.state)),
+      ],
+    )
+  }
+  table(class="erp-data-table") <| [
+    thead <| [
+      table_header([
+        "供应商编码 / 来源", "供应商名称", "主营类别", "服务范围",
+        "资格评价", "状态",
+      ]),
+    ],
+    tbody <| rendered,
+  ]
+}
+
+///|
+fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows = if model.suppliers_loaded && model.supplier_rows.length() > 0 {
+    model.supplier_rows
+  } else {
+    fallback_supplier_rows()
+  }
   page_shell(
     "供应商库",
     "SRM / PROVIDERS",
@@ -2890,31 +3500,11 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
       filter_bar("供应商名称 / 统一社会信用代码 / 类别"),
       table_panel(
         "供应商列表",
-        "共 426 家供应商",
-        data_table(
-          [
-            "供应商编码", "供应商名称", "类别", "合作项目", "联系人",
-            "最近评价", "风险等级", "状态",
-          ],
-          [
-            [
-              "SUP-00018", "中建三局集团有限公司", "工程施工", "成都和锦里",
-              "周强", "A", "低", "正常",
-            ],
-            [
-              "SUP-00142", "众成广告传媒有限公司", "营销服务", "重庆南山居",
-              "赵琳", "B", "中", "正常",
-            ],
-            [
-              "SUP-00306", "绿城园林建设集团", "园林工程", "沈阳和山苑",
-              "刘峰", "A", "低", "正常",
-            ],
-            [
-              "SUP-00427", "华北建材贸易有限公司", "材料供应", "天津海教园",
-              "王磊", "C", "高", "关注",
-            ],
-          ],
-        ),
+        model.supplier_note +
+        " · " +
+        rows.length().to_string() +
+        " 家供应商",
+        supplier_table(rows),
       ),
     ],
   )
@@ -4738,8 +5328,8 @@ fn business_view(
       "/cost-dashboard-v3" => cost_dashboard_view()
       "/investment" => investment_view()
       "/dynamic-cost" => dynamic_cost_view()
-      "/tender" => tender_view()
-      "/srm/providers" => srm_providers_view(emit)
+      "/tender" => tender_view(emit, model)
+      "/srm/providers" => srm_providers_view(emit, model)
       "/srm/providers/SUP-00018" => provider_detail_view(emit)
       "/srm/risk-board" => srm_risk_view()
       "/cbs/dict" => cbs_view(path)

@@ -19,3 +19,10 @@ candidates keep `cash_released`, `accounting_posted`, and `period_closed` false.
 The available ERP snapshot has no supplier or tender rows, so this remains
 reviewed synthetic evidence until a redacted procurement export and owner
 acceptance are supplied.
+
+The local runtime now consumes these same `supplier`/`tender` projection
+shapes when a reviewed cohort is present: `GET /api/company/tenders` serves
+the latest tender plan and `/tender` in Rabbita drives local planning,
+publishing, bidding, and cancellation commands. Imported plans remain
+read-only; award still requires a qualified supplier projection and a matching
+bid, with commitment creation kept as a separate authority decision.
