@@ -18,6 +18,7 @@ pub(all) suberror WorkflowError {
   EmptyAssignment
   AssignmentProcessMismatch
   DuplicateAssignment
+  UnknownAssignment
   NotAssigned
   InvalidWeight
   DuplicateStep
@@ -56,6 +57,7 @@ pub(all) struct ProcessDefinition {
 } derive(Eq, @debug.Debug)
 pub fn ProcessDefinition::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
 pub fn ProcessDefinition::assign_step(Self, assignment_id~ : String, step_id~ : String, assignee_id~ : String, principal_id~ : String, scope~ : String, weight~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> WorkflowAssignment raise WorkflowError
+pub fn ProcessDefinition::assignment_attachment(Self, assignment_id~ : String) -> WorkflowAssignmentAttachment raise WorkflowError
 pub fn ProcessDefinition::attach_assignment(Self, WorkflowAssignment) -> Self raise WorkflowError
 pub fn ProcessDefinition::new(process_id~ : String, process_key~ : String, steps~ : Array[ApprovalStep]) -> Self raise WorkflowError
 
@@ -90,6 +92,15 @@ pub(all) struct WorkflowAssignment {
   weight : Int
 } derive(Eq, @debug.Debug)
 pub fn WorkflowAssignment::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
+
+pub(all) struct WorkflowAssignmentAttachment {
+  attachment_id : String
+  assignment_id : String
+  process_id : String
+  step_id : String
+  grants_authority : Bool
+  approves_instance : Bool
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

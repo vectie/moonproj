@@ -31,6 +31,19 @@ pub(all) struct WorkflowAssignment {
 } derive(Debug, Eq)
 
 ///|
+/// Evidence that an assignment is attached to a process definition. The
+/// attachment changes which actors are eligible for a configured step; it
+/// never creates authority and it never records an approval decision.
+pub(all) struct WorkflowAssignmentAttachment {
+  attachment_id : String
+  assignment_id : String
+  process_id : String
+  step_id : String
+  grants_authority : Bool
+  approves_instance : Bool
+} derive(Debug, Eq)
+
+///|
 pub(all) struct ProcessDefinition {
   process_id : String
   process_key : String
@@ -67,6 +80,7 @@ pub(all) suberror WorkflowError {
   EmptyAssignment
   AssignmentProcessMismatch
   DuplicateAssignment
+  UnknownAssignment
   NotAssigned
   InvalidWeight
   DuplicateStep
@@ -191,6 +205,33 @@ pub fn ProcessDefinition::attach_assignment(
   let assignments = self.assignments.copy()
   assignments.push(assignment)
   { ..self, assignments, }
+}
+
+///|
+/// Return durable identity evidence for an assignment that is already
+/// attached to this definition. This is deliberately separate from
+/// `AuthorityGrant`: attachment eligibility and decision capability are two
+/// different controls.
+pub fn ProcessDefinition::assignment_attachment(
+  self : ProcessDefinition,
+  assignment_id~ : String,
+) -> WorkflowAssignmentAttachment raise WorkflowError {
+  if assignment_id.trim() == "" {
+    raise WorkflowError::EmptyAssignment
+  }
+  for assignment in self.assignments {
+    if assignment.assignment_id == assignment_id {
+      return {
+        attachment_id: "workflow-attachment:" + assignment.assignment_id,
+        assignment_id: assignment.assignment_id,
+        process_id: assignment.process_id,
+        step_id: assignment.step_id,
+        grants_authority: false,
+        approves_instance: false,
+      }
+    }
+  }
+  raise WorkflowError::UnknownAssignment
 }
 
 ///|

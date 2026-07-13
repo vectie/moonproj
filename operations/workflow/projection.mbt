@@ -50,6 +50,9 @@ fn assignments_json(assignments : Array[WorkflowAssignment]) -> Json {
           assignment.weight.to_double(),
           repr=assignment.weight.to_string(),
         ),
+        "configuration_only": Json::boolean(true),
+        "grants_authority": Json::boolean(false),
+        "approves_instance": Json::boolean(false),
       }),
     )
   }
@@ -103,6 +106,9 @@ fn workflow_assignment_projection_payload(
       assignment.weight.to_double(),
       repr=assignment.weight.to_string(),
     ),
+    "configuration_only": Json::boolean(true),
+    "grants_authority": Json::boolean(false),
+    "approves_instance": Json::boolean(false),
   }).stringify()
 }
 

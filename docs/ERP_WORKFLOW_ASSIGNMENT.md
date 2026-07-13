@@ -20,8 +20,12 @@ capabilities, or positive weights quarantine the row.
 the normal domain receipt. The receipt records an explicit attached process /
 step reference for each assignment.
 The resulting `workflow_assignment` projections retain process, step, actor-assignee,
-principal, scope, and weight. They do not grant roles, bypass decision-time
-authority, or approve workflow instances.
+principal, scope, and weight. They also persist the invariant markers
+`configuration_only=true`, `grants_authority=false`, and
+`approves_instance=false`. The native `WorkflowAssignmentAttachment` evidence
+is identity-checked against the attached process and step and carries the same
+markers. It does not grant roles, bypass decision-time authority, or approve
+workflow instances.
 
 Applications opt into decision enforcement by attaching the assignment to a
 `ProcessDefinition`. New instances inherit attached assignments; a configured
@@ -41,5 +45,7 @@ The fixture produces six exact-parity assignment projections, each with an
 explicit attachment reference, and an idempotent replay. The target process
 definition remains opt-in; attachment metadata does not mutate permissions or
 approval state.
-Approval-execution enforcement, delegation, SLA escalation, and segregation of
-duties remain later workflow gates.
+Approval-execution enforcement is still a separate decision-time capability
+check; a valid assignee without that capability is rejected. Effective-dated
+delegation, SLA escalation, and segregation of duties remain later workflow
+gates.

@@ -161,28 +161,34 @@ fn run(plan_path : String, output_path : String) -> Unit raise AssignmentError {
     if attached_definition.assignments.length() != 1 {
       raise AssignmentError::InvalidInput
     }
+    let attachment = attached_definition.assignment_attachment(
+      assignment_id=assignment.assignment_id,
+    ) catch {
+      _ => raise AssignmentError::InvalidInput
+    }
+    if attachment.grants_authority || attachment.approves_instance {
+      raise AssignmentError::InvalidInput
+    }
     let attached_candidate = match candidate.get("attachment_state") {
       None | Some(Null) =>
         Json::object({
-          "attachment_id": Json::string(
-            "workflow-attachment:" + required_string(candidate, "assignment_id"),
-          ),
+          "attachment_id": Json::string(attachment.attachment_id),
           "attachment_state": Json::string("attached"),
-          "attachment_process_id": Json::string(process_id),
-          "attachment_step_id": Json::string(
-            required_string(candidate, "step_id"),
-          ),
+          "attachment_process_id": Json::string(attachment.process_id),
+          "attachment_step_id": Json::string(attachment.step_id),
+          "configuration_only": Json::boolean(true),
+          "grants_authority": Json::boolean(attachment.grants_authority),
+          "approves_instance": Json::boolean(attachment.approves_instance),
         })
       Some(String(value)) if value == "attached" =>
         Json::object({
-          "attachment_id": Json::string(
-            "workflow-attachment:" + required_string(candidate, "assignment_id"),
-          ),
+          "attachment_id": Json::string(attachment.attachment_id),
           "attachment_state": Json::string(value),
-          "attachment_process_id": Json::string(process_id),
-          "attachment_step_id": Json::string(
-            required_string(candidate, "step_id"),
-          ),
+          "attachment_process_id": Json::string(attachment.process_id),
+          "attachment_step_id": Json::string(attachment.step_id),
+          "configuration_only": Json::boolean(true),
+          "grants_authority": Json::boolean(attachment.grants_authority),
+          "approves_instance": Json::boolean(attachment.approves_instance),
         })
       _ => raise AssignmentError::InvalidInput
     }

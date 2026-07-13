@@ -157,6 +157,10 @@ test "workflow assignment projection preserves source identity" {
     Some(latest) => {
       assert_true(latest.payload.contains("employee-001"))
       assert_true(latest.payload.contains("manager"))
+      assert_true(latest.payload.contains("configuration_only"))
+      assert_true(latest.payload.contains("grants_authority"))
+      assert_true(latest.payload.contains("approves_instance"))
+      assert_true(latest.payload.contains("false"))
     }
     None => fail("expected workflow assignment projection")
   }
@@ -221,6 +225,82 @@ test "attached workflow assignments enforce the decision actor" {
   )
   assert_true(approved.status == ProcessStatus::Approved)
   assert_eq(approved.assignments.length(), 1)
+}
+
+///|
+test "workflow assignment attachment validates identity and remains non-authorizing" {
+  let definition = ProcessDefinition::new(
+    process_id="assignment-identity-definition",
+    process_key="expense-approval",
+    steps=[
+      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+    ],
+  )
+  let assignment = definition.assign_step(
+    assignment_id="assignment-identity-001",
+    step_id="manager",
+    assignee_id="alice",
+    principal_id="co-001",
+    scope="workflow:assignment-identity-definition",
+    weight=1,
+    actor_id="alice",
+    grant={
+      grant_id: "workflow-assignment-identity-grant",
+      principal_id: "co-001",
+      actor_id: "alice",
+      capability: "workflow:assignment:add",
+      scope: "workflow:assignment-identity-definition",
+      max_amount_minor: 0,
+      active: true,
+    },
+  )
+  let other_definition = ProcessDefinition::new(
+    process_id="other-assignment-definition",
+    process_key="expense-approval",
+    steps=[
+      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+    ],
+  )
+  try other_definition.attach_assignment(assignment) catch {
+    WorkflowError::AssignmentProcessMismatch => ()
+    _ => fail("wrong assignment identity error")
+  } noraise {
+    _ => fail("expected assignment process mismatch")
+  }
+  let attached = definition.attach_assignment(assignment)
+  let evidence = attached.assignment_attachment(
+    assignment_id="assignment-identity-001",
+  )
+  assert_true(!evidence.grants_authority)
+  assert_true(!evidence.approves_instance)
+  try attached.assignment_attachment(assignment_id="missing-assignment") catch {
+    WorkflowError::UnknownAssignment => ()
+    _ => fail("wrong missing assignment error")
+  } noraise {
+    _ => fail("expected missing assignment error")
+  }
+  let instance = start_process(
+    attached,
+    instance_id="wf-assignment-authority-boundary",
+    principal_id="co-001",
+    subject_id="expense:expense-001",
+    actor_id="alice",
+    grant=workflow_grant("workflow:start"),
+  )
+  try
+    instance.decide(
+      step_id="manager",
+      decision=Decision::Approve,
+      weight=1,
+      actor_id="alice",
+      grant=workflow_grant("workflow:assignment:add"),
+    )
+  catch {
+    WorkflowError::NotAuthorized(_) => ()
+    _ => fail("assignment unexpectedly authorized approval")
+  } noraise {
+    _ => fail("expected decision authority check")
+  }
 }
 
 ///|

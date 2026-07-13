@@ -162,7 +162,9 @@ exact parity/replay without budget consumption or accounting posting. See
 The ninth wrapper argument can supply the independently reviewed workflow
 assignment map; it translates all six `wf_step_assignee` rows through the
 native workflow assignment API and persists `workflow_assignment` projections
-without turning assignees into permissions. See
+with typed `configuration_only=true`, `grants_authority=false`, and
+`approves_instance=false` evidence without turning assignees into permissions.
+See
 [ERP_WORKFLOW_ASSIGNMENT.md](ERP_WORKFLOW_ASSIGNMENT.md).
 The eleventh wrapper argument can supply the independently reviewed delivery
 progress map; it translates the one `jd_task_report` row through the native
