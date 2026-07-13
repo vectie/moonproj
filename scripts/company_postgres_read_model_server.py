@@ -21,7 +21,11 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from company_postgres_target_apply import PostgresTargetError, run_psql, sql_literal
-from company_postgres_service import contracts as service_contracts, contract_milestones as service_contract_milestones
+from company_postgres_service import (
+    contracts as service_contracts,
+    contract_milestones as service_contract_milestones,
+    payment_applications as service_payment_applications,
+)
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -168,6 +172,15 @@ def contract_detail(args: argparse.Namespace, contract_id: str) -> dict[str, Any
     return result
 
 
+def payment_applications(
+    args: argparse.Namespace,
+    apply_id: str | None,
+    view: str,
+) -> list[dict[str, Any]]:
+    pool = _ReadModelPool(args)
+    return service_payment_applications(pool, apply_id, view, 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -224,6 +237,20 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "contract not found"})
                     else:
                         response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/payment-applies":
+                    query = parse_qs(parsed.query)
+                    apply_id = query.get("apply_id", [None])[0]
+                    view = query.get("view", ["all"])[0]
+                    response(self, 200, {"items": payment_applications(args, apply_id, view)})
+                    return
+                if re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    apply_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = payment_applications(args, apply_id, "all")
+                    if not rows:
+                        response(self, 404, {"error": "payment application not found"})
+                    else:
+                        response(self, 200, rows[0])
                     return
                 if parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"})

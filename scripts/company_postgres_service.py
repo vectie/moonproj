@@ -20,6 +20,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/contracts`` and ``/api/company/contracts/<id>`` (GET)
 * ``/api/company/contracts`` (POST create draft)
 * ``/api/company/contracts/<id>/{submit,approve,reject,resubmit}`` (POST)
+* ``/api/company/payment-applies`` and ``/api/company/payment-applies/<id>`` (GET)
+* ``/api/company/payment-applies`` (POST create draft)
+* ``/api/company/payment-applies/<id>/{submit,approve,reject,resubmit}`` (POST)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -250,7 +253,14 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
         "product": "moonproj-company",
         "target": "postgresql",
         "read_only": False,
-        "capabilities": ["read_model", "expense_command", "contract_command", "audit_receipt"],
+        "capabilities": [
+            "read_model",
+            "expense_command",
+            "contract_command",
+            "payment_application_read",
+            "payment_application_command",
+            "audit_receipt",
+        ],
         "schema_version": schema_version,
         "raw_records": raw,
         "aggregate_projections": projections,
@@ -265,7 +275,14 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
         "ok": True,
         "target": "postgresql",
         "read_only": False,
-        "capabilities": ["read_model", "expense_command", "contract_command", "audit_receipt"],
+        "capabilities": [
+            "read_model",
+            "expense_command",
+            "contract_command",
+            "payment_application_read",
+            "payment_application_command",
+            "audit_receipt",
+        ],
         "schema_version": expected_schema_version,
     }
 
@@ -806,6 +823,431 @@ def contract_command(
     return {"command": receipt, "contract": result, "idempotent_replay": not created}
 
 
+def _decode_payment_application_fields(line: str) -> dict[str, Any]:
+    fields = line.split("|")
+    if len(fields) != 21:
+        raise ServiceError("unexpected payment application projection shape")
+    try:
+        return {
+            "apply_id": decode_hex(fields[0]),
+            "apply_code": decode_hex(fields[1]),
+            "contract_id": decode_hex(fields[2]),
+            "contract_name": decode_hex(fields[3]),
+            "project_id": decode_hex(fields[4]),
+            "project_name": decode_hex(fields[5]),
+            "supplier_name": decode_hex(fields[6]),
+            "subject": decode_hex(fields[7]),
+            "amount_minor": int(fields[8]),
+            "currency": decode_hex(fields[9]),
+            "apply_date": decode_hex(fields[10]),
+            "operation_state": decode_hex(fields[11]),
+            "apply_state": decode_hex(fields[12]),
+            "pay_state": decode_hex(fields[13]),
+            "apply_type_code": decode_hex(fields[14]),
+            "pay_class": decode_hex(fields[15]),
+            "applied_by": decode_hex(fields[16]),
+            "applied_by_name": decode_hex(fields[17]),
+            "source_kind": decode_hex(fields[18]),
+            "plan_id": decode_hex(fields[19]),
+            "milestone_id": decode_hex(fields[20]),
+        }
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ServiceError("invalid payment application projection encoding") from error
+
+
+def payment_applications(
+    pool: PsqlPool,
+    apply_id: str | None,
+    view: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if apply_id is not None and not IDENTIFIER.fullmatch(apply_id):
+        raise ValueError("invalid payment application id")
+    if view not in {"all", "approving", "approved", "fullpaid"}:
+        raise ValueError("unsupported payment application view")
+    where = ""
+    if apply_id is not None:
+        where = f"WHERE base.apply_id = {sql_literal(apply_id)}"
+    query = f"""
+    WITH imported AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id AS apply_id, payload, 'imported' AS source_kind
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'payment_application'
+      ORDER BY aggregate_id, revision DESC
+    ),
+    command AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id AS apply_id, payload, 'command' AS source_kind
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'payment_application_command'
+      ORDER BY aggregate_id, revision DESC
+    ),
+    base AS (
+      SELECT apply_id, payload, source_kind FROM imported
+      UNION ALL
+      SELECT apply_id, payload, source_kind FROM command
+    ),
+    deduped AS (
+      SELECT DISTINCT ON (apply_id) apply_id, payload, source_kind
+      FROM base
+      ORDER BY apply_id, CASE WHEN source_kind = 'command' THEN 1 ELSE 0 END DESC
+    ),
+    raw_apply AS (
+      SELECT record_id, payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/cb_htfk_apply'
+    ),
+    raw_contract AS (
+      SELECT record_id, payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/cb_contract'
+    ),
+    raw_project AS (
+      SELECT record_id, payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/ep_project'
+    ),
+    raw_user AS (
+      SELECT record_id, payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/sys_user'
+    )
+    SELECT encode(convert_to(base.apply_id, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'apply_code',
+             base.payload->'candidate'->'application'->>'apply_code', raw_apply.payload->>'apply_code', base.apply_id), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'contract_id',
+             base.payload->'candidate'->'application'->>'contract_guid', raw_apply.payload->>'contract_guid', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw_contract.payload->>'contract_name', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'project_id',
+             base.payload->'candidate'->'application'->>'proj_guid', raw_apply.payload->>'proj_guid', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw_project.payload->>'proj_name', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw_contract.payload->>'yf_provider_name', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'subject',
+             base.payload->'candidate'->'application'->>'subject', raw_apply.payload->>'subject', ''), 'UTF8'), 'hex'),
+           coalesce(base.payload->'payment_application'->>'amount_minor',
+             base.payload->'candidate'->'application'->>'amount_minor',
+             round(coalesce((raw_apply.payload->>'apply_amount')::numeric, 0) * 100)::bigint::text, '0'),
+           encode(convert_to(coalesce(base.payload->>'currency',
+             base.payload->'candidate'->>'currency', 'CNY'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'apply_date',
+             base.payload->'candidate'->'application'->>'apply_date', raw_apply.payload->>'apply_date', ''), 'UTF8'), 'hex'),
+           encode(convert_to(
+             CASE WHEN base.source_kind = 'command' THEN coalesce(base.payload->>'state', 'draft')
+               WHEN coalesce(raw_apply.payload->>'pay_state', '') = '完全支付' THEN 'paid'
+               WHEN coalesce(raw_apply.payload->>'pay_state', '') = '部分支付' THEN 'partially_paid'
+               WHEN coalesce(raw_apply.payload->>'apply_state', '') IN ('已审核', 'approved', 'Approved') THEN 'approved'
+               WHEN coalesce(raw_apply.payload->>'apply_state', '') IN ('已驳回', 'rejected', 'Rejected') THEN 'rejected'
+               WHEN coalesce(raw_apply.payload->>'apply_state', '') IN ('申请审批中', 'submitted', 'Approving') THEN 'submitted'
+               ELSE 'draft'
+             END, 'UTF8'), 'hex'),
+           encode(convert_to(
+             CASE WHEN base.source_kind = 'command' THEN
+               CASE base.payload->>'state' WHEN 'draft' THEN '草稿' WHEN 'submitted' THEN '申请审批中'
+                 WHEN 'rejected' THEN '已驳回' WHEN 'approved' THEN '已审核' ELSE coalesce(base.payload->>'state', '草稿') END
+               ELSE coalesce(base.payload->'candidate'->'application'->>'apply_state', raw_apply.payload->>'apply_state', '')
+             END, 'UTF8'), 'hex'),
+           encode(convert_to(
+             CASE WHEN base.source_kind = 'command' THEN coalesce(base.payload->'payment_application'->>'pay_state', '未支付')
+               ELSE coalesce(base.payload->'candidate'->'application'->>'pay_state', raw_apply.payload->>'pay_state', '')
+             END, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'apply_type_code',
+             base.payload->'candidate'->'application'->>'apply_type_code', raw_apply.payload->>'apply_type_code', ''), 'UTF8'), 'hex'),
+           encode(convert_to(CASE WHEN coalesce(base.payload->'payment_application'->>'apply_class',
+             base.payload->'candidate'->'application'->>'apply_class', raw_apply.payload->>'apply_class', '0') = '0'
+             THEN '合同' ELSE '非合同' END, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'applied_by',
+             base.payload->'candidate'->'application'->>'applied_by', raw_apply.payload->>'applied_by', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw_user.payload->>'emp_name', raw_user.payload->>'user_name',
+             base.payload->'payment_application'->>'applied_by', base.payload->'candidate'->'application'->>'applied_by', ''), 'UTF8'), 'hex'),
+           encode(convert_to(base.source_kind, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'plan_id',
+             base.payload->'candidate'->'application'->>'plan_guid', raw_apply.payload->>'htfk_plan_guid', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'payment_application'->>'milestone_id',
+             base.payload->'candidate'->'application'->>'milestone_guid', raw_apply.payload->>'milestone_guid', ''), 'UTF8'), 'hex')
+    FROM deduped base
+    LEFT JOIN raw_apply ON raw_apply.record_id = base.apply_id
+    LEFT JOIN raw_contract ON raw_contract.record_id = coalesce(base.payload->'payment_application'->>'contract_id',
+      base.payload->'candidate'->'application'->>'contract_guid', raw_apply.payload->>'contract_guid')
+    LEFT JOIN raw_project ON raw_project.record_id = coalesce(base.payload->'payment_application'->>'project_id',
+      base.payload->'candidate'->'application'->>'proj_guid', raw_apply.payload->>'proj_guid')
+    LEFT JOIN raw_user ON raw_user.record_id = coalesce(base.payload->'payment_application'->>'applied_by',
+      base.payload->'candidate'->'application'->>'applied_by', raw_apply.payload->>'applied_by')
+    {where}
+    ORDER BY base.apply_id
+    LIMIT {max_rows}
+    """
+    result = [_decode_payment_application_fields(line) for line in query_lines(pool, query)]
+    for item in result:
+        item["amount_display"] = f"¥{item['amount_minor'] / 100:,.2f}"
+    if view == "approving":
+        result = [item for item in result if item["operation_state"] == "submitted"]
+    elif view == "approved":
+        result = [item for item in result if item["operation_state"] == "approved"]
+    elif view == "fullpaid":
+        result = [item for item in result if item["operation_state"] == "paid"]
+    return result
+
+
+def _payment_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _payment_request(
+    command_type: str,
+    apply_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    pool: PsqlPool,
+) -> tuple[str, dict[str, Any]]:
+    if command_type not in {"create", "submit", "approve", "reject", "resubmit"}:
+        raise CommandRejected("unsupported payment application command", 404)
+    if command_type == "create":
+        apply_id = body.get("apply_id")
+        if not isinstance(apply_id, str) or not apply_id.strip():
+            apply_id = "PAY-" + uuid.uuid4().hex[:20]
+        apply_id = apply_id.strip()
+        if not IDENTIFIER.fullmatch(apply_id):
+            raise CommandRejected("apply_id contains unsupported characters", 422)
+        apply_code = _payment_text(body, "apply_code", identifier=True)
+        contract_id = _payment_text(body, "contract_id", identifier=True)
+        subject = _payment_text(body, "subject")
+        currency = _payment_text(body, "currency", identifier=True).upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            raise CommandRejected("currency must be a three-letter code", 422)
+        amount_minor = body.get("amount_minor")
+        if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+            raise CommandRejected("amount_minor must be a positive integer", 422)
+        contract = contracts(pool, contract_id, 1)
+        if not contract:
+            raise CommandRejected("contract not found", 404)
+        plan_id = body.get("plan_id", "")
+        if not isinstance(plan_id, str):
+            raise CommandRejected("plan_id must be text", 422)
+        plan_id = plan_id.strip()
+        if plan_id:
+            plan_rows = query_lines(
+                pool,
+                f"""
+                SELECT 1
+                FROM company_record
+                WHERE record_type = 'legacy/raw/cb_htfkplan'
+                  AND record_id = {sql_literal(plan_id)}
+                  AND payload->>'contract_guid' = {sql_literal(contract_id)}
+                LIMIT 1
+                """,
+            )
+            if not plan_rows:
+                raise CommandRejected("plan_id does not belong to contract", 422)
+        existing_amount_lines = query_lines(
+            pool,
+            f"""
+            SELECT coalesce(sum(round((payload->>'apply_amount')::numeric * 100)), 0)::bigint
+            FROM company_record
+            WHERE record_type = 'legacy/raw/cb_htfk_apply'
+              AND payload->>'contract_guid' = {sql_literal(contract_id)}
+              AND coalesce(payload->>'apply_state', '') <> '已驳回'
+            """,
+        )
+        existing_amount_minor = int(existing_amount_lines[0]) if existing_amount_lines else 0
+        if existing_amount_minor + amount_minor > int(contract[0].get("amount_minor", 0)):
+            raise CommandRejected("payment application exceeds contract amount", 409)
+        apply_type_code = body.get("apply_type_code", "WORK_PROGRESS")
+        if not isinstance(apply_type_code, str) or not apply_type_code.strip():
+            raise CommandRejected("apply_type_code must be text", 422)
+        return apply_id, {
+            "command_type": command_type,
+            "apply_id": apply_id,
+            "apply_code": apply_code,
+            "contract_id": contract_id,
+            "plan_id": plan_id,
+            "apply_class": int(body.get("apply_class", 0)) if isinstance(body.get("apply_class", 0), int) else 0,
+            "apply_type_code": apply_type_code.strip(),
+            "subject": subject,
+            "amount_minor": amount_minor,
+            "currency": currency,
+            "apply_date": body.get("apply_date", time.strftime("%Y-%m-%d")),
+            "applied_by": actor_id,
+            "project_id": contract[0].get("project_id", ""),
+            "actor_id": actor_id,
+        }
+    if apply_id is None or not IDENTIFIER.fullmatch(apply_id):
+        raise CommandRejected("apply_id is required", 422)
+    reason = body.get("reason", "")
+    if not isinstance(reason, str):
+        raise CommandRejected("reason must be text", 422)
+    return apply_id, {
+        "command_type": command_type,
+        "apply_id": apply_id,
+        "reason": reason.strip(),
+        "actor_id": actor_id,
+    }
+
+
+def payment_application_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    apply_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    apply_id, request = _payment_request(command_type, apply_id, body, actor_id, pool)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored payment application command receipt has no result")
+        return {"command": existing, "payment_application": result, "idempotent_replay": True}
+    current = payment_applications(pool, apply_id, "all", 1)
+    if command_type == "create" and current:
+        raise CommandRejected("payment application already exists", 409)
+    if command_type != "create":
+        if not current:
+            raise CommandRejected("payment application not found", 404)
+        expected = {
+            "submit": "draft",
+            "approve": "submitted",
+            "reject": "submitted",
+            "resubmit": "rejected",
+        }[command_type]
+        if current[0].get("operation_state") != expected:
+            raise CommandRejected(
+                f"payment application transition {command_type} requires {expected}, found {current[0].get('operation_state')}",
+                409,
+            )
+    event_id = f"payment-application:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "apply_id": apply_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'payment_application_command'
+        AND p.aggregate_id = {sql_literal(apply_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'payment application already exists'; END IF;
+        next_revision := 1;
+        next_state := 'draft';
+        next_payload := jsonb_build_object(
+          'format', 'moonproj.company.payment-application-command.v1',
+          'state', next_state,
+          'payment_application', {sql_literal(request_json)}::jsonb,
+          'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'payment application command not found'; END IF;
+        current_state := current_payload->>'state';
+        IF {sql_literal(command_type)} = 'submit' THEN
+          IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid payment application state'; END IF;
+          next_state := 'submitted';
+        ELSIF {sql_literal(command_type)} = 'approve' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid payment application state'; END IF;
+          next_state := 'approved';
+        ELSIF {sql_literal(command_type)} = 'reject' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid payment application state'; END IF;
+          next_state := 'rejected';
+        ELSIF {sql_literal(command_type)} = 'resubmit' THEN
+          IF current_state <> 'rejected' THEN RAISE EXCEPTION 'invalid payment application state'; END IF;
+          next_state := 'submitted';
+        ELSE RAISE EXCEPTION 'unsupported payment application command'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'payment_application_command'
+          AND p.aggregate_id = {sql_literal(apply_id)};
+        next_payload := current_payload || jsonb_build_object(
+          'state', next_state, 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)},
+          'reason', {sql_literal(request_json)}::jsonb->>'reason');
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('payment_application_command', {sql_literal(apply_id)}, next_revision,
+        next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)},
+          'action', 'payment_application.' || {sql_literal(command_type)},
+          'aggregate_type', 'payment_application', 'aggregate_id', {sql_literal(apply_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', next_state, 'revision', next_revision),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('apply_id', {sql_literal(apply_id)}, 'state', next_state,
+        'revision', next_revision, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("payment application command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected payment application command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid payment application command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("payment application command receipt has no result")
+    return {"command": receipt, "payment_application": result, "idempotent_replay": not created}
+
+
 def _required_text(body: dict[str, Any], key: str) -> str:
     value = body.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -1213,6 +1655,23 @@ def handler_factory(
                         detail = dict(items[0])
                         detail["milestones"] = contract_milestones(pool, contract_id, max_response_rows)
                         response(self, 200, detail, origin)
+                elif parsed.path == "/api/company/payment-applies":
+                    query = parse_qs(parsed.query)
+                    apply_value = query.get("apply_id", [None])[0]
+                    view = query.get("view", ["all"])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": payment_applications(pool, apply_value, view, max_response_rows)},
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    apply_value = parsed.path.rsplit("/", 1)[-1]
+                    items = payment_applications(pool, apply_value, "all", max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "payment application not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
                 elif parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"}, origin)
                 else:
@@ -1242,6 +1701,10 @@ def handler_factory(
                     command_family = "contract"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/payment-applies":
+                    command_family = "payment_application"
+                    command_type = "create"
+                    aggregate_id = None
                 else:
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
@@ -1251,11 +1714,18 @@ def handler_factory(
                         r"/api/company/contracts/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
                         parsed.path,
                     )
+                    payment_match = re.fullmatch(
+                        r"/api/company/payment-applies/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
+                        parsed.path,
+                    )
                     if expense_match is not None:
                         aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
                     elif contract_match is not None:
                         command_family = "contract"
                         aggregate_id, command_type = contract_match.group(1), contract_match.group(2)
+                    elif payment_match is not None:
+                        command_family = "payment_application"
+                        aggregate_id, command_type = payment_match.group(1), payment_match.group(2)
                     else:
                         if parsed.path.startswith("/api/"):
                             response(self, 404, {"error": "unknown company command"}, origin)
@@ -1268,6 +1738,15 @@ def handler_factory(
                         pool,
                         command_type=command_type,
                         contract_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                elif command_family == "payment_application":
+                    result = payment_application_command(
+                        pool,
+                        command_type=command_type,
+                        apply_id=aggregate_id,
                         body=body,
                         actor_id=actor,
                         idempotency_key=idempotency_key,

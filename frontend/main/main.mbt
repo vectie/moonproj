@@ -57,6 +57,31 @@ struct ContractMilestoneRow {
 }
 
 ///|
+struct PaymentApplyRow {
+  apply_id : String
+  apply_code : String
+  contract_id : String
+  contract_name : String
+  project_name : String
+  supplier_name : String
+  subject : String
+  amount_minor : String
+  amount_display : String
+  currency : String
+  apply_date : String
+  operation_state : String
+  apply_state : String
+  pay_state : String
+  apply_type_code : String
+  pay_class : String
+  applied_by : String
+  applied_by_name : String
+  source_kind : String
+  plan_id : String
+  milestone_id : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -78,6 +103,11 @@ struct Model {
   contract_id : String
   contract_state : String
   contract_note : String
+  payment_applies_loaded : Bool
+  payment_apply_rows : Array[PaymentApplyRow]
+  payment_apply_id : String
+  payment_apply_state : String
+  payment_apply_note : String
 }
 
 ///|
@@ -115,6 +145,15 @@ enum Msg {
   ApproveContract
   ContractCommandFinished(String)
   ContractCommandFailed
+  PaymentAppliesLoaded(String)
+  PaymentAppliesLoadFailed
+  CreatePaymentApply
+  SubmitPaymentApply
+  RejectPaymentApply
+  ResubmitPaymentApply
+  ApprovePaymentApply
+  PaymentApplyCommandFinished(String)
+  PaymentApplyCommandFailed
 }
 
 ///|
@@ -140,6 +179,11 @@ fn initial_model() -> Model {
     contract_id: "CT-RABBITA-LOCAL",
     contract_state: "new",
     contract_note: "先保存草稿，再提交审批",
+    payment_applies_loaded: false,
+    payment_apply_rows: [],
+    payment_apply_id: "PAY-RABBITA-LOCAL",
+    payment_apply_state: "new",
+    payment_apply_note: "先保存付款申请草稿，再提交审批",
   }
 }
 
@@ -343,6 +387,113 @@ fn contract_detail_from_body(
 }
 
 ///|
+fn payment_apply_from_json(value : Json) -> PaymentApplyRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        apply_id: json_object_text(fields, "apply_id", ""),
+        apply_code: json_object_text(fields, "apply_code", ""),
+        contract_id: json_object_text(fields, "contract_id", ""),
+        contract_name: json_object_text(fields, "contract_name", ""),
+        project_name: json_object_text(fields, "project_name", ""),
+        supplier_name: json_object_text(fields, "supplier_name", ""),
+        subject: json_object_text(fields, "subject", ""),
+        amount_minor: json_object_text(fields, "amount_minor", "0"),
+        amount_display: json_object_text(fields, "amount_display", "—"),
+        currency: json_object_text(fields, "currency", "CNY"),
+        apply_date: json_object_text(fields, "apply_date", ""),
+        operation_state: json_object_text(fields, "operation_state", ""),
+        apply_state: json_object_text(fields, "apply_state", ""),
+        pay_state: json_object_text(fields, "pay_state", ""),
+        apply_type_code: json_object_text(fields, "apply_type_code", ""),
+        pay_class: json_object_text(fields, "pay_class", "合同"),
+        applied_by: json_object_text(fields, "applied_by", ""),
+        applied_by_name: json_object_text(fields, "applied_by_name", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+        plan_id: json_object_text(fields, "plan_id", ""),
+        milestone_id: json_object_text(fields, "milestone_id", ""),
+      })
+    _ => None
+  }
+}
+
+///|
+fn payment_apply_rows_from_body(body : String) -> Array[PaymentApplyRow] {
+  let rows : Array[PaymentApplyRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("items") {
+        Some(Json::Array(values)) =>
+          for value in values {
+            match payment_apply_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn payment_apply_state_label(state : String) -> String {
+  match state {
+    "draft" => "草稿"
+    "submitted" => "审批中"
+    "rejected" => "已驳回"
+    "approved" => "已审核"
+    "paid" => "完全支付"
+    "partially_paid" => "部分支付"
+    _ => state
+  }
+}
+
+///|
+fn load_payment_applies(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/payment-applies").expect_text(result => {
+    match result {
+      Ok(body) => emit(PaymentAppliesLoaded(body))
+      Err(_) => emit(PaymentAppliesLoadFailed)
+    }
+  })
+}
+
+///|
+fn payment_apply_command_body(_model : Model, command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-payment-create-v1\",\"apply_id\":\"PAY-RABBITA-LOCAL\",\"apply_code\":\"FK-RABBITA-LOCAL\",\"contract_id\":\"ht-tj-001\",\"plan_id\":\"plan-tj-001-2\",\"subject\":\"海教园1号楼总包进度款 Rabbita 演示\",\"amount_minor\":12000000,\"currency\":\"CNY\",\"apply_type_code\":\"WORK_PROGRESS\"}"
+  } else if command_type == "reject" {
+    "{\"idempotency_key\":\"rabbita-payment-reject-v1\",\"reason\":\"请补充付款申请附件\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-payment-" + command_type + "-v1\"}"
+  }
+}
+
+///|
+fn issue_payment_apply_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/payment-applies"
+  } else {
+    "/api/company/payment-applies/\{model.payment_apply_id}/\{command_type}"
+  }
+  @http.post(path)
+  .with_text(payment_apply_command_body(model, command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(PaymentApplyCommandFinished(body))
+      Err(_) => emit(PaymentApplyCommandFailed)
+    }
+  })
+}
+
+///|
 fn contract_state_label(state : String) -> String {
   match state {
     "draft" => "草稿"
@@ -452,6 +603,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_contracts(emit)
       } else if path.has_prefix("/contracts/") {
         load_contract(emit, path)
+      } else if path == "/payment-applies" {
+        load_payment_applies(emit)
       } else {
         none
       }
@@ -682,6 +835,130 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           contract_state: "error",
           contract_note: "公司合同命令服务不可用或拒绝了请求",
+        },
+      )
+    PaymentAppliesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          payment_applies_loaded: true,
+          payment_apply_rows: payment_apply_rows_from_body(body),
+          payment_apply_note: "已加载 PostgreSQL 付款申请与支付状态",
+        },
+      )
+    PaymentAppliesLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          payment_applies_loaded: false,
+          payment_apply_note: "付款申请读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreatePaymentApply =>
+      if model.payment_apply_state == "draft" ||
+        model.payment_apply_state == "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "create"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在创建付款申请并写入 PostgreSQL 投影…",
+          },
+        )
+      }
+    SubmitPaymentApply =>
+      if model.payment_apply_id == "" || model.payment_apply_state != "draft" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "submit"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在提交付款申请审批…",
+          },
+        )
+      }
+    RejectPaymentApply =>
+      if model.payment_apply_id == "" ||
+        model.payment_apply_state != "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "reject"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在退回付款申请并写入审计…",
+          },
+        )
+      }
+    ResubmitPaymentApply =>
+      if model.payment_apply_id == "" || model.payment_apply_state != "rejected" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "resubmit"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在重新提交付款申请审批…",
+          },
+        )
+      }
+    ApprovePaymentApply =>
+      if model.payment_apply_id == "" ||
+        model.payment_apply_state != "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "approve"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在审核付款申请并写入审计…",
+          },
+        )
+      }
+    PaymentApplyCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"approved\"") {
+        "approved"
+      } else if body.contains("\"state\":\"rejected\"") {
+        "rejected"
+      } else if body.contains("\"state\":\"submitted\"") {
+        "submitted"
+      } else if body.contains("\"state\":\"draft\"") {
+        "draft"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (
+          none,
+          { ..model, payment_apply_state: "error", payment_apply_note: body },
+        )
+      } else {
+        (
+          load_payment_applies(emit),
+          {
+            ..model,
+            payment_apply_state: next_state,
+            payment_apply_note: "已写入 PostgreSQL · 付款申请状态已更新 · 审计凭证已生成",
+          },
+        )
+      }
+    }
+    PaymentApplyCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          payment_apply_state: "error",
+          payment_apply_note: "公司付款申请命令服务不可用或拒绝了请求",
         },
       )
     CreateExpense =>
@@ -2082,44 +2359,230 @@ fn contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn payment_applies_view() -> @html.Html {
+fn fallback_payment_apply_rows() -> Array[PaymentApplyRow] {
+  [
+    {
+      apply_id: "apply-tj-001",
+      apply_code: "FK202604010001",
+      contract_id: "ht-tj-001",
+      contract_name: "海教园1号楼总包工程合同",
+      project_name: "天津海教园一期",
+      supplier_name: "天津建工集团第三建筑工程有限公司",
+      subject: "海教园1号楼总包首付款 20%",
+      amount_minor: "360000000",
+      amount_display: "¥3,600,000.00",
+      currency: "CNY",
+      apply_date: "2026-04-02",
+      operation_state: "paid",
+      apply_state: "已审核",
+      pay_state: "完全支付",
+      apply_type_code: "WORK_PROGRESS",
+      pay_class: "合同",
+      applied_by: "user-lmj-0001",
+      applied_by_name: "李明津",
+      source_kind: "imported",
+      plan_id: "plan-tj-001-1",
+      milestone_id: "",
+    },
+    {
+      apply_id: "apply-tj-002",
+      apply_code: "FK202605150001",
+      contract_id: "ht-tj-002",
+      contract_name: "海教园1号楼幕墙采购合同",
+      project_name: "天津海教园一期",
+      supplier_name: "天津永大幕墙工程有限公司",
+      subject: "海教园1号楼幕墙订货款 30%",
+      amount_minor: "204000000",
+      amount_display: "¥2,040,000.00",
+      currency: "CNY",
+      apply_date: "2026-05-16",
+      operation_state: "paid",
+      apply_state: "已审核",
+      pay_state: "完全支付",
+      apply_type_code: "PURCHASE",
+      pay_class: "合同",
+      applied_by: "user-lmj-0001",
+      applied_by_name: "李明津",
+      source_kind: "imported",
+      plan_id: "plan-tj-002-1",
+      milestone_id: "",
+    },
+    {
+      apply_id: "apply-tj-003",
+      apply_code: "FK202606010001",
+      contract_id: "ht-tj-001",
+      contract_name: "海教园1号楼总包工程合同",
+      project_name: "天津海教园一期",
+      supplier_name: "天津建工集团第三建筑工程有限公司",
+      subject: "海教园1号楼总包进度款 第一批",
+      amount_minor: "360000000",
+      amount_display: "¥3,600,000.00",
+      currency: "CNY",
+      apply_date: "2026-06-01",
+      operation_state: "submitted",
+      apply_state: "申请审批中",
+      pay_state: "未支付",
+      apply_type_code: "WORK_PROGRESS",
+      pay_class: "合同",
+      applied_by: "user-lmj-0001",
+      applied_by_name: "李明津",
+      source_kind: "imported",
+      plan_id: "plan-tj-001-2",
+      milestone_id: "",
+    },
+  ]
+}
+
+///|
+fn payment_apply_table_row(
+  emit : @rabbita.Emit[Msg],
+  row : PaymentApplyRow,
+) -> @html.Html {
+  tr <| [
+    td(row.apply_code + " · " + row.apply_id + " / " + row.source_kind),
+    td(row.project_name),
+    td(row.contract_name),
+    td(row.subject + " · " + row.pay_class + " / " + row.apply_type_code),
+    td(row.supplier_name),
+    td(row.amount_display + " " + row.currency + " / " + row.amount_minor),
+    td(row.applied_by_name + " / " + row.applied_by),
+    td(row.apply_date),
+    td <| [
+      span(
+        class="erp-status-tag is-success",
+        payment_apply_state_label(row.operation_state) +
+        " · " +
+        row.apply_state +
+        " · " +
+        row.pay_state,
+      ),
+    ],
+    td <| [
+      div <| [
+        span("计划 " + row.plan_id + " / 节点 " + row.milestone_id),
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(Navigate("/contracts/" + row.contract_id)),
+          "查看合同",
+        ),
+      ],
+    ],
+  ]
+}
+
+///|
+fn payment_apply_table(
+  emit : @rabbita.Emit[Msg],
+  rows : Array[PaymentApplyRow],
+) -> @html.Html {
+  let rendered : Array[@html.Html] = []
+  for row in rows {
+    rendered.push(payment_apply_table_row(emit, row))
+  }
+  table(class="erp-data-table") <| [
+    thead <| [
+      table_header([
+        "申请编号 / 来源", "项目", "合同", "事由 / 类型", "收款方",
+        "申请金额", "申请人", "提交日期", "状态", "关联 / 操作",
+      ]),
+    ],
+    tbody <| rendered,
+  ]
+}
+
+///|
+fn payment_apply_actions(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Array[@html.Html] {
+  let actions : Array[@html.Html] = [
+    button(
+      class="erp-primary-btn",
+      on_click=emit(CreatePaymentApply),
+      "＋ 发起付款申请",
+    ),
+  ]
+  match model.payment_apply_state {
+    "draft" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(SubmitPaymentApply),
+          "提交审批",
+        ),
+      )
+    "submitted" => {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(RejectPaymentApply),
+          "退回",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(ApprovePaymentApply),
+          "审核通过",
+        ),
+      )
+    }
+    "rejected" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(ResubmitPaymentApply),
+          "重新提交",
+        ),
+      )
+    _ => ()
+  }
+  actions
+}
+
+///|
+fn payment_applies_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows = if model.payment_applies_loaded &&
+    model.payment_apply_rows.length() > 0 {
+    model.payment_apply_rows
+  } else {
+    fallback_payment_apply_rows()
+  }
   page_shell(
     "付款申请",
     "COST / PAYMENTS",
     "按合同和成本科目发起付款申请，跟踪审批、付款和收款方信息。",
-    [button(class="erp-primary-btn", "＋ 发起付款申请")],
+    payment_apply_actions(emit, model),
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("待审批", "18", "金额 ¥2,860 万", "metric-blue"),
         metric(
-          "本月已付", "¥1,380 万", "执行率 10.98%", "metric-green",
+          "申请总数",
+          rows.length().to_string(),
+          "合同付款与支付状态",
+          "metric-blue",
         ),
-        metric("已驳回", "3", "请补充附件", "metric-blue"),
+        metric(
+          "本地命令",
+          payment_apply_state_label(model.payment_apply_state),
+          "Rabbita 审批回路",
+          "metric-green",
+        ),
+        metric(
+          "数据来源",
+          if model.payment_applies_loaded {
+            "PostgreSQL"
+          } else {
+            "快照"
+          },
+          model.payment_apply_note,
+          "metric-blue",
+        ),
       ],
       filter_bar("申请编号 / 合同 / 项目"),
       table_panel(
         "付款申请单",
-        "最近更新",
-        data_table(
-          [
-            "申请编号", "项目", "合同", "收款方", "申请金额", "申请人",
-            "提交日期", "状态",
-          ],
-          [
-            [
-              "PAY-260713-006", "成都和锦里", "主体结构施工合同", "中建三局",
-              "¥1,280,000", "陈志强", "2026-07-13", "审批中",
-            ],
-            [
-              "PAY-260712-011", "重庆南山居", "营销推广服务合同", "众成广告",
-              "¥360,000", "刘松", "2026-07-12", "待处理",
-            ],
-            [
-              "PAY-260710-004", "沈阳和山苑", "园林景观工程合同", "绿城园林",
-              "¥890,000", "李明金", "2026-07-10", "已完成",
-            ],
-          ],
-        ),
+        model.payment_apply_note,
+        payment_apply_table(emit, rows),
       ),
     ],
   )
@@ -4165,7 +4628,7 @@ fn business_view(
       "/marketing" => marketing_view()
       "/contracts" => contracts_view(emit, model)
       "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
-      "/payment-applies" => payment_applies_view()
+      "/payment-applies" => payment_applies_view(emit, model)
       "/cost-dashboard-v3" => cost_dashboard_view()
       "/investment" => investment_view()
       "/dynamic-cost" => dynamic_cost_view()

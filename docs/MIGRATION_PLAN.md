@@ -292,7 +292,11 @@ Execute the remainder in this order:
    a local HttpOnly session and signs the actor assertion into PostgreSQL
    commands. The same boundary now drives the contract list/detail read model
    and contract create/submit/reject/resubmit/approve loop against the real
-   `cb_contract`, `cb_htfkplan`, and `cb_htfk_apply` evidence. Replace that
+   `cb_contract`, `cb_htfkplan`, and `cb_htfk_apply` evidence. The same
+   boundary now also drives the payment-application list/views and local
+   create/submit/reject/resubmit/approve loop against the three real
+   `cb_htfk_apply` rows and native `payment_application` projections; source
+   payment flags remain evidence and do not release cash. Replace that
    local adapter with the reviewed production identity,
    token issuer, rotation, persistence, and owner-acceptance boundary before
    accepting the slice.
@@ -300,7 +304,7 @@ Execute the remainder in this order:
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
 4. Expand runtime vertical slices to the ERP parity floor: remaining
-   procurement/payment applications, sales/receivables, delivery, treasury/financing, tax/close,
+   procurement/payment-application controls, sales/receivables, delivery, treasury/financing, tax/close,
    reporting/notifications, and investment. Synthetic rehearsals remain
    design evidence until real source rows and user acceptance are attached.
 5. Run named-owner acceptance and a read-only shadow period for each accepted

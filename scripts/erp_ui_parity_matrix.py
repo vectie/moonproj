@@ -9,7 +9,9 @@ which source API module still needs a connected command/read workflow.
 The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the dashboard's fixed summary read-model
 and the local expense/contract command verticals are explicitly identified,
-while no other mutation endpoint is inferred.
+while no other mutation endpoint is inferred.  The payment-application list
+is connected to the local PostgreSQL read/command boundary alongside expense
+and contract.
 """
 
 from __future__ import annotations
@@ -164,6 +166,8 @@ def match_target(
             return function, "connected_command_form"
         if path == "/contracts" and function == "contracts_view":
             return function, "connected_contract_read"
+        if path == "/payment-applies" and function == "payment_applies_view":
+            return function, "connected_payment_application_command_form"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -199,6 +203,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_production_identity_and_full_session_scenario"
     if target_state in {"connected_contract_read", "connected_contract_command_form"}:
         return "accept_browser_contract_scenario_and_production_identity"
+    if target_state == "connected_payment_application_command_form":
+        return "accept_browser_payment_application_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -225,6 +231,8 @@ def build_matrix(
             api_state = "connected_expense_command"
         elif target_state in {"connected_contract_read", "connected_contract_command_form"}:
             api_state = "connected_contract_command"
+        elif target_state == "connected_payment_application_command_form":
+            api_state = "connected_payment_application_command"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:

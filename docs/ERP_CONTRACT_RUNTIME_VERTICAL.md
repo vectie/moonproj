@@ -47,7 +47,8 @@ were deleted after verification.
 
 This is a local vertical, not full ERP API parity. The source cost module still
 has additional contract, payment-application, milestone, and mutation handlers
-that are not connected here. The fixed demo contract payload and idempotency
+that are not connected here; the payment-application slice is documented
+separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The fixed demo contract payload and idempotency
 keys remain local evidence only. Production identity/token issuance, persistent
 session and actor claims, role-based approval, accounting/tax/cash effects,
 managed deployment, browser click-through/screenshot acceptance, and named-owner

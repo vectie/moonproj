@@ -243,12 +243,68 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/contracts/{contract_id}", token=token)
         if status != 200 or payload is None or payload.get("state") != "approved":
             raise SmokeError(f"contract detail failed: {status} {payload}")
+        apply_id = "PAY-SMOKE-" + nonce
+        payment_payload = {
+            "apply_id": apply_id,
+            "apply_code": "FK-SMOKE-" + nonce,
+            "contract_id": "ht-tj-001",
+            "plan_id": "plan-tj-001-2",
+            "subject": "service command smoke payment application",
+            "amount_minor": 10000000,
+            "currency": "CNY",
+            "apply_type_code": "WORK_PROGRESS",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/payment-applies",
+            token=token,
+            method="POST",
+            payload=payment_payload,
+            idempotency_key="payment-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("payment_application", {}).get("state") != "draft":
+            raise SmokeError(f"payment application create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/payment-applies",
+            token=token,
+            method="POST",
+            payload=payment_payload,
+            idempotency_key="payment-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"payment application idempotency failed: {status} {payload}")
+        payment_transitions = [
+            ("submit", "submitted"),
+            ("reject", "rejected"),
+            ("resubmit", "submitted"),
+            ("approve", "approved"),
+        ]
+        for command, expected_state in payment_transitions:
+            status, payload = request(
+                args.port,
+                f"/api/company/payment-applies/{apply_id}/{command}",
+                token=token,
+                method="POST",
+                payload={},
+                idempotency_key=f"payment-{command}-{nonce}",
+            )
+            if (
+                status != 200
+                or payload is None
+                or payload.get("payment_application", {}).get("state") != expected_state
+            ):
+                raise SmokeError(f"payment application {command} failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/payment-applies/{apply_id}", token=token)
+        if status != 200 or payload is None or payload.get("operation_state") != "approved":
+            raise SmokeError(f"payment application detail failed: {status} {payload}")
         print(
             json.dumps(
                 {
                     "state": "service_verified",
                     "expense_state": "approved",
                     "contract_state": "approved",
+                    "payment_application_state": "approved",
                     "port": args.port,
                     "database": args.database,
                 },

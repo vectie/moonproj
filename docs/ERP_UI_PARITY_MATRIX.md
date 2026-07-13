@@ -9,8 +9,8 @@ verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 43, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "read_only_fixture_no_source_api": 50}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_payment_application_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 42, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_payment_application_command": 1, "read_only_fixture_no_source_api": 49}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -32,7 +32,7 @@ verticals.
 | `/tasks` | `../views/Tasks.vue` | `tasks_view` | `fixture_backed_read_only` | `workflow` | 7 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/contracts` | `../views/Contracts.vue` | `contracts_view` | `connected_contract_read` | `cost` | 7 / 13 | `connected_contract_command` | `accept_browser_contract_scenario_and_production_identity` |
 | `/contracts/:guid` | `../views/ContractDetail.vue` | `contract_detail_view` | `connected_contract_command_form` | `cost` | 7 / 13 | `connected_contract_command` | `accept_browser_contract_scenario_and_production_identity` |
-| `/payment-applies` | `../views/PaymentApplies.vue` | `payment_applies_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/payment-applies` | `../views/PaymentApplies.vue` | `payment_applies_view` | `connected_payment_application_command_form` | `cost` | 7 / 13 | `connected_payment_application_command` | `accept_browser_payment_application_scenario_and_production_identity` |
 | `/dynamic-cost` | `../views/DynamicCost.vue` | `dynamic_cost_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/loans` | `../views/LoanList.vue` | `loans_view` | `fixture_backed_read_only` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/loans/new` | `../views/LoanCreate.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |

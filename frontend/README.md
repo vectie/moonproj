@@ -26,12 +26,14 @@ PostgreSQL projection summary through the fixed read-only development adapter
 `scripts/company_postgres_read_model_server.py`. The authenticated bounded
 runtime is available separately as `scripts/company_postgres_service.py`. Its
 local command verticals include the expense lifecycle documented in
-`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md` and the contract lifecycle documented in
-`docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`. The new-expense and contract Rabbita
-routes are wired to local create/submit/reject/resubmit/approve loops through
-the local-only development gateway below; the other route families remain
-fixture-backed. Command-gateway production deployment, identity/token
-integration, and managed rollback remain separate gates.
+`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`, the contract lifecycle documented in
+`docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`, and the payment-application lifecycle
+documented in `docs/ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The
+new-expense, contract, and `/payment-applies` Rabbita routes are wired to local
+create/submit/reject/resubmit/approve loops through the local-only development
+gateway below; the other route families remain fixture-backed. Command-gateway
+production deployment, identity/token integration, and managed rollback remain
+separate gates.
 Build and preview it with Warren:
 
 ```sh
@@ -48,7 +50,7 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   --public-dir /path/to/warren/dist
 ```
 
-To exercise the connected expense create/submit/reject/resubmit/approve path, keep the service token
+To exercise the connected expense, contract, or payment-application create/submit/reject/resubmit/approve paths, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh
@@ -70,8 +72,8 @@ the bearer token and HTTPS-forwarding marker, and signs the session actor
 assertion before forwarding it to the service. It also translates the Rabbita
 form's JSON `idempotency_key` into the command header required by the service.
 It is intentionally a local development adapter: it binds to loopback, only
-allow-lists expense and contract POST commands, and is not the production
-deployment.
+allow-lists expense, contract, and payment-application POST commands, and is
+not the production deployment.
 
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,
