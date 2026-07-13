@@ -15,11 +15,12 @@
     "connected_delivery_command_form": 2,
     "connected_invoice_read": 1,
     "connected_payment_application_command_form": 1,
+    "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
     "connected_tender_command_form": 1,
     "fixture_backed_form": 5,
-    "fixture_backed_read_only": 32,
+    "fixture_backed_read_only": 31,
     "public": 1,
     "read_model_only": 3,
     "read_only_public": 1
@@ -31,10 +32,11 @@
     "connected_fixed_read_model": 3,
     "connected_invoice_read": 1,
     "connected_payment_application_command": 1,
+    "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
-    "read_only_fixture_no_source_api": 39
+    "read_only_fixture_no_source_api": 38
   },
   "routes": [
     {
@@ -617,13 +619,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "reports_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_report_read",
       "source_api_module": "reports",
       "source_api_handler_count": 10,
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 3,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_report_read",
+      "required_next": "accept_browser_report_scenario_and_production_identity"
     },
     {
       "path": "/report-builder",
@@ -3667,8 +3669,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_report_read",
+      "required_next": "accept_browser_report_scenario_and_production_identity"
     },
     {
       "module": "reports",
@@ -3678,8 +3680,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_report_read",
+      "required_next": "accept_browser_report_scenario_and_production_identity"
     },
     {
       "module": "reports",
@@ -3689,8 +3691,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_report_read",
+      "required_next": "accept_browser_report_scenario_and_production_identity"
     },
     {
       "module": "reports",
@@ -3700,8 +3702,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_report_read",
+      "required_next": "accept_browser_report_scenario_and_production_identity"
     },
     {
       "module": "reports",
@@ -3711,8 +3713,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_report_read",
+      "required_next": "accept_browser_report_scenario_and_production_identity"
     },
     {
       "module": "reports",

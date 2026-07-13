@@ -4,7 +4,8 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
-reviewed invoice, and delivery/project-progress projections. Production authentication, pooling, TLS,
+reviewed invoice, delivery/project-progress, and core-report projections.
+Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
 
@@ -39,6 +40,12 @@ from company_postgres_service import (
     delivery_task_reports as service_delivery_task_reports,
     delivery_plan_summary as service_delivery_plan_summary,
     delivery_overview as service_delivery_overview,
+    report_cost_summary as service_report_cost_summary,
+    report_contract_payment_ledger as service_report_contract_payment_ledger,
+    report_supplier_analysis as service_report_supplier_analysis,
+    report_approval_efficiency as service_report_approval_efficiency,
+    report_project_stage_matrix as service_report_project_stage_matrix,
+    reports_overview as service_reports_overview,
 )
 
 
@@ -274,6 +281,30 @@ def delivery_overview(args: argparse.Namespace, project_id: str) -> dict[str, An
     return service_delivery_overview(_ReadModelPool(args), project_id, 500)
 
 
+def report_cost_summary(args: argparse.Namespace) -> dict[str, Any]:
+    return service_report_cost_summary(_ReadModelPool(args), 500)
+
+
+def report_contract_payment_ledger(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return service_report_contract_payment_ledger(_ReadModelPool(args), 500)
+
+
+def report_supplier_analysis(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return service_report_supplier_analysis(_ReadModelPool(args), 500)
+
+
+def report_approval_efficiency(args: argparse.Namespace) -> dict[str, Any]:
+    return service_report_approval_efficiency(_ReadModelPool(args), 500)
+
+
+def report_project_stage_matrix(args: argparse.Namespace) -> dict[str, Any]:
+    return service_report_project_stage_matrix(_ReadModelPool(args), 500)
+
+
+def reports_overview(args: argparse.Namespace) -> dict[str, Any]:
+    return service_reports_overview(_ReadModelPool(args), 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -443,6 +474,24 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "invoice not found"})
                     else:
                         response(self, 200, rows[0])
+                    return
+                if parsed.path == "/api/company/reports/overview":
+                    response(self, 200, reports_overview(args))
+                    return
+                if parsed.path == "/api/company/reports/cost-summary":
+                    response(self, 200, report_cost_summary(args))
+                    return
+                if parsed.path == "/api/company/reports/contract-payment-ledger":
+                    response(self, 200, report_contract_payment_ledger(args))
+                    return
+                if parsed.path == "/api/company/reports/supplier-analysis":
+                    response(self, 200, report_supplier_analysis(args))
+                    return
+                if parsed.path == "/api/company/reports/approval-efficiency":
+                    response(self, 200, report_approval_efficiency(args))
+                    return
+                if parsed.path == "/api/company/reports/project-stage-matrix":
+                    response(self, 200, report_project_stage_matrix(args))
                     return
                 if parsed.path == "/api/company/delivery/progress":
                     query = parse_qs(parsed.query)

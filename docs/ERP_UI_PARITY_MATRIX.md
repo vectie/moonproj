@@ -5,13 +5,13 @@ Generated from `../erp/erp_new/web/src/router/index.js`, the source
 acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
-expense/contract/payment-application/tender command and supplier read
-verticals.
+expense/contract/payment-application/tender command, supplier read,
+delivery, and core report read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_payment_application_command_form": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 32, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_payment_application_command": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 39}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 31, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 38}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -59,7 +59,7 @@ verticals.
 | `/srm/providers/:guid` | `../views/ProviderDetail.vue` | `provider_detail_view` | `fixture_backed_form` | `srm` | 9 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/srm/risk-board` | `../views/RiskBoard.vue` | `srm_risk_view` | `fixture_backed_read_only` | `srm` | 9 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/ocr-config` | `../views/OcrConfig.vue` | `ocr_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/reports` | `../views/Reports.vue` | `reports_view` | `fixture_backed_read_only` | `reports` | 7 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/reports` | `../views/Reports.vue` | `reports_view` | `connected_report_read` | `reports` | 7 / 3 | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
 | `/report-builder` | `../views/ReportBuilder.vue` | `report_builder_view` | `fixture_backed_read_only` | `reports` | 7 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/warning` | `../views/WarningCenter.vue` | `warning_view` | `fixture_backed_read_only` | `warning` | 7 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/warning-rules` | `../views/WarningRules.vue` | `warning_rules_view` | `fixture_backed_read_only` | `warning` | 7 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
@@ -335,11 +335,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `rbac` | `GET` | `/permission-catalog` | `/users` | `not_connected` | `connect_authenticated_read_api` |
 | `rbac` | `POST` | `/roles` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `DELETE` | `/roles/:code` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `reports` | `GET` | `/cost-summary` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |
-| `reports` | `GET` | `/contract-payment-ledger` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |
-| `reports` | `GET` | `/supplier-analysis` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |
-| `reports` | `GET` | `/approval-efficiency` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |
-| `reports` | `GET` | `/project-stage-matrix` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |
+| `reports` | `GET` | `/cost-summary` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
+| `reports` | `GET` | `/contract-payment-ledger` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
+| `reports` | `GET` | `/supplier-analysis` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
+| `reports` | `GET` | `/approval-efficiency` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
+| `reports` | `GET` | `/project-stage-matrix` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
 | `reports` | `GET` | `/templates/meta` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |
 | `reports` | `POST` | `/templates/run` | `/reports`, `/report-builder` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `reports` | `GET` | `/templates` | `/reports`, `/report-builder` | `not_connected` | `connect_authenticated_read_api` |

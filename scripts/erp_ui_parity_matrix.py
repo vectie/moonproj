@@ -183,6 +183,8 @@ def match_target(
             return function, "connected_delivery_command_form"
         if path == "/invoice" and function == "invoice_view":
             return function, "connected_invoice_read"
+        if path == "/reports" and function == "reports_view":
+            return function, "connected_report_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -232,9 +234,35 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_invoice_scenario_and_production_identity"
     if target_state == "connected_delivery_command_form":
         return "accept_browser_delivery_scenario_and_production_identity"
+    if target_state == "connected_report_read":
+        return "accept_browser_report_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+
+
+def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
+    """Return only source handlers backed by an explicit target endpoint."""
+
+    if (
+        handler["module"] == "reports"
+        and handler["method"] == "GET"
+        and handler["path"]
+        in {
+            "/cost-summary",
+            "/contract-payment-ledger",
+            "/supplier-analysis",
+            "/approval-efficiency",
+            "/project-stage-matrix",
+        }
+    ):
+        return "connected_report_read", "accept_browser_report_scenario_and_production_identity"
+    return (
+        "not_connected",
+        "connect_authenticated_read_api"
+        if handler["method"] in READ_METHODS
+        else "implement_authenticated_command_and_audit",
+    )
 
 
 def build_matrix(
@@ -272,6 +300,8 @@ def build_matrix(
             api_state = "connected_invoice_read"
         elif target_state == "connected_delivery_command_form":
             api_state = "connected_delivery_command"
+        elif target_state == "connected_report_read":
+            api_state = "connected_report_read"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:
@@ -317,12 +347,8 @@ def build_matrix(
                 "browser_route_paths": [
                     row["path"] for row in rows if row["source_api_module"] == handler["module"]
                 ],
-                "action_state": "not_connected",
-                "required_next": (
-                    "connect_authenticated_read_api"
-                    if handler["method"] in READ_METHODS
-                    else "implement_authenticated_command_and_audit"
-                ),
+                "action_state": api_action_state(handler)[0],
+                "required_next": api_action_state(handler)[1],
             }
             for handler in api_handlers
         ],
@@ -343,8 +369,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "acceptance register, not a completion claim: mounted fixture screens do",
         "not count as connected company behavior. The connected exceptions are",
         "the fixed dashboard read-model and the local",
-        "expense/contract/payment-application/tender command and supplier read",
-        "verticals.",
+        "expense/contract/payment-application/tender command, supplier read,",
+        "delivery, and core report read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

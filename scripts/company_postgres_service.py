@@ -39,6 +39,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/delivery/{progress,outputs,tasks,task-reports,plan-summary}`` (GET)
 * ``/api/company/delivery/{progress,outputs,tasks}/...`` (POST)
   with source-preserving reads and idempotent local commands
+* ``/api/company/reports/{cost-summary,contract-payment-ledger,
+  supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -49,6 +51,7 @@ company commands also require a gateway-signed actor assertion.
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 import hashlib
 import hmac
 import json
@@ -286,6 +289,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "invoice_read",
             "delivery_read",
             "delivery_command",
+            "report_read",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -319,6 +323,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "invoice_read",
             "delivery_read",
             "delivery_command",
+            "report_read",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -3444,6 +3449,417 @@ def delivery_overview(pool: PsqlPool, project_id: str, max_rows: int) -> dict[st
     }
 
 
+REPORT_SOURCE_TABLES = {
+    "ep_project",
+    "mu_business_unit",
+    "cb_cost",
+    "cb_contract",
+    "cb_htfkplan",
+    "cb_htfk_apply",
+    "srm_provider",
+    "srm_category",
+    "wf_process_instance",
+    "wf_step_action",
+    "proj_lifecycle_stage",
+    "proj_lifecycle_instance",
+}
+
+
+def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str, Any]]:
+    """Read a fixed source table for a report without promoting its rows."""
+
+    if table not in REPORT_SOURCE_TABLES:
+        raise ServiceError("unsupported report source table")
+    query = f"""
+    SELECT encode(convert_to(record_id, 'UTF8'), 'hex'),
+           encode(convert_to(source_id, 'UTF8'), 'hex'),
+           encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record
+    WHERE record_type = {sql_literal('legacy/raw/' + table)}
+    ORDER BY record_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 3:
+            raise ServiceError("unexpected report source row shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid report source row JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("report source row payload is not an object")
+        result.append(
+            {
+                "record_id": decode_hex(fields[0]),
+                "source_id": decode_hex(fields[1]),
+                "payload": payload,
+            }
+        )
+    return result
+
+
+def _report_float(payload: dict[str, Any], key: str, fallback: float = 0.0) -> float:
+    value = payload.get(key)
+    if value is None or value == "":
+        return fallback
+    try:
+        return float(value)
+    except (TypeError, ValueError) as error:
+        raise ServiceError(f"invalid report numeric field: {key}") from error
+
+
+def _report_text(payload: dict[str, Any], key: str, fallback: str = "") -> str:
+    value = payload.get(key)
+    return fallback if value is None else str(value)
+
+
+def _report_date(value: Any) -> date | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except ValueError:
+        return None
+
+
+def report_cost_summary(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    projects = _raw_report_rows(pool, "ep_project", max_rows)
+    business_units = {
+        str(row["payload"].get("bu_guid", row["record_id"])): row["payload"]
+        for row in _raw_report_rows(pool, "mu_business_unit", max_rows)
+    }
+    costs_by_project: dict[str, dict[str, float]] = {}
+    for row in _raw_report_rows(pool, "cb_cost", max_rows):
+        payload = row["payload"]
+        if not bool(payload.get("is_end_cost")):
+            continue
+        project_id = str(payload.get("proj_guid", ""))
+        totals = costs_by_project.setdefault(
+            project_id,
+            {"target": 0.0, "d": 0.0, "e": 0.0, "f": 0.0, "g": 0.0},
+        )
+        totals["target"] += _report_float(payload, "target_cost")
+        totals["d"] += _report_float(payload, "ht_alter_amount")
+        totals["e"] += _report_float(payload, "zt_cost")
+        totals["f"] += _report_float(payload, "dfs_budget")
+        totals["g"] += _report_float(payload, "yg_alter")
+    rows: list[dict[str, Any]] = []
+    for row in projects:
+        payload = row["payload"]
+        project_id = str(payload.get("proj_guid", row["record_id"]))
+        totals = costs_by_project.get(
+            project_id,
+            {"target": 0.0, "d": 0.0, "e": 0.0, "f": 0.0, "g": 0.0},
+        )
+        dynamic = totals["d"] + totals["e"] + totals["f"] + totals["g"]
+        target = totals["target"]
+        spare = target - dynamic
+        deviation = ((target - dynamic) / target * 100) if target else 0.0
+        bu = business_units.get(str(payload.get("bu_guid", "")), {})
+        rows.append(
+            {
+                "buName": str(bu.get("bu_name") or payload.get("bu_guid", "")),
+                "projCode": _report_text(payload, "proj_code", project_id),
+                "projName": _report_text(payload, "proj_name", project_id),
+                "projStatus": _report_text(payload, "proj_status"),
+                "targetCost": target,
+                "dynamicCost": dynamic,
+                "spare": spare,
+                "deviationPct": round(deviation, 2),
+                "d": totals["d"],
+                "e": totals["e"],
+                "f": totals["f"],
+                "g": totals["g"],
+                "source_kind": "imported",
+            }
+        )
+    total = {
+        key: sum(float(row[key]) for row in rows)
+        for key in ("targetCost", "dynamicCost", "spare", "d", "e", "f", "g")
+    }
+    total["deviationPct"] = round(
+        (total["targetCost"] - total["dynamicCost"])
+        / total["targetCost"]
+        * 100
+        if total["targetCost"]
+        else 0.0,
+        2,
+    )
+    return {"rows": rows, "total": total, "source_kind": "imported"}
+
+
+def report_contract_payment_ledger(pool: PsqlPool, max_rows: int) -> list[dict[str, Any]]:
+    projects = {
+        str(row["payload"].get("proj_guid", row["record_id"])): row["payload"]
+        for row in _raw_report_rows(pool, "ep_project", max_rows)
+    }
+    business_units = {
+        str(row["payload"].get("bu_guid", row["record_id"])): row["payload"]
+        for row in _raw_report_rows(pool, "mu_business_unit", max_rows)
+    }
+    plans_by_contract: dict[str, float] = {}
+    for row in _raw_report_rows(pool, "cb_htfkplan", max_rows):
+        payload = row["payload"]
+        contract_id = str(payload.get("contract_guid", ""))
+        plans_by_contract[contract_id] = plans_by_contract.get(contract_id, 0.0) + _report_float(
+            payload, "jhfk_amount"
+        )
+    applies_by_contract: dict[str, dict[str, float]] = {}
+    for row in _raw_report_rows(pool, "cb_htfk_apply", max_rows):
+        payload = row["payload"]
+        contract_id = str(payload.get("contract_guid", ""))
+        totals = applies_by_contract.setdefault(contract_id, {"applied": 0.0, "paid": 0.0})
+        amount = _report_float(payload, "apply_amount")
+        if str(payload.get("apply_state", "")) == "已审核":
+            totals["applied"] += amount
+        if str(payload.get("pay_state", "")) in {"完全支付", "部分支付"}:
+            totals["paid"] += amount
+    contracts = sorted(
+        _raw_report_rows(pool, "cb_contract", max_rows),
+        key=lambda row: str(row["payload"].get("sign_date", "")),
+        reverse=True,
+    )
+    result: list[dict[str, Any]] = []
+    for row in contracts[:200]:
+        payload = row["payload"]
+        contract_id = str(payload.get("contract_guid", row["record_id"]))
+        project_id = str(payload.get("proj_guid", ""))
+        bu_id = str(payload.get("bu_guid", ""))
+        current_amount = _report_float(payload, "ht_amount") + _report_float(payload, "sum_alter_amount")
+        totals = applies_by_contract.get(contract_id, {"applied": 0.0, "paid": 0.0})
+        paid = totals["paid"]
+        result.append(
+            {
+                "contractGuid": contract_id,
+                "contractCode": _report_text(payload, "contract_code", contract_id),
+                "contractName": _report_text(payload, "contract_name", contract_id),
+                "buName": str(business_units.get(bu_id, {}).get("bu_name") or bu_id),
+                "projName": str(projects.get(project_id, {}).get("proj_name") or project_id),
+                "provider": _report_text(payload, "yf_provider_name"),
+                "signDate": _report_text(payload, "sign_date"),
+                "htCfState": _report_text(payload, "ht_cf_state"),
+                "htAmount": _report_float(payload, "ht_amount"),
+                "alterAmount": _report_float(payload, "sum_alter_amount"),
+                "currentAmount": current_amount,
+                "planTotal": plans_by_contract.get(contract_id, 0.0),
+                "appliedTotal": totals["applied"],
+                "paidTotal": paid,
+                "remainAmount": current_amount - paid,
+                "paidPct": round(paid / current_amount * 100, 2) if current_amount else 0.0,
+                "source_kind": "imported",
+            }
+        )
+    return result
+
+
+def report_supplier_analysis(pool: PsqlPool, max_rows: int) -> list[dict[str, Any]]:
+    providers = _raw_report_rows(pool, "srm_provider", max_rows)
+    if not providers:
+        return []
+    categories = {
+        str(row["payload"].get("category_code", row["record_id"])): row["payload"]
+        for row in _raw_report_rows(pool, "srm_category", max_rows)
+    }
+    contracts = [row["payload"] for row in _raw_report_rows(pool, "cb_contract", max_rows)]
+    cutoff = date.today() - timedelta(days=365)
+    result: list[dict[str, Any]] = []
+    for row in providers:
+        payload = row["payload"]
+        name = str(payload.get("provider_name", row["record_id"]))
+        short_name = str(payload.get("short_name", ""))
+        matched = [
+            contract
+            for contract in contracts
+            if str(contract.get("yf_provider_name", "")) == name
+            or (short_name and short_name in str(contract.get("yf_provider_name", "")))
+        ]
+        if not matched:
+            continue
+        total_amount = sum(
+            _report_float(contract, "ht_amount") + _report_float(contract, "sum_alter_amount")
+            for contract in matched
+        )
+        recent_amount = sum(
+            _report_float(contract, "ht_amount") + _report_float(contract, "sum_alter_amount")
+            for contract in matched
+            if (_report_date(contract.get("sign_date")) or date.min) >= cutoff
+        )
+        result.append(
+            {
+                "providerGuid": str(payload.get("provider_guid", row["record_id"])),
+                "providerName": name,
+                "shortName": short_name,
+                "evalResult": str(payload.get("eval_result", "")),
+                "categoryName": str(
+                    categories.get(str(payload.get("main_category_code", "")), {}).get(
+                        "category_name", payload.get("main_category_code", "")
+                    )
+                ),
+                "contractCount": len(matched),
+                "buCount": len({str(contract.get("bu_guid", "")) for contract in matched}),
+                "projCount": len({str(contract.get("proj_guid", "")) for contract in matched}),
+                "totalAmount": total_amount,
+                "recentAmount": recent_amount,
+                "source_kind": "imported",
+            }
+        )
+    return sorted(result, key=lambda row: float(row["totalAmount"]), reverse=True)
+
+
+def report_approval_efficiency(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    instances = _raw_report_rows(pool, "wf_process_instance", max_rows)
+    by_type: dict[str, dict[str, Any]] = {}
+    for row in instances:
+        payload = row["payload"]
+        biz_type = str(payload.get("biz_type", ""))
+        stats = by_type.setdefault(
+            biz_type,
+            {"total": 0, "completed": 0, "rejected": 0, "running": 0, "overdue": 0, "durations": []},
+        )
+        stats["total"] += 1
+        status = str(payload.get("status", ""))
+        if status in {"Completed", "Archived"}:
+            stats["completed"] += 1
+        if status == "Rejected":
+            stats["rejected"] += 1
+        if status == "Running":
+            stats["running"] += 1
+            initiated = _report_date(payload.get("initiated_at"))
+            if initiated is not None and initiated < date.today() - timedelta(days=7):
+                stats["overdue"] += 1
+        initiated = _report_date(payload.get("initiated_at"))
+        completed = _report_date(payload.get("completed_at"))
+        if initiated is not None and completed is not None:
+            stats["durations"].append((completed - initiated).days)
+    by_type_rows = []
+    for biz_type, stats in sorted(by_type.items(), key=lambda item: item[1]["total"], reverse=True):
+        total = int(stats["total"])
+        by_type_rows.append(
+            {
+                "bizType": biz_type,
+                "total": total,
+                "completed": stats["completed"],
+                "rejected": stats["rejected"],
+                "running": stats["running"],
+                "overdue": stats["overdue"],
+                "avgDays": round(sum(stats["durations"]) / len(stats["durations"]), 2)
+                if stats["durations"]
+                else None,
+                "rejectRate": round(stats["rejected"] / total * 100, 1) if total else 0.0,
+            }
+        )
+    actions_by_process: dict[str, list[dict[str, Any]]] = {}
+    for row in _raw_report_rows(pool, "wf_step_action", max_rows):
+        payload = row["payload"]
+        process_id = str(payload.get("process_instance_guid", ""))
+        actions_by_process.setdefault(process_id, []).append(payload)
+    slow: dict[tuple[str, str], list[int]] = {}
+    for actions in actions_by_process.values():
+        indexed = {int(_report_float(action, "step_order")): action for action in actions}
+        for action in actions:
+            if str(action.get("decision", "")) != "APPROVED":
+                continue
+            order = int(_report_float(action, "step_order"))
+            previous = indexed.get(order - 1)
+            current_date = _report_date(action.get("action_time"))
+            previous_date = _report_date(previous.get("action_time")) if previous else None
+            if current_date is None or previous_date is None:
+                continue
+            key = (str(action.get("step_name", "")), str(action.get("assignee_emp_name", "")))
+            slow.setdefault(key, []).append((current_date - previous_date).days)
+    slow_steps = [
+        {
+            "stepName": key[0],
+            "empName": key[1],
+            "avgDays": round(sum(values) / len(values), 2),
+            "count": len(values),
+        }
+        for key, values in slow.items()
+        if len(values) >= 3
+    ]
+    slow_steps.sort(key=lambda row: float(row["avgDays"]), reverse=True)
+    return {"byType": by_type_rows, "slowSteps": slow_steps[:10], "source_kind": "imported"}
+
+
+def report_project_stage_matrix(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    stage_rows = _raw_report_rows(pool, "proj_lifecycle_stage", max_rows)
+    stages = sorted(
+        [row["payload"] for row in stage_rows],
+        key=lambda payload: _report_float(payload, "stage_order"),
+    )
+    instances: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in _raw_report_rows(pool, "proj_lifecycle_instance", max_rows):
+        payload = row["payload"]
+        instances[(str(payload.get("proj_guid", "")), str(payload.get("stage_code", "")))] = payload
+    business_units = {
+        str(row["payload"].get("bu_guid", row["record_id"])): row["payload"]
+        for row in _raw_report_rows(pool, "mu_business_unit", max_rows)
+    }
+    projects = sorted(
+        _raw_report_rows(pool, "ep_project", max_rows),
+        key=lambda row: (
+            str(business_units.get(str(row["payload"].get("bu_guid", "")), {}).get("bu_name", "")),
+            str(row["payload"].get("proj_code", "")),
+        ),
+    )
+    matrix = []
+    for row in projects:
+        payload = row["payload"]
+        project_id = str(payload.get("proj_guid", row["record_id"]))
+        cells = []
+        for stage in stages:
+            stage_code = str(stage.get("stage_code", ""))
+            instance = instances.get((project_id, stage_code))
+            cells.append(
+                {
+                    "stageCode": stage_code,
+                    "stageName": str(stage.get("stage_name", stage_code)),
+                    "status": str(instance.get("status", "pending")) if instance else "pending",
+                    "progressPct": _report_float(instance or {}, "progress_pct"),
+                }
+            )
+        matrix.append(
+            {
+                "projGuid": project_id,
+                "projCode": _report_text(payload, "proj_code", project_id),
+                "projName": _report_text(payload, "proj_name", project_id),
+                "buName": str(business_units.get(str(payload.get("bu_guid", "")), {}).get("bu_name") or ""),
+                "projStatus": _report_text(payload, "proj_status"),
+                "beginDate": _report_text(payload, "begin_date"),
+                "endDate": _report_text(payload, "end_date"),
+                "cells": cells,
+                "source_kind": "imported",
+            }
+        )
+    return {
+        "stages": [
+            {"code": str(stage.get("stage_code", "")), "name": str(stage.get("stage_name", ""))}
+            for stage in stages
+        ],
+        "projects": matrix,
+        "source_kind": "imported",
+    }
+
+
+def reports_overview(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = {
+        table: len(_raw_report_rows(pool, table, max_rows))
+        for table in sorted(REPORT_SOURCE_TABLES)
+    }
+    return {
+        "cost_summary": report_cost_summary(pool, max_rows),
+        "contract_payment_ledger": report_contract_payment_ledger(pool, max_rows),
+        "supplier_analysis": report_supplier_analysis(pool, max_rows),
+        "approval_efficiency": report_approval_efficiency(pool, max_rows),
+        "project_stage_matrix": report_project_stage_matrix(pool, max_rows),
+        "source_kind": "imported",
+        "source_coverage": coverage,
+        "missing_source_tables": [table for table, count in coverage.items() if count == 0],
+    }
+
+
 def _delivery_required_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
     value = body.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -4232,6 +4648,18 @@ def handler_factory(
                             response(self, 200, items[0], origin)
                     else:
                         response(self, 200, {"items": items}, origin)
+                elif parsed.path == "/api/company/reports/overview":
+                    response(self, 200, reports_overview(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/reports/cost-summary":
+                    response(self, 200, report_cost_summary(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/reports/contract-payment-ledger":
+                    response(self, 200, report_contract_payment_ledger(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/reports/supplier-analysis":
+                    response(self, 200, report_supplier_analysis(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/reports/approval-efficiency":
+                    response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/reports/project-stage-matrix":
+                    response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/delivery/progress":
                     query = parse_qs(parsed.query)
                     progress_value = query.get("progress_id", [None])[0]

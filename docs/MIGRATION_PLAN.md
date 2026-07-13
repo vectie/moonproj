@@ -281,21 +281,29 @@ replacement of `erp_new`. The findings that now control sequencing are:
    ownership remain open. Task-state, output confirmation, recognition, cash,
    tax, and close remain separate gates. See
    [`ERP_DELIVERY_RUNTIME_AUDIT.md`](ERP_DELIVERY_RUNTIME_AUDIT.md).
-4. **Partial source, not full ERP data.** The authoritative ERP inventory is
+4. **Reporting is locally connected but source-incomplete and not accepted.**
+   The five core report reads now run through the local PostgreSQL service,
+   read-model adapter, and Rabbita `/reports` overview. Cost, contract, and
+   project-stage rows are populated from source raw tables; supplier and
+   approval sections correctly remain empty because the export has no provider
+   or workflow-instance/action rows. Templates, share links, production
+   identity, browser acceptance, and report-owner reconciliation remain open.
+   See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
+5. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
    credential-safe export before production migration claims can be made.
-5. **Technical safety is ahead of functional acceptance.** Local PostgreSQL
+6. **Technical safety is ahead of functional acceptance.** Local PostgreSQL
    parity, replay, backup/restore, and cutover evidence pass for supplied
    cohorts, but managed deployment, business acceptance, shadow operation, and
    ownership transfer remain open.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records fourteen connected workflow routes across browser and API
-surfaces (expense, contract, payment, procurement, sales, invoice, and
-delivery), while 32 browser views and 39 API groups remain fixture-backed or
-read-model-only. Three additional fixed read-model routes are connected. That gap,
+currently records fifteen connected workflow routes across browser and API
+surfaces (expense, contract, payment, procurement, sales, invoice, delivery,
+and core reports), while 31 browser views and 38 API groups remain fixture-backed
+or read-model-only. Three additional fixed read-model routes are connected. That gap,
 rather than additional platform hardening, controls the next work.
 
 Execute the remainder in this order:
@@ -330,11 +338,14 @@ Execute the remainder in this order:
    Keep the existing designer layout, but do not count local synthetic rows as
    source import parity. Recognition, budget/cost, cash, tax, and period-close
    effects remain separate gates.
-6. Expand runtime vertical slices to the ERP parity floor. The local
-   sales/receivables read and lifecycle slice is now verified; after delivery,
-   the next broad slices are treasury/financing, tax/close,
-   reporting/notifications, and investment. Synthetic rehearsals remain
-   design evidence until real source rows and user acceptance are attached.
+6. Finish report acceptance and then expand runtime vertical slices to the ERP
+   parity floor. The five core report reads and `/reports` overview now work;
+   obtain the missing supplier/workflow source rows (or owner-approved redacted
+   cohort), run browser/report-owner reconciliation, and keep templates/share
+   links separate. The next broad slices are treasury/financing, tax/close,
+   reporting/notifications beyond the core reads, and investment. Synthetic
+   rehearsals remain design evidence until real source rows and user acceptance
+   are attached. See `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
 7. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence

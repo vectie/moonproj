@@ -110,6 +110,18 @@ def main() -> int:
         status, payload = request(args.port, "/api/company/suppliers", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"supplier read failed: {status} {payload}")
+        status, payload = request(args.port, "/api/company/reports/overview", token=token)
+        if (
+            status != 200
+            or payload is None
+            or not isinstance(payload.get("cost_summary", {}).get("rows"), list)
+            or not isinstance(payload.get("contract_payment_ledger"), list)
+            or not isinstance(payload.get("source_coverage"), dict)
+        ):
+            raise SmokeError(f"report overview read failed: {status} {payload}")
+        report_cost_rows = len(payload["cost_summary"]["rows"])
+        report_contract_rows = len(payload["contract_payment_ledger"])
+        report_missing_tables = payload.get("missing_source_tables", [])
         status, _ = request(args.port, "/api/health", token=None)
         if status != 401:
             raise SmokeError(f"missing bearer token was not rejected: {status}")
@@ -917,6 +929,9 @@ def main() -> int:
                     "delivery_progress_state": "accepted",
                     "delivery_output_state": "confirmed",
                     "delivery_task_report_state": "observed",
+                    "report_cost_rows": report_cost_rows,
+                    "report_contract_rows": report_contract_rows,
+                    "report_missing_source_tables": report_missing_tables,
                     "port": args.port,
                     "database": args.database,
                 },

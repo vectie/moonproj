@@ -173,6 +173,38 @@ struct DeliveryReportRow {
 }
 
 ///|
+struct ReportCostRow {
+  bu_name : String
+  proj_code : String
+  proj_name : String
+  target_cost : String
+  dynamic_cost : String
+  deviation_pct : String
+  source_kind : String
+}
+
+///|
+struct ReportContractRow {
+  contract_code : String
+  contract_name : String
+  provider : String
+  current_amount : String
+  paid_total : String
+  remain_amount : String
+  paid_pct : String
+  source_kind : String
+}
+
+///|
+struct ReportStageRow {
+  proj_code : String
+  proj_name : String
+  bu_name : String
+  proj_status : String
+  source_kind : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -227,6 +259,13 @@ struct Model {
   delivery_output_state : String
   delivery_task_id : String
   delivery_command_note : String
+  reports_loaded : Bool
+  report_cost_rows : Array[ReportCostRow]
+  report_contract_rows : Array[ReportContractRow]
+  report_stage_rows : Array[ReportStageRow]
+  report_supplier_count : String
+  report_approval_count : String
+  reports_note : String
 }
 
 ///|
@@ -311,6 +350,8 @@ enum Msg {
   ReportTaskProgress
   DeliveryCommandFinished(String)
   DeliveryCommandFailed
+  ReportsLoaded(String)
+  ReportsLoadFailed
 }
 
 ///|
@@ -369,6 +410,13 @@ fn initial_model() -> Model {
     delivery_output_state: "new",
     delivery_task_id: "task-003",
     delivery_command_note: "导入任务保持只读；本地命令需要证据并写入审计",
+    reports_loaded: false,
+    report_cost_rows: [],
+    report_contract_rows: [],
+    report_stage_rows: [],
+    report_supplier_count: "0",
+    report_approval_count: "0",
+    reports_note: "核心报表读模型尚未加载",
   }
 }
 
@@ -936,6 +984,120 @@ fn delivery_overview_from_body(
 }
 
 ///|
+fn report_cost_from_json(value : Json) -> ReportCostRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        bu_name: json_object_text(fields, "buName", ""),
+        proj_code: json_object_text(fields, "projCode", ""),
+        proj_name: json_object_text(fields, "projName", ""),
+        target_cost: json_object_text(fields, "targetCost", "0"),
+        dynamic_cost: json_object_text(fields, "dynamicCost", "0"),
+        deviation_pct: json_object_text(fields, "deviationPct", "0"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn report_contract_from_json(value : Json) -> ReportContractRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        contract_code: json_object_text(fields, "contractCode", ""),
+        contract_name: json_object_text(fields, "contractName", ""),
+        provider: json_object_text(fields, "provider", ""),
+        current_amount: json_object_text(fields, "currentAmount", "0"),
+        paid_total: json_object_text(fields, "paidTotal", "0"),
+        remain_amount: json_object_text(fields, "remainAmount", "0"),
+        paid_pct: json_object_text(fields, "paidPct", "0"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn report_stage_from_json(value : Json) -> ReportStageRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        proj_code: json_object_text(fields, "projCode", ""),
+        proj_name: json_object_text(fields, "projName", ""),
+        bu_name: json_object_text(fields, "buName", ""),
+        proj_status: json_object_text(fields, "projStatus", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn reports_from_body(
+  body : String,
+) -> (
+  Array[ReportCostRow],
+  Array[ReportContractRow],
+  Array[ReportStageRow],
+  String,
+  String,
+) {
+  let costs : Array[ReportCostRow] = []
+  let contracts : Array[ReportContractRow] = []
+  let stages : Array[ReportStageRow] = []
+  let mut supplier_count = "0"
+  let mut approval_count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      match fields.get("cost_summary") {
+        Some(Json::Object(summary)) =>
+          for value in json_array_field(summary, "rows") {
+            match report_cost_from_json(value) {
+              Some(row) => costs.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+      for value in json_array_field(fields, "contract_payment_ledger") {
+        match report_contract_from_json(value) {
+          Some(row) => contracts.push(row)
+          None => ()
+        }
+      }
+      match fields.get("supplier_analysis") {
+        Some(Json::Array(values)) =>
+          supplier_count = values.length().to_string()
+        _ => ()
+      }
+      match fields.get("approval_efficiency") {
+        Some(Json::Object(approval)) =>
+          match approval.get("byType") {
+            Some(Json::Array(values)) =>
+              approval_count = values.length().to_string()
+            _ => ()
+          }
+        _ => ()
+      }
+      match fields.get("project_stage_matrix") {
+        Some(Json::Object(matrix)) =>
+          for value in json_array_field(matrix, "projects") {
+            match report_stage_from_json(value) {
+              Some(row) => stages.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (costs, contracts, stages, supplier_count, approval_count)
+}
+
+///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
@@ -956,6 +1118,16 @@ fn load_delivery(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(DeliveryLoaded(body))
       Err(_) => emit(DeliveryLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_reports(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/reports/overview").expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportsLoaded(body))
+      Err(_) => emit(ReportsLoadFailed)
     }
   })
 }
@@ -1311,6 +1483,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "revenues")
       } else if path == "/invoice" {
         load_sales(emit, "invoices")
+      } else if path == "/reports" {
+        load_reports(emit)
       } else if path == "/project-plan" || path == "/project/progress" {
         load_delivery(emit)
       } else {
@@ -2076,6 +2250,36 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_task_rows: [],
           delivery_report_rows: [],
           delivery_note: "工程进度/项目计划读模型不可用 · 使用已审核快照",
+        },
+      )
+    ReportsLoaded(body) => {
+      let (costs, contracts, stages, supplier_count, approval_count) = reports_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          reports_loaded: true,
+          report_cost_rows: costs,
+          report_contract_rows: contracts,
+          report_stage_rows: stages,
+          report_supplier_count: supplier_count,
+          report_approval_count: approval_count,
+          reports_note: "已加载 PostgreSQL 核心报表 · 源数据覆盖与缺口保持可见",
+        },
+      )
+    }
+    ReportsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          reports_loaded: false,
+          report_cost_rows: [],
+          report_contract_rows: [],
+          report_stage_rows: [],
+          reports_note: "核心报表读模型不可用 · 使用已审核快照",
         },
       )
     CreateDeliveryProgress =>
@@ -4872,13 +5076,110 @@ fn loans_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn reports_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn reports_runtime_banner(model : Model) -> @html.Html {
+  div(class="erp-runtime-banner", [
+    strong(
+      if model.reports_loaded {
+        "PostgreSQL 已连接"
+      } else {
+        "核心报表读模型"
+      },
+    ),
+    span(
+      " · " +
+      (model.report_cost_rows.length() + model.report_contract_rows.length()).to_string() +
+      " 条成本/合同报表行",
+    ),
+    span(" · " + model.reports_note),
+    span(
+      " · 供应商报表类型 " +
+      model.report_supplier_count +
+      " · 审批类型 " +
+      model.report_approval_count,
+    ),
+  ])
+}
+
+///|
+fn reports_data_tables(model : Model) -> @html.Html {
+  let cost_rows : Array[Array[String]] = []
+  for row in model.report_cost_rows {
+    cost_rows.push([
+      row.bu_name,
+      row.proj_code,
+      row.proj_name,
+      row.target_cost,
+      row.dynamic_cost,
+      row.deviation_pct + "%",
+      row.source_kind,
+    ])
+  }
+  let contract_rows : Array[Array[String]] = []
+  for row in model.report_contract_rows {
+    contract_rows.push([
+      row.contract_code,
+      row.contract_name,
+      row.provider,
+      row.current_amount,
+      row.paid_total,
+      row.remain_amount,
+      row.paid_pct + "%",
+      row.source_kind,
+    ])
+  }
+  let stage_rows : Array[Array[String]] = []
+  for row in model.report_stage_rows {
+    stage_rows.push([
+      row.bu_name,
+      row.proj_code,
+      row.proj_name,
+      row.proj_status,
+      row.source_kind,
+    ])
+  }
+  div <| [
+    table_panel(
+      "R1 集团成本汇总",
+      "目标/动态成本来自导入源表 · 仅固定读模型",
+      data_table(
+        [
+          "公司", "项目编码", "项目名称", "目标成本", "动态成本",
+          "偏差%", "来源",
+        ],
+        cost_rows,
+      ),
+    ),
+    table_panel(
+      "R2 合同付款台账",
+      "合同金额、已付、未付与付款率",
+      data_table(
+        [
+          "合同", "名称", "乙方", "当前金额", "已付", "未付", "付款率",
+          "来源",
+        ],
+        contract_rows,
+      ),
+    ),
+    table_panel(
+      "R5 项目阶段矩阵",
+      "阶段明细由项目生命周期源表计算",
+      data_table(
+        ["公司", "项目编码", "项目名称", "当前阶段", "来源"],
+        stage_rows,
+      ),
+    ),
+  ]
+}
+
+///|
+fn reports_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "报表中心",
     "ANALYSIS / REPORTS",
     "按主题打开经营、成本、资金、销售与项目报表，统一查看口径和更新时间。",
     [button(class="erp-secondary-btn", "管理收藏")],
     div <| [
+      reports_runtime_banner(model),
       div(class="erp-report-grid") <| [
         section(class="erp-report-card") <| [
           span(class="erp-report-icon", "▦"),
@@ -4931,6 +5232,7 @@ fn reports_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
           ],
         ),
       ),
+      reports_data_tables(model),
     ],
   )
 }
@@ -6452,7 +6754,7 @@ fn business_view(
       "/loans" => loans_view(emit)
       "/loans/new" => loan_editor_view(emit, false)
       "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
-      "/reports" => reports_view(emit)
+      "/reports" => reports_view(emit, model)
       "/report-builder" => report_builder_view()
       "/warning" => warning_view()
       "/warning-rules" => warning_rules_view()

@@ -49,8 +49,9 @@ present. `/project/progress` and `/project-plan` now load the PostgreSQL
 delivery overview and expose evidence-gated progress, output, and task-report
 commands; imported task/progress/output rows remain read-only, while local
 command projections are marked separately. Browser production-identity
-acceptance is still pending, and the other route families remain
-fixture-backed.
+acceptance is still pending. `/reports` now loads the five core report reads
+through `/api/company/reports/overview` and shows source coverage; report
+templates, sharing, and the other route families remain fixture-backed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
