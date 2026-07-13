@@ -65,3 +65,22 @@ gateway, authenticated requests, explicit HTTPS CORS origins, fixed read-only
 endpoints, no arbitrary SQL, no mutation routes, and metrics/audit/alert/trace
 destinations. It can report `ready_for_service_review`, but it cannot authorize
 the service while the database deployment gate lacks named approvals.
+
+The executable local runtime is:
+
+```text
+MOONCOMPANY_SERVICE_TOKEN=<secret-from-the-gateway> \
+PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
+python3 scripts/company_postgres_service.py \
+  --token-env MOONCOMPANY_SERVICE_TOKEN \
+  --require-forwarded-tls
+```
+
+It keeps bounded reusable `psql` sessions, requires `Authorization: Bearer`
+and `X-Forwarded-Proto: https`, checks schema version 4 before reporting
+healthy, and exposes only the four fixed GET endpoints. The local
+`company_postgres_service_smoke.py` proves the positive path plus missing-token,
+missing-TLS, and mutation rejection. This runtime is an executable contract
+and rehearsal; the managed deployment must still provide a real gateway,
+issuer/audience verification, TLS certificates, observability, and approved
+capacity/restore controls.

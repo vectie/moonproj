@@ -233,6 +233,10 @@ Deliverables:
 - a credential-free production-service manifest and validator that requires
   authenticated fixed read endpoints, schema-matched readiness, private TLS
   binding, bounded reusable pooling, and no arbitrary SQL or mutation routes;
+- an executable authenticated PostgreSQL fixed-read runtime with bounded
+  reusable sessions, fail-closed exhaustion, forwarded-TLS enforcement, schema
+  readiness, and a local negative-path smoke; managed gateway and provider
+  deployment remain separate gates;
 - a source-to-journal reconciliation gate that checks reviewed principal,
   amount, currency, event, source, and journal identity against durable links
   without treating traceability as cash release or period posting;

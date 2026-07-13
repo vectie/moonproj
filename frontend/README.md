@@ -23,8 +23,10 @@ already mutates company data. Representative project, contract, expense,
 loan, and supplier detail/new flows now open as source-shaped forms with
 explicit return/save/submit boundaries. The dashboard now reads the
 PostgreSQL projection summary through the fixed read-only development adapter
-`scripts/company_postgres_read_model_server.py`; command/mutation endpoints,
-authentication, pooling, and production deployment remain separate gates.
+`scripts/company_postgres_read_model_server.py`. The authenticated bounded
+runtime is available separately as `scripts/company_postgres_service.py`;
+command/mutation endpoints and managed production deployment remain separate
+gates.
 Build and preview it with Warren:
 
 ```sh
