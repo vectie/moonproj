@@ -11,11 +11,11 @@ query:
 
 | Source surface | Source route | Target state |
 |---|---|---|
-| Group overview | `GET /dashboard/group/overview` | not connected |
-| Stage funnel | `GET /dashboard/group/funnel` | not connected |
-| Top anomalies | `GET /dashboard/group/top-anomalies` | not connected |
-| Project KPI | `GET /dashboard/project/:projGuid/kpi` | not connected |
-| Project anomalies | `GET /dashboard/project/:projGuid/anomalies` | not connected |
+| Group overview | `GET /dashboard/group/overview` | bounded source read |
+| Stage funnel | `GET /dashboard/group/funnel` | bounded source read |
+| Top anomalies | `GET /dashboard/group/top-anomalies` | bounded source read |
+| Project KPI | `GET /dashboard/project/:projGuid/kpi` | bounded source read |
+| Project anomalies | `GET /dashboard/project/:projGuid/anomalies` | bounded source read |
 | Group cockpit v2 | `GET /dashboard/v2/group` | not connected |
 | Group cockpit v3 | `GET /dashboard/v3/group` | not connected |
 
@@ -31,40 +31,41 @@ The source implementation reads 30 unique tables. The controlled export has
   `sale_customer`, `sale_mortgage`, `sale_refund`, `sale_revenue`,
   `sale_subscription`, `sys_warning`, `tender_award`, and `tender_plan`.
 
-The available rows can support a bounded overview/funnel/KPI read after the
-missing-table decision, but they cannot support the source v2/v3 cockpit
+The available rows now support the bounded v1 overview/funnel/KPI/anomaly
+reads, but they cannot support the source v2/v3 cockpit
 without sales, funds, invoices, tender, warning, and CBS data. Empty source
 tables must remain empty; the target must not manufacture revenue, cash,
 health, warning, or risk values.
 
 ## Target evidence
 
-- `frontend/main/main.mbt` renders the source-shaped KPI/funnel/risk layout
-  and only calls `/api/company/summary` to show PostgreSQL adapter status.
-- `scripts/company_postgres_read_model_server.py` exposes generic summary,
-  receipts, projections, and bounded domain/report reads; it does not expose
-  `/api/company/dashboard/*` reads.
-- `scripts/company_postgres_service.py` has no dashboard route. The parity
-  matrix therefore correctly keeps the three dashboard aliases as
-  `read_model_only` and all seven source dashboard handlers as
-  `not_connected`.
+- `frontend/main/main.mbt` renders the source-shaped KPI/funnel/risk layout,
+  calls `/api/company/summary` for adapter status, then loads the bounded
+  dashboard reads for live KPI, funnel, and anomaly values.
+- `scripts/company_postgres_service.py` and the development read-model server
+  expose the five bounded v1 routes under `/api/company/dashboard/*`, with
+  source coverage and missing-table metadata on every response. The v2/v3
+  aggregate routes remain intentionally unconnected.
+- Rabbita now loads the group overview, stage funnel, and top-anomaly reads
+  sequentially and replaces the designer KPI/funnel/risk fixtures when the
+  responses are valid. The three dashboard aliases remain
+  `read_model_only` until production identity and browser acceptance.
 - Core report reads are not dashboard parity. A report overview can provide
   reconciled tables, but it does not reproduce the source cockpit's scoped
   KPIs, month trend, stage distribution, anomaly ranking, or health breakdown.
 
 ## Revised gate
 
-1. Obtain the complete redacted export (or owner-approved empty-data
-   dispositions) before implementing cross-domain dashboard aggregates.
-2. Add an authenticated, bounded dashboard read model in two slices: the
-   source-backed overview/funnel/project KPI/anomaly reads first, then v2/v3
-   only after sales/fund/invoice/tender/warning/CBS source coverage exists.
-3. Make source coverage, scope (`buGuid`/`projGuid`), money units, date basis,
+1. Make source coverage, scope (`buGuid`/`projGuid`), money units, date basis,
    and missing-data status explicit in every response. Do not use fixture or
    synthetic values in a connected cockpit response.
-4. Bind the designer-preserving Rabbita dashboard to that read model, retain a
-   clearly labelled fallback only for offline development, and run browser
-   acceptance through the production identity/entity scope boundary.
+2. Run browser acceptance of the bounded v1 reads through the production
+   identity/entity scope boundary, including project KPI/anomaly deep links.
+3. Obtain the complete redacted export (or owner-approved empty-data
+   dispositions) before implementing v2/v3 cross-domain aggregates. Those
+   routes require sales/fund/invoice/tender/warning/CBS source coverage.
+4. Retain a clearly labelled fallback only for offline development, and run
+   browser acceptance before counting the dashboard as functional parity.
 5. Obtain operations/finance owner reconciliation for KPI definitions and
    anomaly rules before using cockpit values for management, cash, tax, or
    close decisions.

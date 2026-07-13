@@ -41,6 +41,9 @@ The bounded service exposes these endpoints:
   with source-preserving reads and idempotent local commands
 * ``/api/company/reports/{cost-summary,contract-payment-ledger,
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
+* ``/api/company/dashboard/group/{overview,funnel,top-anomalies}`` and
+  ``/api/company/dashboard/project/<id>/{kpi,anomalies}`` (GET,
+  source-backed bounded cockpit reads)
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
@@ -114,7 +117,7 @@ IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 class PsqlSession:
     command: list[str]
     query_timeout: float
-    process: subprocess.Popen[str] | None = None
+    process: subprocess.Popen[bytes] | None = None
 
     def start(self) -> None:
         if self.process is not None and self.process.poll() is None:
@@ -125,8 +128,11 @@ class PsqlSession:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
+            # ``execute`` waits with ``select``.  Keep the pipe unbuffered so
+            # TextIOWrapper read-ahead cannot hide bytes that select would no
+            # longer report as ready on large dashboard result sets.
+            text=False,
+            bufsize=0,
             env=os.environ.copy(),
         )
 
@@ -151,7 +157,7 @@ class PsqlSession:
         marker = "__moonproj_service_" + uuid.uuid4().hex + "__"
         command = sql.strip().rstrip(";") + ";\nSELECT " + sql_literal(marker) + ";\n"
         try:
-            process.stdin.write(command)
+            process.stdin.write(command.encode("utf-8"))
             process.stdin.flush()
             rows: list[str] = []
             deadline = time.monotonic() + self.query_timeout
@@ -163,9 +169,9 @@ class PsqlSession:
                 if not ready:
                     raise ServiceError("database query timed out")
                 line = process.stdout.readline()
-                if line == "":
+                if line == b"":
                     raise ServiceError("database session closed unexpectedly")
-                value = line.rstrip("\r\n")
+                value = line.rstrip(b"\r\n").decode("utf-8")
                 if value == marker:
                     return rows
                 rows.append(value)
@@ -265,9 +271,24 @@ class PsqlPool:
                     session = self._new_session()
                 self._available.put(session)
 
+    def execute_read(self, sql: str) -> list[str]:
+        """Run a read query once more after a stale session is discarded.
+
+        A failed ``psql`` session is never reused by ``execute``.  Reads are
+        safe to retry against the replacement session, which prevents a cold
+        or externally-closed session from surfacing as a transient 503 while
+        keeping command execution strictly single-attempt.
+        """
+
+        try:
+            return self.execute(sql)
+        except ServiceError:
+            return self.execute(sql)
+
 
 def query_lines(pool: PsqlPool, sql: str) -> list[str]:
-    return [line for line in pool.execute("\n".join(line.strip() for line in sql.splitlines() if line.strip())) if line]
+    normalized = "\n".join(line.strip() for line in sql.splitlines() if line.strip())
+    return [line for line in pool.execute_read(normalized) if line]
 
 
 def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
@@ -4340,6 +4361,570 @@ def _report_date(value: Any) -> date | None:
         return None
 
 
+DASHBOARD_SOURCE_TABLES = {
+    "cb_contract",
+    "cb_cost",
+    "cb_expense_split",
+    "cb_htfk_apply",
+    "cb_htfkplan",
+    "ep_project",
+    "jd_task",
+    "mu_business_unit",
+    "proj_lifecycle_instance",
+    "proj_lifecycle_stage",
+    "tzsy_plan_index",
+    "tzsy_version",
+    "vcb_expense",
+    "wf_process_instance",
+    "cb_plan_version",
+    "cb_r_master",
+    "cb_subject_dict",
+    "fund_plan",
+    "invoice_in",
+    "invoice_out",
+    "proj_progress",
+    "sale_contract",
+    "sale_customer",
+    "sale_mortgage",
+    "sale_refund",
+    "sale_revenue",
+    "sale_subscription",
+    "sys_warning",
+    "tender_award",
+    "tender_plan",
+}
+
+
+def _dashboard_flag(value: Any) -> bool:
+    return value in {True, 1, "1", "true", "True", "TRUE"}
+
+
+def _dashboard_context(
+    pool: PsqlPool,
+    max_rows: int,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int], list[str]]:
+    table_literals = ", ".join(
+        sql_literal("legacy/raw/" + table) for table in sorted(DASHBOARD_SOURCE_TABLES)
+    )
+    query = f"""
+    SELECT split_part(record_type, '/', 3),
+           encode(convert_to(record_id, 'UTF8'), 'hex'),
+           encode(convert_to(source_id, 'UTF8'), 'hex'),
+           encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM (
+      SELECT record_type, record_id, source_id, payload,
+             row_number() OVER (PARTITION BY record_type ORDER BY record_id) AS row_number
+      FROM company_record
+      WHERE record_type IN ({table_literals})
+    ) limited
+    WHERE row_number <= {max_rows}
+    ORDER BY record_type, record_id
+    """
+    rows = {table: [] for table in DASHBOARD_SOURCE_TABLES}
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4 or fields[0] not in DASHBOARD_SOURCE_TABLES:
+            raise ServiceError("unexpected dashboard source row shape")
+        try:
+            payload = json.loads(decode_hex(fields[3]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid dashboard source row JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("dashboard source row payload is not an object")
+        rows[fields[0]].append(
+            {
+                "record_id": decode_hex(fields[1]),
+                "source_id": decode_hex(fields[2]),
+                "payload": payload,
+            }
+        )
+    coverage = {table: len(values) for table, values in rows.items()}
+    missing = [table for table, count in coverage.items() if count == 0]
+    return rows, coverage, missing
+
+
+def _dashboard_envelope(
+    data: Any,
+    coverage: dict[str, int],
+    missing: list[str],
+) -> dict[str, Any]:
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "source_kind": "imported",
+        "source_coverage": coverage,
+        "missing_source_tables": missing,
+    }
+
+
+def dashboard_group_overview(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    rows, coverage, missing = _dashboard_context(pool, max_rows)
+    units = [row["payload"] for row in rows["mu_business_unit"]]
+    projects = [
+        row["payload"]
+        for row in rows["ep_project"]
+        if not row["payload"].get("deleted_at")
+    ]
+    instances = [row["payload"] for row in rows["proj_lifecycle_instance"]]
+    contracts = [row["payload"] for row in rows["cb_contract"]]
+    applications = [row["payload"] for row in rows["cb_htfk_apply"]]
+    costs = [
+        row["payload"]
+        for row in rows["cb_cost"]
+        if _dashboard_flag(row["payload"].get("is_end_cost"))
+    ]
+    today = date.today()
+    running_projects = {
+        str(payload.get("proj_guid"))
+        for payload in instances
+        if str(payload.get("status") or "") == "in_progress" and payload.get("proj_guid")
+    }
+    total_contract_amount = sum(
+        _report_float(payload, "ht_amount") + _report_float(payload, "sum_alter_amount")
+        for payload in contracts
+    )
+    paid_amount = sum(
+        _report_float(payload, "apply_amount")
+        for payload in applications
+        if str(payload.get("pay_state") or "") in {"完全支付", "部分支付"}
+    )
+    target_total = sum(_report_float(payload, "target_cost") for payload in costs)
+    dynamic_total = sum(
+        _report_float(payload, "ht_alter_amount")
+        + _report_float(payload, "zt_cost")
+        + _report_float(payload, "dfs_budget")
+        + _report_float(payload, "yg_alter")
+        for payload in costs
+    )
+    overdue_approvals = 0
+    for row in rows["wf_process_instance"]:
+        payload = row["payload"]
+        initiated = _report_date(payload.get("initiated_at"))
+        if str(payload.get("status") or "") == "Running" and initiated is not None:
+            if (today - initiated).days > 7:
+                overdue_approvals += 1
+    overdue_tasks = 0
+    for row in rows["jd_task"]:
+        payload = row["payload"]
+        planned_end = _report_date(payload.get("plan_end_date"))
+        if str(payload.get("status") or "") == "overdue" or (
+            str(payload.get("status") or "") != "done"
+            and planned_end is not None
+            and planned_end < today
+        ):
+            overdue_tasks += 1
+    paid_ratio = paid_amount / total_contract_amount * 100 if total_contract_amount > 0 else 0
+    deviation_pct = (target_total - dynamic_total) / target_total * 100 if target_total > 0 else 0
+    return _dashboard_envelope(
+        {
+            "companyCount": sum(1 for payload in units if payload.get("bu_type") == "company"),
+            "projectCount": len(projects),
+            "inProgressCount": len(running_projects),
+            "contractCount": len(contracts),
+            "totalContractAmount": total_contract_amount,
+            "paidAmount": paid_amount,
+            "paidRatio": round(paid_ratio, 2),
+            "cost": {
+                "target": target_total,
+                "dynamic": dynamic_total,
+                "deviationPct": round(deviation_pct, 2),
+            },
+            "anomalies": {
+                "overdueApprovals": overdue_approvals,
+                "overdueTasks": overdue_tasks,
+            },
+        },
+        coverage,
+        missing,
+    )
+
+
+def dashboard_group_funnel(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    rows, coverage, missing = _dashboard_context(pool, max_rows)
+    stages = sorted(
+        (row["payload"] for row in rows["proj_lifecycle_stage"]),
+        key=lambda payload: (_report_float(payload, "stage_order"), str(payload.get("stage_code") or "")),
+    )
+    grouped: dict[str, set[str]] = {}
+    for row in rows["proj_lifecycle_instance"]:
+        payload = row["payload"]
+        if str(payload.get("status") or "") not in {"in_progress", "done"}:
+            continue
+        project_id = str(payload.get("proj_guid") or "")
+        stage_code = str(payload.get("stage_code") or "")
+        if project_id and stage_code:
+            grouped.setdefault(stage_code, set()).add(project_id)
+    max_count = max((len(values) for values in grouped.values()), default=0)
+    data = [
+        {
+            "stageCode": str(payload.get("stage_code") or ""),
+            "stageName": str(payload.get("stage_name") or payload.get("stage_code") or ""),
+            "count": len(grouped.get(str(payload.get("stage_code") or ""), set())),
+            "widthPct": (
+                f"{round(len(grouped.get(str(payload.get("stage_code") or ""), set())) / max_count * 100)}%"
+                if max_count > 0
+                else "0%"
+            ),
+        }
+        for payload in stages
+    ]
+    return _dashboard_envelope(data, coverage, missing)
+
+
+def dashboard_group_top_anomalies(
+    pool: PsqlPool,
+    limit: int,
+    max_rows: int,
+) -> dict[str, Any]:
+    if limit < 1 or limit > 30:
+        raise ValueError("limit must be between 1 and 30")
+    rows, coverage, missing = _dashboard_context(pool, max_rows)
+    units = {
+        str(row["payload"].get("bu_guid") or row["record_id"]): row["payload"]
+        for row in rows["mu_business_unit"]
+    }
+    projects = [row["payload"] for row in rows["ep_project"] if not row["payload"].get("deleted_at")]
+    costs_by_project: dict[str, list[dict[str, Any]]] = {}
+    for row in rows["cb_cost"]:
+        payload = row["payload"]
+        if _dashboard_flag(payload.get("is_end_cost")):
+            costs_by_project.setdefault(str(payload.get("proj_guid") or ""), []).append(payload)
+    tasks_by_project: dict[str, list[dict[str, Any]]] = {}
+    for row in rows["jd_task"]:
+        payload = row["payload"]
+        tasks_by_project.setdefault(str(payload.get("proj_guid") or ""), []).append(payload)
+    today = date.today()
+    ranked: list[dict[str, Any]] = []
+    for project in projects:
+        project_id = str(project.get("proj_guid") or "")
+        project_costs = costs_by_project.get(project_id, [])
+        target = sum(_report_float(payload, "target_cost") for payload in project_costs)
+        dynamic = sum(
+            _report_float(payload, "ht_alter_amount")
+            + _report_float(payload, "zt_cost")
+            + _report_float(payload, "dfs_budget")
+            + _report_float(payload, "yg_alter")
+            for payload in project_costs
+        )
+        project_tasks = tasks_by_project.get(project_id, [])
+        overdue_tasks = sum(
+            1
+            for payload in project_tasks
+            if str(payload.get("status") or "") == "overdue"
+            or (
+                str(payload.get("status") or "") != "done"
+                and (_report_date(payload.get("plan_end_date")) or date.max) < today
+            )
+        )
+        in_progress_nodes = sum(
+            1
+            for payload in project_tasks
+            if str(payload.get("task_type") or "") == "key_node"
+            and str(payload.get("status") or "") == "in_progress"
+        )
+        deviation = (target - dynamic) / target * 100 if target > 0 else 0
+        risk_score = (abs(deviation) * 10 if deviation < 0 else 0) + overdue_tasks * 20
+        reasons: list[str] = []
+        if deviation < 0:
+            reasons.append(f"成本超目标 {abs(deviation):.2f}%")
+        if overdue_tasks > 0:
+            reasons.append(f"{overdue_tasks} 个任务延期")
+        ranked.append(
+            {
+                "projGuid": project_id,
+                "projCode": str(project.get("proj_code") or project_id),
+                "projName": str(project.get("proj_name") or project_id),
+                "buName": str(units.get(str(project.get("bu_guid") or ""), {}).get("bu_name") or ""),
+                "projStatus": str(project.get("proj_status") or ""),
+                "targetCost": target,
+                "dynamicCost": dynamic,
+                "deviationPct": round(deviation, 2),
+                "overdueTasks": overdue_tasks,
+                "inProgressNodes": in_progress_nodes,
+                "riskScore": round(risk_score),
+                "reason": " / ".join(reasons) if reasons else "正常",
+            }
+        )
+    ranked.sort(key=lambda value: (-float(value["riskScore"]), str(value["projGuid"])))
+    return _dashboard_envelope(ranked[:limit], coverage, missing)
+
+
+def _dashboard_project_context(
+    rows: dict[str, list[dict[str, Any]]],
+    project_id: str,
+) -> dict[str, Any] | None:
+    for row in rows["ep_project"]:
+        payload = row["payload"]
+        if str(payload.get("proj_guid") or row["record_id"]) == project_id and not payload.get("deleted_at"):
+            return payload
+    return None
+
+
+def dashboard_project_kpi(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    rows, coverage, missing = _dashboard_context(pool, max_rows)
+    project = _dashboard_project_context(rows, project_id)
+    if project is None:
+        return None
+    units = {
+        str(row["payload"].get("bu_guid") or row["record_id"]): row["payload"]
+        for row in rows["mu_business_unit"]
+    }
+    tasks = [
+        row["payload"]
+        for row in rows["jd_task"]
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and str(row["payload"].get("task_type") or "") == "key_node"
+    ]
+    costs = [
+        row["payload"]
+        for row in rows["cb_cost"]
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and _dashboard_flag(row["payload"].get("is_end_cost"))
+    ]
+    contracts = [
+        row["payload"]
+        for row in rows["cb_contract"]
+        if str(row["payload"].get("proj_guid") or "") == project_id
+    ]
+    applications = [
+        row["payload"]
+        for row in rows["cb_htfk_apply"]
+        if str(row["payload"].get("proj_guid") or "") == project_id
+    ]
+    today = date.today()
+    overdue_nodes = sum(
+        1
+        for payload in tasks
+        if str(payload.get("status") or "") != "done"
+        and (_report_date(payload.get("plan_end_date")) or date.max) < today
+    )
+    avg_progress = sum(_report_float(payload, "progress_pct") for payload in tasks) / len(tasks) if tasks else 0
+    target_cost = sum(_report_float(payload, "target_cost") for payload in costs)
+    dynamic_cost = sum(
+        _report_float(payload, "ht_alter_amount")
+        + _report_float(payload, "zt_cost")
+        + _report_float(payload, "dfs_budget")
+        + _report_float(payload, "yg_alter")
+        for payload in costs
+    )
+    deviation_pct = (target_cost - dynamic_cost) / target_cost * 100 if target_cost > 0 else 0
+    apply_total = sum(_report_float(payload, "apply_amount") for payload in applications)
+    paid_total = sum(
+        _report_float(payload, "apply_amount")
+        for payload in applications
+        if str(payload.get("pay_state") or "") in {"完全支付", "部分支付"}
+    )
+    approval_instances = [row["payload"] for row in rows["wf_process_instance"]]
+    apply_ids = {
+        str(payload.get("htfk_apply_guid") or "")
+        for payload in applications
+        if payload.get("htfk_apply_guid")
+    }
+    expense_ids = {
+        str(row["payload"].get("expense_guid") or "")
+        for row in rows["vcb_expense"]
+        if str(row["payload"].get("bu_guid") or "") == str(project.get("bu_guid") or "")
+        and row["payload"].get("expense_guid")
+    }
+    approval_ids = apply_ids | expense_ids
+    approval_days: list[int] = []
+    overdue_approvals = 0
+    for payload in approval_instances:
+        if str(payload.get("biz_data_guid") or "") not in approval_ids:
+            continue
+        initiated = _report_date(payload.get("initiated_at"))
+        completed = _report_date(payload.get("completed_at"))
+        if initiated is not None and completed is not None:
+            approval_days.append((completed - initiated).days)
+        if str(payload.get("status") or "") == "Running" and initiated is not None and (today - initiated).days > 7:
+            overdue_approvals += 1
+    version = next(
+        (
+            row["payload"]
+            for row in rows["tzsy_version"]
+            if str(row["payload"].get("proj_guid") or "") == project_id
+            and _dashboard_flag(row["payload"].get("is_current"))
+        ),
+        None,
+    )
+    profit = None
+    if version is not None:
+        version_id = str(version.get("version_guid") or "")
+        values = {
+            str(row["payload"].get("full_code") or ""): _report_float(row["payload"], "index_value")
+            for row in rows["tzsy_plan_index"]
+            if str(row["payload"].get("version_guid") or "") == version_id
+        }
+        profit = {
+            "irr": values.get("CO.IRR"),
+            "npv": values.get("CO.NPV"),
+            "netProfit": values.get("CO.NetProfit"),
+            "revenue": values.get("CO.Revenue"),
+        }
+    current_month = today.strftime("%Y-%m")
+    month_plan = sum(
+        _report_float(payload, "jhfk_amount")
+        for payload in rows["cb_htfkplan"]
+        if str(payload.get("contract_guid") or "") in {
+            str(contract.get("contract_guid") or "") for contract in contracts
+        }
+        and str(payload.get("jhfk_date") or "")[:7] == current_month
+    )
+    return _dashboard_envelope(
+        {
+            "project": {
+                "projGuid": project_id,
+                "projCode": str(project.get("proj_code") or project_id),
+                "projName": str(project.get("proj_name") or project_id),
+                "buName": str(units.get(str(project.get("bu_guid") or ""), {}).get("bu_name") or ""),
+                "projStatus": str(project.get("proj_status") or ""),
+            },
+            "kpi": {
+                "progress": {
+                    "avgProgress": round(avg_progress, 1),
+                    "totalNodes": len(tasks),
+                    "overdueNodes": overdue_nodes,
+                    "done": sum(1 for payload in tasks if str(payload.get("status") or "") == "done"),
+                    "inProgress": sum(
+                        1 for payload in tasks if str(payload.get("status") or "") == "in_progress"
+                    ),
+                },
+                "cost": {
+                    "target": target_cost,
+                    "dynamic": dynamic_cost,
+                    "deviationPct": round(deviation_pct, 2),
+                    "layoutSpare": target_cost - dynamic_cost,
+                },
+                "contract": {
+                    "count": len(contracts),
+                    "totalAmount": sum(
+                        _report_float(payload, "ht_amount") + _report_float(payload, "sum_alter_amount")
+                        for payload in contracts
+                    ),
+                },
+                "payment": {
+                    "count": len(applications),
+                    "applyTotal": apply_total,
+                    "paidTotal": paid_total,
+                    "paidRatio": round(paid_total / apply_total * 100, 2) if apply_total > 0 else 0,
+                },
+                "cash": {"thisMonthPlan": month_plan},
+                "profit": profit,
+                "quality": None,
+                "approval": {
+                    "avgDays": round(sum(approval_days) / len(approval_days), 1) if approval_days else None,
+                    "overdueCount": overdue_approvals,
+                },
+            },
+        },
+        coverage,
+        missing,
+    )
+
+
+def dashboard_project_anomalies(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    rows, coverage, missing = _dashboard_context(pool, max_rows)
+    project = _dashboard_project_context(rows, project_id)
+    if project is None:
+        return _dashboard_envelope([], coverage, missing)
+    anomalies: list[dict[str, Any]] = []
+    costs = [
+        row["payload"]
+        for row in rows["cb_cost"]
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and _dashboard_flag(row["payload"].get("is_end_cost"))
+    ]
+    target = sum(_report_float(payload, "target_cost") for payload in costs)
+    dynamic = sum(
+        _report_float(payload, "ht_alter_amount")
+        + _report_float(payload, "zt_cost")
+        + _report_float(payload, "dfs_budget")
+        + _report_float(payload, "yg_alter")
+        for payload in costs
+    )
+    if target > 0:
+        deviation = (target - dynamic) / target * 100
+        if deviation < -1:
+            anomalies.append(
+                {
+                    "severity": "error" if deviation < -5 else "warning",
+                    "title": f"成本超目标 {abs(deviation):.2f}%",
+                    "detail": f"目标 ¥{target:,.0f} 动态 ¥{dynamic:,.0f}",
+                    "suggestion": "建议立即组织成本分析会,识别超支科目并制定纠偏措施",
+                }
+            )
+    today = date.today()
+    for row in rows["jd_task"]:
+        payload = row["payload"]
+        if str(payload.get("proj_guid") or "") != project_id or str(payload.get("task_type") or "") != "key_node":
+            continue
+        planned_end = _report_date(payload.get("plan_end_date"))
+        if (
+            str(payload.get("status") or "") == "overdue"
+            or (
+                str(payload.get("status") or "") != "done"
+                and planned_end is not None
+                and planned_end < today
+            )
+        ):
+            days = (today - planned_end).days if planned_end is not None else 0
+            anomalies.append(
+                {
+                    "severity": "error" if days > 30 else "warning",
+                    "title": f"关键节点延期 {days} 天",
+                    "detail": f"{payload.get('task_name') or ''}(计划 {payload.get('plan_end_date') or ''})",
+                    "suggestion": "建议召集项目周会复盘进度,评估是否启动赶工预案",
+                }
+            )
+    apply_ids = {
+        str(row["payload"].get("htfk_apply_guid") or "")
+        for row in rows["cb_htfk_apply"]
+        if str(row["payload"].get("proj_guid") or "") == project_id
+    }
+    expense_ids = {
+        str(row["payload"].get("expense_guid") or "")
+        for row in rows["vcb_expense"]
+        if str(row["payload"].get("bu_guid") or "") == str(project.get("bu_guid") or "")
+        and row["payload"].get("expense_guid")
+    }
+    approval_ids = apply_ids | expense_ids
+    overdue_approvals = 0
+    today = date.today()
+    for row in rows["wf_process_instance"]:
+        payload = row["payload"]
+        initiated = _report_date(payload.get("initiated_at"))
+        if (
+            str(payload.get("status") or "") == "Running"
+            and str(payload.get("biz_data_guid") or "") in approval_ids
+            and initiated is not None
+            and (today - initiated).days > 7
+        ):
+            overdue_approvals += 1
+    if overdue_approvals:
+        anomalies.append(
+            {
+                "severity": "warning",
+                "title": f"{overdue_approvals} 单审批超 7 天未结",
+                "detail": "审批长期停滞会阻塞项目进度",
+                "suggestion": "建议责任人介入催办,或评估流程节点配置合理性",
+            }
+        )
+    return _dashboard_envelope(anomalies, coverage, missing)
+
+
 PROJECT_SOURCE_TABLES = {
     "ep_project",
     "mu_business_unit",
@@ -6509,6 +7094,40 @@ def handler_factory(
                     response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/dashboard/group/overview":
+                    response(self, 200, dashboard_group_overview(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/dashboard/group/funnel":
+                    response(self, 200, dashboard_group_funnel(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/dashboard/group/top-anomalies":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["10"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid dashboard anomaly limit") from error
+                    response(
+                        self,
+                        200,
+                        dashboard_group_top_anomalies(pool, limit, max_response_rows),
+                        origin,
+                    )
+                elif re.fullmatch(
+                    r"/api/company/dashboard/project/[A-Za-z0-9_.:-]{1,128}/(kpi|anomalies)",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    if parsed.path.endswith("/kpi"):
+                        result = dashboard_project_kpi(pool, project_value, max_response_rows)
+                        if result is None:
+                            response(self, 404, {"error": "project not found"}, origin)
+                        else:
+                            response(self, 200, result, origin)
+                    else:
+                        response(
+                            self,
+                            200,
+                            dashboard_project_anomalies(pool, project_value, max_response_rows),
+                            origin,
+                        )
                 elif parsed.path == "/api/company/projects":
                     query = parse_qs(parsed.query)
                     result = projects(

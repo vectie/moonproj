@@ -211,11 +211,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `cost` | `DELETE` | `/milestones/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cost` | `GET` | `/milestones/:guid/check` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
 | `cost` | `POST` | `/milestones/:guid/trigger-event` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `dashboard` | `GET` | `/group/overview` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
-| `dashboard` | `GET` | `/group/funnel` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
-| `dashboard` | `GET` | `/group/top-anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
-| `dashboard` | `GET` | `/project/:projGuid/kpi` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
-| `dashboard` | `GET` | `/project/:projGuid/anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
+| `dashboard` | `GET` | `/group/overview` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
+| `dashboard` | `GET` | `/group/funnel` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
+| `dashboard` | `GET` | `/group/top-anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
+| `dashboard` | `GET` | `/project/:projGuid/kpi` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
+| `dashboard` | `GET` | `/project/:projGuid/anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/v2/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
 | `dashboard` | `GET` | `/v3/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
 | `export` | `POST` | `/excel` | — | `not_connected` | `implement_authenticated_command_and_audit` |

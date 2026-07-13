@@ -24,7 +24,11 @@ loan, and supplier detail/new flows now open as source-shaped forms with
 explicit return/save/submit boundaries. The dashboard now reads the
 PostgreSQL projection summary through the fixed read-only development adapter
 `scripts/company_postgres_read_model_server.py`. The authenticated bounded
-runtime is available separately as `scripts/company_postgres_service.py`. Its
+runtime is available separately as `scripts/company_postgres_service.py`. The
+dashboard group overview, stage funnel, and top-anomaly panels now load the
+bounded source-backed cockpit reads in sequence; project KPI/anomaly deep-link
+reads are available through the same service. Missing source tables remain
+visible and v2/v3 cockpit aggregates stay gated. Its
 local command verticals include the expense lifecycle documented in
 `docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`, the contract lifecycle documented in
 `docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`, and the payment-application lifecycle

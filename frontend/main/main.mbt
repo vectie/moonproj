@@ -205,6 +205,22 @@ struct ReportStageRow {
 }
 
 ///|
+struct DashboardFunnelRow {
+  stage_name : String
+  count : String
+  width_pct : String
+}
+
+///|
+struct DashboardAnomalyRow {
+  project_name : String
+  company : String
+  risk_score : String
+  reason : String
+  source_kind : String
+}
+
+///|
 struct LoanRow {
   loan_id : String
   loan_code : String
@@ -321,6 +337,22 @@ struct Model {
   report_supplier_count : String
   report_approval_count : String
   reports_note : String
+  dashboard_loaded : Bool
+  dashboard_company_count : String
+  dashboard_project_count : String
+  dashboard_in_progress_count : String
+  dashboard_contract_count : String
+  dashboard_total_contract_amount : String
+  dashboard_paid_amount : String
+  dashboard_paid_ratio : String
+  dashboard_target_cost : String
+  dashboard_dynamic_cost : String
+  dashboard_deviation_pct : String
+  dashboard_overdue_tasks : String
+  dashboard_missing_table_count : String
+  dashboard_funnel_rows : Array[DashboardFunnelRow]
+  dashboard_anomaly_rows : Array[DashboardAnomalyRow]
+  dashboard_note : String
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
@@ -420,6 +452,10 @@ enum Msg {
   DeliveryCommandFailed
   ReportsLoaded(String)
   ReportsLoadFailed
+  DashboardOverviewLoaded(String)
+  DashboardFunnelLoaded(String)
+  DashboardAnomaliesLoaded(String)
+  DashboardLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
   CreateLoan
@@ -499,6 +535,22 @@ fn initial_model() -> Model {
     report_supplier_count: "0",
     report_approval_count: "0",
     reports_note: "核心报表读模型尚未加载",
+    dashboard_loaded: false,
+    dashboard_company_count: "5",
+    dashboard_project_count: "15",
+    dashboard_in_progress_count: "15",
+    dashboard_contract_count: "62",
+    dashboard_total_contract_amount: "1,256,837,036",
+    dashboard_paid_amount: "137,953,340",
+    dashboard_paid_ratio: "10.98",
+    dashboard_target_cost: "—",
+    dashboard_dynamic_cost: "645,285,566",
+    dashboard_deviation_pct: "+6.20",
+    dashboard_overdue_tasks: "2",
+    dashboard_missing_table_count: "0",
+    dashboard_funnel_rows: [],
+    dashboard_anomaly_rows: [],
+    dashboard_note: "驾驶舱读模型尚未加载 · 使用设计快照",
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
@@ -1193,6 +1245,98 @@ fn reports_from_body(
 }
 
 ///|
+fn dashboard_overview_from_body(body : String) -> (Bool, Array[String]) {
+  let values : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          values.push(json_object_text(data, "companyCount", "0"))
+          values.push(json_object_text(data, "projectCount", "0"))
+          values.push(json_object_text(data, "inProgressCount", "0"))
+          values.push(json_object_text(data, "contractCount", "0"))
+          values.push(json_object_text(data, "totalContractAmount", "0"))
+          values.push(json_object_text(data, "paidAmount", "0"))
+          values.push(json_object_text(data, "paidRatio", "0"))
+          match data.get("cost") {
+            Some(Json::Object(cost)) => {
+              values.push(json_object_text(cost, "target", "0"))
+              values.push(json_object_text(cost, "dynamic", "0"))
+              values.push(json_object_text(cost, "deviationPct", "0"))
+            }
+            _ => {
+              values.push("0")
+              values.push("0")
+              values.push("0")
+            }
+          }
+          match data.get("anomalies") {
+            Some(Json::Object(anomalies)) =>
+              values.push(json_object_text(anomalies, "overdueTasks", "0"))
+            _ => values.push("0")
+          }
+        }
+        _ => ()
+      }
+      values.push(
+        json_array_field(fields, "missing_source_tables").length().to_string(),
+      )
+    }
+    _ => ()
+  }
+  (values.length() == 12, values)
+}
+
+///|
+fn dashboard_funnel_rows_from_body(body : String) -> Array[DashboardFunnelRow] {
+  let rows : Array[DashboardFunnelRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              stage_name: json_object_text(row, "stageName", ""),
+              count: json_object_text(row, "count", "0"),
+              width_pct: json_object_text(row, "widthPct", "0%"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn dashboard_anomaly_rows_from_body(
+  body : String,
+) -> Array[DashboardAnomalyRow] {
+  let rows : Array[DashboardAnomalyRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              project_name: json_object_text(row, "projName", ""),
+              company: json_object_text(row, "buName", ""),
+              risk_score: json_object_text(row, "riskScore", "0"),
+              reason: json_object_text(row, "reason", "正常"),
+              source_kind: json_object_text(fields, "source_kind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn loan_from_json(value : Json) -> LoanRow? {
   match value {
     Json::Object(fields) =>
@@ -1410,6 +1554,36 @@ fn load_reports(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(ReportsLoaded(body))
       Err(_) => emit(ReportsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_dashboard_overview(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/dashboard/group/overview").expect_text(result => {
+    match result {
+      Ok(body) => emit(DashboardOverviewLoaded(body))
+      Err(_) => emit(DashboardLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_dashboard_funnel(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/dashboard/group/funnel").expect_text(result => {
+    match result {
+      Ok(body) => emit(DashboardFunnelLoaded(body))
+      Err(_) => emit(DashboardLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_dashboard_anomalies(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/dashboard/group/top-anomalies?limit=5").expect_text(result => {
+    match result {
+      Ok(body) => emit(DashboardAnomaliesLoaded(body))
+      Err(_) => emit(DashboardLoadFailed)
     }
   })
 }
@@ -1822,7 +1996,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InputUser(value) => (none, { ..model, user_code: value })
     InputPassword(value) => (none, { ..model, password: value })
     Navigate(path) => {
-      let command = if path == "/projects" {
+      let command = if path == "/dashboard" ||
+        path == "/dashboard-v3" ||
+        path == "/cockpit" {
+        load_dashboard_overview(emit)
+      } else if path == "/projects" {
         load_projects(emit)
       } else if path.has_prefix("/projects/") {
         load_project(emit, path)
@@ -1940,7 +2118,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     ApiLoaded =>
       (
-        none,
+        load_dashboard_overview(emit),
         {
           ..model,
           api_status: "已连接",
@@ -2664,6 +2842,67 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           report_contract_rows: [],
           report_stage_rows: [],
           reports_note: "核心报表读模型不可用 · 使用已审核快照",
+        },
+      )
+    DashboardOverviewLoaded(body) => {
+      let (loaded, values) = dashboard_overview_from_body(body)
+      if loaded {
+        (
+          load_dashboard_funnel(emit),
+          {
+            ..model,
+            dashboard_loaded: true,
+            dashboard_company_count: values[0],
+            dashboard_project_count: values[1],
+            dashboard_in_progress_count: values[2],
+            dashboard_contract_count: values[3],
+            dashboard_total_contract_amount: values[4],
+            dashboard_paid_amount: values[5],
+            dashboard_paid_ratio: values[6],
+            dashboard_target_cost: values[7],
+            dashboard_dynamic_cost: values[8],
+            dashboard_deviation_pct: values[9],
+            dashboard_overdue_tasks: values[10],
+            dashboard_missing_table_count: values[11],
+            dashboard_note: "已加载 PostgreSQL 驾驶舱读模型 · 缺失源表保持可见",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            dashboard_loaded: false,
+            dashboard_note: "驾驶舱读模型响应无效 · 使用已审核快照",
+          },
+        )
+      }
+    }
+    DashboardFunnelLoaded(body) =>
+      (
+        load_dashboard_anomalies(emit),
+        {
+          ..model,
+          dashboard_funnel_rows: dashboard_funnel_rows_from_body(body),
+        },
+      )
+    DashboardAnomaliesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          dashboard_anomaly_rows: dashboard_anomaly_rows_from_body(body),
+        },
+      )
+    DashboardLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          dashboard_loaded: false,
+          dashboard_funnel_rows: [],
+          dashboard_anomaly_rows: [],
+          dashboard_note: "驾驶舱读模型不可用 · 使用已审核快照",
         },
       )
     LoansLoaded(body) =>
@@ -3621,7 +3860,112 @@ fn risk_row(
 }
 
 ///|
+fn dashboard_phase_rows(model : Model) -> Array[@html.Html] {
+  let rows : Array[@html.Html] = []
+  if model.dashboard_loaded && model.dashboard_funnel_rows.length() > 0 {
+    for row in model.dashboard_funnel_rows {
+      rows.push(phase_row(row.stage_name, row.count, row.width_pct))
+    }
+  } else {
+    rows.push(phase_row("立项", "15", "100%"))
+    rows.push(phase_row("获取", "15", "100%"))
+    rows.push(phase_row("规划设计", "14", "93%"))
+    rows.push(phase_row("开发建设", "9", "60%"))
+    rows.push(phase_row("销售去化", "3", "20%"))
+    rows.push(phase_row("竣工交付", "1", "7%"))
+    rows.push(phase_row("结算清盘", "0", "7%"))
+  }
+  rows
+}
+
+///|
+fn dashboard_risk_rows(model : Model) -> Array[@html.Html] {
+  let rows : Array[@html.Html] = []
+  if model.dashboard_loaded && model.dashboard_anomaly_rows.length() > 0 {
+    for row in model.dashboard_anomaly_rows {
+      rows.push(
+        risk_row(
+          row.project_name,
+          row.company,
+          row.risk_score,
+          row.reason + " · " + row.source_kind,
+        ),
+      )
+    }
+  } else {
+    rows.push(
+      risk_row("成都和锦里", "成都公司", "20", "1 个任务延期"),
+    )
+    rows.push(
+      risk_row("重庆南山居", "重庆公司", "20", "1 个任务延期"),
+    )
+    rows.push(
+      risk_row("沈阳和山苑", "沈阳公司", "14", "成本超目标 1.40%"),
+    )
+    rows.push(
+      risk_row(
+        "天津海教园一期", "天津公司", "13", "成本超目标 1.25%",
+      ),
+    )
+    rows.push(
+      risk_row(
+        "天津梅江湾三期", "天津公司", "11", "成本超目标 1.14%",
+      ),
+    )
+  }
+  rows
+}
+
+///|
 fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let company_projects = if model.dashboard_loaded {
+    model.dashboard_company_count + " / " + model.dashboard_project_count
+  } else {
+    "5 / 15"
+  }
+  let in_progress = if model.dashboard_loaded {
+    "在建 " + model.dashboard_in_progress_count + " 个"
+  } else {
+    "在建 15 个"
+  }
+  let contract_total = if model.dashboard_loaded {
+    "¥" + model.dashboard_total_contract_amount
+  } else {
+    "¥1,256,837,036"
+  }
+  let contract_detail = if model.dashboard_loaded {
+    model.dashboard_contract_count + " 笔合同"
+  } else {
+    "62 笔合同"
+  }
+  let paid_ratio = if model.dashboard_loaded {
+    model.dashboard_paid_ratio + "%"
+  } else {
+    "10.98%"
+  }
+  let paid_detail = if model.dashboard_loaded {
+    "已付 ¥" + model.dashboard_paid_amount
+  } else {
+    "已付 ¥137,953,340"
+  }
+  let deviation = if model.dashboard_loaded {
+    model.dashboard_deviation_pct + "%"
+  } else {
+    "+6.20%"
+  }
+  let dynamic_cost = if model.dashboard_loaded {
+    "目标 ¥" +
+    model.dashboard_target_cost +
+    " · 动态 ¥" +
+    model.dashboard_dynamic_cost
+  } else {
+    "动态 ¥645,285,566"
+  }
+  let overdue_note = if model.dashboard_loaded {
+    "⚠ " + model.dashboard_overdue_tasks + " 个任务延期"
+  } else {
+    "⚠ 2 个任务延期"
+  }
   div(class="erp-dashboard") <| [
     div(class="erp-dashboard-source") <| [
       div <| [
@@ -3632,31 +3976,21 @@ fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       button(class="erp-ghost-btn", on_click=emit(RefreshApi), "刷新数据"),
     ],
     div(class="erp-kpi-grid") <| [
-      metric("在管公司 / 项目", "5 / 15", "在建 15 个", "metric-blue"),
       metric(
-        "累计合同额", "¥1,256,837,036", "62 笔合同", "metric-blue",
+        "在管公司 / 项目", company_projects, in_progress, "metric-blue",
       ),
-      metric("付款执行率", "10.98%", "已付 ¥137,953,340", "metric-blue"),
-      metric(
-        "成本偏差率", "+6.20%", "动态 ¥645,285,566", "metric-green",
-      ),
+      metric("累计合同额", contract_total, contract_detail, "metric-blue"),
+      metric("付款执行率", paid_ratio, paid_detail, "metric-blue"),
+      metric("成本偏差率", deviation, dynamic_cost, "metric-green"),
     ],
-    div(class="erp-alert-pill", "⚠ 2 个任务延期"),
+    div(class="erp-alert-pill", overdue_note),
     div(class="erp-dashboard-grid") <| [
       section(class="erp-panel") <| [
         div(class="erp-panel-heading") <| [
           h2("项目阶段漏斗"),
           span(class="erp-info-tag", "RFC §13.1 — 全周期 7 阶段"),
         ],
-        div(class="phase-list") <| [
-          phase_row("立项", "15", "100%"),
-          phase_row("获取", "15", "100%"),
-          phase_row("规划设计", "14", "93%"),
-          phase_row("开发建设", "9", "60%"),
-          phase_row("销售去化", "3", "20%"),
-          phase_row("竣工交付", "1", "7%"),
-          phase_row("结算清盘", "0", "7%"),
-        ],
+        div(class="phase-list") <| [..dashboard_phase_rows(model)],
       ],
       section(class="erp-panel risk-panel") <| [
         div(class="erp-panel-heading") <| [
@@ -3672,29 +4006,15 @@ fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
               th("说明"),
             ],
           ],
-          tbody <| [
-            risk_row(
-              "成都和锦里", "成都公司", "20", "1 个任务延期",
-            ),
-            risk_row(
-              "重庆南山居", "重庆公司", "20", "1 个任务延期",
-            ),
-            risk_row(
-              "沈阳和山苑", "沈阳公司", "14", "成本超目标 1.40%",
-            ),
-            risk_row(
-              "天津海教园一期", "天津公司", "13", "成本超目标 1.25%",
-            ),
-            risk_row(
-              "天津梅江湾三期", "天津公司", "11", "成本超目标 1.14%",
-            ),
-          ],
+          tbody <| dashboard_risk_rows(model),
         ],
       ],
     ],
     p(
       class="erp-dashboard-note",
-      "数据已接入真实合同/付款/成本/进度; TOP 异常项目按 AI 规则评分排序(成本偏差权重 10、任务延期权重 20); 未来 Phase 10 接入真 AI(S12 场景 8)做 30 天前预测",
+      model.dashboard_note +
+      " · TOP 异常项目按规则评分排序(成本偏差权重 10、任务延期权重 20) · 缺失源表 " +
+      model.dashboard_missing_table_count,
     ),
   ]
 }

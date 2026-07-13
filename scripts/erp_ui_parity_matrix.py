@@ -8,7 +8,8 @@ which source API module still needs a connected command/read workflow.
 
 The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the generic summary/read-model adapter
-is not dashboard parity, while the local expense/contract/payment-application/
+is not dashboard parity; the bounded dashboard v1 reads are now explicitly
+identified, while the local expense/contract/payment-application/
 tender/supplier/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime and the non-authorizing workflow-definition
 read boundary. No workflow-instance mutation endpoint is inferred.
@@ -347,6 +348,19 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         }
     ):
         return "connected_admin_read", "accept_browser_admin_scenario_and_super_user_owner"
+    if (
+        handler["module"] == "dashboard"
+        and handler["method"] == "GET"
+        and handler["path"]
+        in {
+            "/group/overview",
+            "/group/funnel",
+            "/group/top-anomalies",
+            "/project/:projGuid/kpi",
+            "/project/:projGuid/anomalies",
+        }
+    ):
+        return "connected_dashboard_read", "accept_browser_dashboard_scenario_and_production_identity"
     if (
         handler["module"] == "plan"
         and handler["method"] == "GET"

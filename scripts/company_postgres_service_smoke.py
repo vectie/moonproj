@@ -34,7 +34,11 @@ def request(
     idempotency_key: str | None = None,
     forwarded_tls: bool = True,
 ) -> tuple[int, dict[str, Any] | None]:
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    # A cold/replaced psql session may consume the service's ten-second query
+    # budget before the first bounded dashboard read is available.  Keep the
+    # smoke client above that budget so it verifies the service response rather
+    # than failing while the server is still completing its work.
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
     headers: dict[str, str] = {}
     if token is not None:
         headers["Authorization"] = "Bearer " + token
@@ -126,6 +130,81 @@ def main() -> int:
         report_cost_rows = len(payload["cost_summary"]["rows"])
         report_contract_rows = len(payload["contract_payment_ledger"])
         report_missing_tables = payload.get("missing_source_tables", [])
+        status, dashboard_overview = request(
+            args.port,
+            "/api/company/dashboard/group/overview",
+            token=token,
+        )
+        if (
+            status != 200
+            or dashboard_overview is None
+            or dashboard_overview.get("data", {}).get("projectCount") != 2
+            or dashboard_overview.get("data", {}).get("contractCount") != 2
+            or dashboard_overview.get("data", {}).get("paidAmount") != 5640000.0
+            or dashboard_overview.get("source_coverage", {}).get("ep_project") != 2
+            or dashboard_overview.get("source_coverage", {}).get("cb_cost") != 7
+            or "sale_revenue" not in dashboard_overview.get("missing_source_tables", [])
+        ):
+            raise SmokeError(f"dashboard overview read failed: {status} {dashboard_overview}")
+        status, dashboard_funnel = request(
+            args.port,
+            "/api/company/dashboard/group/funnel",
+            token=token,
+        )
+        if (
+            status != 200
+            or dashboard_funnel is None
+            or len(dashboard_funnel.get("data", [])) != 7
+            or dashboard_funnel.get("data", [])[0].get("stageCode") != "initiation"
+            or dashboard_funnel.get("data", [])[0].get("count") != 2
+        ):
+            raise SmokeError(f"dashboard funnel read failed: {status} {dashboard_funnel}")
+        status, dashboard_anomalies = request(
+            args.port,
+            "/api/company/dashboard/group/top-anomalies?limit=2",
+            token=token,
+        )
+        if (
+            status != 200
+            or dashboard_anomalies is None
+            or len(dashboard_anomalies.get("data", [])) != 2
+            or dashboard_anomalies.get("data", [])[0].get("projGuid") not in {"proj-0001", "proj-0002"}
+        ):
+            raise SmokeError(f"dashboard anomaly read failed: {status} {dashboard_anomalies}")
+        status, dashboard_kpi = request(
+            args.port,
+            "/api/company/dashboard/project/proj-0001/kpi",
+            token=token,
+        )
+        if (
+            status != 200
+            or dashboard_kpi is None
+            or dashboard_kpi.get("data", {}).get("project", {}).get("projGuid") != "proj-0001"
+            or dashboard_kpi.get("data", {}).get("kpi", {}).get("progress", {}).get("totalNodes") != 5
+            or dashboard_kpi.get("data", {}).get("kpi", {}).get("contract", {}).get("count") != 2
+            or dashboard_kpi.get("data", {}).get("kpi", {}).get("payment", {}).get("paidTotal") != 5640000.0
+        ):
+            raise SmokeError(f"dashboard project KPI read failed: {status} {dashboard_kpi}")
+        status, dashboard_project_anomalies = request(
+            args.port,
+            "/api/company/dashboard/project/proj-0001/anomalies",
+            token=token,
+        )
+        if (
+            status != 200
+           or dashboard_project_anomalies is None
+           or not isinstance(dashboard_project_anomalies.get("data"), list)
+            or len(dashboard_project_anomalies.get("data", [])) != 1
+            or dashboard_project_anomalies.get("data", [])[0].get("severity") != "warning"
+            or "成本超目标" not in dashboard_project_anomalies.get("data", [])[0].get("title", "")
+           or "sale_revenue" not in dashboard_project_anomalies.get("missing_source_tables", [])
+        ):
+            raise SmokeError(
+                f"dashboard project anomaly read failed: {status} {dashboard_project_anomalies}"
+            )
+        dashboard_overview_rows = dashboard_overview.get("data", {})
+        dashboard_funnel_rows = dashboard_funnel.get("data", [])
+        dashboard_anomaly_rows = dashboard_anomalies.get("data", [])
         status, payload = request(args.port, "/api/company/workflow/process-defs", token=token)
         if (
             status != 200
@@ -1350,6 +1429,10 @@ def main() -> int:
                     "report_cost_rows": report_cost_rows,
                     "report_contract_rows": report_contract_rows,
                     "report_missing_source_tables": report_missing_tables,
+                    "dashboard_project_count": dashboard_overview_rows.get("projectCount"),
+                    "dashboard_funnel_rows": len(dashboard_funnel_rows),
+                    "dashboard_anomaly_rows": len(dashboard_anomaly_rows),
+                    "dashboard_missing_source_tables": dashboard_overview.get("missing_source_tables", []),
                     "workflow_definition_count": 2,
                     "workflow_step_count": 12,
                     "business_unit_root_count": 1,

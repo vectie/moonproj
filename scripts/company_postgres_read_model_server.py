@@ -4,7 +4,7 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
-reviewed invoice, delivery/project-progress, core-report, and employee-loan
+reviewed invoice, delivery/project-progress, dashboard v1, core-report, and employee-loan
 projections.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
@@ -47,6 +47,11 @@ from company_postgres_service import (
     report_approval_efficiency as service_report_approval_efficiency,
     report_project_stage_matrix as service_report_project_stage_matrix,
     reports_overview as service_reports_overview,
+    dashboard_group_overview as service_dashboard_group_overview,
+    dashboard_group_funnel as service_dashboard_group_funnel,
+    dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
+    dashboard_project_kpi as service_dashboard_project_kpi,
+    dashboard_project_anomalies as service_dashboard_project_anomalies,
     loans as service_loans,
 )
 
@@ -307,6 +312,26 @@ def reports_overview(args: argparse.Namespace) -> dict[str, Any]:
     return service_reports_overview(_ReadModelPool(args), 500)
 
 
+def dashboard_group_overview(args: argparse.Namespace) -> dict[str, Any]:
+    return service_dashboard_group_overview(_ReadModelPool(args), 500)
+
+
+def dashboard_group_funnel(args: argparse.Namespace) -> dict[str, Any]:
+    return service_dashboard_group_funnel(_ReadModelPool(args), 500)
+
+
+def dashboard_group_top_anomalies(args: argparse.Namespace, limit: int) -> dict[str, Any]:
+    return service_dashboard_group_top_anomalies(_ReadModelPool(args), limit, 500)
+
+
+def dashboard_project_kpi(args: argparse.Namespace, project_id: str) -> dict[str, Any] | None:
+    return service_dashboard_project_kpi(_ReadModelPool(args), project_id, 500)
+
+
+def dashboard_project_anomalies(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_dashboard_project_anomalies(_ReadModelPool(args), project_id, 500)
+
+
 def loans(
     args: argparse.Namespace,
     loan_id: str | None,
@@ -502,6 +527,35 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(args))
+                    return
+                if parsed.path == "/api/company/dashboard/group/overview":
+                    response(self, 200, dashboard_group_overview(args))
+                    return
+                if parsed.path == "/api/company/dashboard/group/funnel":
+                    response(self, 200, dashboard_group_funnel(args))
+                    return
+                if parsed.path == "/api/company/dashboard/group/top-anomalies":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["10"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid dashboard anomaly limit") from error
+                    response(self, 200, dashboard_group_top_anomalies(args, limit))
+                    return
+                dashboard_match = re.fullmatch(
+                    r"/api/company/dashboard/project/([A-Za-z0-9_.:-]{1,128})/(kpi|anomalies)",
+                    parsed.path,
+                )
+                if dashboard_match is not None:
+                    project_id, family = dashboard_match.group(1), dashboard_match.group(2)
+                    if family == "kpi":
+                        result = dashboard_project_kpi(args, project_id)
+                        if result is None:
+                            response(self, 404, {"error": "project not found"})
+                        else:
+                            response(self, 200, result)
+                    else:
+                        response(self, 200, dashboard_project_anomalies(args, project_id))
                     return
                 if parsed.path == "/api/company/loans":
                     query = parse_qs(parsed.query)

@@ -328,17 +328,19 @@ those capabilities as source parity.
    tables and zero workflow-instance/action rows. Templates, share links, production
    identity, browser acceptance, and report-owner reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
-4a. **The dashboard/cockpit is still designer-fixture/read-model only.** The
-   source cockpit exposes seven GET handlers (overview, funnel, top anomalies,
-   project KPI/anomalies, and v2/v3 group views) over 30 unique tables. Only
-   14 of those tables are present in the controlled export; 16 cross-domain
-   tables needed by sales, funds, invoices, tenders, warnings, and CBS are
-   absent. Rabbita currently calls only the generic `/api/company/summary`
-   endpoint to show adapter status; its KPI, funnel, and risk values are still
-   designer fixtures. The target has no `/api/company/dashboard/*` route, so
-   the parity matrix correctly leaves all seven source dashboard handlers
-   unconnected. Report reads do not constitute cockpit parity. See
-   [`ERP_DASHBOARD_RUNTIME_AUDIT.md`](ERP_DASHBOARD_RUNTIME_AUDIT.md).
+4a. **The dashboard/cockpit now has a bounded v1 read slice, but is not
+   accepted parity.** The source cockpit exposes seven GET handlers (overview,
+   funnel, top anomalies, project KPI/anomalies, and v2/v3 group views) over
+   30 unique tables. The target now exposes the first five as authenticated
+   source-backed reads, and Rabbita loads the group overview, funnel, and
+   anomaly rows while preserving the designer layout. Only 14 of the 30
+   dependencies are present in the controlled export; 16 cross-domain tables
+   needed by v2/v3 sales, funds, invoices, tenders, warnings, and CBS views
+   are absent. Every response reports source coverage and missing tables; no
+   synthetic revenue, cash, health, warning, or risk values are introduced.
+   Production identity, browser scope acceptance, and v2/v3 source coverage
+   remain open. Report reads do not constitute cockpit parity. See
+   ERP_DASHBOARD_RUNTIME_AUDIT.md.
 5. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
@@ -352,10 +354,11 @@ those capabilities as source parity.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records twenty-one connected browser states and twenty-four connected API
-state entries across MDM organization/project, budget dictionary, investment,
+currently records twenty-one connected browser states and 38 connected API
+handlers across MDM organization/project, budget dictionary, investment,
 admin governance, expense, contract, payment, procurement, sales, invoice,
-delivery, core reports, employee-loan, and workflow-definition reads,
+delivery, dashboard v1, core reports, employee-loan, and workflow-definition
+reads,
 while 28 browser views and 32 API groups remain fixture-backed or read-model-only.
 Three additional fixed read-model routes are connected. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
@@ -410,14 +413,13 @@ Execute the remainder in this order:
    links separate. Synthetic rehearsals remain design evidence until real
    source rows and user acceptance are attached. See
    `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
-8. After the source-data decision and report reconciliation, implement the
-   dashboard gate in `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`: first the bounded
-   overview/funnel/project KPI/anomaly reads, then v2/v3 only when the missing
-   sales/fund/invoice/tender/warning/CBS tables are available. Bind the
-   designer-preserving Rabbita dashboard only after scoped KPI definitions,
-   source coverage, production identity, and operations/finance acceptance are
-   proven. Do not treat `/api/company/summary`, report reads, or fixture KPI
-   cards as cockpit parity.
+8. Accept the bounded dashboard gate in
+   `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
+   through production identity, entity scope, and operations/finance KPI
+   reconciliation. Then obtain the missing sales/fund/invoice/tender/warning/
+   CBS tables (or owner-approved dispositions) before implementing v2/v3.
+   Do not treat `/api/company/summary`, report reads, or the offline fixture
+   fallback as cockpit parity.
 9. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
