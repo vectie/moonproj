@@ -22,6 +22,7 @@ SHADOW_PERIOD_MANIFEST=${13:-$SCRIPT_DIR/fixtures/shadow_period_manifest.example
 DELIVERY_RECOGNITION_MAPPING=${14:-}
 DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${15:-}
 PRODUCTION_SERVICE_MANIFEST=${16:-}
+CONSOLIDATED_REPORT_PLAN=${17:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -301,6 +302,25 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
       "$TARGET_DB" "$DELIVERY_RECOGNITION_RECONCILIATION"
     echo "delivery_recognition_reconciliation=$DELIVERY_RECOGNITION_RECONCILIATION"
   fi
+fi
+
+if [ -n "$CONSOLIDATED_REPORT_PLAN" ]; then
+  CONSOLIDATED_REPORT_RECEIPT="$WORK_DIR/consolidated-report-receipt.json"
+  moon run --target native cmd/consolidated_report -- \
+    "$CONSOLIDATED_REPORT_PLAN" "$CONSOLIDATED_REPORT_RECEIPT"
+  echo "consolidated_report_receipt=$CONSOLIDATED_REPORT_RECEIPT"
+  CONSOLIDATED_REPORT_APPLY="$WORK_DIR/consolidated-report-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$CONSOLIDATED_REPORT_RECEIPT" "$TARGET_DB" > "$CONSOLIDATED_REPORT_APPLY"
+  echo "consolidated_report_apply=$CONSOLIDATED_REPORT_APPLY"
+  CONSOLIDATED_REPORT_PARITY="$WORK_DIR/consolidated-report-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$CONSOLIDATED_REPORT_RECEIPT" "$TARGET_DB" "$CONSOLIDATED_REPORT_PARITY"
+  echo "consolidated_report_parity=$CONSOLIDATED_REPORT_PARITY"
+  CONSOLIDATED_REPORT_REPLAY="$WORK_DIR/consolidated-report-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$CONSOLIDATED_REPORT_RECEIPT" "$TARGET_DB" > "$CONSOLIDATED_REPORT_REPLAY"
+  echo "consolidated_report_replay=$CONSOLIDATED_REPORT_REPLAY"
 fi
 
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"

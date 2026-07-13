@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -20,6 +20,7 @@ PAYMENT_ACCOUNTING_MAPPING=${10:-}
 OFFSET_ACCOUNTING_MAPPING=${11:-$SCRIPT_DIR/fixtures/accounting_offset_link_mapping.json}
 DELIVERY_RECOGNITION_MAPPING=${12:-}
 DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${13:-}
+CONSOLIDATED_REPORT_PLAN=${14:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -110,6 +111,12 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
     apply_accounting delivery-recognition-accounting \
       "$WORK_DIR/delivery-recognition-accounting-receipt.json"
   fi
+fi
+
+if [ -n "$CONSOLIDATED_REPORT_PLAN" ]; then
+  moon run --target native cmd/consolidated_report -- \
+    "$CONSOLIDATED_REPORT_PLAN" "$WORK_DIR/consolidated-report-receipt.json"
+  apply_projection consolidated-report "$WORK_DIR/consolidated-report-receipt.json"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then

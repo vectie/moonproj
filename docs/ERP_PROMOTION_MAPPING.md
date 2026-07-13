@@ -157,6 +157,10 @@ validate the authenticated fixed-read service boundary. It requires private
 TLS-terminated binding, schema-matched readiness, bounded reusable pooling,
 explicit HTTPS origins, and no arbitrary SQL or mutation routes; it remains
 `ready_for_service_review` until the deployment gate is authorized.
+Pass a reviewed consolidated-report plan as the seventeenth wrapper argument
+to emit a source-snapshot-bound `consolidated_report` projection. Every
+section must already be reconciled; the report remains non-posting and keeps
+cash, period, and tax effects false.
 
 Pass `scripts/fixtures/delivery_progress_mapping.json` as the eleventh wrapper
 argument to translate the one `jd_task_report` row into a draft

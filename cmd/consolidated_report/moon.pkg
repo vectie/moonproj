@@ -1,0 +1,13 @@
+import {
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/reconciliation",
+  "vectie/moonproj/finance/reporting",
+  "vectie/moonproj/foundation",
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+}
+
+options(
+  "is-main": true,
+)

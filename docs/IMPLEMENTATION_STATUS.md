@@ -158,6 +158,7 @@ existing ERP remains authoritative.
 | Investment portfolio and valuation | `investment/portfolio` | Mandate-bound position book, exposure limits, explicit quote valuation, deterministic period-scoped per-position performance attribution and benchmark active-return comparison, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
 | Portfolio risk scenarios and projections | `investment/portfolio` + `persistence/store` | Shock-based stress reports, loss limits, portfolio position snapshots, and mandate breach flags persist as governed evidence. |
 | Reconciliation report | `finance/reconciliation` | Expected-versus-actual lines and journal-side comparison with explicit currency and balance errors. |
+| Consolidated reporting evidence | `finance/reporting` + `cmd/consolidated_report` + `persistence/store` | Source-snapshot-bound balanced sections combine into a deterministic `consolidated_report` projection with control totals, mapping versions, accounting-link counts, and explicit non-posting cash/period/tax flags. |
 | Tax obligation | `finance/tax` | Rate-based calculation, review, filing, payment, voiding, authority-scoped events, and a reviewed-state tax-obligation recognition-event adapter that produces a balanced source-to-journal link without posting. |
 | Tax obligation projections | `finance/tax` + `persistence/store` | Jurisdiction/category, rates, calculated amounts, filing state, and source references persist as immutable projections. |
 | Tax filing aggregate | `finance/tax` + `persistence/store` | Reviewed obligations can create a separate period/authority-referenced filing record with prepared/submitted/accepted/rejected state and immutable projections; tax payment and ledger posting remain separate. |
@@ -171,7 +172,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 234 passing MoonBit tests across the new packages. The
+The current scaffold has 237 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -345,7 +346,7 @@ promotion of the remaining typed-staged rows, or production readiness.
    while reviewed source cohorts and investment performance/valuation links
    remain to be reconciled. Opening receivable/payable recognition links are
    now covered.
-5. Add external bank/filing adapters and consolidated/reporting projections;
+5. Add external bank/filing adapters and richer report access/consolidation;
    bank-statement import/reconciliation plus statement-to-ledger evidence, tax
    filing records, and disposal derecognition journals/accounting-event links
    are now implemented, while period-close integration still needs production

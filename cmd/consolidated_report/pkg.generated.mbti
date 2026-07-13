@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/consolidated_report"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/reconciliation",
+  "vectie/moonproj/finance/reporting",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ConsolidatedReportError {
+  InvalidInput
+  Io(@fs.IOError)
+  Reporting(@reporting.ReportingError)
+  Reconciliation(@reconciliation.ReconciliationError)
+  Money(@finance.MoneyError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

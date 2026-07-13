@@ -89,7 +89,7 @@ depreciation, explicit opening receivable/payable source-to-journal links,
 separate sales-to-receivable and invoice-to-receivable recognition boundaries,
 acceptance-gated delivery recognition links, and accepted-progress cost
 forecast linkage.
-It also has 234 passing MoonBit tests, executable opening control-total checks,
+It also has 237 passing MoonBit tests, executable opening control-total checks,
 a credential-safe deterministic ERP row-export boundary, an idempotent durable
 SQLite migration rehearsal, a repeatable end-to-end rehearsal wrapper, a
 fail-closed mapped-cohort promotion planner, and a native domain-promotion
