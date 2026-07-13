@@ -13,6 +13,7 @@ bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
 |---|---|---|
 | List latest claims | `GET /api/company/expenses` | Latest projection for each expense |
 | List imported source claims | `GET /api/company/budget/expenses?userCode=...` | Source-compatible `vcb_expense` rows plus coverage; empty source stays empty |
+| Read imported source detail | `GET /api/company/budget/expenses/:guid?userCode=...` | Source-compatible `expense`, `cb_expense_detail`, and `cb_expense_split` shape with explicit empty-source state |
 | Read one claim | `GET /api/company/expenses/:id` | 404 when absent |
 | Create draft | `POST /api/company/expenses` | `draft` |
 | Submit | `POST /api/company/expenses/:id/submit` | `draft → submitted` |
@@ -58,10 +59,13 @@ written.
 This is deliberately a local adapter, not a production session model. The
 remaining Rabbita route families are fixture-backed, the demo expense ID and
 idempotency keys are fixed for a repeatable development probe, and production
-identity/session/token integration remains a separate gate. A browser
-acceptance run on the local gateway verified all five transitions; the final
-projection was `approved` with five command receipts and five audit events,
-and the probe rows were removed after verification.
+identity/session/token integration remains a separate gate. The imported
+expense list and detail screens now consume the source read family; a missing
+`vcb_expense` row is rendered as `expense: null` with empty details/splits
+rather than reusing a designer fixture. A browser acceptance run on the local
+gateway verified all five transitions; the final projection was `approved`
+with five command receipts and five audit events, and the probe rows were
+removed after verification.
 
 The browser evidence is recorded in
 `docs/ERP_EXPENSE_BROWSER_ACCEPTANCE.md`. The local gateway now establishes

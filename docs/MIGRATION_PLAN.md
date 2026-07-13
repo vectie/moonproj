@@ -278,9 +278,9 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 51 connected browser states, 3
-fixture-backed states (2 read-only plus 1 form), 2 public states, 51
-connected API groups, and 5 fixture/no-source API groups. The newly connected
+handlers (182 mutations), with 52 connected browser states, 2
+fixture-backed read-only states, 2 public states, 52 connected API groups,
+and 4 fixture/no-source API groups. The newly connected
 AI analytics, webhook configuration, and report-builder read families are
 included in those counts; their source tables are currently empty and are not
 treated as provider, draft, notification, or report-template authority.
@@ -297,8 +297,9 @@ separate source master read.
 
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
-initiated documents; `/expenses` reads the source `vcb_expense` list and
-reports its truthful zero-row coverage; and `/dynamic-cost` reads all seven
+initiated documents; `/expenses` and `/expenses/:guid` read the source
+`vcb_expense`/detail/split family and report truthful zero-row coverage; and
+`/dynamic-cost` reads all seven
 `cb_cost` rows using the source formula. Local expense/loan commands and the
 designer fallback remain separate from those source reads. This changes the
 next step from “add another screen” to “accept the connected batch through the
@@ -529,10 +530,10 @@ remain separate gates.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 51 connected browser states, 3 fixture-backed browser
-states (2 read-only and 1 form), and two public states. Its API matrix records
-51 connected API groups and 5 fixture/no-source groups across MDM
-organization/project, budget dictionary, investment,
+currently records 52 connected browser states, 2 fixture-backed read-only
+states, and two public states. Its API matrix records 52 connected API groups
+and 4 fixture/no-source groups across MDM organization/project, budget
+dictionary and expense detail, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan, and

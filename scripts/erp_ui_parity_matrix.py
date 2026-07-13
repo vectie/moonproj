@@ -167,6 +167,8 @@ def match_target(
             return function, "connected_dashboard_read"
         if path == "/expenses/new" and function == "expense_editor_view":
             return function, "connected_command_form"
+        if path == "/expenses/:guid" and function == "expense_editor_view":
+            return function, "connected_expense_detail_read"
         if path == "/contracts" and function == "contracts_view":
             return function, "connected_contract_read"
         if path == "/payment-applies" and function == "payment_applies_view":
@@ -241,6 +243,8 @@ def match_target(
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
             return function, "connected_expense_read"
+        if path != "/expenses/new" and path.startswith("/expenses/") and function == "expense_editor_view":
+            return function, "connected_expense_detail_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -265,6 +269,8 @@ def match_target(
                     return branch, "connected_loan_command_form"
                 if prefix == "/srm/providers/":
                     return branch, "connected_supplier_read"
+                if prefix == "/expenses/":
+                    return branch, "connected_expense_detail_read"
                 return branch, "read_only_public" if prefix == "/share/" else "fixture_backed_form"
     return None, "not_implemented"
 
@@ -286,6 +292,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_profile_scenario_and_production_identity"
     if target_state == "connected_expense_read":
         return "accept_browser_expense_scenario_and_production_identity"
+    if target_state == "connected_expense_detail_read":
+        return "accept_browser_expense_detail_scenario_and_production_identity"
     if target_state == "connected_supplier_risk_read":
         return "accept_browser_supplier_risk_scenario_and_production_identity"
     if target_state == "connected_command_form":
@@ -473,6 +481,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_expense_read", "accept_browser_expense_scenario_and_production_identity"
     if (
+        handler["module"] == "budget"
+        and handler["method"] == "GET"
+        and handler["path"] == "/expenses/:guid"
+    ):
+        return "connected_expense_detail_read", "accept_browser_expense_detail_scenario_and_production_identity"
+    if (
         handler["module"] == "cashflow"
         and handler["method"] == "GET"
         and handler["path"] in {
@@ -648,6 +662,8 @@ def build_matrix(
             api_state = "connected_profile_read"
         elif target_state == "connected_expense_read":
             api_state = "connected_expense_read"
+        elif target_state == "connected_expense_detail_read":
+            api_state = "connected_expense_detail_read"
         elif target_state == "connected_cashflow_read":
             api_state = "connected_cashflow_read"
         elif target_state == "connected_cbs_read":

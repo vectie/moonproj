@@ -32,6 +32,7 @@ from company_postgres_service import (
     auth_current_user as service_auth_current_user,
     auth_my_initiated as service_auth_my_initiated,
     budget_expenses as service_budget_expenses,
+    budget_expense_detail as service_budget_expense_detail,
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
     cashflow_source_forecast as service_cashflow_source_forecast,
@@ -176,6 +177,14 @@ def budget_expenses(
     apply_state: str | None,
 ) -> dict[str, Any] | None:
     return service_budget_expenses(_ReadModelPool(args), expense_id, user_code, apply_state, 500)
+
+
+def budget_expense_detail(
+    args: argparse.Namespace,
+    expense_id: str,
+    user_code: str | None,
+) -> dict[str, Any] | None:
+    return service_budget_expense_detail(_ReadModelPool(args), expense_id, user_code, 500)
 
 
 def receipts(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -837,6 +846,18 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         query.get("expenseGuid", [None])[0],
                         query.get("userCode", [None])[0],
                         query.get("applyState", [None])[0],
+                    )
+                    if result is None:
+                        response(self, 404, {"error": "user not found"})
+                    else:
+                        response(self, 200, result)
+                    return
+                if re.fullmatch(r"/api/company/budget/expenses/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    query = parse_qs(parsed.query)
+                    result = budget_expense_detail(
+                        args,
+                        parsed.path.rsplit("/", 1)[-1],
+                        query.get("userCode", [None])[0],
                     )
                     if result is None:
                         response(self, 404, {"error": "user not found"})

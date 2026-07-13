@@ -1112,6 +1112,23 @@ def main() -> int:
             or "vcb_expense" not in expense_source_payload.get("missing_or_empty_source_tables", [])
         ):
             raise SmokeError(f"source expense read failed: {status} {expense_source_payload}")
+        status, expense_detail_payload = request(
+            args.port,
+            "/api/company/budget/expenses/EXP-260712-008?userCode=admin",
+            token=token,
+        )
+        expense_detail_data = (expense_detail_payload or {}).get("data", {})
+        if (
+            status != 200
+            or expense_detail_payload is None
+            or expense_detail_data.get("expense") is not None
+            or expense_detail_data.get("details") != []
+            or expense_detail_data.get("splits") != []
+            or expense_detail_payload.get("source_coverage", {}).get("vcb_expense") != 0
+            or expense_detail_payload.get("source_coverage", {}).get("cb_expense_detail") != 0
+            or expense_detail_payload.get("source_coverage", {}).get("cb_expense_split") != 0
+        ):
+            raise SmokeError(f"source expense detail read failed: {status} {expense_detail_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -2238,6 +2255,10 @@ def main() -> int:
                     "profile_initiated_applies": len(initiated_data.get("applies", [])),
                     "expense_source_rows": len(expense_source_data),
                     "expense_source_vcb_expense_rows": expense_source_payload.get("source_coverage", {}).get("vcb_expense"),
+                    "expense_detail_source_expense": expense_detail_data.get("expense"),
+                    "expense_detail_rows": len(expense_detail_data.get("details", [])),
+                    "expense_split_rows": len(expense_detail_data.get("splits", [])),
+                    "expense_detail_source_vcb_expense_rows": expense_detail_payload.get("source_coverage", {}).get("vcb_expense"),
                     "supplier_source_rows": len(supplier_source_data or []),
                     "supplier_source_provider_rows": supplier_source_payload.get("source_coverage", {}).get("srm_provider"),
                     "supplier_detail_source_status": supplier_detail_status,

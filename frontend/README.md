@@ -148,6 +148,12 @@ until legal-principal and role ownership are accepted.
 Expense-form dictionary reads are available at
 `/api/company/budget/dict/cost-subjects` and `/api/company/budget/proceedings`;
 dictionary and expense writes remain finance-owner gated.
+The imported expense list and detail screens now use
+`/api/company/budget/expenses` and `/api/company/budget/expenses/:guid`.
+Detail responses preserve the source `vcb_expense`, `cb_expense_detail`, and
+`cb_expense_split` envelope, render empty source tables explicitly, and keep
+the designer form as a transport-failure fallback; imported detail remains
+read-only.
 Investment read evidence is available at
 `/api/company/investment/projects/:id/versions`,
 `/api/company/investment/versions/:id/indices`,

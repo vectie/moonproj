@@ -24,6 +24,7 @@
     "connected_cost_read": 1,
     "connected_dashboard_read": 3,
     "connected_delivery_command_form": 2,
+    "connected_expense_detail_read": 1,
     "connected_expense_read": 1,
     "connected_fund_read": 1,
     "connected_investment_read": 1,
@@ -46,7 +47,6 @@
     "connected_warning_read": 2,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
-    "fixture_backed_form": 1,
     "fixture_backed_read_only": 2,
     "public": 1,
     "read_only_public": 1
@@ -66,6 +66,7 @@
     "connected_dashboard_read": 3,
     "connected_delivery_command": 2,
     "connected_expense_command": 1,
+    "connected_expense_detail_read": 1,
     "connected_expense_read": 1,
     "connected_fund_read": 1,
     "connected_investment_read": 1,
@@ -88,7 +89,7 @@
     "connected_warning_read": 2,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 5
+    "read_only_fixture_no_source_api": 4
   },
   "routes": [
     {
@@ -251,13 +252,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "expense_editor_view",
-      "target_state": "fixture_backed_form",
+      "target_state": "connected_expense_detail_read",
       "source_api_module": "budget",
       "source_api_handler_count": 13,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 7,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+      "api_state": "connected_expense_detail_read",
+      "required_next": "accept_browser_expense_detail_scenario_and_production_identity"
     },
     {
       "path": "/tasks",
@@ -1555,8 +1556,8 @@
         "/expenses/new",
         "/expenses/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_expense_detail_read",
+      "required_next": "accept_browser_expense_detail_scenario_and_production_identity"
     },
     {
       "module": "budget",

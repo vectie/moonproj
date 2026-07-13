@@ -43,6 +43,25 @@ struct ExpenseRow {
 }
 
 ///|
+struct ExpenseDetail {
+  expense_id : String
+  expense_code : String
+  subject : String
+  apply_state : String
+  pay_state : String
+  expense_amount : String
+  offset_amount : String
+  pay_amount : String
+  applied_by_name : String
+  apply_dept_name : String
+  apply_date : String
+  pay_unit : String
+  source_kind : String
+  details : Array[Array[String]]
+  splits : Array[Array[String]]
+}
+
+///|
 struct ContractRow {
   contract_id : String
   contract_code : String
@@ -537,6 +556,9 @@ struct Model {
   expenses_loaded : Bool
   expense_rows : Array[ExpenseRow]
   expenses_note : String
+  expense_detail_loaded : Bool
+  expense_detail : ExpenseDetail?
+  expense_detail_note : String
   api_status : String
   api_note : String
   expense_id : String
@@ -821,6 +843,8 @@ enum Msg {
   SessionLoginRejected(String)
   ExpensesLoaded(String)
   ExpensesLoadFailed
+  ExpenseDetailLoaded(String)
+  ExpenseDetailLoadFailed
   CreateExpense
   SubmitExpense
   RejectExpense
@@ -1002,6 +1026,9 @@ fn initial_model() -> Model {
     expenses_loaded: false,
     expense_rows: [],
     expenses_note: "报销读模型尚未加载 · 使用设计快照",
+    expense_detail_loaded: false,
+    expense_detail: None,
+    expense_detail_note: "报销详情读模型尚未加载 · 使用设计快照",
     api_status: "未连接",
     api_note: "使用已审核快照",
     expense_id: "EXP-RABBITA-LOCAL",
@@ -3753,6 +3780,128 @@ fn expense_rows_from_body(body : String) -> Array[ExpenseRow] {
 }
 
 ///|
+fn expense_detail_rows_from_json(value : Json) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  match value {
+    Json::Array(values) =>
+      for value in values {
+        match value {
+          Json::Object(fields) =>
+            rows.push([
+              json_object_text(fields, "summary", "—"),
+              json_object_text(fields, "amount", "0"),
+              json_object_text(fields, "occurDate", "—"),
+              json_object_text(fields, "detailGuid", "—"),
+            ])
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn expense_split_rows_from_json(value : Json) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  match value {
+    Json::Array(values) =>
+      for value in values {
+        match value {
+          Json::Object(fields) => {
+            let user_name = match fields.get("user") {
+              Some(Json::Object(user)) =>
+                json_object_text(user, "userName", "—")
+              _ => "—"
+            }
+            let dept_name = match fields.get("dept") {
+              Some(Json::Object(dept)) =>
+                json_object_text(dept, "deptName", "—")
+              _ => "—"
+            }
+            let cost_name = match fields.get("costSubject") {
+              Some(Json::Object(cost)) => json_object_text(cost, "name", "—")
+              _ => "—"
+            }
+            let proceeding_name = match fields.get("proceeding") {
+              Some(Json::Object(proceeding)) =>
+                json_object_text(proceeding, "name", "—")
+              _ => "—"
+            }
+            rows.push([
+              user_name,
+              dept_name,
+              cost_name,
+              proceeding_name,
+              json_object_text(fields, "amount", "0"),
+            ])
+          }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn expense_detail_from_body(body : String) -> (Bool, ExpenseDetail?, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables").length()
+      let source_kind = json_object_text(
+        fields, "source_kind", "imported_or_empty",
+      )
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let detail_values = match data.get("details") {
+            Some(value) => value
+            _ => Json::null()
+          }
+          let split_values = match data.get("splits") {
+            Some(value) => value
+            _ => Json::null()
+          }
+          let detail = match data.get("expense") {
+            Some(Json::Object(expense)) =>
+              Some({
+                expense_id: json_object_text(expense, "expenseGuid", ""),
+                expense_code: json_object_text(expense, "expenseCode", ""),
+                subject: json_object_text(expense, "subject", ""),
+                apply_state: json_object_text(expense, "applyState", ""),
+                pay_state: json_object_text(expense, "payState", ""),
+                expense_amount: json_object_text(expense, "expenseAmount", "0"),
+                offset_amount: json_object_text(expense, "offsetAmount", "0"),
+                pay_amount: json_object_text(expense, "payAmount", "0"),
+                applied_by_name: json_object_text(expense, "appliedByName", ""),
+                apply_dept_name: json_object_text(expense, "applyDeptName", ""),
+                apply_date: json_object_text(expense, "applyDate", ""),
+                pay_unit: json_object_text(expense, "payUnit", ""),
+                source_kind: json_object_text(
+                  expense, "sourceKind", source_kind,
+                ),
+                details: expense_detail_rows_from_json(detail_values),
+                splits: expense_split_rows_from_json(split_values),
+              })
+            _ => None
+          }
+          (
+            true,
+            detail,
+            "已加载 PostgreSQL 报销详情源读模型 · 空源表 " +
+            missing.to_string(),
+          )
+        }
+        _ =>
+          (false, None, "报销详情响应缺少 data · 使用设计快照")
+      }
+    }
+    _ => (false, None, "报销详情响应无效 · 使用设计快照")
+  }
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -4517,6 +4666,26 @@ fn load_expenses(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
 }
 
 ///|
+fn load_expense_detail(
+  emit : @rabbita.Emit[Msg],
+  path : String,
+  user_code : String,
+) -> Cmd {
+  let expense_id = match path.rev_split_once("/") {
+    Some((_, value)) => value.to_owned()
+    _ => ""
+  }
+  let code = if user_code == "" { "admin" } else { user_code }
+  @http.get("/api/company/budget/expenses/" + expense_id + "?userCode=" + code).expect_text(result => {
+      match result {
+        Ok(body) => emit(ExpenseDetailLoaded(body))
+        Err(_) => emit(ExpenseDetailLoadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/users").expect_text(result => {
     match result {
@@ -5056,6 +5225,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_report_builder_meta(emit)
       } else if path == "/expenses" {
         load_expenses(emit, model.user_code)
+      } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
+        load_expense_detail(emit, path, model.user_code)
       } else if path == "/admin" {
         load_admin_quality(emit)
       } else if path == "/users" {
@@ -5106,6 +5277,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some((prefix, value)) if prefix == "/contracts" => value.to_owned()
         _ => model.contract_id
       }
+      let expense_id = match path.rev_split_once("/") {
+        Some((prefix, value)) if prefix == "/expenses" && value != "new" =>
+          value.to_owned()
+        _ if path == "/expenses/new" => "EXP-RABBITA-LOCAL"
+        _ => model.expense_id
+      }
       let loan_id = match path.rev_split_once("/") {
         Some((prefix, value)) if prefix == "/loans" && value != "new" =>
           value.to_owned()
@@ -5127,6 +5304,25 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           page: path,
           mobile_nav: false,
           contract_id,
+          expense_id,
+          expense_detail_loaded: if path.has_prefix("/expenses/") &&
+            path != "/expenses/new" {
+            false
+          } else {
+            model.expense_detail_loaded
+          },
+          expense_detail: if path.has_prefix("/expenses/") &&
+            path != "/expenses/new" {
+            None
+          } else {
+            model.expense_detail
+          },
+          expense_detail_note: if path.has_prefix("/expenses/") &&
+            path != "/expenses/new" {
+            "正在加载 PostgreSQL 报销详情源读模型…"
+          } else {
+            model.expense_detail_note
+          },
           loan_id,
           loan_state,
           contract_detail: if path == "/contracts" {
@@ -7568,6 +7764,28 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           expenses_loaded: false,
           expense_rows: [],
           expenses_note: "报销源读模型不可用 · 使用设计快照",
+        },
+      )
+    ExpenseDetailLoaded(body) => {
+      let (loaded, detail, note) = expense_detail_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          expense_detail_loaded: loaded,
+          expense_detail: detail,
+          expense_detail_note: note,
+        },
+      )
+    }
+    ExpenseDetailLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          expense_detail_loaded: false,
+          expense_detail: None,
+          expense_detail_note: "报销详情源读模型不可用 · 使用设计快照",
         },
       )
     CreateExpense =>
@@ -11977,18 +12195,109 @@ fn contract_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
+fn expense_state_label(state : String) -> String {
+  match state {
+    "Draft" => "草稿"
+    "Approving" => "审批中"
+    "Approved" => "已通过"
+    "Rejected" => "已驳回"
+    "Voided" => "已作废"
+    "" => "—"
+    _ => state
+  }
+}
+
+///|
 fn expense_editor_view(
   emit : @rabbita.Emit[Msg],
   model : Model,
   detail : Bool,
 ) -> @html.Html {
+  let detail_values = if !detail || !model.expense_detail_loaded {
+    [
+      "EXP-260712-008", "差旅费", "成都项目现场出差", "8560", "2026-07-12",
+      "程玉哲", "成都和锦里", "个人垫付",
+    ]
+  } else {
+    match model.expense_detail {
+      Some(row) =>
+        [
+          if row.expense_code == "" {
+            if row.expense_id == "" {
+              "—"
+            } else {
+              row.expense_id
+            }
+          } else {
+            row.expense_code
+          },
+          "—",
+          if row.subject == "" {
+            "—"
+          } else {
+            row.subject
+          },
+          row.expense_amount,
+          if row.apply_date == "" {
+            "—"
+          } else {
+            row.apply_date
+          },
+          if row.applied_by_name == "" {
+            "—"
+          } else {
+            row.applied_by_name
+          },
+          if row.apply_dept_name == "" {
+            "—"
+          } else {
+            row.apply_dept_name
+          },
+          if row.pay_unit == "" {
+            "—"
+          } else {
+            row.pay_unit
+          },
+        ]
+      _ => ["—", "—", "—", "—", "—", "—", "—", "—"]
+    }
+  }
+  let detail_state = if !detail || !model.expense_detail_loaded {
+    "审批中"
+  } else {
+    match model.expense_detail {
+      Some(row) => expense_state_label(row.apply_state)
+      _ => "无源记录"
+    }
+  }
+  let detail_rows = match model.expense_detail {
+    Some(row) => row.details
+    _ => []
+  }
+  let split_rows = match model.expense_detail {
+    Some(row) => row.splits
+    _ => []
+  }
+  let detail_source_note = match model.expense_detail {
+    Some(row) =>
+      model.expense_detail_note +
+      " · " +
+      row.source_kind +
+      " · 付款状态 " +
+      expense_state_label(row.pay_state) +
+      " · 冲账 " +
+      row.offset_amount +
+      " · 应付 " +
+      row.pay_amount
+    _ => model.expense_detail_note
+  }
   let title = if detail { "报销详情" } else { "新建报销" }
-  let action = if detail { "保存修改" } else { "提交审批" }
+  let action = if detail { "只读源记录" } else { "提交审批" }
   let actions : Array[@html.Html] = [
     nav_button(emit, "/expenses", "erp-ghost-btn", "‹ 返回列表"),
   ]
   if detail {
-    actions.push(button(class="erp-primary-btn", action))
+    actions.push(button(class="erp-secondary-btn", action))
   } else {
     if model.expense_state == "未创建" ||
       model.expense_state == "草稿" ||
@@ -12045,12 +12354,12 @@ fn expense_editor_view(
         div(class="erp-panel-heading") <| [
           h2("报销信息"),
           if detail {
-            span(class="erp-status-tag is-pending", "审批中")
+            span(class="erp-status-tag is-pending", detail_state)
           } else {
             span(class="erp-info-tag", model.expense_state)
           },
           if detail {
-            @html.nothing
+            span(class="erp-source-note", detail_source_note)
           } else {
             span(class="erp-source-note", model.expense_note)
           },
@@ -12059,19 +12368,75 @@ fn expense_editor_view(
           form_field(
             "报销单号",
             if detail {
-              "EXP-260712-008"
+              detail_values[0]
             } else {
               model.expense_id
             },
             "报销单号",
           ),
-          form_field("费用类型", "差旅费", "费用类型"),
-          form_field("费用摘要", "成都项目现场出差", "摘要"),
-          form_field("费用金额", "8560", "金额(元)"),
-          form_field("发生日期", "2026-07-12", "YYYY-MM-DD"),
-          form_field("关联项目", "成都和锦里", "项目"),
-          form_field("费用科目", "差旅交通", "费用科目"),
-          form_field("付款方式", "个人垫付", "付款方式"),
+          form_field(
+            "费用类型",
+            if detail {
+              detail_values[1]
+            } else {
+              "差旅费"
+            },
+            "费用类型",
+          ),
+          form_field(
+            "费用摘要",
+            if detail {
+              detail_values[2]
+            } else {
+              "成都项目现场出差"
+            },
+            "摘要",
+          ),
+          form_field(
+            "费用金额",
+            if detail {
+              detail_values[3]
+            } else {
+              "8560"
+            },
+            "金额(元)",
+          ),
+          form_field(
+            "发生日期",
+            if detail {
+              detail_values[4]
+            } else {
+              "2026-07-12"
+            },
+            "YYYY-MM-DD",
+          ),
+          form_field(
+            "申请人",
+            if detail {
+              detail_values[5]
+            } else {
+              "—"
+            },
+            "申请人",
+          ),
+          form_field(
+            "申请部门",
+            if detail {
+              detail_values[6]
+            } else {
+              "—"
+            },
+            "申请部门",
+          ),
+          form_field(
+            "付款单位",
+            if detail {
+              detail_values[7]
+            } else {
+              "个人垫付"
+            },
+            "付款方式",
+          ),
         ],
       ],
       if detail ||
@@ -12084,29 +12449,61 @@ fn expense_editor_view(
           span(model.expense_note),
         ]
       },
-      table_panel(
-        "附件与分摊",
-        "支持发票、行程单和费用拆分",
-        data_table(
-          [
-            "附件名称", "类型", "金额", "上传人", "验真状态", "操作",
-          ],
-          [
+      if detail && model.expense_detail_loaded {
+        div <| [
+          table_panel(
+            "报销明细",
+            "PostgreSQL cb_expense_detail · 空表保持可见",
+            data_table(
+              ["摘要", "金额", "发生日期", "明细编号"],
+              if detail_rows.length() == 0 {
+                [["—", "—", "—", "源表为空"]]
+              } else {
+                detail_rows
+              },
+            ),
+          ),
+          table_panel(
+            "4 维归口分摊",
+            "PostgreSQL cb_expense_split · 不在读取路径执行授权",
+            data_table(
+              [
+                "费用使用人", "责任部门", "预算科目", "所属事项",
+                "金额",
+              ],
+              if split_rows.length() == 0 {
+                [["—", "—", "—", "—", "源表为空"]]
+              } else {
+                split_rows
+              },
+            ),
+          ),
+        ]
+      } else {
+        table_panel(
+          "附件与分摊",
+          "支持发票、行程单和费用拆分",
+          data_table(
             [
-              "成都出差发票-01.pdf", "增值税发票", "¥3,280", "程玉哲",
-              "已验真", "预览",
+              "附件名称", "类型", "金额", "上传人", "验真状态", "操作",
             ],
             [
-              "高铁票-往返.zip", "行程凭证", "¥1,260", "程玉哲", "待确认",
-              "预览",
+              [
+                "成都出差发票-01.pdf", "增值税发票", "¥3,280", "程玉哲",
+                "已验真", "预览",
+              ],
+              [
+                "高铁票-往返.zip", "行程凭证", "¥1,260", "程玉哲", "待确认",
+                "预览",
+              ],
+              [
+                "住宿发票-02.pdf", "增值税发票", "¥4,020", "程玉哲",
+                "已验真", "预览",
+              ],
             ],
-            [
-              "住宿发票-02.pdf", "增值税发票", "¥4,020", "程玉哲", "已验真",
-              "预览",
-            ],
-          ],
-        ),
-      ),
+          ),
+        )
+      },
     ],
   )
 }
