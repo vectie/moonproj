@@ -1,0 +1,26 @@
+{
+  "format": "moonproj.erp.investment-valuation-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:investment-performance-synthetic-001",
+  "mapping_version": "reviewed-investment-valuation-v1",
+  "run_id": "investment-valuation-reviewed-run-001",
+  "portfolio_source_id": "portfolio-001",
+  "portfolio_portfolio_id": "portfolio-001",
+  "portfolio_principal_id": "co-001",
+  "portfolio_project_scope": "investment:portfolio-001",
+  "portfolio_currency": "CNY",
+  "valuation": {
+    "source_table": "tzsy_investment_valuation",
+    "source_id": "valuation-001",
+    "valuation_id": "valuation-001",
+    "event_id": "investment-valuation-event-001",
+    "event_type": "investment.valuation.gain",
+    "scope": "investment:portfolio-001",
+    "investment_account": "investment-asset",
+    "gain_account": "unrealized-gain",
+    "loss_account": "unrealized-loss",
+    "expected_gain_loss_minor": 100000,
+    "expected_amount_minor": 100000,
+    "journal_id": "investment/valuation-001/gain"
+  }
+}

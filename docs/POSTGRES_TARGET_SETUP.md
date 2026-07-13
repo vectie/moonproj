@@ -207,3 +207,9 @@ external benchmark observation, persisting one `investment_portfolio`, one
 projection with exact parity and idempotent replay. The demonstrated full run
 reaches 142 aggregate projections. Position mutation, cash release, accounting
 posting, and period close remain separate gates.
+The separate `scripts/company_investment_valuation_accounting_rehearsal.sh`
+reuses the performance portfolio with an explicit valuation and accounting-link
+map. It appends one `investment_valuation` source-to-journal link to the target,
+reports exact PostgreSQL identity parity, and replays with zero inserts; it is
+not part of the aggregate projection count and does not post journals, release
+cash, mutate positions, or close a period.

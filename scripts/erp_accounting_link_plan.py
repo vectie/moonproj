@@ -143,6 +143,21 @@ def main() -> int:
                 reasons.append("domain_candidate_missing_currency")
             if mapping.get("currency") != expected_currency:
                 reasons.append("accounting_currency_mismatch")
+            if target_type == "investment_valuation":
+                # The valuation command has already constructed and validated
+                # the native event.  Keep the separately reviewed accounting
+                # map bound to that exact event/journal identity instead of
+                # allowing a second event or account shape to be substituted.
+                for field in (
+                    "event_id",
+                    "event_type",
+                    "journal_id",
+                    "debit_account",
+                    "credit_account",
+                    "scope",
+                ):
+                    if mapping.get(field) != candidate.get(field):
+                        reasons.append(f"investment_valuation_{field}_mismatch")
             source_type = SUPPORTED_TARGET_SOURCE_TYPES[target_type] or source_table
             target_candidate = {
                 "source_target_type": target_type,

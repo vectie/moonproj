@@ -157,6 +157,14 @@ Exact SQLite/PostgreSQL parity and zero-insert replay pass for three
 projections. It is analytics evidence only: position mutation, cash release,
 accounting posting, period close, and owner acceptance remain separate. A real
 source feed and investment-owner review are still required.
+The separate reviewed investment-valuation boundary now reuses that bounded
+portfolio and creates one explicit native mark-to-market accounting event. The
+event is then bound through a separately reviewed accounting-link map; exact
+SQLite/PostgreSQL identity parity and zero-insert replay pass for one link.
+It remains traceability evidence only: the accounting book is not posted, cash
+is not released, positions are not mutated, and period close is not authorized.
+The available snapshot has no accepted valuation rows, so a real valuation feed,
+policy, and investment-owner review remain required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

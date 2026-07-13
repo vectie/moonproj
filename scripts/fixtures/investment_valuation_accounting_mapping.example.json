@@ -1,0 +1,18 @@
+{
+  "mapping_version": "reviewed-investment-valuation-accounting-v1",
+  "target_types": ["investment_valuation"],
+  "accounting_by_source": {
+    "tzsy_investment_valuation:valuation-001": {
+      "event_id": "investment-valuation-event-001",
+      "event_type": "investment.valuation.gain",
+      "journal_id": "investment/valuation-001/gain",
+      "description": "Recognize mark-to-market gain for valuation-001",
+      "debit_account": "investment-asset",
+      "credit_account": "unrealized-gain",
+      "principal_id": "co-001",
+      "scope": "investment:portfolio-001",
+      "amount_minor": 100000,
+      "currency": "CNY"
+    }
+  }
+}

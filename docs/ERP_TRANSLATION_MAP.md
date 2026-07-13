@@ -298,6 +298,15 @@ differences, and tolerance across `investment_portfolio`,
 `investment_performance`, and `investment_benchmark_reconciliation`
 projections. Position mutation, cash release, accounting posting, and period
 close remain false. See [ERP_INVESTMENT_PERFORMANCE.md](ERP_INVESTMENT_PERFORMANCE.md).
+The standalone `scripts/company_investment_valuation_accounting_rehearsal.sh`
+then reuses that reviewed portfolio plan with a separate valuation map and
+explicit accounting map. `cmd/investment_valuation` constructs the native
+mark-to-market event; `cmd/accounting_link` binds its event, journal, accounts,
+scope, principal, amount, and currency without posting. SQLite/PostgreSQL
+adapters preserve one `investment_valuation` source-to-journal link with exact
+identity parity and zero-insert replay. Position mutation, cash release,
+accounting-book posting, and period close remain false. See
+[ERP_INVESTMENT_VALUATION.md](ERP_INVESTMENT_VALUATION.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -437,7 +446,7 @@ importer.
 | `audit_log`, `sys_error_log`, attachments | Evidence and administrative trace | `foundation/evidence` + `migration/erp` + `cmd/promote` | The fixture promotes 2 explicitly mapped audit records with actor-scoped append grants; network fields remain redacted, while error taxonomy and durable blob storage remain pending. |
 | `my_biz_param_option`, `vys_proceeding` | Configurable parameter and expense-proceeding catalogs | `foundation` + `migration/erp` + `cmd/promote` | The fixture promotes 2 dictionaries/8 options under explicit authority: the original 5-option `cost_subject` dictionary and an explicit 3-option `expense_proceeding` catalog. Values remain opaque; manager/department/cost metadata, CBS/accounting meaning, and expense state are not inferred. |
 | `vys_proceeding` | Expense/proceeding catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Three redacted proceeding rows are preserved as typed evidence; no expense policy or accounting subject is inferred. |
-| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `cmd/investment_benchmark` + `cmd/investment_performance` + `cmd/investment_model_eval` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserves source value representations, and now evaluates numeric/date values, three parent totals, and four known ratio derivations into a source-bound analytics-only projection; the reviewed performance cohort also persists bounded portfolio attribution and external benchmark reconciliation, while source-feed acceptance, richer formula vocabulary, and full accounting remain pending; acquisition and mark-to-market valuation links are explicit local events. |
+| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `cmd/investment_benchmark` + `cmd/investment_performance` + `cmd/investment_valuation` + `cmd/investment_model_eval` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserves source value representations, and now evaluates numeric/date values, three parent totals, and four known ratio derivations into a source-bound analytics-only projection; the reviewed performance cohort also persists bounded portfolio attribution and external benchmark reconciliation, and the separate valuation cohort binds one explicit mark-to-market event through accounting-link identity checks, while source-feed acceptance, richer formula vocabulary, and full accounting remain pending. |
 | investment mandate/proposal/position/model snapshots | Investment persistence | `investment/model` + `investment/domain` + `investment/portfolio` + `persistence/store` | Model versions/indexes, source-bound evaluation metrics, mandate limits, deterministic Moonfish analysis, proposal state, positions, shock stress evidence, per-position period performance, source-bound external benchmark reconciliation, acquisition links, and explicit gain/loss valuation event links serialize as revisioned evidence; full investment accounting remains pending. |
 | Moonfish deterministic tools | Market evidence and analysis | `investment/analytics` | Moving-average/trend seed implemented; full package absorption pending. |
 
