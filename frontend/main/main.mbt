@@ -26,7 +26,7 @@ using @html {
 }
 
 ///|
-using @rabbita {new, simple_cell}
+using @rabbita {cell, new, none, type Cmd}
 
 ///|
 struct Model {
@@ -38,6 +38,8 @@ struct Model {
   show_demo : Bool
   user_code : String
   password : String
+  api_status : String
+  api_note : String
 }
 
 ///|
@@ -51,6 +53,9 @@ enum Msg {
   ToggleSidebar
   ToggleMobileNav
   ToggleGroup(String)
+  RefreshApi
+  ApiLoaded
+  ApiFailed
 }
 
 ///|
@@ -64,6 +69,8 @@ fn initial_model() -> Model {
     show_demo: false,
     user_code: "",
     password: "",
+    api_status: "未连接",
+    api_note: "使用已审核快照",
   }
 }
 
@@ -128,26 +135,60 @@ fn title_for(path : String) -> String {
 }
 
 ///|
-fn update(msg : Msg, model : Model) -> Model {
+fn refresh_api(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/summary").expect_text(result => {
+    match result {
+      Ok(body) if body.contains("\"target\":\"postgresql\"") &&
+        body.contains("\"read_only\":true") => emit(ApiLoaded)
+      Ok(_) => emit(ApiFailed)
+      Err(_) => emit(ApiFailed)
+    }
+  })
+}
+
+///|
+fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     Login =>
-      { ..model, authenticated: true, page: "/dashboard", mobile_nav: false }
-    ToggleDemo => { ..model, show_demo: !model.show_demo }
+      (
+        refresh_api(emit),
+        { ..model, authenticated: true, page: "/dashboard", mobile_nav: false },
+      )
+    ToggleDemo => (none, { ..model, show_demo: !model.show_demo })
     FillDemo(user_code, password) =>
-      { ..model, user_code, password, show_demo: false }
-    InputUser(value) => { ..model, user_code: value }
-    InputPassword(value) => { ..model, password: value }
+      (none, { ..model, user_code, password, show_demo: false })
+    InputUser(value) => (none, { ..model, user_code: value })
+    InputPassword(value) => (none, { ..model, password: value })
     Navigate(path) =>
-      { ..model, authenticated: true, page: path, mobile_nav: false }
-    ToggleSidebar => { ..model, collapsed: !model.collapsed }
-    ToggleMobileNav => { ..model, mobile_nav: !model.mobile_nav }
+      (none, { ..model, authenticated: true, page: path, mobile_nav: false })
+    ToggleSidebar => (none, { ..model, collapsed: !model.collapsed })
+    ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav })
     ToggleGroup(group) => {
       let open_group = match model.open_group {
         Some(current) if current == group => None
         _ => Some(group)
       }
-      { ..model, open_group, }
+      (none, { ..model, open_group, })
     }
+    RefreshApi => (refresh_api(emit), model)
+    ApiLoaded =>
+      (
+        none,
+        {
+          ..model,
+          api_status: "已连接",
+          api_note: "PostgreSQL 投影读模型",
+        },
+      )
+    ApiFailed =>
+      (
+        none,
+        {
+          ..model,
+          api_status: "离线回退",
+          api_note: "使用已审核快照",
+        },
+      )
   }
 }
 
@@ -644,8 +685,16 @@ fn risk_row(
 }
 
 ///|
-fn dashboard_view() -> @html.Html {
+fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   div(class="erp-dashboard") <| [
+    div(class="erp-dashboard-source") <| [
+      div <| [
+        span(class="erp-page-eyebrow", "READ MODEL"),
+        strong(model.api_status),
+        span(class="erp-source-note", model.api_note),
+      ],
+      button(class="erp-ghost-btn", on_click=emit(RefreshApi), "刷新数据"),
+    ],
     div(class="erp-kpi-grid") <| [
       metric("在管公司 / 项目", "5 / 15", "在建 15 个", "metric-blue"),
       metric(
@@ -2665,7 +2714,7 @@ fn header_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 ///|
 fn app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let body = if model.page == "/dashboard" {
-    dashboard_view()
+    dashboard_view(emit, model)
   } else {
     business_view(model.page, emit)
   }
@@ -2696,6 +2745,6 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn main {
-  let app = simple_cell(model=initial_model(), update~, view~)
+  let app = cell(model=initial_model(), update~, view~)
   new(app).mount("app")
 }

@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""Serve a read-only PostgreSQL company projection API for local development.
+
+This is a deliberately small adapter for the Rabbita browser surface.  It
+exposes only fixed read-model queries; it never accepts arbitrary SQL and has
+no mutation endpoints.  Production authentication, pooling, TLS, observability
+and command APIs remain deployment gates.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import os
+import re
+import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from company_postgres_target_apply import PostgresTargetError, run_psql, sql_literal
+
+
+IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+
+
+def query_lines(args: argparse.Namespace, sql: str) -> list[str]:
+    output = run_psql(args, "\n".join(line.strip() for line in sql.splitlines() if line.strip()))
+    return [line for line in output.splitlines() if line]
+
+
+def summary(args: argparse.Namespace) -> dict[str, Any]:
+    lines = query_lines(
+        args,
+        """
+        SELECT
+          (SELECT count(*) FROM company_record),
+          (SELECT count(*) FROM company_aggregate_projection),
+          (SELECT count(*) FROM company_accounting_event_link),
+          (SELECT count(*) FROM company_migration_receipt),
+          (SELECT coalesce(max(version), 0) FROM company_schema)
+        """,
+    )
+    if len(lines) != 1 or len(lines[0].split("|")) != 5:
+        raise PostgresTargetError("unexpected company summary shape")
+    raw, projections, links, receipts, schema_version = [int(value) for value in lines[0].split("|")]
+    return {
+        "product": "moonproj-company",
+        "target": "postgresql",
+        "read_only": True,
+        "schema_version": schema_version,
+        "raw_records": raw,
+        "aggregate_projections": projections,
+        "accounting_links": links,
+        "receipts": receipts,
+    }
+
+
+def receipts(args: argparse.Namespace) -> list[dict[str, Any]]:
+    lines = query_lines(
+        args,
+        """
+        SELECT encode(convert_to(run_id, 'UTF8'), 'hex'),
+               encode(convert_to(source_snapshot_id, 'UTF8'), 'hex'),
+               target_schema_version::text,
+               encode(convert_to(mapping_version, 'UTF8'), 'hex'),
+               encode(convert_to(state, 'UTF8'), 'hex'),
+               encode(convert_to(coalesce(applied_hash, ''), 'UTF8'), 'hex')
+        FROM company_migration_receipt
+        ORDER BY certified_at NULLS LAST, run_id
+        """,
+    )
+    result: list[dict[str, Any]] = []
+    for line in lines:
+        fields = line.split("|")
+        if len(fields) != 6:
+            raise PostgresTargetError("unexpected company receipt shape")
+        try:
+            decoded = [base64.b16decode(field, casefold=True).decode("utf-8") for field in fields[:2]]
+            mapping = base64.b16decode(fields[3], casefold=True).decode("utf-8")
+            state = base64.b16decode(fields[4], casefold=True).decode("utf-8")
+            applied_hash = base64.b16decode(fields[5], casefold=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as error:
+            raise PostgresTargetError("invalid company receipt encoding") from error
+        result.append(
+            {
+                "run_id": decoded[0],
+                "source_snapshot_id": decoded[1],
+                "target_schema_version": int(fields[2]),
+                "mapping_version": mapping,
+                "state": state,
+                "applied_hash": applied_hash,
+            }
+        )
+    return result
+
+
+def projections(args: argparse.Namespace, aggregate_type: str | None) -> list[dict[str, Any]]:
+    clause = ""
+    if aggregate_type is not None:
+        if not IDENTIFIER.fullmatch(aggregate_type):
+            raise ValueError("invalid aggregate_type")
+        clause = f"WHERE aggregate_type = {sql_literal(aggregate_type)}"
+    lines = query_lines(
+        args,
+        f"""
+        SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'),
+               encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+               revision::text,
+               encode(convert_to(payload::text, 'UTF8'), 'hex'),
+               encode(convert_to(source_event_id, 'UTF8'), 'hex')
+        FROM company_aggregate_projection
+        {clause}
+        ORDER BY aggregate_type, aggregate_id, revision
+        LIMIT 500
+        """,
+    )
+    result: list[dict[str, Any]] = []
+    for line in lines:
+        fields = line.split("|")
+        if len(fields) != 5:
+            raise PostgresTargetError("unexpected company projection shape")
+        try:
+            aggregate = base64.b16decode(fields[0], casefold=True).decode("utf-8")
+            aggregate_id = base64.b16decode(fields[1], casefold=True).decode("utf-8")
+            payload = json.loads(base64.b16decode(fields[3], casefold=True).decode("utf-8"))
+            source_event = base64.b16decode(fields[4], casefold=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise PostgresTargetError("invalid company projection encoding") from error
+        result.append(
+            {
+                "aggregate_type": aggregate,
+                "aggregate_id": aggregate_id,
+                "revision": int(fields[2]),
+                "payload": payload,
+                "source_event_id": source_event,
+            }
+        )
+    return result
+
+
+def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
+    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Access-Control-Allow-Origin", "*")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def handler_factory(args: argparse.Namespace, public_dir: Path | None):
+    from functools import partial
+    from http.server import SimpleHTTPRequestHandler
+
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, request, client_address, server):
+            super().__init__(request, client_address, server, directory=str(public_dir) if public_dir else None)
+
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlparse(self.path)
+            try:
+                if parsed.path == "/api/health":
+                    response(self, 200, {"ok": True, "target": "postgresql", "read_only": True})
+                    return
+                if parsed.path == "/api/company/summary":
+                    response(self, 200, summary(args))
+                    return
+                if parsed.path == "/api/company/receipts":
+                    response(self, 200, {"items": receipts(args)})
+                    return
+                if parsed.path == "/api/company/projections":
+                    value = parse_qs(parsed.query).get("aggregate_type", [None])[0]
+                    response(self, 200, {"items": projections(args, value)})
+                    return
+                if parsed.path.startswith("/api/"):
+                    response(self, 404, {"error": "unknown read-model endpoint"})
+                    return
+                if public_dir is None:
+                    response(self, 404, {"error": "static public directory is not configured"})
+                    return
+                super().do_GET()
+            except (OSError, PostgresTargetError, ValueError) as error:
+                response(self, 500, {"error": str(error)})
+
+        def log_message(self, format: str, *values: object) -> None:
+            sys.stderr.write("company-read-model: " + (format % values) + "\n")
+
+    return Handler
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--public-dir", type=Path, default=None)
+    parser.add_argument("--host", dest="http_host", default="127.0.0.1")
+    parser.add_argument("--port", dest="http_port", type=int, default=4173)
+    parser.add_argument("--psql", default=None)
+    parser.add_argument("--pg-host", default=os.environ.get("PGHOST", "/tmp"))
+    parser.add_argument("--pg-port", default=os.environ.get("PGPORT", "5432"))
+    parser.add_argument("--pg-user", default=os.environ.get("PGUSER", "moonproj"))
+    parser.add_argument("--database", default=os.environ.get("PGDATABASE", "moonproj"))
+    args = parser.parse_args()
+    # Reuse the PostgreSQL adapter's argument names so the same credential
+    # environment and psql binary selection apply to every read-model query.
+    args.host, args.port, args.user = args.pg_host, args.pg_port, args.pg_user
+    if args.public_dir is not None and not args.public_dir.is_dir():
+        parser.error(f"public directory does not exist: {args.public_dir}")
+    server = ThreadingHTTPServer((args.http_host, args.http_port), handler_factory(args, args.public_dir))
+    print(f"company read model listening on http://{args.http_host}:{args.http_port}", flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

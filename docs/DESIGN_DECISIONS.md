@@ -189,6 +189,8 @@ commands. Its visual baseline is the designer-built ERP in
 `../erp/erp_new/web`—the shell, login, menu hierarchy, dashboard, and major
 route families are copied before introducing a new product-native design
 system. The current screens are intentionally fixture-backed and read-only;
-live API/query/command wiring follows the same authority boundary as the
-domain and PostgreSQL adapters. Detail/new routes and data-bound behavior are
-migrated incrementally rather than being silently replaced by generic screens.
+the dashboard may read the fixed PostgreSQL projection summary through the
+development read-model adapter, while command/mutation wiring follows the same
+authority boundary as the domain and PostgreSQL adapters. Detail/new routes and
+data-bound behavior are migrated incrementally rather than being silently
+replaced by generic screens.

@@ -87,6 +87,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 
 /* DashboardV3 uses this restrained Element Plus card/table palette. */
 .erp-dashboard { min-width: 800px; }
+.erp-dashboard-source { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 8px 10px; border: 1px solid #dbeafe; border-radius: 5px; background: #eff6ff; }
+.erp-dashboard-source strong { display: block; color: #1d4ed8; font-size: 13px; }
+.erp-source-note { display: block; margin-top: 2px; color: #64748b; font-size: 11px; }
 .erp-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .erp-metric { padding: 10px 12px; border: 1px solid #e2e8f0; border-top: 3px solid #1d4ed8; border-radius: 6px; background: #fff; }
 .erp-metric.metric-green { border-top-color: #16a34a; }
@@ -199,6 +202,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-user-area { max-width: 128px; overflow: hidden; text-overflow: ellipsis; }
   .erp-main { padding: 10px; }
   .erp-dashboard { min-width: 0; }
+  .erp-dashboard-source { align-items: flex-start; }
   .erp-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .erp-dashboard-grid { grid-template-columns: 1fr; }
   .erp-risk-panel { overflow-x: auto; }

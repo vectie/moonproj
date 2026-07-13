@@ -51,6 +51,13 @@ immutable revisions or links, write a cohort-scoped migration receipt, and
 make an identical replay insert `0` rows. They do not infer business effects,
 release cash, or post journals.
 
+For local browser verification, `scripts/company_postgres_read_model_server.py`
+serves the same target through fixed read-only endpoints (`/api/health`,
+`/api/company/summary`, `/api/company/receipts`, and
+`/api/company/projections`). It is a development adapter only; production
+authentication, pooling, TLS, observability, and command endpoints remain
+deployment gates.
+
 For a reviewed receipt, use the same PostgreSQL credential mechanism:
 
 ```text
