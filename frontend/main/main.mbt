@@ -410,6 +410,17 @@ struct FundPlanRow {
 }
 
 ///|
+struct WarningRow {
+  rule_code : String
+  rule_name : String
+  severity : String
+  biz_type : String
+  title : String
+  detail : String
+  status : String
+}
+
+///|
 struct InitiatedRow {
   id : String
   code : String
@@ -661,6 +672,11 @@ struct Model {
   fund_gap_series_count : String
   fund_dispatch_count : String
   fund_note : String
+  warnings_loaded : Bool
+  warning_rows : Array[WarningRow]
+  warning_rule_count : String
+  warning_missing_table_count : String
+  warning_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -829,6 +845,10 @@ enum Msg {
   FundGapLoadFailed
   FundDispatchLoaded(String)
   FundDispatchLoadFailed
+  WarningsLoaded(String)
+  WarningsLoadFailed
+  WarningRulesLoaded(String)
+  WarningRulesLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1018,6 +1038,11 @@ fn initial_model() -> Model {
     fund_gap_series_count: "0",
     fund_dispatch_count: "0",
     fund_note: "资金计划读模型尚未加载 · 使用设计快照",
+    warnings_loaded: false,
+    warning_rows: [],
+    warning_rule_count: "0",
+    warning_missing_table_count: "0",
+    warning_note: "预警读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2661,6 +2686,51 @@ fn fund_count_from_body(body : String, field : String) -> (Bool, String) {
 }
 
 ///|
+fn warnings_from_body(body : String) -> (Bool, Array[WarningRow], String) {
+  let rows : Array[WarningRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  rule_code: json_object_text(row, "ruleCode", "—"),
+                  rule_name: json_object_text(row, "ruleName", "—"),
+                  severity: json_object_text(row, "severity", "—"),
+                  biz_type: json_object_text(row, "bizType", "—"),
+                  title: json_object_text(row, "title", "—"),
+                  detail: json_object_text(row, "detail", "—"),
+                  status: json_object_text(row, "status", "observed"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn warning_rules_count_from_body(body : String) -> (Bool, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      (true, json_array_field(fields, "data").length().to_string())
+    _ => (false, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -3322,6 +3392,26 @@ fn load_fund_dispatches(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_warnings(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/warning?status=open").expect_text(result => {
+    match result {
+      Ok(body) => emit(WarningsLoaded(body))
+      Err(_) => emit(WarningsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_warning_rules(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/warning/rules").expect_text(result => {
+    match result {
+      Ok(body) => emit(WarningRulesLoaded(body))
+      Err(_) => emit(WarningRulesLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -3907,6 +3997,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_cbs(emit)
       } else if path == "/fund/plan" {
         load_fund(emit)
+      } else if path == "/warning" || path == "/warning-rules" {
+        load_warnings(emit)
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -5288,6 +5380,43 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, fund_dispatch_count: if loaded { count } else { "0" } })
     }
     FundDispatchLoadFailed => (none, { ..model, fund_dispatch_count: "0" })
+    WarningsLoaded(body) => {
+      let (loaded, rows, missing_table_count) = warnings_from_body(body)
+      (
+        if loaded {
+          load_warning_rules(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          warnings_loaded: loaded,
+          warning_rows: rows,
+          warning_missing_table_count: missing_table_count,
+          warning_note: if loaded {
+            "已加载 PostgreSQL 观察型预警 · 不写入目标告警/工单 · 空源表 " +
+            missing_table_count
+          } else {
+            "预警响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    WarningsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          warnings_loaded: false,
+          warning_rows: [],
+          warning_note: "预警读模型不可用 · 使用设计快照",
+        },
+      )
+    WarningRulesLoaded(body) => {
+      let (loaded, count) = warning_rules_count_from_body(body)
+      (none, { ..model, warning_rule_count: if loaded { count } else { "0" } })
+    }
+    WarningRulesLoadFailed => (none, { ..model, warning_rule_count: "0" })
     ProfileLoaded(body) => {
       let values = profile_from_body(body)
       if values.length() == 10 {
@@ -9367,7 +9496,60 @@ fn report_builder_view() -> @html.Html {
 }
 
 ///|
-fn warning_view() -> @html.Html {
+fn warning_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.warnings_loaded {
+    if model.warning_rows.length() == 0 {
+      rows.push([
+        "—", "—", "本次源导出没有可观察预警", "—", "—", "—",
+        "imported_or_empty",
+      ])
+    } else {
+      for row in model.warning_rows {
+        rows.push([
+          row.rule_code,
+          row.rule_name,
+          row.biz_type,
+          row.title,
+          row.detail,
+          row.severity,
+          row.status,
+        ])
+      }
+    }
+    data_table(
+      [
+        "规则", "规则名称", "对象", "标题", "详情", "级别", "状态",
+      ],
+      rows,
+    )
+  } else {
+    data_table(
+      [
+        "预警编号", "类型", "项目 / 对象", "预警内容", "触发时间",
+        "责任人", "状态",
+      ],
+      [
+        [
+          "WARN-260713-006", "项目延期", "成都和锦里", "2# 楼砌体较计划晚 4 天",
+          "今天 09:18", "陈志强", "待处理",
+        ],
+        [
+          "WARN-260712-011", "成本偏差", "成都和锦里", "建安成本超目标 8.4%",
+          "昨天 16:42", "李明金", "进行中",
+        ],
+      ],
+    )
+  }
+}
+
+///|
+fn warning_view(model : Model) -> @html.Html {
+  let open_total = if model.warnings_loaded {
+    model.warning_rows.length().to_string()
+  } else {
+    "23"
+  }
   page_shell(
     "异常预警中心",
     "ANALYSIS / WARNINGS",
@@ -9377,45 +9559,70 @@ fn warning_view() -> @html.Html {
       button(class="erp-primary-btn", "配置规则"),
     ],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.warnings_loaded {
+            "PostgreSQL 观察型预警已连接"
+          } else {
+            "预警设计快照"
+          },
+        ),
+        span(
+          " · " +
+          model.warning_note +
+          " · 规则 " +
+          model.warning_rule_count +
+          " · 空源表 " +
+          model.warning_missing_table_count,
+        ),
+      ]),
       div(class="erp-stat-grid") <| [
-        metric("未处理", "23", "高优先级 6", "metric-blue"),
-        metric("本周新增", "8", "较上周 -3", "metric-blue"),
-        metric("已关闭", "186", "关闭率 89.0%", "metric-green"),
+        metric(
+          "未处理",
+          open_total,
+          if model.warnings_loaded {
+            "源观察行"
+          } else {
+            "高优先级 6"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "规则数",
+          if model.warnings_loaded {
+            model.warning_rule_count
+          } else {
+            "12"
+          },
+          "内置规则",
+          "metric-blue",
+        ),
+        metric(
+          "持久化",
+          if model.warnings_loaded {
+            "否"
+          } else {
+            "—"
+          },
+          "观察读模型不写入告警",
+          "metric-green",
+        ),
       ],
       table_panel(
         "预警清单",
-        "按优先级和更新时间",
-        data_table(
-          [
-            "预警编号", "类型", "项目 / 对象", "预警内容", "触发时间",
-            "责任人", "状态",
-          ],
-          [
-            [
-              "WARN-260713-006", "项目延期", "成都和锦里", "2# 楼砌体较计划晚 4 天",
-              "今天 09:18", "陈志强", "待处理",
-            ],
-            [
-              "WARN-260712-011", "成本偏差", "成都和锦里", "建安成本超目标 8.4%",
-              "昨天 16:42", "李明金", "进行中",
-            ],
-            [
-              "WARN-260711-004", "资金缺口", "重庆南山居", "8 月预计缺口 ¥180 万",
-              "2026-07-11", "刘松", "待处理",
-            ],
-            [
-              "WARN-260710-002", "发票异常", "04400193 2687", "销方税号待确认",
-              "2026-07-10", "财务共享", "已完成",
-            ],
-          ],
-        ),
+        if model.warnings_loaded {
+          model.warning_note
+        } else {
+          "按优先级和更新时间"
+        },
+        warning_runtime_table(model),
       ),
     ],
   )
 }
 
 ///|
-fn warning_rules_view() -> @html.Html {
+fn warning_rules_view(model : Model) -> @html.Html {
   page_shell(
     "告警规则 DSL",
     "ANALYSIS / RULES",
@@ -9424,7 +9631,11 @@ fn warning_rules_view() -> @html.Html {
     div <| [
       table_panel(
         "规则列表",
-        "12 条内置规则 · 4 条自定义规则",
+        if model.warnings_loaded {
+          model.warning_rule_count + " 条源规则 · 自定义规则未导出"
+        } else {
+          "12 条内置规则 · 4 条自定义规则"
+        },
         data_table(
           [
             "规则名称", "对象", "触发条件", "通知方式", "最近触发",
@@ -11537,8 +11748,8 @@ fn business_view(
       "/loans/LOAN-260713-001" => loan_editor_view(emit, model, true)
       "/reports" => reports_view(emit, model)
       "/report-builder" => report_builder_view()
-      "/warning" => warning_view()
-      "/warning-rules" => warning_rules_view()
+      "/warning" => warning_view(model)
+      "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)
       "/inbox" => inbox_view()
       "/attachments" => attachments_view()

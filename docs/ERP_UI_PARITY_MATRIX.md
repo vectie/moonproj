@@ -8,13 +8,13 @@ summary/read-model adapter is not dashboard parity; the three dashboard
 aliases now use the bounded connected v1 read. The connected exceptions are the local
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
-profile read, project-plan read, and non-authorizing workflow-definition
-read verticals.
+profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
+fund-plan, and observed-warning read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 1, "fixture_backed_read_only": 13, "public": 1, "read_only_public": 1}`
-- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 16}`
+- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "fixture_backed_form": 1, "fixture_backed_read_only": 11, "public": 1, "read_only_public": 1}`
+- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 14}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -64,8 +64,8 @@ read verticals.
 | `/ocr-config` | `../views/OcrConfig.vue` | `ocr_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/reports` | `../views/Reports.vue` | `reports_view` | `connected_report_read` | `reports` | 7 / 3 | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
 | `/report-builder` | `../views/ReportBuilder.vue` | `report_builder_view` | `fixture_backed_read_only` | `reports` | 7 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/warning` | `../views/WarningCenter.vue` | `warning_view` | `fixture_backed_read_only` | `warning` | 7 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/warning-rules` | `../views/WarningRules.vue` | `warning_rules_view` | `fixture_backed_read_only` | `warning` | 7 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/warning` | `../views/WarningCenter.vue` | `warning_view` | `connected_warning_read` | `warning` | 7 / 11 | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
+| `/warning-rules` | `../views/WarningRules.vue` | `warning_rules_view` | `connected_warning_read` | `warning` | 7 / 11 | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `/cashflow` | `../views/CashflowForecast.vue` | `cashflow_view` | `connected_cashflow_read` | `cashflow` | 6 / 1 | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
 | `/attachments` | `../views/AttachmentCenter.vue` | `attachments_view` | `fixture_backed_read_only` | `attachment` | 4 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/audit-log` | `../views/AuditLog.vue` | `audit_view` | `connected_admin_audit_read` | `admin` | 13 / 5 | `connected_admin_audit_read` | `accept_browser_admin_audit_scenario_and_super_user_owner` |
@@ -390,21 +390,21 @@ are attached. The JSON output contains all 338 handler rows.
 | `tender` | `POST` | `/awards` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `tender` | `GET` | `/splits` | `/tender` | `not_connected` | `connect_authenticated_read_api` |
 | `tender` | `POST` | `/splits` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `warning` | `GET` | `/badge` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
-| `warning` | `GET` | `/` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
-| `warning` | `GET` | `/rules` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
+| `warning` | `GET` | `/badge` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
+| `warning` | `GET` | `/` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
+| `warning` | `GET` | `/rules` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `PATCH` | `/rules/:code` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `warning` | `GET` | `/scans` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
+| `warning` | `GET` | `/scans` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `POST` | `/scan` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `POST` | `/:guid/resolve` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `POST` | `/:guid/ignore` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `warning` | `GET` | `/custom-rules` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
+| `warning` | `GET` | `/custom-rules` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `POST` | `/custom-rules` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `DELETE` | `/custom-rules/:code` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `POST` | `/custom-rules/preview` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `warning` | `GET` | `/rule-templates` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
+| `warning` | `GET` | `/rule-templates` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `POST` | `/:guid/to-ticket` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `warning` | `GET` | `/tickets/mine` | `/warning`, `/warning-rules` | `not_connected` | `connect_authenticated_read_api` |
+| `warning` | `GET` | `/tickets/mine` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `PATCH` | `/tickets/:id/status` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `PATCH` | `/tickets/:id/reassign` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `PATCH` | `/tickets/:id/extend` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |

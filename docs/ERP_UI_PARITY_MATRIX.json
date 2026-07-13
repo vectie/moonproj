@@ -36,9 +36,10 @@
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
     "connected_tender_command_form": 1,
+    "connected_warning_read": 2,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 1,
-    "fixture_backed_read_only": 13,
+    "fixture_backed_read_only": 11,
     "public": 1,
     "read_only_public": 1
   },
@@ -69,8 +70,9 @@
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
     "connected_tender_command": 1,
+    "connected_warning_read": 2,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 16
+    "read_only_fixture_no_source_api": 14
   },
   "routes": [
     {
@@ -681,13 +683,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "warning_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_warning_read",
       "source_api_module": "warning",
       "source_api_handler_count": 18,
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 11,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "path": "/warning-rules",
@@ -695,13 +697,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "warning_rules_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_warning_read",
       "source_api_module": "warning",
       "source_api_handler_count": 18,
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 11,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "path": "/cashflow",
@@ -4341,8 +4343,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",
@@ -4352,8 +4354,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",
@@ -4363,8 +4365,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",
@@ -4385,8 +4387,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",
@@ -4429,8 +4431,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",
@@ -4473,8 +4475,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",
@@ -4495,8 +4497,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_warning_read",
+      "required_next": "accept_browser_warning_scenario_and_production_identity"
     },
     {
       "module": "warning",

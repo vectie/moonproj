@@ -76,7 +76,11 @@ reads, including explicit empty/covered source states when the export has no
 CBS dictionary/version rows; CBS mutations and budget ownership remain
 separate gates. The `/fund/plan` screen now loads source-compatible PostgreSQL
 fund plans, gap analysis, and dispatch reads with explicit empty-source
-provenance; fund-plan and dispatch mutations remain gated. The authenticated
+provenance; fund-plan and dispatch mutations remain gated.
+The `/warning` and `/warning-rules` screens now load observed source warning
+badge/list/rule reads. Imported project/cost evidence yields one W005 finding;
+the adapter marks observations non-persistent and non-authorizing, while
+scans, rule writes, tickets, and notifications remain gated. The authenticated
 company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

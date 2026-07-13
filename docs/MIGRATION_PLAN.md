@@ -352,6 +352,14 @@ source state instead of designer numbers after a successful read. Creating
 plans, approving dispatches, releasing cash, accounting, tax, production
 identity, and owner acceptance remain gates.
 
+The warning center is now an observed source-quality read family. `/warning`
+and `/warning-rules` load `/api/company/warning/badge`, the filtered list, and
+rule summaries; scans, custom rules, templates, and tickets remain explicit
+empty reads because their source tables are absent. The current export yields
+one deterministic W005 observation from project/cost evidence. Findings are
+not persisted or authorizing, and warning/ticket mutations, notifications,
+production identity, and owner acceptance remain gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,

@@ -422,6 +422,62 @@ def main() -> int:
             or fund_dispatch_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source fund dispatch read failed: {status} {fund_dispatch_payload}")
+        status, warning_badge_payload = request(
+            args.port, "/api/company/warning/badge", token=token,
+        )
+        warning_badge_data = (warning_badge_payload or {}).get("data", {})
+        if (
+            status != 200
+            or warning_badge_payload is None
+            or warning_badge_data.get("openTotal") != 1
+            or len(warning_badge_data.get("top", [])) != 1
+            or warning_badge_data.get("top", [{}])[0].get("ruleCode") != "W005"
+            or warning_badge_payload.get("persisted") is not False
+            or warning_badge_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source warning badge read failed: {status} {warning_badge_payload}")
+        status, warning_list_payload = request(
+            args.port, "/api/company/warning?status=open", token=token,
+        )
+        warning_list_data = (warning_list_payload or {}).get("data", {})
+        if (
+            status != 200
+            or warning_list_payload is None
+            or warning_list_data.get("total") != 1
+            or warning_list_data.get("rows", [{}])[0].get("ruleCode") != "W005"
+            or warning_list_payload.get("source_coverage", {}).get("ep_project") != 2
+            or warning_list_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source warning list read failed: {status} {warning_list_payload}")
+        status, warning_rules_payload = request(
+            args.port, "/api/company/warning/rules", token=token,
+        )
+        warning_rules_data = warning_rules_payload or {}
+        if (
+            status != 200
+            or warning_rules_payload is None
+            or len(warning_rules_data.get("data", [])) != 12
+            or next((row for row in warning_rules_data["data"] if row.get("ruleCode") == "W005"), {}).get("openCount") != 1
+            or warning_rules_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"source warning rules read failed: {status} {warning_rules_payload}")
+        warning_empty_payloads = []
+        for warning_path in (
+            "/api/company/warning/scans",
+            "/api/company/warning/custom-rules",
+            "/api/company/warning/rule-templates",
+            "/api/company/warning/tickets/mine",
+        ):
+            status, warning_empty_payload = request(args.port, warning_path, token=token)
+            if (
+                status != 200
+                or warning_empty_payload is None
+                or warning_empty_payload.get("data") != []
+                or warning_empty_payload.get("persisted") is not False
+                or warning_empty_payload.get("authorizing") is not False
+            ):
+                raise SmokeError(f"source warning empty read failed: {warning_path}: {status} {warning_empty_payload}")
+            warning_empty_payloads.append(warning_empty_payload)
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1930,6 +1986,8 @@ def main() -> int:
                     "fund_plan_rows": len(fund_plans_payload.get("data", [])),
                     "fund_gap_series_rows": len(fund_gap_payload.get("data", {}).get("series", [])),
                     "fund_dispatch_rows": len(fund_dispatch_payload.get("data", [])),
+                    "warning_open_rows": warning_badge_data.get("openTotal"),
+                    "warning_rule_rows": len(warning_rules_data.get("data", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,

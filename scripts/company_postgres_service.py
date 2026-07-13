@@ -70,6 +70,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/cbs/*`` (GET, source-compatible non-authorizing CBS reads)
 * ``/api/company/fund/{plans,gap-analysis,dispatches}`` (GET, source-compatible
   non-authorizing liquidity-plan reads)
+* ``/api/company/warning/{badge,'',rules,scans,custom-rules,rule-templates,tickets/mine}``
+  (GET, observed source-quality reads)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
@@ -6508,6 +6510,38 @@ FUND_SOURCE_TABLES = {
 }
 
 
+WARNING_SOURCE_TABLES = {
+    "cb_contract",
+    "cb_cost",
+    "cb_expense_split",
+    "cb_htfk_apply",
+    "ep_project",
+    "jd_task",
+    "my_biz_param_option",
+    "srm_provider",
+    "sys_user",
+    "vcb_expense",
+    "vcb_loan_simple",
+    "wf_process_instance",
+}
+
+
+WARNING_RULE_DEFINITIONS = [
+    ("W001", "项目缺少所属公司", "error", "project"),
+    ("W002", "合同未关联项目", "error", "contract"),
+    ("W003", "付款申请缺少合同", "error", "htfk_apply"),
+    ("W004", "付款累计超合同总额", "error", "contract"),
+    ("W005", "在建项目无动态成本科目", "warning", "project"),
+    ("W006", "报销分摊合计 ≠ 应付金额", "error", "expense"),
+    ("W007", "BPM 实例进行中超 7 天", "warning", "wf_instance"),
+    ("W008", "借款三态字段不一致", "error", "loan"),
+    ("W009", "任务计划完成日 < 开始日", "warning", "jd_task"),
+    ("W010", "供应商重名(SRM)", "warning", "srm_provider"),
+    ("W011", "BPM 僵尸(>30 天 Running)", "error", "wf_instance"),
+    ("W012", "用户缺少所属组织", "warning", "sys_user"),
+]
+
+
 def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
@@ -6538,6 +6572,18 @@ def _fund_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
+    }
+
+
+def _warning_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "observed_imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
     }
 
 
@@ -7592,6 +7638,233 @@ def fund_source_dispatches(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
         )
     result.sort(key=lambda value: value["created_at"], reverse=True)
     return {"success": True, "code": 0, "data": result, **_fund_source_metadata(coverage)}
+
+
+def _warning_rows_and_coverage(
+    pool: PsqlPool, max_rows: int,
+) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
+    limit = max(max_rows, 500)
+    rows = {
+        table: _raw_source_rows(pool, table, limit, WARNING_SOURCE_TABLES)
+        for table in sorted(WARNING_SOURCE_TABLES)
+    }
+    return {table: len(values) for table, values in rows.items()}, rows
+
+
+def _warning_finding(
+    code: str,
+    name: str,
+    severity: str,
+    biz_type: str,
+    data_guid: str,
+    title: str,
+    detail: str = "",
+) -> dict[str, Any]:
+    warning_guid = f"source:{code}:{data_guid}"
+    return {
+        "warningGuid": warning_guid,
+        "ruleCode": code,
+        "ruleName": name,
+        "severity": severity,
+        "bizType": biz_type,
+        "bizDataGuid": data_guid,
+        "title": title,
+        "detail": detail,
+        "firstDetectedAt": None,
+        "lastScanAt": None,
+        "resolvedAt": None,
+        "resolvedBy": None,
+        "resolvedNote": None,
+        "status": "open",
+        "sourceKind": "observed_imported",
+    }
+
+
+def _warning_findings(
+    rows: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    definitions = {code: (name, severity, biz_type) for code, name, severity, biz_type in WARNING_RULE_DEFINITIONS}
+    findings: list[dict[str, Any]] = []
+    projects = [row["payload"] for row in rows["ep_project"] if not row["payload"].get("deleted_at")]
+    contracts = [row["payload"] for row in rows["cb_contract"] if not row["payload"].get("deleted_at")]
+    applies = [row["payload"] for row in rows["cb_htfk_apply"] if not row["payload"].get("deleted_at")]
+    costs = [row["payload"] for row in rows["cb_cost"] if not row["payload"].get("deleted_at")]
+    expenses = [row["payload"] for row in rows["vcb_expense"] if not row["payload"].get("deleted_at")]
+    loans = [row["payload"] for row in rows["vcb_loan_simple"] if not row["payload"].get("deleted_at")]
+    tasks = [row["payload"] for row in rows["jd_task"] if not row["payload"].get("deleted_at")]
+    users = [row["payload"] for row in rows["sys_user"] if not row["payload"].get("deleted_at")]
+    definition = lambda code: (code, definitions[code][0], definitions[code][1], definitions[code][2])
+
+    for payload in projects:
+        if not _report_text(payload, "bu_guid"):
+            code, name, severity, biz_type = definition("W001")
+            project_id = _report_text(payload, "proj_guid")
+            findings.append(_warning_finding(code, name, severity, biz_type, project_id, _report_text(payload, "proj_name")))
+    for payload in contracts:
+        contract_id = _report_text(payload, "contract_guid")
+        if not _report_text(payload, "proj_guid"):
+            code, name, severity, biz_type = definition("W002")
+            findings.append(_warning_finding(code, name, severity, biz_type, contract_id, _report_text(payload, "contract_code") + " " + _report_text(payload, "contract_name")))
+    for payload in applies:
+        if not _report_text(payload, "contract_guid"):
+            code, name, severity, biz_type = definition("W003")
+            apply_id = _report_text(payload, "htfk_apply_guid")
+            findings.append(_warning_finding(code, name, severity, biz_type, apply_id, _report_text(payload, "apply_code")))
+    paid_by_contract: dict[str, float] = {}
+    for payload in applies:
+        if _report_text(payload, "apply_state") == "已审核":
+            contract_id = _report_text(payload, "contract_guid")
+            paid_by_contract[contract_id] = paid_by_contract.get(contract_id, 0.0) + _report_float(payload, "apply_amount")
+    for payload in contracts:
+        contract_id = _report_text(payload, "contract_guid")
+        paid = paid_by_contract.get(contract_id, 0.0)
+        total = _report_float(payload, "ht_amount") + _report_float(payload, "sum_alter_amount")
+        if contract_id and paid > total and total >= 0:
+            code, name, severity, biz_type = definition("W004")
+            findings.append(_warning_finding(code, name, severity, biz_type, contract_id, _report_text(payload, "contract_code"), f"合同总额 {total} / 已付 {paid}"))
+    end_cost_projects = {
+        _report_text(payload, "proj_guid")
+        for payload in costs
+        if _srm_source_bool(payload, "is_end_cost")
+    }
+    for payload in projects:
+        if _report_text(payload, "proj_status") in {"planning", "development", "sales"}:
+            project_id = _report_text(payload, "proj_guid")
+            if project_id and project_id not in end_cost_projects:
+                code, name, severity, biz_type = definition("W005")
+                findings.append(_warning_finding(code, name, severity, biz_type, project_id, _report_text(payload, "proj_name"), "缺少动态成本末级科目"))
+    splits_by_expense: dict[str, float] = {}
+    for row in rows["cb_expense_split"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        expense_id = _report_text(payload, "expense_guid")
+        splits_by_expense[expense_id] = splits_by_expense.get(expense_id, 0.0) + _report_float(payload, "amount")
+    for payload in expenses:
+        expense_id = _report_text(payload, "expense_guid")
+        amount = _report_float(payload, "pay_amount")
+        split = splits_by_expense.get(expense_id, 0.0)
+        if expense_id and abs(amount - split) > 0.5:
+            code, name, severity, biz_type = definition("W006")
+            findings.append(_warning_finding(code, name, severity, biz_type, expense_id, _report_text(payload, "expense_code") + " " + _report_text(payload, "subject"), f"应付 {amount} / 分摊 {split}"))
+    for payload in loans:
+        amount = _report_float(payload, "loan_amount")
+        balance = _report_float(payload, "balance_amount")
+        remain = _report_float(payload, "remain_amount")
+        if abs(remain - (amount - balance)) > 0.01:
+            code, name, severity, biz_type = definition("W008")
+            loan_id = _report_text(payload, "loan_guid")
+            findings.append(_warning_finding(code, name, severity, biz_type, loan_id, _report_text(payload, "loan_code") + " / " + _report_text(payload, "subject"), f"借 {amount} / 余 {balance} / 待还 {remain}"))
+    for payload in tasks:
+        begin = _report_date(payload.get("plan_begin_date"))
+        end = _report_date(payload.get("plan_end_date"))
+        if begin is not None and end is not None and end < begin:
+            code, name, severity, biz_type = definition("W009")
+            task_id = _report_text(payload, "task_guid")
+            findings.append(_warning_finding(code, name, severity, biz_type, task_id, _report_text(payload, "task_code") + " " + _report_text(payload, "task_name"), f"开始 {begin.isoformat()} / 完成 {end.isoformat()}"))
+    names: dict[str, list[str]] = {}
+    for row in rows["srm_provider"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        name = _report_text(payload, "provider_name")
+        if name:
+            names.setdefault(name, []).append(_report_text(payload, "provider_guid", row["record_id"]))
+    for name, identifiers in names.items():
+        if len(identifiers) > 1:
+            code, rule_name, severity, biz_type = definition("W010")
+            findings.append(_warning_finding(code, rule_name, severity, biz_type, "__agg__" + name, f"重名 {len(identifiers)} 条: {name}"))
+    for payload in users:
+        if not _report_text(payload, "bu_guid"):
+            code, name, severity, biz_type = definition("W012")
+            user_id = _report_text(payload, "user_id")
+            findings.append(_warning_finding(code, name, severity, biz_type, user_id, _report_text(payload, "user_code") + " " + _report_text(payload, "emp_name")))
+    findings.sort(key=lambda item: (0 if item["severity"] == "error" else 1, item["ruleCode"], item["bizDataGuid"]))
+    return findings
+
+
+def warning_source_list(
+    pool: PsqlPool,
+    status: str | None,
+    rule_code: str | None,
+    severity: str | None,
+    biz_type: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    for value, label in ((status, "status"), (rule_code, "rule_code"), (severity, "severity"), (biz_type, "biz_type")):
+        if value is not None and len(value) > 128:
+            raise ValueError(f"invalid {label}")
+    coverage, rows = _warning_rows_and_coverage(pool, max_rows)
+    findings = _warning_findings(rows)
+    if status is not None and status != "all":
+        findings = [item for item in findings if item["status"] == status]
+    if rule_code is not None:
+        findings = [item for item in findings if item["ruleCode"] == rule_code]
+    if severity is not None:
+        findings = [item for item in findings if item["severity"] == severity]
+    if biz_type is not None:
+        findings = [item for item in findings if item["bizType"] == biz_type]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"total": len(findings), "rows": findings[:max_rows]},
+        **_warning_source_metadata(coverage),
+    }
+
+
+def warning_source_badge(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    result = warning_source_list(pool, "open", None, None, None, max_rows)
+    rows = result["data"]["rows"]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "openTotal": result["data"]["total"],
+            "top": [
+                {
+                    "warningGuid": row["warningGuid"],
+                    "ruleCode": row["ruleCode"],
+                    "ruleName": row["ruleName"],
+                    "severity": row["severity"],
+                    "bizType": row["bizType"],
+                    "title": row["title"],
+                    "firstDetectedAt": row["firstDetectedAt"],
+                    "status": row["status"],
+                }
+                for row in rows[:10]
+            ],
+        },
+        **{key: value for key, value in result.items() if key != "data"},
+    }
+
+
+def warning_source_rules(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage, rows = _warning_rows_and_coverage(pool, max_rows)
+    findings = _warning_findings(rows)
+    counts: dict[str, int] = {}
+    for finding in findings:
+        counts[finding["ruleCode"]] = counts.get(finding["ruleCode"], 0) + 1
+    data = [
+        {
+            "ruleCode": code,
+            "ruleName": name,
+            "severity": severity,
+            "bizType": biz_type,
+            "enabled": True,
+            "openCount": counts.get(code, 0),
+            "custom": False,
+        }
+        for code, name, severity, biz_type in WARNING_RULE_DEFINITIONS
+    ]
+    return {"success": True, "code": 0, "data": data, **_warning_source_metadata(coverage)}
+
+
+def warning_source_empty_read(pool: PsqlPool, table: str, max_rows: int) -> dict[str, Any]:
+    coverage, _ = _warning_rows_and_coverage(pool, max_rows)
+    data: Any = []
+    if table == "scans":
+        data = []
+    return {"success": True, "code": 0, "data": data, **_warning_source_metadata(coverage)}
 
 
 def loans(
@@ -9673,6 +9946,33 @@ def handler_factory(
                     response(self, 200, fund_source_gap_analysis(pool, proj_guid, max_response_rows), origin)
                 elif parsed.path == "/api/company/fund/dispatches":
                     response(self, 200, fund_source_dispatches(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/warning/badge":
+                    response(self, 200, warning_source_badge(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/warning":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        warning_source_list(
+                            pool,
+                            query.get("status", ["open"])[0],
+                            query.get("ruleCode", [None])[0],
+                            query.get("severity", [None])[0],
+                            query.get("bizType", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/warning/rules":
+                    response(self, 200, warning_source_rules(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/warning/scans":
+                    response(self, 200, warning_source_empty_read(pool, "scans", max_response_rows), origin)
+                elif parsed.path == "/api/company/warning/custom-rules":
+                    response(self, 200, warning_source_empty_read(pool, "custom-rules", max_response_rows), origin)
+                elif parsed.path == "/api/company/warning/rule-templates":
+                    response(self, 200, warning_source_empty_read(pool, "rule-templates", max_response_rows), origin)
+                elif parsed.path == "/api/company/warning/tickets/mine":
+                    response(self, 200, warning_source_empty_read(pool, "tickets", max_response_rows), origin)
                 elif parsed.path == "/api/company/investment/meta/dimensions":
                     response(
                         self,

@@ -50,6 +50,10 @@ from company_postgres_service import (
     fund_source_plans as service_fund_source_plans,
     fund_source_gap_analysis as service_fund_source_gap_analysis,
     fund_source_dispatches as service_fund_source_dispatches,
+    warning_source_badge as service_warning_source_badge,
+    warning_source_list as service_warning_source_list,
+    warning_source_rules as service_warning_source_rules,
+    warning_source_empty_read as service_warning_source_empty_read,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -388,6 +392,28 @@ def fund_source_gap_analysis(args: argparse.Namespace, proj_guid: str) -> dict[s
 
 def fund_source_dispatches(args: argparse.Namespace) -> dict[str, Any]:
     return service_fund_source_dispatches(_ReadModelPool(args), 500)
+
+
+def warning_source_badge(args: argparse.Namespace) -> dict[str, Any]:
+    return service_warning_source_badge(_ReadModelPool(args), 500)
+
+
+def warning_source_list(
+    args: argparse.Namespace,
+    status: str | None,
+    rule_code: str | None,
+    severity: str | None,
+    biz_type: str | None,
+) -> dict[str, Any]:
+    return service_warning_source_list(_ReadModelPool(args), status, rule_code, severity, biz_type, 500)
+
+
+def warning_source_rules(args: argparse.Namespace) -> dict[str, Any]:
+    return service_warning_source_rules(_ReadModelPool(args), 500)
+
+
+def warning_source_empty_read(args: argparse.Namespace, table: str) -> dict[str, Any]:
+    return service_warning_source_empty_read(_ReadModelPool(args), table, 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -864,6 +890,38 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/fund/dispatches":
                     response(self, 200, fund_source_dispatches(args))
+                    return
+                if parsed.path == "/api/company/warning/badge":
+                    response(self, 200, warning_source_badge(args))
+                    return
+                if parsed.path == "/api/company/warning":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        warning_source_list(
+                            args,
+                            query.get("status", ["open"])[0],
+                            query.get("ruleCode", [None])[0],
+                            query.get("severity", [None])[0],
+                            query.get("bizType", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/warning/rules":
+                    response(self, 200, warning_source_rules(args))
+                    return
+                if parsed.path == "/api/company/warning/scans":
+                    response(self, 200, warning_source_empty_read(args, "scans"))
+                    return
+                if parsed.path == "/api/company/warning/custom-rules":
+                    response(self, 200, warning_source_empty_read(args, "custom-rules"))
+                    return
+                if parsed.path == "/api/company/warning/rule-templates":
+                    response(self, 200, warning_source_empty_read(args, "rule-templates"))
+                    return
+                if parsed.path == "/api/company/warning/tickets/mine":
+                    response(self, 200, warning_source_empty_read(args, "tickets"))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))
