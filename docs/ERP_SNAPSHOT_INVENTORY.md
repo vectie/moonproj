@@ -135,6 +135,11 @@ portfolio with a separate valuation map and accounting map; it validates one
 explicit mark-to-market event and source-to-journal link with exact SQLite and
 PostgreSQL identity parity. It never posts the book, releases cash, or mutates
 the portfolio.
+The standalone invoice/procurement accounting rehearsal uses the reviewed
+invoice and procurement maps plus a target-specific accounting map; it checks
+three invoice/subledger links and one performed commitment link with exact
+SQLite/PostgreSQL identity parity and idempotent replay. It never releases
+cash, posts the accounting book, or closes a period.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

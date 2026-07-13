@@ -150,6 +150,13 @@ pass for four projections. It is obligation evidence only: cash release,
 accounting posting, settlement, tax, period close, and owner acceptance remain
 separate. The available snapshot has no supplier or tender rows, so a redacted
 procurement export and business-owner review are still required.
+The separate invoice/procurement accounting-link boundary now binds two
+receivable openings, one payable opening, and one performed procurement
+commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL
+identity parity and zero-insert replay pass for all four links. It remains
+traceability evidence only: collection/payment cash, accounting-book posting,
+tax settlement, period close, and owner acceptance remain separate. Production
+invoice, payable, receivable, supplier, and tender exports are still required.
 The reviewed investment-performance boundary now preserves one bounded
 portfolio with two positions, explicit quote valuation, period return, and an
 external benchmark observation through native mandate and analytics checks.

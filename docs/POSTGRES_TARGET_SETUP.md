@@ -213,3 +213,9 @@ map. It appends one `investment_valuation` source-to-journal link to the target,
 reports exact PostgreSQL identity parity, and replays with zero inserts; it is
 not part of the aggregate projection count and does not post journals, release
 cash, mutate positions, or close a period.
+The separate `scripts/company_invoice_procurement_accounting_rehearsal.sh`
+adds three invoice/subledger opening links and one performed procurement
+commitment link to the same PostgreSQL accounting-link table. Each receipt
+reports exact identity parity and zero-insert replay; these links are outside
+the aggregate projection count and do not release cash, post journals, settle
+tax, or close a period.

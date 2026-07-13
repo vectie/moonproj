@@ -288,6 +288,13 @@ award amount, counterparty, and commitment state across `supplier`, `tender`,
 and `commitment` projections. Cash release, accounting posting, settlement,
 tax, and period close remain false. See
 [ERP_PROCUREMENT_COHORT.md](ERP_PROCUREMENT_COHORT.md).
+The standalone `scripts/company_invoice_procurement_accounting_rehearsal.sh`
+then binds two receivable openings, one payable opening, and one performed
+procurement commitment through target-specific accounting-map keys. Exact
+SQLite/PostgreSQL identity parity and zero-insert replay preserve four
+source-to-journal links without releasing cash, posting the book, settling tax,
+or closing a period. See
+[ERP_INVOICE_PROCUREMENT_ACCOUNTING.md](ERP_INVOICE_PROCUREMENT_ACCOUNTING.md).
 The thirty-fourth SQLite wrapper argument, or the thirty-second PostgreSQL
 cohort-runner argument, can supply a separately reviewed investment
 performance map. `scripts/erp_investment_performance_plan.py` and

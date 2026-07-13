@@ -113,7 +113,16 @@ def main() -> int:
             if not isinstance(candidate, dict):
                 reasons.append("domain_receipt_missing_candidate")
                 candidate = {}
-            mapping = mappings.get(key)
+            # A single source row can legitimately emit more than one target
+            # aggregate (for example an invoice row can open a receivable,
+            # while a tender row can create a commitment).  Prefer the
+            # target-specific reviewed key and retain the original key for
+            # existing one-target maps.
+            mapping_key = key + ":" + target_type
+            mapping = mappings.get(mapping_key)
+            if mapping is None:
+                mapping_key = key
+                mapping = mappings.get(mapping_key)
             if not isinstance(mapping, dict):
                 reasons.append("missing_accounting_mapping")
                 mapping = {}

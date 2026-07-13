@@ -1,0 +1,54 @@
+{
+  "mapping_version": "reviewed-invoice-procurement-accounting-v1",
+  "target_types": ["receivable", "payable", "commitment"],
+  "accounting_by_source": {
+    "invoice_out:invoice-source-001:receivable": {
+      "event_id": "invoice-receivable-opening-001",
+      "event_type": "receivable.opened",
+      "journal_id": "receivable/invoice-001/opening",
+      "description": "Open receivable for invoice-001",
+      "debit_account": "accounts-receivable",
+      "credit_account": "sales-revenue",
+      "principal_id": "co-001",
+      "scope": "customer:customer-001",
+      "amount_minor": 800000,
+      "currency": "CNY"
+    },
+    "invoice_out:invoice-source-002:receivable": {
+      "event_id": "invoice-receivable-opening-002",
+      "event_type": "receivable.opened",
+      "journal_id": "receivable/invoice-002/opening",
+      "description": "Open receivable for invoice-002",
+      "debit_account": "accounts-receivable",
+      "credit_account": "sales-revenue",
+      "principal_id": "co-001",
+      "scope": "customer:customer-002",
+      "amount_minor": 500000,
+      "currency": "CNY"
+    },
+    "invoice_in:invoice-source-in-001:payable": {
+      "event_id": "invoice-payable-opening-001",
+      "event_type": "payable.opened",
+      "journal_id": "payable/invoice-in-001/opening",
+      "description": "Open payable for invoice-in-001",
+      "debit_account": "project-cost",
+      "credit_account": "accounts-payable",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "amount_minor": 700000,
+      "currency": "CNY"
+    },
+    "tender_plan:tender-001:commitment": {
+      "event_id": "procurement-commitment-performed-001",
+      "event_type": "commitment.performed",
+      "journal_id": "commitment/procurement-001/performed",
+      "description": "Recognize performed procurement commitment",
+      "debit_account": "project-cost",
+      "credit_account": "accounts-payable",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "amount_minor": 1050000,
+      "currency": "CNY"
+    }
+  }
+}
