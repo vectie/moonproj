@@ -4116,8 +4116,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_supplier_dictionary_read",
+      "required_next": "accept_browser_supplier_dictionary_scenario_and_production_identity"
     },
     {
       "module": "srm",
@@ -4128,8 +4128,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_supplier_dictionary_read",
+      "required_next": "accept_browser_supplier_dictionary_scenario_and_production_identity"
     },
     {
       "module": "srm",
@@ -4140,8 +4140,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_supplier_dictionary_read",
+      "required_next": "accept_browser_supplier_dictionary_scenario_and_production_identity"
     },
     {
       "module": "srm",

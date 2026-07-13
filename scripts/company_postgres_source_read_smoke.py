@@ -235,6 +235,33 @@ def main() -> int:
                 and tender_source.get("persisted") is False,
                 f"source tender {family} empty boundary failed: {status} {tender_source}",
             )
+        status, categories = request(
+            args.port,
+            "/api/company/source/srm/categories",
+            token=token,
+        )
+        expect(
+            status == 200
+            and categories is not None
+            and categories.get("data") == []
+            and categories.get("source_coverage", {}).get("srm_category") == 0
+            and categories.get("authorizing") is False
+            and categories.get("persisted") is False,
+            f"source supplier categories empty boundary failed: {status} {categories}",
+        )
+        for path, expected_count in (
+            ("/api/company/source/srm/dict/eval-results", 6),
+            ("/api/company/source/srm/dict/sources", 4),
+        ):
+            status, dictionary = request(args.port, path, token=token)
+            expect(
+                status == 200
+                and dictionary is not None
+                and len(dictionary.get("data", [])) == expected_count
+                and dictionary.get("authorizing") is False
+                and dictionary.get("persisted") is False,
+                f"source supplier dictionary read failed: {status} {dictionary}",
+            )
         status, scope = request(
             args.port,
             "/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001",
@@ -303,7 +330,8 @@ def main() -> int:
             "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
             "attachments=0 invoices=0 budget_users=4 loan_balance=3500 "
             "workflow_instances=0 workflow_actions=0 progress=0 outputs=0 "
-            "sales_customers=0 sales_revenues=0 tender_plans=0 tender_awards=0",
+            "sales_customers=0 sales_revenues=0 tender_plans=0 tender_awards=0 "
+            "supplier_categories=0 supplier_eval=6 supplier_sources=4",
         )
         return 0
     finally:

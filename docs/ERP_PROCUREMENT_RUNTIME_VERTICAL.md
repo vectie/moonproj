@@ -1,7 +1,8 @@
 # ERP procurement/tender runtime vertical
 
 Status: local PostgreSQL/Rabbita slice verified; source export and production
-acceptance remain open.
+acceptance remain open. Supplier provider data and supplier dictionaries are
+kept as separate, non-authorizing observations.
 
 The ERP `/tender` and `/srm/providers` pages are now connected to the company
 boundary. They read the latest `tender` and `supplier` aggregate projections
@@ -44,6 +45,12 @@ rows are production data.
   derived non-authorizing read;
 - `GET /api/company/srm/stats/overview` for source-backed enabled-provider,
   rating, category/source, and top-business aggregates;
+- `GET /api/company/source/srm/categories` for the source `srm_category`
+  observation;
+- `GET /api/company/source/srm/dict/eval-results` and
+  `GET /api/company/source/srm/dict/sources` for reviewed evaluation-result and
+  supplier-source definitions. These are definition observations, not grants
+  to qualify, approve, blacklist, or otherwise authorize a supplier;
 - `GET /api/company/srm/risk-board` for the source-compatible ERP risk-board
   envelope. It computes the source risk formula only from imported
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
@@ -95,6 +102,20 @@ fields for Rabbita, report all three table counts, and mark the read as
 non-authorizing and non-persisting. The available export has zero rows in all
 three tables, so the tender page renders an explicit empty source state rather
 than promoting its reviewed snapshot rows.
+
+The supplier dictionary boundary is:
+
+- `GET /api/company/source/srm/categories` over the imported `srm_category`
+  table;
+- `GET /api/company/source/srm/dict/eval-results` for six reviewed evaluation
+  outcomes;
+- `GET /api/company/source/srm/dict/sources` for four reviewed source labels.
+
+All three responses preserve explicit coverage and mark the observation
+non-authorizing and non-persisting. The current export has no `srm_category`
+rows, while the latter two are definition observations because their source
+dictionary rows are not present. They must not be used to seed supplier
+qualification state or to bypass the source identity/owner-approval gate.
 
 ## Evidence
 

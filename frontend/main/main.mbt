@@ -660,6 +660,11 @@ struct Model {
   supplier_source_rows : Array[SupplierRow]
   supplier_source_missing_table_count : String
   supplier_source_note : String
+  supplier_dict_loaded : Bool
+  supplier_category_count : String
+  supplier_eval_count : String
+  supplier_source_count : String
+  supplier_dict_note : String
   supplier_risk_loaded : Bool
   supplier_risk_rows : Array[SupplierRiskRow]
   supplier_risk_distribution_total : String
@@ -1009,6 +1014,10 @@ enum Msg {
   SuppliersLoadFailed
   SupplierSourceLoaded(String)
   SupplierSourceLoadFailed
+  SupplierDictCategoriesLoaded(String)
+  SupplierDictEvalLoaded(String)
+  SupplierDictSourcesLoaded(String)
+  SupplierDictLoadFailed
   SupplierDetailLoaded(String)
   SupplierDetailLoadFailed
   SupplierDetailRiskLoaded(String)
@@ -1202,6 +1211,11 @@ fn initial_model() -> Model {
     supplier_source_rows: [],
     supplier_source_missing_table_count: "0",
     supplier_source_note: "供应商源表读模型尚未加载 · 使用设计快照",
+    supplier_dict_loaded: false,
+    supplier_category_count: "0",
+    supplier_eval_count: "0",
+    supplier_source_count: "0",
+    supplier_dict_note: "供应商字典源观察尚未加载 · 使用设计快照",
     supplier_risk_loaded: false,
     supplier_risk_rows: [],
     supplier_risk_distribution_total: "0",
@@ -5809,6 +5823,36 @@ fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
 
 ///|
 fn load_supplier_source(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/srm/categories").expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierDictCategoriesLoaded(body))
+      Err(_) => emit(SupplierDictLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_supplier_dict_eval(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/srm/dict/eval-results").expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierDictEvalLoaded(body))
+      Err(_) => emit(SupplierDictLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_supplier_dict_sources(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/srm/dict/sources").expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierDictSourcesLoaded(body))
+      Err(_) => emit(SupplierDictLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_supplier_source_list(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/srm/providers").expect_text(result => {
     match result {
       Ok(body) => emit(SupplierSourceLoaded(body))
@@ -6914,10 +6958,61 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           supplier_source_loaded: true,
           supplier_source_rows: rows,
           supplier_source_missing_table_count: missing_table_count,
-          supplier_source_note: "已加载 PostgreSQL 供应商源表 · 空表与缺失表保持可见",
+          supplier_source_note: "已加载 PostgreSQL 供应商源表 · 空表与缺失表保持可见 · " +
+          model.supplier_dict_note,
         },
       )
     }
+    SupplierDictCategoriesLoaded(body) =>
+      (
+        load_supplier_dict_eval(emit),
+        {
+          ..model,
+          supplier_dict_loaded: false,
+          supplier_category_count: source_data_row_count(body).to_string(),
+          supplier_dict_note: "供应商类别源 " +
+          source_data_row_count(body).to_string() +
+          " 行 · 正在读取评价字典",
+        },
+      )
+    SupplierDictEvalLoaded(body) =>
+      (
+        load_supplier_dict_sources(emit),
+        {
+          ..model,
+          supplier_eval_count: source_data_row_count(body).to_string(),
+          supplier_dict_note: "供应商类别 " +
+          model.supplier_category_count +
+          " 行 · 评价字典 " +
+          source_data_row_count(body).to_string() +
+          " 行 · 正在读取来源字典",
+        },
+      )
+    SupplierDictSourcesLoaded(body) =>
+      (
+        load_supplier_source_list(emit),
+        {
+          ..model,
+          supplier_dict_loaded: true,
+          supplier_source_count: source_data_row_count(body).to_string(),
+          supplier_dict_note: "供应商类别 " +
+          model.supplier_category_count +
+          " · 评价 " +
+          model.supplier_eval_count +
+          " · 来源 " +
+          source_data_row_count(body).to_string() +
+          " 行",
+        },
+      )
+    SupplierDictLoadFailed =>
+      (
+        load_supplier_source_list(emit),
+        {
+          ..model,
+          supplier_dict_loaded: false,
+          supplier_dict_note: "供应商字典源观察不可用 · 使用设计快照",
+        },
+      )
     SupplierSourceLoadFailed =>
       (
         none,
@@ -12202,12 +12297,19 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let source_note = if model.supplier_source_loaded {
     model.supplier_source_note +
     " · 缺失/空源表 " +
-    model.supplier_source_missing_table_count
+    model.supplier_source_missing_table_count +
+    " · 来源字典 " +
+    model.supplier_source_count +
+    " 行"
   } else {
     model.supplier_note
   }
   let source_label = if model.supplier_source_loaded {
-    "ERP 源表"
+    if model.supplier_dict_loaded {
+      "ERP 源表+字典"
+    } else {
+      "ERP 源表"
+    }
   } else if model.suppliers_loaded {
     "PostgreSQL 投影"
   } else {

@@ -368,9 +368,9 @@ are attached. The JSON output contains all 338 handler rows.
 | `sales` | `GET` | `/refunds` | `/sales/revenues`, `/sales/customers`, `/sales/subscriptions`, `/sales/contracts`, `/sales/mortgages` | `connected_sales_source_read` | `accept_browser_sales_source_scenario_and_production_identity` |
 | `sales` | `POST` | `/refunds` | `/sales/revenues`, `/sales/customers`, `/sales/subscriptions`, `/sales/contracts`, `/sales/mortgages` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `sales` | `POST` | `/refunds/:guid/approve` | `/sales/revenues`, `/sales/customers`, `/sales/subscriptions`, `/sales/contracts`, `/sales/mortgages` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `srm` | `GET` | `/categories` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
-| `srm` | `GET` | `/dict/eval-results` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
-| `srm` | `GET` | `/dict/sources` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
+| `srm` | `GET` | `/categories` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_dictionary_read` | `accept_browser_supplier_dictionary_scenario_and_production_identity` |
+| `srm` | `GET` | `/dict/eval-results` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_dictionary_read` | `accept_browser_supplier_dictionary_scenario_and_production_identity` |
+| `srm` | `GET` | `/dict/sources` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_dictionary_read` | `accept_browser_supplier_dictionary_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_read` | `accept_browser_supplier_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers/:guid` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_read` | `accept_browser_supplier_scenario_and_production_identity` |
 | `srm` | `POST` | `/providers` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `implement_authenticated_command_and_audit` |

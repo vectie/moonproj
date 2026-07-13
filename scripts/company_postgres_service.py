@@ -44,6 +44,8 @@ The bounded service exposes these endpoints:
   ``/api/company/srm/stats/overview``,
   and ``/api/company/srm/risk-board`` (GET)
   source-compatible, non-authorizing reads with coverage metadata
+* ``/api/company/source/srm/{categories,dict/eval-results,dict/sources}``
+  (GET, source/definition dictionary observations)
 * ``/api/company/tender-splits`` (GET/POST)
 * ``/api/company/source/tender/{tenders,awards,splits}`` (GET, source ERP
   procurement observations; empty source tables stay explicit)
@@ -1741,6 +1743,79 @@ def _supplier_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
+    }
+
+
+def _supplier_dictionary_metadata(
+    coverage: dict[str, int],
+    source_kind: str,
+) -> dict[str, Any]:
+    return {
+        "source_kind": source_kind,
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _supplier_sort_order(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def supplier_source_categories(
+    pool: PsqlPool,
+    max_rows: int,
+) -> dict[str, Any]:
+    raw = _raw_source_rows(pool, "srm_category", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    rows = [
+        {
+            "code": str(row["payload"].get("category_code") or row["record_id"]),
+            "name": str(row["payload"].get("category_name") or ""),
+            "sortOrder": _supplier_sort_order(row["payload"].get("sort_order")),
+            "sourceKind": "imported",
+            "sourceId": row["source_id"],
+        }
+        for row in raw
+    ]
+    rows.sort(key=lambda value: (_supplier_sort_order(value["sortOrder"]), str(value["code"])))
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows[:max_rows],
+        **_supplier_dictionary_metadata({"srm_category": len(raw)}, "imported_or_empty"),
+    }
+
+
+def supplier_source_eval_results() -> dict[str, Any]:
+    rows = [
+        {"code": value, "name": value, "sourceKind": "definition"}
+        for value in ("已评审", "合格", "不合格", "战略", "黑名单", "未定级")
+    ]
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows,
+        **_supplier_dictionary_metadata({}, "definition"),
+    }
+
+
+def supplier_source_sources() -> dict[str, Any]:
+    rows = [
+        {"code": value, "name": value, "sourceKind": "definition"}
+        for value in ("云采购", "内部收集", "外网注册", "其他")
+    ]
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows,
+        **_supplier_dictionary_metadata({}, "definition"),
     }
 
 
@@ -13461,6 +13536,12 @@ def handler_factory(
                         pool, int(query.get("horizonDays", ["90"])[0]), max_response_rows,
                     )
                     response(self, 200, result, origin)
+                elif parsed.path == "/api/company/source/srm/categories":
+                    response(self, 200, supplier_source_categories(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/source/srm/dict/eval-results":
+                    response(self, 200, supplier_source_eval_results(), origin)
+                elif parsed.path == "/api/company/source/srm/dict/sources":
+                    response(self, 200, supplier_source_sources(), origin)
                 elif parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(pool, max_response_rows), origin)
                 elif re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):

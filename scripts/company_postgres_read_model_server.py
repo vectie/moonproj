@@ -101,6 +101,9 @@ from company_postgres_service import (
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
     supplier_source_list as service_supplier_source_list,
+    supplier_source_categories as service_supplier_source_categories,
+    supplier_source_eval_results as service_supplier_source_eval_results,
+    supplier_source_sources as service_supplier_source_sources,
     supplier_source_detail as service_supplier_source_detail,
     supplier_source_stats as service_supplier_source_stats,
     supplier_source_risk as service_supplier_source_risk,
@@ -747,6 +750,18 @@ def webhook_source_config(args: argparse.Namespace) -> dict[str, Any]:
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
     return service_supplier_source_list(_ReadModelPool(args), 500)
+
+
+def supplier_source_categories(args: argparse.Namespace) -> dict[str, Any]:
+    return service_supplier_source_categories(_ReadModelPool(args), 500)
+
+
+def supplier_source_eval_results(args: argparse.Namespace) -> dict[str, Any]:
+    return service_supplier_source_eval_results()
+
+
+def supplier_source_sources(args: argparse.Namespace) -> dict[str, Any]:
+    return service_supplier_source_sources()
 
 
 def supplier_source_detail(args: argparse.Namespace, provider_guid: str) -> dict[str, Any]:
@@ -1544,6 +1559,15 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/webhook/config":
                     response(self, 200, webhook_source_config(args))
+                    return
+                if parsed.path == "/api/company/source/srm/categories":
+                    response(self, 200, supplier_source_categories(args))
+                    return
+                if parsed.path == "/api/company/source/srm/dict/eval-results":
+                    response(self, 200, supplier_source_eval_results(args))
+                    return
+                if parsed.path == "/api/company/source/srm/dict/sources":
+                    response(self, 200, supplier_source_sources(args))
                     return
                 if parsed.path == "/api/company/admin/ocr/status":
                     response(self, 200, ocr_source_status(args))

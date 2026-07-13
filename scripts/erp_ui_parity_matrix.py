@@ -328,6 +328,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_delivery_source_scenario_and_production_identity"
     if target_state == "connected_tender_source_read":
         return "accept_browser_tender_source_scenario_and_production_identity"
+    if target_state == "connected_supplier_dictionary_read":
+        return "accept_browser_supplier_dictionary_scenario_and_production_identity"
     if target_state == "connected_report_read":
         return "accept_browser_report_scenario_and_production_identity"
     if target_state == "connected_workflow_definition_read":
@@ -709,6 +711,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
     ):
         return "connected_supplier_read", "accept_browser_supplier_scenario_and_production_identity"
+    if (
+        handler["module"] == "srm"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/categories", "/dict/eval-results", "/dict/sources"}
+    ):
+        return "connected_supplier_dictionary_read", "accept_browser_supplier_dictionary_scenario_and_production_identity"
     if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
