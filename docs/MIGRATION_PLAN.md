@@ -438,6 +438,39 @@ definitions and show an explicit empty-template state. Template execution,
 creation, deletion, exports, production identity, and report-owner acceptance
 remain separate gates.
 
+**Next-wave source audit (2026-07-14).** The route register has 56 source
+`GET`/`HEAD` handlers that are not yet marked connected, but they are not one
+uniform backlog. Four groups are now explicit:
+
+* **Evidence-ready reads:** contract/payment/milestone reads can use the
+  non-empty `cb_contract`, `cb_htfk_apply`, `cb_htfkplan`, and `cb_cost` source
+  envelopes; budget scope and loan-balance reads can use the imported
+  `sys_user`, `mu_business_unit`, and `vcb_loan_simple` rows. These are the next
+  bounded adapters to evaluate, with source coverage and source-compatible
+  empty/not-found semantics before changing parity state.
+* **Defined-but-empty or absent source reads:** workflow instance/task views
+  have defined `wf_process_instance`/`wf_step_action` tables but zero rows;
+  attachment download has no imported `attachment` rows; invoice/tax,
+  sales/receivables, progress/output, tender/award/split, and several
+  investment detail tables are absent or empty in this snapshot. These may only
+  be exposed as explicit empty-source observations after an adapter proves the
+  boundary; no fixture rows may fill the gap.
+* **Identity/RBAC and operational reads:** preferences, role/permission
+  catalogs, full health/backup, and import-template reads require the reviewed
+  identity/operations boundary or a broader source export. They are not
+  promoted merely because a local target endpoint exists.
+* **Provider/external reads:** LLM/OCR diagnostics, provider signature checks,
+  and similar status/verification endpoints remain provider and credential
+  gates. A successful metadata read does not authorize a provider call.
+
+The remaining 233 API handlers are therefore deliberately split between these
+bounded read candidates and mutation/provider commands. New source-compatible
+reads must report coverage, preserve redaction and 404 behavior, and mark
+`authorizing=false`, `persisted=false`, and `provider_execution=false` where
+those fields apply. This audit changes the next implementation wave from a
+route-count sweep to a small evidence-ready read batch followed by production
+identity acceptance and the missing-table export gate.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
@@ -486,11 +519,11 @@ remain separate gates.
    The source-compatible dynamic-cost read is now connected as a separate
    cost slice: Rabbita `/dynamic-cost` loads all seven imported `cb_cost` rows,
    preserves the source A/B/C/D/E/F/G/H formula, and reports the imported
-   summary and coverage. This does not make the broader cost dashboard
-   complete: `/cost-dashboard-v3` still needs the source
-   `investment/projects/:projGuid/profit-actual-v2` hierarchy, CBS version
-   selection, and the missing budget/expense/change tables before it can be
-   promoted beyond the designer fixture. See
+   summary and coverage. The separate `/cost-dashboard-v3` read now also
+   consumes the source-compatible `profit-actual-v2` hierarchy and reports
+   truthful zero-row coverage when CBS/version, budget, expense, and change
+   tables are unavailable; it is connected observation evidence, not accepted
+   production KPI parity. See
    [`ERP_DYNAMIC_COST_RUNTIME_AUDIT.md`](ERP_DYNAMIC_COST_RUNTIME_AUDIT.md).
    Admin dictionary, bounded quality, audit, health, user-roster, and
    imported-profile reads are connected
@@ -549,8 +582,9 @@ dictionary and expense detail, investment and cost-dashboard v3,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan,
-workflow-definition, and AI Hub observation reads; the three dashboard aliases
-now represent the bounded source-backed v1 read. The remaining browser views
+workflow-definition, AI analytics, AI Hub observation, webhook metadata,
+report-builder metadata, and cost-dashboard v3 reads; the three dashboard
+aliases now represent the bounded source-backed v1 read. The remaining browser views
 and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
@@ -580,6 +614,14 @@ Execute the remainder in this order:
    or fabricate approval, supplier, risk, or expense rows from the current
    backup. Keep the current 26-table/120-row snapshot as the immutable
    rehearsal baseline and compare the new export before raw staging.
+3a. Implement only the next evidence-ready read batch identified by the
+    source audit: contract/payment/milestone reads, budget user/loan scope, and
+    workflow instance/task observation endpoints where the source tables are
+    defined. Each adapter must be source-compatible, bounded, non-authorizing,
+    and empty-safe; update the parity register only after service, read-model,
+    Rabbita, smoke, and owner-evidence checks pass. Do not use this batch to
+    unlock commands or to infer missing sales, invoice, supplier, tender, tax,
+    or investment detail rows.
 4. Close the procurement acceptance gap after the source-data decision.
    The local supplier lifecycle/risk reads, source-compatible provider-list/detail and risk-board reads,
    tender planning/award/complete,
@@ -614,12 +656,13 @@ Execute the remainder in this order:
    links separate. Synthetic rehearsals remain design evidence until real
    source rows and user acceptance are attached. See
    `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
-8. Treat `/cost-dashboard-v3` as a separate dependency wave after the
-   connected dynamic-cost read has been accepted through production identity
-   and finance-owner reconciliation. Implement its read adapter only after the source
-   `profit-actual-v2`, CBS version, budget, expense, and change-table exports
-   are present (or explicitly dispositioned); do not fill the missing hierarchy
-   with dashboard fixtures and do not call the v3 screen parity complete.
+8. Treat `/cost-dashboard-v3` as a separate acceptance wave after the
+   connected dynamic-cost and v3 observation reads have been accepted through
+   production identity and finance-owner reconciliation. The adapter already
+   preserves the source `profit-actual-v2`/CBS hierarchy boundary and reports
+   missing budget/expense/change tables explicitly; do not fill that hierarchy
+   with dashboard fixtures and do not call the v3 screen parity complete until
+   the source coverage and KPI reconciliation gate passes.
 9. Accept the bounded dashboard v1 gate in
    `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
    through production identity, entity scope, and operations/finance KPI
