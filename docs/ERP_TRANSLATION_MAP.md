@@ -109,10 +109,11 @@ identical replay is idempotent. `scripts/company_sqlite_projection_apply.py`
 then consumes only a native, domain-validated promotion receipt and persists
 immutable aggregate revisions plus a projection receipt with idempotent replay.
 The executable `scripts/company_postgres_service.py` now provides the local
-authenticated fixed-read runtime with bounded reusable sessions and schema
-readiness; managed provider deployment, token issuer/audience validation, and
-operational backup/restore runbooks are still required. The rehearsal
-backup/restore parity gate is executable.
+authenticated fixed-read runtime plus the reviewed expense command vertical,
+with bounded reusable sessions, schema readiness, idempotency, projection, and
+audit receipts; managed provider deployment, token issuer/audience
+validation, and operational backup/restore runbooks are still required. The
+rehearsal backup/restore parity gate is executable.
 `scripts/company_sqlite_driver.py` is the shared local driver boundary used by
 projection, accounting-link, backup, and rollback smoke paths. It centralizes
 WAL, foreign keys, busy timeout, immediate transactions, catalog application,

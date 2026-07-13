@@ -276,16 +276,19 @@ replacement of `erp_new`. The findings that now control sequencing are:
 
 Execute the remainder in this order:
 
-1. Build a source-to-target page/route/action parity matrix and finish the
-   visual/interaction comparison for every ERP route family. Record each
-   route as `matched`, `intentionally changed`, `blocked by missing source`, or
-   `not implemented`; do not call the UI complete from screenshots of only the
-   dashboard.
+1. Build on `docs/ERP_UI_PARITY_MATRIX.md` / `.json`, the source-to-target
+   page/route/action parity matrix and finish the visual/interaction comparison
+   for every ERP route family. Record each route as `matched`, `intentionally
+   changed`, `blocked by missing source`, or `not implemented`; do not call the
+   UI complete from screenshots of only the dashboard.
 2. Connect one complete runtime vertical slice—organization/project → contract
    or expense → approval → accounting/audit evidence—to authenticated,
    idempotent company APIs and the Rabbita UI. Prove read, create/update,
    rejection, resubmission, and audit behavior against PostgreSQL before
-   expanding to the next vertical.
+   expanding to the next vertical. The local PostgreSQL service now proves
+   the expense create/submit/reject/resubmit/approve command and audit
+   lifecycle; the remaining work in this step is same-origin session/token
+   wiring and visible Rabbita state changes.
 3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.

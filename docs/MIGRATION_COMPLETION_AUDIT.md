@@ -12,7 +12,7 @@ named owner action.
 | Requirement | Evidence | Result |
 |---|---|---|
 | Standalone company product boundary | `PRODUCT_CHARTER.md`, `MOON_SUITE_BOUNDARY.md` | Complete; Moon Suite integrations are optional and shallow. |
-| ERP breadth inventory | `ERP_CAPABILITY_BASELINE.md`, route/schema inventories | Complete; 75 schema tables, 30 route files, 338 handlers, 28 middleware registrations. |
+| ERP breadth inventory | `ERP_CAPABILITY_BASELINE.md`, route/schema inventories, `ERP_UI_PARITY_MATRIX.md` | Complete as an inventory: 75 schema tables, 30 route files, 338 handlers, 28 middleware registrations, and 56 browser routes are enumerated. Functional UI/API parity is tracked separately below and remains open. |
 | Available source preservation | `ERP_SNAPSHOT_INVENTORY.md`, raw staging, source export contract | Complete for the available artifact; 26 tables and 120 rows are hashed, redacted, and staged. |
 | Row disposition coverage | `ERP_ROW_COVERAGE.md` | Complete for available rows; 120/120 covered, including aggregated parameter, investment, and workflow rows. |
 | Schema-only translation | `ERP_SCHEMA_COHORTS.md` and seven cohort documents | Complete as semantic mapping; all 49 absent tables have owners/security controls, but no absent rows were fabricated. |
@@ -56,11 +56,11 @@ named owner action.
 
 | Requirement | Current evidence | Required next action |
 |---|---|---|
-| Full UI and runtime feature parity | `frontend/README.md`, `IMPLEMENTATION_STATUS.md` | Build and accept the 30-route/338-handler page/action matrix, connect authenticated command/read APIs, and pass role-based golden workflows with visible durable state changes. |
+| Full UI and runtime feature parity | `ERP_UI_PARITY_MATRIX.md` / `.json`, `frontend/README.md`, `IMPLEMENTATION_STATUS.md` | Accept all 56 browser-route rows and 338 API-action rows, connect authenticated command/read APIs, and pass role-based golden workflows with visible durable state changes. |
 | Complete production source export | `source-export-contract.json` is `source_export_incomplete` (26/75) | Supply the redacted MySQL/JSON export requested by `ERP_SOURCE_EXPORT_REQUEST.md`. |
 | Live ERP availability | `ERP_MYSQL_SOURCE_PROBE.md` | Provision/reopen the configured MySQL listener or provide the export offline. |
 | Production provider readiness | `production-deployment-gate.json` | Provision the managed database and obtain structured finance/operations/security approvals. |
-| Production service boundary | `company_production_service_check.py`, `company_postgres_service.py`, `company_postgres_service_smoke.py`, `production-service-gate.json` | The local PostgreSQL service runtime passes authenticated fixed-read, schema-readiness, forwarded-TLS, mutation rejection, bounded reusable-session, and missing-token smoke checks. The credential-free manifest remains `ready_for_service_review`; managed TLS/token issuer validation, telemetry, deployment authorization, and provider execution remain pending. |
+| Production service boundary | `company_production_service_check.py`, `company_postgres_service.py`, `company_postgres_service_smoke.py`, `production-service-gate.json`, `ERP_EXPENSE_RUNTIME_VERTICAL.md` | The local PostgreSQL runtime passes authenticated fixed-read checks plus the first idempotent expense command lifecycle with projection/audit receipts. The credential-free managed manifest remains read-only and `ready_for_service_review`; command-gateway TLS/token issuer validation, telemetry, deployment authorization, and provider execution remain pending. |
 | Business acceptance | `business-acceptance.json` | Named owners decide task-state, schema-scope, accounting, deployment, and shadow-period items. |
 | Actual shadow operation | `shadow-period.json` is `shadow_pending_owner` | Run the agreed read-only comparison period and retain rollback evidence. |
 | Ownership transfer/cutover | `cutover_authorized=false` | Only after source completeness, owner acceptance, shadow evidence, and rollback signoff. |

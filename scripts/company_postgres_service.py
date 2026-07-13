@@ -8,12 +8,15 @@ exercised without introducing a third-party runtime dependency.  The managed
 deployment still owns TLS termination, token issuance, observability sinks,
 and provider-level capacity controls.
 
-Only these GET endpoints exist:
+The bounded service exposes these endpoints:
 
 * ``/api/health``
 * ``/api/company/summary``
 * ``/api/company/receipts``
 * ``/api/company/projections?aggregate_type=<optional>``
+* ``/api/company/expenses`` and ``/api/company/expenses/<id>`` (GET)
+* ``/api/company/expenses`` (POST create draft)
+* ``/api/company/expenses/<id>/{submit,approve,reject,resubmit}`` (POST)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -49,6 +52,14 @@ class ServiceError(RuntimeError):
 
 class PoolExhausted(ServiceError):
     """No reusable database session became available before the deadline."""
+
+
+class CommandRejected(ServiceError):
+    """A validated company command could not be applied."""
+
+    def __init__(self, message: str, status: int = 409) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -234,7 +245,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
     return {
         "product": "moonproj-company",
         "target": "postgresql",
-        "read_only": True,
+        "read_only": False,
+        "capabilities": ["read_model", "expense_command", "audit_receipt"],
         "schema_version": schema_version,
         "raw_records": raw,
         "aggregate_projections": projections,
@@ -245,7 +257,13 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
 
 def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
     summary(pool, expected_schema_version)
-    return {"ok": True, "target": "postgresql", "read_only": True, "schema_version": expected_schema_version}
+    return {
+        "ok": True,
+        "target": "postgresql",
+        "read_only": False,
+        "capabilities": ["read_model", "expense_command", "audit_receipt"],
+        "schema_version": expected_schema_version,
+    }
 
 
 def decode_hex(value: str) -> str:
@@ -328,6 +346,326 @@ def projections(pool: PsqlPool, aggregate_type: str | None, max_rows: int) -> li
     return result
 
 
+def _decode_projection_line(line: str) -> dict[str, Any]:
+    fields = line.split("|")
+    if len(fields) != 5:
+        raise ServiceError("unexpected expense projection shape")
+    try:
+        payload = json.loads(decode_hex(fields[3]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid expense projection JSON") from error
+    return {
+        "aggregate_type": decode_hex(fields[0]),
+        "expense_id": decode_hex(fields[1]),
+        "revision": int(fields[2]),
+        "payload": payload,
+        "source_event_id": decode_hex(fields[4]),
+    }
+
+
+def expenses(pool: PsqlPool, expense_id: str | None, max_rows: int) -> list[dict[str, Any]]:
+    if expense_id is not None and not IDENTIFIER.fullmatch(expense_id):
+        raise ValueError("invalid expense_id")
+    if expense_id is None:
+        query = f"""
+        SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'),
+               encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+               revision::text,
+               encode(convert_to(payload::text, 'UTF8'), 'hex'),
+               encode(convert_to(source_event_id, 'UTF8'), 'hex')
+        FROM (
+          SELECT DISTINCT ON (aggregate_id)
+                 aggregate_type, aggregate_id, revision, payload, source_event_id
+          FROM company_aggregate_projection
+          WHERE aggregate_type = 'expense_claim'
+          ORDER BY aggregate_id, revision DESC
+        ) latest
+        ORDER BY aggregate_id
+        LIMIT {max_rows}
+        """
+    else:
+        query = f"""
+        SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'),
+               encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+               revision::text,
+               encode(convert_to(payload::text, 'UTF8'), 'hex'),
+               encode(convert_to(source_event_id, 'UTF8'), 'hex')
+        FROM company_aggregate_projection
+        WHERE aggregate_type = 'expense_claim'
+          AND aggregate_id = {sql_literal(expense_id)}
+        ORDER BY revision DESC
+        LIMIT {max_rows}
+        """
+    return [_decode_projection_line(line) for line in query_lines(pool, query)]
+
+
+def _required_text(body: dict[str, Any], key: str) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if not IDENTIFIER.fullmatch(value) and key not in {"summary", "reason"}:
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _expense_request(
+    command_type: str,
+    expense_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, dict[str, Any]]:
+    if command_type not in {"create", "submit", "approve", "reject", "resubmit"}:
+        raise CommandRejected("unsupported expense command", 404)
+    if command_type == "create":
+        requested_id = body.get("expense_id")
+        expense_id = requested_id if isinstance(requested_id, str) and requested_id.strip() else None
+        if expense_id is None:
+            expense_id = "EXP-" + uuid.uuid4().hex[:20]
+        if not IDENTIFIER.fullmatch(expense_id):
+            raise CommandRejected("expense_id contains unsupported characters", 422)
+        employee_id = _required_text(body, "employee_id")
+        summary = _required_text(body, "summary")
+        currency = _required_text(body, "currency").upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            raise CommandRejected("currency must be a three-letter code", 422)
+        amount_minor = body.get("amount_minor")
+        if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+            raise CommandRejected("amount_minor must be a positive integer", 422)
+        request = {
+            "command_type": command_type,
+            "expense_id": expense_id,
+            "employee_id": employee_id,
+            "summary": summary,
+            "amount_minor": amount_minor,
+            "currency": currency,
+            "project_id": body.get("project_id"),
+            "cost_subject": body.get("cost_subject"),
+            "actor_id": actor_id,
+        }
+        return expense_id, request
+    if expense_id is None or not IDENTIFIER.fullmatch(expense_id):
+        raise CommandRejected("expense_id is required", 422)
+    request = {
+        "command_type": command_type,
+        "expense_id": expense_id,
+        "reason": body.get("reason", ""),
+        "actor_id": actor_id,
+    }
+    return expense_id, request
+
+
+def _existing_command(pool: PsqlPool, idempotency_key: str) -> dict[str, Any] | None:
+    lines = query_lines(
+        pool,
+        f"""
+        SELECT encode(convert_to(payload::text, 'UTF8'), 'hex')
+        FROM company_record
+        WHERE record_type = 'company_command'
+          AND source_id = {sql_literal('moonproj:command:' + idempotency_key)}
+        LIMIT 1
+        """,
+    )
+    if not lines:
+        return None
+    try:
+        value = json.loads(decode_hex(lines[0]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid stored company command receipt") from error
+    if not isinstance(value, dict):
+        raise ServiceError("stored company command receipt is not an object")
+    return value
+
+
+def expense_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    expense_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    expense_id, request = _expense_request(command_type, expense_id, body, actor_id)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored company command receipt has no result")
+        return {
+            "command": existing,
+            "expense": result,
+            "idempotent_replay": True,
+        }
+    current = expenses(pool, expense_id, 1)
+    if command_type == "create" and current:
+        raise CommandRejected("expense already exists", 409)
+    if command_type != "create":
+        if not current:
+            raise CommandRejected("expense not found", 404)
+        current_state = str(current[0]["payload"].get("state", ""))
+        expected = {
+            "submit": "draft",
+            "approve": "submitted",
+            "reject": "submitted",
+            "resubmit": "rejected",
+        }[command_type]
+        if current_state != expected:
+            raise CommandRejected(
+                f"expense transition {command_type} requires {expected}, found {current_state}",
+                409,
+            )
+    event_id = f"expense:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_payload = {
+        "kind": "company_command",
+        "command_type": command_type,
+        "idempotency_key": idempotency_key,
+        "expense_id": expense_id,
+        "actor_id": actor_id,
+        "request": request,
+    }
+    command_json = json.dumps(command_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES (
+        'company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)}
+      )
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created)
+    SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN
+        RETURN;
+      END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'expense_claim'
+        AND p.aggregate_id = {sql_literal(expense_id)}
+      ORDER BY p.revision DESC
+      LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL THEN
+          RAISE EXCEPTION 'expense already exists';
+        END IF;
+        next_revision := 1;
+        next_state := 'draft';
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', next_state, 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)}
+        );
+      ELSE
+        IF current_payload IS NULL THEN
+          RAISE EXCEPTION 'expense not found';
+        END IF;
+        current_state := current_payload->>'state';
+        IF {sql_literal(command_type)} = 'submit' THEN
+          IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
+          next_state := 'submitted';
+        ELSIF {sql_literal(command_type)} = 'approve' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
+          next_state := 'approved';
+        ELSIF {sql_literal(command_type)} = 'reject' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
+          next_state := 'rejected';
+        ELSIF {sql_literal(command_type)} = 'resubmit' THEN
+          IF current_state <> 'rejected' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
+          next_state := 'submitted';
+        ELSE
+          RAISE EXCEPTION 'unsupported expense command';
+        END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'expense_claim'
+          AND p.aggregate_id = {sql_literal(expense_id)};
+        next_payload := current_payload || jsonb_build_object(
+          'state', next_state, 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason'
+        );
+      END IF;
+      INSERT INTO company_aggregate_projection(
+        aggregate_type, aggregate_id, revision, payload, source_event_id
+      ) VALUES (
+        'expense_claim', {sql_literal(expense_id)}, next_revision,
+        next_payload, {sql_literal(event_id)}
+      );
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES (
+        'company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)},
+          'action', 'expense.' || {sql_literal(command_type)},
+          'aggregate_type', 'expense_claim',
+          'aggregate_id', {sql_literal(expense_id)},
+          'actor_id', {sql_literal(actor_id)},
+          'event_id', {sql_literal(event_id)},
+          'state', next_state,
+          'revision', next_revision
+        ),
+        {sql_literal('moonproj:audit:' + event_id)}
+      );
+      result := jsonb_build_object(
+        'expense_id', {sql_literal(expense_id)}, 'state', next_state,
+        'revision', next_revision, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)}
+      );
+      UPDATE company_record
+      SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+           || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record
+    WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("expense command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected expense command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid expense command receipt JSON") from error
+    if not created:
+        existing_request = receipt.get("request")
+        if existing_request != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("expense command receipt has no result")
+    return {
+        "command": receipt,
+        "expense": result,
+        "idempotent_replay": not created,
+    }
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any, origin: str | None) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -349,6 +687,7 @@ def handler_factory(
     require_forwarded_tls: bool,
     cors_origins: set[str],
     max_response_rows: int,
+    actor_id: str,
 ) -> type[BaseHTTPRequestHandler]:
     token_digest = hashlib.sha256(bearer_token.encode("utf-8")).digest()
 
@@ -371,6 +710,36 @@ def handler_factory(
                 return True
             return self.headers.get("X-Forwarded-Proto", "").lower() == "https"
 
+        def _authorize(self, origin: str | None) -> bool:
+            if origin == "":
+                response(self, 403, {"error": "origin not allowed"}, None)
+                return False
+            if not self._tls_ok():
+                response(self, 400, {"error": "forwarded TLS is required"}, origin)
+                return False
+            if not self._authorized():
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", "Bearer")
+                self.end_headers()
+                return False
+            return True
+
+        def _json_body(self) -> dict[str, Any]:
+            raw_length = self.headers.get("Content-Length", "")
+            try:
+                length = int(raw_length)
+            except ValueError as error:
+                raise CommandRejected("Content-Length is required", 400) from error
+            if length <= 0 or length > 128 * 1024:
+                raise CommandRejected("request body is empty or too large", 413)
+            try:
+                value = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise CommandRejected("request body must be valid JSON", 400) from error
+            if not isinstance(value, dict):
+                raise CommandRejected("request body must be a JSON object", 400)
+            return value
+
         def do_OPTIONS(self) -> None:  # noqa: N802
             origin = self.headers.get("Origin")
             if origin not in cors_origins:
@@ -378,23 +747,14 @@ def handler_factory(
                 return
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", origin)
-            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
             self.send_header("Vary", "Origin")
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
             origin = self._origin()
-            if origin == "":
-                response(self, 403, {"error": "origin not allowed"}, None)
-                return
-            if not self._tls_ok():
-                response(self, 400, {"error": "forwarded TLS is required"}, origin)
-                return
-            if not self._authorized():
-                self.send_response(401)
-                self.send_header("WWW-Authenticate", "Bearer")
-                self.end_headers()
+            if not self._authorize(origin):
                 return
             parsed = urlparse(self.path)
             try:
@@ -407,17 +767,68 @@ def handler_factory(
                 elif parsed.path == "/api/company/projections":
                     value = parse_qs(parsed.query).get("aggregate_type", [None])[0]
                     response(self, 200, {"items": projections(pool, value, max_response_rows)}, origin)
+                elif parsed.path == "/api/company/expenses":
+                    value = parse_qs(parsed.query).get("expense_id", [None])[0]
+                    response(self, 200, {"items": expenses(pool, value, max_response_rows)}, origin)
+                elif re.fullmatch(r"/api/company/expenses/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    expense_id = parsed.path.rsplit("/", 1)[-1]
+                    items = expenses(pool, expense_id, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "expense not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
                 elif parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"}, origin)
                 else:
                     response(self, 404, {"error": "not found"}, origin)
             except PoolExhausted as error:
                 response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
 
         def do_POST(self) -> None:  # noqa: N802
-            response(self, 405, {"error": "mutation endpoints are disabled"}, self._origin() or None)
+            origin = self._origin()
+            if not self._authorize(origin):
+                return
+            parsed = urlparse(self.path)
+            try:
+                body = self._json_body()
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                if parsed.path == "/api/company/expenses":
+                    command_type = "create"
+                    expense_id = None
+                else:
+                    match = re.fullmatch(
+                        r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
+                        parsed.path,
+                    )
+                    if match is None:
+                        if parsed.path.startswith("/api/"):
+                            response(self, 404, {"error": "unknown company command"}, origin)
+                        else:
+                            response(self, 404, {"error": "not found"}, origin)
+                        return
+                    expense_id, command_type = match.group(1), match.group(2)
+                result = expense_command(
+                    pool,
+                    command_type=command_type,
+                    expense_id=expense_id,
+                    body=body,
+                    actor_id=actor_id,
+                    idempotency_key=idempotency_key,
+                )
+                status = 201 if command_type == "create" and not result["idempotent_replay"] else 200
+                response(self, status, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")
@@ -440,6 +851,7 @@ def main() -> int:
     parser.add_argument("--acquire-timeout", type=float, default=2.0)
     parser.add_argument("--query-timeout", type=float, default=10.0)
     parser.add_argument("--max-response-rows", type=int, default=500)
+    parser.add_argument("--actor-id", default=os.environ.get("MOONPROJ_ACTOR_ID", "service-operator"))
     parser.add_argument("--require-forwarded-tls", action="store_true")
     parser.add_argument("--cors-origin", action="append", default=[])
     args = parser.parse_args()
@@ -452,6 +864,8 @@ def main() -> int:
         parser.error("--schema-version must be positive")
     if args.max_response_rows <= 0 or args.max_response_rows > 10000:
         parser.error("--max-response-rows must be between 1 and 10000")
+    if not IDENTIFIER.fullmatch(args.actor_id):
+        parser.error("--actor-id contains unsupported characters")
     if args.host in {"0.0.0.0", "::", "[::]"}:
         parser.error("service must bind privately behind its gateway")
     try:
@@ -474,6 +888,7 @@ def main() -> int:
                 require_forwarded_tls=args.require_forwarded_tls,
                 cors_origins=set(args.cors_origin),
                 max_response_rows=args.max_response_rows,
+                actor_id=args.actor_id,
             ),
         )
         print(f"company service listening on http://{args.host}:{args.port}", flush=True)

@@ -67,11 +67,13 @@ authentication, pooling, TLS, observability, and command endpoints remain
 deployment gates.
 The authenticated bounded runtime is `scripts/company_postgres_service.py`.
 It keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a
-bearer token from an environment variable and forwarded TLS, and exposes the
-same four GET endpoints without mutation or arbitrary SQL. Run
+bearer token from an environment variable and forwarded TLS, exposes the four
+fixed reads, and now provides the local expense command vertical documented in
+`ERP_EXPENSE_RUNTIME_VERTICAL.md`. Run
 `scripts/company_postgres_service_smoke.py` against the local target to verify
-the runtime contract; managed provider deployment and token issuer/audience
-validation remain separate gates.
+the lifecycle, idempotency, audit, missing-token, and forwarded-TLS contract;
+managed provider deployment and token issuer/audience validation remain
+separate gates.
 The credential-free `company_production_service_check.py` now validates the
 service boundary separately: bounded reusable pool, schema-matched readiness,
 private TLS-terminated binding, authentication, fixed read endpoints, and no

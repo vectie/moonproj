@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -19,16 +20,36 @@ class SmokeError(RuntimeError):
     pass
 
 
-def request(port: int, path: str, *, token: str | None, forwarded_tls: bool = True) -> tuple[int, dict[str, Any] | None]:
+def request(
+    port: int,
+    path: str,
+    *,
+    token: str | None,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
+    forwarded_tls: bool = True,
+) -> tuple[int, dict[str, Any] | None]:
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     headers: dict[str, str] = {}
     if token is not None:
         headers["Authorization"] = "Bearer " + token
     if forwarded_tls:
         headers["X-Forwarded-Proto"] = "https"
-    connection.request("GET", path, headers=headers)
-    result = connection.getresponse()
-    body = result.read().decode("utf-8")
+    body = None
+    if payload is not None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+        headers["Content-Length"] = str(len(body))
+    if idempotency_key is not None:
+        headers["Idempotency-Key"] = idempotency_key
+    try:
+        connection.request(method, path, body=body, headers=headers)
+        result = connection.getresponse()
+        body = result.read().decode("utf-8")
+    except (OSError, TimeoutError) as error:
+        connection.close()
+        raise SmokeError(f"{method} {path} request failed: {error}") from error
     connection.close()
     try:
         payload = json.loads(body) if body else None
@@ -89,13 +110,87 @@ def main() -> int:
         status, _ = request(args.port, "/api/health", token=token, forwarded_tls=False)
         if status != 400:
             raise SmokeError(f"missing forwarded TLS was not rejected: {status}")
-        connection = http.client.HTTPConnection("127.0.0.1", args.port, timeout=5)
-        connection.request("POST", "/api/company/summary")
-        status = connection.getresponse().status
-        connection.close()
-        if status != 405:
-            raise SmokeError(f"mutation method was not rejected: {status}")
-        print(json.dumps({"state": "service_verified", "port": args.port, "database": args.database}, sort_keys=True))
+        nonce = uuid.uuid4().hex[:10]
+        expense_id = "EXP-SMOKE-" + nonce
+        create_payload = {
+            "expense_id": expense_id,
+            "employee_id": "smoke-employee",
+            "summary": "service command smoke",
+            "amount_minor": 8560,
+            "currency": "CNY",
+            "project_id": "CD-HJL",
+            "cost_subject": "travel",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/expenses",
+            token=token,
+            method="POST",
+            payload=create_payload,
+            idempotency_key="smoke-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("expense", {}).get("state") != "draft":
+            raise SmokeError(f"expense create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/expenses",
+            token=token,
+            method="POST",
+            payload=create_payload,
+            idempotency_key="smoke-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"expense idempotency failed: {status} {payload}")
+        conflicting_payload = dict(create_payload)
+        conflicting_payload["summary"] = "different request"
+        status, payload = request(
+            args.port,
+            "/api/company/expenses",
+            token=token,
+            method="POST",
+            payload=conflicting_payload,
+            idempotency_key="smoke-create-" + nonce,
+        )
+        if status != 409:
+            raise SmokeError(f"idempotency conflict was not rejected: {status} {payload}")
+        transitions = [("submit", "submitted"), ("reject", "rejected"), ("resubmit", "submitted"), ("approve", "approved")]
+        for index, (command, expected_state) in enumerate(transitions):
+            key = f"smoke-{command}-{nonce}"
+            status, payload = request(
+                args.port,
+                f"/api/company/expenses/{expense_id}/{command}",
+                token=token,
+                method="POST",
+                payload={},
+                idempotency_key=key,
+            )
+            if status != 200 or payload is None or payload.get("expense", {}).get("state") != expected_state:
+                raise SmokeError(f"expense {command} failed: {status} {payload}")
+            if index == len(transitions) - 1:
+                status, replay = request(
+                    args.port,
+                    f"/api/company/expenses/{expense_id}/{command}",
+                    token=token,
+                    method="POST",
+                    payload={},
+                    idempotency_key=key,
+                )
+                if status != 200 or replay is None or replay.get("idempotent_replay") is not True:
+                    raise SmokeError(f"expense transition idempotency failed: {status} {replay}")
+        status, payload = request(args.port, f"/api/company/expenses/{expense_id}", token=token)
+        if status != 200 or payload is None or payload.get("payload", {}).get("state") != "approved":
+            raise SmokeError(f"expense detail failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/expenses/{expense_id}/submit",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="smoke-invalid-" + nonce,
+        )
+        if status != 409:
+            raise SmokeError(f"invalid expense transition was not rejected: {status} {payload}")
+        print(json.dumps({"state": "service_verified", "expense_state": "approved", "port": args.port, "database": args.database}, sort_keys=True))
         return 0
     finally:
         process.terminate()

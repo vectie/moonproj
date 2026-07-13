@@ -24,9 +24,11 @@ loan, and supplier detail/new flows now open as source-shaped forms with
 explicit return/save/submit boundaries. The dashboard now reads the
 PostgreSQL projection summary through the fixed read-only development adapter
 `scripts/company_postgres_read_model_server.py`. The authenticated bounded
-runtime is available separately as `scripts/company_postgres_service.py`;
-command/mutation endpoints and managed production deployment remain separate
-gates.
+runtime is available separately as `scripts/company_postgres_service.py`. Its
+first local command vertical is the expense lifecycle documented in
+`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`; the Rabbita form is not wired to it
+yet. Command-gateway production deployment, identity/token integration, and
+managed rollback remain separate gates.
 Build and preview it with Warren:
 
 ```sh

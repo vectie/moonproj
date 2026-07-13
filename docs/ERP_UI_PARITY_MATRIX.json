@@ -1,0 +1,4654 @@
+{
+  "format": "moonproj.erp.ui-parity-matrix.v1",
+  "source_router": "../erp/erp_new/web/src/router/index.js",
+  "source_routes_dir": "../erp/erp_new/server/src/routes",
+  "target_frontend": "frontend/main/main.mbt",
+  "source_browser_route_count": 56,
+  "source_api_handler_count": 338,
+  "source_api_mutation_handler_count": 182,
+  "target_exact_route_count": 53,
+  "target_dynamic_prefix_count": 6,
+  "target_state_counts": {
+    "fixture_backed_form": 7,
+    "fixture_backed_read_only": 44,
+    "public": 1,
+    "read_model_only": 3,
+    "read_only_public": 1
+  },
+  "api_state_counts": {
+    "connected_fixed_read_model": 3,
+    "read_only_fixture_no_source_api": 53
+  },
+  "routes": [
+    {
+      "path": "/login",
+      "source_component": "../views/Login.vue",
+      "source_redirect": null,
+      "public": true,
+      "target_function": "login_view",
+      "target_state": "public",
+      "source_api_module": "auth",
+      "source_api_handler_count": 9,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 6,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_identity_boundary"
+    },
+    {
+      "path": "/share/:token",
+      "source_component": "../views/ShareReport.vue",
+      "source_redirect": null,
+      "public": true,
+      "target_function": "share_view",
+      "target_state": "read_only_public",
+      "source_api_module": "share",
+      "source_api_handler_count": 0,
+      "source_api_read_handler_count": 0,
+      "source_api_mutation_handler_count": 0,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "accept_public_read_scenario"
+    },
+    {
+      "path": "/dashboard",
+      "source_component": "../views/cockpit/index.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "dashboard_view",
+      "target_state": "read_model_only",
+      "source_api_module": "dashboard",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 0,
+      "api_state": "connected_fixed_read_model",
+      "required_next": "connect_authenticated_read_and_command_api"
+    },
+    {
+      "path": "/dashboard-v3",
+      "source_component": null,
+      "source_redirect": "/dashboard",
+      "public": false,
+      "target_function": "dashboard_view",
+      "target_state": "read_model_only",
+      "source_api_module": "dashboard",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 0,
+      "api_state": "connected_fixed_read_model",
+      "required_next": "connect_authenticated_read_and_command_api"
+    },
+    {
+      "path": "/ai-hub",
+      "source_component": "../views/AIHub.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "ai_hub_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "ai-hub",
+      "source_api_handler_count": 16,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 10,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/ai-stats",
+      "source_component": "../views/AIStats.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "ai_stats_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "ai-stats",
+      "source_api_handler_count": 4,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 1,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cockpit",
+      "source_component": null,
+      "source_redirect": "/dashboard",
+      "public": false,
+      "target_function": "dashboard_view",
+      "target_state": "read_model_only",
+      "source_api_module": "dashboard",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 0,
+      "api_state": "connected_fixed_read_model",
+      "required_next": "connect_authenticated_read_and_command_api"
+    },
+    {
+      "path": "/projects",
+      "source_component": "../views/Projects.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "project_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "mdm",
+      "source_api_handler_count": 6,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 3,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/projects/:projGuid",
+      "source_component": "../views/ProjectDetail.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "project_detail_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "mdm",
+      "source_api_handler_count": 6,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 3,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/expenses",
+      "source_component": "../views/ExpenseList.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "expenses_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "budget",
+      "source_api_handler_count": 13,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 7,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/expenses/new",
+      "source_component": "../views/ExpenseCreate.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "expense_editor_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "budget",
+      "source_api_handler_count": 13,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 7,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/expenses/:guid",
+      "source_component": "../views/ExpenseDetail.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "expense_editor_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "budget",
+      "source_api_handler_count": 13,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 7,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/tasks",
+      "source_component": "../views/Tasks.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "tasks_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "workflow",
+      "source_api_handler_count": 12,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/contracts",
+      "source_component": "../views/Contracts.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "contracts_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cost",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 13,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/contracts/:guid",
+      "source_component": "../views/ContractDetail.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "contract_detail_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "cost",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 13,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/payment-applies",
+      "source_component": "../views/PaymentApplies.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "payment_applies_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cost",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 13,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/dynamic-cost",
+      "source_component": "../views/DynamicCost.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "dynamic_cost_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cost",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 13,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/loans",
+      "source_component": "../views/LoanList.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "loans_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "loan",
+      "source_api_handler_count": 8,
+      "source_api_read_handler_count": 2,
+      "source_api_mutation_handler_count": 6,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/loans/new",
+      "source_component": "../views/LoanCreate.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "loan_editor_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "loan",
+      "source_api_handler_count": 8,
+      "source_api_read_handler_count": 2,
+      "source_api_mutation_handler_count": 6,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/loans/:guid",
+      "source_component": "../views/LoanDetail.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "loan_editor_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "loan",
+      "source_api_handler_count": 8,
+      "source_api_read_handler_count": 2,
+      "source_api_mutation_handler_count": 6,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/project-plan",
+      "source_component": "../views/ProjectPlan.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "project_plan_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "plan",
+      "source_api_handler_count": 9,
+      "source_api_read_handler_count": 4,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/investment",
+      "source_component": "../views/Investment.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "investment_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "investment",
+      "source_api_handler_count": 28,
+      "source_api_read_handler_count": 16,
+      "source_api_mutation_handler_count": 12,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cost-dashboard-v3",
+      "source_component": "../views/CostDashboardV3.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "cost_dashboard_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cost",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 13,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/sales/revenues",
+      "source_component": "../views/SalesRevenue.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "sales_revenues_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "sales",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 14,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/sales/customers",
+      "source_component": "../views/SaleCustomers.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "sales_customers_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "sales",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 14,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/sales/subscriptions",
+      "source_component": "../views/SaleSubscriptions.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "sales_subscriptions_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "sales",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 14,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/sales/contracts",
+      "source_component": "../views/SaleContracts.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "sales_contracts_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "sales",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 14,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/sales/mortgages",
+      "source_component": "../views/SaleMortgages.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "sales_mortgages_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "sales",
+      "source_api_handler_count": 20,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 14,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/marketing",
+      "source_component": "../views/Marketing.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "marketing_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "marketing",
+      "source_api_handler_count": 13,
+      "source_api_read_handler_count": 4,
+      "source_api_mutation_handler_count": 9,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/fund/plan",
+      "source_component": "../views/FundPlan.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "fund_plan_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "fund",
+      "source_api_handler_count": 8,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/project/progress",
+      "source_component": "../views/ProjectProgress.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "progress_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "progress",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 2,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/invoice",
+      "source_component": "../views/Invoice.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "invoice_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "invoice",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 4,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/tender",
+      "source_component": "../views/TenderPlan.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "tender_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "tender",
+      "source_api_handler_count": 8,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cbs/dict",
+      "source_component": "../views/CbsDict.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "cbs_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cbs",
+      "source_api_handler_count": 30,
+      "source_api_read_handler_count": 10,
+      "source_api_mutation_handler_count": 20,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cbs/versions",
+      "source_component": "../views/CbsVersions.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "cbs_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cbs",
+      "source_api_handler_count": 30,
+      "source_api_read_handler_count": 10,
+      "source_api_mutation_handler_count": 20,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cbs/r0-queue",
+      "source_component": "../views/CbsR0Queue.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "cbs_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cbs",
+      "source_api_handler_count": 30,
+      "source_api_read_handler_count": 10,
+      "source_api_mutation_handler_count": 20,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cbs/approval-config",
+      "source_component": "../views/ApprovalConfig.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "cbs_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cbs",
+      "source_api_handler_count": 30,
+      "source_api_read_handler_count": 10,
+      "source_api_mutation_handler_count": 20,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/srm/providers",
+      "source_component": "../views/Providers.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "srm_providers_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "srm",
+      "source_api_handler_count": 14,
+      "source_api_read_handler_count": 9,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/srm/providers/:guid",
+      "source_component": "../views/ProviderDetail.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "provider_detail_view",
+      "target_state": "fixture_backed_form",
+      "source_api_module": "srm",
+      "source_api_handler_count": 14,
+      "source_api_read_handler_count": 9,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+    },
+    {
+      "path": "/srm/risk-board",
+      "source_component": "../views/RiskBoard.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "srm_risk_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "srm",
+      "source_api_handler_count": 14,
+      "source_api_read_handler_count": 9,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/ocr-config",
+      "source_component": "../views/OcrConfig.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "ocr_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "admin",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 13,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/reports",
+      "source_component": "../views/Reports.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "reports_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "reports",
+      "source_api_handler_count": 10,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 3,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/report-builder",
+      "source_component": "../views/ReportBuilder.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "report_builder_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "reports",
+      "source_api_handler_count": 10,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 3,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/warning",
+      "source_component": "../views/WarningCenter.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "warning_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "warning",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 11,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/warning-rules",
+      "source_component": "../views/WarningRules.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "warning_rules_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "warning",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 7,
+      "source_api_mutation_handler_count": 11,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/cashflow",
+      "source_component": "../views/CashflowForecast.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "cashflow_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "cashflow",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 6,
+      "source_api_mutation_handler_count": 1,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/attachments",
+      "source_component": "../views/AttachmentCenter.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "attachments_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "attachment",
+      "source_api_handler_count": 7,
+      "source_api_read_handler_count": 4,
+      "source_api_mutation_handler_count": 3,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/audit-log",
+      "source_component": "../views/AuditLog.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "audit_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "admin",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 13,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/error-log",
+      "source_component": "../views/ErrorLog.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "error_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "admin",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 13,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/system-health",
+      "source_component": "../views/SystemHealth.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "health_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "admin",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 13,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/users",
+      "source_component": "../views/UserManagement.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "users_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "rbac",
+      "source_api_handler_count": 12,
+      "source_api_read_handler_count": 5,
+      "source_api_mutation_handler_count": 7,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/profile",
+      "source_component": "../views/Profile.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "profile_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "auth",
+      "source_api_handler_count": 9,
+      "source_api_read_handler_count": 3,
+      "source_api_mutation_handler_count": 6,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/inbox",
+      "source_component": "../views/Inbox.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "inbox_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "notify",
+      "source_api_handler_count": 19,
+      "source_api_read_handler_count": 8,
+      "source_api_mutation_handler_count": 11,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/notify-config",
+      "source_component": "../views/NotifyConfig.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "notify_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "notify",
+      "source_api_handler_count": 19,
+      "source_api_read_handler_count": 8,
+      "source_api_mutation_handler_count": 11,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/webhook-config",
+      "source_component": "../views/WebhookConfig.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "webhook_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "webhook",
+      "source_api_handler_count": 5,
+      "source_api_read_handler_count": 1,
+      "source_api_mutation_handler_count": 4,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    },
+    {
+      "path": "/admin",
+      "source_component": "../views/Admin.vue",
+      "source_redirect": null,
+      "public": false,
+      "target_function": "admin_view",
+      "target_state": "fixture_backed_read_only",
+      "source_api_module": "admin",
+      "source_api_handler_count": 18,
+      "source_api_read_handler_count": 13,
+      "source_api_mutation_handler_count": 5,
+      "api_state": "read_only_fixture_no_source_api",
+      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+    }
+  ],
+  "api_handlers": [
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/dict/groups",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/dict/options",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/dict/options",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "admin",
+      "method": "PATCH",
+      "path": "/dict/options/:guid",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/quality/overview",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/audit/logs",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/audit/actions",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/health/tables",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/health/bpm-pool",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/backup/db",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/health/full",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/error-log",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/ocr/status",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/ocr/test",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/llm/status",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/llm/test",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/sys-param",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/ai/diag",
+      "browser_route_paths": [
+        "/ocr-config",
+        "/audit-log",
+        "/error-log",
+        "/system-health",
+        "/admin"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/intake",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/confirm",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/discard/:draftId",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "GET",
+      "path": "/corrections",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "GET",
+      "path": "/correction-stats",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "GET",
+      "path": "/drafts",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "GET",
+      "path": "/drafts/:draftId",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/query",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "GET",
+      "path": "/query-log",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/explain",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/rule-from-nl",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/approval-draft",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/global-ask",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/query-session",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-hub",
+      "method": "GET",
+      "path": "/usage-stats",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-hub",
+      "method": "POST",
+      "path": "/command",
+      "browser_route_paths": [
+        "/ai-hub"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "ai-stats",
+      "method": "GET",
+      "path": "/overview",
+      "browser_route_paths": [
+        "/ai-stats"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-stats",
+      "method": "GET",
+      "path": "/activity",
+      "browser_route_paths": [
+        "/ai-stats"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-stats",
+      "method": "GET",
+      "path": "/badge",
+      "browser_route_paths": [
+        "/ai-stats"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "ai-stats",
+      "method": "POST",
+      "path": "/badge/batch",
+      "browser_route_paths": [
+        "/ai-stats"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "attachment",
+      "method": "POST",
+      "path": "/upload",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "attachment",
+      "method": "GET",
+      "path": "/list",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "attachment",
+      "method": "GET",
+      "path": "/download/:guid",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "attachment",
+      "method": "DELETE",
+      "path": "/:guid",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "attachment",
+      "method": "POST",
+      "path": "/re-extract/:guid",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "attachment",
+      "method": "GET",
+      "path": "/all",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "attachment",
+      "method": "GET",
+      "path": "/stats",
+      "browser_route_paths": [
+        "/attachments"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "auth",
+      "method": "POST",
+      "path": "/login",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "auth",
+      "method": "GET",
+      "path": "/me",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "auth",
+      "method": "POST",
+      "path": "/logout",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "auth",
+      "method": "POST",
+      "path": "/change-password",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "auth",
+      "method": "PUT",
+      "path": "/profile",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "auth",
+      "method": "GET",
+      "path": "/my-initiated",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "auth",
+      "method": "GET",
+      "path": "/prefs",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "auth",
+      "method": "PUT",
+      "path": "/prefs/:key",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "auth",
+      "method": "DELETE",
+      "path": "/prefs/:key",
+      "browser_route_paths": [
+        "/login",
+        "/profile"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "GET",
+      "path": "/dict/cost-subjects",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "budget",
+      "method": "GET",
+      "path": "/proceedings",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "budget",
+      "method": "GET",
+      "path": "/users-in-bu",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "budget",
+      "method": "GET",
+      "path": "/expenses",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "budget",
+      "method": "GET",
+      "path": "/expenses/:guid",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "budget",
+      "method": "POST",
+      "path": "/expenses",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "POST",
+      "path": "/expenses/:guid/submit-for-approval",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "POST",
+      "path": "/expenses/:guid/sync-from-workflow",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "PUT",
+      "path": "/expenses/:guid",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "DELETE",
+      "path": "/expenses/:guid",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "GET",
+      "path": "/my-loan-balance",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "budget",
+      "method": "POST",
+      "path": "/budget-check",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "budget",
+      "method": "POST",
+      "path": "/expenses/:guid/auto-offset",
+      "browser_route_paths": [
+        "/expenses",
+        "/expenses/new",
+        "/expenses/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cashflow",
+      "method": "GET",
+      "path": "/forecast",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cashflow",
+      "method": "GET",
+      "path": "/forecast-v3",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cashflow",
+      "method": "GET",
+      "path": "/forecast/detail",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cashflow",
+      "method": "GET",
+      "path": "/inflow",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cashflow",
+      "method": "GET",
+      "path": "/net",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cashflow",
+      "method": "GET",
+      "path": "/gap-alert",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cashflow",
+      "method": "POST",
+      "path": "/ai-explain",
+      "browser_route_paths": [
+        "/cashflow"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/r-master",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/dict",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/dict",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/dict/batch-adjust",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/dict/f-balance",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/versions",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/versions/clone",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/versions/freeze",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/versions/activate",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/versions/compare",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/r0/queue",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/r0/resolve",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/approval-rules",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/approval-rules/pick",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/demo/contracts",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/demo/contracts",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "PUT",
+      "path": "/demo/contracts/:id/state",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/demo/legacy",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "DELETE",
+      "path": "/demo/clear",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/contracts/:id/submit-approval",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/contracts/:id/approve",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/contracts/:id/reject",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/contracts/:id/mark-paid",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "GET",
+      "path": "/changes",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/changes",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/changes/:id/submit-approval",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/changes/:id/approve",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "POST",
+      "path": "/approval-rules",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "PUT",
+      "path": "/approval-rules/:guid",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cbs",
+      "method": "DELETE",
+      "path": "/approval-rules/:guid",
+      "browser_route_paths": [
+        "/cbs/dict",
+        "/cbs/versions",
+        "/cbs/r0-queue",
+        "/cbs/approval-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/contracts",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/contracts/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/payment-applies",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/dynamic-cost",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/dynamic-cost/:guid/remarks",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "POST",
+      "path": "/contracts",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "POST",
+      "path": "/payment-applies",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "POST",
+      "path": "/dynamic-cost",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "PUT",
+      "path": "/contracts/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "DELETE",
+      "path": "/contracts/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "PUT",
+      "path": "/payment-applies/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "DELETE",
+      "path": "/payment-applies/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "PUT",
+      "path": "/dynamic-cost/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "DELETE",
+      "path": "/dynamic-cost/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/contracts/:guid/milestones",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "POST",
+      "path": "/contracts/:guid/milestones",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "PUT",
+      "path": "/milestones/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "DELETE",
+      "path": "/milestones/:guid",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "cost",
+      "method": "GET",
+      "path": "/milestones/:guid/check",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "cost",
+      "method": "POST",
+      "path": "/milestones/:guid/trigger-event",
+      "browser_route_paths": [
+        "/contracts",
+        "/contracts/:guid",
+        "/payment-applies",
+        "/dynamic-cost",
+        "/cost-dashboard-v3"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/group/overview",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/group/funnel",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/group/top-anomalies",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/project/:projGuid/kpi",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/project/:projGuid/anomalies",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/v2/group",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "dashboard",
+      "method": "GET",
+      "path": "/v3/group",
+      "browser_route_paths": [
+        "/dashboard",
+        "/dashboard-v3",
+        "/cockpit"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "export",
+      "method": "POST",
+      "path": "/excel",
+      "browser_route_paths": [],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "fund",
+      "method": "GET",
+      "path": "/plans",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "fund",
+      "method": "POST",
+      "path": "/plans",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "fund",
+      "method": "PUT",
+      "path": "/plans/:guid",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "fund",
+      "method": "DELETE",
+      "path": "/plans/:guid",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "fund",
+      "method": "GET",
+      "path": "/gap-analysis",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "fund",
+      "method": "GET",
+      "path": "/dispatches",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "fund",
+      "method": "POST",
+      "path": "/dispatches",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "fund",
+      "method": "POST",
+      "path": "/dispatches/:guid/approve",
+      "browser_route_paths": [
+        "/fund/plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "import",
+      "method": "GET",
+      "path": "/:bizType/template",
+      "browser_route_paths": [],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "import",
+      "method": "POST",
+      "path": "/:bizType",
+      "browser_route_paths": [],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/versions",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/versions/:versionGuid/indices",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "PUT",
+      "path": "/indices/:indexGuid",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/profit-summary",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/meta/dimensions",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/projects/:projGuid/excel-imports",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/excel-imports",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/excel-imports/:importGuid/bridge-plan",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/excel-imports/:importGuid",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/excel-imports/:importGuid/index-upsert-preview",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/excel-imports/:importGuid/index-upsert",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/projects/:projGuid/versions",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/projects/:projGuid/versions/:versionGuid/activate",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/versions/:versionGuid/indices",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "DELETE",
+      "path": "/projects/:projGuid/versions/:versionGuid",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "DELETE",
+      "path": "/indices/:indexGuid",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/sensitivity",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/projects/:projGuid/ai-explain",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/excel-imports/:importGuid/profit-table",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/excel-imports/:importGuid/plan-line-preview",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "POST",
+      "path": "/excel-imports/:importGuid/plan-lines/import",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/plan-lines",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "PUT",
+      "path": "/plan-lines/:lineGuid",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/subject-mappings",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "PUT",
+      "path": "/projects/:projGuid/subject-mappings",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/profit-cockpit",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/profit-actual",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "investment",
+      "method": "GET",
+      "path": "/projects/:projGuid/profit-actual-v2",
+      "browser_route_paths": [
+        "/investment"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "invoice",
+      "method": "GET",
+      "path": "/in",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "invoice",
+      "method": "POST",
+      "path": "/in",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "invoice",
+      "method": "DELETE",
+      "path": "/in/:guid",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "invoice",
+      "method": "GET",
+      "path": "/out",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "invoice",
+      "method": "POST",
+      "path": "/out",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "invoice",
+      "method": "DELETE",
+      "path": "/out/:guid",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "invoice",
+      "method": "GET",
+      "path": "/tax-ledger",
+      "browser_route_paths": [
+        "/invoice"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "loan",
+      "method": "GET",
+      "path": "/loans",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "loan",
+      "method": "GET",
+      "path": "/loans/:guid",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "loan",
+      "method": "POST",
+      "path": "/loans",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "loan",
+      "method": "POST",
+      "path": "/loans/:guid/submit-for-approval",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "loan",
+      "method": "POST",
+      "path": "/loans/:guid/offset",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "loan",
+      "method": "POST",
+      "path": "/loans/:guid/sync-from-workflow",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "loan",
+      "method": "PUT",
+      "path": "/loans/:guid",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "loan",
+      "method": "DELETE",
+      "path": "/loans/:guid",
+      "browser_route_paths": [
+        "/loans",
+        "/loans/new",
+        "/loans/:guid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "GET",
+      "path": "/campaigns",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "marketing",
+      "method": "POST",
+      "path": "/campaigns",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "PUT",
+      "path": "/campaigns/:guid",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "DELETE",
+      "path": "/campaigns/:guid",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "GET",
+      "path": "/placements",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "marketing",
+      "method": "POST",
+      "path": "/placements",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "PUT",
+      "path": "/placements/:guid/effect",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "GET",
+      "path": "/channels",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "marketing",
+      "method": "POST",
+      "path": "/channels",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "DELETE",
+      "path": "/channels/:guid",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "GET",
+      "path": "/materials",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "marketing",
+      "method": "POST",
+      "path": "/materials",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "marketing",
+      "method": "DELETE",
+      "path": "/materials/:guid",
+      "browser_route_paths": [
+        "/marketing"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "mdm",
+      "method": "GET",
+      "path": "/business-units/tree",
+      "browser_route_paths": [
+        "/projects",
+        "/projects/:projGuid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "mdm",
+      "method": "GET",
+      "path": "/projects",
+      "browser_route_paths": [
+        "/projects",
+        "/projects/:projGuid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "mdm",
+      "method": "GET",
+      "path": "/projects/:projGuid/lifecycle",
+      "browser_route_paths": [
+        "/projects",
+        "/projects/:projGuid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "mdm",
+      "method": "POST",
+      "path": "/projects",
+      "browser_route_paths": [
+        "/projects",
+        "/projects/:projGuid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "mdm",
+      "method": "PUT",
+      "path": "/projects/:projGuid",
+      "browser_route_paths": [
+        "/projects",
+        "/projects/:projGuid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "mdm",
+      "method": "DELETE",
+      "path": "/projects/:projGuid",
+      "browser_route_paths": [
+        "/projects",
+        "/projects/:projGuid"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/messages",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/messages/unread-count",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/messages/:guid/read",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/messages/read-all",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/subscriptions",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/subscriptions",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "PATCH",
+      "path": "/subscriptions/:id",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "DELETE",
+      "path": "/subscriptions/:id",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/config",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "PUT",
+      "path": "/config",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/config/test-webhook",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/email-outbox",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/digest/dispatch",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/digest/preview",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/digest/log",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/email-outbox/test",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/email-outbox/:eid/redeliver",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "notify",
+      "method": "GET",
+      "path": "/llm-providers",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "notify",
+      "method": "POST",
+      "path": "/llm-test",
+      "browser_route_paths": [
+        "/inbox",
+        "/notify-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "plan",
+      "method": "GET",
+      "path": "/projects/:projGuid/tasks",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "plan",
+      "method": "GET",
+      "path": "/tasks/:guid",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "plan",
+      "method": "POST",
+      "path": "/tasks/:guid/report",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "plan",
+      "method": "GET",
+      "path": "/projects/:projGuid/plan-summary",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "plan",
+      "method": "POST",
+      "path": "/tasks",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "plan",
+      "method": "PUT",
+      "path": "/tasks/:guid",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "plan",
+      "method": "DELETE",
+      "path": "/tasks/:guid",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "plan",
+      "method": "POST",
+      "path": "/ai-suggest-plan",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "plan",
+      "method": "GET",
+      "path": "/tasks/:guid/delay-impact",
+      "browser_route_paths": [
+        "/project-plan"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "progress",
+      "method": "GET",
+      "path": "/progress",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "progress",
+      "method": "POST",
+      "path": "/progress",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "progress",
+      "method": "PUT",
+      "path": "/progress/:guid/report",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "progress",
+      "method": "DELETE",
+      "path": "/progress/:guid",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "progress",
+      "method": "GET",
+      "path": "/outputs",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "progress",
+      "method": "POST",
+      "path": "/outputs",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "progress",
+      "method": "POST",
+      "path": "/outputs/:guid/confirm",
+      "browser_route_paths": [
+        "/project/progress"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "GET",
+      "path": "/me",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "rbac",
+      "method": "GET",
+      "path": "/roles",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "rbac",
+      "method": "GET",
+      "path": "/roles/:code",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "rbac",
+      "method": "GET",
+      "path": "/users",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "rbac",
+      "method": "POST",
+      "path": "/users",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "PUT",
+      "path": "/users/:userId",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "POST",
+      "path": "/users/:userId/toggle",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "POST",
+      "path": "/users/:userId/reset-password",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "POST",
+      "path": "/users/:userId/roles",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "GET",
+      "path": "/permission-catalog",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "rbac",
+      "method": "POST",
+      "path": "/roles",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "rbac",
+      "method": "DELETE",
+      "path": "/roles/:code",
+      "browser_route_paths": [
+        "/users"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/cost-summary",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/contract-payment-ledger",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/supplier-analysis",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/approval-efficiency",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/project-stage-matrix",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/templates/meta",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "POST",
+      "path": "/templates/run",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "reports",
+      "method": "GET",
+      "path": "/templates",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "reports",
+      "method": "POST",
+      "path": "/templates",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "reports",
+      "method": "DELETE",
+      "path": "/templates/:id",
+      "browser_route_paths": [
+        "/reports",
+        "/report-builder"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "GET",
+      "path": "/revenues",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/revenues",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "PUT",
+      "path": "/revenues/:guid",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "DELETE",
+      "path": "/revenues/:guid",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/revenues/:guid/confirm-received",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "GET",
+      "path": "/customers",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/customers",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "PUT",
+      "path": "/customers/:guid",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "DELETE",
+      "path": "/customers/:guid",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "GET",
+      "path": "/subscriptions",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/subscriptions",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/subscriptions/:guid/convert-to-contract",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "GET",
+      "path": "/contracts",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "sales",
+      "method": "GET",
+      "path": "/mortgages",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/mortgages",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/mortgages/:guid/approve",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/mortgages/:guid/release",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "GET",
+      "path": "/refunds",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/refunds",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "sales",
+      "method": "POST",
+      "path": "/refunds/:guid/approve",
+      "browser_route_paths": [
+        "/sales/revenues",
+        "/sales/customers",
+        "/sales/subscriptions",
+        "/sales/contracts",
+        "/sales/mortgages"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/categories",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/dict/eval-results",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/dict/sources",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/providers",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/providers/:guid",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "POST",
+      "path": "/providers",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "srm",
+      "method": "PATCH",
+      "path": "/providers/:guid",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/stats/overview",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "PUT",
+      "path": "/providers/:guid",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "srm",
+      "method": "DELETE",
+      "path": "/providers/:guid",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/providers/:guid/risk",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "POST",
+      "path": "/providers/rescore-all",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/risk-board",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "srm",
+      "method": "GET",
+      "path": "/providers/:guid/check-sign",
+      "browser_route_paths": [
+        "/srm/providers",
+        "/srm/providers/:guid",
+        "/srm/risk-board"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "tender",
+      "method": "GET",
+      "path": "/tenders",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "tender",
+      "method": "POST",
+      "path": "/tenders",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "tender",
+      "method": "PUT",
+      "path": "/tenders/:guid/state",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "tender",
+      "method": "DELETE",
+      "path": "/tenders/:guid",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "tender",
+      "method": "GET",
+      "path": "/awards",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "tender",
+      "method": "POST",
+      "path": "/awards",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "tender",
+      "method": "GET",
+      "path": "/splits",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "tender",
+      "method": "POST",
+      "path": "/splits",
+      "browser_route_paths": [
+        "/tender"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/badge",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/rules",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "PATCH",
+      "path": "/rules/:code",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/scans",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "POST",
+      "path": "/scan",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "POST",
+      "path": "/:guid/resolve",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "POST",
+      "path": "/:guid/ignore",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/custom-rules",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "POST",
+      "path": "/custom-rules",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "DELETE",
+      "path": "/custom-rules/:code",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "POST",
+      "path": "/custom-rules/preview",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/rule-templates",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "POST",
+      "path": "/:guid/to-ticket",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "GET",
+      "path": "/tickets/mine",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "warning",
+      "method": "PATCH",
+      "path": "/tickets/:id/status",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "PATCH",
+      "path": "/tickets/:id/reassign",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "warning",
+      "method": "PATCH",
+      "path": "/tickets/:id/extend",
+      "browser_route_paths": [
+        "/warning",
+        "/warning-rules"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "webhook",
+      "method": "GET",
+      "path": "/config",
+      "browser_route_paths": [
+        "/webhook-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "webhook",
+      "method": "PUT",
+      "path": "/config/:platform",
+      "browser_route_paths": [
+        "/webhook-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "webhook",
+      "method": "POST",
+      "path": "/test/:platform",
+      "browser_route_paths": [
+        "/webhook-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "webhook",
+      "method": "POST",
+      "path": "/scan-overdue/preview",
+      "browser_route_paths": [
+        "/webhook-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "webhook",
+      "method": "POST",
+      "path": "/scan-overdue",
+      "browser_route_paths": [
+        "/webhook-config"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/tasks/mine",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/tasks/initiated",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/instances/by-biz",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/instances/:piGuid",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "POST",
+      "path": "/instances/:piGuid/approve",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "workflow",
+      "method": "POST",
+      "path": "/instances/:piGuid/reject",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/process-defs",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/process-defs/:processKey/preview",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "GET",
+      "path": "/tasks/my-history",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "connect_authenticated_read_api"
+    },
+    {
+      "module": "workflow",
+      "method": "POST",
+      "path": "/instances",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "workflow",
+      "method": "POST",
+      "path": "/instances/:piGuid/cosigners",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    },
+    {
+      "module": "workflow",
+      "method": "POST",
+      "path": "/instances/:piGuid/transfer",
+      "browser_route_paths": [
+        "/tasks"
+      ],
+      "action_state": "not_connected",
+      "required_next": "implement_authenticated_command_and_audit"
+    }
+  ],
+  "state": "functional_parity_incomplete",
+  "cutover_authorized": false
+}
