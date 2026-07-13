@@ -48,8 +48,10 @@ health, warning, or risk values.
   aggregate routes remain intentionally unconnected.
 - Rabbita now loads the group overview, stage funnel, and top-anomaly reads
   sequentially and replaces the designer KPI/funnel/risk fixtures when the
-  responses are valid. The three dashboard aliases remain
-  `read_model_only` until production identity and browser acceptance.
+  responses are valid. The three dashboard aliases are classified as
+  `connected_dashboard_read`; production identity, browser acceptance, and
+  owner reconciliation remain pending. The source v2/v3 aggregate handlers
+  remain unconnected and are not included in that state.
 - Core report reads are not dashboard parity. A report overview can provide
   reconciled tables, but it does not reproduce the source cockpit's scoped
   KPIs, month trend, stage distribution, anomaly ranking, or health breakdown.

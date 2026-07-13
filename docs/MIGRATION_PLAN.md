@@ -365,17 +365,18 @@ those capabilities as source parity.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 27 connected browser states, 24 fixture-backed browser
-states, three read-model-only states, and two public states. Its API matrix
-records 30 connected API groups and 26 fixture/no-source groups across MDM
+currently records 30 connected browser states, 24 fixture-backed browser
+states, no browser states classified as read-model-only, and two public
+states. Its API matrix records 30 connected API groups and 26 fixture/no-source
+groups across MDM
 organization/project, budget dictionary, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan, and
-workflow-definition reads; `/cost-dashboard-v3` remains in the fixture-backed
-set because its source hierarchy is not yet available in PostgreSQL. The
-remaining browser views and API groups are explicitly tracked as fixture,
-read-model-only, public, or not-connected rather than counted as parity.
-Three additional fixed read-model routes are connected. Workflow definitions are
+workflow-definition reads; the three dashboard aliases now represent the
+bounded source-backed v1 read, while `/cost-dashboard-v3` remains in the
+fixture-backed set because its source hierarchy is not yet available in
+PostgreSQL. The remaining browser views and API groups are explicitly tracked
+as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
 rather than additional platform hardening, controls the next work.
 

@@ -154,7 +154,7 @@ def match_target(
     if path == "/login":
         return ("login_view" if "login_view" in functions else None, "public")
     if path == "/dashboard" and "dashboard_view" in functions:
-        return "dashboard_view", "read_model_only"
+        return "dashboard_view", "connected_dashboard_read"
     if path in exact:
         function = exact[path]
         if function == "placeholder_view":
@@ -162,7 +162,7 @@ def match_target(
         if path.startswith("/share"):
             return function, "read_only_public"
         if function == "dashboard_view":
-            return function, "read_model_only"
+            return function, "connected_dashboard_read"
         if path == "/expenses/new" and function == "expense_editor_view":
             return function, "connected_command_form"
         if path == "/contracts" and function == "contracts_view":
@@ -244,6 +244,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         if target_function == "dashboard_view":
             return "connect_authenticated_dashboard_read_model_and_accept_scope"
         return "connect_authenticated_read_and_command_api"
+    if target_state == "connected_dashboard_read":
+        return "accept_browser_dashboard_scenario_and_production_identity"
     if target_state == "connected_command_form":
         return "accept_production_identity_and_full_session_scenario"
     if target_state in {"connected_contract_read", "connected_contract_command_form"}:
@@ -435,6 +437,8 @@ def build_matrix(
         stats = api_stats.get(module, {}) if module else {}
         if target_state == "read_model_only":
             api_state = "connected_fixed_read_model"
+        elif target_state == "connected_dashboard_read":
+            api_state = "connected_dashboard_read"
         elif target_state == "connected_command_form":
             api_state = "connected_expense_command"
         elif target_state in {"connected_contract_read", "connected_contract_command_form"}:
