@@ -271,11 +271,22 @@ replacement of `erp_new`. The findings that now control sequencing are:
    evidence: the gateway session and actor assertion are not the production
    identity boundary, and no browser acceptance or named-owner sign-off has
    been recorded.
-3. **Partial source, not full ERP data.** The authoritative ERP inventory is
+3. **Delivery is domain-ready but runtime-disconnected.** The target
+   `operations/delivery` package and draft/recognition cohorts are tested, but
+   the source `/api/v1/progress` (7 handlers) and `/api/v1/plan` (9 handlers)
+   surfaces are not connected to PostgreSQL, the service, or Rabbita. The
+   source `ProjectProgress.vue` and `ProjectPlan.vue` therefore remain
+   fixture-backed/read-only in the target. `proj_progress` and `proj_output`
+   are mapped as typed-import candidates, but the available export has no rows;
+   the next slice must add source-preserving reads before commands and must
+   keep task-state, output confirmation, recognition, cash, tax, and close as
+   separate gates. See
+   [`ERP_DELIVERY_RUNTIME_AUDIT.md`](ERP_DELIVERY_RUNTIME_AUDIT.md).
+4. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
    credential-safe export before production migration claims can be made.
-4. **Technical safety is ahead of functional acceptance.** Local PostgreSQL
+5. **Technical safety is ahead of functional acceptance.** Local PostgreSQL
    parity, replay, backup/restore, and cutover evidence pass for supplied
    cohorts, but managed deployment, business acceptance, shadow operation, and
    ownership transfer remain open.
@@ -310,12 +321,22 @@ Execute the remainder in this order:
 4. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-5. Expand runtime vertical slices to the ERP parity floor. The local
-   sales/receivables read and lifecycle slice is now verified; the next broad
-   slices are delivery, treasury/financing, tax/close,
+5. Close the delivery/progress runtime gap before opening another broad
+   surface. Add source-preserving PostgreSQL reads for `proj_progress`,
+   `proj_output`, `jd_task`, and `jd_task_report`; then add evidence- and
+   authority-checked progress/output/task-report commands and wire
+   `/project/progress` and `/project-plan` in Rabbita. Keep the existing
+   designer layout, but do not count fixture rows or native synthetic cohorts
+   as browser/API parity. Require duplicate/replay, rejection/resubmission,
+   acceptance-evidence, output-confirmation, and dependency-conflict evidence.
+   Recognition, budget/cost, cash, tax, and period-close effects remain
+   separate gates.
+6. Expand runtime vertical slices to the ERP parity floor. The local
+   sales/receivables read and lifecycle slice is now verified; after delivery,
+   the next broad slices are treasury/financing, tax/close,
    reporting/notifications, and investment. Synthetic rehearsals remain
    design evidence until real source rows and user acceptance are attached.
-6. Run named-owner acceptance and a read-only shadow period for each accepted
+7. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
    controls, not as substitutes for functional work.

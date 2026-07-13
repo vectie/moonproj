@@ -720,7 +720,12 @@ fn sales_rows_from_body(body : String) -> Array[SalesRow] {
 
 ///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
-  @http.get("/api/company/sales/" + family).expect_text(result => {
+  let path = if family == "invoices" {
+    "/api/company/invoices"
+  } else {
+    "/api/company/sales/" + family
+  }
+  @http.get(path).expect_text(result => {
     match result {
       Ok(body) => emit(SalesLoaded(family, body))
       Err(_) => emit(SalesLoadFailed(family))
