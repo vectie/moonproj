@@ -32,10 +32,10 @@ surfaces.
 - PostgreSQL service and read-model server both return the report overview.
 - Current export produces two cost rows, two contract-payment rows, and two
   project-stage rows.
-- Current export has no `srm_provider`, `srm_category`,
-  `wf_process_instance`, or `wf_step_action` rows, so supplier analysis and
-  approval efficiency correctly return empty source-backed results rather than
-  invented data.
+- Current backup has no `srm_provider` or `srm_category` tables at all, and the
+  workflow tables exist but contain zero `wf_process_instance` and
+  `wf_step_action` rows. Supplier analysis and approval efficiency therefore
+  correctly return empty source-backed results rather than invented data.
 - The parity matrix marks `/reports` as `connected_report_read`; the complete
   source API module is not claimed connected because template and share actions
   remain open.
@@ -44,9 +44,9 @@ surfaces.
 
 ## Remaining gate
 
-1. Obtain the missing supplier/workflow source rows or an owner-approved
-   redacted cohort, then verify supplier and approval calculations against the
-   source implementation.
+1. Obtain a complete redacted export (or an owner-approved explicit empty-data
+   disposition) for the missing supplier tables and workflow rows, then verify
+   supplier and approval calculations against the source implementation.
 2. Connect authenticated report access to the production identity and entity/
    scope boundary; run a browser scenario for cost, contract, and stage reports.
 3. Preserve template field whitelists and the report-share expiry/revocation
@@ -55,4 +55,3 @@ surfaces.
 4. Only after report owners accept reconciliation to source records should
    reporting be used as evidence for close, tax, treasury, or management
    decisions.
-

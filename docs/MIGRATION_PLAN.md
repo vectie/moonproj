@@ -256,6 +256,20 @@ pretend that the wave has been imported.
 The current repository is a verified migration foundation, not a clean
 replacement of `erp_new`. The findings that now control sequencing are:
 
+**Source-data checkpoint (2026-07-13).** The available
+`../erp/erp_new/backup/erp-v0.1.0-snapshot.db` was inspected against the source
+loan routes, workflow engine, and MySQL initializer. It contains one
+`vcb_loan_simple` row and one `cb_loan_offset` row, but zero
+`wf_process_instance` rows and zero `wf_step_action` rows. The source schema
+defines `srm_provider` and `srm_category`, but those tables are absent from the
+backup. The one loan row also has no `process_instance_guid`. The configured
+live MySQL endpoint remains unavailable, so this backup is still the only
+credential-safe source payload. Consequently, workflow approval/synchronization
+and supplier-backed reporting cannot be reconciled from the available data.
+Do not seed approval, supplier, or risk state locally; obtain a complete
+redacted export (or an owner-approved empty-data disposition) before claiming
+those capabilities as source parity.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
@@ -270,7 +284,8 @@ replacement of `erp_new`. The findings that now control sequencing are:
    evidence, and now expose local create/submit/bounded-offset/draft-update/
    void commands with native employee-scoped authority evidence, idempotent
    receipts, immutable revisions, and audit evidence. Workflow synchronization
-   remains gated because the export has no process-instance rows. This is still local-only
+   remains gated because the source backup has zero process-instance/action
+   rows and the source loan has no process-instance identity. This is still local-only
    evidence: the gateway session and actor assertion are not the production
    identity boundary, and no browser acceptance or named-owner sign-off has
    been recorded.
@@ -288,14 +303,16 @@ replacement of `erp_new`. The findings that now control sequencing are:
    The five core report reads now run through the local PostgreSQL service,
    read-model adapter, and Rabbita `/reports` overview. Cost, contract, and
    project-stage rows are populated from source raw tables; supplier and
-   approval sections correctly remain empty because the export has no provider
-   or workflow-instance/action rows. Templates, share links, production
+   approval sections correctly remain empty because the backup has no provider
+   tables and zero workflow-instance/action rows. Templates, share links, production
    identity, browser acceptance, and report-owner reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
 5. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
-   credential-safe export before production migration claims can be made.
+   credential-safe export before production migration claims can be made. In
+   particular, the missing supplier tables and empty workflow tables are data
+   availability gates, not permission to manufacture target rows.
 6. **Technical safety is ahead of functional acceptance.** Local PostgreSQL
    parity, replay, backup/restore, and cutover evidence pass for supplied
    cohorts, but managed deployment, business acceptance, shadow operation, and
@@ -317,7 +334,12 @@ Execute the remainder in this order:
    for every ERP route family. Record each route as `matched`, `intentionally
    changed`, `blocked by missing source`, or `not implemented`; do not call the
    UI complete from screenshots of only the dashboard.
-2. Close the procurement acceptance gap before opening another broad surface.
+2. Obtain and validate the missing 49-table credential-safe MySQL/JSON export
+   before opening another broad surface. The export must include empty tables,
+   primary-key metadata, hashes, redaction results, and an owner-approved
+   disposition for any still-empty workflow or supplier tables. Do not promote
+   or fabricate approval, supplier, or risk rows from the current backup.
+3. Close the procurement acceptance gap after the source-data decision.
    The local supplier lifecycle/risk reads, tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
    command-state checks. Remaining procurement work is the source signature-
@@ -325,20 +347,18 @@ Execute the remainder in this order:
    replacement), a redacted source export, supplier identity mapping, browser
    acceptance, award-to-commitment acceptance, and procurement-owner sign-off.
    Imported rows remain read-only and no award creates a commitment implicitly.
-3. Treat the employee-loan command boundary as a finance-owner acceptance
+4. Treat the employee-loan command boundary as a finance-owner acceptance
    slice: verify authority grants, applicant ownership, replay/conflict
    behavior, bounded offset projections, and imported-row read-only behavior.
-   Do not enable workflow synchronization until `wf_process_instance` rows,
-   state mapping, and a named workflow owner are available. The Rabbita loan
+   Do not enable workflow synchronization until source `wf_process_instance`
+   and `wf_step_action` rows, state mapping, and a named workflow owner are
+   available. The Rabbita loan
    editor now emits the local create/submit/update/void commands; browser
    acceptance through production identity remains open.
-4. Replace the local session/actor adapter with the reviewed production
+5. Replace the local session/actor adapter with the reviewed production
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for every connected slice. Browser acceptance must exercise the
    real gateway session and visible durable state changes.
-5. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
-   Translate each schema wave into row-level plans only after hashes,
-   relationships, redaction, identity maps, and owner decisions are present.
 6. Finish delivery/progress acceptance before opening another broad surface.
    The local PostgreSQL reads, evidence- and authority-checked
    progress/output/task-report commands, gateway forwarding, and Rabbita

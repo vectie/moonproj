@@ -39,6 +39,11 @@ posts cash, accounting, tax, or approval state implicitly.
 
 - The available export contains one `vcb_loan_simple` row (`loan-001`) and one
   `cb_loan_offset` row (`off-001`).
+- The same backup contains zero `wf_process_instance` rows and zero
+  `wf_step_action` rows; `loan-001.process_instance_guid` is empty. The source
+  initializer defines those workflow tables, but no workflow instance/action
+  evidence is present in the credential-safe payload, so no approval state is
+  inferred or synchronized.
 - The service and read-model server return the loan list and detail with the
   5,000.00 original amount, 1,500.00 offset, 3,500.00 remaining balance, and
   offset provenance.
@@ -62,8 +67,9 @@ posts cash, accounting, tax, or approval state implicitly.
 
 1. Run browser acceptance through the production identity and verify entity,
    employee, and department scope; imported loan rows must remain read-only.
-2. Supply real `wf_process_instance` rows and map their states through a
-   named workflow owner before enabling workflow synchronization or local
+2. Supply real `wf_process_instance` and `wf_step_action` rows (or obtain an
+   owner-approved explicit empty-data disposition) and map their states through
+   a named workflow owner before enabling workflow synchronization or local
    approval completion.
 3. Attach a named finance/operations owner decision before enabling loan
    mutations in production; the local command boundary is ready for review,
