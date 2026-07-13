@@ -125,10 +125,14 @@ The remaining non-empty typed source rows are now preserved separately as 40
 evidence-only projections, including task snapshots and lifecycle-instance
 history; this keeps them queryable without converting source reports,
 assignees, catalogs, or proceedings into company authority or state.
-accounting-link gate now validates two explicitly reviewed, balanced commitment
-journals plus one employee-advance opening journal and persists their
-source/event/journal identities transactionally with idempotent replay. That
-receipt is deliberately not a posting, cash release, or period-close decision.
+accounting-link gate now validates explicitly reviewed, balanced journals across
+an allow-listed source-type boundary (commitment, advance/offset, payment,
+receivable/payable, tax, financing, investment, asset, cash, and bank evidence)
+and persists source/event/journal identities transactionally with idempotent
+replay. The existing fixture still contains two commitment links plus one
+employee-advance opening link; a synthetic receivable smoke exercises the
+expanded boundary without adding business rows. Every receipt is deliberately
+not a posting, cash release, or period-close decision.
 Employee-loan offset rows are likewise a separate state-replay cohort: the
 native importer mutates only a matched advance and leaves expense/cash
 recognition to a separately reviewed accounting event.

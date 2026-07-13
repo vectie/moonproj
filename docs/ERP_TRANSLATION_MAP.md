@@ -136,12 +136,14 @@ each receipt reopens as `shadow_verified` and an identical replay inserts zero
 rows. PostgreSQL receipt state is separate from cash, accounting posting, and
 business ownership.
 `scripts/erp_accounting_link_plan.py` then requires an explicit reviewed
-source-to-journal map for commitment and employee-advance events. The native `cmd/accounting_link`
-command validates balanced journals, principal/scope authority, and duplicate
-event/source protection before emitting a receipt. The optional fourth argument
-to `scripts/erp_migration_rehearsal.sh` applies those links transactionally to
-`company_accounting_event_link`; replay inserts zero rows and never releases
-cash or invents accounting recognition.
+source-to-journal map for an allow-listed set of commitment, advance/offset,
+settlement, expense, delivery, receivable, payable, tax, financing, investment,
+asset, cash, and bank source types. The native `cmd/accounting_link` command validates balanced
+journals, principal/scope authority, and duplicate event/source protection
+before emitting a receipt. The standalone
+`scripts/company_postgres_accounting_cohort_rehearsal.sh` runs any reviewed
+receipt through native validation, PostgreSQL traceability, and replay; it
+never releases cash, posts a period, or invents accounting recognition.
 The fifth wrapper argument runs the separate advance-offset promotion and its
 own accounting-link receipt when that cohort has been approved.
 Each accounting receipt is also checked by

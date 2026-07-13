@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build an explicit source-to-journal link plan from a domain receipt."""
+"""Build an explicit source-to-journal link plan from a domain receipt.
+
+Only the allow-listed target/source domains in ``SUPPORTED_TARGET_SOURCE_TYPES``
+may cross this boundary.  The planner never infers a journal or amount from
+source metadata; the native candidate and reviewed mapping must agree on
+principal, amount, and currency before a link can be accepted.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +18,45 @@ from typing import Any
 
 class PlanError(RuntimeError):
     pass
+
+
+SUPPORTED_TARGET_SOURCE_TYPES = {
+    "commitment": None,
+    "employee_advance": "employee_advance",
+    "employee_advance_offset": "employee_advance_offset",
+    "payment_application": "payment_application",
+    "settlement": "settlement",
+    "expense_claim": "expense_claim",
+    "delivery_progress": "delivery_progress",
+    "asset_depreciation": "asset_depreciation",
+    "receivable": "receivable",
+    "payable": "payable",
+    "tax_obligation": "tax_obligation",
+    "tax_filing": "tax_filing",
+    "financing_facility": "financing_facility",
+    "investment_position": "investment_position",
+    "asset_disposal": "asset_disposal",
+    "cash_movement": "cash_movement",
+    "bank_statement": "bank_statement",
+}
+
+
+def candidate_amount(candidate: dict[str, Any], target_type: str) -> Any:
+    """Read only explicitly named monetary fields from a native candidate."""
+    if target_type == "payment_application":
+        application = candidate.get("application")
+        return application.get("amount_minor") if isinstance(application, dict) else None
+    for field in (
+        "amount_minor",
+        "tax_amount_minor",
+        "reported_tax_amount_minor",
+        "notional_minor",
+        "actual_amount_minor",
+        "completed_value_minor",
+    ):
+        if field in candidate:
+            return candidate[field]
+    return None
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -43,18 +88,12 @@ def main() -> int:
             raise PlanError("accounting_by_source must be an object")
 
         items: list[dict[str, Any]] = []
-        supported_types = {
-            "commitment",
-            "employee_advance",
-            "employee_advance_offset",
-            "payment_application",
-        }
         configured_types = config.get("target_types")
         if configured_types is None:
-            target_types = supported_types
+            target_types = set(SUPPORTED_TARGET_SOURCE_TYPES)
         elif isinstance(configured_types, list) and all(isinstance(value, str) for value in configured_types):
             target_types = set(configured_types)
-            if not target_types or not target_types.issubset(supported_types):
+            if not target_types or not target_types.issubset(SUPPORTED_TARGET_SOURCE_TYPES):
                 raise PlanError("target_types contains an unsupported or empty target type")
         else:
             raise PlanError("target_types must be a non-empty string array")
@@ -90,21 +129,17 @@ def main() -> int:
                     reasons.append(f"missing_accounting_field:{field}")
             if mapping.get("principal_id") != candidate.get("principal_id"):
                 reasons.append("accounting_principal_mismatch")
-            expected_amount = candidate.get("amount_minor")
-            if target_type == "payment_application":
-                application = candidate.get("application")
-                expected_amount = application.get("amount_minor") if isinstance(application, dict) else None
+            expected_amount = candidate_amount(candidate, target_type)
+            if expected_amount is None:
+                reasons.append("domain_candidate_missing_amount")
             if mapping.get("amount_minor") != expected_amount:
                 reasons.append("accounting_amount_mismatch")
-            expected_currency = candidate.get("currency")
+            expected_currency = candidate.get("currency") or candidate.get("base_currency")
+            if not isinstance(expected_currency, str) or not expected_currency:
+                reasons.append("domain_candidate_missing_currency")
             if mapping.get("currency") != expected_currency:
                 reasons.append("accounting_currency_mismatch")
-            source_type = {
-                "commitment": source_table,
-                "employee_advance": "employee_advance",
-                "employee_advance_offset": "employee_advance_offset",
-                "payment_application": "payment_application",
-            }[target_type]
+            source_type = SUPPORTED_TARGET_SOURCE_TYPES[target_type] or source_table
             target_candidate = {
                 "source_target_type": target_type,
                 "event_id": mapping.get("event_id"),
