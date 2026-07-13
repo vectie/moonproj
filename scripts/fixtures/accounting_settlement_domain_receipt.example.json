@@ -1,0 +1,30 @@
+{
+  "format": "moonproj.erp.domain-promotion.v1",
+  "source_snapshot_id": "erp-snapshot:settlement-example",
+  "mapping_version": "settlement-domain-map-v1",
+  "state": "promoted_through_domain_importers",
+  "accepted_items": [
+    {
+      "source_table": "sale_revenue",
+      "source_id": "collection-001",
+      "target_type": "receivable_collection",
+      "target_id": "collection-001",
+      "target_candidate": {
+        "principal_id": "co-001",
+        "amount_minor": 4000,
+        "currency": "CNY"
+      }
+    },
+    {
+      "source_table": "cb_contract",
+      "source_id": "payment-001",
+      "target_type": "payable_payment",
+      "target_id": "payment-001",
+      "target_candidate": {
+        "principal_id": "co-001",
+        "amount_minor": 4000,
+        "currency": "CNY"
+      }
+    }
+  ]
+}

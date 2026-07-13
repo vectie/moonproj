@@ -84,6 +84,46 @@ test "receivable opening creates a source accounting event" {
 }
 
 ///|
+test "receivable collection creates a separate cash settlement event" {
+  let receivable = Receivable::open(
+    receivable_id="ar-collection-accounting",
+    source_id="sale-collection",
+    principal_id="co-001",
+    customer_id="customer-001",
+    amount=@finance.Money::new(minor=10000, currency="CNY"),
+    actor_id="alice",
+    grant=receivable_grant("receivable:open"),
+  )
+  let event = receivable.to_collection_event(
+    collection_id="collection-001",
+    event_id="event-ar-collection",
+    event_type="receivable.collected",
+    amount=@finance.Money::new(minor=4000, currency="CNY"),
+    cash_account="1001",
+    receivable_account="1122",
+  )
+  assert_eq(event.source_type, "receivable_collection")
+  assert_eq(event.source_id, "collection-001")
+  assert_eq(event.journal.postings[0].amount.minor, 4000L)
+  assert_eq(event.journal.postings[1].amount.minor, 4000L)
+  try
+    receivable.to_collection_event(
+      collection_id="collection-too-large",
+      event_id="event-ar-collection-too-large",
+      event_type="receivable.collected",
+      amount=@finance.Money::new(minor=10001, currency="CNY"),
+      cash_account="1001",
+      receivable_account="1122",
+    )
+  catch {
+    ReceivableError::OverCollection => ()
+    _ => fail("wrong collection event error")
+  } noraise {
+    _ => fail("expected collection event error")
+  }
+}
+
+///|
 test "receivable collection persists an immutable projection" {
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(

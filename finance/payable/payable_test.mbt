@@ -87,6 +87,47 @@ test "payable opening creates a source accounting event" {
 }
 
 ///|
+test "payable payment creates a separate cash settlement event" {
+  let payable = Payable::open(
+    payable_id="pay-payment-accounting",
+    principal_id="co-001",
+    project_scope="project:p-001",
+    supplier_id="supplier-001",
+    source_reference="commitment/commit-payment",
+    amount=@finance.Money::new(minor=10000, currency="CNY"),
+    actor_id="alice",
+    grant=payable_grant("payable:create"),
+  )
+  let event = payable.to_payment_event(
+    payment_id="payment-001",
+    event_id="event-ap-payment",
+    event_type="payable.paid",
+    amount=@finance.Money::new(minor=4000, currency="CNY"),
+    payable_account="2202",
+    cash_account="1001",
+  )
+  assert_eq(event.source_type, "payable_payment")
+  assert_eq(event.source_id, "payment-001")
+  assert_eq(event.journal.postings[0].amount.minor, 4000L)
+  assert_eq(event.journal.postings[1].amount.minor, 4000L)
+  try
+    payable.to_payment_event(
+      payment_id="payment-too-large",
+      event_id="event-ap-payment-too-large",
+      event_type="payable.paid",
+      amount=@finance.Money::new(minor=10001, currency="CNY"),
+      payable_account="2202",
+      cash_account="1001",
+    )
+  catch {
+    PayableError::OverPayment => ()
+    _ => fail("wrong payment event error")
+  } noraise {
+    _ => fail("expected payment event error")
+  }
+}
+
+///|
 test "payable payment persists an immutable projection" {
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(

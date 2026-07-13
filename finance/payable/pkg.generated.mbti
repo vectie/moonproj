@@ -42,6 +42,7 @@ pub fn Payable::append_projection(Self, @store.AggregateProjection) -> @store.Ag
 pub fn Payable::open(payable_id~ : String, principal_id~ : String, project_scope~ : String, supplier_id~ : String, source_reference~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PayableError
 pub fn Payable::record_payment(Self, payment~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PayableError
 pub fn Payable::to_opening_event(Self, event_id~ : String, event_type~ : String, expense_account~ : String, payable_account~ : String) -> @accounting.AccountingEvent raise PayableError
+pub fn Payable::to_payment_event(Self, payment_id~ : String, event_id~ : String, event_type~ : String, amount~ : @finance.Money, payable_account~ : String, cash_account~ : String) -> @accounting.AccountingEvent raise PayableError
 pub fn Payable::void_record(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PayableError
 
 pub(all) struct PayableEvent {

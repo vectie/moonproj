@@ -1,0 +1,33 @@
+{
+  "mapping_version": "settlement-accounting-map-v1",
+  "target_types": [
+    "receivable_collection",
+    "payable_payment"
+  ],
+  "accounting_by_source": {
+    "sale_revenue:collection-001": {
+      "event_id": "event-ar-collection-001",
+      "event_type": "receivable.collected",
+      "journal_id": "receivable/collection-001/collection",
+      "description": "Collect receivable collection-001",
+      "debit_account": "1001",
+      "credit_account": "1122",
+      "principal_id": "co-001",
+      "scope": "customer:customer-001",
+      "amount_minor": 4000,
+      "currency": "CNY"
+    },
+    "cb_contract:payment-001": {
+      "event_id": "event-ap-payment-001",
+      "event_type": "payable.paid",
+      "journal_id": "payable/payment-001/payment",
+      "description": "Pay payable payment-001",
+      "debit_account": "2202",
+      "credit_account": "1001",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "amount_minor": 4000,
+      "currency": "CNY"
+    }
+  }
+}

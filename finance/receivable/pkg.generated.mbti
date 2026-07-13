@@ -38,6 +38,7 @@ pub fn Receivable::append_projection(Self, @store.AggregateProjection) -> @store
 pub fn Receivable::collect(Self, amount_minor~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReceivableError
 pub fn Receivable::open(receivable_id~ : String, source_id~ : String, principal_id~ : String, customer_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReceivableError
 pub fn Receivable::outstanding_minor(Self) -> Int64
+pub fn Receivable::to_collection_event(Self, collection_id~ : String, event_id~ : String, event_type~ : String, amount~ : @finance.Money, cash_account~ : String, receivable_account~ : String) -> @accounting.AccountingEvent raise ReceivableError
 pub fn Receivable::to_opening_event(Self, event_id~ : String, event_type~ : String, receivable_account~ : String, revenue_account~ : String) -> @accounting.AccountingEvent raise ReceivableError
 
 pub(all) enum ReceivableState {
