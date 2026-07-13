@@ -27,7 +27,10 @@ from company_postgres_service import (
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
+    supplier_risk as service_supplier_risk,
+    supplier_risk_board as service_supplier_risk_board,
     tenders as service_tenders,
+    contract_splits as service_contract_splits,
 )
 
 
@@ -203,6 +206,22 @@ def suppliers(args: argparse.Namespace, supplier_id: str | None) -> list[dict[st
     return service_suppliers(pool, supplier_id, 500)
 
 
+def supplier_risk(args: argparse.Namespace, supplier_id: str) -> dict[str, Any] | None:
+    return service_supplier_risk(_ReadModelPool(args), supplier_id)
+
+
+def supplier_risk_board(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return service_supplier_risk_board(_ReadModelPool(args), 500)
+
+
+def contract_splits(
+    args: argparse.Namespace,
+    split_id: str | None,
+    parent_contract_id: str | None,
+) -> list[dict[str, Any]]:
+    return service_contract_splits(_ReadModelPool(args), split_id, parent_contract_id, 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -292,11 +311,34 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     supplier_id = parse_qs(parsed.query).get("supplier_id", [None])[0]
                     response(self, 200, {"items": suppliers(args, supplier_id)})
                     return
+                if parsed.path == "/api/company/supplier-risk-board":
+                    response(self, 200, {"items": supplier_risk_board(args)})
+                    return
+                if re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
+                    supplier_id = parsed.path.split("/")[-2]
+                    result = supplier_risk(args, supplier_id)
+                    if result is None:
+                        response(self, 404, {"error": "supplier not found"})
+                    else:
+                        response(self, 200, result)
+                    return
                 if re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     supplier_id = parsed.path.rsplit("/", 1)[-1]
                     rows = suppliers(args, supplier_id)
                     if not rows:
                         response(self, 404, {"error": "supplier not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                if parsed.path == "/api/company/tender-splits":
+                    parent_contract_id = parse_qs(parsed.query).get("parent_contract_id", [None])[0]
+                    response(self, 200, {"items": contract_splits(args, None, parent_contract_id)})
+                    return
+                if re.fullmatch(r"/api/company/tender-splits/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    split_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = contract_splits(args, split_id, None)
+                    if not rows:
+                        response(self, 404, {"error": "contract split not found"})
                     else:
                         response(self, 200, rows[0])
                     return

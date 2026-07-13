@@ -133,6 +133,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-primary-btn:hover { background: #1d4ed8; }
 .erp-secondary-btn { border: 1px solid #bfdbfe; color: #1d4ed8; background: #eff6ff; }
 .erp-secondary-btn:hover { background: #dbeafe; }
+.erp-danger-btn { border: 1px solid #fecaca; color: #b91c1c; background: #fef2f2; }
+.erp-danger-btn:hover { background: #fee2e2; }
 .erp-ghost-btn { border: 1px solid #e2e8f0; color: #64748b; background: #fff; }
 .erp-ghost-btn:hover { color: #1d4ed8; border-color: #bfdbfe; }
 .erp-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }

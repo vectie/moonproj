@@ -262,12 +262,13 @@ replacement of `erp_new`. The findings that now control sequencing are:
    interaction, or route-action comparison has been accepted.
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise five bounded slices:
-   expense approval, contract approval, payment-application control, tender
-   planning/state commands, and supplier projection reads. They persist
-   idempotent command receipts, immutable revisions, and audit evidence where
-   commands exist. This is still local-only evidence: the gateway session and
-   actor assertion are not the production identity boundary, and no browser
-   acceptance or named-owner sign-off has been recorded.
+   expense approval, contract approval, payment-application control, and the
+   procurement vertical (supplier lifecycle/risk reads, tender planning/award,
+   and contract splits). They persist idempotent command receipts, immutable
+   revisions, and audit evidence where commands exist. This is still local-only
+   evidence: the gateway session and actor assertion are not the production
+   identity boundary, and no browser acceptance or named-owner sign-off has
+   been recorded.
 3. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
@@ -280,9 +281,10 @@ replacement of `erp_new`. The findings that now control sequencing are:
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
 currently records six connected target states across browser and API surfaces
-(the five slices above plus fixed company reads), while 40 browser views and 47
-API groups remain fixture-backed or read-model-only. That gap, rather than
-additional platform hardening, controls the next work.
+(the four workflow slices above plus procurement and fixed company reads),
+while 40 browser views and 47 API groups remain fixture-backed or read-model-
+only. That gap, rather than additional platform hardening, controls the next
+work.
 
 Execute the remainder in this order:
 
@@ -291,17 +293,14 @@ Execute the remainder in this order:
    for every ERP route family. Record each route as `matched`, `intentionally
    changed`, `blocked by missing source`, or `not implemented`; do not call the
    UI complete from screenshots of only the dashboard.
-2. Finish the connected procurement vertical before opening another broad
-   surface. Implement the supplier command boundary corresponding to source
-   create, partial/full update, review/evaluation, blacklist, risk, and void
-   actions; expose tender award and split reads/commands; and retain the
-   existing constraints that imported rows are read-only, awards require a
-   matching bid plus an active qualified supplier, and award-to-commitment is a
-   separate authority decision. Prove each local command against PostgreSQL
-   with idempotency, immutable revision, audit, rejection, and replay checks;
-   then add the Rabbita action states. The source export has no supplier/tender
-   rows, so this remains a synthetic/runtime gate until a redacted export and
-   procurement-owner acceptance are attached.
+2. Close the procurement acceptance gap before opening another broad surface.
+   The local supplier lifecycle/risk reads, tender planning/award/complete,
+   and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
+   command-state checks. Remaining procurement work is the source signature-
+   check and external risk-rescore integration (or an owner-approved derived
+   replacement), a redacted source export, supplier identity mapping, browser
+   acceptance, award-to-commitment acceptance, and procurement-owner sign-off.
+   Imported rows remain read-only and no award creates a commitment implicitly.
 3. Replace the local session/actor adapter with the reviewed production
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for every connected slice. Browser acceptance must exercise the

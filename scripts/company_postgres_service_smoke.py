@@ -249,6 +249,114 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/contracts/{contract_id}", token=token)
         if status != 200 or payload is None or payload.get("state") != "approved":
             raise SmokeError(f"contract detail failed: {status} {payload}")
+        supplier_id = "SUP-SMOKE-" + nonce
+        supplier_payload = {
+            "supplier_id": supplier_id,
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+            "supplier_code": "SUP-SMOKE-" + nonce,
+            "name": "service command smoke supplier",
+            "category_code": "construction",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/suppliers",
+            token=token,
+            method="POST",
+            payload=supplier_payload,
+            idempotency_key="supplier-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("supplier", {}).get("state") != "draft":
+            raise SmokeError(f"supplier create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/suppliers",
+            token=token,
+            method="POST",
+            payload=supplier_payload,
+            idempotency_key="supplier-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"supplier idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/suppliers/{supplier_id}/update",
+            token=token,
+            method="POST",
+            payload={"name": "service command smoke supplier updated"},
+            idempotency_key="supplier-update-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("supplier", {}).get("state") != "draft":
+            raise SmokeError(f"supplier update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/suppliers/{supplier_id}/submit_review",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="supplier-submit-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("supplier", {}).get("state") != "pending_review":
+            raise SmokeError(f"supplier submit review failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/suppliers/{supplier_id}/review",
+            token=token,
+            method="POST",
+            payload={"evaluation": "qualified"},
+            idempotency_key="supplier-review-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("supplier", {}).get("state") != "active"
+            or payload.get("supplier", {}).get("evaluation") != "qualified"
+        ):
+            raise SmokeError(f"supplier review failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/suppliers/{supplier_id}", token=token)
+        if status != 200 or payload is None or payload.get("state") != "active":
+            raise SmokeError(f"supplier detail failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/suppliers/{supplier_id}/risk", token=token)
+        if status != 200 or payload is None or payload.get("rating") != "B":
+            raise SmokeError(f"supplier risk failed: {status} {payload}")
+        blocked_supplier_id = "SUP-SMOKE-BLOCKED-" + nonce
+        blocked_payload = {
+            "supplier_id": blocked_supplier_id,
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+            "supplier_code": "SUP-BLOCKED-" + nonce,
+            "name": "service command smoke blocked supplier",
+            "category_code": "construction",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/suppliers",
+            token=token,
+            method="POST",
+            payload=blocked_payload,
+            idempotency_key="supplier-blocked-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("supplier", {}).get("state") != "draft":
+            raise SmokeError(f"blocked supplier create failed: {status} {payload}")
+        for command, expected_state, body in (
+            ("submit_review", "pending_review", {}),
+            ("review", "suspended", {"evaluation": "unqualified"}),
+            ("blacklist", "blacklisted", {}),
+            ("void", "voided", {}),
+        ):
+            status, payload = request(
+                args.port,
+                f"/api/company/suppliers/{blocked_supplier_id}/{command}",
+                token=token,
+                method="POST",
+                payload=body,
+                idempotency_key=f"supplier-blocked-{command}-" + nonce,
+            )
+            if status != 200 or payload is None or payload.get("supplier", {}).get("state") != expected_state:
+                raise SmokeError(f"blocked supplier {command} failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/suppliers/{blocked_supplier_id}/risk", token=token)
+        if status != 200 or payload is None or payload.get("rating") != "E":
+            raise SmokeError(f"blocked supplier risk failed: {status} {payload}")
         apply_id = "PAY-SMOKE-" + nonce
         payment_payload = {
             "apply_id": apply_id,
@@ -355,6 +463,7 @@ def main() -> int:
             "category": "construction",
             "estimated_amount_minor": 1200000,
             "currency": "CNY",
+            "bids": [{"supplier_id": supplier_id, "amount_minor": 1050000}],
         }
         status, payload = request(
             args.port,
@@ -379,7 +488,7 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/tenders/{tender_id}", token=token)
         if status != 200 or payload is None or payload.get("state") != "planning":
             raise SmokeError(f"tender detail failed: {status} {payload}")
-        for command, expected_state in (("publish", "publishing"), ("open_bidding", "bidding"), ("cancel", "cancelled")):
+        for command, expected_state in (("publish", "publishing"), ("open_bidding", "bidding")):
             status, payload = request(
                 args.port,
                 f"/api/company/tenders/{tender_id}/{command}",
@@ -390,9 +499,75 @@ def main() -> int:
             )
             if status != 200 or payload is None or payload.get("tender", {}).get("state") != expected_state:
                 raise SmokeError(f"tender {command} failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/tenders/{tender_id}/award",
+            token=token,
+            method="POST",
+            payload={"awarded_supplier_id": supplier_id, "awarded_amount_minor": 1050000},
+            idempotency_key="tender-award-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("tender", {}).get("state") != "awarded":
+            raise SmokeError(f"tender award failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/tenders/{tender_id}/award",
+            token=token,
+            method="POST",
+            payload={"awarded_supplier_id": supplier_id, "awarded_amount_minor": 1050000},
+            idempotency_key="tender-award-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"tender award idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/tenders/{tender_id}/complete",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="tender-complete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("tender", {}).get("state") != "completed":
+            raise SmokeError(f"tender complete failed: {status} {payload}")
         status, payload = request(args.port, f"/api/company/tenders/{tender_id}", token=token)
-        if status != 200 or payload is None or payload.get("state") != "cancelled":
-            raise SmokeError(f"tender cancelled detail failed: {status} {payload}")
+        if status != 200 or payload is None or payload.get("state") != "completed":
+            raise SmokeError(f"tender completed detail failed: {status} {payload}")
+        split_id = "SPLIT-SMOKE-" + nonce
+        split_payload = {
+            "split_id": split_id,
+            "parent_contract_id": contract_id,
+            "split_name": "service command smoke split",
+            "split_amount_minor": 123450,
+            "split_pct_bps": 1000,
+            "scope": "project:CD-HJL",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/tender-splits",
+            token=token,
+            method="POST",
+            payload=split_payload,
+            idempotency_key="split-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("split", {}).get("state") != "planned":
+            raise SmokeError(f"contract split create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/tender-splits",
+            token=token,
+            method="POST",
+            payload=split_payload,
+            idempotency_key="split-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"contract split idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/tender-splits/{split_id}",
+            token=token,
+        )
+        if status != 200 or payload is None or payload.get("state") != "planned":
+            raise SmokeError(f"contract split detail failed: {status} {payload}")
         print(
             json.dumps(
                 {
@@ -402,7 +577,10 @@ def main() -> int:
                     "payment_application_approval_state": "approved",
                     "payment_application_state": "voided",
                     "payment_eligibility": "early_payment_flagged",
-                    "tender_state": "cancelled",
+                    "tender_state": "completed",
+                    "supplier_state": "active",
+                    "supplier_risk": "B",
+                    "split_state": "planned",
                     "port": args.port,
                     "database": args.database,
                 },

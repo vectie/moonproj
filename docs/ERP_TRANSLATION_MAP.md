@@ -116,13 +116,13 @@ read model joins the three real `cb_htfk_apply` rows to their contract,
 project, supplier, applicant, plan, and dual approval/payment state; its local
 command boundary also covers edit/void and milestone early/over-payment checks.
 The tender read model exposes latest procurement projections and its local
-planning/publish/open-bidding/cancel boundary; imported tenders remain
-read-only and awards require an active qualified supplier projection. The
-supplier read model exposes the same reviewed qualification/scope candidates
-to `/srm/providers`; supplier create/update/review/blacklist/risk/void commands,
-tender award, and contract-split commands remain the next SRM/procurement
-slice. Imported rows remain read-only and award-to-commitment remains a
-separate authority gate.
+planning/publish/open-bidding/award/complete/cancel boundary; imported tenders
+remain read-only and awards require an active qualified supplier projection.
+The supplier read model exposes qualification/scope candidates to
+`/srm/providers`; local supplier create/update/review/blacklist/void commands,
+derived risk reads, tender award, and contract-split commands now share the
+same idempotent PostgreSQL/audit boundary. Imported rows remain read-only and
+award-to-commitment remains a separate authority gate.
 `scripts/company_postgres_dev_gateway.py` adds the local
 HttpOnly session and signed actor assertion required by the Rabbita browser;
 managed provider deployment, token issuer/audience validation, and operational
@@ -613,6 +613,8 @@ future parity work.
 - map `wf_*` approval definitions into a target workflow aggregate;
 - map CBS subject/version/R0 records into persistent target cost structures;
 - persist tender-award → commitment and milestone → payment-application links;
+- attach source supplier signature-check/rescore evidence to the derived risk
+  read model and obtain owner approval for the procurement cohort;
 - translate expenses, loan offsetting, and employee finance;
 - map invoice, receivable collection, tax, and journal events without double
   recognition (opening receivable/payable links are already explicit);

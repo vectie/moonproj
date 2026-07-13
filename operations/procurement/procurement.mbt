@@ -189,6 +189,35 @@ pub fn Supplier::blacklist(
 }
 
 ///|
+pub fn Supplier::void_supplier(
+  self : Supplier,
+  actor_id~ : String,
+  grant~ : @foundation.AuthorityGrant,
+) -> Supplier raise SupplierError {
+  if self.state == SupplierState::Voided {
+    raise SupplierError::InvalidState
+  }
+  @foundation.require_authority(
+    grant,
+    principal_id=self.principal_id,
+    actor_id~,
+    capability="supplier:void",
+    scope=self.scope,
+    amount_minor=0,
+  ) catch {
+    error => raise SupplierError::NotAuthorized(error)
+  }
+  let events = self.events.copy()
+  events.push({
+    from: self.state,
+    to: SupplierState::Voided,
+    actor_id,
+    capability: "supplier:void",
+  })
+  { ..self, state: SupplierState::Voided, events }
+}
+
+///|
 pub(all) enum TenderState {
   Planning
   Publishing

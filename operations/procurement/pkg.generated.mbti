@@ -52,6 +52,7 @@ pub fn Supplier::blacklist(Self, actor_id~ : String, grant~ : @foundation.Author
 pub fn Supplier::new(supplier_id~ : String, principal_id~ : String, scope~ : String, supplier_code~ : String, name~ : String, category_code~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
 pub fn Supplier::review(Self, evaluation~ : SupplierEvaluation, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
 pub fn Supplier::submit_review(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
+pub fn Supplier::void_supplier(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SupplierError
 
 pub(all) enum SupplierEvaluation {
   Unrated

@@ -145,6 +145,9 @@ struct Model {
   tender_note : String
   suppliers_loaded : Bool
   supplier_rows : Array[SupplierRow]
+  supplier_id : String
+  supplier_state : String
+  supplier_evaluation : String
   supplier_note : String
 }
 
@@ -202,11 +205,21 @@ enum Msg {
   CreateTender
   PublishTender
   OpenTenderBidding
+  AwardTender
+  CompleteTender
   CancelTender
   TenderCommandFinished(String)
   TenderCommandFailed
   SuppliersLoaded(String)
   SuppliersLoadFailed
+  CreateSupplier
+  UpdateSupplier
+  SubmitSupplierReview
+  ReviewSupplier
+  BlacklistSupplier
+  VoidSupplier
+  SupplierCommandFinished(String)
+  SupplierCommandFailed
 }
 
 ///|
@@ -245,6 +258,9 @@ fn initial_model() -> Model {
     tender_note: "合约规划读模型尚未加载",
     suppliers_loaded: false,
     supplier_rows: [],
+    supplier_id: "SUP-RABBITA-LOCAL",
+    supplier_state: "new",
+    supplier_evaluation: "unrated",
     supplier_note: "供应商读模型尚未加载",
   }
 }
@@ -597,12 +613,15 @@ fn supplier_rows_from_body(body : String) -> Array[SupplierRow] {
 ///|
 fn supplier_state_label(state : String) -> String {
   match state {
+    "new" => "未创建"
+    "pending" => "处理中"
     "draft" => "草稿"
     "pending_review" => "待审核"
     "active" => "正常"
     "suspended" => "暂停"
     "blacklisted" => "黑名单"
     "voided" => "已作废"
+    "error" => "命令失败"
     _ => state
   }
 }
@@ -625,6 +644,40 @@ fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(SuppliersLoaded(body))
       Err(_) => emit(SuppliersLoadFailed)
+    }
+  })
+}
+
+///|
+fn supplier_command_body(_model : Model, command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-supplier-create-v1\",\"supplier_id\":\"SUP-RABBITA-LOCAL\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"supplier_code\":\"SUP-RABBITA-LOCAL\",\"name\":\"Rabbita 本地示例供应商\",\"category_code\":\"construction\"}"
+  } else if command_type == "update" {
+    "{\"idempotency_key\":\"rabbita-supplier-update-v1\",\"name\":\"Rabbita 本地示例供应商（已更新）\"}"
+  } else if command_type == "review" {
+    "{\"idempotency_key\":\"rabbita-supplier-review-v1\",\"evaluation\":\"qualified\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-supplier-" + command_type + "-v1\"}"
+  }
+}
+
+///|
+fn issue_supplier_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/suppliers"
+  } else {
+    "/api/company/suppliers/\{model.supplier_id}/\{command_type}"
+  }
+  @http.post(path)
+  .with_text(supplier_command_body(model, command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierCommandFinished(body))
+      Err(_) => emit(SupplierCommandFailed)
     }
   })
 }
@@ -655,9 +708,11 @@ fn load_tenders(emit : @rabbita.Emit[Msg]) -> Cmd {
 ///|
 fn tender_command_body(_model : Model, command_type : String) -> String {
   if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-tender-create-v1\",\"tender_id\":\"TD-RABBITA-LOCAL\",\"project_scope\":\"project:proj-0001\",\"name\":\"海教园主体结构工程招标\",\"category\":\"construction\",\"estimated_amount_minor\":120000000,\"currency\":\"CNY\"}"
+    "{\"idempotency_key\":\"rabbita-tender-create-v1\",\"tender_id\":\"TD-RABBITA-LOCAL\",\"project_scope\":\"project:proj-0001\",\"name\":\"海教园主体结构工程招标\",\"category\":\"construction\",\"estimated_amount_minor\":120000000,\"currency\":\"CNY\",\"bids\":[{\"supplier_id\":\"SUP-RABBITA-LOCAL\",\"amount_minor\":105000000}]}"
   } else if command_type == "cancel" {
     "{\"idempotency_key\":\"rabbita-tender-cancel-v1\",\"reason\":\"本地演示撤回规划\"}"
+  } else if command_type == "award" {
+    "{\"idempotency_key\":\"rabbita-tender-award-v1\",\"awarded_supplier_id\":\"SUP-RABBITA-LOCAL\",\"awarded_amount_minor\":105000000}"
   } else {
     "{\"idempotency_key\":\"rabbita-tender-" + command_type + "-v1\"}"
   }
@@ -1348,6 +1403,32 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    AwardTender =>
+      if model.tender_id == "" || model.tender_state != "bidding" {
+        (none, model)
+      } else {
+        (
+          issue_tender_command(emit, model, "award"),
+          {
+            ..model,
+            tender_state: "pending",
+            tender_note: "正在校验供应商资格并定标…",
+          },
+        )
+      }
+    CompleteTender =>
+      if model.tender_id == "" || model.tender_state != "awarded" {
+        (none, model)
+      } else {
+        (
+          issue_tender_command(emit, model, "complete"),
+          {
+            ..model,
+            tender_state: "pending",
+            tender_note: "正在完成招标规划并写入审计…",
+          },
+        )
+      }
     CancelTender =>
       if model.tender_id == "" ||
         (
@@ -1421,6 +1502,142 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           suppliers_loaded: false,
           supplier_note: "供应商读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateSupplier =>
+      if model.supplier_state == "new" {
+        (
+          issue_supplier_command(emit, model, "create"),
+          {
+            ..model,
+            supplier_state: "pending",
+            supplier_note: "正在创建供应商并写入 PostgreSQL 投影…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    UpdateSupplier =>
+      if model.supplier_id == "" ||
+        model.supplier_state == "new" ||
+        model.supplier_state == "voided" {
+        (none, model)
+      } else {
+        (
+          issue_supplier_command(emit, model, "update"),
+          {
+            ..model,
+            supplier_state: "pending",
+            supplier_note: "正在更新供应商主数据…",
+          },
+        )
+      }
+    SubmitSupplierReview =>
+      if model.supplier_id == "" || model.supplier_state != "draft" {
+        (none, model)
+      } else {
+        (
+          issue_supplier_command(emit, model, "submit_review"),
+          {
+            ..model,
+            supplier_state: "pending",
+            supplier_note: "正在提交供应商资格审核…",
+          },
+        )
+      }
+    ReviewSupplier =>
+      if model.supplier_id == "" || model.supplier_state != "pending_review" {
+        (none, model)
+      } else {
+        (
+          issue_supplier_command(emit, model, "review"),
+          {
+            ..model,
+            supplier_state: "pending",
+            supplier_note: "正在写入供应商资格评价…",
+          },
+        )
+      }
+    BlacklistSupplier =>
+      if model.supplier_id == "" ||
+        (
+          model.supplier_state != "active" &&
+          model.supplier_state != "suspended"
+        ) {
+        (none, model)
+      } else {
+        (
+          issue_supplier_command(emit, model, "blacklist"),
+          {
+            ..model,
+            supplier_state: "pending",
+            supplier_note: "正在执行供应商黑名单控制…",
+          },
+        )
+      }
+    VoidSupplier =>
+      if model.supplier_id == "" ||
+        model.supplier_state == "new" ||
+        model.supplier_state == "voided" {
+        (none, model)
+      } else {
+        (
+          issue_supplier_command(emit, model, "void"),
+          {
+            ..model,
+            supplier_state: "pending",
+            supplier_note: "正在作废供应商并写入审计…",
+          },
+        )
+      }
+    SupplierCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"draft\"") {
+        "draft"
+      } else if body.contains("\"state\":\"pending_review\"") {
+        "pending_review"
+      } else if body.contains("\"state\":\"active\"") {
+        "active"
+      } else if body.contains("\"state\":\"suspended\"") {
+        "suspended"
+      } else if body.contains("\"state\":\"blacklisted\"") {
+        "blacklisted"
+      } else if body.contains("\"state\":\"voided\"") {
+        "voided"
+      } else {
+        "error"
+      }
+      let next_evaluation = if body.contains("\"evaluation\":\"qualified\"") {
+        "qualified"
+      } else if body.contains("\"evaluation\":\"strategic\"") {
+        "strategic"
+      } else if body.contains("\"evaluation\":\"unqualified\"") {
+        "unqualified"
+      } else if body.contains("\"evaluation\":\"reviewed\"") {
+        "reviewed"
+      } else {
+        model.supplier_evaluation
+      }
+      if next_state == "error" {
+        (none, { ..model, supplier_state: "error", supplier_note: body })
+      } else {
+        (
+          load_suppliers(emit),
+          {
+            ..model,
+            supplier_state: next_state,
+            supplier_evaluation: next_evaluation,
+            supplier_note: "已写入 PostgreSQL · 供应商状态已更新 · 审计凭证已生成",
+          },
+        )
+      }
+    }
+    SupplierCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_state: "error",
+          supplier_note: "公司供应商命令服务不可用或拒绝了请求",
         },
       )
     CreateExpense =>
@@ -3345,12 +3562,28 @@ fn tender_actions(
           "开启投标",
         ),
       )
-    "bidding" =>
+    "bidding" => {
       actions.push(
         button(
           class="erp-secondary-btn",
           on_click=emit(CancelTender),
           "取消规划",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(AwardTender),
+          "定标（需供应商资格）",
+        ),
+      )
+    }
+    "awarded" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CompleteTender),
+          "完成招标",
         ),
       )
     _ => ()
@@ -3487,16 +3720,109 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   } else {
     fallback_supplier_rows()
   }
+  let actions : Array[@html.Html] = [
+    nav_button(
+      emit, "/srm/providers/SUP-00018", "erp-primary-btn", "＋ 新增供应商",
+    ),
+  ]
+  match model.supplier_state {
+    "new" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CreateSupplier),
+          "保存本地供应商",
+        ),
+      )
+    "draft" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(SubmitSupplierReview),
+          "提交资格审核",
+        ),
+      )
+    "pending_review" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(ReviewSupplier),
+          "评定为合格",
+        ),
+      )
+    "active" => {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(UpdateSupplier),
+          "更新主数据",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-danger-btn",
+          on_click=emit(BlacklistSupplier),
+          "加入黑名单",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(VoidSupplier),
+          "作废供应商",
+        ),
+      )
+    }
+    "suspended" => {
+      actions.push(
+        button(
+          class="erp-danger-btn",
+          on_click=emit(BlacklistSupplier),
+          "加入黑名单",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(VoidSupplier),
+          "作废供应商",
+        ),
+      )
+    }
+    "blacklisted" =>
+      actions.push(
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(VoidSupplier),
+          "作废供应商",
+        ),
+      )
+    _ => ()
+  }
   page_shell(
     "供应商库",
     "SRM / PROVIDERS",
     "维护供应商资质、合作项目、联系人和履约评价，服务合同与招采环节。",
-    [
-      nav_button(
-        emit, "/srm/providers/SUP-00018", "erp-primary-btn", "＋ 新增供应商",
-      ),
-    ],
+    actions,
     div <| [
+      div(class="erp-stat-grid") <| [
+        metric(
+          "本地命令",
+          supplier_state_label(model.supplier_state),
+          supplier_evaluation_label(model.supplier_evaluation),
+          "metric-green",
+        ),
+        metric(
+          "数据来源",
+          if model.suppliers_loaded {
+            "PostgreSQL"
+          } else {
+            "快照"
+          },
+          model.supplier_note,
+          "metric-blue",
+        ),
+      ],
       filter_bar("供应商名称 / 统一社会信用代码 / 类别"),
       table_panel(
         "供应商列表",

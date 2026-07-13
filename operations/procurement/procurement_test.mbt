@@ -149,6 +149,20 @@ test "supplier and tender state persist as revisioned projections" {
 }
 
 ///|
+test "supplier void preserves an explicit lifecycle event" {
+  let supplier = active_supplier()
+  let voided = supplier.void_supplier(
+    actor_id="alice",
+    grant=procurement_grant("supplier:void"),
+  )
+  assert_true(voided.state == SupplierState::Voided)
+  assert_eq(voided.events.length(), supplier.events.length() + 1)
+  let event = voided.events[voided.events.length() - 1]
+  assert_eq(event.capability, "supplier:void")
+  assert_true(event.to == SupplierState::Voided)
+}
+
+///|
 test "awarded tender creates a commitment through two authority gates" {
   let supplier = active_supplier()
   let tender = TenderPlan::new(

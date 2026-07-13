@@ -28,6 +28,10 @@ The bounded service exposes these endpoints:
 * ``/api/company/tenders`` (POST create planning draft)
 * ``/api/company/tenders/<id>/{publish,open_bidding,award,complete,cancel}`` (POST)
 * ``/api/company/suppliers`` and ``/api/company/suppliers/<id>`` (GET)
+* ``/api/company/suppliers`` (POST create draft)
+* ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
+* ``/api/company/suppliers/<id>/risk`` (GET)
+* ``/api/company/tender-splits`` (GET/POST)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -266,7 +270,9 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "payment_application_command",
             "procurement_read",
             "supplier_read",
+            "supplier_command",
             "tender_command",
+            "contract_split_command",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -291,7 +297,9 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "payment_application_command",
             "procurement_read",
             "supplier_read",
+            "supplier_command",
             "tender_command",
+            "contract_split_command",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -728,6 +736,377 @@ def suppliers(
     return [_decode_supplier_fields(line) for line in query_lines(pool, query)]
 
 
+def supplier_risk(
+    pool: PsqlPool,
+    supplier_id: str,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(supplier_id):
+        raise ValueError("invalid supplier_id")
+    rows = suppliers(pool, supplier_id, 1)
+    if not rows:
+        return None
+    supplier = rows[0]
+    state = str(supplier["state"])
+    evaluation = str(supplier["evaluation"])
+    if state in {"voided", "blacklisted"} or evaluation == "unqualified":
+        score, rating = 0, "E"
+    elif state == "active" and evaluation == "strategic":
+        score, rating = 95, "A"
+    elif state == "active" and evaluation == "qualified":
+        score, rating = 85, "B"
+    elif state == "pending_review":
+        score, rating = 60, "C"
+    elif state == "suspended":
+        score, rating = 35, "D"
+    else:
+        score, rating = 50, "C"
+    tags: list[str] = []
+    if state == "pending_review":
+        tags.append("pending_review")
+    if state == "suspended":
+        tags.append("suspended")
+    if state == "blacklisted":
+        tags.append("blacklist")
+    if evaluation == "unqualified":
+        tags.append("unqualified")
+    return {
+        "supplier_id": supplier_id,
+        "score": score,
+        "rating": rating,
+        "tags": tags,
+        "state": state,
+        "evaluation": evaluation,
+        "source_kind": supplier["source_kind"],
+    }
+
+
+def supplier_risk_board(
+    pool: PsqlPool,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    rows = suppliers(pool, None, max_rows)
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        risk = supplier_risk(pool, str(row["supplier_id"]))
+        if risk is not None:
+            result.append({**row, **risk})
+    result.sort(key=lambda item: (int(item["score"]), str(item["supplier_id"])))
+    return result[:max_rows]
+
+
+def _decode_split_fields(line: str) -> dict[str, Any]:
+    fields = line.split("|")
+    if len(fields) != 10:
+        raise ServiceError("unexpected contract split projection shape")
+    try:
+        return {
+            "split_id": decode_hex(fields[0]),
+            "parent_contract_id": decode_hex(fields[1]),
+            "split_name": decode_hex(fields[2]),
+            "split_amount_minor": int(fields[3]),
+            "split_pct_bps": int(fields[4]),
+            "scope": decode_hex(fields[5]),
+            "state": decode_hex(fields[6]),
+            "source_kind": decode_hex(fields[7]),
+            "source_snapshot_id": decode_hex(fields[8]),
+            "mapping_version": decode_hex(fields[9]),
+        }
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ServiceError("invalid contract split projection encoding") from error
+
+
+def contract_splits(
+    pool: PsqlPool,
+    split_id: str | None,
+    parent_contract_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    for value, name in ((split_id, "split_id"), (parent_contract_id, "parent_contract_id")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {name}")
+    filters: list[str] = []
+    if split_id is not None:
+        filters.append(f"latest.aggregate_id = {sql_literal(split_id)}")
+    if parent_contract_id is not None:
+        filters.append(
+            "coalesce(latest.payload->>'parent_contract_id', "
+            "latest.payload->'candidate'->>'parent_contract_id', '') = "
+            + sql_literal(parent_contract_id)
+        )
+    where = "WHERE " + " AND ".join(filters) if filters else ""
+    query = f"""
+    WITH latest AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, payload
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'contract_split'
+      ORDER BY aggregate_id, revision DESC
+    )
+    SELECT encode(convert_to(latest.aggregate_id, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'parent_contract_id', latest.payload->'candidate'->>'parent_contract_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'split_name', latest.payload->'candidate'->>'split_name', ''), 'UTF8'), 'hex'),
+           coalesce(latest.payload->>'split_amount_minor', latest.payload->'candidate'->>'split_amount_minor', '0'),
+           coalesce(latest.payload->>'split_pct_bps', latest.payload->'candidate'->>'split_pct_bps', '0'),
+           encode(convert_to(coalesce(latest.payload->>'scope', latest.payload->'candidate'->>'scope', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'state', latest.payload->'candidate'->>'state', 'planned'), 'UTF8'), 'hex'),
+           encode(convert_to(CASE WHEN latest.payload ? 'candidate' THEN 'imported' ELSE coalesce(latest.payload->>'source_kind', 'command') END, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'source_snapshot_id', latest.payload->'candidate'->>'source_snapshot_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'mapping_version', latest.payload->'candidate'->>'mapping_version', ''), 'UTF8'), 'hex')
+    FROM latest
+    {where}
+    ORDER BY latest.aggregate_id
+    LIMIT {max_rows}
+    """
+    result = [_decode_split_fields(line) for line in query_lines(pool, query)]
+    for item in result:
+        item["split_amount_display"] = f"¥{item['split_amount_minor'] / 100:,.2f}"
+        item["split_pct_display"] = f"{item['split_pct_bps'] / 100:.2f}%"
+    return result
+
+
+def _supplier_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    identifier: bool = False,
+) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _supplier_request(
+    command_type: str,
+    supplier_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, dict[str, Any]]:
+    allowed = {"create", "update", "submit_review", "review", "blacklist", "void"}
+    if command_type not in allowed:
+        raise CommandRejected("unsupported supplier command", 404)
+    if command_type == "create":
+        supplier_id = _supplier_text(body, "supplier_id", identifier=True)
+        principal_id = _supplier_text(body, "principal_id", identifier=True)
+        scope = _supplier_text(body, "scope", identifier=True)
+        supplier_code = _supplier_text(body, "supplier_code", identifier=True)
+        name = _supplier_text(body, "name")
+        category_code = _supplier_text(body, "category_code", identifier=True)
+        return supplier_id, {
+            "command_type": command_type,
+            "supplier_id": supplier_id,
+            "principal_id": principal_id,
+            "scope": scope,
+            "supplier_code": supplier_code,
+            "name": name,
+            "category_code": category_code,
+            "actor_id": actor_id,
+        }
+    if supplier_id is None or not IDENTIFIER.fullmatch(supplier_id):
+        raise CommandRejected("supplier_id is required", 422)
+    request: dict[str, Any] = {
+        "command_type": command_type,
+        "supplier_id": supplier_id,
+        "actor_id": actor_id,
+    }
+    if command_type == "update":
+        changes: dict[str, str] = {}
+        for key in ("scope", "supplier_code", "name", "category_code"):
+            value = body.get(key)
+            if value is not None:
+                if not isinstance(value, str) or not value.strip():
+                    raise CommandRejected(f"{key} must be non-empty text", 422)
+                cleaned = value.strip()
+                if key != "name" and not IDENTIFIER.fullmatch(cleaned):
+                    raise CommandRejected(f"{key} contains unsupported characters", 422)
+                changes[key] = cleaned
+        if not changes:
+            raise CommandRejected("update requires at least one mutable field", 422)
+        request["changes"] = changes
+    elif command_type == "review":
+        evaluation = _supplier_text(body, "evaluation", identifier=True).lower()
+        if evaluation not in {"reviewed", "qualified", "unqualified", "strategic"}:
+            raise CommandRejected("evaluation is invalid", 422)
+        request["evaluation"] = evaluation
+    reason = body.get("reason", "")
+    if not isinstance(reason, str):
+        raise CommandRejected("reason must be text", 422)
+    request["reason"] = reason.strip()
+    return supplier_id, request
+
+
+def supplier_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    supplier_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    supplier_id, request = _supplier_request(command_type, supplier_id, body, actor_id)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored supplier command receipt has no result")
+        return {"command": existing, "supplier": result, "idempotent_replay": True}
+    current = suppliers(pool, supplier_id, 1)
+    if command_type == "create" and current:
+        raise CommandRejected("supplier already exists", 409)
+    if command_type != "create":
+        if not current:
+            raise CommandRejected("supplier not found", 404)
+        current_row = current[0]
+        if current_row.get("source_kind") != "command":
+            raise CommandRejected("imported supplier is read-only; create a local supplier first", 409)
+        current_state = str(current_row.get("state", ""))
+        if command_type == "update" and current_state == "voided":
+            raise CommandRejected("voided supplier cannot be updated", 409)
+        if command_type == "submit_review" and current_state != "draft":
+            raise CommandRejected(f"supplier transition submit_review requires draft, found {current_state}", 409)
+        if command_type == "review" and current_state != "pending_review":
+            raise CommandRejected(f"supplier transition review requires pending_review, found {current_state}", 409)
+        if command_type in {"blacklist", "void"} and current_state == "voided":
+            raise CommandRejected("voided supplier cannot change state", 409)
+    event_id = f"supplier:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "supplier_id": supplier_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_state text;
+      next_evaluation text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'supplier'
+        AND p.aggregate_id = {sql_literal(supplier_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'supplier already exists'; END IF;
+        next_revision := 1;
+        next_state := 'draft';
+        next_evaluation := 'unrated';
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', next_state, 'evaluation', next_evaluation, 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'supplier not found'; END IF;
+        current_state := current_payload->>'state';
+        next_state := current_state;
+        next_evaluation := coalesce(current_payload->>'evaluation', 'unrated');
+        IF {sql_literal(command_type)} = 'update' THEN
+          next_payload := current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb);
+        ELSIF {sql_literal(command_type)} = 'submit_review' THEN
+          IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid supplier state'; END IF;
+          next_state := 'pending_review';
+          next_payload := current_payload;
+        ELSIF {sql_literal(command_type)} = 'review' THEN
+          IF current_state <> 'pending_review' THEN RAISE EXCEPTION 'invalid supplier state'; END IF;
+          next_evaluation := {sql_literal(request_json)}::jsonb->>'evaluation';
+          IF next_evaluation IN ('qualified', 'strategic') THEN
+            next_state := 'active';
+          ELSE
+            next_state := 'suspended';
+          END IF;
+          next_payload := current_payload;
+        ELSIF {sql_literal(command_type)} = 'blacklist' THEN
+          IF current_state = 'voided' THEN RAISE EXCEPTION 'invalid supplier state'; END IF;
+          next_state := 'blacklisted';
+          next_payload := current_payload;
+        ELSIF {sql_literal(command_type)} = 'void' THEN
+          IF current_state = 'voided' THEN RAISE EXCEPTION 'invalid supplier state'; END IF;
+          next_state := 'voided';
+          next_payload := current_payload;
+        ELSE
+          RAISE EXCEPTION 'unsupported supplier command';
+        END IF;
+        next_payload := next_payload || jsonb_build_object(
+          'state', next_state, 'evaluation', next_evaluation, 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)},
+          'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'supplier' AND p.aggregate_id = {sql_literal(supplier_id)};
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('supplier', {sql_literal(supplier_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action', 'supplier.' || {sql_literal(command_type)},
+          'aggregate_type', 'supplier', 'aggregate_id', {sql_literal(supplier_id)}, 'actor_id', {sql_literal(actor_id)},
+          'event_id', {sql_literal(event_id)}, 'state', next_state, 'evaluation', next_evaluation, 'revision', next_revision),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('supplier_id', {sql_literal(supplier_id)}, 'state', next_state,
+        'evaluation', next_evaluation, 'revision', next_revision, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("supplier command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected supplier command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid supplier command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("supplier command receipt has no result")
+    return {"command": receipt, "supplier": result, "idempotent_replay": not created}
+
+
 def _tender_text(
     body: dict[str, Any],
     key: str,
@@ -885,14 +1264,14 @@ def tender_command(
                 f"""
                 SELECT 1
                 FROM (
-                  SELECT DISTINCT ON (aggregate_id) payload
+                  SELECT DISTINCT ON (aggregate_id) aggregate_id, payload
                   FROM company_aggregate_projection
                   WHERE aggregate_type = 'supplier'
                   ORDER BY aggregate_id, revision DESC
                 ) latest
-                WHERE latest.payload->'candidate'->>'supplier_id' = {sql_literal(awarded_supplier_id)}
-                  AND latest.payload->'candidate'->>'state' = 'active'
-                  AND latest.payload->'candidate'->>'evaluation' IN ('qualified', 'strategic')
+                WHERE coalesce(latest.payload->'candidate'->>'supplier_id', latest.payload->>'supplier_id', latest.aggregate_id) = {sql_literal(awarded_supplier_id)}
+                  AND coalesce(latest.payload->'candidate'->>'state', latest.payload->>'state', '') = 'active'
+                  AND coalesce(latest.payload->'candidate'->>'evaluation', latest.payload->>'evaluation', '') IN ('qualified', 'strategic')
                 LIMIT 1
                 """,
             )
@@ -1017,6 +1396,146 @@ def tender_command(
     if not isinstance(result, dict):
         raise ServiceError("tender command receipt has no result")
     return {"command": receipt, "tender": result, "idempotent_replay": not created}
+
+
+def _split_request(
+    command_type: str,
+    split_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, dict[str, Any]]:
+    if command_type != "create":
+        raise CommandRejected("unsupported contract split command", 404)
+    split_id = _supplier_text(body, "split_id", identifier=True)
+    parent_contract_id = _supplier_text(body, "parent_contract_id", identifier=True)
+    split_name = _supplier_text(body, "split_name")
+    amount_minor = body.get("split_amount_minor", 0)
+    if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor < 0:
+        raise CommandRejected("split_amount_minor must be a non-negative integer", 422)
+    split_pct_bps = body.get("split_pct_bps", 0)
+    if isinstance(split_pct_bps, bool) or not isinstance(split_pct_bps, int) or not 0 <= split_pct_bps <= 10000:
+        raise CommandRejected("split_pct_bps must be between 0 and 10000", 422)
+    scope = body.get("scope", "")
+    if not isinstance(scope, str):
+        raise CommandRejected("scope must be text", 422)
+    return split_id, {
+        "command_type": command_type,
+        "split_id": split_id,
+        "parent_contract_id": parent_contract_id,
+        "split_name": split_name,
+        "split_amount_minor": amount_minor,
+        "split_pct_bps": split_pct_bps,
+        "scope": scope.strip(),
+        "state": "planned",
+        "actor_id": actor_id,
+    }
+
+
+def split_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    split_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    split_id, request = _split_request(command_type, split_id, body, actor_id)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored contract split command receipt has no result")
+        return {"command": existing, "split": result, "idempotent_replay": True}
+    current = contract_splits(pool, split_id, None, 1)
+    if current:
+        raise CommandRejected("contract split already exists", 409)
+    parent_contract_id = str(request["parent_contract_id"])
+    if not contracts(pool, parent_contract_id, 1):
+        raise CommandRejected("parent contract not found", 404)
+    event_id = f"contract_split:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "split_id": split_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      IF EXISTS (
+        SELECT 1 FROM company_aggregate_projection
+        WHERE aggregate_type = 'contract_split' AND aggregate_id = {sql_literal(split_id)}
+      ) THEN RAISE EXCEPTION 'contract split already exists'; END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('contract_split', {sql_literal(split_id)}, 1,
+        {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)}),
+        {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action', 'contract_split.create',
+          'aggregate_type', 'contract_split', 'aggregate_id', {sql_literal(split_id)},
+          'parent_contract_id', {sql_literal(parent_contract_id)}, 'actor_id', {sql_literal(actor_id)},
+          'event_id', {sql_literal(event_id)}, 'state', 'planned', 'revision', 1),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('split_id', {sql_literal(split_id)}, 'parent_contract_id', {sql_literal(parent_contract_id)},
+        'state', 'planned', 'revision', 1, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("contract split command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected contract split command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid contract split command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("contract split command receipt has no result")
+    return {"command": receipt, "split": result, "idempotent_replay": not created}
 
 
 def _contract_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
@@ -2260,11 +2779,35 @@ def handler_factory(
                 elif parsed.path == "/api/company/suppliers":
                     value = parse_qs(parsed.query).get("supplier_id", [None])[0]
                     response(self, 200, {"items": suppliers(pool, value, max_response_rows)}, origin)
+                elif parsed.path == "/api/company/supplier-risk-board":
+                    response(self, 200, {"items": supplier_risk_board(pool, max_response_rows)}, origin)
+                elif re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
+                    supplier_id = parsed.path.split("/")[-2]
+                    result = supplier_risk(pool, supplier_id)
+                    if result is None:
+                        response(self, 404, {"error": "supplier not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     supplier_id = parsed.path.rsplit("/", 1)[-1]
                     items = suppliers(pool, supplier_id, max_response_rows)
                     if not items:
                         response(self, 404, {"error": "supplier not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
+                elif parsed.path == "/api/company/tender-splits":
+                    parent_contract_id = parse_qs(parsed.query).get("parent_contract_id", [None])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": contract_splits(pool, None, parent_contract_id, max_response_rows)},
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/tender-splits/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    split_id = parsed.path.rsplit("/", 1)[-1]
+                    items = contract_splits(pool, split_id, None, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "contract split not found"}, origin)
                     else:
                         response(self, 200, items[0], origin)
                 elif re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
@@ -2311,6 +2854,14 @@ def handler_factory(
                     command_family = "tender"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/suppliers":
+                    command_family = "supplier"
+                    command_type = "create"
+                    aggregate_id = None
+                elif parsed.path == "/api/company/tender-splits":
+                    command_family = "contract_split"
+                    command_type = "create"
+                    aggregate_id = None
                 else:
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
@@ -2328,6 +2879,10 @@ def handler_factory(
                         r"/api/company/tenders/([A-Za-z0-9_.:-]{1,128})/(publish|open_bidding|award|complete|cancel)",
                         parsed.path,
                     )
+                    supplier_match = re.fullmatch(
+                        r"/api/company/suppliers/([A-Za-z0-9_.:-]{1,128})/(update|submit_review|review|blacklist|void)",
+                        parsed.path,
+                    )
                     if expense_match is not None:
                         aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
                     elif contract_match is not None:
@@ -2339,6 +2894,9 @@ def handler_factory(
                     elif tender_match is not None:
                         command_family = "tender"
                         aggregate_id, command_type = tender_match.group(1), tender_match.group(2)
+                    elif supplier_match is not None:
+                        command_family = "supplier"
+                        aggregate_id, command_type = supplier_match.group(1), supplier_match.group(2)
                     else:
                         if parsed.path.startswith("/api/"):
                             response(self, 404, {"error": "unknown company command"}, origin)
@@ -2369,6 +2927,24 @@ def handler_factory(
                         pool,
                         command_type=command_type,
                         tender_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                elif command_family == "supplier":
+                    result = supplier_command(
+                        pool,
+                        command_type=command_type,
+                        supplier_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                elif command_family == "contract_split":
+                    result = split_command(
+                        pool,
+                        command_type=command_type,
+                        split_id=aggregate_id,
                         body=body,
                         actor_id=actor,
                         idempotency_key=idempotency_key,

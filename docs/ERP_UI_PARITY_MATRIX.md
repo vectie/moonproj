@@ -10,8 +10,8 @@ verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_payment_application_command_form": 1, "connected_supplier_read": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 40, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_payment_application_command": 1, "connected_supplier_read": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 47}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_payment_application_command_form": 1, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 40, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_payment_application_command": 1, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 47}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -55,7 +55,7 @@ verticals.
 | `/cbs/versions` | `../views/CbsVersions.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cbs/r0-queue` | `../views/CbsR0Queue.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cbs/approval-config` | `../views/ApprovalConfig.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/srm/providers` | `../views/Providers.vue` | `srm_providers_view` | `connected_supplier_read` | `srm` | 9 / 5 | `connected_supplier_read` | `accept_browser_supplier_scenario_and_production_identity` |
+| `/srm/providers` | `../views/Providers.vue` | `srm_providers_view` | `connected_supplier_command_form` | `srm` | 9 / 5 | `connected_supplier_command` | `accept_browser_supplier_scenario_and_production_identity` |
 | `/srm/providers/:guid` | `../views/ProviderDetail.vue` | `provider_detail_view` | `fixture_backed_form` | `srm` | 9 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/srm/risk-board` | `../views/RiskBoard.vue` | `srm_risk_view` | `fixture_backed_read_only` | `srm` | 9 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/ocr-config` | `../views/OcrConfig.vue` | `ocr_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |

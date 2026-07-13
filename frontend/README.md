@@ -36,10 +36,12 @@ create/submit/reject/resubmit/approve loops, while `/payment-applies` also
 loads real application rows and exposes edit/void plus milestone eligibility
 controls through the local-only development gateway below; `/tender` now loads
 tender projections and exposes local planning/publish/bidding/cancellation
-controls. Imported tender rows remain read-only and award requires a qualified
-supplier projection. `/srm/providers` now loads supplier qualification and
-scope projections while its detail/new command form remains fixture-backed.
-The other route families remain fixture-backed.
+controls, including award/complete validation against a qualified supplier.
+Imported tender rows remain read-only. `/srm/providers` now loads supplier
+qualification/scope projections and exposes local create/update/review,
+blacklist, and void command states; risk reads and contract-split reads/creates
+are available through the same boundary. The other route families remain
+fixture-backed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
@@ -59,8 +61,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   --public-dir /path/to/warren/dist
 ```
 
-To exercise the connected expense, contract, payment-application, or tender
-create/submit/reject/resubmit/approve paths, keep the service token
+To exercise the connected expense, contract, payment-application, tender, or
+supplier create/review/award paths, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh
@@ -81,9 +83,9 @@ session from the configured local credentials, forwards `/api/` requests with
 the bearer token and HTTPS-forwarding marker, and signs the session actor
 assertion before forwarding it to the service. It also translates the Rabbita
 form's JSON `idempotency_key` into the command header required by the service.
-It is intentionally a local development adapter: it binds to loopback, only
-allow-lists expense, contract, and payment-application POST commands, and is
-not the production deployment.
+It is intentionally a local development adapter: it binds to loopback and
+only allow-lists the connected expense, contract, payment-application, tender,
+supplier, and split POST commands; it is not the production deployment.
 
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,
