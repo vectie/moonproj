@@ -429,6 +429,7 @@ importer.
 | `cb_contract_milestone` | Time/progress/event obligation | `operations/contract` | Milestone trigger, eligibility, achievement, payment, overdue, and cancellation states implemented. |
 | milestone snapshots and payment events | Contract milestone persistence | `operations/contract` + `persistence/store` | Plan/actual amounts, triggers, and reached/paid state serialize as revisioned projections. |
 | `cb_htfkplan`, `cb_htfk_apply` | Payment plan and application | `operations/contract` + `operations/settlement` + `migration/erp` + `cmd/promote` | The real fixture promotes 4 planned milestones and 3 requested settlements after an explicit two-contract performed-state replay; reached milestones retain their ID on requested settlements and on separate immutable projections, approval/payment flags remain evidence, and release plus accounting-event links require separate target authority. |
+| Reviewed contract milestone/settlement cohort | Performed contract → reached milestone → requested settlement | `scripts/erp_contract_milestone_plan.py` + `cmd/contract_milestone` + `operations/contract` + `operations/settlement` + `persistence/store` | One reviewed commitment drives a progress milestone through `eligible` and `reached`; a separate settlement retains the milestone ID and remains `requested`. Exact SQLite/PostgreSQL parity and zero-insert replay pass for commitment, milestone, and settlement projections. Approval, release, cash, accounting, tax, and period close remain separate. |
 | `cb_cost`, `cb_subject_dict`, CBS versions | Dynamic/project cost | `finance/cost` + `finance/cbs` + `migration/erp` | `B = D + E + F + G` deterministic calculation and target/commitment/actual/progress forecast implemented; the reviewed fixture maps all 7 non-empty `cb_cost` rows to explicit active/frozen CBS subjects with durable projections, and an opt-in budget plan now records subject-scoped reservation/consumption evidence without posting. Broader schema coverage remains pending. |
 | dynamic-cost and forecast snapshots | Cost persistence | `finance/cost` + `persistence/store` | Component totals, progress, forecast-at-completion, and signed variance serialize as revisioned projections. |
 | CBS subject/version snapshots | Cost structure persistence | `finance/cbs` + `cmd/cbs_link` + `cmd/cbs_budget` + `persistence/store` | Hierarchical subjects, targets, totals, version state, reviewed source-to-subject links, and separate budget-ledger projections serialize with source identity; accounting posting and cash release remain separate. |
@@ -509,8 +510,10 @@ cb_contract_milestone
 ```
 
 Covered by procurement and contract-milestone tests. The next integration step
-is to persist the award-to-commitment link and reconcile milestone amounts with
-payment applications and payables.
+is to persist the award-to-commitment link and reconcile source milestone
+amounts with payment applications and payables. The reviewed contract
+milestone/settlement cohort now proves that target lifecycle link without
+claiming settlement approval, cash, or accounting effects.
 
 ### Project and dynamic cost
 

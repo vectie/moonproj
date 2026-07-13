@@ -80,3 +80,8 @@ The fourth wave has a separate
 [procurement-contract mapping](ERP_PROCUREMENT_CONTRACT_SCHEMA_COHORT.md). It
 is `mapped_scope_only` while the available snapshot contains zero rows for all
 seven tables.
+
+The target also has a reviewed [contract milestone and settlement cohort](ERP_CONTRACT_MILESTONE_COHORT.md)
+for the performed-commitment, reached-milestone, and requested-settlement
+state boundary. It is an executable lifecycle rehearsal, not a claim that the
+incomplete source snapshot contains accepted production settlement rows.

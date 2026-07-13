@@ -1,0 +1,42 @@
+{
+  "format": "moonproj.erp.contract-milestone-cohort-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:contract-milestone-review-001",
+  "mapping_version": "contract-milestone-map-v1",
+  "run_id": "contract-milestone-review-001",
+  "commitment": {
+    "source_table": "cb_contract",
+    "source_id": "contract-cm-001",
+    "commitment_id": "contract-cm-001",
+    "principal_id": "entity:moonproj",
+    "project_scope": "project:moonproj-demo",
+    "counterparty_id": "supplier:buildco",
+    "amount_minor": 1050000,
+    "currency": "CNY",
+    "expected_state": "performed"
+  },
+  "milestone": {
+    "source_table": "cb_htfkplan",
+    "source_id": "plan-cm-001",
+    "milestone_id": "plan-cm-001",
+    "commitment_id": "contract-cm-001",
+    "sequence": 1,
+    "node_name": "Structural completion",
+    "trigger": "progress",
+    "plan_amount_minor": 1000000,
+    "actual_amount_minor": 960000,
+    "plan_pct_bps": 9524,
+    "currency": "CNY",
+    "expected_state": "reached"
+  },
+  "settlement": {
+    "source_table": "cb_htfk_apply",
+    "source_id": "apply-cm-001",
+    "settlement_id": "apply-cm-001",
+    "commitment_id": "contract-cm-001",
+    "milestone_id": "plan-cm-001",
+    "amount_minor": 960000,
+    "currency": "CNY",
+    "expected_state": "requested"
+  }
+}

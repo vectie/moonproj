@@ -108,6 +108,14 @@ released, reconciled, or posted automatically; legacy payment flags remain
 evidence. Removing one state mapping quarantines the related state and refuses
 the entire native promotion.
 
+The separate `scripts/erp_contract_milestone_plan.py` cohort is the reviewed
+post-promotion lifecycle check. It drives one performed commitment through an
+eligible/reached progress milestone and creates a requested settlement with the
+milestone identity retained. It is intentionally separate from the source
+payment promotion: approval, release, cash, accounting, tax, and period close
+remain false, and the incomplete export does not establish production
+settlement acceptance.
+
 The accounting-link cohort is intentionally a separate review artifact. Run
 `scripts/erp_accounting_link_plan.py` against the domain receipt with a mapping
 file containing `accounting_by_source` entries for each source commitment. Each

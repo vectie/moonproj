@@ -238,3 +238,10 @@ material evidence) with exact PostgreSQL parity and zero-insert replay. It
 does not call a provider, consume a budget ledger, release cash, post
 accounting, or close a period; the source rows are synthetic because the
 available ERP snapshot has no accepted marketing rows.
+The next optional cohort argument and standalone
+`scripts/company_contract_milestone_rehearsal.sh` persist one performed
+`commitment`, one reached `contract_milestone`, and one milestone-linked
+requested `settlement` with exact PostgreSQL parity and zero-insert replay.
+Approval, release, cash movement, accounting posting, tax, and period close
+remain separate; the reviewed example is synthetic because the source export
+is incomplete.

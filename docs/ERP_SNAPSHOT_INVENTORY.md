@@ -130,6 +130,10 @@ The optional thirty-fourth argument supplies a reviewed investment-performance
 map; it validates bounded portfolio valuation and external benchmark evidence
 only. Position mutation, cash release, accounting posting, and period close
 remain separate gates.
+The next optional argument supplies a reviewed contract-milestone map; it
+drives one performed commitment through an eligible/reached progress milestone
+and creates one milestone-linked requested settlement. Approval, release, cash,
+accounting, tax, and period close remain separate gates.
 The standalone investment-valuation accounting rehearsal reuses that reviewed
 portfolio with a separate valuation map and accounting map; it validates one
 explicit mark-to-market event and source-to-journal link with exact SQLite and
@@ -159,6 +163,11 @@ It persists four projections with exact SQLite/PostgreSQL parity and
 idempotent replay; provider calls, budget consumption, cash release,
 accounting, and attribution remain separate. The available snapshot has no
 accepted marketing rows.
+The standalone contract-milestone cohort uses a reviewed synthetic map to
+exercise a performed commitment, reached milestone, and requested settlement
+with the milestone identity retained. It persists three projections with exact
+SQLite/PostgreSQL parity and idempotent replay; approval, release, cash,
+accounting, and period close remain separate.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

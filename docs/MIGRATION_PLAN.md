@@ -163,6 +163,14 @@ Exact SQLite/PostgreSQL projection parity and zero-insert replay pass for four
 projections. Provider calls, budget-ledger consumption, cash release,
 accounting posting, attribution policy, and owner acceptance remain separate;
 the available snapshot has no accepted marketing rows.
+The reviewed contract-milestone cohort now closes the lifecycle boundary left
+by the typed payment promotion: one performed commitment drives a progress
+milestone through eligible and reached, and that reached milestone creates a
+requested settlement retaining its milestone ID. Exact SQLite/PostgreSQL
+projection parity and zero-insert replay pass for three projections. Settlement
+approval/release, cash movement, accounting posting, tax, period close, and
+owner acceptance remain separate; the available source export is not complete
+enough to claim production settlement rows.
 The separate invoice/procurement accounting-link boundary now binds two
 receivable openings, one payable opening, and one performed procurement
 commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL

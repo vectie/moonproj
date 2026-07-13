@@ -19,3 +19,9 @@ The machine-readable mapping is
 `scripts/fixtures/schema_procurement_contract_mapping.json`; each rehearsal
 emits `schema-procurement-contract.json` with seven mapped tables, zero
 available rows, and `promotion_authorized=false`.
+
+The separate reviewed [contract milestone and settlement cohort](ERP_CONTRACT_MILESTONE_COHORT.md)
+uses the same source-table boundary to prove a performed commitment, a
+reached progress milestone, and a milestone-linked requested settlement. It
+does not turn a payment application into an approval, release, cash movement,
+or accounting posting.

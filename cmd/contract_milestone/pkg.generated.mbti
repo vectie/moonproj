@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/contract_milestone"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/contract",
+  "vectie/moonproj/operations/settlement",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ContractMilestoneCohortError {
+  InvalidInput
+  Io(@fs.IOError)
+  Money(@finance.MoneyError)
+  Commitment(@commitment.CommitmentError)
+  Contract(@contract.MilestoneError)
+  Settlement(@settlement.SettlementError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits
