@@ -1,0 +1,49 @@
+{
+  "format": "moonproj.company.production-service.v1",
+  "environment": "production",
+  "database": {
+    "engine": "postgresql",
+    "deployment_gate_artifact": "production-deployment-gate.json",
+    "pool": {
+      "reuse_connections": true,
+      "max_in_flight": 64,
+      "acquire_timeout_seconds": 30,
+      "fail_closed_on_exhaustion": true
+    },
+    "health": {
+      "readiness_query_name": "company_schema_and_receipt_health",
+      "migration_schema_version": "4",
+      "readiness_requires_schema_match": true
+    }
+  },
+  "http": {
+    "bind_host": "127.0.0.1",
+    "tls_terminated_by": "managed-edge-gateway",
+    "forwarded_tls_required": true,
+    "request_timeout_seconds": 30,
+    "max_response_rows": 5000,
+    "auth": {
+      "required": true,
+      "token_env": "MOONCOMPANY_SERVICE_TOKEN",
+      "issuer": "managed-identity",
+      "audience": "mooncompany-api"
+    },
+    "cors_origins": ["https://company.example.com"]
+  },
+  "endpoints": {
+    "read": [
+      "/api/health",
+      "/api/company/summary",
+      "/api/company/receipts",
+      "/api/company/projections"
+    ],
+    "mutation": [],
+    "arbitrary_sql": false
+  },
+  "observability": {
+    "metrics": "company-service-metrics",
+    "audit_log": "company-service-audit",
+    "alerts": "company-service-oncall",
+    "request_trace": "company-service-traces"
+  }
+}

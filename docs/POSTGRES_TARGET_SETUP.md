@@ -57,6 +57,11 @@ serves the same target through fixed read-only endpoints (`/api/health`,
 `/api/company/projections`). It is a development adapter only; production
 authentication, pooling, TLS, observability, and command endpoints remain
 deployment gates.
+The credential-free `company_production_service_check.py` now validates the
+service boundary separately: bounded reusable pool, schema-matched readiness,
+private TLS-terminated binding, authentication, fixed read endpoints, and no
+arbitrary SQL or mutation routes. Its example remains owner-review evidence,
+not a live deployment.
 
 For a reviewed receipt, use the same PostgreSQL credential mechanism:
 

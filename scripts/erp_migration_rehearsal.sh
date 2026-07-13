@@ -21,6 +21,7 @@ BUSINESS_ACCEPTANCE_MANIFEST=${12:-$SCRIPT_DIR/fixtures/business_acceptance_mani
 SHADOW_PERIOD_MANIFEST=${13:-$SCRIPT_DIR/fixtures/shadow_period_manifest.example.json}
 DELIVERY_RECOGNITION_MAPPING=${14:-}
 DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${15:-}
+PRODUCTION_SERVICE_MANIFEST=${16:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -35,6 +36,10 @@ fi
 if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ] &&
   [ -z "$DELIVERY_RECOGNITION_MAPPING" ]; then
   echo "delivery recognition accounting mapping requires the delivery recognition mapping" >&2
+  exit 2
+fi
+if [ -n "$PRODUCTION_SERVICE_MANIFEST" ] && [ -z "$PRODUCTION_MANIFEST" ]; then
+  echo "production service manifest requires the production deployment manifest" >&2
   exit 2
 fi
 
@@ -315,6 +320,13 @@ if [ -n "$PRODUCTION_MANIFEST" ]; then
   "$SCRIPT_DIR/company_production_deployment_check.py" \
     "$PRODUCTION_MANIFEST" "$PRODUCTION_DEPLOYMENT_GATE"
   echo "production_deployment_gate=$PRODUCTION_DEPLOYMENT_GATE"
+  if [ -n "$PRODUCTION_SERVICE_MANIFEST" ]; then
+    PRODUCTION_SERVICE_GATE="$WORK_DIR/production-service-gate.json"
+    python3 "$SCRIPT_DIR/company_production_service_check.py" \
+      "$PRODUCTION_SERVICE_MANIFEST" "$PRODUCTION_DEPLOYMENT_GATE" \
+      "$PRODUCTION_SERVICE_GATE"
+    echo "production_service_gate=$PRODUCTION_SERVICE_GATE"
+  fi
 fi
 
 if [ -n "$ACCOUNTING_MAPPING" ]; then

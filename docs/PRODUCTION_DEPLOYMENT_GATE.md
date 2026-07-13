@@ -47,3 +47,21 @@ scripts/company_production_deployment_check.py \
 The resulting artifact is an input to the operational and cutover review. It
 does not replace provider-level provisioning, security review, restore
 execution, capacity testing, or named business acceptance.
+
+## Production service boundary
+
+The database gate is paired with a separate service manifest. Run:
+
+```text
+scripts/company_production_service_check.py \
+  scripts/fixtures/production_service_manifest.example.json \
+  /controlled/production-deployment-gate.json \
+  /controlled/production-service-gate.json
+```
+
+This second gate requires connection reuse with bounded in-flight work and
+fail-closed exhaustion, schema-matched readiness, private binding behind a TLS
+gateway, authenticated requests, explicit HTTPS CORS origins, fixed read-only
+endpoints, no arbitrary SQL, no mutation routes, and metrics/audit/alert/trace
+destinations. It can report `ready_for_service_review`, but it cannot authorize
+the service while the database deployment gate lacks named approvals.

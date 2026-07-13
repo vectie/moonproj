@@ -151,6 +151,12 @@ to validate the managed-database contract. The validator checks the DSN
 environment reference, pool, TLS, encryption, backup, restore, rollback,
 observability, and owner-approval requirements without reading credentials.
 The example manifest is intentionally unapproved.
+Pass the reviewed production-service manifest as the sixteenth wrapper
+argument (with the deployment manifest still supplied as argument ten) to
+validate the authenticated fixed-read service boundary. It requires private
+TLS-terminated binding, schema-matched readiness, bounded reusable pooling,
+explicit HTTPS origins, and no arbitrary SQL or mutation routes; it remains
+`ready_for_service_review` until the deployment gate is authorized.
 
 Pass `scripts/fixtures/delivery_progress_mapping.json` as the eleventh wrapper
 argument to translate the one `jd_task_report` row into a draft

@@ -448,6 +448,29 @@ def run(
     else:
         deployment = None
 
+    service_path = work_dir / "production-service-gate.json"
+    if service_path.is_file():
+        service = load(service_path)
+        service_contract_valid = (
+            service.get("format") == "moonproj.company.production-service-gate.v1"
+            and service.get("state") in {
+                "ready_for_service_review",
+                "ready_for_production_service",
+            }
+            and service.get("arbitrary_sql") is False
+            and service.get("mutation_endpoints") == []
+        )
+        checks.append(
+            {
+                "name": "production_service_contract",
+                "passed": service_contract_valid,
+                "state": service.get("state"),
+                "service_authorized": service.get("service_authorized") is True,
+                "deployment_authorized": service.get("deployment_authorized") is True,
+                "read_endpoints": service.get("read_endpoints", []),
+            }
+        )
+
     row_coverage_path = work_dir / "row-coverage.json"
     if row_coverage_path.is_file():
         row_coverage = load(row_coverage_path)

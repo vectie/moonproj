@@ -213,6 +213,9 @@ Deliverables:
 - a credential-free managed-production deployment manifest and validator that
   requires bounded pooling, TLS, encryption, cross-region backup, restore
   objectives, rollback, observability, and operations/security/finance approval;
+- a credential-free production-service manifest and validator that requires
+  authenticated fixed read endpoints, schema-matched readiness, private TLS
+  binding, bounded reusable pooling, and no arbitrary SQL or mutation routes;
 - a source-to-journal reconciliation gate that checks reviewed principal,
   amount, currency, event, source, and journal identity against durable links
   without treating traceability as cash release or period posting;
