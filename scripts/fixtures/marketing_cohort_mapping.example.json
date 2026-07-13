@@ -1,0 +1,44 @@
+{
+  "format": "moonproj.erp.marketing-cohort-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:marketing-synthetic-001",
+  "mapping_version": "marketing-map-v1-review-001",
+  "run_id": "marketing-run-2026-20",
+  "campaign": {
+    "source_table": "mkt_campaign",
+    "source_id": "campaign-001",
+    "campaign_id": "campaign-001",
+    "principal_id": "co-001",
+    "project_scope": "project:p-001",
+    "name": "Harbor View launch",
+    "budget_amount_minor": 100000,
+    "spend_amount_minor": 30000,
+    "currency": "CNY",
+    "expected_state": "completed"
+  },
+  "placement": {
+    "source_table": "mkt_placement",
+    "source_id": "placement-001",
+    "placement_id": "placement-001",
+    "channel": "online",
+    "amount_minor": 30000,
+    "leads": 42,
+    "expected_state": "placed"
+  },
+  "channel": {
+    "source_table": "mkt_channel",
+    "source_id": "channel-001",
+    "channel_id": "channel-001",
+    "channel_code": "online",
+    "name": "Online campaign channel",
+    "evidence_state": "catalog_evidence_only"
+  },
+  "material": {
+    "source_table": "mkt_material",
+    "source_id": "material-001",
+    "material_id": "material-001",
+    "material_code": "MAT-001",
+    "name": "Harbor View launch creative",
+    "evidence_state": "catalog_evidence_only"
+  }
+}

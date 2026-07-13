@@ -157,6 +157,12 @@ revenue row. Exact SQLite/PostgreSQL projection parity and zero-insert replay
 pass for seven projections. Collection, refund cash, revenue recognition,
 accounting posting, period close, and owner acceptance remain separate; the
 available snapshot has no accepted sales rows.
+The reviewed marketing cohort now exercises one bounded campaign, one placed
+channel allocation, and two catalog-evidence rows for channel/material data.
+Exact SQLite/PostgreSQL projection parity and zero-insert replay pass for four
+projections. Provider calls, budget-ledger consumption, cash release,
+accounting posting, attribution policy, and owner acceptance remain separate;
+the available snapshot has no accepted marketing rows.
 The separate invoice/procurement accounting-link boundary now binds two
 receivable openings, one payable opening, and one performed procurement
 commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL

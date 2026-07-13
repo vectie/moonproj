@@ -232,3 +232,9 @@ receivable, mortgage, refund, and revenue evidence) with exact PostgreSQL
 identity parity and zero-insert replay. Collection, refund cash, revenue
 recognition, book posting, and period close remain separate; the source rows
 are synthetic because the available ERP snapshot has no accepted sales rows.
+The separate `scripts/company_marketing_cohort_rehearsal.sh` persists four
+reviewed marketing projections (campaign, placement, channel evidence, and
+material evidence) with exact PostgreSQL parity and zero-insert replay. It
+does not call a provider, consume a budget ledger, release cash, post
+accounting, or close a period; the source rows are synthetic because the
+available ERP snapshot has no accepted marketing rows.

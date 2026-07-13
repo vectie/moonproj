@@ -15,3 +15,8 @@ The machine-readable mapping is
 `scripts/fixtures/schema_delivery_treasury_mapping.json`; each rehearsal emits
 `schema-delivery-treasury.json` with eight mapped tables, zero available rows,
 and `promotion_authorized=false`.
+
+The target also has a reviewed synthetic [marketing cohort](ERP_MARKETING_COHORT.md)
+for campaign/placement lifecycle and channel/material catalog evidence. It
+proves native behavior and durable parity without treating schema presence as
+provider execution or budget consumption.

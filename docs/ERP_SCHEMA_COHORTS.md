@@ -62,6 +62,10 @@ The sixth wave has a separate
 `mapped_scope_only` while the available snapshot contains zero rows for all
 eight tables.
 
+The target also has a reviewed synthetic [marketing cohort](ERP_MARKETING_COHORT.md)
+for the native campaign/placement boundary and catalog-only channel/material
+evidence; it does not claim absent production marketing rows were imported.
+
 The seventh wave has a separate
 [reporting-notification mapping](ERP_REPORTING_NOTIFICATION_SCHEMA_COHORT.md).
 It is `mapped_scope_only` while the available snapshot contains zero rows for

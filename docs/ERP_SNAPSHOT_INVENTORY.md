@@ -153,6 +153,12 @@ evidence boundaries. It persists seven projections with exact SQLite and
 PostgreSQL parity and idempotent replay; collection, refund cash, revenue
 recognition, accounting posting, and period close remain separate. The
 available snapshot has no accepted sales rows.
+The standalone marketing cohort uses a reviewed synthetic map to exercise one
+bounded campaign, one placed allocation, and channel/material catalog evidence.
+It persists four projections with exact SQLite/PostgreSQL parity and
+idempotent replay; provider calls, budget consumption, cash release,
+accounting, and attribution remain separate. The available snapshot has no
+accepted marketing rows.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed
