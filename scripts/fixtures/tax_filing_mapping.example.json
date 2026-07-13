@@ -1,0 +1,45 @@
+{
+  "format": "moonproj.erp.tax-filing-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:tax-filing-synthetic-001",
+  "mapping_version": "tax-filing-map-v1-review-001",
+  "run_id": "tax-filing-run-2026-q1",
+  "filings": [
+    {
+      "source_table": "tax_obligation",
+      "source_id": "tax-obligation-001",
+      "tax_id": "tax-001",
+      "filing_id": "tax-filing-001",
+      "principal_id": "co-001",
+      "project_scope": "project:p-001",
+      "source_reference": "invoice/inv-001",
+      "jurisdiction": "CN-SH",
+      "category": "VAT",
+      "currency": "CNY",
+      "base_amount_minor": 100000,
+      "tax_rate_bps": 1300,
+      "withholding_rate_bps": 0,
+      "filing_period": "2026-Q1",
+      "authority_reference": "tax-authority-draft-001",
+      "final_state": "accepted"
+    },
+    {
+      "source_table": "tax_obligation",
+      "source_id": "tax-obligation-002",
+      "tax_id": "tax-002",
+      "filing_id": "tax-filing-002",
+      "principal_id": "co-001",
+      "project_scope": "project:p-001",
+      "source_reference": "invoice/inv-002",
+      "jurisdiction": "CN-SH",
+      "category": "WITHHOLDING",
+      "currency": "CNY",
+      "base_amount_minor": 250000,
+      "tax_rate_bps": 600,
+      "withholding_rate_bps": 100,
+      "filing_period": "2026-Q1",
+      "authority_reference": "tax-authority-draft-002",
+      "final_state": "rejected"
+    }
+  ]
+}

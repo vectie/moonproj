@@ -99,6 +99,10 @@ The optional twenty-fourth argument supplies a reviewed access plan; it
 validates local roles, bounded permissions, exact-scope assignments, and
 segregation-of-duties rules before creating one `access_directory` projection.
 It never imports passwords or source super-user privilege.
+The optional twenty-seventh argument supplies a reviewed tax-filing map; it
+drives native tax calculation/review/submission and persists filing evidence
+only. Tax payment, authority calls, cash release, and accounting posting remain
+separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

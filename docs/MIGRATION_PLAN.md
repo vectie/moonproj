@@ -98,6 +98,13 @@ mechanism, not a production opening position. The real opening workbook,
 finance-owner approval, entity/book/currency dimensions, and any subsequent
 opening journal or subledger events remain required before accounting opening
 state can be accepted.
+The reviewed tax-filing boundary now supplies a separate institutional gate:
+two synthetic obligations run through native calculation, review, filing
+submission, and accepted/rejected outcomes with exact SQLite/PostgreSQL parity
+and zero-insert replay. The cohort does not pay tax, post a tax journal, or
+call an external authority. The available ERP snapshot has no tax rows, so a
+sanitized tax export, source-to-obligation identity map, filing credentials,
+finance-owner acceptance, and payment/ledger policy are still required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

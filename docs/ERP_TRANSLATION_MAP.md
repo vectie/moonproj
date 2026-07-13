@@ -231,6 +231,13 @@ compile exact value/tolerance/unit/dimension controls through native
 and replay idempotently. The controls are reconciliation evidence only:
 accounting posting, cash release, tax filing, and period close remain false.
 See [ERP_OPENING_CONTROLS.md](ERP_OPENING_CONTROLS.md).
+The twenty-seventh SQLite wrapper argument, or the twenty-fifth PostgreSQL
+cohort-runner argument, can supply a separately reviewed tax-filing map.
+`scripts/erp_tax_filing_plan.py` and `cmd/tax_filing` replay the native tax
+obligation and filing lifecycle, while exact adapters preserve rates, amounts,
+currency, period, authority reference, and accepted/rejected state. Tax
+payment, accounting posting, cash release, and period close remain false. See
+[ERP_TAX_FILING.md](ERP_TAX_FILING.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -358,7 +365,7 @@ importer.
 | contract payable and supplier settlement rows | Supplier obligation subledger | `finance/payable` | Open, partial/full payment, overpayment, and void controls plus explicit opening expense-to-payable and separately identified payment cash-settlement event adapters implemented; cash release and persistent posting remain pending. |
 | payable snapshots and payment events | Supplier payable persistence | `finance/payable` + `persistence/store` + `finance/accounting` | Revisioned snapshots serialize open/paid/voided balances for reconciliation; reviewed payment events carry explicit payable/cash postings without releasing cash or posting the book; persistent posting remains pending. |
 | tax configuration and filing routes | Tax determination and filing | `finance/tax` | Rate-based obligation calculation and review/file/pay/void lifecycle plus separate period/authority-referenced filing preparation/submission/acceptance implemented; reviewed obligations now emit a balanced tax-expense/tax-payable source-to-journal link without posting; external filing adapters remain pending. |
-| tax obligation/filing snapshots | Tax persistence | `finance/tax` + `persistence/store` | Jurisdiction, category, rates, calculated/withheld amounts, obligation state, and separate tax-filing state serialize as revisioned projections. |
+| tax obligation/filing snapshots | Tax persistence | `finance/tax` + `cmd/tax_filing` + `persistence/store` | Jurisdiction, category, rates, calculated/withheld amounts, obligation state, separate tax-filing state, period, and authority reference serialize as reviewed `tax_filing` projections with exact parity/replay; payment and ledger posting remain separate. |
 | bank/cash and reconciliation routes | Cash position and controlled movement | `finance/treasury` + `finance/reconciliation` | Account balance, approved release, overdraw protection, expected-versus-actual journal checks, bank-statement line import/matching, and separate line-to-ledger-event traceability implemented; external bank adapters remain pending. |
 | cash account/movement/statement snapshots | Treasury persistence | `finance/treasury` + `persistence/store` | Balances, movement direction, release/reconciliation state, statement lines, balance controls, line-to-movement matches, and line-to-accounting-event matches serialize as revisioned projections. |
 | `fund_plan`, `fund_dispatch`, loan/facility routes | Treasury plan, dispatch, and corporate financing | `finance/treasury` + `finance/financing` | Cash plan confirmation/actualization, controlled project dispatch, and facility approval/draw/interest/repayment controls implemented; draw and repayment actions now emit explicit balanced source-to-journal links without posting; lender statements and covenant persistence pending. |

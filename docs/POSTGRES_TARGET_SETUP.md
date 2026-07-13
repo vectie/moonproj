@@ -110,7 +110,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/notification_plan.example.json \
   scripts/fixtures/access_plan.example.json \
   scripts/fixtures/accounting_posting_mapping.example.json \
-  scripts/fixtures/opening_control_mapping.example.json
+  scripts/fixtures/opening_control_mapping.example.json \
+  scripts/fixtures/tax_filing_mapping.example.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -154,3 +155,9 @@ rehearsal adds five aggregate projections and one receipt (122 projections in
 the demonstrated posting-plus-opening run); identical replay remains
 idempotent. These are reconciliation controls only and do not post accounting,
 release cash, file tax, or close a period.
+The twenty-fifth argument supplies the reviewed tax-filing map. It runs native
+tax calculation/review/submission and persists two exact `tax_filing`
+projections, including one accepted and one rejected filing, with candidate
+parity and idempotent replay. The demonstrated posting-plus-opening-plus-tax
+run reaches 124 aggregate projections. Tax payment, tax-authority calls,
+accounting posting, cash release, and period close remain separate gates.
