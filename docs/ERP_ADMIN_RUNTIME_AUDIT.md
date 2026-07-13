@@ -46,6 +46,9 @@ per-table coverage; it does not turn missing source data into passing checks.
 The user roster preserves five imported identities and organization labels;
 `sys_role`/`sys_user_role` coverage is returned as `NO_SOURCE_ROWS`, so no role
 is inferred from the super-user flag.
+The Rabbita `/users` screen consumes that roster read and keeps its role and
+permission panels as an explicitly offline design snapshot; it does not treat
+the imported super-user flag as target authority.
 The target does not expose dictionary writes, audit deletion, role changes, or
 super-user elevation.
 
@@ -65,6 +68,8 @@ super-user elevation.
   `connected_admin_read`.
 - The parity matrix marks the source `GET /rbac/users` roster as
   `connected_rbac_user_read`; role and permission endpoints remain gated.
+- The parity matrix marks `/users` as `connected_rbac_user_read`; the
+  production identity and super-user owner scenario remain required.
 - The parity matrix marks `/system-health` as
   `connected_admin_health_read`; the production identity and super-user owner
   scenario remain required before treating the screen as an accepted admin

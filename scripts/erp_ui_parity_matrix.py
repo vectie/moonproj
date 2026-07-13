@@ -201,6 +201,8 @@ def match_target(
             return function, "connected_admin_read"
         if path == "/investment" and function == "investment_view":
             return function, "connected_investment_read"
+        if path == "/users" and function == "users_view":
+            return function, "connected_rbac_user_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -274,6 +276,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_admin_scenario_and_super_user_owner"
     if target_state == "connected_investment_read":
         return "accept_browser_investment_scenario_and_production_identity"
+    if target_state == "connected_rbac_user_read":
+        return "accept_browser_user_roster_scenario_and_super_user_owner"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -457,6 +461,8 @@ def build_matrix(
             api_state = "connected_admin_read"
         elif target_state == "connected_investment_read":
             api_state = "connected_investment_read"
+        elif target_state == "connected_rbac_user_read":
+            api_state = "connected_rbac_user_read"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:
