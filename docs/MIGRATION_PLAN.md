@@ -242,6 +242,16 @@ domain evidence; production adapters and period-close acceptance remain later
 gates. The managed-production manifest validator is likewise in place, but the
 fixture intentionally remains `ready_for_owner_review` until finance,
 operations, and security approve it.
+
+**Production gate audit (2026-07-14).** The credential-free deployment
+manifest validates as PostgreSQL-only with a bounded pool, verified TLS,
+cross-region backup/restore, rollback, and observability requirements, but its
+authoritative result is `ready_for_owner_review` with all three approval roles
+missing: `finance`, `operations`, and `security`. The companion service gate
+is `ready_for_service_review`, exposes only the fixed read-model allow-list,
+has no mutation endpoints or arbitrary SQL, and remains deployment- and
+identity-gated. No DSN, password, or provider credential is copied into this
+repository or used to claim production readiness.
 The PostgreSQL rehearsal now emits a cross-domain projection-parity report that
 compares every supplied domain receipt’s source identity and canonical payload
 between the isolated SQLite rehearsal and PostgreSQL; this is evidence of
