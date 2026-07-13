@@ -260,11 +260,14 @@ replacement of `erp_new`. The findings that now control sequencing are:
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
    interaction, or route-action comparison has been accepted.
-2. **Domain rehearsals, not connected product workflows.** Native company
-   packages and SQLite/PostgreSQL rehearsals cover the available and synthetic
-   cohorts, but the browser is not wired to authenticated command/mutation
-   APIs. A button opening a form is not evidence that the company record,
-   authority, workflow, accounting, or audit trail changes correctly.
+2. **Connected local slices, not accepted production workflows.** The local
+   PostgreSQL service and Rabbita gateway now exercise five bounded slices:
+   expense approval, contract approval, payment-application control, tender
+   planning/state commands, and supplier projection reads. They persist
+   idempotent command receipts, immutable revisions, and audit evidence where
+   commands exist. This is still local-only evidence: the gateway session and
+   actor assertion are not the production identity boundary, and no browser
+   acceptance or named-owner sign-off has been recorded.
 3. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
@@ -274,6 +277,13 @@ replacement of `erp_new`. The findings that now control sequencing are:
    cohorts, but managed deployment, business acceptance, shadow operation, and
    ownership transfer remain open.
 
+The source-to-target runtime inventory is now explicit: the ERP contains 56
+browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
+currently records six connected target states across browser and API surfaces
+(the five slices above plus fixed company reads), while 40 browser views and 47
+API groups remain fixture-backed or read-model-only. That gap, rather than
+additional platform hardening, controls the next work.
+
 Execute the remainder in this order:
 
 1. Build on `docs/ERP_UI_PARITY_MATRIX.md` / `.json`, the source-to-target
@@ -281,44 +291,29 @@ Execute the remainder in this order:
    for every ERP route family. Record each route as `matched`, `intentionally
    changed`, `blocked by missing source`, or `not implemented`; do not call the
    UI complete from screenshots of only the dashboard.
-2. Connect one complete runtime vertical slice—organization/project → contract
-   or expense → approval → accounting/audit evidence—to authenticated,
-   idempotent company APIs and the Rabbita UI. Prove read, create/update,
-   rejection, resubmission, and audit behavior against PostgreSQL before
-   expanding to the next vertical. The local PostgreSQL service now proves
-   the expense create/submit/reject/resubmit/approve command and audit
-   lifecycle, and the local-only gateway visibly drives the Rabbita
-   create/submit/reject/resubmit/approve form loop. The gateway now establishes
-   a local HttpOnly session and signs the actor assertion into PostgreSQL
-   commands. The same boundary now drives the contract list/detail read model
-   and contract create/submit/reject/resubmit/approve loop against the real
-   `cb_contract`, `cb_htfkplan`, and `cb_htfk_apply` evidence. The same
-   boundary now also drives the payment-application list/views and local
-   create/submit/reject/resubmit/approve loop against the three real
-   `cb_htfk_apply` rows and native `payment_application` projections; source
-   payment flags remain evidence and do not release cash. The same local
-   boundary now covers source-aligned edit/void commands and native milestone
-   eligibility checks for early payment and over-payment. Replace that
-   local adapter with the reviewed production identity,
-   token issuer, rotation, persistence, and owner-acceptance boundary before
-   accepting the slice.
-   The `/tender` route is now the next connected procurement slice: it reads
-   latest tender projections and drives idempotent local planning,
-   publish/open-bidding, and cancellation commands. `/srm/providers` reads
-   supplier qualification and scope projections as well. Imported tenders
-   remain read-only; award requires a matching bid and an active qualified
-   supplier, and award-to-commitment remains a separate authority boundary.
-   The available ERP export has no supplier/tender rows, so the reviewed
-   procurement cohort is still synthetic evidence until a redacted export and
-   owner acceptance arrive; supplier commands are the next SRM slice.
-3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
+2. Finish the connected procurement vertical before opening another broad
+   surface. Implement the supplier command boundary corresponding to source
+   create, partial/full update, review/evaluation, blacklist, risk, and void
+   actions; expose tender award and split reads/commands; and retain the
+   existing constraints that imported rows are read-only, awards require a
+   matching bid plus an active qualified supplier, and award-to-commitment is a
+   separate authority decision. Prove each local command against PostgreSQL
+   with idempotency, immutable revision, audit, rejection, and replay checks;
+   then add the Rabbita action states. The source export has no supplier/tender
+   rows, so this remains a synthetic/runtime gate until a redacted export and
+   procurement-owner acceptance are attached.
+3. Replace the local session/actor adapter with the reviewed production
+   identity, token issuer, rotation, persistence, deployment, and rollback
+   boundary for every connected slice. Browser acceptance must exercise the
+   real gateway session and visible durable state changes.
+4. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-4. Expand runtime vertical slices to the ERP parity floor: sales/receivables,
+5. Expand runtime vertical slices to the ERP parity floor: sales/receivables,
    delivery, treasury/financing, tax/close,
    reporting/notifications, and investment. Synthetic rehearsals remain
    design evidence until real source rows and user acceptance are attached.
-5. Run named-owner acceptance and a read-only shadow period for each accepted
+6. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
    controls, not as substitutes for functional work.

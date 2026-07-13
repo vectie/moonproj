@@ -119,8 +119,10 @@ The tender read model exposes latest procurement projections and its local
 planning/publish/open-bidding/cancel boundary; imported tenders remain
 read-only and awards require an active qualified supplier projection. The
 supplier read model exposes the same reviewed qualification/scope candidates
-to `/srm/providers`; supplier creation/review/blacklist commands remain the
-next SRM slice.
+to `/srm/providers`; supplier create/update/review/blacklist/risk/void commands,
+tender award, and contract-split commands remain the next SRM/procurement
+slice. Imported rows remain read-only and award-to-commitment remains a
+separate authority gate.
 `scripts/company_postgres_dev_gateway.py` adds the local
 HttpOnly session and signed actor assertion required by the Rabbita browser;
 managed provider deployment, token issuer/audience validation, and operational

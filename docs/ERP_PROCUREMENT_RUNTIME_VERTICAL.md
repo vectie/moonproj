@@ -37,6 +37,13 @@ publish, bidding, and cancellation actions through the authenticated gateway;
 `/srm/providers` loads the same supplier projection boundary while retaining
 the source-shaped supplier detail/new screen for the next command slice.
 
+The source parity audit makes that next slice concrete. `srm.js` still has
+supplier create, partial/full update, void, risk scoring, risk-board, and
+signature-check actions; `tender.js` still has award and contract-split
+actions. None of those source mutations is currently connected to the target
+service or browser. They must be added as separate idempotent company commands,
+not proxied legacy writes.
+
 ## Evidence
 
 The reviewed synthetic procurement cohort contains two qualified suppliers, a
@@ -47,6 +54,7 @@ That temporary evidence was removed after the runtime read check; the target
 database is back to its pre-test counts because the available ERP export has
 no supplier/tender rows.
 
-Remaining gates are a redacted source procurement export, supplier identity and
-owner approval, award-to-commitment acceptance, browser acceptance through the
-real gateway session, and production identity/role/session deployment.
+Remaining gates are the supplier/tender command slice above, a redacted source
+procurement export, supplier identity and owner approval, award-to-commitment
+acceptance, browser acceptance through the real gateway session, and production
+identity/role/session deployment.

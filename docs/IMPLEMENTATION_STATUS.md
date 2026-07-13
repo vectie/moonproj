@@ -360,28 +360,28 @@ promotion of the remaining typed-staged rows, or production readiness.
    visual/interaction gaps, including exact source navigation,
    empty/error/loading states, forms, and responsive behavior; record
    screenshots and scenario results per route.
-2. Extend the connected runtime vertical slice end to end—preferably
-   organization/project → contract or expense → approval → accounting/audit
-   evidence—through PostgreSQL command/read APIs and Rabbita. The local
-   expense loop now proves same-origin gateway forwarding, visible state
-   updates, rejection/resubmission, approval, durable command/audit records,
-   and a local HttpOnly session with a signed actor assertion. Replace that
-   local credential/session adapter with the reviewed production identity,
-   token issuer, rotation, persistence, and owner-acceptance boundary before
-   calling the slice accepted. Do not count fixture-backed buttons as complete
-   behavior.
-3. Request, receive, and validate the missing 49-table credential-safe
+2. Finish procurement runtime parity before opening another broad surface:
+   supplier create/update/review/blacklist/risk/void, tender award, and
+   contract-split reads/commands. Each must have idempotent PostgreSQL
+   receipts, immutable revision/audit evidence, replay checks, and Rabbita
+   action states. Imported rows remain read-only and award-to-commitment remains
+   a separate authority gate.
+3. Replace the local credential/session adapter with the reviewed production
+   identity, token issuer, rotation, persistence, and owner-acceptance boundary
+   before calling any connected slice accepted. Do not count fixture-backed
+   buttons as complete behavior.
+4. Request, receive, and validate the missing 49-table credential-safe
    MySQL/JSON export. The current 26-table/120-row fixture remains useful for
    rehearsal but cannot support full ERP parity or cutover.
-4. Expand the connected runtime slice through procurement/payment applications,
-   sales/receivables, delivery, treasury/financing, tax/close,
+5. Expand the connected runtime slice through sales/receivables, delivery,
+   treasury/financing, tax/close,
    reporting/notifications, and investment. Reuse existing native cohorts and
    parity gates; do not create another standalone hardening slice unless it is
    required by the active workflow.
-5. Reconcile the quarantined project-1 task-state/progress exception with a
+6. Reconcile the quarantined project-1 task-state/progress exception with a
    named business owner and preserve the observed evidence until a decision is
    recorded. Then run role-based UAT and a read-only shadow period for each
    accepted wave.
-6. Put the already-tested PostgreSQL adapters behind the approved managed
+7. Put the already-tested PostgreSQL adapters behind the approved managed
    service, backup/restore, monitoring, and rollback runbooks only after the
    functional/API and source-completeness gates are ready.
