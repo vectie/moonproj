@@ -246,6 +246,20 @@ struct WorkflowProcessRow {
 }
 
 ///|
+struct ProjectRow {
+  project_id : String
+  project_code : String
+  project_name : String
+  bu_name : String
+  proj_status : String
+  begin_date : String
+  current_stage : String
+  task_count : String
+  source_kind : String
+  lifecycle_text : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -316,6 +330,10 @@ struct Model {
   workflow_loaded : Bool
   workflow_process_rows : Array[WorkflowProcessRow]
   workflow_note : String
+  projects_loaded : Bool
+  project_rows : Array[ProjectRow]
+  project_detail : ProjectRow?
+  project_note : String
 }
 
 ///|
@@ -412,6 +430,10 @@ enum Msg {
   LoanCommandFailed
   WorkflowLoaded(String)
   WorkflowLoadFailed
+  ProjectsLoaded(String)
+  ProjectsLoadFailed
+  ProjectLoaded(String)
+  ProjectLoadFailed
 }
 
 ///|
@@ -486,6 +508,10 @@ fn initial_model() -> Model {
     workflow_loaded: false,
     workflow_process_rows: [],
     workflow_note: "工作流定义读模型尚未加载",
+    projects_loaded: false,
+    project_rows: [],
+    project_detail: None,
+    project_note: "项目主数据读模型尚未加载",
   }
 }
 
@@ -1276,6 +1302,84 @@ fn workflow_rows_from_body(body : String) -> Array[WorkflowProcessRow] {
 }
 
 ///|
+fn project_from_json(value : Json) -> ProjectRow? {
+  match value {
+    Json::Object(fields) => {
+      let mut lifecycle_text = ""
+      let mut current_stage = ""
+      let mut last_done = ""
+      for stage in json_array_field(fields, "lifecycle") {
+        match stage {
+          Json::Object(stage_fields) => {
+            let stage_name = json_object_text(stage_fields, "stage_name", "")
+            let stage_status = json_object_text(
+              stage_fields, "status", "pending",
+            )
+            let progress = json_object_text(stage_fields, "progress_pct", "0")
+            if lifecycle_text != "" {
+              lifecycle_text = lifecycle_text + " · "
+            }
+            lifecycle_text = lifecycle_text +
+              stage_name +
+              ":" +
+              stage_status +
+              " " +
+              progress +
+              "%"
+            if stage_status == "in_progress" && current_stage == "" {
+              current_stage = stage_name
+            }
+            if stage_status == "done" {
+              last_done = stage_name
+            }
+          }
+          _ => ()
+        }
+      }
+      if current_stage == "" {
+        current_stage = last_done
+      }
+      Some({
+        project_id: json_object_text(fields, "project_id", ""),
+        project_code: json_object_text(fields, "project_code", ""),
+        project_name: json_object_text(fields, "project_name", ""),
+        bu_name: json_object_text(fields, "bu_name", ""),
+        proj_status: json_object_text(fields, "proj_status", ""),
+        begin_date: json_object_text(fields, "begin_date", ""),
+        current_stage: json_object_text(fields, "current_stage", current_stage),
+        task_count: json_object_text(fields, "task_count", "0"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+        lifecycle_text,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn project_rows_from_body(body : String) -> Array[ProjectRow] {
+  let rows : Array[ProjectRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "items") {
+        match project_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn project_detail_from_body(body : String) -> ProjectRow? {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  project_from_json(parsed)
+}
+
+///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
@@ -1326,6 +1430,26 @@ fn load_workflow(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(WorkflowLoaded(body))
       Err(_) => emit(WorkflowLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_projects(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/projects").expect_text(result => {
+    match result {
+      Ok(body) => emit(ProjectsLoaded(body))
+      Err(_) => emit(ProjectsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_project(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
+  @http.get("/api/company" + path).expect_text(result => {
+    match result {
+      Ok(body) => emit(ProjectLoaded(body))
+      Err(_) => emit(ProjectLoadFailed)
     }
   })
 }
@@ -1698,7 +1822,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InputUser(value) => (none, { ..model, user_code: value })
     InputPassword(value) => (none, { ..model, password: value })
     Navigate(path) => {
-      let command = if path == "/contracts" {
+      let command = if path == "/projects" {
+        load_projects(emit)
+      } else if path.has_prefix("/projects/") {
+        load_project(emit, path)
+      } else if path == "/contracts" {
         load_contracts(emit)
       } else if path.has_prefix("/contracts/") {
         load_contract(emit, path)
@@ -2576,6 +2704,46 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           workflow_loaded: false,
           workflow_process_rows: [],
           workflow_note: "工作流定义读模型不可用 · 使用已审核快照",
+        },
+      )
+    ProjectsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          projects_loaded: true,
+          project_rows: project_rows_from_body(body),
+          project_note: "已加载 PostgreSQL 项目主数据与生命周期证据 · 导入记录保持只读",
+        },
+      )
+    ProjectsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          projects_loaded: false,
+          project_rows: [],
+          project_note: "项目主数据读模型不可用 · 使用已审核快照",
+        },
+      )
+    ProjectLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          projects_loaded: true,
+          project_detail: project_detail_from_body(body),
+          project_note: "已加载 PostgreSQL 项目详情与生命周期证据 · 导入记录保持只读",
+        },
+      )
+    ProjectLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          projects_loaded: false,
+          project_detail: None,
+          project_note: "项目详情读模型不可用 · 使用已审核快照",
         },
       )
     CreateLoan =>
@@ -3628,7 +3796,36 @@ fn table_panel(
 }
 
 ///|
-fn project_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn project_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for row in model.project_rows {
+    rows.push([
+      row.project_id,
+      row.project_code,
+      row.project_name,
+      row.bu_name,
+      row.current_stage,
+      row.begin_date,
+      row.proj_status,
+      row.task_count,
+      row.source_kind,
+    ])
+  }
+  table_panel(
+    "PostgreSQL 项目主数据",
+    model.project_note + " · 导入项目保持只读",
+    data_table(
+      [
+        "项目 ID", "项目编码", "项目名称", "所属公司", "当前阶段",
+        "开始日期", "状态", "任务数", "来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn project_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "项目主数据",
     "PROJECTS",
@@ -3639,6 +3836,16 @@ fn project_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
       ),
     ],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.projects_loaded {
+            "PostgreSQL 项目主数据已连接"
+          } else {
+            "项目主数据读模型"
+          },
+        ),
+        span(" · " + model.project_note),
+      ]),
       div(class="erp-stat-grid") <| [
         metric("项目总数", "15", "在建项目", "metric-blue"),
         metric("本月新增", "2", "较上月 +1", "metric-blue"),
@@ -3647,7 +3854,7 @@ fn project_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
       filter_bar("项目编码 / 项目名称 / 所属公司"),
       table_panel(
         "项目列表",
-        "共 15 个项目",
+        "设计快照 · 源数据见下方 PostgreSQL 读模型",
         data_table(
           [
             "项目编码", "项目名称", "所属公司", "当前阶段", "开始日期",
@@ -3677,6 +3884,7 @@ fn project_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
           ],
         ),
       ),
+      project_runtime_table(model),
     ],
   )
 }
@@ -6010,13 +6218,54 @@ fn detail_toolbar(
 }
 
 ///|
-fn project_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn project_detail_runtime_table(model : Model) -> @html.Html {
+  match model.project_detail {
+    Some(row) =>
+      table_panel(
+        "PostgreSQL 项目生命周期",
+        model.project_note + " · 项目与任务导入记录保持只读",
+        data_table(
+          [
+            "项目 ID", "项目", "当前阶段", "状态", "开始日期", "任务数",
+            "来源", "生命周期",
+          ],
+          [
+            [
+              row.project_id,
+              row.project_name,
+              row.current_stage,
+              row.proj_status,
+              row.begin_date,
+              row.task_count,
+              row.source_kind,
+              row.lifecycle_text,
+            ],
+          ],
+        ),
+      )
+    None =>
+      div(class="erp-runtime-empty", "等待 PostgreSQL 项目详情投影")
+  }
+}
+
+///|
+fn project_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "项目全周期",
     "PROJECT DETAIL",
     "成都和锦里 · CD-HJL · 记录项目主数据、生命周期、计划、合同、成本与进度。",
     [detail_toolbar(emit, "/projects", "保存项目")],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.projects_loaded {
+            "PostgreSQL 项目详情已连接"
+          } else {
+            "项目详情读模型"
+          },
+        ),
+        span(" · " + model.project_note),
+      ]),
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("项目基本信息"),
@@ -6063,6 +6312,7 @@ fn project_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
           ],
         ),
       ),
+      project_detail_runtime_table(model),
     ],
   )
 }
@@ -7273,7 +7523,7 @@ fn business_view(
   if path.has_prefix("/share/") {
     share_view(path)
   } else if path.has_prefix("/projects/") {
-    project_detail_view(emit)
+    project_detail_view(emit, model)
   } else if path.has_prefix("/contracts/") {
     contract_detail_view(emit, model)
   } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
@@ -7288,8 +7538,8 @@ fn business_view(
       "/cockpit" => dashboard_view(emit, initial_model())
       "/ai-hub" => ai_hub_view()
       "/ai-stats" => ai_stats_view()
-      "/projects" => project_view(emit)
-      "/projects/CD-HJL" => project_detail_view(emit)
+      "/projects" => project_view(emit, model)
+      "/projects/CD-HJL" => project_detail_view(emit, model)
       "/project-plan" => project_plan_view(emit, model)
       "/project/progress" => progress_view(emit, model)
       "/tasks" => tasks_view(model)

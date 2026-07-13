@@ -6,13 +6,13 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-delivery, core report read, employee-loan read/command, and
-non-authorizing workflow-definition read verticals.
+project master read, delivery, core report read, employee-loan
+read/command, and non-authorizing workflow-definition read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 3, "fixture_backed_read_only": 29, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 34}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_project_read": 2, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 28, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_project_read": 2, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 32}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -26,8 +26,8 @@ non-authorizing workflow-definition read verticals.
 | `/ai-hub` | `../views/AIHub.vue` | `ai_hub_view` | `fixture_backed_read_only` | `ai-hub` | 6 / 10 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/ai-stats` | `../views/AIStats.vue` | `ai_stats_view` | `fixture_backed_read_only` | `ai-stats` | 3 / 1 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cockpit` | `redirect → /dashboard` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_read_and_command_api` |
-| `/projects` | `../views/Projects.vue` | `project_view` | `fixture_backed_read_only` | `mdm` | 3 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/projects/:projGuid` | `../views/ProjectDetail.vue` | `project_detail_view` | `fixture_backed_form` | `mdm` | 3 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
+| `/projects` | `../views/Projects.vue` | `project_view` | `connected_project_read` | `mdm` | 3 / 3 | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
+| `/projects/:projGuid` | `../views/ProjectDetail.vue` | `project_detail_view` | `connected_project_read` | `mdm` | 3 / 3 | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `/expenses` | `../views/ExpenseList.vue` | `expenses_view` | `fixture_backed_read_only` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/expenses/new` | `../views/ExpenseCreate.vue` | `expense_editor_view` | `connected_command_form` | `budget` | 6 / 7 | `connected_expense_command` | `accept_production_identity_and_full_session_scenario` |
 | `/expenses/:guid` | `../views/ExpenseDetail.vue` | `expense_editor_view` | `fixture_backed_form` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
@@ -284,8 +284,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `marketing` | `POST` | `/materials` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `DELETE` | `/materials/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `mdm` | `GET` | `/business-units/tree` | `/projects`, `/projects/:projGuid` | `not_connected` | `connect_authenticated_read_api` |
-| `mdm` | `GET` | `/projects` | `/projects`, `/projects/:projGuid` | `not_connected` | `connect_authenticated_read_api` |
-| `mdm` | `GET` | `/projects/:projGuid/lifecycle` | `/projects`, `/projects/:projGuid` | `not_connected` | `connect_authenticated_read_api` |
+| `mdm` | `GET` | `/projects` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
+| `mdm` | `GET` | `/projects/:projGuid/lifecycle` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `mdm` | `POST` | `/projects` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `mdm` | `PUT` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `mdm` | `DELETE` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |

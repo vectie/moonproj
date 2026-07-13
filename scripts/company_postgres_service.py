@@ -43,6 +43,7 @@ The bounded service exposes these endpoints:
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
+* ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
 * ``/api/company/loans`` and ``/api/company/loans/<id>`` (GET)
 * ``/api/company/loans`` (POST create draft)
 * ``/api/company/loans/<id>/{submit-for-approval,offset,update,void}`` (POST)
@@ -299,6 +300,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_command",
             "report_read",
             "workflow_definition_read",
+            "project_read",
             "loan_read",
             "loan_command",
             "audit_receipt",
@@ -336,6 +338,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_command",
             "report_read",
             "workflow_definition_read",
+            "project_read",
             "loan_read",
             "loan_command",
             "audit_receipt",
@@ -3547,6 +3550,195 @@ def _report_date(value: Any) -> date | None:
         return None
 
 
+PROJECT_SOURCE_TABLES = {
+    "ep_project",
+    "mu_business_unit",
+    "proj_lifecycle_stage",
+    "proj_lifecycle_instance",
+    "jd_task",
+    "jd_task_report",
+    "sys_user",
+}
+
+
+def projects(
+    pool: PsqlPool,
+    project_id: str | None,
+    status: str | None,
+    keyword: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if project_id is not None and not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    if status is not None and len(status) > 64:
+        raise ValueError("invalid project status")
+    if keyword is not None and len(keyword) > 128:
+        raise ValueError("invalid project keyword")
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max_rows, PROJECT_SOURCE_TABLES))
+        for table in sorted(PROJECT_SOURCE_TABLES)
+    }
+    raw_projects = _raw_source_rows(pool, "ep_project", max_rows, PROJECT_SOURCE_TABLES)
+    raw_units = _raw_source_rows(pool, "mu_business_unit", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    raw_stages = _raw_source_rows(pool, "proj_lifecycle_stage", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    raw_instances = _raw_source_rows(
+        pool,
+        "proj_lifecycle_instance",
+        max(max_rows, 500),
+        PROJECT_SOURCE_TABLES,
+    )
+    raw_tasks = _raw_source_rows(pool, "jd_task", max(max_rows, 500), PROJECT_SOURCE_TABLES)
+    raw_reports = _raw_source_rows(pool, "jd_task_report", max(max_rows, 500), PROJECT_SOURCE_TABLES)
+    raw_users = _raw_source_rows(pool, "sys_user", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    units: dict[str, dict[str, Any]] = {}
+    for row in raw_units:
+        payload = row["payload"]
+        units[str(payload.get("bu_guid", row["record_id"]))] = payload
+    stages = sorted(
+        [row["payload"] for row in raw_stages],
+        key=lambda value: (int(value.get("stage_order") or 0), str(value.get("stage_code", ""))),
+    )
+    instances: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in raw_instances:
+        payload = row["payload"]
+        instances[(str(payload.get("proj_guid", "")), str(payload.get("stage_code", "")))] = payload
+    user_names = {
+        str(row["payload"].get("user_id", row["record_id"])): str(
+            row["payload"].get("emp_name") or row["payload"].get("user_name") or ""
+        )
+        for row in raw_users
+    }
+    tasks_by_project: dict[str, list[dict[str, Any]]] = {}
+    for row in raw_tasks:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        project_key = str(payload.get("proj_guid", ""))
+        if not project_key:
+            continue
+        task = {
+            "task_id": str(payload.get("task_guid", row["record_id"])),
+            "task_code": str(payload.get("task_code") or ""),
+            "task_name": str(payload.get("task_name") or ""),
+            "task_type": str(payload.get("task_type") or "task"),
+            "parent_task_id": str(payload.get("parent_task_guid") or ""),
+            "plan_begin_date": str(payload.get("plan_begin_date") or ""),
+            "plan_end_date": str(payload.get("plan_end_date") or ""),
+            "actual_begin_date": str(payload.get("actual_begin_date") or ""),
+            "actual_end_date": str(payload.get("actual_end_date") or ""),
+            "progress_pct": str(payload.get("progress_pct") if payload.get("progress_pct") is not None else 0),
+            "status": str(payload.get("status") or "pending"),
+            "owner_id": str(payload.get("owner_guid") or ""),
+            "owner_name": user_names.get(str(payload.get("owner_guid") or ""), ""),
+            "remarks": str(payload.get("remarks") or ""),
+            "sort_order": int(payload.get("sort_order") or 0),
+            "source_kind": "imported",
+        }
+        tasks_by_project.setdefault(project_key, []).append(task)
+    for values in tasks_by_project.values():
+        values.sort(key=lambda value: (int(value["sort_order"]), str(value["plan_begin_date"]), str(value["task_id"])))
+    reports_by_task: dict[str, list[dict[str, Any]]] = {}
+    for row in raw_reports:
+        payload = row["payload"]
+        task_key = str(payload.get("task_guid", ""))
+        if not task_key:
+            continue
+        reports_by_task.setdefault(task_key, []).append(
+            {
+                "report_id": str(payload.get("report_guid", row["record_id"])),
+                "report_date": str(payload.get("report_date") or ""),
+                "progress_pct": str(payload.get("progress_pct") if payload.get("progress_pct") is not None else 0),
+                "summary": str(payload.get("summary") or ""),
+                "operator_id": str(payload.get("operator_guid") or ""),
+                "operator_name": user_names.get(str(payload.get("operator_guid") or ""), ""),
+                "source_kind": "imported",
+            }
+        )
+    for values in reports_by_task.values():
+        values.sort(key=lambda value: (str(value["report_date"]), str(value["report_id"])), reverse=True)
+    items: list[dict[str, Any]] = []
+    for row in raw_projects:
+        payload = row["payload"]
+        pid = str(payload.get("proj_guid", row["record_id"]))
+        if payload.get("deleted_at"):
+            continue
+        if project_id is not None and pid != project_id:
+            continue
+        if status is not None and str(payload.get("proj_status") or "") != status:
+            continue
+        if keyword is not None:
+            needle = keyword.casefold()
+            if needle not in str(payload.get("proj_name") or "").casefold() and needle not in str(
+                payload.get("proj_code") or ""
+            ).casefold():
+                continue
+        lifecycle: list[dict[str, Any]] = []
+        current_stage = ""
+        last_done = ""
+        for stage in stages:
+            code = str(stage.get("stage_code") or "")
+            instance = instances.get((pid, code), {})
+            stage_status = str(instance.get("status") or "pending")
+            if stage_status == "in_progress" and not current_stage:
+                current_stage = str(stage.get("stage_name") or code)
+            if stage_status == "done":
+                last_done = str(stage.get("stage_name") or code)
+            lifecycle.append(
+                {
+                    "stage_code": code,
+                    "stage_name": str(stage.get("stage_name") or code),
+                    "stage_order": int(stage.get("stage_order") or 0),
+                    "status": stage_status,
+                    "progress_pct": str(instance.get("progress_pct") if instance.get("progress_pct") is not None else 0),
+                    "planned_start": str(instance.get("planned_start") or ""),
+                    "planned_end": str(instance.get("planned_end") or ""),
+                    "actual_start": str(instance.get("actual_start") or ""),
+                    "actual_end": str(instance.get("actual_end") or ""),
+                    "source_kind": "imported",
+                }
+            )
+        project_tasks = tasks_by_project.get(pid, [])
+        status_counts: dict[str, int] = {}
+        for task in project_tasks:
+            task_status = str(task["status"])
+            status_counts[task_status] = status_counts.get(task_status, 0) + 1
+        items.append(
+            {
+                "project_id": pid,
+                "project_code": str(payload.get("proj_code") or pid),
+                "project_name": str(payload.get("proj_name") or pid),
+                "project_short_name": str(payload.get("proj_short_name") or ""),
+                "bu_guid": str(payload.get("bu_guid") or ""),
+                "bu_name": str(units.get(str(payload.get("bu_guid") or ""), {}).get("bu_name") or ""),
+                "level": int(payload.get("level") or 0),
+                "level_code": str(payload.get("level_code") or ""),
+                "if_end": bool(payload.get("if_end", 0)),
+                "begin_date": str(payload.get("begin_date") or ""),
+                "end_date": str(payload.get("end_date") or ""),
+                "proj_status": str(payload.get("proj_status") or ""),
+                "created_at": str(payload.get("created_at") or ""),
+                "current_stage": current_stage or last_done,
+                "task_count": len(project_tasks),
+                "task_status_counts": status_counts,
+                "lifecycle": lifecycle,
+                "tasks": project_tasks,
+                "reports": [
+                    report
+                    for task in project_tasks
+                    for report in reports_by_task.get(str(task["task_id"]), [])
+                ],
+                "source_kind": "imported",
+            }
+        )
+    items.sort(key=lambda value: (str(value["project_code"]), str(value["project_id"])))
+    return {
+        "items": items,
+        "source_kind": "imported",
+        "source_coverage": coverage,
+        "missing_source_tables": [table for table, count in coverage.items() if count == 0],
+    }
+
+
 WORKFLOW_SOURCE_TABLES = {
     "wf_process_def",
     "wf_step_def",
@@ -5476,6 +5668,23 @@ def handler_factory(
                     response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/projects":
+                    query = parse_qs(parsed.query)
+                    result = projects(
+                        pool,
+                        query.get("project_id", [None])[0],
+                        query.get("status", [None])[0],
+                        query.get("keyword", [None])[0],
+                        max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif re.fullmatch(r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    project_value = parsed.path.rsplit("/", 1)[-1]
+                    result = projects(pool, project_value, None, None, max_response_rows)
+                    if not result["items"]:
+                        response(self, 404, {"error": "project not found"}, origin)
+                    else:
+                        response(self, 200, result["items"][0], origin)
                 elif parsed.path == "/api/company/workflow/process-defs":
                     process_value = parse_qs(parsed.query).get("process_key", [None])[0]
                     response(

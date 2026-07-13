@@ -150,6 +150,27 @@ def main() -> int:
             or workflow_preview.get("actions_available") != 0
         ):
             raise SmokeError(f"workflow preview read failed: {status} {workflow_preview}")
+        status, project_payload = request(args.port, "/api/company/projects", token=token)
+        if (
+            status != 200
+            or project_payload is None
+            or len(project_payload.get("items", [])) != 2
+            or project_payload.get("source_coverage", {}).get("ep_project") != 2
+            or project_payload.get("source_coverage", {}).get("proj_lifecycle_instance") != 14
+            or project_payload.get("source_coverage", {}).get("jd_task") != 9
+            or project_payload.get("source_coverage", {}).get("jd_task_report") != 1
+        ):
+            raise SmokeError(f"project read failed: {status} {project_payload}")
+        status, project_detail = request(args.port, "/api/company/projects/proj-0001", token=token)
+        if (
+            status != 200
+            or project_detail is None
+            or project_detail.get("project_id") != "proj-0001"
+            or len(project_detail.get("lifecycle", [])) != 7
+            or len(project_detail.get("tasks", [])) != 7
+            or len(project_detail.get("reports", [])) != 1
+        ):
+            raise SmokeError(f"project detail read failed: {status} {project_detail}")
         status, payload = request(args.port, "/api/company/loans", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"loan read failed: {status} {payload}")
@@ -1092,6 +1113,10 @@ def main() -> int:
                     "workflow_step_count": 12,
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
+                    "project_count": 2,
+                    "project_lifecycle_rows": 14,
+                    "project_task_rows": 9,
+                    "project_task_report_rows": 1,
                     "loan_rows": loan_rows,
                     "loan_command_state": "Voided",
                     "loan_workflow_gate": "rejected_until_source_rows",

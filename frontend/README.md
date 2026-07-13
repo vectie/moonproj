@@ -64,6 +64,10 @@ remain fixture-backed. `/tasks` now reads the source workflow definitions and
 previews (two processes, twelve steps, six assignee mappings) through the
 authenticated service; source instances/actions are empty, so the task cards
 remain a clearly labelled design snapshot and no approval mutation is exposed.
+`/projects` and `/projects/:guid` now read the source project master and
+lifecycle/task evidence (two projects, fourteen lifecycle rows, nine tasks),
+while the designer project tables/forms remain an explicitly labelled fallback;
+project and plan mutations are not inferred from those reads.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

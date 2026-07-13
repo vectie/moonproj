@@ -188,6 +188,8 @@ def match_target(
             return function, "connected_report_read"
         if path == "/tasks" and function == "tasks_view":
             return function, "connected_workflow_definition_read"
+        if path == "/projects" and function == "project_view":
+            return function, "connected_project_read"
         if path == "/loans/new" and function == "loan_editor_view":
             return function, "connected_loan_command_form"
         if path == "/loans" and function == "loans_view":
@@ -210,6 +212,8 @@ def match_target(
             if branch in functions:
                 if prefix == "/contracts/":
                     return branch, "connected_contract_command_form"
+                if prefix == "/projects/":
+                    return branch, "connected_project_read"
                 if prefix == "/loans/":
                     return branch, "connected_loan_command_form"
                 return branch, "read_only_public" if prefix == "/share/" else "fixture_backed_form"
@@ -247,6 +251,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_report_scenario_and_production_identity"
     if target_state == "connected_workflow_definition_read":
         return "accept_browser_workflow_definition_scenario_and_production_identity"
+    if target_state == "connected_project_read":
+        return "accept_browser_project_scenario_and_production_identity"
     if target_state == "connected_loan_read":
         return "accept_browser_loan_scenario_and_production_identity"
     if target_state == "connected_loan_command_form":
@@ -294,6 +300,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/process-defs", "/process-defs/:processKey/preview"}
     ):
         return "connected_workflow_definition_read", "accept_browser_workflow_definition_scenario_and_production_identity"
+    if (
+        handler["module"] == "mdm"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/projects", "/projects/:projGuid/lifecycle"}
+    ):
+        return "connected_project_read", "accept_browser_project_scenario_and_production_identity"
     if (
         handler["module"] == "loan"
         and handler["path"] == "/loans/:guid"
@@ -347,6 +359,8 @@ def build_matrix(
             api_state = "connected_report_read"
         elif target_state == "connected_workflow_definition_read":
             api_state = "connected_workflow_definition_read"
+        elif target_state == "connected_project_read":
+            api_state = "connected_project_read"
         elif target_state == "connected_loan_command_form":
             api_state = "connected_loan_command"
         elif target_state == "connected_loan_read":
@@ -419,8 +433,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The connected exceptions are",
         "the fixed dashboard read-model and the local",
         "expense/contract/payment-application/tender command, supplier read,",
-        "delivery, core report read, employee-loan read/command, and",
-        "non-authorizing workflow-definition read verticals.",
+        "project master read, delivery, core report read, employee-loan",
+        "read/command, and non-authorizing workflow-definition read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

@@ -17,13 +17,14 @@
     "connected_loan_command_form": 2,
     "connected_loan_read": 1,
     "connected_payment_application_command_form": 1,
+    "connected_project_read": 2,
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
     "connected_tender_command_form": 1,
     "connected_workflow_definition_read": 1,
-    "fixture_backed_form": 3,
-    "fixture_backed_read_only": 29,
+    "fixture_backed_form": 2,
+    "fixture_backed_read_only": 28,
     "public": 1,
     "read_model_only": 3,
     "read_only_public": 1
@@ -37,12 +38,13 @@
     "connected_loan_command": 2,
     "connected_loan_read": 1,
     "connected_payment_application_command": 1,
+    "connected_project_read": 2,
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 34
+    "read_only_fixture_no_source_api": 32
   },
   "routes": [
     {
@@ -149,13 +151,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "project_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_project_read",
       "source_api_module": "mdm",
       "source_api_handler_count": 6,
       "source_api_read_handler_count": 3,
       "source_api_mutation_handler_count": 3,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_project_read",
+      "required_next": "accept_browser_project_scenario_and_production_identity"
     },
     {
       "path": "/projects/:projGuid",
@@ -163,13 +165,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "project_detail_view",
-      "target_state": "fixture_backed_form",
+      "target_state": "connected_project_read",
       "source_api_module": "mdm",
       "source_api_handler_count": 6,
       "source_api_read_handler_count": 3,
       "source_api_mutation_handler_count": 3,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+      "api_state": "connected_project_read",
+      "required_next": "accept_browser_project_scenario_and_production_identity"
     },
     {
       "path": "/expenses",
@@ -3131,8 +3133,8 @@
         "/projects",
         "/projects/:projGuid"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_project_read",
+      "required_next": "accept_browser_project_scenario_and_production_identity"
     },
     {
       "module": "mdm",
@@ -3142,8 +3144,8 @@
         "/projects",
         "/projects/:projGuid"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_project_read",
+      "required_next": "accept_browser_project_scenario_and_production_identity"
     },
     {
       "module": "mdm",
