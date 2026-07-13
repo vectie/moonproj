@@ -1,0 +1,37 @@
+{
+  "format": "moonproj.erp.bank-statement-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:bank-statement-synthetic-001",
+  "mapping_version": "bank-statement-map-v1-review-001",
+  "run_id": "bank-statement-run-2026-12",
+  "statements": [
+    {
+      "source_table": "bank_statement",
+      "source_id": "bank-statement-source-001",
+      "statement_id": "statement-001",
+      "account_id": "cash-account-001",
+      "principal_id": "co-001",
+      "project_scope": "company:co-001",
+      "period": "2026-12",
+      "currency": "CNY",
+      "opening_balance_minor": 1000000,
+      "closing_balance_minor": 1150000,
+      "lines": [
+        {
+          "line_id": "statement-001-line-001",
+          "external_reference": "bank-ref-in-001",
+          "booked_at": "2026-12-02T09:30:00+08:00",
+          "amount_minor": 250000,
+          "direction": "inflow"
+        },
+        {
+          "line_id": "statement-001-line-002",
+          "external_reference": "bank-ref-out-001",
+          "booked_at": "2026-12-05T15:10:00+08:00",
+          "amount_minor": 100000,
+          "direction": "outflow"
+        }
+      ]
+    }
+  ]
+}

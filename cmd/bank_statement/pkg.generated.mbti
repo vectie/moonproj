@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/bank_statement"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/treasury",
+}
+
+// Values
+
+// Errors
+pub(all) suberror BankStatementPromotionError {
+  InvalidInput
+  Io(@fs.IOError)
+  Money(@finance.MoneyError)
+  Statement(@treasury.StatementError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

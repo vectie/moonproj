@@ -111,7 +111,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/access_plan.example.json \
   scripts/fixtures/accounting_posting_mapping.example.json \
   scripts/fixtures/opening_control_mapping.example.json \
-  scripts/fixtures/tax_filing_mapping.example.json
+  scripts/fixtures/tax_filing_mapping.example.json \
+  scripts/fixtures/bank_statement_mapping.example.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -161,3 +162,9 @@ projections, including one accepted and one rejected filing, with candidate
 parity and idempotent replay. The demonstrated posting-plus-opening-plus-tax
 run reaches 124 aggregate projections. Tax payment, tax-authority calls,
 accounting posting, cash release, and period close remain separate gates.
+The twenty-sixth argument supplies the reviewed bank-statement map. It runs
+native balance validation and persists one exact two-line `bank_statement`
+projection with candidate parity and idempotent replay. The demonstrated
+posting-plus-opening-plus-tax-plus-bank run reaches 125 aggregate projections.
+Movement matching, ledger reconciliation, bank-provider calls, cash release,
+accounting posting, and period close remain separate gates.

@@ -33,6 +33,7 @@ ACCESS_PLAN=${24:-}
 ACCOUNTING_POSTING_MAPPING=${25:-}
 OPENING_CONTROL_MAPPING=${26:-}
 TAX_FILING_MAPPING=${27:-}
+BANK_STATEMENT_MAPPING=${28:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -235,6 +236,30 @@ if [ -n "$TAX_FILING_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$TAX_FILING_RECEIPT" "$TARGET_DB" > "$TAX_FILING_REPLAY"
   echo "tax_filing_replay=$TAX_FILING_REPLAY"
+fi
+
+if [ -n "$BANK_STATEMENT_MAPPING" ]; then
+  BANK_STATEMENT_PLAN="$WORK_DIR/bank-statement-plan.json"
+  python3 "$SCRIPT_DIR/erp_bank_statement_plan.py" \
+    "$BANK_STATEMENT_MAPPING" "$BANK_STATEMENT_PLAN"
+  echo "bank_statement_plan=$BANK_STATEMENT_PLAN"
+  BANK_STATEMENT_RECEIPT="$WORK_DIR/bank-statement-receipt.json"
+  moon run --target native cmd/bank_statement -- \
+    "$BANK_STATEMENT_PLAN" "$BANK_STATEMENT_RECEIPT"
+  echo "bank_statement_receipt=$BANK_STATEMENT_RECEIPT"
+  BANK_STATEMENT_APPLY="$WORK_DIR/bank-statement-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" > "$BANK_STATEMENT_APPLY"
+  echo "bank_statement_apply=$BANK_STATEMENT_APPLY"
+  BANK_STATEMENT_PARITY="$WORK_DIR/bank-statement-parity.json"
+  python3 "$SCRIPT_DIR/company_bank_statement_parity.py" \
+    "$BANK_STATEMENT_RECEIPT" "$BANK_STATEMENT_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "bank_statement_parity=$BANK_STATEMENT_PARITY"
+  BANK_STATEMENT_REPLAY="$WORK_DIR/bank-statement-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" > "$BANK_STATEMENT_REPLAY"
+  echo "bank_statement_replay=$BANK_STATEMENT_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -645,6 +670,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$TAX_FILING_MAPPING" ]; then
     TAX_FILING_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["filings"]))' "$WORK_DIR/tax-filing-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + TAX_FILING_COUNT))
+  fi
+  if [ -n "$BANK_STATEMENT_MAPPING" ]; then
+    BANK_STATEMENT_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["statements"]))' "$WORK_DIR/bank-statement-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + BANK_STATEMENT_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

@@ -105,6 +105,13 @@ and zero-insert replay. The cohort does not pay tax, post a tax journal, or
 call an external authority. The available ERP snapshot has no tax rows, so a
 sanitized tax export, source-to-obligation identity map, filing credentials,
 finance-owner acceptance, and payment/ledger policy are still required.
+The reviewed bank-statement boundary now imports one balanced synthetic
+statement with two lines through native treasury validation and exact
+SQLite/PostgreSQL parity plus zero-insert replay. It is evidence-only:
+movement matching, statement-to-ledger reconciliation, cash release, bank
+provider access, and accounting posting remain separate decisions. The
+available ERP snapshot has no bank-statement rows, so production statement
+export and owner acceptance remain open.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

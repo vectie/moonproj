@@ -103,6 +103,9 @@ The optional twenty-seventh argument supplies a reviewed tax-filing map; it
 drives native tax calculation/review/submission and persists filing evidence
 only. Tax payment, authority calls, cash release, and accounting posting remain
 separate gates.
+The optional twenty-eighth argument supplies a reviewed bank-statement map; it
+validates balanced statement evidence only. Movement matching, bank-provider
+calls, cash release, and accounting posting remain separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

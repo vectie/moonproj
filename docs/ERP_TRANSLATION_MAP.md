@@ -238,6 +238,14 @@ obligation and filing lifecycle, while exact adapters preserve rates, amounts,
 currency, period, authority reference, and accepted/rejected state. Tax
 payment, accounting posting, cash release, and period close remain false. See
 [ERP_TAX_FILING.md](ERP_TAX_FILING.md).
+The twenty-eighth SQLite wrapper argument, or the twenty-sixth PostgreSQL
+cohort-runner argument, can supply a separately reviewed bank-statement map.
+`scripts/erp_bank_statement_plan.py` and `cmd/bank_statement` validate exact
+opening/closing balance arithmetic and line identity through native
+`finance/treasury`; exact adapters preserve balances, currency, references,
+timestamps, amounts, and directions. Movement matching, ledger reconciliation,
+cash release, and accounting posting remain false. See
+[ERP_BANK_STATEMENT.md](ERP_BANK_STATEMENT.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
