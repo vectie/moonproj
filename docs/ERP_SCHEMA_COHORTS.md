@@ -52,6 +52,11 @@ The fifth wave has a separate
 `mapped_scope_only` while the available snapshot contains zero rows for all
 eight tables.
 
+The target now also has a reviewed synthetic [sales lifecycle cohort](ERP_SALES_COHORT.md)
+for the native customer, subscription, contract, mortgage, refund, receivable,
+and revenue-evidence boundaries. It proves domain behavior and exact durable
+parity without claiming that the absent production rows have been imported.
+
 The sixth wave has a separate
 [delivery-treasury mapping](ERP_DELIVERY_TREASURY_SCHEMA_COHORT.md). It is
 `mapped_scope_only` while the available snapshot contains zero rows for all

@@ -226,3 +226,9 @@ parity and zero-insert replay; these links do not file/pay tax, call a lender,
 release cash, post journals, or close a period. Run it with the four reviewed
 source/accounting maps and the normal `PGHOST`, `PGPORT`, `PGUSER`, and
 `PGPASSWORD` environment contract.
+The separate `scripts/company_sales_cohort_rehearsal.sh` persists seven
+reviewed sales/receivables projections (customer, subscription, agreement,
+receivable, mortgage, refund, and revenue evidence) with exact PostgreSQL
+identity parity and zero-insert replay. Collection, refund cash, revenue
+recognition, book posting, and period close remain separate; the source rows
+are synthetic because the available ERP snapshot has no accepted sales rows.

@@ -147,6 +147,12 @@ native event builders, exact SQLite/PostgreSQL identity parity, and idempotent
 replay. It never files or pays tax, calls a lender, releases cash, posts the
 book, or closes a period. The available snapshot has no accepted source rows
 for either boundary.
+The standalone sales cohort uses a reviewed synthetic sales map to exercise
+customer, subscription, contract, mortgage, refund, receivable, and revenue
+evidence boundaries. It persists seven projections with exact SQLite and
+PostgreSQL parity and idempotent replay; collection, refund cash, revenue
+recognition, accounting posting, and period close remain separate. The
+available snapshot has no accepted sales rows.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

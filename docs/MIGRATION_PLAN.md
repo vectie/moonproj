@@ -150,6 +150,13 @@ pass for four projections. It is obligation evidence only: cash release,
 accounting posting, settlement, tax, period close, and owner acceptance remain
 separate. The available snapshot has no supplier or tender rows, so a redacted
 procurement export and business-owner review are still required.
+The reviewed sales/receivables cohort now exercises one synthetic customer,
+subscription conversion, fulfilled sales agreement, opened receivable,
+mortgage lifecycle, refund approval/payment workflow, and source-evidence-only
+revenue row. Exact SQLite/PostgreSQL projection parity and zero-insert replay
+pass for seven projections. Collection, refund cash, revenue recognition,
+accounting posting, period close, and owner acceptance remain separate; the
+available snapshot has no accepted sales rows.
 The separate invoice/procurement accounting-link boundary now binds two
 receivable openings, one payable opening, and one performed procurement
 commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL

@@ -1,0 +1,64 @@
+{
+  "format": "moonproj.erp.sales-cohort-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:sales-synthetic-001",
+  "mapping_version": "sales-map-v1-review-001",
+  "run_id": "sales-run-2026-19",
+  "customer": {
+    "source_table": "sale_customer",
+    "source_id": "customer-001",
+    "customer_id": "customer-001",
+    "principal_id": "co-001",
+    "project_scope": "project:p-001",
+    "customer_code": "CUS-001",
+    "name": "Harbor View Customer",
+    "contact_reference": "contact:customer-001",
+    "expected_state": "active"
+  },
+  "subscription": {
+    "source_table": "sale_subscription",
+    "source_id": "subscription-001",
+    "subscription_id": "subscription-001",
+    "unit_reference": "building-1/unit-1",
+    "amount_minor": 1000000,
+    "currency": "CNY",
+    "expected_state": "converted"
+  },
+  "agreement": {
+    "source_table": "sale_contract",
+    "source_id": "contract-001",
+    "agreement_id": "contract-001",
+    "receivable_id": "receivable-sales-001",
+    "amount_minor": 1000000,
+    "currency": "CNY",
+    "expected_state": "fulfilled"
+  },
+  "mortgage": {
+    "source_table": "sale_mortgage",
+    "source_id": "mortgage-001",
+    "mortgage_id": "mortgage-001",
+    "bank_reference": "bank:harbor-001",
+    "loan_amount_minor": 800000,
+    "annual_rate_bps": 485,
+    "expected_state": "released"
+  },
+  "refund": {
+    "source_table": "sale_refund",
+    "source_id": "refund-001",
+    "refund_id": "refund-001",
+    "reason": "Approved customer adjustment",
+    "amount_minor": 50000,
+    "expected_state": "paid"
+  },
+  "revenue": {
+    "source_table": "sale_revenue",
+    "source_id": "revenue-001",
+    "revenue_id": "revenue-001",
+    "revenue_code": "R6-2026-001",
+    "amount_minor": 1000000,
+    "currency": "CNY",
+    "status": "expected",
+    "contract_code": "contract-001",
+    "evidence_state": "source_evidence_only"
+  }
+}
