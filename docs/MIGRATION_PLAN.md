@@ -261,11 +261,13 @@ replacement of `erp_new`. The findings that now control sequencing are:
    many views are fixture-backed/read-only and no page-by-page screenshot,
    interaction, or route-action comparison has been accepted.
 2. **Connected local slices, not accepted production workflows.** The local
-   PostgreSQL service and Rabbita gateway now exercise five bounded slices:
-   expense approval, contract approval, payment-application control, and the
-   procurement vertical (supplier lifecycle/risk reads, tender planning/award,
-   and contract splits). They persist idempotent command receipts, immutable
-   revisions, and audit evidence where commands exist. This is still local-only
+   PostgreSQL service and Rabbita gateway now exercise bounded expense,
+   contract, payment-application, procurement, sales/receivables, and
+   invoice-read slices. Procurement covers supplier lifecycle/risk reads,
+   tender planning/award, and contract splits; sales covers customer,
+   reservation, agreement, mortgage, refund, receivable, and revenue evidence
+   reads. They persist idempotent command receipts, immutable revisions, and
+   audit evidence where commands exist. This is still local-only
    evidence: the gateway session and actor assertion are not the production
    identity boundary, and no browser acceptance or named-owner sign-off has
    been recorded.
@@ -280,11 +282,11 @@ replacement of `erp_new`. The findings that now control sequencing are:
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records six connected target states across browser and API surfaces
-(the four workflow slices above plus procurement and fixed company reads),
-while 40 browser views and 47 API groups remain fixture-backed or read-model-
-only. That gap, rather than additional platform hardening, controls the next
-work.
+currently records twelve connected workflow routes across browser and API
+surfaces (expense, contract, payment, procurement, sales, and invoice),
+while 34 browser views and 41 API groups remain fixture-backed or read-model-
+only. Three additional fixed read-model routes are connected. That gap,
+rather than additional platform hardening, controls the next work.
 
 Execute the remainder in this order:
 
@@ -308,8 +310,9 @@ Execute the remainder in this order:
 4. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-5. Expand runtime vertical slices to the ERP parity floor: sales/receivables,
-   delivery, treasury/financing, tax/close,
+5. Expand runtime vertical slices to the ERP parity floor. The local
+   sales/receivables read and lifecycle slice is now verified; the next broad
+   slices are delivery, treasury/financing, tax/close,
    reporting/notifications, and investment. Synthetic rehearsals remain
    design evidence until real source rows and user acceptance are attached.
 6. Run named-owner acceptance and a read-only shadow period for each accepted

@@ -10,8 +10,8 @@ verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_payment_application_command_form": 1, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 40, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_payment_application_command": 1, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 47}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_invoice_read": 1, "connected_payment_application_command_form": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 34, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_payment_application_command": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 41}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -41,15 +41,15 @@ verticals.
 | `/project-plan` | `../views/ProjectPlan.vue` | `project_plan_view` | `fixture_backed_read_only` | `plan` | 4 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/investment` | `../views/Investment.vue` | `investment_view` | `fixture_backed_read_only` | `investment` | 16 / 12 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cost-dashboard-v3` | `../views/CostDashboardV3.vue` | `cost_dashboard_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/sales/revenues` | `../views/SalesRevenue.vue` | `sales_revenues_view` | `fixture_backed_read_only` | `sales` | 6 / 14 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/sales/customers` | `../views/SaleCustomers.vue` | `sales_customers_view` | `fixture_backed_read_only` | `sales` | 6 / 14 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/sales/subscriptions` | `../views/SaleSubscriptions.vue` | `sales_subscriptions_view` | `fixture_backed_read_only` | `sales` | 6 / 14 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/sales/contracts` | `../views/SaleContracts.vue` | `sales_contracts_view` | `fixture_backed_read_only` | `sales` | 6 / 14 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/sales/mortgages` | `../views/SaleMortgages.vue` | `sales_mortgages_view` | `fixture_backed_read_only` | `sales` | 6 / 14 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/sales/revenues` | `../views/SalesRevenue.vue` | `sales_revenues_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
+| `/sales/customers` | `../views/SaleCustomers.vue` | `sales_customers_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
+| `/sales/subscriptions` | `../views/SaleSubscriptions.vue` | `sales_subscriptions_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
+| `/sales/contracts` | `../views/SaleContracts.vue` | `sales_contracts_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
+| `/sales/mortgages` | `../views/SaleMortgages.vue` | `sales_mortgages_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
 | `/marketing` | `../views/Marketing.vue` | `marketing_view` | `fixture_backed_read_only` | `marketing` | 4 / 9 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/fund/plan` | `../views/FundPlan.vue` | `fund_plan_view` | `fixture_backed_read_only` | `fund` | 3 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/project/progress` | `../views/ProjectProgress.vue` | `progress_view` | `fixture_backed_read_only` | `progress` | 2 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/invoice` | `../views/Invoice.vue` | `invoice_view` | `fixture_backed_read_only` | `invoice` | 3 / 4 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/invoice` | `../views/Invoice.vue` | `invoice_view` | `connected_invoice_read` | `invoice` | 3 / 4 | `connected_invoice_read` | `accept_browser_invoice_scenario_and_production_identity` |
 | `/tender` | `../views/TenderPlan.vue` | `tender_view` | `connected_tender_command_form` | `tender` | 3 / 5 | `connected_tender_command` | `accept_browser_tender_scenario_and_production_identity` |
 | `/cbs/dict` | `../views/CbsDict.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cbs/versions` | `../views/CbsVersions.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |

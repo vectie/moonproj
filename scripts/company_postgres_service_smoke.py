@@ -568,6 +568,206 @@ def main() -> int:
         )
         if status != 200 or payload is None or payload.get("state") != "planned":
             raise SmokeError(f"contract split detail failed: {status} {payload}")
+        sales_customer_id = "CUS-SMOKE-" + nonce
+        sales_customer_payload = {
+            "customer_id": sales_customer_id,
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+            "customer_code": sales_customer_id,
+            "name": "service sales smoke customer",
+            "contact_reference": "contact:smoke",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/sales/customers",
+            token=token,
+            method="POST",
+            payload=sales_customer_payload,
+            idempotency_key="sales-customer-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("customer", {}).get("state") != "active":
+            raise SmokeError(f"sales customer create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/sales/customers",
+            token=token,
+            method="POST",
+            payload=sales_customer_payload,
+            idempotency_key="sales-customer-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"sales customer idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/sales/customers/{sales_customer_id}/update",
+            token=token,
+            method="POST",
+            payload={"name": "service sales smoke customer updated"},
+            idempotency_key="sales-customer-update-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("customer", {}).get("state") != "active":
+            raise SmokeError(f"sales customer update failed: {status} {payload}")
+        subscription_id = "SUB-SMOKE-" + nonce
+        subscription_payload = {
+            "subscription_id": subscription_id,
+            "customer_id": sales_customer_id,
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+            "unit_reference": "building-1/unit-1",
+            "amount_minor": 1000000,
+            "currency": "CNY",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/sales/subscriptions",
+            token=token,
+            method="POST",
+            payload=subscription_payload,
+            idempotency_key="sales-subscription-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("subscription", {}).get("state") != "reserved":
+            raise SmokeError(f"sales subscription create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/sales/subscriptions/{subscription_id}/convert",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="sales-subscription-convert-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("subscription", {}).get("state") != "converted":
+            raise SmokeError(f"sales subscription convert failed: {status} {payload}")
+        agreement_id = "AGR-SMOKE-" + nonce
+        agreement_payload = {
+            "agreement_id": agreement_id,
+            "subscription_id": subscription_id,
+            "customer_id": sales_customer_id,
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+            "amount_minor": 1000000,
+            "currency": "CNY",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/sales/contracts",
+            token=token,
+            method="POST",
+            payload=agreement_payload,
+            idempotency_key="sales-agreement-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("contract", {}).get("state") != "signed":
+            raise SmokeError(f"sales agreement create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/sales/contracts/{agreement_id}/fulfill",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="sales-agreement-fulfill-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("contract", {}).get("state") != "fulfilled":
+            raise SmokeError(f"sales agreement fulfill failed: {status} {payload}")
+        receivable_id = "REC-SMOKE-" + nonce
+        status, payload = request(
+            args.port,
+            f"/api/company/sales/contracts/{agreement_id}/open_receivable",
+            token=token,
+            method="POST",
+            payload={
+                "receivable_id": receivable_id,
+                "customer_id": sales_customer_id,
+                "principal_id": "co-smoke",
+                "scope": "project:CD-HJL",
+                "amount_minor": 1000000,
+                "currency": "CNY",
+            },
+            idempotency_key="sales-receivable-open-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("receivable", {}).get("state") != "open":
+            raise SmokeError(f"sales receivable open failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/sales/contracts/{agreement_id}/open_receivable",
+            token=token,
+            method="POST",
+            payload={
+                "receivable_id": receivable_id,
+                "customer_id": sales_customer_id,
+                "principal_id": "co-smoke",
+                "scope": "project:CD-HJL",
+                "amount_minor": 1000000,
+                "currency": "CNY",
+            },
+            idempotency_key="sales-receivable-open-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"sales receivable idempotency failed: {status} {payload}")
+        mortgage_id = "MTG-SMOKE-" + nonce
+        mortgage_payload = {
+            "mortgage_id": mortgage_id,
+            "contract_id": agreement_id,
+            "customer_id": sales_customer_id,
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+            "bank_reference": "bank:smoke",
+            "loan_amount_minor": 800000,
+            "annual_rate_bps": 485,
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/sales/mortgages",
+            token=token,
+            method="POST",
+            payload=mortgage_payload,
+            idempotency_key="sales-mortgage-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("mortgage", {}).get("state") != "applying":
+            raise SmokeError(f"sales mortgage create failed: {status} {payload}")
+        for command, expected_state in (("approve", "approved"), ("release", "released")):
+            status, payload = request(
+                args.port,
+                f"/api/company/sales/mortgages/{mortgage_id}/{command}",
+                token=token,
+                method="POST",
+                payload={},
+                idempotency_key=f"sales-mortgage-{command}-" + nonce,
+            )
+            if status != 200 or payload is None or payload.get("mortgage", {}).get("state") != expected_state:
+                raise SmokeError(f"sales mortgage {command} failed: {status} {payload}")
+        refund_id = "RF-SMOKE-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/sales/refunds",
+            token=token,
+            method="POST",
+            payload={
+                "refund_id": refund_id,
+                "contract_id": agreement_id,
+                "customer_id": sales_customer_id,
+                "principal_id": "co-smoke",
+                "scope": "project:CD-HJL",
+                "reason": "service sales smoke adjustment",
+                "amount_minor": 50000,
+                "currency": "CNY",
+            },
+            idempotency_key="sales-refund-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("refund", {}).get("state") != "requested":
+            raise SmokeError(f"sales refund create failed: {status} {payload}")
+        for command, expected_state in (("approve", "approved"), ("pay", "paid")):
+            status, payload = request(
+                args.port,
+                f"/api/company/sales/refunds/{refund_id}/{command}",
+                token=token,
+                method="POST",
+                payload={},
+                idempotency_key=f"sales-refund-{command}-" + nonce,
+            )
+            if status != 200 or payload is None or payload.get("refund", {}).get("state") != expected_state:
+                raise SmokeError(f"sales refund {command} failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/receivables/{receivable_id}", token=token)
+        if status != 200 or payload is None or payload.get("state") != "open":
+            raise SmokeError(f"sales receivable detail failed: {status} {payload}")
         print(
             json.dumps(
                 {
@@ -581,6 +781,12 @@ def main() -> int:
                     "supplier_state": "active",
                     "supplier_risk": "B",
                     "split_state": "planned",
+                    "sales_customer_state": "active",
+                    "sales_subscription_state": "converted",
+                    "sales_contract_state": "fulfilled",
+                    "receivable_state": "open",
+                    "mortgage_state": "released",
+                    "refund_state": "paid",
                     "port": args.port,
                     "database": args.database,
                 },

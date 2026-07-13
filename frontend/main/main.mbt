@@ -111,6 +111,16 @@ struct SupplierRow {
 }
 
 ///|
+struct SalesRow {
+  aggregate_id : String
+  primary : String
+  secondary : String
+  amount_display : String
+  state : String
+  source_kind : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -149,6 +159,10 @@ struct Model {
   supplier_state : String
   supplier_evaluation : String
   supplier_note : String
+  sales_loaded : Bool
+  sales_family : String
+  sales_rows : Array[SalesRow]
+  sales_note : String
 }
 
 ///|
@@ -220,6 +234,8 @@ enum Msg {
   VoidSupplier
   SupplierCommandFinished(String)
   SupplierCommandFailed
+  SalesLoaded(String, String)
+  SalesLoadFailed(String)
 }
 
 ///|
@@ -262,6 +278,10 @@ fn initial_model() -> Model {
     supplier_state: "new",
     supplier_evaluation: "unrated",
     supplier_note: "供应商读模型尚未加载",
+    sales_loaded: false,
+    sales_family: "",
+    sales_rows: [],
+    sales_note: "销售/应收读模型尚未加载",
   }
 }
 
@@ -639,6 +659,76 @@ fn supplier_evaluation_label(evaluation : String) -> String {
 }
 
 ///|
+fn sales_row_from_json(value : Json) -> SalesRow? {
+  match value {
+    Json::Object(fields) => {
+      let aggregate_type = json_object_text(fields, "aggregate_type", "")
+      let aggregate_id = json_object_text(fields, "aggregate_id", "")
+      let primary = if aggregate_type == "customer" {
+        json_object_text(fields, "name", aggregate_id)
+      } else if aggregate_type == "subscription" {
+        json_object_text(fields, "unit_reference", aggregate_id)
+      } else if aggregate_type == "sales_agreement" {
+        json_object_text(fields, "agreement_id", aggregate_id)
+      } else if aggregate_type == "mortgage" {
+        json_object_text(fields, "bank_reference", aggregate_id)
+      } else if aggregate_type == "refund" {
+        json_object_text(fields, "reason", aggregate_id)
+      } else if aggregate_type == "sale_revenue" {
+        json_object_text(fields, "revenue_code", aggregate_id)
+      } else {
+        json_object_text(fields, "customer_id", aggregate_id)
+      }
+      let secondary = if aggregate_type == "customer" {
+        json_object_text(fields, "contact_reference", "")
+      } else {
+        json_object_text(fields, "customer_id", "")
+      }
+      Some({
+        aggregate_id,
+        primary,
+        secondary,
+        amount_display: json_object_text(fields, "amount_display", "—"),
+        state: json_object_text(fields, "state", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn sales_rows_from_body(body : String) -> Array[SalesRow] {
+  let rows : Array[SalesRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("items") {
+        Some(Json::Array(values)) =>
+          for value in values {
+            match sales_row_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+  @http.get("/api/company/sales/" + family).expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesLoaded(family, body))
+      Err(_) => emit(SalesLoadFailed(family))
+    }
+  })
+}
+
+///|
 fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/suppliers").expect_text(result => {
     match result {
@@ -927,6 +1017,18 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_tenders(emit)
       } else if path == "/srm/providers" {
         load_suppliers(emit)
+      } else if path == "/sales/customers" {
+        load_sales(emit, "customers")
+      } else if path == "/sales/subscriptions" {
+        load_sales(emit, "subscriptions")
+      } else if path == "/sales/contracts" {
+        load_sales(emit, "contracts")
+      } else if path == "/sales/mortgages" {
+        load_sales(emit, "mortgages")
+      } else if path == "/sales/revenues" {
+        load_sales(emit, "revenues")
+      } else if path == "/invoice" {
+        load_sales(emit, "invoices")
       } else {
         none
       }
@@ -1638,6 +1740,28 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           supplier_state: "error",
           supplier_note: "公司供应商命令服务不可用或拒绝了请求",
+        },
+      )
+    SalesLoaded(family, body) =>
+      (
+        none,
+        {
+          ..model,
+          sales_loaded: true,
+          sales_family: family,
+          sales_rows: sales_rows_from_body(body),
+          sales_note: "已加载 PostgreSQL 销售/应收读模型 · 导入记录保持只读",
+        },
+      )
+    SalesLoadFailed(family) =>
+      (
+        none,
+        {
+          ..model,
+          sales_loaded: false,
+          sales_family: family,
+          sales_rows: [],
+          sales_note: "销售/应收读模型不可用 · 使用已审核快照",
         },
       )
     CreateExpense =>
@@ -2749,13 +2873,75 @@ fn ai_stats_view() -> @html.Html {
 }
 
 ///|
-fn sales_customers_view() -> @html.Html {
+fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
+  let active = model.sales_loaded && model.sales_family == family
+  let row_count = if active {
+    model.sales_rows.length().to_string()
+  } else {
+    "—"
+  }
+  let count_suffix = if active { " 条当前投影" } else { " 等待加载" }
+  let sample = match model.sales_rows.get(0) {
+    Some(row) =>
+      " · " +
+      row.aggregate_id +
+      " · " +
+      row.primary +
+      " · " +
+      row.secondary +
+      " · " +
+      row.amount_display +
+      " · " +
+      row.state +
+      " · " +
+      row.source_kind
+    None => ""
+  }
+  div(class="erp-runtime-banner", [
+    strong(if active { "PostgreSQL 已连接" } else { "销售读模型" }),
+    span(" · " + row_count + count_suffix),
+    span(sample),
+    span(" · " + model.sales_note),
+  ])
+}
+
+///|
+fn sales_projection_table(model : Model, family : String) -> @html.Html {
+  if !model.sales_loaded || model.sales_family != family {
+    div(class="erp-runtime-empty", "等待 PostgreSQL 销售投影")
+  } else {
+    let rows : Array[Array[String]] = []
+    for row in model.sales_rows {
+      rows.push([
+        row.aggregate_id,
+        row.primary,
+        row.secondary,
+        row.amount_display,
+        row.state,
+        row.source_kind,
+      ])
+    }
+    table_panel(
+      "当前 PostgreSQL 投影",
+      "源记录只读 · 本地命令保留审计凭证",
+      data_table(
+        ["记录", "主要信息", "关联客户", "金额", "状态", "来源"],
+        rows,
+      ),
+    )
+  }
+}
+
+///|
+fn sales_customers_view(model : Model) -> @html.Html {
   page_shell(
     "客户档案",
     "SALES / CUSTOMERS",
     "维护客户、联系方式、认筹意向与跟进状态，贯通认筹、签约和回款。",
     [button(class="erp-primary-btn", "＋ 新增客户")],
     div <| [
+      sales_runtime_banner(model, "customers"),
+      sales_projection_table(model, "customers"),
       filter_bar("客户姓名 / 手机号 / 客户编号"),
       table_panel(
         "客户列表",
@@ -2790,7 +2976,10 @@ fn sales_customers_view() -> @html.Html {
 }
 
 ///|
-fn sales_subscriptions_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn sales_subscriptions_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
   page_shell(
     "认筹登记",
     "SALES / SUBSCRIPTIONS",
@@ -2801,6 +2990,8 @@ fn sales_subscriptions_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
       ),
     ],
     div <| [
+      sales_runtime_banner(model, "subscriptions"),
+      sales_projection_table(model, "subscriptions"),
       div(class="erp-stat-grid") <| [
         metric("本月认筹", "86", "认筹金 ¥516 万", "metric-blue"),
         metric("待转签", "24", "近 7 日新增 6", "metric-blue"),
@@ -2836,7 +3027,7 @@ fn sales_subscriptions_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn sales_contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn sales_contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "签约管理",
     "SALES / CONTRACTS",
@@ -2847,6 +3038,8 @@ fn sales_contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
       ),
     ],
     div <| [
+      sales_runtime_banner(model, "contracts"),
+      sales_projection_table(model, "contracts"),
       filter_bar("签约号 / 客户 / 房号"),
       table_panel(
         "销售合同",
@@ -2877,13 +3070,15 @@ fn sales_contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn sales_mortgages_view() -> @html.Html {
+fn sales_mortgages_view(model : Model) -> @html.Html {
   page_shell(
     "按揭办理",
     "SALES / MORTGAGES",
     "跟进按揭申请、银行审批与放款节点，及时发现资料缺失和逾期申请。",
     [button(class="erp-primary-btn", "＋ 新建按揭")],
     div <| [
+      sales_runtime_banner(model, "mortgages"),
+      sales_projection_table(model, "mortgages"),
       div(class="erp-stat-grid") <| [
         metric("办理中", "68", "涉及 5 家银行", "metric-blue"),
         metric("本月放款", "¥3,860 万", "32 笔", "metric-green"),
@@ -3967,13 +4162,15 @@ fn fund_plan_view() -> @html.Html {
 }
 
 ///|
-fn invoice_view() -> @html.Html {
+fn invoice_view(model : Model) -> @html.Html {
   page_shell(
     "发票管理",
     "FINANCE / INVOICE",
     "管理进项、销项发票的识别、验真、关联合同和入账状态。",
     [button(class="erp-primary-btn", "＋ 录入发票")],
     div <| [
+      sales_runtime_banner(model, "invoices"),
+      sales_projection_table(model, "invoices"),
       div(class="erp-stat-grid") <| [
         metric("本月进项", "¥1,286 万", "218 张", "metric-blue"),
         metric("待验真", "14", "金额 ¥82 万", "metric-blue"),
@@ -4893,13 +5090,15 @@ fn provider_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn sales_revenues_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "销售回款 (R6)",
     "SALES / REVENUES",
     "登记销售回款、到账日期、付款类型与销售合同号，保持回款与应收台帐可追溯。",
     [nav_button(emit, "/sales/revenues", "erp-primary-btn", "＋ 新增回款")],
     div <| [
+      sales_runtime_banner(model, "revenues"),
+      sales_projection_table(model, "revenues"),
       div(class="erp-stat-grid") <| [
         metric("本月到账", "¥6,820 万", "126 笔", "metric-blue"),
         metric(
@@ -5642,11 +5841,11 @@ fn business_view(
       "/project-plan" => project_plan_view()
       "/project/progress" => progress_view()
       "/tasks" => tasks_view()
-      "/sales/customers" => sales_customers_view()
-      "/sales/subscriptions" => sales_subscriptions_view(emit)
-      "/sales/contracts" => sales_contracts_view(emit)
-      "/sales/mortgages" => sales_mortgages_view()
-      "/sales/revenues" => sales_revenues_view(emit)
+      "/sales/customers" => sales_customers_view(model)
+      "/sales/subscriptions" => sales_subscriptions_view(emit, model)
+      "/sales/contracts" => sales_contracts_view(emit, model)
+      "/sales/mortgages" => sales_mortgages_view(model)
+      "/sales/revenues" => sales_revenues_view(emit, model)
       "/marketing" => marketing_view()
       "/contracts" => contracts_view(emit, model)
       "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
@@ -5663,7 +5862,7 @@ fn business_view(
       "/cbs/r0-queue" => cbs_view(path)
       "/cbs/approval-config" => cbs_view(path)
       "/fund/plan" => fund_plan_view()
-      "/invoice" => invoice_view()
+      "/invoice" => invoice_view(model)
       "/expenses" => expenses_view(emit)
       "/expenses/new" => expense_editor_view(emit, model, false)
       "/expenses/EXP-260712-008" => expense_editor_view(emit, model, true)

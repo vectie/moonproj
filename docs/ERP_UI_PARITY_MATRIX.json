@@ -12,11 +12,13 @@
     "connected_command_form": 1,
     "connected_contract_command_form": 1,
     "connected_contract_read": 1,
+    "connected_invoice_read": 1,
     "connected_payment_application_command_form": 1,
+    "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
     "connected_tender_command_form": 1,
     "fixture_backed_form": 5,
-    "fixture_backed_read_only": 40,
+    "fixture_backed_read_only": 34,
     "public": 1,
     "read_model_only": 3,
     "read_only_public": 1
@@ -25,10 +27,12 @@
     "connected_contract_command": 2,
     "connected_expense_command": 1,
     "connected_fixed_read_model": 3,
+    "connected_invoice_read": 1,
     "connected_payment_application_command": 1,
+    "connected_sales_read": 5,
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
-    "read_only_fixture_no_source_api": 47
+    "read_only_fixture_no_source_api": 41
   },
   "routes": [
     {
@@ -359,13 +363,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "sales_revenues_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_sales_read",
       "source_api_module": "sales",
       "source_api_handler_count": 20,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 14,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_sales_read",
+      "required_next": "accept_browser_sales_scenario_and_production_identity"
     },
     {
       "path": "/sales/customers",
@@ -373,13 +377,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "sales_customers_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_sales_read",
       "source_api_module": "sales",
       "source_api_handler_count": 20,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 14,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_sales_read",
+      "required_next": "accept_browser_sales_scenario_and_production_identity"
     },
     {
       "path": "/sales/subscriptions",
@@ -387,13 +391,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "sales_subscriptions_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_sales_read",
       "source_api_module": "sales",
       "source_api_handler_count": 20,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 14,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_sales_read",
+      "required_next": "accept_browser_sales_scenario_and_production_identity"
     },
     {
       "path": "/sales/contracts",
@@ -401,13 +405,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "sales_contracts_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_sales_read",
       "source_api_module": "sales",
       "source_api_handler_count": 20,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 14,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_sales_read",
+      "required_next": "accept_browser_sales_scenario_and_production_identity"
     },
     {
       "path": "/sales/mortgages",
@@ -415,13 +419,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "sales_mortgages_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_sales_read",
       "source_api_module": "sales",
       "source_api_handler_count": 20,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 14,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_sales_read",
+      "required_next": "accept_browser_sales_scenario_and_production_identity"
     },
     {
       "path": "/marketing",
@@ -471,13 +475,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "invoice_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_invoice_read",
       "source_api_module": "invoice",
       "source_api_handler_count": 7,
       "source_api_read_handler_count": 3,
       "source_api_mutation_handler_count": 4,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_invoice_read",
+      "required_next": "accept_browser_invoice_scenario_and_production_identity"
     },
     {
       "path": "/tender",

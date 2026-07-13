@@ -40,8 +40,12 @@ controls, including award/complete validation against a qualified supplier.
 Imported tender rows remain read-only. `/srm/providers` now loads supplier
 qualification/scope projections and exposes local create/update/review,
 blacklist, and void command states; risk reads and contract-split reads/creates
-are available through the same boundary. The other route families remain
-fixture-backed.
+are available through the same boundary. The five sales pages now load
+PostgreSQL customer, reservation, agreement, mortgage, refund, revenue, and
+receivable projections through the gateway and show their source/state/amount
+metadata while preserving the source-shaped tables as an offline fallback. The
+invoice page also reads reviewed invoice projections when an invoice cohort is
+present. The other route families remain fixture-backed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
@@ -61,8 +65,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   --public-dir /path/to/warren/dist
 ```
 
-To exercise the connected expense, contract, payment-application, tender, or
-supplier create/review/award paths, keep the service token
+To exercise the connected expense, contract, payment-application, tender,
+supplier, or sales lifecycle paths, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh
@@ -85,7 +89,7 @@ assertion before forwarding it to the service. It also translates the Rabbita
 form's JSON `idempotency_key` into the command header required by the service.
 It is intentionally a local development adapter: it binds to loopback and
 only allow-lists the connected expense, contract, payment-application, tender,
-supplier, and split POST commands; it is not the production deployment.
+supplier, split, and sales POST commands; it is not the production deployment.
 
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,

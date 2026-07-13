@@ -32,6 +32,10 @@ The bounded service exposes these endpoints:
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
 * ``/api/company/suppliers/<id>/risk`` (GET)
 * ``/api/company/tender-splits`` (GET/POST)
+* ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}`` (GET)
+* ``/api/company/receivables`` (GET)
+* ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds}`` (POST)
+  with idempotent lifecycle commands
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -273,6 +277,10 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_command",
             "tender_command",
             "contract_split_command",
+            "sales_read",
+            "sales_command",
+            "receivable_read",
+            "invoice_read",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -300,6 +308,10 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_command",
             "tender_command",
             "contract_split_command",
+            "sales_read",
+            "sales_command",
+            "receivable_read",
+            "invoice_read",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -864,6 +876,590 @@ def contract_splits(
     return result
 
 
+SALES_AGGREGATE_TYPES = {
+    "customers": "customer",
+    "subscriptions": "subscription",
+    "contracts": "sales_agreement",
+    "mortgages": "mortgage",
+    "refunds": "refund",
+    "revenues": "sale_revenue",
+    "receivables": "receivable",
+    "invoices": "invoice",
+    "payables": "payable",
+}
+
+
+def _latest_sales_projection_rows(
+    pool: PsqlPool,
+    aggregate_type: str,
+    aggregate_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if aggregate_type not in set(SALES_AGGREGATE_TYPES.values()):
+        raise ValueError("unsupported sales aggregate type")
+    if aggregate_id is not None and not IDENTIFIER.fullmatch(aggregate_id):
+        raise ValueError("invalid sales aggregate id")
+    where = f"AND aggregate_id = {sql_literal(aggregate_id)}" if aggregate_id else ""
+    query = f"""
+    SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'),
+           encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_type, aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = {sql_literal(aggregate_type)}
+        {where}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 5:
+            raise ServiceError("unexpected sales projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[3]))
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ServiceError("invalid sales projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("sales projection payload is not an object")
+        result.append(
+            {
+                "aggregate_type": decode_hex(fields[0]),
+                "aggregate_id": decode_hex(fields[1]),
+                "revision": int(fields[2]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[4]),
+            }
+        )
+    return result
+
+
+def _sales_value(payload: dict[str, Any], key: str, default: Any = "") -> Any:
+    candidate = payload.get("candidate")
+    if isinstance(candidate, dict) and key in candidate:
+        return candidate[key]
+    return payload.get(key, default)
+
+
+def _sales_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _sales_row(row: dict[str, Any]) -> dict[str, Any]:
+    payload = row["payload"]
+    aggregate_type = str(row["aggregate_type"])
+    source_kind = "imported" if isinstance(payload.get("candidate"), dict) else str(
+        payload.get("source_kind", "command")
+    )
+    result: dict[str, Any] = {
+        "aggregate_type": aggregate_type,
+        "aggregate_id": row["aggregate_id"],
+        "revision": row["revision"],
+        "source_event_id": row["source_event_id"],
+        "source_kind": source_kind,
+        "source_snapshot_id": str(_sales_value(payload, "source_snapshot_id", "")),
+        "mapping_version": str(_sales_value(payload, "mapping_version", "")),
+    }
+    if aggregate_type == "customer":
+        result.update(
+            {
+                "customer_id": str(_sales_value(payload, "customer_id", row["aggregate_id"])),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "customer_code": str(_sales_value(payload, "customer_code")),
+                "name": str(_sales_value(payload, "name", row["aggregate_id"])),
+                "contact_reference": str(_sales_value(payload, "contact_reference")),
+                "state": str(_sales_value(payload, "state", "active")),
+            }
+        )
+    elif aggregate_type == "subscription":
+        result.update(
+            {
+                "subscription_id": str(_sales_value(payload, "subscription_id", row["aggregate_id"])),
+                "customer_id": str(_sales_value(payload, "customer_id")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "unit_reference": str(_sales_value(payload, "unit_reference")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "state": str(_sales_value(payload, "state", "reserved")),
+            }
+        )
+    elif aggregate_type == "sales_agreement":
+        result.update(
+            {
+                "agreement_id": str(_sales_value(payload, "agreement_id", row["aggregate_id"])),
+                "customer_id": str(_sales_value(payload, "customer_id")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "state": str(_sales_value(payload, "state", "draft")),
+                "subscription_id": str(_sales_value(payload, "subscription_id")),
+            }
+        )
+    elif aggregate_type == "receivable":
+        result.update(
+            {
+                "receivable_id": str(_sales_value(payload, "receivable_id", row["aggregate_id"])),
+                "source_id": str(_sales_value(payload, "source_id")),
+                "invoice_id": str(_sales_value(payload, "invoice_id")),
+                "customer_id": str(_sales_value(payload, "customer_id")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "collected_minor": _sales_int(_sales_value(payload, "collected_minor")),
+                "outstanding_minor": _sales_int(_sales_value(payload, "outstanding_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "state": str(_sales_value(payload, "state", "open")),
+            }
+        )
+    elif aggregate_type == "mortgage":
+        result.update(
+            {
+                "mortgage_id": str(_sales_value(payload, "mortgage_id", row["aggregate_id"])),
+                "contract_id": str(_sales_value(payload, "contract_id")),
+                "customer_id": str(_sales_value(payload, "customer_id")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "bank_reference": str(_sales_value(payload, "bank_reference")),
+                "loan_amount_minor": _sales_int(_sales_value(payload, "loan_amount_minor", _sales_value(payload, "amount_minor"))),
+                "annual_rate_bps": _sales_int(_sales_value(payload, "annual_rate_bps")),
+                "state": str(_sales_value(payload, "state", "applying")),
+            }
+        )
+    elif aggregate_type == "refund":
+        result.update(
+            {
+                "refund_id": str(_sales_value(payload, "refund_id", row["aggregate_id"])),
+                "contract_id": str(_sales_value(payload, "contract_id")),
+                "customer_id": str(_sales_value(payload, "customer_id")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "reason": str(_sales_value(payload, "reason")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "state": str(_sales_value(payload, "state", "requested")),
+            }
+        )
+    elif aggregate_type == "sale_revenue":
+        result.update(
+            {
+                "revenue_id": str(_sales_value(payload, "revenue_id", row["aggregate_id"])),
+                "revenue_code": str(_sales_value(payload, "revenue_code")),
+                "contract_code": str(_sales_value(payload, "contract_code")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "scope": str(_sales_value(payload, "scope")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "status": str(_sales_value(payload, "status", "expected")),
+                "evidence_state": str(_sales_value(payload, "evidence_state", "source_evidence_only")),
+            }
+        )
+    elif aggregate_type == "invoice":
+        result.update(
+            {
+                "invoice_id": str(_sales_value(payload, "invoice_id", row["aggregate_id"])),
+                "receivable_id": str(_sales_value(payload, "receivable_id")),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "customer_id": str(_sales_value(payload, "customer_id")),
+                "source_id": str(_sales_value(payload, "source_id")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "paid_minor": _sales_int(_sales_value(payload, "paid_minor")),
+                "outstanding_minor": _sales_int(_sales_value(payload, "outstanding_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "state": str(_sales_value(payload, "state", "draft")),
+            }
+        )
+    elif aggregate_type == "payable":
+        result.update(
+            {
+                "payable_id": str(_sales_value(payload, "payable_id", row["aggregate_id"])),
+                "principal_id": str(_sales_value(payload, "principal_id")),
+                "project_scope": str(_sales_value(payload, "project_scope")),
+                "supplier_id": str(_sales_value(payload, "supplier_id")),
+                "source_reference": str(_sales_value(payload, "source_reference")),
+                "amount_minor": _sales_int(_sales_value(payload, "amount_minor")),
+                "outstanding_minor": _sales_int(_sales_value(payload, "outstanding_minor")),
+                "currency": str(_sales_value(payload, "currency", "CNY")),
+                "state": str(_sales_value(payload, "state", "open")),
+            }
+        )
+    else:
+        raise ServiceError("unsupported sales aggregate type")
+    if "amount_minor" in result:
+        result["amount_display"] = f"¥{int(result['amount_minor']) / 100:,.2f}"
+    if "outstanding_minor" in result:
+        result["outstanding_display"] = f"¥{int(result['outstanding_minor']) / 100:,.2f}"
+    return result
+
+
+def sales_rows(
+    pool: PsqlPool,
+    family: str,
+    aggregate_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    aggregate_type = SALES_AGGREGATE_TYPES.get(family)
+    if aggregate_type is None:
+        raise ValueError("unsupported sales read family")
+    return [
+        _sales_row(row)
+        for row in _latest_sales_projection_rows(pool, aggregate_type, aggregate_id, max_rows)
+    ]
+
+
+def _sales_command_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    identifier: bool = False,
+    allow_empty: bool = False,
+) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or (not allow_empty and not value.strip()):
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _sales_amount(body: dict[str, Any], key: str = "amount_minor", positive: bool = True) -> int:
+    value = body.get(key)
+    if isinstance(value, bool) or not isinstance(value, int) or (value <= 0 if positive else value < 0):
+        requirement = "positive" if positive else "non-negative"
+        raise CommandRejected(f"{key} must be a {requirement} integer", 422)
+    return value
+
+
+def _sales_request(
+    family: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, str, dict[str, Any], str | None]:
+    allowed = {
+        "customers": {"create", "update", "block", "archive"},
+        "subscriptions": {"create", "convert", "cancel"},
+        "contracts": {"create", "fulfill", "cancel", "open_receivable"},
+        "mortgages": {"create", "approve", "release"},
+        "refunds": {"create", "approve", "pay", "reject"},
+    }
+    if family not in allowed or command_type not in allowed[family]:
+        raise CommandRejected("unsupported sales command", 404)
+    aggregate_type = SALES_AGGREGATE_TYPES[family]
+    id_key = {
+        "customers": "customer_id",
+        "subscriptions": "subscription_id",
+        "contracts": "agreement_id",
+        "mortgages": "mortgage_id",
+        "refunds": "refund_id",
+    }[family]
+    if command_type == "create":
+        identifier = _sales_command_text(body, id_key, identifier=True)
+        request: dict[str, Any] = {
+            "command_type": command_type,
+            id_key: identifier,
+            "actor_id": actor_id,
+        }
+        if family == "customers":
+            for key in ("principal_id", "scope", "customer_code", "name", "contact_reference"):
+                request[key] = _sales_command_text(body, key, identifier=key in {"principal_id", "scope", "customer_code"})
+            request["state"] = "active"
+        elif family == "subscriptions":
+            for key in ("customer_id", "principal_id", "scope", "unit_reference"):
+                request[key] = _sales_command_text(body, key, identifier=key != "unit_reference")
+            request["amount_minor"] = _sales_amount(body)
+            request["currency"] = _sales_command_text(body, "currency", identifier=True).upper()
+            if not re.fullmatch(r"[A-Z]{3}", request["currency"]):
+                raise CommandRejected("currency must be a three-letter code", 422)
+            request["state"] = "reserved"
+        elif family == "contracts":
+            for key in ("customer_id", "principal_id", "scope"):
+                request[key] = _sales_command_text(body, key, identifier=True)
+            request["amount_minor"] = _sales_amount(body)
+            request["currency"] = _sales_command_text(body, "currency", identifier=True).upper()
+            if not re.fullmatch(r"[A-Z]{3}", request["currency"]):
+                raise CommandRejected("currency must be a three-letter code", 422)
+            subscription_id = body.get("subscription_id", "")
+            if subscription_id and (not isinstance(subscription_id, str) or not IDENTIFIER.fullmatch(subscription_id)):
+                raise CommandRejected("subscription_id contains unsupported characters", 422)
+            request["subscription_id"] = subscription_id
+            request["state"] = "signed"
+        elif family == "mortgages":
+            for key in ("contract_id", "customer_id", "principal_id", "scope", "bank_reference"):
+                request[key] = _sales_command_text(body, key, identifier=True)
+            request["loan_amount_minor"] = _sales_amount(body, "loan_amount_minor")
+            request["annual_rate_bps"] = _sales_amount(body, "annual_rate_bps", positive=False)
+            if request["annual_rate_bps"] > 10000:
+                raise CommandRejected("annual_rate_bps must be between 0 and 10000", 422)
+            request["state"] = "applying"
+        elif family == "refunds":
+            for key in ("contract_id", "customer_id", "principal_id", "scope"):
+                request[key] = _sales_command_text(body, key, identifier=True)
+            request["reason"] = _sales_command_text(body, "reason")
+            request["amount_minor"] = _sales_amount(body)
+            request["currency"] = _sales_command_text(body, "currency", identifier=True).upper()
+            if not re.fullmatch(r"[A-Z]{3}", request["currency"]):
+                raise CommandRejected("currency must be a three-letter code", 422)
+            request["state"] = "requested"
+        return identifier, aggregate_type, request, None
+    if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
+        raise CommandRejected(f"{id_key} is required", 422)
+    request = {"command_type": command_type, id_key: aggregate_id, "actor_id": actor_id}
+    reason = body.get("reason", "")
+    if not isinstance(reason, str):
+        raise CommandRejected("reason must be text", 422)
+    request["reason"] = reason.strip()
+    if command_type == "update" and family == "customers":
+        changes: dict[str, str] = {}
+        for key in ("scope", "customer_code", "name", "contact_reference"):
+            value = body.get(key)
+            if value is not None:
+                if not isinstance(value, str) or not value.strip():
+                    raise CommandRejected(f"{key} must be non-empty text", 422)
+                cleaned = value.strip()
+                if key in {"scope", "customer_code"} and not IDENTIFIER.fullmatch(cleaned):
+                    raise CommandRejected(f"{key} contains unsupported characters", 422)
+                changes[key] = cleaned
+        if not changes:
+            raise CommandRejected("update requires at least one mutable field", 422)
+        request["changes"] = changes
+    if command_type == "open_receivable":
+        request["receivable_id"] = _sales_command_text(body, "receivable_id", identifier=True)
+        request["amount_minor"] = _sales_amount(body)
+        request["currency"] = _sales_command_text(body, "currency", identifier=True).upper()
+        request["customer_id"] = _sales_command_text(body, "customer_id", identifier=True)
+        request["principal_id"] = _sales_command_text(body, "principal_id", identifier=True)
+        request["scope"] = _sales_command_text(body, "scope", identifier=True)
+        request["source_id"] = aggregate_id
+    return aggregate_id, aggregate_type, request, {
+        "customers": {"update": ("active", "active"), "block": ("active", "blocked"), "archive": ("blocked", "archived")},
+        "subscriptions": {"convert": ("reserved", "converted"), "cancel": (("reserved", "converted"), "cancelled")},
+        "contracts": {"fulfill": ("signed", "fulfilled"), "cancel": (("signed", "fulfilled"), "cancelled")},
+        "mortgages": {"approve": ("applying", "approved"), "release": ("approved", "released")},
+        "refunds": {"approve": ("requested", "approved"), "pay": ("approved", "paid"), "reject": (("requested", "approved"), "rejected")},
+    }[family].get(command_type)
+
+
+def _lifecycle_command(
+    pool: PsqlPool,
+    *,
+    family: str,
+    command_type: str,
+    aggregate_id: str,
+    aggregate_type: str,
+    request: dict[str, Any],
+    transition: tuple[Any, str] | None,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored sales command receipt has no result")
+        return {"command": existing, family.rstrip("s"): result, "idempotent_replay": True}
+    current = _latest_sales_projection_rows(pool, aggregate_type, aggregate_id, 1)
+    if command_type == "create":
+        if current:
+            raise CommandRejected(f"{family[:-1]} already exists", 409)
+        current_row = None
+        next_state = str(request["state"])
+        next_revision = 1
+    else:
+        if not current:
+            raise CommandRejected(f"{family[:-1]} not found", 404)
+        current_row = _sales_row(current[0])
+        if current_row.get("source_kind") != "command":
+            raise CommandRejected(f"imported {family[:-1]} is read-only; create a local record first", 409)
+        current_state = str(current_row.get("state", ""))
+        if transition is None:
+            raise CommandRejected("sales transition is not configured", 409)
+        expected, next_state = transition
+        expected_states = expected if isinstance(expected, tuple) else (expected,)
+        if current_state not in expected_states:
+            raise CommandRejected(
+                f"{family[:-1]} transition {command_type} requires {','.join(expected_states)}, found {current_state}",
+                409,
+            )
+        next_revision = int(current_row["revision"]) + 1
+    event_id = f"{aggregate_type}:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": family,
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
+            "actor_id": request["actor_id"],
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+        AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'sales record already exists'; END IF;
+        next_revision := 1;
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', {sql_literal(str(request.get('state', next_state)))},
+          'source_kind', 'command', 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(str(request['actor_id']))});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'sales record not found'; END IF;
+        IF current_payload ? 'candidate' THEN RAISE EXCEPTION 'imported sales record is read-only'; END IF;
+        current_state := current_payload->>'state';
+        next_revision := {next_revision};
+        next_payload := current_payload || jsonb_build_object(
+          'state', {sql_literal(next_state)}, 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(str(request['actor_id']))},
+          'reason', {sql_literal(str(request.get('reason', '')))});
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ({sql_literal(aggregate_type)}, {sql_literal(aggregate_id)}, next_revision,
+        next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action',
+          {sql_literal(family + '.' + command_type)}, 'aggregate_type', {sql_literal(aggregate_type)},
+          'aggregate_id', {sql_literal(aggregate_id)}, 'actor_id', {sql_literal(str(request['actor_id']))},
+          'event_id', {sql_literal(event_id)}, 'state', {sql_literal(next_state)}, 'revision', next_revision),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('aggregate_id', {sql_literal(aggregate_id)},
+        'state', {sql_literal(next_state)}, 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(str(request['actor_id']))});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("sales command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected sales command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid stored sales command receipt") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("sales command receipt has no result")
+    return {"command": receipt, family.rstrip("s"): result, "idempotent_replay": not created}
+
+
+def sales_command(
+    pool: PsqlPool,
+    *,
+    family: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    aggregate_id, aggregate_type, request, transition = _sales_request(
+        family, command_type, aggregate_id, body, actor_id
+    )
+    if command_type == "open_receivable":
+        contract_rows = sales_rows(pool, "contracts", aggregate_id, 1)
+        if not contract_rows or contract_rows[0]["source_kind"] != "command":
+            raise CommandRejected("only local sales contracts can open receivables", 409)
+        if contract_rows[0].get("state") != "fulfilled":
+            raise CommandRejected("receivable opening requires a fulfilled contract", 409)
+        receivable_id = str(request["receivable_id"])
+        receivable_request = {
+            "command_type": "create",
+            "receivable_id": receivable_id,
+            "source_id": aggregate_id,
+            "customer_id": request["customer_id"],
+            "principal_id": request["principal_id"],
+            "scope": request["scope"],
+            "amount_minor": request["amount_minor"],
+            "outstanding_minor": request["amount_minor"],
+            "collected_minor": 0,
+            "currency": request["currency"],
+            "state": "open",
+            "actor_id": actor_id,
+        }
+        return _lifecycle_command(
+            pool,
+            family="receivable",
+            command_type="create",
+            aggregate_id=receivable_id,
+            aggregate_type="receivable",
+            request=receivable_request,
+            transition=None,
+            idempotency_key=idempotency_key,
+        )
+    return _lifecycle_command(
+        pool,
+        family=family,
+        command_type=command_type,
+        aggregate_id=aggregate_id,
+        aggregate_type=aggregate_type,
+        request=request,
+        transition=transition,
+        idempotency_key=idempotency_key,
+    )
+
+
 def _supplier_text(
     body: dict[str, Any],
     key: str,
@@ -1351,7 +1947,7 @@ def tender_command(
         SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
         FROM company_aggregate_projection p
         WHERE p.aggregate_type = 'tender' AND p.aggregate_id = {sql_literal(tender_id)};
-        next_payload := current_payload || jsonb_build_object(
+        next_payload := current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb) || jsonb_build_object(
           'state', next_state, 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
           'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason');
         IF {sql_literal(command_type)} = 'award' THEN
@@ -2817,6 +3413,45 @@ def handler_factory(
                         response(self, 404, {"error": "payment application not found"}, origin)
                     else:
                         response(self, 200, items[0], origin)
+                elif re.fullmatch(
+                    r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)(/[A-Za-z0-9_.:-]{1,128})?",
+                    parsed.path,
+                ):
+                    match = re.fullmatch(
+                        r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)(?:/([A-Za-z0-9_.:-]{1,128}))?",
+                        parsed.path,
+                    )
+                    if match is None:
+                        raise ServiceError("invalid sales read path")
+                    family, aggregate_id = match.group(1), match.group(2)
+                    items = sales_rows(pool, family, aggregate_id, max_response_rows)
+                    if aggregate_id is not None:
+                        if not items:
+                            response(self, 404, {"error": f"sales {family[:-1]} not found"}, origin)
+                        else:
+                            response(self, 200, items[0], origin)
+                    else:
+                        response(self, 200, {"items": items}, origin)
+                elif re.fullmatch(r"/api/company/receivables(/[A-Za-z0-9_.:-]{1,128})?", parsed.path):
+                    receivable_id = parsed.path.rsplit("/", 1)[-1] if parsed.path.count("/") > 3 else None
+                    items = sales_rows(pool, "receivables", receivable_id, max_response_rows)
+                    if receivable_id is not None:
+                        if not items:
+                            response(self, 404, {"error": "receivable not found"}, origin)
+                        else:
+                            response(self, 200, items[0], origin)
+                    else:
+                        response(self, 200, {"items": items}, origin)
+                elif re.fullmatch(r"/api/company/invoices(/[A-Za-z0-9_.:-]{1,128})?", parsed.path):
+                    invoice_id = parsed.path.rsplit("/", 1)[-1] if parsed.path.count("/") > 3 else None
+                    items = sales_rows(pool, "invoices", invoice_id, max_response_rows)
+                    if invoice_id is not None:
+                        if not items:
+                            response(self, 404, {"error": "invoice not found"}, origin)
+                        else:
+                            response(self, 200, items[0], origin)
+                    else:
+                        response(self, 200, {"items": items}, origin)
                 elif parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"}, origin)
                 else:
@@ -2862,6 +3497,13 @@ def handler_factory(
                     command_family = "contract_split"
                     command_type = "create"
                     aggregate_id = None
+                elif re.fullmatch(
+                    r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds)",
+                    parsed.path,
+                ):
+                    command_family = "sales"
+                    command_type = "create"
+                    aggregate_id = None
                 else:
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
@@ -2883,6 +3525,10 @@ def handler_factory(
                         r"/api/company/suppliers/([A-Za-z0-9_.:-]{1,128})/(update|submit_review|review|blacklist|void)",
                         parsed.path,
                     )
+                    sales_match = re.fullmatch(
+                        r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject)",
+                        parsed.path,
+                    )
                     if expense_match is not None:
                         aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
                     elif contract_match is not None:
@@ -2897,6 +3543,11 @@ def handler_factory(
                     elif supplier_match is not None:
                         command_family = "supplier"
                         aggregate_id, command_type = supplier_match.group(1), supplier_match.group(2)
+                    elif sales_match is not None:
+                        command_family = "sales"
+                        aggregate_id = sales_match.group(2)
+                        command_type = sales_match.group(3)
+                        body["_sales_family"] = sales_match.group(1)
                     else:
                         if parsed.path.startswith("/api/"):
                             response(self, 404, {"error": "unknown company command"}, origin)
@@ -2949,6 +3600,19 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "sales":
+                    family = str(body.pop("_sales_family", ""))
+                    if not family:
+                        family = parsed.path.rstrip("/").rsplit("/", 1)[-1]
+                    result = sales_command(
+                        pool,
+                        family=family,
+                        command_type=command_type,
+                        aggregate_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 else:
                     result = expense_command(
                         pool,
@@ -2958,7 +3622,10 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
-                status = 201 if command_type == "create" and not result["idempotent_replay"] else 200
+                creates_record = command_type == "create" or (
+                    command_family == "sales" and command_type == "open_receivable"
+                )
+                status = 201 if creates_record and not result["idempotent_replay"] else 200
                 response(self, status, result, origin)
             except PoolExhausted as error:
                 response(self, 503, {"error": str(error)}, origin)

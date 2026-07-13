@@ -3,8 +3,9 @@
 
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
-no mutation endpoints.  Production authentication, pooling, TLS, observability
-and command APIs remain deployment gates.
+no mutation endpoints.  It covers company, procurement, sales/receivables,
+and reviewed invoice projections. Production authentication, pooling, TLS,
+observability and command APIs remain deployment gates.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from company_postgres_service import (
     supplier_risk_board as service_supplier_risk_board,
     tenders as service_tenders,
     contract_splits as service_contract_splits,
+    sales_rows as service_sales_rows,
 )
 
 
@@ -222,6 +224,10 @@ def contract_splits(
     return service_contract_splits(_ReadModelPool(args), split_id, parent_contract_id, 500)
 
 
+def sales_rows(args: argparse.Namespace, family: str, aggregate_id: str | None) -> list[dict[str, Any]]:
+    return service_sales_rows(_ReadModelPool(args), family, aggregate_id, 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -347,6 +353,48 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     rows = payment_applications(args, apply_id, "all")
                     if not rows:
                         response(self, 404, {"error": "payment application not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                sales_match = re.fullmatch(
+                    r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)(?:/([A-Za-z0-9_.:-]{1,128}))?",
+                    parsed.path,
+                )
+                if sales_match is not None:
+                    family, aggregate_id = sales_match.group(1), sales_match.group(2)
+                    rows = sales_rows(args, family, aggregate_id)
+                    if aggregate_id is None:
+                        response(self, 200, {"items": rows})
+                    elif not rows:
+                        response(self, 404, {"error": f"sales {family[:-1]} not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                receivable_match = re.fullmatch(
+                    r"/api/company/receivables(?:/([A-Za-z0-9_.:-]{1,128}))?",
+                    parsed.path,
+                )
+                if receivable_match is not None:
+                    aggregate_id = receivable_match.group(1)
+                    rows = sales_rows(args, "receivables", aggregate_id)
+                    if aggregate_id is None:
+                        response(self, 200, {"items": rows})
+                    elif not rows:
+                        response(self, 404, {"error": "receivable not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                invoice_match = re.fullmatch(
+                    r"/api/company/invoices(?:/([A-Za-z0-9_.:-]{1,128}))?",
+                    parsed.path,
+                )
+                if invoice_match is not None:
+                    aggregate_id = invoice_match.group(1)
+                    rows = sales_rows(args, "invoices", aggregate_id)
+                    if aggregate_id is None:
+                        response(self, 200, {"items": rows})
+                    elif not rows:
+                        response(self, 404, {"error": "invoice not found"})
                     else:
                         response(self, 200, rows[0])
                     return
