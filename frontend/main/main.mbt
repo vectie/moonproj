@@ -394,6 +394,20 @@ struct DynamicCostRow {
 }
 
 ///|
+struct CostDashboardRow {
+  code : String
+  name : String
+  level : String
+  target_cost : String
+  committed_cost : String
+  in_transit : String
+  planned_spare : String
+  estimated_change : String
+  dynamic_cost : String
+  layout_spare : String
+}
+
+///|
 struct CashflowRow {
   ym : String
   planned : String
@@ -684,6 +698,17 @@ struct Model {
   dynamic_cost_spare : String
   dynamic_cost_end_count : String
   dynamic_cost_note : String
+  cost_dashboard_loaded : Bool
+  cost_dashboard_rows : Array[CostDashboardRow]
+  cost_dashboard_project_name : String
+  cost_dashboard_plan_version : String
+  cost_dashboard_target : String
+  cost_dashboard_dynamic : String
+  cost_dashboard_deviation : String
+  cost_dashboard_contract_count : String
+  cost_dashboard_expense_count : String
+  cost_dashboard_change_count : String
+  cost_dashboard_note : String
   cashflow_loaded : Bool
   cashflow_rows : Array[CashflowRow]
   cashflow_planned_total : String
@@ -940,6 +965,8 @@ enum Msg {
   AuditLoadFailed
   DynamicCostLoaded(String)
   DynamicCostLoadFailed
+  CostDashboardLoaded(String)
+  CostDashboardLoadFailed
   CashflowLoaded(String)
   CashflowLoadFailed
   CashflowInflowLoaded(String)
@@ -1154,6 +1181,17 @@ fn initial_model() -> Model {
     dynamic_cost_spare: "0",
     dynamic_cost_end_count: "0",
     dynamic_cost_note: "动态成本读模型尚未加载 · 使用设计快照",
+    cost_dashboard_loaded: false,
+    cost_dashboard_rows: [],
+    cost_dashboard_project_name: "",
+    cost_dashboard_plan_version: "",
+    cost_dashboard_target: "0",
+    cost_dashboard_dynamic: "0",
+    cost_dashboard_deviation: "0",
+    cost_dashboard_contract_count: "0",
+    cost_dashboard_expense_count: "0",
+    cost_dashboard_change_count: "0",
+    cost_dashboard_note: "成本驾驶舱 v3 源读模型尚未加载 · 使用设计快照",
     cashflow_loaded: false,
     cashflow_rows: [],
     cashflow_planned_total: "0",
@@ -2694,6 +2732,132 @@ fn dynamic_cost_from_body(
     _ => ()
   }
   (rows, summary)
+}
+
+///|
+fn append_cost_dashboard_rows(
+  value : Json,
+  level : String,
+  rows : Array[CostDashboardRow],
+) -> Unit {
+  match value {
+    Json::Object(fields) => {
+      rows.push({
+        code: json_object_text(fields, "rCode", ""),
+        name: json_object_text(fields, "rName", ""),
+        level,
+        target_cost: json_object_text(fields, "A", "0"),
+        committed_cost: json_object_text(fields, "D", "0"),
+        in_transit: json_object_text(fields, "E", "0"),
+        planned_spare: json_object_text(fields, "F", "0"),
+        estimated_change: json_object_text(fields, "G", "0"),
+        dynamic_cost: json_object_text(fields, "B", "0"),
+        layout_spare: json_object_text(fields, "H", "0"),
+      })
+      for group in json_array_field(fields, "groups") {
+        match group {
+          Json::Object(group_fields) => {
+            rows.push({
+              code: json_object_text(group_fields, "l2Code", ""),
+              name: json_object_text(group_fields, "l2Name", ""),
+              level: "L2",
+              target_cost: json_object_text(group_fields, "A", "0"),
+              committed_cost: json_object_text(group_fields, "D", "0"),
+              in_transit: json_object_text(group_fields, "E", "0"),
+              planned_spare: json_object_text(group_fields, "F", "0"),
+              estimated_change: json_object_text(group_fields, "G", "0"),
+              dynamic_cost: json_object_text(group_fields, "B", "0"),
+              layout_spare: json_object_text(group_fields, "H", "0"),
+            })
+            for leaf in json_array_field(group_fields, "leaves") {
+              match leaf {
+                Json::Object(leaf_fields) =>
+                  rows.push({
+                    code: json_object_text(leaf_fields, "l3Code", ""),
+                    name: json_object_text(leaf_fields, "subject", ""),
+                    level: "L3",
+                    target_cost: json_object_text(leaf_fields, "A", "0"),
+                    committed_cost: json_object_text(leaf_fields, "D", "0"),
+                    in_transit: json_object_text(leaf_fields, "E", "0"),
+                    planned_spare: json_object_text(leaf_fields, "F", "0"),
+                    estimated_change: json_object_text(leaf_fields, "G", "0"),
+                    dynamic_cost: json_object_text(leaf_fields, "B", "0"),
+                    layout_spare: json_object_text(leaf_fields, "H", "0"),
+                  })
+                _ => ()
+              }
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn cost_dashboard_from_body(
+  body : String,
+) -> (Bool, Array[CostDashboardRow], Array[String], String) {
+  let rows : Array[CostDashboardRow] = []
+  let summary : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables").length()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "rows") {
+            append_cost_dashboard_rows(value, "R", rows)
+          }
+          summary.push(json_object_text(data, "projName", ""))
+          summary.push(json_object_text(data, "planVersion", "baseline"))
+          match data.get("summary") {
+            Some(Json::Object(summary_fields)) => {
+              summary.push(json_object_text(summary_fields, "targetCost", "0"))
+              summary.push(json_object_text(summary_fields, "dynamicCost", "0"))
+              summary.push(
+                json_object_text(summary_fields, "deviationPct", "0"),
+              )
+            }
+            _ => {
+              summary.push("0")
+              summary.push("0")
+              summary.push("0")
+            }
+          }
+          match data.get("counts") {
+            Some(Json::Object(counts)) => {
+              summary.push(json_object_text(counts, "contracts", "0"))
+              summary.push(json_object_text(counts, "expenses", "0"))
+              summary.push(json_object_text(counts, "changes", "0"))
+            }
+            _ => {
+              summary.push("0")
+              summary.push("0")
+              summary.push("0")
+            }
+          }
+          (
+            true,
+            rows,
+            summary,
+            "已加载 PostgreSQL 成本驾驶舱 v3 源读模型 · CBS 空表 " +
+            missing.to_string(),
+          )
+        }
+        _ =>
+          (
+            false,
+            [],
+            [],
+            "成本驾驶舱响应缺少 data · 使用设计快照",
+          )
+      }
+    }
+    _ => (false, [], [], "成本驾驶舱响应无效 · 使用设计快照")
+  }
 }
 
 ///|
@@ -4381,6 +4545,18 @@ fn load_dynamic_cost(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_cost_dashboard(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get(
+    "/api/company/investment/projects/proj-0001/profit-actual-v2?planVersion=baseline",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(CostDashboardLoaded(body))
+      Err(_) => emit(CostDashboardLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_cashflow(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/cashflow/forecast?months=6&projGuid=proj-0001").expect_text(result => {
       match result {
@@ -5237,6 +5413,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_audit_logs(emit)
       } else if path == "/dynamic-cost" {
         load_dynamic_cost(emit)
+      } else if path == "/cost-dashboard-v3" {
+        load_cost_dashboard(emit)
       } else if path == "/cashflow" {
         load_cashflow(emit)
       } else if path == "/cbs/dict" ||
@@ -6515,6 +6693,48 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dynamic_cost_loaded: false,
           dynamic_cost_rows: [],
           dynamic_cost_note: "动态成本读模型不可用 · 使用设计快照",
+        },
+      )
+    CostDashboardLoaded(body) => {
+      let (loaded, rows, summary, note) = cost_dashboard_from_body(body)
+      if loaded && summary.length() == 8 {
+        (
+          none,
+          {
+            ..model,
+            cost_dashboard_loaded: true,
+            cost_dashboard_rows: rows,
+            cost_dashboard_project_name: summary[0],
+            cost_dashboard_plan_version: summary[1],
+            cost_dashboard_target: summary[2],
+            cost_dashboard_dynamic: summary[3],
+            cost_dashboard_deviation: summary[4],
+            cost_dashboard_contract_count: summary[5],
+            cost_dashboard_expense_count: summary[6],
+            cost_dashboard_change_count: summary[7],
+            cost_dashboard_note: note,
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            cost_dashboard_loaded: false,
+            cost_dashboard_rows: [],
+            cost_dashboard_note: "成本驾驶舱响应无效 · 使用设计快照",
+          },
+        )
+      }
+    }
+    CostDashboardLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          cost_dashboard_loaded: false,
+          cost_dashboard_rows: [],
+          cost_dashboard_note: "成本驾驶舱源读模型不可用 · 使用设计快照",
         },
       )
     CashflowLoaded(body) => {
@@ -9935,56 +10155,186 @@ fn payment_applies_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
-fn cost_dashboard_view() -> @html.Html {
+fn cost_dashboard_rows_table(rows : Array[CostDashboardRow]) -> @html.Html {
+  let rendered : Array[Array[String]] = []
+  if rows.length() == 0 {
+    rendered.push([
+      "—", "本次源导出没有 CBS 字典记录", "0", "0", "0", "0", "0", "0",
+      "0", "源表为空",
+    ])
+  } else {
+    for row in rows {
+      let label = if row.level == "L2" {
+        "  " + row.name
+      } else if row.level == "L3" {
+        "    " + row.name
+      } else {
+        row.name
+      }
+      rendered.push([
+        row.code,
+        label,
+        row.target_cost,
+        row.committed_cost,
+        row.in_transit,
+        row.planned_spare,
+        row.estimated_change,
+        row.dynamic_cost,
+        row.layout_spare,
+        row.level,
+      ])
+    }
+  }
+  data_table(
+    [
+      "CBS", "科目", "A 目标", "D 已成", "E 在途", "F 规划", "G 预估",
+      "B 动态", "H 余量", "层级",
+    ],
+    rendered,
+  )
+}
+
+///|
+fn cost_dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let source_note = if model.cost_dashboard_loaded {
+    model.cost_dashboard_note +
+    " · " +
+    model.cost_dashboard_project_name +
+    " · 版本 " +
+    model.cost_dashboard_plan_version
+  } else {
+    "成本驾驶舱 v3 源读模型不可用 · 使用设计快照"
+  }
   page_shell(
     "成本驾驶舱",
     "COST DASHBOARD",
     "从目标成本、动态成本、合同和付款四个层面观察项目成本偏差。",
     [
-      button(class="erp-secondary-btn", "选择项目"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/cost-dashboard-v3")),
+        if model.cost_dashboard_loaded {
+          "刷新源数据"
+        } else {
+          "读取源数据"
+        },
+      ),
       button(class="erp-secondary-btn", "导出分析"),
     ],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("目标成本", "¥6.08 亿", "15 个项目", "metric-blue"),
-        metric("动态成本", "¥6.45 亿", "偏差 +6.20%", "metric-green"),
-        metric("已签合同", "¥5.82 亿", "覆盖率 90.2%", "metric-blue"),
-        metric("待承诺", "¥6,280 万", "需关注 4 项", "metric-blue"),
-      ],
-      div(class="erp-dashboard-grid") <| [
-        section(class="erp-panel") <| [
-          div(class="erp-panel-heading") <| [
-            h2("项目成本偏差"),
-            span(class="erp-info-tag", "按动态成本"),
-          ],
-          div(class="erp-cost-bars") <| [
-            phase_row("成都和锦里", "+8.4%", "84%"),
-            phase_row("重庆南山居", "+5.7%", "57%"),
-            phase_row("沈阳和山苑", "+1.4%", "14%"),
-            phase_row("天津海教园", "+1.25%", "13%"),
-          ],
-        ],
-        table_panel(
-          "科目偏差 TOP 5",
-          "动态成本 - 目标成本",
-          data_table(
-            [
-              "CBS 科目", "目标成本", "动态成本", "偏差", "责任项目",
-            ],
-            [
-              [
-                "01-02 土地成本", "¥1.82 亿", "¥1.84 亿", "+1.1%", "成都和锦里",
-              ],
-              [
-                "03-01 建安工程", "¥2.64 亿", "¥2.82 亿", "+6.8%", "成都和锦里",
-              ],
-              [
-                "04-03 营销费用", "¥4,280 万", "¥4,560 万", "+6.5%", "重庆南山居",
-              ],
-            ],
-          ),
+        metric(
+          "目标成本",
+          if model.cost_dashboard_loaded {
+            model.cost_dashboard_target
+          } else {
+            "¥6.08 亿"
+          },
+          if model.cost_dashboard_loaded {
+            "源 CBS 汇总"
+          } else {
+            "15 个项目"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "动态成本",
+          if model.cost_dashboard_loaded {
+            model.cost_dashboard_dynamic
+          } else {
+            "¥6.45 亿"
+          },
+          if model.cost_dashboard_loaded {
+            "偏差 " + model.cost_dashboard_deviation + "%"
+          } else {
+            "偏差 +6.20%"
+          },
+          "metric-green",
+        ),
+        metric(
+          "已签合同",
+          if model.cost_dashboard_loaded {
+            model.cost_dashboard_contract_count
+          } else {
+            "¥5.82 亿"
+          },
+          if model.cost_dashboard_loaded {
+            "源合同行"
+          } else {
+            "覆盖率 90.2%"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "源费用/变更",
+          if model.cost_dashboard_loaded {
+            model.cost_dashboard_expense_count +
+            " / " +
+            model.cost_dashboard_change_count
+          } else {
+            "¥6,280 万"
+          },
+          if model.cost_dashboard_loaded {
+            "报销 / 变更"
+          } else {
+            "需关注 4 项"
+          },
+          "metric-blue",
         ),
       ],
+      if model.cost_dashboard_loaded {
+        table_panel(
+          "CBS 成本层级",
+          source_note + " · B = D + E + F + G · H = A - B",
+          cost_dashboard_rows_table(model.cost_dashboard_rows),
+        )
+      } else {
+        div(class="erp-dashboard-grid") <| [
+          section(class="erp-panel") <| [
+            div(class="erp-panel-heading") <| [
+              h2("项目成本偏差"),
+              span(class="erp-info-tag", "按动态成本"),
+            ],
+            div(class="erp-cost-bars") <| [
+              phase_row("成都和锦里", "+8.4%", "84%"),
+              phase_row("重庆南山居", "+5.7%", "57%"),
+              phase_row("沈阳和山苑", "+1.4%", "14%"),
+              phase_row("天津海教园", "+1.25%", "13%"),
+            ],
+          ],
+          table_panel(
+            "科目偏差 TOP 5",
+            "动态成本 - 目标成本",
+            data_table(
+              [
+                "CBS 科目", "目标成本", "动态成本", "偏差", "责任项目",
+              ],
+              [
+                [
+                  "01-02 土地成本", "¥1.82 亿", "¥1.84 亿", "+1.1%", "成都和锦里",
+                ],
+                [
+                  "03-01 建安工程", "¥2.64 亿", "¥2.82 亿", "+6.8%", "成都和锦里",
+                ],
+                [
+                  "04-03 营销费用", "¥4,280 万", "¥4,560 万", "+6.5%", "重庆南山居",
+                ],
+              ],
+            ),
+          ),
+        ]
+      },
+      if model.cost_dashboard_loaded {
+        div(class="erp-command-receipt") <| [
+          strong("源数据状态"),
+          span(
+            source_note +
+            " · 成本驾驶舱仅读，不执行预算/会计写入",
+          ),
+        ]
+      } else {
+        @html.nothing
+      },
     ],
   )
 }
@@ -14410,7 +14760,7 @@ fn business_view(
       "/contracts" => contracts_view(emit, model)
       "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
       "/payment-applies" => payment_applies_view(emit, model)
-      "/cost-dashboard-v3" => cost_dashboard_view()
+      "/cost-dashboard-v3" => cost_dashboard_view(emit, model)
       "/investment" => investment_view(emit, model)
       "/dynamic-cost" => dynamic_cost_view(emit, model)
       "/tender" => tender_view(emit, model)

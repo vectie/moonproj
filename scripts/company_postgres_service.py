@@ -59,6 +59,8 @@ The bounded service exposes these endpoints:
   ``/api/company/budget/proceedings`` (GET, source-compatible budget reads)
 * ``/api/company/investment/{projects,versions,meta}/...`` (GET,
   source-compatible investment reads)
+* ``/api/company/investment/projects/<id>/profit-actual-v2`` (GET,
+  source-compatible cost-dashboard v3 read)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
@@ -373,6 +375,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "ocr_status_read",
             "error_log_metadata_read",
             "ai_analytics_read",
+            "cost_dashboard_read",
             "webhook_config_read",
             "report_template_read",
         ],
@@ -416,6 +419,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "loan_read",
             "loan_command",
             "audit_receipt",
+            "cost_dashboard_read",
         ],
         "schema_version": expected_schema_version,
     }
@@ -5881,6 +5885,18 @@ DASHBOARD_SOURCE_TABLES = {
     "tender_plan",
 }
 
+COST_DASHBOARD_SOURCE_TABLES = {
+    "cb_change_apply",
+    "cb_contract",
+    "cb_expense_split",
+    "cb_plan_version",
+    "cb_r_master",
+    "cb_subject_dict",
+    "ep_project",
+    "sale_revenue",
+    "vcb_expense",
+}
+
 
 def _dashboard_flag(value: Any) -> bool:
     return value in {True, 1, "1", "true", "True", "TRUE"}
@@ -5966,6 +5982,253 @@ def dynamic_cost(
         },
         "source_kind": "imported",
         "source_coverage": {"cb_cost": len(raw_costs), "ep_project": len(projects)},
+    }
+
+
+def cost_dashboard_v3(
+    pool: PsqlPool,
+    project_id: str,
+    plan_version: str | None,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Return the source ``profit-actual-v2`` CBS hierarchy for cost v3.
+
+    The source route is read-only but normally returns 404 when the selected
+    project has no CBS dictionary.  The PostgreSQL adapter keeps a successful
+    empty envelope instead, preserving source coverage so Rabbita can render
+    the absence without inventing a hierarchy.
+    """
+
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    if plan_version is not None and not IDENTIFIER.fullmatch(plan_version):
+        raise ValueError("invalid plan_version")
+    rows = {
+        table: _raw_source_rows(pool, table, max(max_rows, 500), COST_DASHBOARD_SOURCE_TABLES)
+        for table in sorted(COST_DASHBOARD_SOURCE_TABLES)
+    }
+    coverage = {table: len(values) for table, values in rows.items()}
+    project = next(
+        (
+            row["payload"]
+            for row in rows["ep_project"]
+            if str(row["payload"].get("proj_guid") or row["record_id"]) == project_id
+            and not row["payload"].get("deleted_at")
+        ),
+        None,
+    )
+    if project is None:
+        return None
+    active_version = next(
+        (
+            row["payload"]
+            for row in rows["cb_plan_version"]
+            if not row["payload"].get("deleted_at")
+            and str(row["payload"].get("proj_guid") or "") == project_id
+            and _dashboard_flag(row["payload"].get("is_active"))
+        ),
+        None,
+    )
+    selected_version = plan_version or str((active_version or {}).get("plan_version") or "baseline")
+    dict_rows = [
+        row["payload"]
+        for row in rows["cb_subject_dict"]
+        if not row["payload"].get("deleted_at")
+        and str(row["payload"].get("proj_guid") or "") == project_id
+        and _report_text(row["payload"], "plan_version", "baseline") == selected_version
+    ]
+    dict_rows.sort(key=lambda payload: str(payload.get("l3_code") or ""))
+    contracts = [
+        row["payload"]
+        for row in rows["cb_contract"]
+        if not row["payload"].get("deleted_at")
+        and str(row["payload"].get("proj_guid") or "") == project_id
+        and _report_text(row["payload"], "r_code")
+    ]
+    expenses = [
+        row["payload"]
+        for row in rows["vcb_expense"]
+        if not row["payload"].get("deleted_at")
+    ]
+    splits = [row["payload"] for row in rows["cb_expense_split"]]
+    changes = [
+        row["payload"]
+        for row in rows["cb_change_apply"]
+        if not row["payload"].get("deleted_at")
+        and str(row["payload"].get("proj_guid") or "") == project_id
+    ]
+
+    expense_by_id = {
+        str(payload.get("expense_guid") or ""): payload
+        for payload in expenses
+        if payload.get("expense_guid")
+    }
+
+    def leaf_compute(l3_code: str, plan_amount: Any) -> dict[str, float]:
+        a = _report_float({"value": plan_amount}, "value")
+        d, e, g = 0.0, 0.0, 0.0
+        for payload in contracts:
+            if _report_text(payload, "l3_code") != l3_code:
+                continue
+            amount = (
+                _report_float(payload, "ht_amount")
+                + _report_float(payload, "sum_alter_amount")
+            ) / 10000
+            if _report_text(payload, "cb_state") in {"signed", "paid"}:
+                d += amount
+            elif _report_text(payload, "cb_state") == "approving":
+                e += amount
+        for payload in splits:
+            if _report_text(payload, "l3_code") != l3_code:
+                continue
+            expense = expense_by_id.get(_report_text(payload, "expense_guid"), {})
+            amount = _report_float(payload, "amount") / 10000
+            if _report_text(expense, "apply_state") in {"approved", "Approved"}:
+                d += amount
+            elif _report_text(expense, "apply_state") in {"approving", "Approving"}:
+                e += amount
+        for payload in changes:
+            if _report_text(payload, "l3_code") != l3_code:
+                continue
+            amount = _report_float(payload, "change_amount") / 10000
+            if _report_text(payload, "state") == "confirmed":
+                d += amount
+            elif _report_text(payload, "state") in {"estimated", "approving"}:
+                g += amount
+        f = max(0.0, a - d - e)
+        b = d + e + f + g
+        return {
+            "A": round(a, 2),
+            "D": round(d, 2),
+            "E": round(e, 2),
+            "F": round(f, 2),
+            "G": round(g, 2),
+            "B": round(b, 2),
+            "H": round(a - b, 2),
+        }
+
+    r_names = {
+        _report_text(row["payload"], "r_code"): _report_text(row["payload"], "r_name")
+        for row in rows["cb_r_master"]
+        if not row["payload"].get("deleted_at")
+    }
+    grouped: dict[str, dict[str, Any]] = {}
+    for payload in dict_rows:
+        r_code = _report_text(payload, "r_code")
+        l2_code = _report_text(payload, "l2_code")
+        r_group = grouped.setdefault(
+            r_code,
+            {"rCode": r_code, "rName": r_names.get(r_code, r_code), "groups": {}},
+        )
+        l2_group = r_group["groups"].setdefault(
+            l2_code,
+            {"l2Code": l2_code, "l2Name": _report_text(payload, "l2_name"), "leaves": []},
+        )
+        l2_group["leaves"].append(
+            {
+                "l3Code": _report_text(payload, "l3_code"),
+                "subject": _report_text(payload, "subject"),
+                **leaf_compute(_report_text(payload, "l3_code"), payload.get("plan_amount")),
+            }
+        )
+
+    output_rows: list[dict[str, Any]] = []
+    for r_group in grouped.values():
+        totals = {key: 0.0 for key in ("A", "D", "E", "F", "G", "B", "H")}
+        groups_out: list[dict[str, Any]] = []
+        for l2_group in r_group["groups"].values():
+            group_totals = {key: 0.0 for key in totals}
+            for leaf in l2_group["leaves"]:
+                for key in group_totals:
+                    group_totals[key] += leaf[key]
+            group_totals = {key: round(value, 2) for key, value in group_totals.items()}
+            groups_out.append({**l2_group, **group_totals})
+            for key in totals:
+                totals[key] += group_totals[key]
+        totals = {key: round(value, 2) for key, value in totals.items()}
+        output_rows.append({**r_group, **totals, "groups": groups_out})
+
+    revenue_total = sum(
+        _report_float(payload, "amount")
+        for payload in (
+            row["payload"]
+            for row in rows["sale_revenue"]
+            if not row["payload"].get("deleted_at")
+            and str(row["payload"].get("proj_guid") or "") == project_id
+            and _report_text(row["payload"], "status") == "received"
+        )
+    ) / 10000
+    if output_rows or revenue_total:
+        output_rows.insert(
+            0,
+            {
+                "rCode": "R6",
+                "rName": r_names.get("R6", "回款额"),
+                "A": 0,
+                "D": round(revenue_total, 2),
+                "E": 0,
+                "F": 0,
+                "G": 0,
+                "B": round(revenue_total, 2),
+                "H": 0,
+                "groups": [],
+            },
+        )
+    r0_total = sum(
+        (
+            _report_float(payload, "ht_amount")
+            + _report_float(payload, "sum_alter_amount")
+        ) / 10000
+        for payload in contracts
+        if _report_text(payload, "r_code") in {"", "R0"}
+    )
+    if r0_total:
+        output_rows.append(
+            {
+                "rCode": "R0",
+                "rName": "未归类(R0 兜底)",
+                "A": 0,
+                "D": round(r0_total, 2),
+                "E": 0,
+                "F": 0,
+                "G": 0,
+                "B": round(r0_total, 2),
+                "H": round(-r0_total, 2),
+                "groups": [],
+            }
+        )
+    summary_rows = [row for row in output_rows if row["rCode"] not in {"R6", "R0"}]
+    target_total = round(sum(float(row["A"]) for row in summary_rows), 2)
+    dynamic_total = round(sum(float(row["B"]) for row in summary_rows), 2)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "projGuid": project_id,
+            "projName": _report_text(project, "proj_name", project_id),
+            "planVersion": selected_version,
+            "asOf": date.today().isoformat(),
+            "rows": output_rows,
+            "summary": {
+                "targetCost": target_total,
+                "dynamicCost": dynamic_total,
+                "deviationPct": round((target_total - dynamic_total) / target_total * 100, 4)
+                if target_total > 0
+                else None,
+            },
+            "counts": {
+                "leaves": len(dict_rows),
+                "contracts": len(contracts),
+                "expenses": len(splits),
+                "changes": len(changes),
+            },
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
     }
 
 
@@ -11812,6 +12075,17 @@ def handler_factory(
                 ):
                     project_value = parsed.path.split("/")[-2]
                     response(self, 200, investment_profit_summary(pool, project_value, max_response_rows), origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/profit-actual-v2",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    plan_version = parse_qs(parsed.query).get("planVersion", [None])[0]
+                    result = cost_dashboard_v3(pool, project_value, plan_version, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"error": "project not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/admin/dict/groups":
                     response(self, 200, admin_dict_groups(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/quality/overview":

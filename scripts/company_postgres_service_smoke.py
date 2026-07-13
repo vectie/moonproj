@@ -1003,6 +1003,23 @@ def main() -> int:
             or dynamic_cost_payload.get("source_coverage", {}).get("cb_cost") != 7
         ):
             raise SmokeError(f"dynamic cost read failed: {status} {dynamic_cost_payload}")
+        status, cost_dashboard_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/profit-actual-v2?planVersion=baseline",
+            token=token,
+        )
+        cost_dashboard_data = (cost_dashboard_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cost_dashboard_payload is None
+            or cost_dashboard_data.get("rows") != []
+            or cost_dashboard_data.get("summary", {}).get("targetCost") != 0
+            or cost_dashboard_data.get("counts", {}).get("leaves") != 0
+            or cost_dashboard_payload.get("source_coverage", {}).get("cb_subject_dict") != 0
+            or cost_dashboard_payload.get("source_coverage", {}).get("cb_plan_version") != 0
+            or "cb_subject_dict" not in cost_dashboard_payload.get("missing_or_empty_source_tables", [])
+        ):
+            raise SmokeError(f"cost dashboard source read failed: {status} {cost_dashboard_payload}")
         status, admin_groups_payload = request(
             args.port,
             "/api/company/admin/dict/groups",
@@ -2242,6 +2259,9 @@ def main() -> int:
                     "dynamic_cost_target": dynamic_cost_summary.get("A_targetCost"),
                     "dynamic_cost_total": dynamic_cost_summary.get("B_dtCost"),
                     "dynamic_cost_deviation": dynamic_cost_summary.get("C_deviationPct"),
+                    "cost_dashboard_rows": len(cost_dashboard_data.get("rows", [])),
+                    "cost_dashboard_source_cb_subject_dict_rows": cost_dashboard_payload.get("source_coverage", {}).get("cb_subject_dict"),
+                    "cost_dashboard_source_cb_plan_version_rows": cost_dashboard_payload.get("source_coverage", {}).get("cb_plan_version"),
                     "admin_dictionary_group_rows": 1,
                     "admin_dictionary_option_rows": 5,
                     "admin_quality_rule_rows": len(quality_rules),

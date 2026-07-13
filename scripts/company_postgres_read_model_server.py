@@ -115,6 +115,7 @@ from company_postgres_service import (
     investment_versions as service_investment_versions,
     investment_indices as service_investment_indices,
     investment_profit_summary as service_investment_profit_summary,
+    cost_dashboard_v3 as service_cost_dashboard_v3,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
     admin_dict_groups as service_admin_dict_groups,
@@ -707,6 +708,14 @@ def dashboard_project_anomalies(args: argparse.Namespace, project_id: str) -> di
 
 def dynamic_cost(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
     return service_dynamic_cost(_ReadModelPool(args), project_id, 500)
+
+
+def cost_dashboard_v3(
+    args: argparse.Namespace,
+    project_id: str,
+    plan_version: str | None,
+) -> dict[str, Any] | None:
+    return service_cost_dashboard_v3(_ReadModelPool(args), project_id, plan_version, 500)
 
 
 def investment_versions(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
@@ -1413,6 +1422,18 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 )
                 if investment_profit_match is not None:
                     response(self, 200, investment_profit_summary(args, investment_profit_match.group(1)))
+                    return
+                cost_dashboard_match = re.fullmatch(
+                    r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/profit-actual-v2",
+                    parsed.path,
+                )
+                if cost_dashboard_match is not None:
+                    plan_version = parse_qs(parsed.query).get("planVersion", [None])[0]
+                    result = cost_dashboard_v3(args, cost_dashboard_match.group(1), plan_version)
+                    if result is None:
+                        response(self, 404, {"error": "project not found"})
+                    else:
+                        response(self, 200, result)
                     return
                 if parsed.path == "/api/company/rbac/users":
                     query = parse_qs(parsed.query)

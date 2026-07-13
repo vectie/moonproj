@@ -213,6 +213,8 @@ def match_target(
             return function, "connected_admin_audit_read"
         if path == "/dynamic-cost" and function == "dynamic_cost_view":
             return function, "connected_cost_read"
+        if path == "/cost-dashboard-v3" and function == "cost_dashboard_view":
+            return function, "connected_cost_dashboard_read"
         if path == "/cashflow" and function == "cashflow_view":
             return function, "connected_cashflow_read"
         if path in {"/cbs/dict", "/cbs/versions", "/cbs/r0-queue", "/cbs/approval-config"} and function == "cbs_view":
@@ -294,6 +296,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_expense_scenario_and_production_identity"
     if target_state == "connected_expense_detail_read":
         return "accept_browser_expense_detail_scenario_and_production_identity"
+    if target_state == "connected_cost_dashboard_read":
+        return "accept_browser_cost_dashboard_scenario_and_production_identity"
     if target_state == "connected_supplier_risk_read":
         return "accept_browser_supplier_risk_scenario_and_production_identity"
     if target_state == "connected_command_form":
@@ -487,6 +491,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_expense_detail_read", "accept_browser_expense_detail_scenario_and_production_identity"
     if (
+        handler["module"] == "investment"
+        and handler["method"] == "GET"
+        and handler["path"] == "/projects/:projGuid/profit-actual-v2"
+    ):
+        return "connected_cost_dashboard_read", "accept_browser_cost_dashboard_scenario_and_production_identity"
+    if (
         handler["module"] == "cashflow"
         and handler["method"] == "GET"
         and handler["path"] in {
@@ -664,6 +674,8 @@ def build_matrix(
             api_state = "connected_expense_read"
         elif target_state == "connected_expense_detail_read":
             api_state = "connected_expense_detail_read"
+        elif target_state == "connected_cost_dashboard_read":
+            api_state = "connected_cost_dashboard_read"
         elif target_state == "connected_cashflow_read":
             api_state = "connected_cashflow_read"
         elif target_state == "connected_cbs_read":

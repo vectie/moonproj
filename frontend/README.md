@@ -166,6 +166,12 @@ comparison table remains an offline fallback.
 The `/dynamic-cost` screen loads the seven imported `cb_cost` rows and source
 A/B/C/D/E/F/G/H calculation for `proj-0001`; cost writes and downstream
 accounting/cash effects remain gated.
+The `/cost-dashboard-v3` screen now reads the source
+`/api/company/investment/projects/:id/profit-actual-v2` hierarchy. It renders
+R/l2/l3 CBS rows and the B/D/E/F/G/H summary when available, shows explicit
+empty CBS/version state for the current export, and retains the designer
+dashboard only as transport fallback; budget, accounting, cash, and tax writes
+remain gated.
 Admin governance reads are available at
 `/api/company/admin/dict/groups`, `/api/company/admin/dict/options`,
 `/api/company/admin/quality/overview`,

@@ -278,10 +278,10 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 52 connected browser states, 2
-fixture-backed read-only states, 2 public states, 52 connected API groups,
-and 4 fixture/no-source API groups. The newly connected
-AI analytics, webhook configuration, and report-builder read families are
+handlers (182 mutations), with 53 connected browser states, 1
+fixture-backed read-only state, 2 public states, 53 connected API groups,
+and 3 fixture/no-source API groups. The newly connected
+AI analytics, webhook configuration, report-builder, and cost-dashboard read families are
 included in those counts; their source tables are currently empty and are not
 treated as provider, draft, notification, or report-template authority.
 
@@ -298,10 +298,11 @@ separate source master read.
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
 initiated documents; `/expenses` and `/expenses/:guid` read the source
-`vcb_expense`/detail/split family and report truthful zero-row coverage; and
-`/dynamic-cost` reads all seven
-`cb_cost` rows using the source formula. Local expense/loan commands and the
-designer fallback remain separate from those source reads. This changes the
+`vcb_expense`/detail/split family; `/dynamic-cost` reads all seven `cb_cost`
+rows using the source formula; and `/cost-dashboard-v3` reads the source
+CBS/version hierarchy with truthful zero-row coverage when those tables are
+absent. Local expense/loan commands and the designer fallback remain separate
+from those source reads. This changes the
 next step from “add another screen” to “accept the connected batch through the
 real identity boundary and named owners, then obtain the missing export before
 opening broad fixture-backed surfaces.”
@@ -530,17 +531,17 @@ remain separate gates.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 52 connected browser states, 2 fixture-backed read-only
-states, and two public states. Its API matrix records 52 connected API groups
-and 4 fixture/no-source groups across MDM organization/project, budget
-dictionary and expense detail, investment,
+currently records 53 connected browser states, 1 fixture-backed read-only
+state, and two public states. Its API matrix records 53 connected API groups
+and 3 fixture/no-source groups across MDM organization/project, budget
+dictionary and expense detail, investment and cost-dashboard v3,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan, and
 workflow-definition reads; the three dashboard aliases now represent the
-bounded source-backed v1 read, while `/cost-dashboard-v3` remains in the
-fixture-backed set because its source hierarchy is not yet available in
-PostgreSQL. The remaining browser views and API groups are explicitly tracked
+bounded source-backed v1 read, while `/ai-hub` remains the only fixture-backed
+read-only browser surface because its provider/draft/query-log tables are not
+available in PostgreSQL. The remaining browser views and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
 rather than additional platform hardening, controls the next work.
