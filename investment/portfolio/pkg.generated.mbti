@@ -30,6 +30,17 @@ pub(all) suberror PortfolioError {
 } derive(Eq, @debug.Debug)
 
 // Types and methods
+pub(all) struct BenchmarkComparison {
+  portfolio_id : String
+  period_id : String
+  benchmark_id : String
+  portfolio_return_bps : Int64
+  benchmark_return_bps : Int64
+  active_return_bps : Int64
+  outperformed : Bool
+} derive(Eq, @debug.Debug)
+pub fn BenchmarkComparison::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+
 pub(all) struct MarketQuote {
   instrument : String
   price : @finance.Money
@@ -47,6 +58,7 @@ pub(all) struct PerformanceReport {
   within_mandate : Bool
 } derive(Eq, @debug.Debug)
 pub fn PerformanceReport::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+pub fn PerformanceReport::compare_benchmark(Self, benchmark_id~ : String, benchmark_return_bps~ : Int64) -> BenchmarkComparison raise PortfolioError
 
 pub(all) struct Portfolio {
   portfolio_id : String

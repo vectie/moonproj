@@ -21,6 +21,41 @@ pub(all) struct PerformanceReport {
 } derive(Debug, Eq)
 
 ///|
+pub(all) struct BenchmarkComparison {
+  portfolio_id : String
+  period_id : String
+  benchmark_id : String
+  portfolio_return_bps : Int64
+  benchmark_return_bps : Int64
+  active_return_bps : Int64
+  outperformed : Bool
+} derive(Debug, Eq)
+
+///|
+/// Compare a locally calculated return with an explicitly supplied benchmark
+/// result. Benchmark data is evidence-owned by the caller and is never
+/// inferred from portfolio quotes.
+pub fn PerformanceReport::compare_benchmark(
+  self : PerformanceReport,
+  benchmark_id~ : String,
+  benchmark_return_bps~ : Int64,
+) -> BenchmarkComparison raise PortfolioError {
+  if benchmark_id.trim() == "" {
+    raise PortfolioError::EmptyIdentifier
+  }
+  let active_return_bps = self.return_bps - benchmark_return_bps
+  {
+    portfolio_id: self.portfolio_id,
+    period_id: self.period_id,
+    benchmark_id,
+    portfolio_return_bps: self.return_bps,
+    benchmark_return_bps,
+    active_return_bps,
+    outperformed: active_return_bps > 0L,
+  }
+}
+
+///|
 /// Attribute a portfolio period against explicit market quotes. This is a
 /// deterministic evidence report; it does not imply realized performance,
 /// cash movement, or investment approval.
@@ -166,6 +201,51 @@ pub fn PerformanceReport::append_projection(
     expected_revision=revision,
     payload~,
     source_event_id="company:investment-performance:" +
+      aggregate_id +
+      ":r" +
+      revision.to_string(),
+  ) catch {
+    error => raise PortfolioError::Projection(error)
+  }
+}
+
+///|
+pub fn BenchmarkComparison::append_projection(
+  self : BenchmarkComparison,
+  projection : @store.AggregateProjection,
+) -> @store.AggregateProjection raise PortfolioError {
+  let aggregate_id = self.portfolio_id +
+    ":" +
+    self.period_id +
+    ":" +
+    self.benchmark_id
+  if projection.aggregate_type != "investment_benchmark" ||
+    projection.aggregate_id != aggregate_id {
+    raise PortfolioError::ProjectionIdentity
+  }
+  let revision = projection.revision + 1
+  let payload = Json::object({
+    "portfolio_id": Json::string(self.portfolio_id),
+    "period_id": Json::string(self.period_id),
+    "benchmark_id": Json::string(self.benchmark_id),
+    "portfolio_return_bps": Json::number(
+      self.portfolio_return_bps.to_double(),
+      repr=self.portfolio_return_bps.to_string(),
+    ),
+    "benchmark_return_bps": Json::number(
+      self.benchmark_return_bps.to_double(),
+      repr=self.benchmark_return_bps.to_string(),
+    ),
+    "active_return_bps": Json::number(
+      self.active_return_bps.to_double(),
+      repr=self.active_return_bps.to_string(),
+    ),
+    "outperformed": Json::boolean(self.outperformed),
+  }).stringify()
+  projection.append(
+    expected_revision=revision,
+    payload~,
+    source_event_id="company:investment-benchmark:" +
       aggregate_id +
       ":r" +
       revision.to_string(),

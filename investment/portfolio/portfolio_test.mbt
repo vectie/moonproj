@@ -263,6 +263,12 @@ test "portfolio attributes per-position performance and persists evidence" {
   assert_eq(report.return_bps, 250L)
   assert_eq(report.positions.length(), 2)
   assert_eq(report.positions[1].gain_loss.minor, -10000L)
+  let comparison = report.compare_benchmark(
+    benchmark_id="benchmark-cn-equity-2026-07",
+    benchmark_return_bps=100L,
+  )
+  assert_eq(comparison.active_return_bps, 150L)
+  assert_true(comparison.outperformed)
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(
     version=1,
@@ -283,6 +289,16 @@ test "portfolio attributes per-position performance and persists evidence" {
       assert_true(latest.payload.contains("-10000"))
     }
     None => fail("expected investment performance projection")
+  }
+  let benchmark_projection = @store.AggregateProjection::new(
+    projection.into_store(),
+    aggregate_type="investment_benchmark",
+    aggregate_id="portfolio-performance:2026-07:benchmark-cn-equity-2026-07",
+  )
+  let benchmark_projection = comparison.append_projection(benchmark_projection)
+  match benchmark_projection.latest() {
+    Some(latest) => assert_true(latest.payload.contains("150"))
+    None => fail("expected benchmark comparison projection")
   }
 }
 
