@@ -99,7 +99,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/cbs_budget_source_mapping.json \
   scripts/fixtures/warning_source_mapping.json \
   scripts/fixtures/accounting_link_mapping.json \
-  scripts/fixtures/notification_plan.example.json
+  scripts/fixtures/notification_plan.example.json \
+  scripts/fixtures/access_plan.example.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -125,3 +126,8 @@ source-bound `notification_outbox` projection and receipt, so the complete
 rehearsal reaches 114 projections, 7 accounting links, and 23 receipts. The
 notification boundary records queue intent only; provider delivery,
 workflow mutation, cash release, and accounting posting remain separate gates.
+The twenty-second argument supplies the reviewed access plan. It adds one
+native `access_directory` projection and receipt, so the complete rehearsal
+reaches 115 projections, 7 accounting links, and 24 receipts. Role migration
+is authority-reviewed and exact-scope; passwords, super-user privilege, and
+workflow/cash/accounting effects remain excluded.

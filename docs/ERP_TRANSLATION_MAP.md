@@ -211,6 +211,11 @@ The twenty-third wrapper argument can supply a reviewed notification plan;
 projection. Queue intent is explicit, while provider delivery, workflow
 mutation, cash release, and accounting posting remain false. See
 [ERP_NOTIFICATION_BOUNDARY.md](ERP_NOTIFICATION_BOUNDARY.md).
+The twenty-fourth wrapper argument can supply a reviewed access plan;
+`cmd/access_import` maps explicit roles, bounded permissions, exact-scope
+assignments, and separation rules into an `access_directory` receipt and
+projection. Passwords and legacy super-user privilege remain excluded. See
+[ERP_ACCESS_BOUNDARY.md](ERP_ACCESS_BOUNDARY.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -296,7 +301,7 @@ importer.
 
 | ERP source | ERP meaning | Target package | Current state |
 |---|---|---|---|
-| `mu_business_unit`, `sys_user`, `sys_role` | Entity, organization, actor, role, and authority context | `foundation` + `foundation/access` + `foundation/organization` + `migration/erp` + `cmd/promote` | Legal entity, business-unit hierarchy, scoped authority, and 5 credential-free user identities are implemented. Local roles/permissions/assignments issue exact-scope bounded grants with revocation; effective-dated delegation and separation-of-duties rules reject invalid authority; passwords, legacy super-user privilege, and source `sys_role` migration remain evidence/pending because role tables are schema-only in the fixture. |
+| `mu_business_unit`, `sys_user`, `sys_role`, `sys_user_role` | Entity, organization, actor, role, and authority context | `foundation` + `foundation/access` + `foundation/organization` + `migration/erp` + `cmd/promote` + `cmd/access_import` | Legal entity, business-unit hierarchy, and 5 credential-free user identities are implemented. The reviewed access importer now validates explicit local roles, bounded permissions, exact-scope principal/actor assignments, and separation rules into an `access_directory` projection; passwords, legacy super-user privilege, and real source role rows remain pending because those tables are absent from the fixture. |
 | `ep_project`, `proj_lifecycle_*` | Project master and lifecycle stages | `operations/project` + `migration/erp` + `cmd/promote` | Ordered lifecycle and scoped transitions implemented; the real fixture promotes 2 project masters and 2 lifecycle cohorts with explicit source-stage mappings, replaying current stages as development/design while retaining historical status/progress as typed evidence. |
 | `proj_lifecycle_instance` | Historical lifecycle-stage instances and progress | `migration/erp` + `cmd/promote` + `persistence/store` | All 14 source instances are preserved as `typed_evidence` lifecycle history; only the explicitly mapped current stage is target-owned project state. Historical status/progress cannot bypass the local lifecycle invariant. |
 | `proj_lifecycle_stage` | Lifecycle-stage catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Seven source catalog rows are preserved as typed evidence; target lifecycle semantics remain governed by the explicit stage map. |

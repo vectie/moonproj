@@ -1,0 +1,62 @@
+{
+  "format": "moonproj.company.access-plan.v1",
+  "source_snapshot_id": "erp-snapshot:access-001",
+  "mapping_version": "access-map-v1-review-001",
+  "source_table": "sys_role",
+  "source_id": "role-bundle-001",
+  "principal_id": "co-001",
+  "scope": "project:p-001",
+  "reviewed": true,
+  "roles": [
+    {
+      "role_id": "project-preparer",
+      "name": "Project preparer",
+      "permissions": [
+        {
+          "capability": "commitment:create",
+          "scope": "project:p-001",
+          "max_amount_minor": 1000000
+        }
+      ]
+    },
+    {
+      "role_id": "project-approver",
+      "name": "Project approver",
+      "permissions": [
+        {
+          "capability": "commitment:approve",
+          "scope": "project:p-001",
+          "max_amount_minor": 1000000
+        }
+      ]
+    }
+  ],
+  "separation_rules": [
+    {
+      "rule_id": "prepare-approve-project-001",
+      "first_capability": "commitment:create",
+      "second_capability": "commitment:approve",
+      "scope": "project:p-001"
+    }
+  ],
+  "assignments": [
+    {
+      "assignment_id": "assignment-preparer-001",
+      "role_id": "project-preparer",
+      "principal_id": "co-001",
+      "actor_id": "user-preparer-001",
+      "scope": "project:p-001",
+      "max_amount_minor": 900000,
+      "active": true
+    },
+    {
+      "assignment_id": "assignment-approver-001",
+      "role_id": "project-approver",
+      "principal_id": "co-001",
+      "actor_id": "user-approver-001",
+      "scope": "project:p-001",
+      "max_amount_minor": 900000,
+      "active": true
+    }
+  ]
+}

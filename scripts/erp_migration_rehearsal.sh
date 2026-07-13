@@ -29,6 +29,7 @@ CBS_BUDGET_PLAN=${20:-}
 CBS_BUDGET_SOURCE_MAPPING=${21:-}
 WARNING_SOURCE_MAPPING=${22:-}
 NOTIFICATION_PLAN=${23:-}
+ACCESS_PLAN=${24:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -463,6 +464,25 @@ if [ -n "$NOTIFICATION_PLAN" ]; then
   echo "notification_replay=$NOTIFICATION_REPLAY"
 fi
 
+if [ -n "$ACCESS_PLAN" ]; then
+  ACCESS_RECEIPT="$WORK_DIR/access-receipt.json"
+  moon run --target native cmd/access_import -- \
+    "$ACCESS_PLAN" "$ACCESS_RECEIPT"
+  echo "access_receipt=$ACCESS_RECEIPT"
+  ACCESS_APPLY="$WORK_DIR/access-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$ACCESS_RECEIPT" "$TARGET_DB" > "$ACCESS_APPLY"
+  echo "access_apply=$ACCESS_APPLY"
+  ACCESS_PARITY="$WORK_DIR/access-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$ACCESS_RECEIPT" "$TARGET_DB" "$ACCESS_PARITY"
+  echo "access_parity=$ACCESS_PARITY"
+  ACCESS_REPLAY="$WORK_DIR/access-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$ACCESS_RECEIPT" "$TARGET_DB" > "$ACCESS_REPLAY"
+  echo "access_replay=$ACCESS_REPLAY"
+fi
+
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
 python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
@@ -532,6 +552,9 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$NOTIFICATION_PLAN" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$ACCESS_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then

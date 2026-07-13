@@ -1,0 +1,44 @@
+{
+  "format": "moonproj.erp.access-mapping.v1",
+  "mapping_version": "access-map-v1-review-001",
+  "reviewed": false,
+  "principal_id": "co-001",
+  "scope": "company:co-001",
+  "allow_system_roles": false,
+  "permission_map": {
+    "commitment:create": {
+      "capability": "commitment:create",
+      "scope": "$role_scope",
+      "max_amount_minor": 1000000
+    },
+    "commitment:approve": {
+      "capability": "commitment:approve",
+      "scope": "$role_scope",
+      "max_amount_minor": 1000000
+    }
+  },
+  "scope_by_role": {
+    "project-preparer": "project:p-001",
+    "project-approver": "project:p-001"
+  },
+  "principal_by_user": {
+    "user-preparer-001": "co-001",
+    "user-approver-001": "co-001"
+  },
+  "actor_by_user": {
+    "user-preparer-001": "user-preparer-001",
+    "user-approver-001": "user-approver-001"
+  },
+  "assignment_cap_by_role": {
+    "project-preparer": 900000,
+    "project-approver": 900000
+  },
+  "separation_rules": [
+    {
+      "rule_id": "prepare-approve-project-001",
+      "first_capability": "commitment:create",
+      "second_capability": "commitment:approve",
+      "scope": "project:p-001"
+    }
+  ]
+}

@@ -78,6 +78,11 @@ and 23 receipts in the complete rehearsal. It proves queue intent and
 idempotent replay without invoking a provider or mutating workflow, cash, or
 accounting state; source notification rows and production delivery remain
 later gates.
+The optional reviewed access cohort validates source-role intent through the
+native authority directory and adds one `access_directory` projection,
+reaching 115 projections and 24 receipts in the complete rehearsal. It makes
+authority migration explicit while excluding passwords and super-user bits;
+real source role rows and owner approval remain later gates.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

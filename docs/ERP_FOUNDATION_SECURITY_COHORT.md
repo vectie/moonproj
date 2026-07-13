@@ -12,9 +12,9 @@ records or granting authority from legacy configuration.
 | `attachment` | `foundation/evidence.Evidence` | typed import | content hash, retention, and access review; file paths are not authoritative |
 | `sys_param` | opaque foundation parameter evidence | evidence only | principal/scope mapping and no policy inference |
 | `sys_password_history` | identity security boundary | exclude sensitive | password hashes never migrate; authentication remains provider-owned |
-| `sys_role` | `foundation/access.Role` | typed import | permissions require review and do not assign authority implicitly |
+| `sys_role` | `foundation/access.Role` | reviewed access import | explicit capability/scope/amount mapping and owner review; no source super-user privilege |
 | `sys_user_pref` | user-preference boundary | evidence only | user scope and sensitive-value review; no authority effect |
-| `sys_user_role` | `foundation/access.RoleAssignment` | typed import | user/role identity map, principal/scope, and segregation-of-duties checks |
+| `sys_user_role` | `foundation/access.RoleAssignment` | reviewed access import | user/role identity map, principal/scope, assignment cap, and segregation-of-duties checks |
 
 The machine-readable mapping is
 `scripts/fixtures/schema_foundation_security_mapping.json`. Each rehearsal
@@ -26,3 +26,10 @@ When a complete source export becomes available, the wave can proceed only if
 each row passes the target domain importer, exact parity/replay checks, and
 named security/business acceptance. Password history remains excluded even in
 that later export.
+
+The reviewed native role/assignment boundary is executable through
+`scripts/erp_access_plan.py`, `cmd/access_import`, and
+`ERP_ACCESS_BOUNDARY.md`. The checked-in access plan is synthetic because this
+snapshot has no role rows; the source planner reports `scope_only` instead of
+fabricating rows, while the fixture proves local authority validation and
+projection replay without claiming source ownership.

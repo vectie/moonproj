@@ -95,6 +95,10 @@ The optional twenty-third argument supplies a reviewed notification plan; it
 creates a source-bound `notification_outbox` projection with explicit queue
 intent, but no provider delivery, workflow mutation, cash release, or
 accounting posting.
+The optional twenty-fourth argument supplies a reviewed access plan; it
+validates local roles, bounded permissions, exact-scope assignments, and
+segregation-of-duties rules before creating one `access_directory` projection.
+It never imports passwords or source super-user privilege.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

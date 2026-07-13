@@ -183,6 +183,15 @@ lifecycle history/catalog, and proceedings). These projections are queryable
 evidence only and cannot create authority, workflow state, or accounting
 meaning.
 
+Run `scripts/erp_access_plan.py` against the complete export with a reviewed
+access map, then pass its plan (or the checked-in synthetic
+`scripts/fixtures/access_plan.example.json`) as the twenty-fourth SQLite
+wrapper argument or twenty-second PostgreSQL cohort-runner argument to run the
+reviewed access boundary. The native importer creates one exact-scope
+`access_directory` projection after applying role, permission, and
+segregation-of-duties validation; it never imports passwords or source
+super-user privilege.
+
 The user cohort uses `scripts/erp_user_promotion_plan.py`. It promotes the five
 credential-free user identities with explicit business-unit principal mappings,
 department references, and enabled state. Password hashes, login-network data,
