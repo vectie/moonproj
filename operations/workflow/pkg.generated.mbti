@@ -20,6 +20,13 @@ pub(all) suberror WorkflowError {
   AssignmentProcessMismatch
   DuplicateAssignment
   UnknownAssignment
+  SlaProcessMismatch
+  UnknownSlaPolicy
+  DuplicateSlaPolicy
+  InvalidSla
+  SlaNotCurrent
+  SlaEvidenceIdentity
+  DuplicateSlaEvidence
   NotAssigned
   InvalidWeight
   DuplicateStep
@@ -57,7 +64,9 @@ pub(all) struct ProcessDefinition {
   process_key : String
   steps : Array[ApprovalStep]
   assignments : Array[WorkflowAssignment]
+  sla_policies : Array[WorkflowSlaPolicy]
 } derive(Eq, @debug.Debug)
+pub fn ProcessDefinition::add_sla_policy(Self, WorkflowSlaPolicy, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WorkflowError
 pub fn ProcessDefinition::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
 pub fn ProcessDefinition::assign_step(Self, assignment_id~ : String, step_id~ : String, assignee_id~ : String, principal_id~ : String, scope~ : String, weight~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> WorkflowAssignment raise WorkflowError
 pub fn ProcessDefinition::assignment_attachment(Self, assignment_id~ : String) -> WorkflowAssignmentAttachment raise WorkflowError
@@ -71,6 +80,8 @@ pub(all) struct ProcessInstance {
   subject_id : String
   steps : Array[ApprovalStep]
   assignments : Array[WorkflowAssignment]
+  sla_policies : Array[WorkflowSlaPolicy]
+  sla_evidence : Array[WorkflowEscalationEvidence]
   current_step : Int
   status : ProcessStatus
   actions : Array[ApprovalAction]
@@ -78,6 +89,8 @@ pub(all) struct ProcessInstance {
 pub fn ProcessInstance::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise WorkflowError
 pub fn ProcessInstance::decide(Self, step_id~ : String, decision~ : Decision, weight~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WorkflowError
 pub fn ProcessInstance::decide_delegated(Self, step_id~ : String, decision~ : Decision, weight~ : Int, actor_id~ : String, delegation_id~ : String, at_epoch~ : Int64, directory~ : @access.AccessDirectory) -> Self raise WorkflowError
+pub fn ProcessInstance::evaluate_sla(Self, policy_id~ : String, started_at_epoch~ : Int64, observed_at_epoch~ : Int64) -> WorkflowEscalationEvidence raise WorkflowError
+pub fn ProcessInstance::record_sla_evidence(Self, WorkflowEscalationEvidence, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise WorkflowError
 
 pub(all) enum ProcessStatus {
   Pending
@@ -104,6 +117,34 @@ pub(all) struct WorkflowAssignmentAttachment {
   step_id : String
   grants_authority : Bool
   approves_instance : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WorkflowEscalationEvidence {
+  escalation_id : String
+  instance_id : String
+  policy_id : String
+  step_id : String
+  escalation_actor_id : String
+  due_at_epoch : Int64
+  observed_at_epoch : Int64
+  state : WorkflowSlaState
+  notification_requested : Bool
+  authority_granted : Bool
+  approves_instance : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WorkflowSlaPolicy {
+  policy_id : String
+  process_id : String
+  step_id : String
+  due_after_seconds : Int64
+  escalation_actor_id : String
+  scope : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum WorkflowSlaState {
+  Due
+  Overdue
 } derive(Eq, @debug.Debug)
 
 // Type aliases

@@ -89,7 +89,7 @@ depreciation, explicit opening receivable/payable source-to-journal links,
 separate sales-to-receivable and invoice-to-receivable recognition boundaries,
 acceptance-gated delivery recognition links, and accepted-progress cost
 forecast linkage.
-It also has 233 passing MoonBit tests, executable opening control-total checks,
+It also has 234 passing MoonBit tests, executable opening control-total checks,
 a credential-safe deterministic ERP row-export boundary, an idempotent durable
 SQLite migration rehearsal, a repeatable end-to-end rehearsal wrapper, a
 fail-closed mapped-cohort promotion planner, and a native domain-promotion
@@ -161,6 +161,8 @@ The live `jd_task_report` row can now be translated through an explicit
 draft-only delivery-progress cohort. Its source operator/date/summary remain
 provenance, while delivery acceptance, recognition, cost consumption, and
 task-state mutation remain separate gates.
+The workflow domain also has explicit due/overdue SLA observation evidence;
+notification delivery remains a separate integration and cannot approve work.
 The delivery domain also has an opt-in reviewed recognition cohort: acceptance
 evidence, a positive measured amount, and ledger accounts are required before
 it emits a pending-posting source-to-journal projection. It never posts cash,

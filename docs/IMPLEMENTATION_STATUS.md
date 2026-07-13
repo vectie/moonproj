@@ -143,7 +143,7 @@ existing ERP remains authoritative.
 | Weighted workflow | `operations/workflow` | Step-specific authority, weighted approvals, duplicate-action and wrong-step guards. |
 | ERP workflow-definition cohort promotion | `migration/erp` + `operations/workflow` | Process definitions receive isolated ordered source steps and explicit local capability mappings; source labels never become authority implicitly. |
 | Workflow definition/instance projections | `operations/workflow` + `persistence/store` | Approval steps, actions, current step, and decision status persist as immutable projections. |
-| ERP workflow-assignment cohort | `scripts/erp_workflow_assignment_plan.py` + `cmd/workflow_assignment` + `operations/workflow` + `foundation/access` + `persistence/store` | Six `wf_step_assignee` rows receive explicit actor identities, process scopes, and capabilities; native promotion validates typed process/step attachment evidence, projections persist configuration-only/non-authorizing markers, delegated decisions retain bounded effective-window/revocation evidence, exact parity/replay persists the cohort, and decision-time capability checks remain mandatory. |
+| ERP workflow-assignment cohort | `scripts/erp_workflow_assignment_plan.py` + `cmd/workflow_assignment` + `operations/workflow` + `foundation/access` + `persistence/store` | Six `wf_step_assignee` rows receive explicit actor identities, process scopes, and capabilities; native promotion validates typed process/step attachment evidence, projections persist configuration-only/non-authorizing markers, delegated decisions retain bounded effective-window/revocation evidence, and SLA policies retain due/overdue observation evidence without approval mutation. Exact parity/replay persists the cohort and decision-time capability checks remain mandatory. |
 | CBS subject/version | `finance/cbs` | Draft/active/frozen subject dictionary with duplicate-code and target-total controls. |
 | CBS aggregate projections | `finance/cbs` + `persistence/store` | Subject versions persist targets, hierarchy, state, and totals as immutable revisioned projections. |
 | CBS cost-subject link | `finance/cbs` + `persistence/store` | Active/frozen CBS versions accept scoped source-to-subject cost links with explicit source identity and immutable link projections; the reviewed fixture cohort is migrated, while budget consumption and broader schema/source coverage remain separate. |
@@ -171,7 +171,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 233 passing MoonBit tests across the new packages. The
+The current scaffold has 234 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -327,8 +327,8 @@ promotion of the remaining typed-staged rows, or production readiness.
    commitment-state/payment, user, audit, parameter, and draft delivery-
    progress promotion now have durable projection/parity rehearsal gates;
    task-state replay remains a reviewed exception cohort.
-3. Complete remaining cross-domain persistence links: workflow assignment
-   SLA/escalation semantics and CBS configuration. Typed workflow-assignment
+3. Complete remaining cross-domain persistence links: workflow notification
+   delivery and CBS configuration. Typed workflow-assignment
    attachment, effective-dated delegation/revocation evidence, and
    non-authorizing projection evidence are implemented, as is a separately
    reviewed pending-posting delivery recognition projection (the available

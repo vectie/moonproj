@@ -379,6 +379,102 @@ test "workflow delegated decisions require an attached assignment and retain del
 }
 
 ///|
+test "workflow SLA records due and overdue evidence without escalation authority" {
+  let definition = ProcessDefinition::new(
+    process_id="sla-definition",
+    process_key="expense-approval",
+    steps=[
+      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+    ],
+  ).add_sla_policy(
+    {
+      policy_id: "sla-manager-001",
+      process_id: "sla-definition",
+      step_id: "manager",
+      due_after_seconds: 100L,
+      escalation_actor_id: "finance-queue",
+      scope: "workflow:sla-definition",
+    },
+    actor_id="alice",
+    grant={
+      grant_id: "sla-policy-add",
+      principal_id: "co-001",
+      actor_id: "alice",
+      capability: "workflow:sla:add",
+      scope: "workflow:sla-definition",
+      max_amount_minor: 0,
+      active: true,
+    },
+  )
+  let instance = start_process(
+    definition,
+    instance_id="wf-sla-001",
+    principal_id="co-001",
+    subject_id="expense:expense-001",
+    actor_id="alice",
+    grant=workflow_grant("workflow:start"),
+  )
+  let due = instance.evaluate_sla(
+    policy_id="sla-manager-001",
+    started_at_epoch=1000L,
+    observed_at_epoch=1099L,
+  )
+  assert_true(due.state == WorkflowSlaState::Due)
+  let observed = instance.record_sla_evidence(due, actor_id="alice", grant={
+    grant_id: "sla-observe",
+    principal_id: "co-001",
+    actor_id: "alice",
+    capability: "workflow:sla:observe",
+    scope: "expense:expense-001",
+    max_amount_minor: 0,
+    active: true,
+  })
+  let overdue = observed.evaluate_sla(
+    policy_id="sla-manager-001",
+    started_at_epoch=1000L,
+    observed_at_epoch=1100L,
+  )
+  assert_true(overdue.state == WorkflowSlaState::Overdue)
+  let observed = observed.record_sla_evidence(overdue, actor_id="alice", grant={
+    grant_id: "sla-observe-2",
+    principal_id: "co-001",
+    actor_id: "alice",
+    capability: "workflow:sla:observe",
+    scope: "expense:expense-001",
+    max_amount_minor: 0,
+    active: true,
+  })
+  assert_true(observed.status == ProcessStatus::Pending)
+  assert_eq(observed.actions.length(), 0)
+  assert_eq(observed.sla_evidence.length(), 2)
+  assert_true(!observed.sla_evidence[1].authority_granted)
+  assert_true(!observed.sla_evidence[1].approves_instance)
+  let schema = @schema.SchemaState::initial()
+  let migration = @schema.MigrationStep::new(
+    version=1,
+    migration_id="V1__foundation",
+    checksum="sha256:one",
+    description="Create foundation tables",
+  )
+  let store = @store.RecordStore::new(schema).migrate(migration)
+  let projection = @store.AggregateProjection::new(
+    store,
+    aggregate_type="workflow_instance",
+    aggregate_id="wf-sla-001",
+  )
+  let projection = observed.append_projection(projection)
+  match projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("sla-manager-001"))
+      assert_true(latest.payload.contains("overdue"))
+      assert_true(latest.payload.contains("notification_requested"))
+      assert_true(latest.payload.contains("false"))
+    }
+    None => fail("expected SLA workflow projection")
+  }
+}
+
+///|
 test "workflow assignment attachment validates identity and remains non-authorizing" {
   let definition = ProcessDefinition::new(
     process_id="assignment-identity-definition",

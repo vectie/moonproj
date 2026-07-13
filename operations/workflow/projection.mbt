@@ -60,12 +60,63 @@ fn assignments_json(assignments : Array[WorkflowAssignment]) -> Json {
 }
 
 ///|
+fn sla_policies_json(policies : Array[WorkflowSlaPolicy]) -> Json {
+  let values : Array[Json] = []
+  for policy in policies {
+    values.push(
+      Json::object({
+        "policy_id": Json::string(policy.policy_id),
+        "process_id": Json::string(policy.process_id),
+        "step_id": Json::string(policy.step_id),
+        "due_after_seconds": Json::number(
+          policy.due_after_seconds.to_double(),
+          repr=policy.due_after_seconds.to_string(),
+        ),
+        "escalation_actor_id": Json::string(policy.escalation_actor_id),
+        "scope": Json::string(policy.scope),
+      }),
+    )
+  }
+  Json::array(values)
+}
+
+///|
+fn sla_evidence_json(evidence : Array[WorkflowEscalationEvidence]) -> Json {
+  let values : Array[Json] = []
+  for item in evidence {
+    values.push(
+      Json::object({
+        "escalation_id": Json::string(item.escalation_id),
+        "instance_id": Json::string(item.instance_id),
+        "policy_id": Json::string(item.policy_id),
+        "step_id": Json::string(item.step_id),
+        "escalation_actor_id": Json::string(item.escalation_actor_id),
+        "due_at_epoch": Json::number(
+          item.due_at_epoch.to_double(),
+          repr=item.due_at_epoch.to_string(),
+        ),
+        "observed_at_epoch": Json::number(
+          item.observed_at_epoch.to_double(),
+          repr=item.observed_at_epoch.to_string(),
+        ),
+        "state": Json::string(sla_state_name(item.state)),
+        "notification_requested": Json::boolean(item.notification_requested),
+        "authority_granted": Json::boolean(item.authority_granted),
+        "approves_instance": Json::boolean(item.approves_instance),
+      }),
+    )
+  }
+  Json::array(values)
+}
+
+///|
 fn process_definition_payload(definition : ProcessDefinition) -> String {
   Json::object({
     "process_id": Json::string(definition.process_id),
     "process_key": Json::string(definition.process_key),
     "steps": steps_json(definition.steps),
     "assignments": assignments_json(definition.assignments),
+    "sla_policies": sla_policies_json(definition.sla_policies),
   }).stringify()
 }
 
@@ -177,6 +228,8 @@ fn process_instance_payload(instance : ProcessInstance) -> String {
     "status": Json::string(process_status_name(instance.status)),
     "steps": steps_json(instance.steps),
     "assignments": assignments_json(instance.assignments),
+    "sla_policies": sla_policies_json(instance.sla_policies),
+    "sla_evidence": sla_evidence_json(instance.sla_evidence),
     "actions": actions_json(instance.actions),
   }).stringify()
 }

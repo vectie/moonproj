@@ -49,5 +49,7 @@ Approval-execution enforcement is still a separate decision-time capability
 check; a valid assignee without that capability is rejected. A delegated
 decision can now use `AccessDirectory::issue_delegated_grant` through the
 workflow boundary; its effective window, revocation, assignee identity, and
-delegation ID are retained as decision evidence. SLA escalation and
-segregation of duties remain later workflow gates.
+delegation ID are retained as decision evidence. Workflow SLA policies now
+produce authority-checked due/overdue observation evidence without changing
+approval state; notification delivery and segregation of duties remain later
+workflow integrations.

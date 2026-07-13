@@ -44,11 +44,45 @@ pub(all) struct WorkflowAssignmentAttachment {
 } derive(Debug, Eq)
 
 ///|
+pub(all) struct WorkflowSlaPolicy {
+  policy_id : String
+  process_id : String
+  step_id : String
+  due_after_seconds : Int64
+  escalation_actor_id : String
+  scope : String
+} derive(Debug, Eq)
+
+///|
+pub(all) enum WorkflowSlaState {
+  Due
+  Overdue
+} derive(Debug, Eq)
+
+///|
+/// Observation-only escalation evidence. It never grants the escalation
+/// target authority and never changes workflow approval state.
+pub(all) struct WorkflowEscalationEvidence {
+  escalation_id : String
+  instance_id : String
+  policy_id : String
+  step_id : String
+  escalation_actor_id : String
+  due_at_epoch : Int64
+  observed_at_epoch : Int64
+  state : WorkflowSlaState
+  notification_requested : Bool
+  authority_granted : Bool
+  approves_instance : Bool
+} derive(Debug, Eq)
+
+///|
 pub(all) struct ProcessDefinition {
   process_id : String
   process_key : String
   steps : Array[ApprovalStep]
   assignments : Array[WorkflowAssignment]
+  sla_policies : Array[WorkflowSlaPolicy]
 } derive(Debug, Eq)
 
 ///|
@@ -68,6 +102,8 @@ pub(all) struct ProcessInstance {
   subject_id : String
   steps : Array[ApprovalStep]
   assignments : Array[WorkflowAssignment]
+  sla_policies : Array[WorkflowSlaPolicy]
+  sla_evidence : Array[WorkflowEscalationEvidence]
   current_step : Int
   status : ProcessStatus
   actions : Array[ApprovalAction]
@@ -82,6 +118,13 @@ pub(all) suberror WorkflowError {
   AssignmentProcessMismatch
   DuplicateAssignment
   UnknownAssignment
+  SlaProcessMismatch
+  UnknownSlaPolicy
+  DuplicateSlaPolicy
+  InvalidSla
+  SlaNotCurrent
+  SlaEvidenceIdentity
+  DuplicateSlaEvidence
   NotAssigned
   InvalidWeight
   DuplicateStep
@@ -121,7 +164,7 @@ pub fn ProcessDefinition::new(
       }
     }
   }
-  { process_id, process_key, steps, assignments: [] }
+  { process_id, process_key, steps, assignments: [], sla_policies: [] }
 }
 
 ///|
@@ -210,6 +253,57 @@ pub fn ProcessDefinition::attach_assignment(
 }
 
 ///|
+/// Add an explicit due-time and escalation target to a workflow step. The
+/// policy is configuration only; observing an overdue step never issues a
+/// grant or approves an instance.
+pub fn ProcessDefinition::add_sla_policy(
+  self : ProcessDefinition,
+  policy : WorkflowSlaPolicy,
+  actor_id~ : String,
+  grant~ : @foundation.AuthorityGrant,
+) -> ProcessDefinition raise WorkflowError {
+  if policy.policy_id.trim() == "" ||
+    policy.step_id.trim() == "" ||
+    policy.escalation_actor_id.trim() == "" ||
+    policy.scope.trim() == "" {
+    raise WorkflowError::InvalidSla
+  }
+  if policy.process_id != self.process_id {
+    raise WorkflowError::SlaProcessMismatch
+  }
+  if policy.due_after_seconds <= 0L {
+    raise WorkflowError::InvalidSla
+  }
+  let mut step_found = false
+  for step in self.steps {
+    if step.step_id == policy.step_id {
+      step_found = true
+    }
+  }
+  if !step_found {
+    raise WorkflowError::UnknownStep
+  }
+  for existing in self.sla_policies {
+    if existing.policy_id == policy.policy_id {
+      raise WorkflowError::DuplicateSlaPolicy
+    }
+  }
+  @foundation.require_authority(
+    grant,
+    principal_id=grant.principal_id,
+    actor_id~,
+    capability="workflow:sla:add",
+    scope=policy.scope,
+    amount_minor=0,
+  ) catch {
+    error => raise WorkflowError::NotAuthorized(error)
+  }
+  let sla_policies = self.sla_policies.copy()
+  sla_policies.push(policy)
+  { ..self, sla_policies, }
+}
+
+///|
 /// Return durable identity evidence for an assignment that is already
 /// attached to this definition. This is deliberately separate from
 /// `AuthorityGrant`: attachment eligibility and decision capability are two
@@ -267,10 +361,142 @@ pub fn start_process(
     subject_id,
     steps: definition.steps.copy(),
     assignments: definition.assignments.copy(),
+    sla_policies: definition.sla_policies.copy(),
+    sla_evidence: [],
     current_step: 0,
     status: ProcessStatus::Pending,
     actions: [],
   }
+}
+
+///|
+fn sla_state_name(state : WorkflowSlaState) -> String {
+  match state {
+    WorkflowSlaState::Due => "due"
+    WorkflowSlaState::Overdue => "overdue"
+  }
+}
+
+///|
+/// Evaluate a policy at an explicit observation time. This pure operation
+/// produces deterministic evidence and has no notification or approval side
+/// effects.
+pub fn ProcessInstance::evaluate_sla(
+  self : ProcessInstance,
+  policy_id~ : String,
+  started_at_epoch~ : Int64,
+  observed_at_epoch~ : Int64,
+) -> WorkflowEscalationEvidence raise WorkflowError {
+  if policy_id.trim() == "" ||
+    started_at_epoch < 0L ||
+    observed_at_epoch < started_at_epoch {
+    raise WorkflowError::InvalidSla
+  }
+  if self.status != ProcessStatus::Pending ||
+    self.current_step >= self.steps.length() {
+    raise WorkflowError::SlaNotCurrent
+  }
+  let mut selected : WorkflowSlaPolicy? = None
+  for policy in self.sla_policies {
+    if policy.policy_id == policy_id {
+      selected = Some(policy)
+    }
+  }
+  let policy = match selected {
+    Some(value) => value
+    None => raise WorkflowError::UnknownSlaPolicy
+  }
+  if self.steps[self.current_step].step_id != policy.step_id {
+    raise WorkflowError::SlaNotCurrent
+  }
+  let due_at_epoch = started_at_epoch + policy.due_after_seconds
+  if due_at_epoch < started_at_epoch {
+    raise WorkflowError::InvalidSla
+  }
+  let state = if observed_at_epoch >= due_at_epoch {
+    WorkflowSlaState::Overdue
+  } else {
+    WorkflowSlaState::Due
+  }
+  {
+    escalation_id: "workflow-escalation:" +
+    self.instance_id +
+    ":" +
+    policy.policy_id +
+    ":" +
+    observed_at_epoch.to_string(),
+    instance_id: self.instance_id,
+    policy_id: policy.policy_id,
+    step_id: policy.step_id,
+    escalation_actor_id: policy.escalation_actor_id,
+    due_at_epoch,
+    observed_at_epoch,
+    state,
+    notification_requested: state == WorkflowSlaState::Overdue,
+    authority_granted: false,
+    approves_instance: false,
+  }
+}
+
+///|
+/// Persist an SLA observation under a separate observation capability. This
+/// does not change status, current step, actions, or authority grants.
+pub fn ProcessInstance::record_sla_evidence(
+  self : ProcessInstance,
+  evidence : WorkflowEscalationEvidence,
+  actor_id~ : String,
+  grant~ : @foundation.AuthorityGrant,
+) -> ProcessInstance raise WorkflowError {
+  if evidence.instance_id != self.instance_id ||
+    evidence.escalation_id.trim() == "" ||
+    evidence.policy_id.trim() == "" ||
+    evidence.step_id.trim() == "" ||
+    evidence.escalation_actor_id.trim() == "" ||
+    evidence.due_at_epoch < 0L ||
+    evidence.observed_at_epoch < 0L ||
+    (
+      evidence.state == WorkflowSlaState::Due &&
+      evidence.observed_at_epoch >= evidence.due_at_epoch
+    ) ||
+    (
+      evidence.state == WorkflowSlaState::Overdue &&
+      evidence.observed_at_epoch < evidence.due_at_epoch
+    ) ||
+    evidence.notification_requested !=
+    (evidence.state == WorkflowSlaState::Overdue) ||
+    evidence.authority_granted ||
+    evidence.approves_instance {
+    raise WorkflowError::SlaEvidenceIdentity
+  }
+  let mut policy_found = false
+  for policy in self.sla_policies {
+    if policy.policy_id == evidence.policy_id &&
+      policy.step_id == evidence.step_id &&
+      policy.escalation_actor_id == evidence.escalation_actor_id {
+      policy_found = true
+    }
+  }
+  if !policy_found {
+    raise WorkflowError::SlaEvidenceIdentity
+  }
+  for existing in self.sla_evidence {
+    if existing.escalation_id == evidence.escalation_id {
+      raise WorkflowError::DuplicateSlaEvidence
+    }
+  }
+  @foundation.require_authority(
+    grant,
+    principal_id=self.principal_id,
+    actor_id~,
+    capability="workflow:sla:observe",
+    scope=self.subject_id,
+    amount_minor=0,
+  ) catch {
+    error => raise WorkflowError::NotAuthorized(error)
+  }
+  let sla_evidence = self.sla_evidence.copy()
+  sla_evidence.push(evidence)
+  { ..self, sla_evidence, }
 }
 
 ///|
