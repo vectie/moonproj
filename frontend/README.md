@@ -96,6 +96,13 @@ metadata, digest preview/log evidence, and provider discovery. The export has
 no notification source rows, so successful reads show explicit empty-source
 states; message acknowledgement, subscription/configuration writes, digest
 dispatch, provider calls, consent/retry policy, and delivery remain gated.
+The authenticated `/ocr-config` screen now reads provider definitions,
+current scene, and redacted configuration-key status without invoking OCR.
+`/error-log` reads bounded source error metadata while redacting IP addresses
+and stack traces. The export has no `/sys_param` or `/sys_error_log` rows,
+so successful reads show explicit definition/empty-source states; provider
+execution, configuration writes, retention, production identity, and
+super-user ownership remain gated.
 The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

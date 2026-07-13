@@ -10,7 +10,9 @@
   "target_dynamic_prefix_count": 6,
   "target_state_counts": {
     "connected_admin_audit_read": 1,
+    "connected_admin_error_read": 1,
     "connected_admin_health_read": 1,
+    "connected_admin_ocr_read": 1,
     "connected_admin_read": 1,
     "connected_attachment_read": 1,
     "connected_cashflow_read": 1,
@@ -42,13 +44,15 @@
     "connected_warning_read": 2,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 1,
-    "fixture_backed_read_only": 7,
+    "fixture_backed_read_only": 5,
     "public": 1,
     "read_only_public": 1
   },
   "api_state_counts": {
     "connected_admin_audit_read": 1,
+    "connected_admin_error_read": 1,
     "connected_admin_health_read": 1,
+    "connected_admin_ocr_read": 1,
     "connected_admin_read": 1,
     "connected_attachment_read": 1,
     "connected_cashflow_read": 1,
@@ -78,7 +82,7 @@
     "connected_tender_command": 1,
     "connected_warning_read": 2,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 10
+    "read_only_fixture_no_source_api": 8
   },
   "routes": [
     {
@@ -647,13 +651,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "ocr_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_admin_ocr_read",
       "source_api_module": "admin",
       "source_api_handler_count": 18,
       "source_api_read_handler_count": 13,
       "source_api_mutation_handler_count": 5,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_admin_ocr_read",
+      "required_next": "accept_browser_ocr_scenario_and_super_user_owner"
     },
     {
       "path": "/reports",
@@ -759,13 +763,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "error_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_admin_error_read",
       "source_api_module": "admin",
       "source_api_handler_count": 18,
       "source_api_read_handler_count": 13,
       "source_api_mutation_handler_count": 5,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_admin_error_read",
+      "required_next": "accept_browser_error_log_scenario_and_super_user_owner"
     },
     {
       "path": "/system-health",
@@ -1032,8 +1036,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_admin_error_read",
+      "required_next": "accept_browser_error_log_scenario_and_super_user_owner"
     },
     {
       "module": "admin",
@@ -1046,8 +1050,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_admin_ocr_read",
+      "required_next": "accept_browser_ocr_scenario_and_super_user_owner"
     },
     {
       "module": "admin",

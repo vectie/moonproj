@@ -312,6 +312,38 @@ def main() -> int:
             if notification_path == "/api/company/notify/digest/preview" and notification_payload.get("data", {}).get("total") != 0:
                 raise SmokeError(f"source notification digest preview failed: {notification_path}: {notification_payload}")
             notification_read_payloads[notification_path] = notification_payload
+        status, ocr_status_payload = request(
+            args.port,
+            "/api/company/admin/ocr/status",
+            token=token,
+        )
+        ocr_data = (ocr_status_payload or {}).get("data", {})
+        if (
+            status != 200
+            or ocr_status_payload is None
+            or ocr_data.get("provider") != "mock"
+            or len(ocr_data.get("providers", [])) != 6
+            or ocr_status_payload.get("source_coverage", {}).get("sys_param") != 0
+            or ocr_status_payload.get("provider_execution") is not False
+            or ocr_status_payload.get("secret_values_redacted") is not True
+        ):
+            raise SmokeError(f"source OCR status read failed: {status} {ocr_status_payload}")
+        status, error_log_payload = request(
+            args.port,
+            "/api/company/admin/error-log?limit=100",
+            token=token,
+        )
+        error_log_data = (error_log_payload or {}).get("data", {})
+        if (
+            status != 200
+            or error_log_payload is None
+            or error_log_data.get("total") != 0
+            or error_log_data.get("rows") != []
+            or error_log_payload.get("source_coverage", {}).get("sys_error_log") != 0
+            or error_log_payload.get("network_fields_redacted") is not True
+            or error_log_payload.get("stack_included") is not False
+        ):
+            raise SmokeError(f"source error log read failed: {status} {error_log_payload}")
         status, cashflow_payload = request(
             args.port,
             "/api/company/cashflow/forecast?months=6&projGuid=proj-0001",
@@ -2125,6 +2157,12 @@ def main() -> int:
                     "notification_configured_keys": len(notification_config_data.get("configured", [])),
                     "notification_outbox_rows": len(notification_read_payloads["/api/company/notify/email-outbox"].get("data", [])),
                     "notification_digest_rows": len(notification_read_payloads["/api/company/notify/digest/log"].get("data", [])),
+                    "ocr_provider": ocr_data.get("provider"),
+                    "ocr_provider_rows": len(ocr_data.get("providers", [])),
+                    "ocr_configured_keys": ocr_data.get("configuredKeyCount"),
+                    "error_log_rows": error_log_data.get("total"),
+                    "error_log_today_rows": error_log_data.get("todayCount"),
+                    "error_log_5xx_rows": error_log_data.get("fiveXxCount"),
                     "cashflow_series_rows": len(cashflow_data.get("series", [])),
                     "cashflow_planned_total": cashflow_data.get("totals", {}).get("plannedTotal"),
                     "cashflow_missing_source_tables": len(cashflow_payload.get("missing_or_empty_source_tables", [])),

@@ -61,6 +61,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
+* ``/api/company/admin/ocr/status`` and ``/api/company/admin/error-log`` (GET,
+  source-compatible metadata reads; OCR execution and raw error-network fields
+  remain gated)
 * ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast-v3`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast/detail`` (GET, source-compatible drill-down)
@@ -358,6 +361,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "audit_receipt",
             "attachment_metadata_read",
             "notification_metadata_read",
+            "ocr_status_read",
+            "error_log_metadata_read",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -6593,6 +6598,40 @@ NOTIFICATION_CONFIG_KEYS = (
 )
 
 
+OCR_SOURCE_TABLES = {
+    "sys_param",
+    "sys_user",
+}
+
+ERROR_LOG_SOURCE_TABLES = {
+    "sys_error_log",
+    "sys_user",
+}
+
+OCR_PROVIDER_DEFINITIONS = (
+    ("mock", "演示 Mock", False, ()),
+    ("paddle", "本地 PaddleOCR", False, ()),
+    ("http", "自定义 HTTP 端点", True, ("ai.ocr.http.url",)),
+    (
+        "baidu",
+        "百度 OCR",
+        True,
+        ("ai.ocr.baidu.api_key", "ai.ocr.baidu.secret_key"),
+    ),
+    ("aliyun", "阿里云 OCR", True, ("ai.ocr.aliyun.app_code",)),
+    (
+        "tencent",
+        "腾讯云 OCR",
+        True,
+        (
+            "ai.ocr.tencent.secret_id",
+            "ai.ocr.tencent.secret_key",
+            "ai.ocr.tencent.region",
+        ),
+    ),
+)
+
+
 def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
@@ -8585,6 +8624,140 @@ def notification_source_llm_providers(pool: PsqlPool, max_rows: int) -> dict[str
         "data": [],
         "provider_execution": False,
         **_notification_source_metadata(coverage),
+    }
+
+
+def _ocr_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "secret_values_redacted": True,
+    }
+
+
+def ocr_source_status(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), OCR_SOURCE_TABLES))
+        for table in sorted(OCR_SOURCE_TABLES)
+    }
+    params = {
+        str(row["payload"].get("pk") or row["payload"].get("key") or ""): str(
+            row["payload"].get("pv") or row["payload"].get("value") or ""
+        )
+        for row in _raw_source_rows(pool, "sys_param", max(max_rows, 500), OCR_SOURCE_TABLES)
+    }
+    provider = params.get("ai.ocr.provider") or "mock"
+    scene = params.get("ai.ocr.scene") or "auto"
+    providers: list[dict[str, Any]] = []
+    configured_count = 0
+    for code, label, needs_key, keys in OCR_PROVIDER_DEFINITIONS:
+        key_status: dict[str, str] = {}
+        for key in keys:
+            if params.get(key):
+                key_status[key] = "已配置"
+                configured_count += 1
+            else:
+                key_status[key] = "(未配)"
+        providers.append(
+            {
+                "code": code,
+                "label": label,
+                "needsKey": needs_key,
+                "current": code == provider,
+                "keyStatus": key_status,
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "provider": provider,
+            "providers": providers,
+            "scene": scene,
+            "configuredKeyCount": configured_count,
+            "note": "OCR 状态只读；provider 执行、远程调用和密钥写入仍需授权。",
+            "sceneOptions": [
+                {"code": "auto", "label": "自动(按 bizType+文件名猜)"},
+                {"code": "invoice", "label": "发票识别(精确字段)"},
+                {"code": "contract", "label": "合同/通用文本"},
+            ],
+        },
+        **_ocr_source_metadata(coverage),
+    }
+
+
+def _error_log_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "network_fields_redacted": True,
+        "stack_included": False,
+    }
+
+
+def error_log_source_rows(
+    pool: PsqlPool,
+    keyword: str | None,
+    limit: int,
+    max_rows: int,
+) -> dict[str, Any]:
+    if keyword is not None and len(keyword) > 128:
+        raise ValueError("invalid error log keyword")
+    if limit < 1 or limit > 500:
+        raise ValueError("invalid error log limit")
+    coverage = {
+        table: len(
+            _raw_source_rows(pool, table, max(max_rows, 500), ERROR_LOG_SOURCE_TABLES)
+        )
+        for table in sorted(ERROR_LOG_SOURCE_TABLES)
+    }
+    raw = _raw_source_rows(pool, "sys_error_log", max(max_rows, 500), ERROR_LOG_SOURCE_TABLES)
+    filtered: list[dict[str, Any]] = []
+    for source in raw:
+        payload = source["payload"]
+        path = _notification_text(payload, "path")
+        message = _notification_text(payload, "error_message", "errorMessage")
+        if keyword and keyword.casefold() not in (path + " " + message).casefold():
+            continue
+        status = _notification_int(payload, "status")
+        filtered.append(
+            {
+                "errId": _notification_text(payload, "err_id", "errId", fallback=source["record_id"]),
+                "occurredAt": _notification_text(payload, "occurred_at", "occurredAt"),
+                "userId": _notification_text(payload, "user_id", "userId"),
+                "method": _notification_text(payload, "method"),
+                "path": path,
+                "status": status,
+                "errorMessage": message,
+                "ip": "已脱敏" if _notification_text(payload, "ip") else "",
+                "sourceKind": "imported",
+            }
+        )
+    filtered.sort(key=lambda item: (str(item["occurredAt"]), str(item["errId"])), reverse=True)
+    today_prefix = date.today().isoformat()
+    today_count = sum(1 for row in filtered if str(row["occurredAt"]).startswith(today_prefix))
+    five_xx_count = sum(1 for row in filtered if int(row["status"]) >= 500)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "total": len(filtered),
+            "rows": filtered[: min(limit, max_rows)],
+            "todayCount": today_count,
+            "fiveXxCount": five_xx_count,
+        },
+        **_error_log_source_metadata(coverage),
     }
 
 
@@ -10745,6 +10918,25 @@ def handler_factory(
                 elif parsed.path == "/api/company/marketing/materials":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, marketing_source_materials(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/ocr/status":
+                    response(self, 200, ocr_source_status(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/error-log":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["100"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid error log limit") from error
+                    response(
+                        self,
+                        200,
+                        error_log_source_rows(
+                            pool,
+                            query.get("keyword", [None])[0],
+                            limit,
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif parsed.path == "/api/company/notify/messages":
                     query = parse_qs(parsed.query)
                     try:

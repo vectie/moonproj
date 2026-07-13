@@ -727,6 +727,20 @@ struct Model {
   notify_digest_count : String
   notify_missing_table_count : String
   notify_note : String
+  ocr_loaded : Bool
+  ocr_provider : String
+  ocr_scene : String
+  ocr_provider_rows : Array[Array[String]]
+  ocr_configured_count : String
+  ocr_missing_table_count : String
+  ocr_note : String
+  error_loaded : Bool
+  error_rows : Array[Array[String]]
+  error_total : String
+  error_today_count : String
+  error_five_xx_count : String
+  error_missing_table_count : String
+  error_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -916,6 +930,10 @@ enum Msg {
   NotifyDigestLoaded(String)
   NotifyProvidersLoaded(String)
   NotifyLoadFailed(String)
+  OcrLoaded(String)
+  OcrLoadFailed
+  ErrorLogLoaded(String)
+  ErrorLogLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1145,6 +1163,20 @@ fn initial_model() -> Model {
     notify_digest_count: "0",
     notify_missing_table_count: "0",
     notify_note: "通知配置源读模型尚未加载 · 使用设计快照",
+    ocr_loaded: false,
+    ocr_provider: "mock",
+    ocr_scene: "auto",
+    ocr_provider_rows: [],
+    ocr_configured_count: "0",
+    ocr_missing_table_count: "0",
+    ocr_note: "OCR 源读模型尚未加载 · 使用设计快照",
+    error_loaded: false,
+    error_rows: [],
+    error_total: "0",
+    error_today_count: "0",
+    error_five_xx_count: "0",
+    error_missing_table_count: "0",
+    error_note: "错误日志源读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -3244,6 +3276,104 @@ fn notify_digest_from_body(
 }
 
 ///|
+fn ocr_from_body(
+  body : String,
+) -> (Bool, String, String, Array[Array[String]], String, String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "providers") {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "code", "—"),
+                  json_object_text(row, "label", "—"),
+                  if json_object_text(row, "current", "false") == "true" {
+                    "当前"
+                  } else {
+                    "—"
+                  },
+                  if json_object_text(row, "needsKey", "false") == "true" {
+                    "需密钥"
+                  } else {
+                    "无需密钥"
+                  },
+                  "状态键已脱敏",
+                ])
+              _ => ()
+            }
+          }
+          (
+            true,
+            json_object_text(data, "provider", "mock"),
+            json_object_text(data, "scene", "auto"),
+            rows,
+            json_object_text(data, "configuredKeyCount", "0"),
+            missing,
+          )
+        }
+        _ => (false, "mock", "auto", rows, "0", missing)
+      }
+    }
+    _ => (false, "mock", "auto", rows, "0", "0")
+  }
+}
+
+///|
+fn error_logs_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String, String, String, String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "errId", "—"),
+                  json_object_text(row, "occurredAt", "—"),
+                  json_object_text(row, "method", "—"),
+                  json_object_text(row, "path", "—"),
+                  json_object_text(row, "status", "0"),
+                  json_object_text(row, "errorMessage", "—"),
+                  if json_object_text(row, "ip", "") == "" {
+                    "—"
+                  } else {
+                    "已脱敏"
+                  },
+                ])
+              _ => ()
+            }
+          }
+          (
+            true,
+            rows,
+            json_object_text(data, "total", "0"),
+            json_object_text(data, "todayCount", "0"),
+            json_object_text(data, "fiveXxCount", "0"),
+            missing,
+          )
+        }
+        _ => (false, rows, "0", "0", "0", missing)
+      }
+    }
+    _ => (false, rows, "0", "0", "0", "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -4015,6 +4145,26 @@ fn load_notify(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
+fn load_ocr(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/ocr/status").expect_text(result => {
+    match result {
+      Ok(body) => emit(OcrLoaded(body))
+      Err(_) => emit(OcrLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_error_log(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/error-log?limit=100").expect_text(result => {
+    match result {
+      Ok(body) => emit(ErrorLogLoaded(body))
+      Err(_) => emit(ErrorLogLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -4610,6 +4760,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_inbox(emit)
       } else if path == "/notify-config" {
         load_notify(emit, "subscriptions")
+      } else if path == "/ocr-config" {
+        load_ocr(emit)
+      } else if path == "/error-log" {
+        load_error_log(emit)
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -6418,6 +6572,84 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           notify_note: "通知 " +
           family +
           " 源读模型不可用 · 使用设计快照",
+        },
+      )
+    OcrLoaded(body) => {
+      let (loaded, provider, scene, rows, configured, missing) = ocr_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          ocr_loaded: loaded,
+          ocr_provider: provider,
+          ocr_scene: scene,
+          ocr_provider_rows: rows,
+          ocr_configured_count: configured,
+          ocr_missing_table_count: missing,
+          ocr_note: if loaded {
+            "已加载 PostgreSQL OCR 配置状态 · 不执行识别 · 密钥已脱敏 · 空源表 " +
+            missing
+          } else {
+            "OCR 配置响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    OcrLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          ocr_loaded: false,
+          ocr_provider_rows: [],
+          ocr_note: "OCR 配置读模型不可用 · 使用设计快照",
+        },
+      )
+    ErrorLogLoaded(body) => {
+      let (loaded, rows, total, today, five_xx, missing) = error_logs_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          error_loaded: loaded,
+          error_rows: rows,
+          error_total: if loaded {
+            total
+          } else {
+            "0"
+          },
+          error_today_count: if loaded {
+            today
+          } else {
+            "0"
+          },
+          error_five_xx_count: if loaded {
+            five_xx
+          } else {
+            "0"
+          },
+          error_missing_table_count: missing,
+          error_note: if loaded {
+            "已加载 PostgreSQL 错误日志元数据 · IP/堆栈已脱敏 · 空源表 " +
+            missing
+          } else {
+            "错误日志响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    ErrorLogLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          error_loaded: false,
+          error_rows: [],
+          error_note: "错误日志读模型不可用 · 使用设计快照",
         },
       )
     ProfileLoaded(body) => {
@@ -12631,53 +12863,122 @@ fn notify_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn ocr_view() -> @html.Html {
+fn ocr_view(model : Model) -> @html.Html {
+  let provider_rows = if model.ocr_loaded {
+    if model.ocr_provider_rows.length() == 0 {
+      [["—", "—", "—", "—", "无源记录"]]
+    } else {
+      model.ocr_provider_rows
+    }
+  } else {
+    [
+      ["mock", "演示 Mock", "当前", "无需密钥", "设计快照"],
+      ["paddle", "本地 PaddleOCR", "—", "无需密钥", "设计快照"],
+      ["http", "自定义 HTTP 端点", "—", "需密钥", "设计快照"],
+    ]
+  }
+  let task_rows = if model.ocr_loaded {
+    [["—", "—", "—", "—", "—", "无源记录"]]
+  } else {
+    [
+      [
+        "OCR-260713-018", "主体结构施工合同.pdf", "合同", "32", "0.96",
+        "已完成",
+      ],
+      [
+        "OCR-260712-008", "成都出差发票-01.pdf", "发票", "18", "0.91", "待确认",
+      ],
+      [
+        "OCR-260711-004", "销售合同扫描件.jpg", "合同", "26", "0.78", "需复核",
+      ],
+    ]
+  }
   page_shell(
     "OCR 配置",
     "SYSTEM / OCR",
     "配置发票、合同和身份证的 OCR 服务方，并在写入业务单据前保留人工确认。",
     [
-      button(class="erp-secondary-btn", "测试连接"),
-      button(class="erp-primary-btn", "保存配置"),
+      button(class="erp-secondary-btn", "测试连接（待授权）"),
+      button(class="erp-primary-btn", "保存配置（待授权）"),
     ],
     div <| [
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("OCR 配置 / 测试"),
-          span(class="erp-info-tag", "AI-4"),
+          span(
+            class="erp-info-tag",
+            if model.ocr_loaded {
+              "PostgreSQL 源读"
+            } else {
+              "AI-4"
+            },
+          ),
         ],
         div(class="erp-form-grid") <| [
-          form_field("服务方", "本地 PaddleOCR", "服务方"),
           form_field(
-            "远程 OCR URL", "https://ocr.internal.example/v1", "远程 OCR URL",
+            "服务方",
+            if model.ocr_loaded {
+              model.ocr_provider
+            } else {
+              "本地 PaddleOCR"
+            },
+            "服务方",
+          ),
+          form_field(
+            "远程 OCR URL",
+            if model.ocr_loaded {
+              "源配置已隐藏"
+            } else {
+              "https://ocr.internal.example/v1"
+            },
+            "远程 OCR URL",
           ),
           form_field(
             "API Key", "••••••••", "由密钥服务托管",
           ),
-          form_field("合同识别", "启用", "合同识别"),
-          form_field("发票识别", "启用", "发票识别"),
+          form_field(
+            "场景",
+            if model.ocr_loaded {
+              model.ocr_scene
+            } else {
+              "auto"
+            },
+            "识别场景",
+          ),
+          form_field(
+            "已配置密钥",
+            if model.ocr_loaded {
+              model.ocr_configured_count
+            } else {
+              "—"
+            },
+            "只返回状态，不返回密钥",
+          ),
           form_field("人工确认阈值", "0.85", "置信度"),
         ],
       ],
       table_panel(
+        "OCR 服务方",
+        if model.ocr_loaded {
+          model.ocr_note + " · 空源表 " + model.ocr_missing_table_count
+        } else {
+          "provider 失败自动回退 mock · 仅设计快照"
+        },
+        data_table(
+          ["代码", "服务方", "当前", "密钥要求", "状态"],
+          provider_rows,
+        ),
+      ),
+      table_panel(
         "最近识别任务",
-        "识别结果只产生草稿，不直接入账",
+        if model.ocr_loaded {
+          "源表未提供识别任务 · OCR 执行仍需授权"
+        } else {
+          "识别结果只产生草稿，不直接入账"
+        },
         data_table(
           ["任务", "文件", "类型", "字段数", "置信度", "状态"],
-          [
-            [
-              "OCR-260713-018", "主体结构施工合同.pdf", "合同", "32", "0.96",
-              "已完成",
-            ],
-            [
-              "OCR-260712-008", "成都出差发票-01.pdf", "发票", "18", "0.91",
-              "待确认",
-            ],
-            [
-              "OCR-260711-004", "销售合同扫描件.jpg", "合同", "26", "0.78",
-              "需复核",
-            ],
-          ],
+          task_rows,
         ),
       ),
     ],
@@ -12830,38 +13131,76 @@ fn audit_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn error_view() -> @html.Html {
+fn error_view(model : Model) -> @html.Html {
+  let rows = if model.error_loaded {
+    if model.error_rows.length() == 0 {
+      [["—", "—", "—", "—", "—", "无源记录", "—"]]
+    } else {
+      model.error_rows
+    }
+  } else {
+    [
+      [
+        "ERR-260713-003", "今天 09:16", "GET", "/api/company/projections", "500",
+        "projection query timeout", "已脱敏",
+      ],
+      [
+        "ERR-260712-018", "昨天 17:20", "POST", "/api/ocr/recognize", "422", "confidence below threshold",
+        "已脱敏",
+      ],
+      [
+        "ERR-260711-004", "2026-07-11", "PUT", "/api/notify/config", "403", "authority denied",
+        "已脱敏",
+      ],
+    ]
+  }
+  let total = if model.error_loaded { model.error_total } else { "3" }
+  let today = if model.error_loaded { model.error_today_count } else { "3" }
+  let five_xx = if model.error_loaded { model.error_five_xx_count } else { "1" }
   page_shell(
     "错误日志",
     "SYSTEM / ERRORS",
     "查看服务错误、HTTP 状态和业务上下文；原始网络标识不在公司投影中公开。",
-    [button(class="erp-secondary-btn", "清理已处理")],
+    [button(class="erp-secondary-btn", "清理已处理（待授权）")],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("今日错误", "3", "较昨日 -4", "metric-blue"),
-        metric("5xx", "1", "需运维关注", "metric-blue"),
+        metric(
+          "今日错误",
+          today,
+          if model.error_loaded {
+            "源表计数"
+          } else {
+            "较昨日 -4"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "5xx",
+          five_xx,
+          if model.error_loaded {
+            "源表计数"
+          } else {
+            "需运维关注"
+          },
+          "metric-blue",
+        ),
         metric("已处理", "98.6%", "本周", "metric-green"),
       ],
       filter_bar("路径 / 方法 / 状态码 / 错误内容"),
       table_panel(
         "错误记录",
-        "最近发生",
+        if model.error_loaded {
+          model.error_note +
+          " · 空源表 " +
+          model.error_missing_table_count +
+          " · 总计 " +
+          total
+        } else {
+          "最近发生"
+        },
         data_table(
           ["ID", "时间", "方法", "路径", "状态码", "错误", "IP"],
-          [
-            [
-              "ERR-260713-003", "今天 09:16", "GET", "/api/company/projections",
-              "500", "projection query timeout", "已脱敏",
-            ],
-            [
-              "ERR-260712-018", "昨天 17:20", "POST", "/api/ocr/recognize", "422",
-              "confidence below threshold", "已脱敏",
-            ],
-            [
-              "ERR-260711-004", "2026-07-11", "PUT", "/api/notify/config", "403",
-              "authority denied", "已脱敏",
-            ],
-          ],
+          rows,
         ),
       ),
     ],
@@ -13050,11 +13389,11 @@ fn business_view(
       "/attachments" => attachments_view(model)
       "/notify-config" => notify_view(model)
       "/audit-log" => audit_view(emit, model)
-      "/error-log" => error_view()
+      "/error-log" => error_view(model)
       "/system-health" => health_view(emit, model)
       "/users" => users_view(model)
       "/admin" => admin_view(emit, model)
-      "/ocr-config" => ocr_view()
+      "/ocr-config" => ocr_view(model)
       "/webhook-config" => webhook_view()
       "/profile" => profile_view(emit, model)
       _ => placeholder_view(path)

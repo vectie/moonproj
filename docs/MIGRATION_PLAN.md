@@ -388,6 +388,14 @@ scope coverage. Message acknowledgement, subscription/configuration writes,
 digest dispatch, provider calls, consent/retry policy, production identity,
 and owner acceptance remain separate gates.
 
+The next admin read family covers OCR configuration status and error-log
+metadata. `/ocr-config` loads provider definitions, current scene, and
+redacted key status without invoking an OCR provider; `/error-log` loads
+bounded error rows while redacting IP addresses and stack traces. The current
+export has no `sys_param` or `sys_error_log` rows, so successful reads preserve
+definition/empty-source states. OCR execution, configuration writes, error-log
+retention, production identity, and super-user ownership remain separate gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,

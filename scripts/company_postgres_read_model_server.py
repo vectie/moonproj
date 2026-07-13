@@ -7,6 +7,8 @@ no mutation endpoints.  It covers company, procurement/supplier-risk, sales/rece
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
 employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
 and non-secret profile reads.
+OCR status and error-log metadata reads redact secrets, IP addresses, and
+stacks; they never execute a provider or expose a mutation path.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
@@ -69,6 +71,8 @@ from company_postgres_service import (
     notification_source_digest_preview as service_notification_source_digest_preview,
     notification_source_digest_log as service_notification_source_digest_log,
     notification_source_llm_providers as service_notification_source_llm_providers,
+    ocr_source_status as service_ocr_source_status,
+    error_log_source_rows as service_error_log_source_rows,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -519,6 +523,18 @@ def notification_source_digest_log(args: argparse.Namespace) -> dict[str, Any]:
 
 def notification_source_llm_providers(args: argparse.Namespace) -> dict[str, Any]:
     return service_notification_source_llm_providers(_ReadModelPool(args), 500)
+
+
+def ocr_source_status(args: argparse.Namespace) -> dict[str, Any]:
+    return service_ocr_source_status(_ReadModelPool(args), 500)
+
+
+def error_log_source_rows(
+    args: argparse.Namespace,
+    keyword: str | None,
+    limit: int,
+) -> dict[str, Any]:
+    return service_error_log_source_rows(_ReadModelPool(args), keyword, limit, 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -1079,6 +1095,31 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/marketing/materials":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, marketing_source_materials(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/admin/ocr/status":
+                    response(self, 200, ocr_source_status(args))
+                    return
+                if parsed.path == "/api/company/admin/error-log":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["100"])[0])
+                    except (TypeError, ValueError):
+                        response(self, 422, {"error": "invalid error log limit"})
+                    else:
+                        if limit < 1 or limit > 500:
+                            response(self, 422, {"error": "invalid error log limit"})
+                        elif len(query.get("keyword", [""])[0]) > 128:
+                            response(self, 422, {"error": "invalid error log keyword"})
+                        else:
+                            response(
+                                self,
+                                200,
+                                error_log_source_rows(
+                                    args,
+                                    query.get("keyword", [None])[0],
+                                    limit,
+                                ),
+                            )
                     return
                 if parsed.path == "/api/company/notify/messages":
                     query = parse_qs(parsed.query)

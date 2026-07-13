@@ -25,6 +25,8 @@ The target now exposes source-compatible read boundaries:
 | Audit actions | `/api/company/admin/audit/actions` | source-compatible read |
 | Health table coverage | `/api/company/admin/health/tables` | source-coverage read |
 | BPM pool snapshot | `/api/company/admin/health/bpm-pool` | source-coverage read |
+| OCR provider status | `/api/company/admin/ocr/status` | metadata-only read; provider execution gated |
+| Error log metadata | `/api/company/admin/error-log` | bounded read; IP/stack redacted |
 
 The Rabbita `/system-health` screen now calls both health endpoints through the
 read-only PostgreSQL adapter. When the responses arrive it shows the 29-table
@@ -54,7 +56,10 @@ the `login × 2` action aggregate through the read-only adapter. It keeps the
 source IP redaction and append-only presentation; filtering, retention,
 deletion, and export authority remain separate gates.
 The target does not expose dictionary writes, audit deletion, role changes, or
-super-user elevation.
+super-user elevation. OCR status never executes a provider or returns secret
+values; error-log reads never return raw IP addresses or stack traces. The
+current export has no `sys_param` or `sys_error_log` rows, so both screens
+render explicit empty-source/definition states after successful reads.
 
 ## Evidence
 
@@ -68,7 +73,7 @@ super-user elevation.
 - Health tables enumerate 29 source tables and expose imported/empty status;
   the BPM pool explicitly reports zero source instances/actions and
   `authorizing=false`.
-- The parity matrix marks the seven connected source admin GET handlers as
+- The parity matrix marks the nine connected source admin GET handlers as
   `connected_admin_read`.
 - The parity matrix marks the source `GET /rbac/users` roster as
   `connected_rbac_user_read`; role and permission endpoints remain gated.
@@ -83,6 +88,9 @@ super-user elevation.
   control surface.
 - The parity matrix marks `/admin` as `connected_admin_read`; source
   super-user scope and owner acceptance remain required.
+- The parity matrix marks `/ocr-config` and `/error-log` as connected
+  metadata reads; provider execution, error-log retention, production identity,
+  and super-user owner acceptance remain required.
 
 ## Remaining gate
 

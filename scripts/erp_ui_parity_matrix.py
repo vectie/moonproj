@@ -13,7 +13,7 @@ identified, while the local expense/contract/payment-application/
 tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime, non-authorizing workflow-definition,
  cashflow, CBS, fund-plan, observed-warning, attachment-metadata, marketing,
- and notification metadata read boundaries. No
+ notification metadata, OCR-status, and error-log read boundaries. No
 workflow-instance mutation endpoint is inferred.
 """
 
@@ -227,6 +227,10 @@ def match_target(
             "inbox_view", "notify_view"
         }:
             return function, "connected_notification_read"
+        if path == "/ocr-config" and function == "ocr_view":
+            return function, "connected_admin_ocr_read"
+        if path == "/error-log" and function == "error_view":
+            return function, "connected_admin_error_read"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
@@ -334,6 +338,10 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_marketing_scenario_and_production_identity"
     if target_state == "connected_notification_read":
         return "accept_browser_notification_scenario_and_production_identity"
+    if target_state == "connected_admin_ocr_read":
+        return "accept_browser_ocr_scenario_and_super_user_owner"
+    if target_state == "connected_admin_error_read":
+        return "accept_browser_error_log_scenario_and_super_user_owner"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -531,6 +539,19 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_notification_read", "accept_browser_notification_scenario_and_production_identity"
     if (
+        handler["module"] == "admin"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/ocr/status", "/error-log"}
+    ):
+        return (
+            "connected_admin_ocr_read"
+            if handler["path"] == "/ocr/status"
+            else "connected_admin_error_read",
+            "accept_browser_ocr_scenario_and_super_user_owner"
+            if handler["path"] == "/ocr/status"
+            else "accept_browser_error_log_scenario_and_super_user_owner",
+        )
+    if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
@@ -611,6 +632,10 @@ def build_matrix(
             api_state = "connected_marketing_read"
         elif target_state == "connected_notification_read":
             api_state = "connected_notification_read"
+        elif target_state == "connected_admin_ocr_read":
+            api_state = "connected_admin_ocr_read"
+        elif target_state == "connected_admin_error_read":
+            api_state = "connected_admin_error_read"
         elif target_state == "connected_supplier_risk_read":
             api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":
@@ -724,7 +749,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, observed-warning, attachment-metadata, marketing, and notification metadata read verticals.",
+        "fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, and error-log read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",
