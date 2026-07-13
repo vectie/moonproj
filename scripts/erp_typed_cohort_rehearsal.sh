@@ -83,6 +83,24 @@ echo "task_state_exception_review=$TASK_STATE_EXCEPTION_REVIEW"
 
 run_cohort evidence erp_typed_evidence_promotion_plan.py
 run_cohort investment erp_investment_promotion_plan.py
+
+INVESTMENT_EVALUATION_RECEIPT="$WORK_DIR/investment-evaluation-promotion.json"
+moon run --target native cmd/investment_model_eval -- \
+  "$WORK_DIR/investment-promotion.json" "$INVESTMENT_EVALUATION_RECEIPT"
+echo "investment_evaluation_promotion=$INVESTMENT_EVALUATION_RECEIPT"
+INVESTMENT_EVALUATION_APPLY="$WORK_DIR/investment-evaluation-projection-apply.json"
+"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" > "$INVESTMENT_EVALUATION_APPLY"
+echo "investment_evaluation_projection_apply=$INVESTMENT_EVALUATION_APPLY"
+INVESTMENT_EVALUATION_PARITY="$WORK_DIR/investment-evaluation-projection-parity.json"
+"$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+  "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" "$INVESTMENT_EVALUATION_PARITY"
+echo "investment_evaluation_projection_parity=$INVESTMENT_EVALUATION_PARITY"
+INVESTMENT_EVALUATION_REPLAY="$WORK_DIR/investment-evaluation-projection-replay.json"
+"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" > "$INVESTMENT_EVALUATION_REPLAY"
+echo "investment_evaluation_projection_replay=$INVESTMENT_EVALUATION_REPLAY"
+
 run_cohort payment erp_payment_promotion_plan.py
 run_cohort users erp_user_promotion_plan.py
 run_cohort audit erp_audit_promotion_plan.py

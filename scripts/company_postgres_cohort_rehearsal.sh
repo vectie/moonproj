@@ -76,6 +76,11 @@ do
   apply_projection "$label" ""
 done
 
+if [ -f "$TYPED_WORK_DIR/investment-evaluation-promotion.json" ]; then
+  apply_projection investment-evaluation \
+    "$TYPED_WORK_DIR/investment-evaluation-promotion.json"
+fi
+
 if [ -n "$CBS_COST_MAPPING" ]; then
   python3 "$SCRIPT_DIR/erp_cbs_cost_link_plan.py" "$EXPORT_DIR" "$CBS_COST_MAPPING" "$WORK_DIR/cbs-cost-plan.json"
   moon run --target native cmd/cbs_link -- "$WORK_DIR/cbs-cost-plan.json" "$WORK_DIR/cbs-cost-receipt.json"

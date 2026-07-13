@@ -92,10 +92,12 @@ dependency invariant and must remain a separate, reviewed exception cohort.
 
 The investment-model cohort uses `scripts/erp_investment_promotion_plan.py`.
 The reviewed `principal_by_bu` mapping authorizes one version with 26 indexes;
-the index values are preserved as source representations, without pretending
-that units, formulas, tax, financing, or accounting semantics have already
-been approved. A missing principal or stray index quarantines the cohort before
-the native importer runs.
+the index values are preserved as source representations. After native import,
+`cmd/investment_model_eval` classifies explicit numeric/date values, checks
+parent totals, and derives only the known ratio metrics under a separate
+mapping-scoped receipt; unknown units, formulas, tax, financing, and accounting
+semantics remain evidence rather than approved effects. A missing principal or
+stray index quarantines the cohort before the native importer runs.
 
 The payment cohort uses `scripts/erp_payment_promotion_plan.py` and requires an
 explicit `commitment_state_by_contract` map. With the reviewed fixture map,

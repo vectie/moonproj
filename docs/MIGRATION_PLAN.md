@@ -57,8 +57,11 @@ The optional ninth cohort maps all six `wf_step_assignee` rows through
 `cmd/workflow_assignment`; its 109-projection/18-receipt rehearsal retains
 workflow configuration, validates explicit process/step attachment, and does
 not create permissions or approve instances.
+The typed investment cohort then runs `cmd/investment_model_eval` against its
+native promotion receipt, adding one mapping-scoped source-bound evaluation
+projection; the next complete typed run therefore reaches 110 projections.
 The optional eleventh cohort maps the one `jd_task_report` row through
-`cmd/delivery_progress`; the full rehearsal reaches 110 projections while
+`cmd/delivery_progress`; the next evaluation-aware full rehearsal reaches 111 projections while
 retaining the report as a draft-only delivery intake with acceptance,
 recognition, budget/cost consumption, and task-state mutation false.
 The optional fourteenth cohort maps only separately reviewed accepted delivery

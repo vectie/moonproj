@@ -29,7 +29,38 @@ pub(all) struct InvestmentModel {
 } derive(Eq, @debug.Debug)
 pub fn InvestmentModel::add_index(Self, ModelIndex, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ModelError
 pub fn InvestmentModel::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ModelError
+pub fn InvestmentModel::evaluate(Self, source_snapshot_id~ : String, mapping_version~ : String) -> ModelEvaluation raise ModelError
 pub fn InvestmentModel::new(ModelVersion) -> Self
+
+pub(all) struct ModelDerivedMetric {
+  metric_code : String
+  numerator_code : String
+  denominator_code : String
+  value_bps : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ModelEvaluatedValue {
+  index_id : String
+  full_code : String
+  unit : String?
+  raw_value : String?
+  numeric_value : Double?
+  kind : ModelValueKind
+} derive(@debug.Debug)
+
+pub(all) struct ModelEvaluation {
+  version_id : String
+  project_id : String
+  source_snapshot_id : String
+  mapping_version : String
+  values : Array[ModelEvaluatedValue]
+  derived_metrics : Array[ModelDerivedMetric]
+  parent_check_count : Int
+  mismatch_count : Int
+  issues : Array[String]
+  validated : Bool
+} derive(@debug.Debug)
+pub fn ModelEvaluation::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ModelError
 
 pub(all) struct ModelIndex {
   index_id : String
@@ -45,6 +76,13 @@ pub(all) struct ModelIndex {
   sort_order : Int
 } derive(Eq, @debug.Debug)
 pub fn ModelIndex::new(index_id~ : String, version_id~ : String, project_id~ : String, dimension~ : String, full_code~ : String, name~ : String, parent_code~ : String?, unit~ : String?, value_repr~ : String?, remark~ : String?, sort_order~ : Int) -> Self raise ModelError
+
+pub(all) enum ModelValueKind {
+  Numeric
+  DateSerial
+  Unparsed
+  Missing
+} derive(Eq, @debug.Debug)
 
 pub(all) struct ModelVersion {
   version_id : String
@@ -62,4 +100,3 @@ pub fn ModelVersion::new(version_id~ : String, project_id~ : String, principal_i
 // Type aliases
 
 // Traits
-

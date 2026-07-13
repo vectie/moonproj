@@ -35,7 +35,7 @@ existing ERP remains authoritative.
 | PostgreSQL target adapter | `scripts/company_postgres_target_apply.py` + `scripts/postgres_target_schema.sql` | Applies the validated redacted raw-envelope cohort to PostgreSQL only, with the version-4 catalog, JSONB payloads, conflict checks, transaction-bound inserts, logical row hashes, durable migration receipt, and idempotent replay. The local PostgreSQL 18 target contains 120 raw records; reviewed projection and accounting cohorts are applied through separate adapters. |
 | PostgreSQL aggregate projection adapter | `scripts/company_postgres_projection_apply.py` | Persists native domain-promotion receipts to PostgreSQL with immutable aggregate revisions, source-event conflict checks, cohort-scoped `Projected` receipts, table locking, and idempotent replay. The reviewed typed cohorts are executable against the same PostgreSQL catalog; cash, accounting posting, and target ownership remain separate gates. |
 | PostgreSQL accounting-link adapter | `scripts/company_postgres_accounting_link_apply.py` | Persists native accounting-link receipts with event/source/journal/principal uniqueness and conflict checks, cohort-scoped `AccountingLinked` receipts, and idempotent replay. It records traceability only; it does not post journals, release cash, or close periods. |
-| PostgreSQL typed-cohort rehearsal | `scripts/company_postgres_cohort_rehearsal.sh` + `scripts/company_postgres_projection_parity.py` | Re-runs raw staging, ten core typed cohorts, and optional CBS, workflow-assignment, delivery-progress, reviewed delivery-recognition, advance-offset, and payment-accounting cohorts against PostgreSQL, compares every receipt by target/source identity, and replays each cohort. The configured local target reports 120 raw records, 109 aggregate projections, 7 accounting links, and 19 receipts with zero replay inserts; reviewed delivery recognition remains opt-in because the available report has no accepted value. |
+| PostgreSQL typed-cohort rehearsal | `scripts/company_postgres_cohort_rehearsal.sh` + `scripts/company_postgres_projection_parity.py` | Re-runs raw staging, ten core typed cohorts, the source-bound investment-model evaluation, and optional CBS, workflow-assignment, delivery-progress, reviewed delivery-recognition, advance-offset, and payment-accounting cohorts against PostgreSQL, compares every receipt by target/source identity, and replays each cohort. The configured local target remains at 120 raw records, 109 aggregate projections, 7 accounting links, and 19 receipts until the new evaluation cohort is rerun; the next typed rehearsal adds one `investment_model_evaluation` projection. Reviewed delivery recognition remains opt-in because the available report has no accepted value. |
 | Rabbita ERP UI clone | `frontend/main` + `frontend/public` + `frontend/README.md` | Designer-facing ERP shell is ported with Rabbita 0.12.4 and Warren-compatible JS build output: source login gradient/copy, 220/64px dark navigation, nested ERP menu hierarchy, header actions, dashboard KPI/funnel/risk layout, and mobile drawer behavior. Major ERP route families render source-shaped fixtures for projects/plans/workflow, AI, sales, cost/procurement, finance, analysis, and system administration; representative project, contract, expense, loan, and supplier detail/new flows open as responsive forms. Inbox, attachments, health, users/roles, profile, notifications, OCR, and webhook routes now have distinct source-shaped screens, the report center opens a read-only `/share/:token`-shaped cost report preview, and detail routes accept arbitrary source IDs with the source dashboard redirect aliases retained. The dashboard calls the fixed PostgreSQL read-model summary endpoint with an offline snapshot fallback; command/mutation API wiring and final page-by-page parity remain pending. |
 | PostgreSQL read-model development API | `scripts/company_postgres_read_model_server.py` + `frontend/main` + `moonbit-community/rabbita/http` | Read-only `/api/health`, `/api/company/summary`, `/api/company/receipts`, and `/api/company/projections` endpoints query the PostgreSQL catalog through allow-listed SQL. The built Rabbita dashboard reports the live read-model connection and falls back to reviewed fixtures on failure. This is a development adapter, not the production authenticated service. |
 | Managed production deployment contract | `scripts/company_production_deployment_check.py` + `scripts/company_production_service_check.py` + `docs/PRODUCTION_DEPLOYMENT_GATE.md` | Credential-free manifest validation requires a managed PostgreSQL engine, DSN environment reference, bounded pool, verified TLS, encryption at rest, cross-region backup, restore objectives, rollback, observability, structured operations/security/finance approval records, and a separate authenticated fixed-read service boundary with no arbitrary SQL/mutation routes. The examples are intentionally unapproved; provider provisioning remains open. |
@@ -75,7 +75,7 @@ existing ERP remains authoritative.
 | Typed project-task structure promotion | `scripts/erp_task_promotion_plan.py` + `cmd/promote` + `migration/erp` | Actual export rows produce 2 ready project task plans containing 7 and 2 dependency-ordered tasks. Structure is promoted under `project:task:add`; source state/progress remains evidence because the fixture's child-state history conflicts with target dependency replay. |
 | Typed cohort durable projection/parity runner | `scripts/erp_typed_cohort_rehearsal.sh` + `scripts/erp_mapping_variant.py` | Eight separately versioned business cohorts plus the clean project-2 task-state cohort and a typed-evidence cohort promote 74 accepted typed items into SQLite projections; every reopened cohort reports exact `shadow_verified` parity, and a second run inserts zero projections. |
 | Typed evidence preservation cohort | `scripts/erp_typed_evidence_promotion_plan.py` + `cmd/promote` + `persistence/store` | Nine task snapshots, one task report, six workflow assignees, fourteen lifecycle-instance history rows, seven lifecycle catalog rows, and three proceeding rows are preserved as 40 evidence-only projections. Secret-shaped fields are rejected, source identity is checked, and no authority, workflow, or economic state is inferred. |
-| Typed investment-model promotion | `scripts/erp_investment_promotion_plan.py` + `cmd/promote` + `migration/erp` | Actual export rows produce 1 ready investment model with 26 indexes under explicit version/index authority; source value representations are preserved and formula/accounting semantics remain a later gate. |
+| Typed investment-model promotion and evaluation | `scripts/erp_investment_promotion_plan.py` + `cmd/promote` + `cmd/investment_model_eval` + `investment/model` | Actual export rows produce 1 ready investment model with 26 indexes under explicit version/index authority; the follow-on evaluator classifies numeric/date/source values, checks three parent totals, derives four explicit ratio metrics, and persists a source-bound analytics-only projection without execution, position, accounting, or cash effects. Unknown formula semantics remain preserved evidence. |
 | Typed commitment-state/payment promotion | `scripts/erp_payment_promotion_plan.py` + `cmd/promote` + `migration/erp` | An explicit contract-state map replays 2 commitments through performed, turns 4 payment-plan rows into planned milestones, and turns 3 applications into requested settlements; approval, cash release, reconciliation, and accounting remain separate target events. Missing state mapping quarantines the cohort. |
 | Credential-free user promotion | `scripts/erp_user_promotion_plan.py` + `cmd/promote` + `migration/erp` + `foundation` | Actual export rows promote 5 user identities with principal/business-unit/department assignment and enabled state. Passwords, network data, authentication timestamps, and legacy super-user privilege remain excluded or evidence-only. |
 | Explicit audit-record promotion | `scripts/erp_audit_promotion_plan.py` + `cmd/promote` + `migration/erp` + `foundation/evidence` | Actual export rows promote 2 audit records only with explicit target/outcome mappings and actor-scoped append grants; missing mappings quarantine, and redacted network fields remain excluded. |
@@ -153,7 +153,7 @@ existing ERP remains authoritative.
 | Investment analytics seed | `investment/analytics` | Deterministic moving average and trend fixture translated from Moonfish intent. |
 | Investment mandate and proposal | `investment/domain` | Local mandate limits, deterministic analysis attachment, proposal approval, controlled execution, and position creation. |
 | Investment mandate/proposal/position projections | `investment/domain` + `persistence/store` | Mandate limits, Moonfish analysis evidence, proposal states, executed positions, validated acquisition journals, and acquisition accounting-event links persist as immutable revisioned evidence. |
-| Versioned investment model | `investment/model` + `persistence/store` | ERP version/index rows become a governed local model with duplicate/version checks, source-value preservation, explicit authority, and revisioned projections. |
+| Versioned investment model | `investment/model` + `persistence/store` | ERP version/index rows become a governed local model with duplicate/version checks, source-value preservation, explicit authority, and revisioned model/evaluation projections; numeric/date classification, parent-total reconciliation, and known ratio derivations remain analytics-only. |
 | ERP investment-model cohort promotion | `migration/erp` + `investment/model` | Version mappings isolate index rows, require explicit principal/grants, and reject duplicate versions or stray indexes before promotion. |
 | Investment portfolio and valuation | `investment/portfolio` + `cmd/investment_benchmark` | Mandate-bound position book, exposure limits, explicit quote valuation, deterministic period-scoped per-position performance attribution and benchmark active-return comparison, source-snapshot/mapping/evidence-bound external benchmark reconciliation with tolerance and analytics-only projection markers, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
 | Portfolio risk scenarios and projections | `investment/portfolio` + `persistence/store` | Shock-based stress reports, loss limits, portfolio position snapshots, and mandate breach flags persist as governed evidence. |
@@ -172,7 +172,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 240 passing MoonBit tests across the new packages. The
+The current scaffold has 241 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -295,11 +295,13 @@ and the deduplicated `cbs_version` configuration report exact
 With the optional ninth workflow-assignment mapping, it reaches 109 projections
 and 18 migration receipts; all six assignee rows report exact parity and a
 second apply inserts zero rows. Assignments remain configuration, not
-authority.
+authority. The typed investment cohort then adds one
+`investment_model_evaluation` projection and one mapping-scoped receipt; the
+next complete typed run therefore reaches 110 projections.
 The assignment planner refuses missing source users, target identities,
 processes, scopes, or capability mappings before native promotion.
-With the optional eleventh delivery-progress mapping, the same rehearsal
-reaches 110 projections and an exact `progress_report` parity/replay result;
+With the optional eleventh delivery-progress mapping, the next evaluation-aware
+rehearsal reaches 111 projections and an exact `progress_report` parity/replay result;
 the native receipt records `acceptance_created=false` and
 `recognition_created=false`.
 Access tests also reject incompatible role assignments both when a new role is
@@ -351,11 +353,12 @@ promotion of the remaining typed-staged rows, or production readiness.
    filing records, and disposal derecognition journals/accounting-event links
    are now implemented, while period-close integration still needs production
    statement and subledger evidence.
-6. Add richer investment formula semantics and complete a reviewed external
-   benchmark/performance cohort around the persistent model, mandate, proposal,
-   position, risk, valuation, and deterministic period-performance projections;
-   source-snapshot/mapping/evidence-bound benchmark reconciliation is now
-   implemented as analytics-only evidence, while source feed acceptance and
-   full performance/accounting reconciliation remain open.
+6. Complete a reviewed external benchmark/performance cohort and extend the
+   explicit investment formula catalog around the persistent model, mandate,
+   proposal, position, risk, valuation, and deterministic period-performance
+   projections; numeric/date classification, parent-total checks, and four
+   known ratio derivations are now source-bound analytics evidence, while
+   source-feed acceptance, richer formula vocabulary, and full
+   performance/accounting reconciliation remain open.
 7. Add sanitized ERP export fixtures, opening-balance workbooks, and
    cross-domain parity reports for each migration cohort.

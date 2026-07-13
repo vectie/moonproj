@@ -89,7 +89,7 @@ depreciation, explicit opening receivable/payable source-to-journal links,
 separate sales-to-receivable and invoice-to-receivable recognition boundaries,
 acceptance-gated delivery recognition links, and accepted-progress cost
 forecast linkage.
-It also has 240 passing MoonBit tests, executable opening control-total checks,
+It also has 241 passing MoonBit tests, executable opening control-total checks,
 a credential-safe deterministic ERP row-export boundary, an idempotent durable
 SQLite migration rehearsal, a repeatable end-to-end rehearsal wrapper, a
 fail-closed mapped-cohort promotion planner, and a native domain-promotion
@@ -99,7 +99,10 @@ explicit capability mappings, and the 2-project/2-cohort lifecycle slice with
 explicit stage mappings, plus dependency-ordered task structures while source
 task state remains quarantined where it conflicts with target invariants. The
 same boundary now also promotes the reviewed investment-model version and its
-26 source indexes without interpreting their formula/accounting semantics. The
+26 source indexes, then evaluates explicit numeric/date values, parent totals,
+and known ratio derivations into a source-bound analytics projection without
+granting investment execution or interpreting unknown formula/accounting
+semantics. The
 same boundary also promotes explicitly mapped contract states, planned
 milestones, and requested settlements, while cash release and accounting remain
 separate events. It now also promotes five credential-free user identities
