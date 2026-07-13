@@ -88,6 +88,17 @@ def main() -> int:
             and milestones.get("authorizing") is False,
             f"source milestone empty boundary failed: {status} {milestones}",
         )
+        status, milestone_check = request(
+            args.port,
+            "/api/company/source/cost/milestones/missing-milestone/check?applyAmount=100",
+            token=token,
+        )
+        expect(
+            status == 404
+            and milestone_check is not None
+            and milestone_check.get("code") == 43001,
+            f"source milestone check 404 failed: {status} {milestone_check}",
+        )
         status, applies = request(
             args.port, "/api/company/source/cost/payment-applies?view=all", token=token,
         )
@@ -360,6 +371,7 @@ def main() -> int:
         )
         print(
             "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
+            "milestone_check=404 "
             "investment_sensitivity=6 "
             "attachments=0 invoices=0 budget_users=4 loan_balance=3500 "
             "workflow_instances=0 workflow_actions=0 progress=0 outputs=0 "

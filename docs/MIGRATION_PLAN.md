@@ -440,7 +440,7 @@ remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
-evidence-ready batch below, 25 remain; they are not one uniform backlog. Four
+evidence-ready batch below, 24 remain; they are not one uniform backlog. Four
 groups are now explicit:
 
 * **Evidence-ready reads:** contract/payment/milestone reads can use the
@@ -476,7 +476,7 @@ groups are now explicit:
   and similar status/verification endpoints remain provider and credential
   gates. A successful metadata read does not authorize a provider call.
 
-The remaining 202 API handlers are therefore deliberately split between these
+The remaining 201 API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
@@ -487,7 +487,8 @@ the missing-table export gate for the remaining candidates.
 **Evidence-ready read batch checkpoint (2026-07-14).** The following source
 handlers are now connected in the action register as bounded, non-authorizing
 reads: cost `/contracts`, `/contracts/:guid`, `/contracts/:guid/milestones`,
-`/payment-applies`, `/dynamic-cost`, and `/dynamic-cost/:guid/remarks` (6); attachment `/list`, `/all`, and
+`/payment-applies`, `/dynamic-cost`, `/dynamic-cost/:guid/remarks`, and
+`/milestones/:guid/check` (7); attachment `/list`, `/all`, and
 `/stats` (3); invoice `/in`, `/out`, and `/tax-ledger` (3); budget
 `/users-in-bu` and `/my-loan-balance` (2); and workflow
 `/tasks/mine`, `/tasks/initiated`, `/instances/by-biz`, `/instances/:piGuid`,
@@ -511,7 +512,9 @@ observation lists after the definition read. The dedicated
 `scripts/company_postgres_source_read_smoke.py` plus the existing attachment
 and dynamic-cost probes pass without mutations; the dynamic-cost remark
 observation preserves the imported `CB-101`/`建安工程` subject and remains
-non-authorizing. Supplier category reads preserve
+non-authorizing, while the milestone early-payment check preserves a covered
+404 for the currently empty `cb_contract_milestone` table. Supplier category
+reads preserve
 the empty `srm_category` coverage, while evaluation-result and source dictionary
 reads expose six and four reviewed, non-authorizing definitions respectively;
 they do not imply that source master rows are present or writable. Investment
@@ -673,7 +676,7 @@ Execute the remainder in this order:
     observation.
     The service, read-model, Rabbita, and
     dedicated read-only smoke checks pass; the parity action register now marks
-    34 source GET handlers connected. Do not use this batch to unlock commands
+    35 source GET handlers connected. Do not use this batch to unlock commands
     or to infer missing sales, invoice, supplier, tender, tax, or investment
     detail rows. The remaining gate is production identity, browser acceptance,
     owner evidence, and the missing-table export.

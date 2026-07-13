@@ -451,6 +451,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/payment-applies",
             "/dynamic-cost",
             "/dynamic-cost/:guid/remarks",
+            "/milestones/:guid/check",
         }
     ):
         return "connected_cost_source_read", "accept_browser_cost_source_scenario_and_production_identity"

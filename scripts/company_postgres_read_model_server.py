@@ -142,6 +142,7 @@ from company_postgres_service import (
     investment_profit_summary as service_investment_profit_summary,
     investment_sensitivity as service_investment_sensitivity,
     dynamic_cost_remarks as service_dynamic_cost_remarks,
+    cost_milestone_check as service_cost_milestone_check,
     cost_dashboard_v3 as service_cost_dashboard_v3,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
@@ -974,6 +975,14 @@ def investment_sensitivity(args: argparse.Namespace, project_id: str) -> dict[st
 
 def dynamic_cost_remarks(args: argparse.Namespace, cost_id: str) -> dict[str, Any] | None:
     return service_dynamic_cost_remarks(_ReadModelPool(args), cost_id, 500)
+
+
+def cost_milestone_check(
+    args: argparse.Namespace,
+    milestone_id: str,
+    apply_amount: float,
+) -> dict[str, Any] | None:
+    return service_cost_milestone_check(_ReadModelPool(args), milestone_id, apply_amount, 500)
 
 
 def admin_quality_overview(args: argparse.Namespace) -> dict[str, Any]:
@@ -1870,6 +1879,24 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     result = dynamic_cost_remarks(args, dynamic_cost_remarks_match.group(1))
                     if result is None:
                         response(self, 404, {"success": False, "code": 43001, "message": "科目不存在"})
+                    else:
+                        response(self, 200, result)
+                    return
+                cost_milestone_check_match = re.fullmatch(
+                    r"/api/company/source/cost/milestones/([A-Za-z0-9_.:-]{1,128})/check",
+                    parsed.path,
+                )
+                if cost_milestone_check_match is not None:
+                    query = parse_qs(parsed.query)
+                    try:
+                        apply_amount = float(query.get("applyAmount", ["0"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid applyAmount") from error
+                    result = cost_milestone_check(
+                        args, cost_milestone_check_match.group(1), apply_amount,
+                    )
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "节点不存在"})
                     else:
                         response(self, 200, result)
                     return

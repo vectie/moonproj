@@ -20,7 +20,10 @@ imported `cb_cost` rows, six end-cost rows, cost hierarchy, remarks, and source
 coverage. It also exposes the source-compatible
 `/api/company/source/cost/dynamic-cost/:id/remarks` observation for an imported
 cost subject. The Rabbita `/dynamic-cost` screen renders the source columns and
-summary while retaining the designer table as an offline fallback.
+summary while retaining the designer table as an offline fallback. The
+source-compatible `/api/company/source/cost/milestones/:id/check` read also
+preserves the early-payment warning contract and returns a covered 404 when
+the available export has no `cb_contract_milestone` row.
 
 ## Evidence
 
@@ -29,10 +32,13 @@ summary while retaining the designer table as an offline fallback.
   `cb_cost=7`.
 - Authenticated service smoke asserts the formula result and source coverage;
   read-model endpoint probing returns the same values.
-- The parity matrix marks the source `GET /dynamic-cost` and
-  `GET /dynamic-cost/:id/remarks` handlers as `connected_cost_source_read`.
+- The parity matrix marks the source `GET /dynamic-cost`,
+  `GET /dynamic-cost/:id/remarks`, and `GET /milestones/:id/check` handlers as
+  `connected_cost_source_read`.
 - The remarks probe preserves `CB-101`/`建安工程`, `cb_cost=7` coverage, and
   non-authorizing/non-persisting metadata.
+- The milestone-check probe returns source-compatible `43001` for a missing
+  milestone rather than inventing a payment warning or milestone row.
 
 ## Remaining gate
 

@@ -61,9 +61,12 @@ projections, records, and audit rows were removed after verification.
 
 ## Remaining gate
 
-Source cost handlers still include edit/void, milestone checks, early-payment
-rules, attachments, workflow assignment, and payment execution surfaces that
-are not yet connected to Rabbita. The source read batch is connected, but
+Source cost handlers still include edit/void, milestone mutation, early-payment
+execution, attachments, workflow assignment, and payment execution surfaces
+that are not yet connected to Rabbita. The source milestone-check adapter is
+connected as a read-only covered boundary, but the current export has no
+milestone rows and Rabbita does not invoke the check as a command. The source
+read batch is connected, but
 production identity, role-based approval,
 persistent sessions, cash/accounting/tax effects, managed deployment, browser
 click-through/screenshot acceptance, and named-owner acceptance remain open.

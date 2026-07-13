@@ -7314,6 +7314,98 @@ def dynamic_cost_remarks(
     }
 
 
+def cost_milestone_check(
+    pool: PsqlPool,
+    milestone_id: str,
+    apply_amount: float,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Evaluate the source early-payment warnings for one milestone."""
+
+    if not IDENTIFIER.fullmatch(milestone_id):
+        raise ValueError("invalid milestone_id")
+    milestones = _raw_source_rows(pool, "cb_contract_milestone", max(max_rows, 500), COST_SOURCE_TABLES)
+    tasks = _raw_source_rows(pool, "jd_task", max(max_rows, 500), COST_SOURCE_TABLES)
+    row = next(
+        (
+            item["payload"]
+            for item in milestones
+            if str(item["payload"].get("milestone_guid") or item["record_id"]) == milestone_id
+            and not item["payload"].get("deleted_at")
+        ),
+        None,
+    )
+    if row is None:
+        return None
+    today = date.today()
+    warnings: list[dict[str, Any]] = []
+    early_flag = False
+    over_pay = False
+    trigger_type = str(row.get("trigger_type") or "")
+    plan_date = _report_date(row.get("plan_date"))
+    if trigger_type == "time" and plan_date is not None and plan_date > today:
+        early_flag = True
+        warnings.append(
+            {
+                "level": "warn",
+                "code": "early_time",
+                "message": f"节点计划付款日 {plan_date.isoformat()}, 比今天早 {(plan_date - today).days} 天",
+            }
+        )
+    if trigger_type == "progress" and row.get("trigger_value"):
+        task = next(
+            (
+                item["payload"]
+                for item in tasks
+                if str(item["payload"].get("task_guid") or item["record_id"]) == str(row["trigger_value"])
+            ),
+            None,
+        )
+        if task is not None and str(task.get("status") or "") != "done":
+            early_flag = True
+            warnings.append(
+                {
+                    "level": "warn",
+                    "code": "early_progress",
+                    "message": f"关联任务「{task.get('task_name') or ''}」状态 {task.get('status') or ''},未完成",
+                }
+            )
+    if trigger_type == "event" and not row.get("reached_at"):
+        early_flag = True
+        warnings.append(
+            {"level": "warn", "code": "early_event", "message": "事件未打点(reached_at 为空)"}
+        )
+    plan_amount = _report_float(row, "plan_amount")
+    actual_amount = _report_float(row, "actual_amount")
+    if plan_amount > 0 and actual_amount + apply_amount > plan_amount + 0.01:
+        over_pay = True
+        exceeded = actual_amount + apply_amount - plan_amount
+        warnings.append(
+            {
+                "level": "error",
+                "code": "over_pay",
+                "message": f"本节点计划 {plan_amount:.2f},已付 {actual_amount:.2f},本次 {apply_amount:.2f} 累计超付 {exceeded:.2f}",
+            }
+        )
+    coverage = _cost_source_coverage(pool, max_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "earlyFlag": early_flag,
+            "overPay": over_pay,
+            "warnings": warnings,
+            "milestone": {
+                "nodeName": str(row.get("node_name") or ""),
+                "planAmount": plan_amount,
+                "actualAmount": actual_amount,
+                "state": str(row.get("state") or ""),
+            },
+        },
+        **_cost_source_metadata(coverage),
+    }
+
+
 def cost_dashboard_v3(
     pool: PsqlPool,
     project_id: str,
@@ -13838,6 +13930,28 @@ def handler_factory(
                             self,
                             404,
                             {"success": False, "code": 43001, "message": "科目不存在"},
+                            origin,
+                        )
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/source/cost/milestones/[A-Za-z0-9_.:-]{1,128}/check",
+                    parsed.path,
+                ):
+                    milestone_value = parsed.path.split("/")[-2]
+                    query = parse_qs(parsed.query)
+                    try:
+                        apply_amount = float(query.get("applyAmount", ["0"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid applyAmount") from error
+                    result = cost_milestone_check(
+                        pool, milestone_value, apply_amount, max_response_rows,
+                    )
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "节点不存在"},
                             origin,
                         )
                     else:
