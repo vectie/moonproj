@@ -251,3 +251,8 @@ repaid `employee_advance`, one approved `expense_claim`, and one
 `employee_advance_offset` with exact PostgreSQL parity and zero-insert replay.
 The offset does not release cash or post accounting; the reviewed expense is
 source-shaped because the available snapshot has no accepted expense rows.
+The separate `scripts/company_expense_advance_accounting_rehearsal.sh` then
+binds the advance issuance and offset identities to two reviewed journals.
+It reports exact PostgreSQL identity parity and zero-insert replay through the
+accounting-link table, while leaving the accounting book, cash, expense
+recognition, and period close untouched.

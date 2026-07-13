@@ -47,3 +47,16 @@ PostgreSQL both report `shadow_verified`; the first apply inserts three rows
 and the second inserts zero. The source snapshot has one real advance and one
 offset but no accepted expense rows, so production expense export, owner
 acceptance, and accounting/subledger reconciliation remain open.
+
+## Separate accounting traceability
+
+`scripts/company_expense_advance_accounting_rehearsal.sh` is the deliberately
+separate follow-on boundary. It reuses the reviewed domain receipt and
+`scripts/fixtures/expense_advance_accounting_link_mapping.example.json` to
+bind only advance issuance and advance-offset identities to explicit journals.
+The expense claim is not linked in this slice: the native expense model also
+offers a recognition journal, while the offset journal debits expense, so
+linking both would recognize the same expense twice. The link rehearsal
+therefore proves two source-to-journal identities with exact SQLite/PostgreSQL
+parity and zero-insert replay while keeping `cash_released=false`,
+`period_posted=false`, and the accounting book unposted.

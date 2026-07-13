@@ -98,6 +98,8 @@ def main() -> int:
         advance_id = string(advance.get("advance_id"), "advance.advance_id")
         principal_id = string(advance.get("principal_id"), "advance.principal_id")
         employee_id = string(advance.get("employee_id"), "advance.employee_id")
+        if employee_id.startswith("employee:"):
+            raise PlanError("advance.employee_id must be the raw employee identity")
         currency = string(advance.get("currency"), "advance.currency")
         advance_amount = integer(advance.get("amount_minor"), "advance.amount_minor", 1)
         if string(advance.get("expected_state"), "advance.expected_state") != "partially_repaid":

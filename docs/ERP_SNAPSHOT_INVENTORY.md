@@ -177,6 +177,11 @@ map to exercise one employee advance, one approved allocated expense, and one
 offset. It persists three projections with exact SQLite/PostgreSQL parity and
 idempotent replay; the available snapshot has no accepted expense rows, and
 recognition, cash, accounting, and period close remain separate.
+The separate `scripts/company_expense_advance_accounting_rehearsal.sh` binds
+the same advance and offset source identities to two reviewed journal links.
+It is a traceability-only PostgreSQL rehearsal with exact identity parity and
+zero-insert replay; expense recognition, cash, book posting, and period close
+remain separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

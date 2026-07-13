@@ -177,6 +177,13 @@ identities. Exact SQLite/PostgreSQL projection parity and zero-insert replay
 pass; the offset changes only the advance balance, while expense recognition,
 cash settlement, accounting posting, tax, period close, and owner acceptance
 remain separate. The available snapshot has no accepted expense rows.
+The follow-on `scripts/company_expense_advance_accounting_rehearsal.sh` is
+intentionally separate from that projection cohort. Its reviewed map binds
+only advance issuance and advance-offset identities to explicit journals; it
+does not link the expense claim because the offset journal already carries the
+expense debit. Two links pass native validation, exact SQLite/PostgreSQL
+identity parity, and zero-insert replay without posting the book, releasing
+cash, or closing a period.
 The separate invoice/procurement accounting-link boundary now binds two
 receivable openings, one payable opening, and one performed procurement
 commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL

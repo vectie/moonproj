@@ -1,0 +1,33 @@
+{
+  "mapping_version": "expense-advance-accounting-link-v1",
+  "target_types": [
+    "employee_advance",
+    "employee_advance_offset"
+  ],
+  "accounting_by_source": {
+    "vcb_loan_simple:loan-001:employee_advance": {
+      "event_id": "acct-expense-advance-loan-001",
+      "event_type": "advance.issued",
+      "journal_id": "journal-expense-advance-loan-001",
+      "description": "Open employee advance loan-001",
+      "debit_account": "employee-advances",
+      "credit_account": "cash",
+      "principal_id": "entity:moonproj",
+      "scope": "employee:alice",
+      "amount_minor": 500000,
+      "currency": "CNY"
+    },
+    "cb_loan_offset:off-001:employee_advance_offset": {
+      "event_id": "acct-expense-advance-offset-off-001",
+      "event_type": "advance.offset",
+      "journal_id": "journal-expense-advance-offset-off-001",
+      "description": "Offset employee advance off-001",
+      "debit_account": "travel-expense",
+      "credit_account": "employee-advances",
+      "principal_id": "entity:moonproj",
+      "scope": "employee:alice",
+      "amount_minor": 150000,
+      "currency": "CNY"
+    }
+  }
+}
