@@ -300,10 +300,14 @@ authority. The typed investment cohort then adds one
 next complete typed run therefore reaches 110 projections.
 The assignment planner refuses missing source users, target identities,
 processes, scopes, or capability mappings before native promotion.
-With the optional eleventh delivery-progress mapping, the next evaluation-aware
+With the optional eleventh delivery-progress mapping, the evaluation-aware
 rehearsal reaches 111 projections and an exact `progress_report` parity/replay result;
 the native receipt records `acceptance_created=false` and
-`recognition_created=false`.
+`recognition_created=false`. The current complete SQLite run also derives a
+source-bound CBS budget plan from the five positive `cb_cost.dfs_budget`
+amounts, reaching 112 projections, 7 durable accounting links, and 21
+migration receipts; the CBS budget ledger remains reservation evidence with
+accounting and cash effects false.
 Access tests also reject incompatible role assignments both when a new role is
 assigned and when a separation rule is added after existing assignments.
 They also prove delegation effective windows, amount ceilings, revocation, and
@@ -332,14 +336,15 @@ promotion of the remaining typed-staged rows, or production readiness.
    progress promotion now have durable projection/parity rehearsal gates;
    task-state replay remains a reviewed exception cohort.
 3. Complete remaining cross-domain persistence links: workflow notification
-   delivery and CBS configuration. Typed workflow-assignment
+   delivery and broader CBS configuration. Typed workflow-assignment
    attachment, effective-dated delegation/revocation evidence, and
    non-authorizing projection evidence are implemented, as is a separately
    reviewed pending-posting delivery recognition projection (the available
    source row remains quarantined). The reviewed CBS cost-link cohort now covers the seven fixture
-   cost rows, and an opt-in CBS budget ledger now covers explicit
-   reservation/consumption controls; full CBS schema/source coverage and real
-   budget allocations remain open. Invoice/receivable and milestone/settlement projections now
+   cost rows, and a source-bound CBS budget planner now records five explicit
+   `cb_cost.dfs_budget` reservations while the synthetic ledger exercises
+   consumption controls; full CBS schema/source coverage and real budget
+   ownership remain open. Invoice/receivable and milestone/settlement projections now
    retain separate identities and cross-domain source links in the same store
    boundary.
 4. Extend the reviewed accounting-link/subledger reconciliation gate from the

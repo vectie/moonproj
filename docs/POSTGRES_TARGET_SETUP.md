@@ -89,3 +89,10 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/advance_offset_mapping.json \
   scripts/fixtures/payment_accounting_link_mapping.json
 ```
+
+The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
+eighteenth argument can instead supply
+`scripts/fixtures/cbs_budget_source_mapping.json`; when present, the CBS cost
+mapping argument is also required and the runner derives a source-bound budget
+plan from explicit positive `cb_cost.dfs_budget` values. These projections
+remain budget-control evidence and do not post accounting or release cash.

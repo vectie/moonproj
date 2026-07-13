@@ -195,6 +195,10 @@ The twentieth wrapper argument can supply a reviewed CBS budget plan; it is
 passed through `cmd/cbs_budget` and persists reservation/consumption evidence
 without accounting posting or cash release. See
 [ERP_CBS_BUDGET.md](ERP_CBS_BUDGET.md).
+The twenty-first wrapper argument can supply a source-bound CBS budget mapping;
+the wrapper derives a plan from explicit positive `cb_cost.dfs_budget` values
+and requires a consume decision for every source amount. This is budget
+reservation evidence, not an inferred posting or cash event.
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period

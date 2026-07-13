@@ -64,6 +64,11 @@ The optional eleventh cohort maps the one `jd_task_report` row through
 `cmd/delivery_progress`; the next evaluation-aware full rehearsal reaches 111 projections while
 retaining the report as a draft-only delivery intake with acceptance,
 recognition, budget/cost consumption, and task-state mutation false.
+The current complete SQLite rehearsal additionally runs the source-bound CBS
+budget planner against the five positive `cb_cost.dfs_budget` values; with CBS
+cost links, workflow assignments, delivery progress, offset accounting, and
+payment accounting it reaches 112 aggregate projections, 7 durable accounting
+links, and 21 migration receipts with exact parity and idempotent replay.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

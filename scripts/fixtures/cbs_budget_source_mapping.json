@@ -1,0 +1,13 @@
+{
+  "mapping_version": "mapped-cbs-budget-from-cost-v1-review-001",
+  "project_id": "proj-0001",
+  "budget_amount_field": "dfs_budget",
+  "reservation_id_prefix": "cbs-budget-source:",
+  "consume_by_source": {
+    "cost-102-MQ": false,
+    "cost-103-NJ": false,
+    "cost-104-JD": false,
+    "cost-105-YL": false,
+    "cost-106-PT": false
+  }
+}

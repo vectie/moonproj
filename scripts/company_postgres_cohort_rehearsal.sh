@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -24,9 +24,19 @@ CONSOLIDATED_REPORT_PLAN=${14:-}
 INVESTMENT_BENCHMARK_PLAN=${15:-}
 WARNING_PLAN=${16:-}
 CBS_BUDGET_PLAN=${17:-}
+CBS_BUDGET_SOURCE_MAPPING=${18:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
+
+if [ -n "$CBS_BUDGET_PLAN" ] && [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
+  echo "choose either a reviewed CBS budget plan or a source budget mapping" >&2
+  exit 2
+fi
+if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ] && [ -z "$CBS_COST_MAPPING" ]; then
+  echo "source CBS budget mapping requires the CBS cost mapping" >&2
+  exit 2
+fi
 
 SQLITE_DB="$WORK_DIR/company.sqlite3"
 TYPED_WORK_DIR="$WORK_DIR/typed-cohorts"
@@ -92,6 +102,16 @@ if [ -n "$CBS_BUDGET_PLAN" ]; then
   moon run --target native cmd/cbs_budget -- \
     "$CBS_BUDGET_PLAN" "$WORK_DIR/cbs-budget-receipt.json"
   apply_projection cbs-budget "$WORK_DIR/cbs-budget-receipt.json"
+fi
+
+if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
+  python3 "$SCRIPT_DIR/erp_cbs_budget_plan.py" \
+    "$EXPORT_DIR" "$CBS_COST_MAPPING" "$CBS_BUDGET_SOURCE_MAPPING" \
+    "$WORK_DIR/cbs-budget-source-plan.json"
+  moon run --target native cmd/cbs_budget -- \
+    "$WORK_DIR/cbs-budget-source-plan.json" \
+    "$WORK_DIR/cbs-budget-source-receipt.json"
+  apply_projection cbs-budget-source "$WORK_DIR/cbs-budget-source-receipt.json"
 fi
 
 if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then

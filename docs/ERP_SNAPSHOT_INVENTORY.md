@@ -84,6 +84,10 @@ recognizes value, consumes cost, or mutates task state.
 The nineteenth argument supplies a reviewed warning plan; it emits a
 source-bound `warning_finding` projection and keeps notification delivery,
 workflow mutation, and cash effects false.
+The twentieth argument supplies a reviewed CBS budget plan. The optional
+twenty-first argument instead supplies a source-bound CBS budget mapping; it
+requires the eighth CBS cost mapping, derives an explicit plan from positive
+`cb_cost.dfs_budget` values, and keeps each consume decision review-bound.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed
