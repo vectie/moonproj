@@ -103,6 +103,12 @@ and stack traces. The export has no `/sys_param` or `/sys_error_log` rows,
 so successful reads show explicit definition/empty-source states; provider
 execution, configuration writes, retention, production identity, and
 super-user ownership remain gated.
+The authenticated `/ai-stats` screen now reads source-compatible AI
+overview, activity, and badge evidence from PostgreSQL. The export has no
+`ai_draft`, `ai_query_log`, correction, or workflow auto-skip rows, so
+successful reads show explicit empty-source analytics; LLM/OCR execution,
+draft confirmation, workflow authority, prompt retention, and AI-owner
+acceptance remain gated.
 The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

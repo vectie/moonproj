@@ -6,7 +6,7 @@ exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
 employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
-and non-secret profile reads.
+non-secret profile, and AI analytics reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
 stacks; they never execute a provider or expose a mutation path.
 Production authentication, pooling, TLS,
@@ -73,6 +73,9 @@ from company_postgres_service import (
     notification_source_llm_providers as service_notification_source_llm_providers,
     ocr_source_status as service_ocr_source_status,
     error_log_source_rows as service_error_log_source_rows,
+    ai_stats_source_overview as service_ai_stats_source_overview,
+    ai_stats_source_activity as service_ai_stats_source_activity,
+    ai_stats_source_badge as service_ai_stats_source_badge,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -535,6 +538,22 @@ def error_log_source_rows(
     limit: int,
 ) -> dict[str, Any]:
     return service_error_log_source_rows(_ReadModelPool(args), keyword, limit, 500)
+
+
+def ai_stats_source_overview(args: argparse.Namespace, period: str) -> dict[str, Any]:
+    return service_ai_stats_source_overview(_ReadModelPool(args), period, 500)
+
+
+def ai_stats_source_activity(args: argparse.Namespace, limit: int) -> dict[str, Any]:
+    return service_ai_stats_source_activity(_ReadModelPool(args), limit, 500)
+
+
+def ai_stats_source_badge(
+    args: argparse.Namespace,
+    biz_type: str | None,
+    biz_guid: str | None,
+) -> dict[str, Any]:
+    return service_ai_stats_source_badge(_ReadModelPool(args), biz_type, biz_guid, 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -1095,6 +1114,33 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/marketing/materials":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, marketing_source_materials(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/ai-stats/overview":
+                    period = parse_qs(parsed.query).get("period", ["month"])[0]
+                    response(self, 200, ai_stats_source_overview(args, period))
+                    return
+                if parsed.path == "/api/company/ai-stats/activity":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["30"])[0])
+                    except (TypeError, ValueError):
+                        response(self, 422, {"error": "invalid AI activity limit"})
+                    else:
+                        if limit < 1 or limit > 100:
+                            response(self, 422, {"error": "invalid AI activity limit"})
+                        else:
+                            response(self, 200, ai_stats_source_activity(args, limit))
+                    return
+                if parsed.path == "/api/company/ai-stats/badge":
+                    query = parse_qs(parsed.query)
+                    biz_type = query.get("bizType", [None])[0]
+                    biz_guid = query.get("bizGuid", [None])[0]
+                    if not biz_type or not biz_guid:
+                        response(self, 422, {"error": "bizType and bizGuid are required"})
+                    elif not IDENTIFIER.fullmatch(biz_type) or not IDENTIFIER.fullmatch(biz_guid):
+                        response(self, 422, {"error": "invalid AI badge identifiers"})
+                    else:
+                        response(self, 200, ai_stats_source_badge(args, biz_type, biz_guid))
                     return
                 if parsed.path == "/api/company/admin/ocr/status":
                     response(self, 200, ocr_source_status(args))

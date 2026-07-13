@@ -13,7 +13,7 @@ identified, while the local expense/contract/payment-application/
 tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime, non-authorizing workflow-definition,
  cashflow, CBS, fund-plan, observed-warning, attachment-metadata, marketing,
- notification metadata, OCR-status, and error-log read boundaries. No
+ notification metadata, OCR-status, error-log, and AI-analytics read boundaries. No
 workflow-instance mutation endpoint is inferred.
 """
 
@@ -231,6 +231,8 @@ def match_target(
             return function, "connected_admin_ocr_read"
         if path == "/error-log" and function == "error_view":
             return function, "connected_admin_error_read"
+        if path == "/ai-stats" and function == "ai_stats_view":
+            return function, "connected_ai_stats_read"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
@@ -342,6 +344,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_ocr_scenario_and_super_user_owner"
     if target_state == "connected_admin_error_read":
         return "accept_browser_error_log_scenario_and_super_user_owner"
+    if target_state == "connected_ai_stats_read":
+        return "accept_browser_ai_stats_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -552,6 +556,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             else "accept_browser_error_log_scenario_and_super_user_owner",
         )
     if (
+        handler["module"] == "ai-stats"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/overview", "/activity", "/badge"}
+    ):
+        return "connected_ai_stats_read", "accept_browser_ai_stats_scenario_and_production_identity"
+    if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
@@ -636,6 +646,8 @@ def build_matrix(
             api_state = "connected_admin_ocr_read"
         elif target_state == "connected_admin_error_read":
             api_state = "connected_admin_error_read"
+        elif target_state == "connected_ai_stats_read":
+            api_state = "connected_ai_stats_read"
         elif target_state == "connected_supplier_risk_read":
             api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":
@@ -749,7 +761,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, and error-log read verticals.",
+        "fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, error-log, and AI-analytics read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

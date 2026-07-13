@@ -64,6 +64,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/admin/ocr/status`` and ``/api/company/admin/error-log`` (GET,
   source-compatible metadata reads; OCR execution and raw error-network fields
   remain gated)
+* ``/api/company/ai-stats/{overview,activity,badge}`` (GET, source-compatible
+  AI analytics reads; LLM/OCR execution and draft mutation remain gated)
 * ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast-v3`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast/detail`` (GET, source-compatible drill-down)
@@ -363,6 +365,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "notification_metadata_read",
             "ocr_status_read",
             "error_log_metadata_read",
+            "ai_analytics_read",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -6608,6 +6611,15 @@ ERROR_LOG_SOURCE_TABLES = {
     "sys_user",
 }
 
+AI_STATS_SOURCE_TABLES = {
+    "ai_draft",
+    "ai_query_log",
+    "ai_correction_log",
+    "wf_step_action",
+    "wf_process_instance",
+    "sys_user",
+}
+
 OCR_PROVIDER_DEFINITIONS = (
     ("mock", "演示 Mock", False, ()),
     ("paddle", "本地 PaddleOCR", False, ()),
@@ -8759,6 +8771,276 @@ def error_log_source_rows(
         },
         **_error_log_source_metadata(coverage),
     }
+
+
+def _ai_stats_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _ai_period_match(value: str, period: str) -> bool:
+    if not value:
+        return False
+    try:
+        value_date = date.fromisoformat(value[:10])
+    except ValueError:
+        return False
+    age = (date.today() - value_date).days
+    if period == "today":
+        return age == 0
+    if period == "week":
+        return 0 <= age < 7
+    return 0 <= age < 30
+
+
+def _ai_stat_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(
+            _raw_source_rows(pool, table, max(max_rows, 500), AI_STATS_SOURCE_TABLES)
+        )
+        for table in sorted(AI_STATS_SOURCE_TABLES)
+    }
+
+
+def ai_stats_source_overview(
+    pool: PsqlPool,
+    period: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    if period not in {"today", "week", "month"}:
+        period = "month"
+    coverage = _ai_stat_coverage(pool, max_rows)
+    drafts = [
+        row["payload"]
+        for row in _raw_source_rows(pool, "ai_draft", max(max_rows, 500), AI_STATS_SOURCE_TABLES)
+        if str(row["payload"].get("status") or "") == "confirmed"
+        and _ai_period_match(_notification_text(row["payload"], "created_at", "createdAt"), period)
+    ]
+    queries = [
+        row["payload"]
+        for row in _raw_source_rows(pool, "ai_query_log", max(max_rows, 500), AI_STATS_SOURCE_TABLES)
+        if _ai_period_match(_notification_text(row["payload"], "created_at", "createdAt"), period)
+    ]
+    corrections = [
+        row["payload"]
+        for row in _raw_source_rows(
+            pool, "ai_correction_log", max(max_rows, 500), AI_STATS_SOURCE_TABLES,
+        )
+        if _ai_period_match(_notification_text(row["payload"], "created_at", "createdAt"), period)
+    ]
+    skips = [
+        row["payload"]
+        for row in _raw_source_rows(
+            pool, "wf_step_action", max(max_rows, 500), AI_STATS_SOURCE_TABLES,
+        )
+        if str(row["payload"].get("decision") or "") == "AUTO_SKIPPED"
+        and _ai_period_match(_notification_text(row["payload"], "action_time", "actionTime"), period)
+    ]
+    query_success = sum(1 for row in queries if not _notification_text(row, "error"))
+    durations = [
+        _notification_int(row, "duration_ms", "durationMs")
+        for row in queries
+        if not _notification_text(row, "error")
+    ]
+    by_biz: dict[str, int] = {}
+    by_provider: dict[str, list[float]] = {}
+    for row in drafts:
+        biz_type = _notification_text(row, "biz_type", "bizType", fallback="unknown")
+        by_biz[biz_type] = by_biz.get(biz_type, 0) + 1
+        provider = _notification_text(row, "llm_provider", "llmProvider", fallback="(none)")
+        by_provider.setdefault(provider, []).append(float(row.get("confidence") or 0.0))
+    corrected_fields: dict[tuple[str, str], int] = {}
+    for row in corrections:
+        key = (
+            _notification_text(row, "biz_type", "bizType", fallback="unknown"),
+            _notification_text(row, "field_name", "fieldName", fallback="unknown"),
+        )
+        corrected_fields[key] = corrected_fields.get(key, 0) + 1
+    timeseries: dict[str, dict[str, Any]] = {}
+    for row in drafts:
+        key = _notification_text(row, "created_at", "createdAt")[:10]
+        if not key:
+            continue
+        timeseries.setdefault(key, {"date": key, "intake": 0, "query": 0})["intake"] += 1
+    for row in queries:
+        key = _notification_text(row, "created_at", "createdAt")[:10]
+        if not key:
+            continue
+        timeseries.setdefault(key, {"date": key, "intake": 0, "query": 0})["query"] += 1
+    draft_total = len(drafts)
+    query_total = len(queries)
+    skip_total = len(skips)
+    correction_total = len(corrections)
+    saved_minutes = draft_total * 5 + query_total + skip_total * 3
+    kpi = {
+        "intakeTotal": draft_total,
+        "queryTotal": query_total,
+        "skipTotal": skip_total,
+        "correctionTotal": correction_total,
+        "accuracy": max(0, round(100 - correction_total * 100 / max(1, draft_total * 8))) if draft_total else 100,
+        "avgConfidence": round(sum(float(row.get("confidence") or 0.0) for row in drafts) / draft_total * 100, 1) if draft_total else 0.0,
+        "querySuccessRate": round(query_success / query_total * 100, 1) if query_total else 100.0,
+        "avgQueryDurationMs": round(sum(durations) / len(durations)) if durations else 0,
+        "savedMinutes": saved_minutes,
+        "savedHours": round(saved_minutes / 60, 1),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "period": period,
+            "kpi": kpi,
+            "byBizType": [
+                {"bizType": key, "count": count}
+                for key, count in sorted(by_biz.items(), key=lambda item: (-item[1], item[0]))
+            ],
+            "byProvider": [
+                {
+                    "provider": key,
+                    "count": len(values),
+                    "avgConfidence": round(sum(values) / len(values) * 100, 1),
+                }
+                for key, values in sorted(by_provider.items(), key=lambda item: (-len(item[1]), item[0]))
+            ],
+            "topCorrectedFields": [
+                {"bizType": key[0], "field": key[1], "count": count}
+                for key, count in sorted(corrected_fields.items(), key=lambda item: (-item[1], item[0]))[:5]
+            ],
+            "timeseries": [timeseries[key] for key in sorted(timeseries)],
+        },
+        **_ai_stats_source_metadata(coverage),
+    }
+
+
+def ai_stats_source_activity(pool: PsqlPool, limit: int, max_rows: int) -> dict[str, Any]:
+    if limit < 1 or limit > 100:
+        raise ValueError("invalid AI activity limit")
+    coverage = _ai_stat_coverage(pool, max_rows)
+    users = {
+        _notification_text(row["payload"], "user_id", "userId", fallback=row["record_id"]): _notification_text(
+            row["payload"], "emp_name", "empName", "user_name", "userName", fallback="系统"
+        )
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), AI_STATS_SOURCE_TABLES)
+    }
+    items: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "ai_draft", max(max_rows, 500), AI_STATS_SOURCE_TABLES):
+        payload = source["payload"]
+        if str(payload.get("status") or "") != "confirmed":
+            continue
+        time_value = _notification_text(payload, "confirmed_at", "confirmedAt", "created_at", "createdAt")
+        if not time_value:
+            continue
+        user = users.get(_notification_text(payload, "user_id", "userId"), "系统")
+        biz_type = _notification_text(payload, "biz_type", "bizType", fallback="unknown")
+        confidence = float(payload.get("confidence") or 0.0)
+        items.append(
+            {
+                "type": "intake",
+                "time": time_value,
+                "icon": "intake",
+                "title": "AI 起单 " + biz_type,
+                "detail": "置信度 " + str(round(confidence * 100)) + "% · 由 " + user + " 确认",
+                "sourceKind": "imported",
+            }
+        )
+    for source in _raw_source_rows(pool, "ai_query_log", max(max_rows, 500), AI_STATS_SOURCE_TABLES):
+        payload = source["payload"]
+        time_value = _notification_text(payload, "created_at", "createdAt")
+        if not time_value:
+            continue
+        question = _notification_text(payload, "question", fallback="AI 查询")[:60]
+        error = _notification_text(payload, "error")
+        detail = question + " · " + ("失败" if error else str(_notification_int(payload, "row_count", "rowCount")) + " 行")
+        items.append(
+            {
+                "type": "query",
+                "time": time_value,
+                "icon": "query",
+                "title": "AI 智能问答",
+                "detail": detail,
+                "sourceKind": "imported",
+            }
+        )
+    for source in _raw_source_rows(pool, "wf_step_action", max(max_rows, 500), AI_STATS_SOURCE_TABLES):
+        payload = source["payload"]
+        if str(payload.get("decision") or "") != "AUTO_SKIPPED":
+            continue
+        time_value = _notification_text(payload, "action_time", "actionTime")
+        if not time_value:
+            continue
+        items.append(
+            {
+                "type": "skip",
+                "time": time_value,
+                "icon": "skip",
+                "title": "AI 自动跳过审批步",
+                "detail": _notification_text(payload, "step_name", "stepName", fallback="审批步骤") + " — " + _notification_text(payload, "comment"),
+                "sourceKind": "imported",
+            }
+        )
+    items.sort(key=lambda item: (str(item["time"]), str(item["title"])), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": items[:limit],
+        **_ai_stats_source_metadata(coverage),
+    }
+
+
+def ai_stats_source_badge(
+    pool: PsqlPool,
+    biz_type: str | None,
+    biz_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not biz_type or not biz_guid:
+        raise ValueError("bizType and bizGuid are required")
+    if not IDENTIFIER.fullmatch(biz_type) or not IDENTIFIER.fullmatch(biz_guid):
+        raise ValueError("invalid AI badge identifiers")
+    coverage = _ai_stat_coverage(pool, max_rows)
+    matches = []
+    for source in _raw_source_rows(pool, "ai_draft", max(max_rows, 500), AI_STATS_SOURCE_TABLES):
+        payload = source["payload"]
+        if (
+            str(payload.get("status") or "") == "confirmed"
+            and _notification_text(payload, "biz_type", "bizType") == biz_type
+            and _notification_text(payload, "result_biz_guid", "resultBizGuid") == biz_guid
+        ):
+            matches.append((source, payload))
+    matches.sort(key=lambda item: _notification_text(item[1], "confirmed_at", "confirmedAt"), reverse=True)
+    if not matches:
+        data = {"byAi": False}
+    else:
+        source, payload = matches[0]
+        fields_value = payload.get("fields")
+        field_names: list[str] = []
+        if isinstance(fields_value, dict):
+            field_names = list(fields_value.keys())[:10]
+        elif isinstance(fields_value, str):
+            try:
+                parsed = json.loads(fields_value)
+                if isinstance(parsed, dict):
+                    field_names = list(parsed.keys())[:10]
+            except json.JSONDecodeError:
+                pass
+        data = {
+            "byAi": True,
+            "draftId": _notification_text(payload, "draft_id", "draftId", fallback=source["record_id"]),
+            "confidence": float(payload.get("confidence") or 0.0),
+            "llmProvider": _notification_text(payload, "llm_provider", "llmProvider"),
+            "llmModel": _notification_text(payload, "llm_model", "llmModel"),
+            "confirmedAt": _notification_text(payload, "confirmed_at", "confirmedAt"),
+            "fieldsHint": field_names,
+        }
+    return {"success": True, "code": 0, "data": data, **_ai_stats_source_metadata(coverage)}
 
 
 def loans(
@@ -10918,6 +11200,30 @@ def handler_factory(
                 elif parsed.path == "/api/company/marketing/materials":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, marketing_source_materials(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/ai-stats/overview":
+                    period = parse_qs(parsed.query).get("period", ["month"])[0]
+                    response(self, 200, ai_stats_source_overview(pool, period, max_response_rows), origin)
+                elif parsed.path == "/api/company/ai-stats/activity":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["30"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid AI activity limit") from error
+                    response(self, 200, ai_stats_source_activity(pool, limit, max_response_rows), origin)
+                elif parsed.path == "/api/company/ai-stats/badge":
+                    query = parse_qs(parsed.query)
+                    biz_type = query.get("bizType", [None])[0]
+                    biz_guid = query.get("bizGuid", [None])[0]
+                    if not biz_type or not biz_guid:
+                        raise CommandRejected("bizType and bizGuid are required", 422)
+                    if not IDENTIFIER.fullmatch(biz_type) or not IDENTIFIER.fullmatch(biz_guid):
+                        raise CommandRejected("invalid AI badge identifiers", 422)
+                    response(
+                        self,
+                        200,
+                        ai_stats_source_badge(pool, biz_type, biz_guid, max_response_rows),
+                        origin,
+                    )
                 elif parsed.path == "/api/company/admin/ocr/status":
                     response(self, 200, ocr_source_status(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/error-log":

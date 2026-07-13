@@ -741,6 +741,18 @@ struct Model {
   error_five_xx_count : String
   error_missing_table_count : String
   error_note : String
+  ai_stats_loaded : Bool
+  ai_stats_period : String
+  ai_stats_intake_total : String
+  ai_stats_query_total : String
+  ai_stats_skip_total : String
+  ai_stats_correction_total : String
+  ai_stats_accuracy : String
+  ai_stats_saved_hours : String
+  ai_stats_scene_rows : Array[Array[String]]
+  ai_stats_activity_rows : Array[Array[String]]
+  ai_stats_missing_table_count : String
+  ai_stats_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -934,6 +946,9 @@ enum Msg {
   OcrLoadFailed
   ErrorLogLoaded(String)
   ErrorLogLoadFailed
+  AiStatsOverviewLoaded(String)
+  AiStatsActivityLoaded(String)
+  AiStatsLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1177,6 +1192,18 @@ fn initial_model() -> Model {
     error_five_xx_count: "0",
     error_missing_table_count: "0",
     error_note: "错误日志源读模型尚未加载 · 使用设计快照",
+    ai_stats_loaded: false,
+    ai_stats_period: "month",
+    ai_stats_intake_total: "0",
+    ai_stats_query_total: "0",
+    ai_stats_skip_total: "0",
+    ai_stats_correction_total: "0",
+    ai_stats_accuracy: "100",
+    ai_stats_saved_hours: "0",
+    ai_stats_scene_rows: [],
+    ai_stats_activity_rows: [],
+    ai_stats_missing_table_count: "0",
+    ai_stats_note: "AI 分析源读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -3374,6 +3401,103 @@ fn error_logs_from_body(
 }
 
 ///|
+fn ai_stats_overview_from_body(
+  body : String,
+) -> (
+  Bool,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  Array[Array[String]],
+  String,
+) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          match data.get("kpi") {
+            Some(Json::Object(kpi)) => {
+              for value in json_array_field(data, "byBizType") {
+                match value {
+                  Json::Object(row) =>
+                    rows.push([
+                      json_object_text(row, "bizType", "—"),
+                      json_object_text(row, "count", "0"),
+                      "—",
+                      "—",
+                      "—",
+                      "源表未提供场景明细",
+                    ])
+                  _ => ()
+                }
+              }
+              (
+                true,
+                json_object_text(data, "period", "month"),
+                json_object_text(kpi, "intakeTotal", "0"),
+                json_object_text(kpi, "queryTotal", "0"),
+                json_object_text(kpi, "skipTotal", "0"),
+                json_object_text(kpi, "correctionTotal", "0"),
+                json_object_text(kpi, "accuracy", "100"),
+                json_object_text(kpi, "savedHours", "0"),
+                rows,
+                missing,
+              )
+            }
+            _ => (false, "month", "0", "0", "0", "0", "100", "0", rows, missing)
+          }
+        _ => (false, "month", "0", "0", "0", "0", "100", "0", rows, missing)
+      }
+    }
+    _ => (false, "month", "0", "0", "0", "0", "100", "0", rows, "0")
+  }
+}
+
+///|
+fn ai_stats_activity_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "type", "—"),
+                  json_object_text(row, "title", "—"),
+                  json_object_text(row, "detail", "—"),
+                  json_object_text(row, "time", "—"),
+                  json_object_text(row, "sourceKind", "imported"),
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -4165,6 +4289,26 @@ fn load_error_log(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_ai_stats_overview(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-stats/overview?period=month").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiStatsOverviewLoaded(body))
+      Err(_) => emit(AiStatsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_ai_stats_activity(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/ai-stats/activity?limit=30").expect_text(result => {
+    match result {
+      Ok(body) => emit(AiStatsActivityLoaded(body))
+      Err(_) => emit(AiStatsLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -4727,6 +4871,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "revenues")
       } else if path == "/invoice" {
         load_sales(emit, "invoices")
+      } else if path == "/ai-stats" {
+        load_ai_stats_overview(emit)
       } else if path == "/reports" {
         load_reports(emit)
       } else if path == "/expenses" {
@@ -6652,6 +6798,73 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           error_note: "错误日志读模型不可用 · 使用设计快照",
         },
       )
+    AiStatsOverviewLoaded(body) => {
+      let (
+        loaded,
+        period,
+        intake,
+        query,
+        skip,
+        correction,
+        accuracy,
+        saved_hours,
+        scene_rows,
+        missing,
+      ) = ai_stats_overview_from_body(body)
+      (
+        if loaded {
+          load_ai_stats_activity(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          ai_stats_loaded: loaded,
+          ai_stats_period: period,
+          ai_stats_intake_total: intake,
+          ai_stats_query_total: query,
+          ai_stats_skip_total: skip,
+          ai_stats_correction_total: correction,
+          ai_stats_accuracy: accuracy,
+          ai_stats_saved_hours: saved_hours,
+          ai_stats_scene_rows: scene_rows,
+          ai_stats_missing_table_count: missing,
+          ai_stats_note: if loaded {
+            "已加载 PostgreSQL AI 分析源读模型 · 不执行 LLM/OCR · 空源表 " +
+            missing
+          } else {
+            "AI 分析响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiStatsActivityLoaded(body) => {
+      let (loaded, rows, missing) = ai_stats_activity_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          ai_stats_activity_rows: rows,
+          ai_stats_missing_table_count: missing,
+          ai_stats_note: if loaded {
+            model.ai_stats_note
+          } else {
+            "AI 活动读模型响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AiStatsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          ai_stats_loaded: false,
+          ai_stats_scene_rows: [],
+          ai_stats_activity_rows: [],
+          ai_stats_note: "AI 分析读模型不可用 · 使用设计快照",
+        },
+      )
     ProfileLoaded(body) => {
       let values = profile_from_body(body)
       if values.length() == 10 {
@@ -8505,35 +8718,134 @@ fn ai_hub_view() -> @html.Html {
 }
 
 ///|
-fn ai_stats_view() -> @html.Html {
+fn ai_stats_view(model : Model) -> @html.Html {
+  let scene_rows = if model.ai_stats_loaded {
+    if model.ai_stats_scene_rows.length() == 0 {
+      [["—", "0", "—", "—", "—", "无源记录"]]
+    } else {
+      model.ai_stats_scene_rows
+    }
+  } else {
+    [
+      ["合同要素识别", "482", "418", "4.8s", "92.1%", "↑"],
+      ["发票 OCR", "396", "324", "2.1s", "88.4%", "↑"],
+      ["自然语言查询", "285", "—", "1.7s", "96.3%", "↑"],
+      ["风险洞察", "123", "98", "6.2s", "79.7%", "→"],
+    ]
+  }
+  let activity_rows = if model.ai_stats_loaded {
+    if model.ai_stats_activity_rows.length() == 0 {
+      [["—", "—", "—", "—", "无源记录"]]
+    } else {
+      model.ai_stats_activity_rows
+    }
+  } else {
+    [
+      [
+        "intake", "AI 起单 contract", "置信度 96% · 由系统确认", "今天 09:12",
+        "设计快照",
+      ],
+      [
+        "query", "AI 智能问答", "未来 90 天资金缺口？ · 12 行", "昨天 17:06",
+        "设计快照",
+      ],
+      [
+        "skip", "AI 自动跳过审批步", "项目经理复核 — 条件满足",
+        "昨天 15:44", "设计快照",
+      ],
+    ]
+  }
+  let intake = if model.ai_stats_loaded {
+    model.ai_stats_intake_total
+  } else {
+    "1,286"
+  }
+  let accuracy = if model.ai_stats_loaded {
+    model.ai_stats_accuracy + "%"
+  } else {
+    "86.2%"
+  }
+  let saved = if model.ai_stats_loaded {
+    model.ai_stats_saved_hours + " 小时"
+  } else {
+    "214 小时"
+  }
+  let pending = if model.ai_stats_loaded {
+    model.ai_stats_correction_total
+  } else {
+    "23"
+  }
   page_shell(
     "AI 工作大盘",
     "AI ANALYTICS",
     "查看 AI 起单、查询、风险洞察的调用量、准确率和人工确认情况。",
-    [button(class="erp-secondary-btn", "导出数据")],
+    [button(class="erp-secondary-btn", "导出数据（待授权）")],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("本月调用", "1,286", "较上月 +18.4%", "metric-blue"),
-        metric("自动通过率", "86.2%", "目标 85%", "metric-green"),
         metric(
-          "节省人工", "214 小时", "按确认记录估算", "metric-blue",
+          "本月调用",
+          intake,
+          if model.ai_stats_loaded {
+            "源表起单记录"
+          } else {
+            "较上月 +18.4%"
+          },
+          "metric-blue",
         ),
-        metric("待确认", "23", "需要业务复核", "metric-blue"),
+        metric(
+          "自动通过率",
+          accuracy,
+          if model.ai_stats_loaded {
+            "源分析估算"
+          } else {
+            "目标 85%"
+          },
+          "metric-green",
+        ),
+        metric("节省人工", saved, "按确认记录估算", "metric-blue"),
+        metric(
+          "待确认",
+          pending,
+          if model.ai_stats_loaded {
+            "修正记录"
+          } else {
+            "需要业务复核"
+          },
+          "metric-blue",
+        ),
       ],
       table_panel(
         "场景使用情况",
-        "2026 年 7 月",
+        if model.ai_stats_loaded {
+          model.ai_stats_note +
+          " · 周期 " +
+          model.ai_stats_period +
+          " · 查询 " +
+          model.ai_stats_query_total +
+          " · 自动跳过 " +
+          model.ai_stats_skip_total
+        } else {
+          "2026 年 7 月"
+        },
         data_table(
           [
             "场景", "调用次数", "自动通过", "平均耗时", "准确率",
             "趋势",
           ],
-          [
-            ["合同要素识别", "482", "418", "4.8s", "92.1%", "↑"],
-            ["发票 OCR", "396", "324", "2.1s", "88.4%", "↑"],
-            ["自然语言查询", "285", "—", "1.7s", "96.3%", "↑"],
-            ["风险洞察", "123", "98", "6.2s", "79.7%", "→"],
-          ],
+          scene_rows,
+        ),
+      ),
+      table_panel(
+        "最近 AI 活动",
+        if model.ai_stats_loaded {
+          "来源活动只读 · provider 执行仍需授权 · 空源表 " +
+          model.ai_stats_missing_table_count
+        } else {
+          "所有结果保留审计记录"
+        },
+        data_table(
+          ["类型", "标题", "详情", "时间", "来源"],
+          activity_rows,
         ),
       ),
     ],
@@ -13346,7 +13658,7 @@ fn business_view(
       "/dashboard-v3" => dashboard_view(emit, initial_model())
       "/cockpit" => dashboard_view(emit, initial_model())
       "/ai-hub" => ai_hub_view()
-      "/ai-stats" => ai_stats_view()
+      "/ai-stats" => ai_stats_view(model)
       "/projects" => project_view(emit, model)
       "/projects/CD-HJL" => project_detail_view(emit, model)
       "/project-plan" => project_plan_view(emit, model)

@@ -108,7 +108,12 @@ def main() -> int:
         if status != 200 or payload is None or payload.get("ok") is not True:
             raise SmokeError(f"health failed: {status} {payload}")
         status, payload = request(args.port, "/api/company/summary", token=token)
-        if status != 200 or payload is None or payload.get("target") != "postgresql":
+        if (
+            status != 200
+            or payload is None
+            or payload.get("target") != "postgresql"
+            or "ai_analytics_read" not in payload.get("capabilities", [])
+        ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, payload = request(args.port, "/api/company/projections?aggregate_type=notification_outbox", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
@@ -236,6 +241,51 @@ def main() -> int:
             ):
                 raise SmokeError(f"source marketing read failed: {marketing_path}: {status} {marketing_payload}")
             marketing_payloads[marketing_path] = marketing_payload
+        status, ai_overview_payload = request(
+            args.port,
+            "/api/company/ai-stats/overview?period=month",
+            token=token,
+        )
+        ai_overview_data = (ai_overview_payload or {}).get("data", {})
+        ai_kpi = ai_overview_data.get("kpi", {})
+        if (
+            status != 200
+            or ai_overview_payload is None
+            or ai_kpi.get("intakeTotal") != 0
+            or ai_kpi.get("queryTotal") != 0
+            or ai_kpi.get("skipTotal") != 0
+            or ai_overview_payload.get("source_coverage", {}).get("ai_draft") != 0
+            or ai_overview_payload.get("source_coverage", {}).get("ai_query_log") != 0
+            or ai_overview_payload.get("authorizing") is not False
+            or ai_overview_payload.get("provider_execution") is not False
+        ):
+            raise SmokeError(f"source AI overview read failed: {status} {ai_overview_payload}")
+        status, ai_activity_payload = request(
+            args.port,
+            "/api/company/ai-stats/activity?limit=30",
+            token=token,
+        )
+        if (
+            status != 200
+            or ai_activity_payload is None
+            or ai_activity_payload.get("data") != []
+            or ai_activity_payload.get("source_coverage", {}).get("ai_draft") != 0
+            or ai_activity_payload.get("provider_execution") is not False
+        ):
+            raise SmokeError(f"source AI activity read failed: {status} {ai_activity_payload}")
+        status, ai_badge_payload = request(
+            args.port,
+            "/api/company/ai-stats/badge?bizType=contract&bizGuid=HT-CD-260701",
+            token=token,
+        )
+        if (
+            status != 200
+            or ai_badge_payload is None
+            or ai_badge_payload.get("data", {}).get("byAi") is not False
+            or ai_badge_payload.get("source_coverage", {}).get("ai_draft") != 0
+            or ai_badge_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source AI badge read failed: {status} {ai_badge_payload}")
         status, notification_messages_payload = request(
             args.port,
             "/api/company/notify/messages?userCode=admin&status=unread",
@@ -2151,6 +2201,11 @@ def main() -> int:
                     "marketing_placement_rows": len(marketing_payloads["/api/company/marketing/placements"].get("data", [])),
                     "marketing_channel_rows": len(marketing_payloads["/api/company/marketing/channels"].get("data", [])),
                     "marketing_material_rows": len(marketing_payloads["/api/company/marketing/materials?projGuid=proj-0001"].get("data", [])),
+                    "ai_intake_rows": ai_kpi.get("intakeTotal"),
+                    "ai_query_rows": ai_kpi.get("queryTotal"),
+                    "ai_skip_rows": ai_kpi.get("skipTotal"),
+                    "ai_activity_rows": len(ai_activity_payload.get("data", [])),
+                    "ai_badge_by_ai": ai_badge_payload.get("data", {}).get("byAi"),
                     "notification_message_rows": notification_messages_data.get("total"),
                     "notification_unread_count": notification_unread_payload.get("data", {}).get("count"),
                     "notification_subscription_rows": len(notification_subscriptions_payload.get("data", [])),
