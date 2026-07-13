@@ -136,6 +136,7 @@ from company_postgres_service import (
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
+    projects as service_projects,
     dynamic_cost as service_dynamic_cost,
     investment_versions as service_investment_versions,
     investment_indices as service_investment_indices,
@@ -1962,6 +1963,33 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "project not found"})
                     else:
                         response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/projects":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        service_projects(
+                            _ReadModelPool(args),
+                            query.get("project_id", [None])[0],
+                            query.get("status", [None])[0],
+                            query.get("keyword", [None])[0],
+                            500,
+                        ),
+                    )
+                    return
+                project_match = re.fullmatch(
+                    r"/api/company/projects/([A-Za-z0-9_.:-]{1,128})",
+                    parsed.path,
+                )
+                if project_match is not None:
+                    result = service_projects(
+                        _ReadModelPool(args), project_match.group(1), None, None, 500,
+                    )
+                    if not result["items"]:
+                        response(self, 404, {"error": "project not found"})
+                    else:
+                        response(self, 200, result["items"][0])
                     return
                 if parsed.path == "/api/company/rbac/users":
                     query = parse_qs(parsed.query)

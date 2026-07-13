@@ -533,6 +533,40 @@ it does not activate a version, call a provider, or write finance state.
 These are still local evidence: production identity, browser acceptance, named
 owner reconciliation, and the missing 49-table export remain open.
 
+**Representative browser acceptance checkpoint (2026-07-14).** A local
+read-model server was run against PostgreSQL with the Warren-built Rabbita
+assets, and the in-app browser completed a real fixture-login and navigation
+pass. The login screen accepted the documented local `admin` fixture; the
+dashboard then showed the PostgreSQL read-model connection, two source-backed
+projects, contract/payment KPIs, and the source-derived risk table. The same
+session opened project master data (15 design rows plus the imported
+PostgreSQL project evidence), project plan (7 imported tasks with explicit
+zero source progress/output rows), dynamic cost (7 imported `cb_cost` rows,
+including `CB-101`), and investment (26 imported indicators plus six
+source-backed sensitivity cases). This validates the representative shell,
+navigation expansion, loading states, provenance text, and read-only tables;
+it is not yet page-by-page route acceptance or production-identity approval.
+
+The first pass also found that the read-model server was missing the
+`/api/company/projects` list/detail routes even though the service adapter and
+Rabbita loader already agreed on that contract. That gap was corrected in the
+read-model server and rechecked in the browser: the PostgreSQL table now shows
+the two imported projects (`proj-0001` and `proj-0002`) with lifecycle and task
+counts, rather than silently relying on the design snapshot.
+
+The browser pass also found an inherited source-contract inconsistency that
+must be reconciled before investment acceptance: the investment summary card
+renders the imported `CO.IRR` value of `14.8%`, while the source sensitivity
+route (and the PostgreSQL adapter that mirrors it) searches only for index names
+matching `售价|收入` and `成本`. The current imported labels are `可售货值` and
+`成本结转`, so the six sensitivity rows display a `-100%` baseline despite
+the summary card's `14.8%`. This is reproducible in the original ERP route as
+well as the port; it is recorded as a source/UI reconciliation defect, not
+silently “fixed” in the migration adapter. The investment owner must choose a
+canonical label/metric mapping, then the source, adapter, UI, and smoke test
+must agree before that route can move from `connected_investment_read` to
+accepted behavior.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
