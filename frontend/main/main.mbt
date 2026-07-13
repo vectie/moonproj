@@ -2544,42 +2544,6 @@ fn marketing_view() -> @html.Html {
 }
 
 ///|
-fn system_view(path : String) -> @html.Html {
-  let title = title_for(path)
-  page_shell(
-    title,
-    "SYSTEM",
-    "保留 erp_new 的运维与配置边界，所有高风险操作都需要权限和审计记录。",
-    [button(class="erp-secondary-btn", "导出")],
-    table_panel(
-      "配置与记录",
-      "最近更新",
-      data_table(
-        ["名称", "类型", "更新时间", "更新人", "状态", "操作"],
-        [
-          [
-            "集团管理员", "角色", "今天 09:24", "Giant Claw", "正常",
-            "查看",
-          ],
-          [
-            "付款审批通知", "通知配置", "昨天 18:12", "系统", "正常",
-            "编辑",
-          ],
-          [
-            "PostgreSQL 主库", "系统健康", "昨天 17:50", "系统", "正常",
-            "查看",
-          ],
-          [
-            "合同 OCR 提取", "AI 配置", "2026-07-11", "Giant Claw", "启用",
-            "配置",
-          ],
-        ],
-      ),
-    ),
-  )
-}
-
-///|
 fn inbox_view() -> @html.Html {
   page_shell(
     "站内信",
@@ -3053,6 +3017,139 @@ fn webhook_view() -> @html.Html {
 }
 
 ///|
+fn audit_view() -> @html.Html {
+  page_shell(
+    "审计日志",
+    "SYSTEM / AUDIT",
+    "记录身份、权限、配置和业务对象变更；网络字段在迁移快照中按安全策略保留或脱敏。",
+    [button(class="erp-secondary-btn", "导出审计")],
+    div <| [
+      filter_bar("用户 / 对象类型 / 对象 ID / 时间范围"),
+      table_panel(
+        "审计日志",
+        "只读 · append-only",
+        data_table(
+          [
+            "ID", "时间", "用户", "user_id", "操作", "对象类型", "对象 ID",
+            "IP",
+          ],
+          [
+            [
+              "1", "2026-07-13 09:24", "系统管理员", "user-admin-0001", "登录",
+              "identity", "user-admin-0001", "已脱敏",
+            ],
+            [
+              "2", "2026-07-12 18:12", "系统管理员", "user-admin-0001", "更新通知配置",
+              "notify_config", "cost_variance", "已脱敏",
+            ],
+            [
+              "3", "2026-07-11 16:42", "程玉哲", "user-tgl-0001", "提交报销",
+              "expense", "EXP-260712-008", "已脱敏",
+            ],
+            [
+              "4", "2026-07-10 11:20", "李明金", "user-lmj-0001", "审批付款",
+              "payment_apply", "PAY-260710-004", "已脱敏",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn error_view() -> @html.Html {
+  page_shell(
+    "错误日志",
+    "SYSTEM / ERRORS",
+    "查看服务错误、HTTP 状态和业务上下文；原始网络标识不在公司投影中公开。",
+    [button(class="erp-secondary-btn", "清理已处理")],
+    div <| [
+      div(class="erp-stat-grid") <| [
+        metric("今日错误", "3", "较昨日 -4", "metric-blue"),
+        metric("5xx", "1", "需运维关注", "metric-blue"),
+        metric("已处理", "98.6%", "本周", "metric-green"),
+      ],
+      filter_bar("路径 / 方法 / 状态码 / 错误内容"),
+      table_panel(
+        "错误记录",
+        "最近发生",
+        data_table(
+          ["ID", "时间", "方法", "路径", "状态码", "错误", "IP"],
+          [
+            [
+              "ERR-260713-003", "今天 09:16", "GET", "/api/company/projections",
+              "500", "projection query timeout", "已脱敏",
+            ],
+            [
+              "ERR-260712-018", "昨天 17:20", "POST", "/api/ocr/recognize", "422",
+              "confidence below threshold", "已脱敏",
+            ],
+            [
+              "ERR-260711-004", "2026-07-11", "PUT", "/api/notify/config", "403",
+              "authority denied", "已脱敏",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn admin_view() -> @html.Html {
+  page_shell(
+    "数据后台",
+    "SYSTEM / ADMIN",
+    "为管理员提供数据字典、质量看板、流程运行和 RBAC 只读审查入口。",
+    [button(class="erp-secondary-btn", "刷新数据")],
+    div <| [
+      div(class="erp-tabs") <| [
+        button(class="erp-tab is-active", "数据字典"),
+        button(class="erp-tab", "数据质量看板"),
+        button(class="erp-tab", "审计日志"),
+        button(class="erp-tab", "系统健康"),
+        button(class="erp-tab", "角色权限"),
+      ],
+      table_panel(
+        "数据字典",
+        "系统参数和业务枚举",
+        data_table(["分组", "编码", "值", "排序", "状态", "操作"], [
+          ["cost_subject", "CB-101", "建安工程", "1", "启用", "查看"],
+          ["cost_subject", "CB-101-JZ", "主体建安", "2", "启用", "查看"],
+          ["expense_proceeding", "travel", "差旅费", "1", "启用", "查看"],
+          [
+            "expense_proceeding", "entertainment", "业务招待费", "2", "启用",
+            "查看",
+          ],
+        ]),
+      ),
+      table_panel(
+        "数据质量看板",
+        "当前批次检查结果",
+        data_table(
+          ["检查项", "规则", "异常数", "严重度", "状态"],
+          [
+            [
+              "来源身份唯一性", "source_id 不重复", "0", "低", "通过",
+            ],
+            [
+              "投影来源可追溯", "source_snapshot + mapping", "0", "中", "通过",
+            ],
+            [
+              "会计链接主键", "event/source/journal 唯一", "0", "高", "通过",
+            ],
+            [
+              "任务依赖状态", "父任务完成度约束", "2", "高", "需复核",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
 fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
   match path {
     "/ai-hub" => ai_hub_view()
@@ -3098,11 +3195,11 @@ fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
     "/inbox" => inbox_view()
     "/attachments" => attachments_view()
     "/notify-config" => notify_view()
-    "/audit-log" => system_view(path)
-    "/error-log" => system_view(path)
+    "/audit-log" => audit_view()
+    "/error-log" => error_view()
     "/system-health" => health_view()
     "/users" => users_view()
-    "/admin" => system_view(path)
+    "/admin" => admin_view()
     "/ocr-config" => ocr_view()
     "/webhook-config" => webhook_view()
     "/profile" => profile_view()
