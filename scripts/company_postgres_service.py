@@ -68,6 +68,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/cashflow/net`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/gap-alert`` (GET, source-compatible cashflow read)
 * ``/api/company/cbs/*`` (GET, source-compatible non-authorizing CBS reads)
+* ``/api/company/fund/{plans,gap-analysis,dispatches}`` (GET, source-compatible
+  non-authorizing liquidity-plan reads)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
@@ -6498,6 +6500,14 @@ CBS_SOURCE_TABLES = {
 }
 
 
+FUND_SOURCE_TABLES = {
+    "ep_project",
+    "fund_dispatch",
+    "fund_plan",
+    "mu_business_unit",
+}
+
+
 def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
@@ -6510,6 +6520,17 @@ def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
 
 
 def _cbs_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+    }
+
+
+def _fund_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
         "source_coverage": coverage,
@@ -7438,6 +7459,139 @@ def cbs_source_demo_contracts(
         )
     result.sort(key=lambda value: value["code"], reverse=True)
     return {"success": True, "code": 0, "data": result, **_cbs_source_metadata(coverage)}
+
+
+def _fund_rows_and_coverage(
+    pool: PsqlPool, max_rows: int,
+) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
+    limit = max(max_rows, 500)
+    rows = {
+        table: _raw_source_rows(pool, table, limit, FUND_SOURCE_TABLES)
+        for table in sorted(FUND_SOURCE_TABLES)
+    }
+    return {table: len(values) for table, values in rows.items()}, rows
+
+
+def fund_source_plans(
+    pool: PsqlPool,
+    proj_guid: str | None,
+    period: str | None,
+    direction: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    for value, label in ((proj_guid, "proj_guid"), (period, "period"), (direction, "direction")):
+        if value is not None and (not value or len(value) > 128):
+            raise ValueError(f"invalid {label}")
+    if direction is not None and direction not in {"in", "out"}:
+        raise ValueError("direction must be in or out")
+    coverage, rows = _fund_rows_and_coverage(pool, max_rows)
+    projects = {
+        str(row["payload"].get("proj_guid") or row["record_id"]): row["payload"]
+        for row in rows["ep_project"]
+        if not row["payload"].get("deleted_at")
+    }
+    result = []
+    for row in rows["fund_plan"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if period is not None and _report_text(payload, "plan_period") != period:
+            continue
+        if direction is not None and _report_text(payload, "direction") != direction:
+            continue
+        project = projects.get(str(payload.get("proj_guid") or ""), {})
+        result.append(
+            {
+                "plan_guid": _report_text(payload, "plan_guid", row["record_id"]),
+                "plan_code": _report_text(payload, "plan_code"),
+                "proj_guid": _report_text(payload, "proj_guid"),
+                "proj_name": _report_text(project, "proj_name"),
+                "bu_guid": _report_text(payload, "bu_guid"),
+                "plan_period": _report_text(payload, "plan_period"),
+                "direction": _report_text(payload, "direction"),
+                "category": _report_text(payload, "category"),
+                "r_code": _report_text(payload, "r_code"),
+                "plan_amount": _report_float(payload, "plan_amount"),
+                "actual_amount": _report_float(payload, "actual_amount"),
+                "remark": _report_text(payload, "remark"),
+                "created_at": _report_text(payload, "created_at"),
+            }
+        )
+    result.sort(key=lambda value: (value["plan_period"], value["direction"], value["plan_code"]))
+    return {"success": True, "code": 0, "data": result, **_fund_source_metadata(coverage)}
+
+
+def fund_source_gap_analysis(
+    pool: PsqlPool, proj_guid: str, max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    coverage, rows = _fund_rows_and_coverage(pool, max_rows)
+    grouped: dict[str, dict[str, float]] = {}
+    for row in rows["fund_plan"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        period = _report_text(payload, "plan_period")
+        item = grouped.setdefault(
+            period,
+            {"planIn": 0.0, "actualIn": 0.0, "planOut": 0.0, "actualOut": 0.0},
+        )
+        if _report_text(payload, "direction") == "in":
+            item["planIn"] += _report_float(payload, "plan_amount")
+            item["actualIn"] += _report_float(payload, "actual_amount")
+        elif _report_text(payload, "direction") == "out":
+            item["planOut"] += _report_float(payload, "plan_amount")
+            item["actualOut"] += _report_float(payload, "actual_amount")
+    cumulative = 0.0
+    series = []
+    for period in sorted(grouped):
+        item = grouped[period]
+        net = item["planIn"] - item["planOut"]
+        cumulative += net
+        series.append(
+            {
+                "period": period,
+                **{key: round(value, 2) for key, value in item.items()},
+                "net": round(net, 2),
+                "cumNet": round(cumulative, 2),
+                "gap": round(max(0.0, -cumulative), 2),
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"series": series},
+        **_fund_source_metadata(coverage),
+    }
+
+
+def fund_source_dispatches(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage, rows = _fund_rows_and_coverage(pool, max_rows)
+    result = []
+    for row in rows["fund_dispatch"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        result.append(
+            {
+                "dispatch_guid": _report_text(payload, "dispatch_guid", row["record_id"]),
+                "dispatch_code": _report_text(payload, "dispatch_code"),
+                "proj_guid": _report_text(payload, "proj_guid"),
+                "bu_guid": _report_text(payload, "bu_guid"),
+                "from_proj": _report_text(payload, "from_proj"),
+                "to_proj": _report_text(payload, "to_proj"),
+                "amount": _report_float(payload, "amount"),
+                "reason": _report_text(payload, "reason"),
+                "dispatch_date": _report_text(payload, "dispatch_date"),
+                "state": _report_text(payload, "state"),
+                "created_at": _report_text(payload, "created_at"),
+            }
+        )
+    result.sort(key=lambda value: value["created_at"], reverse=True)
+    return {"success": True, "code": 0, "data": result, **_fund_source_metadata(coverage)}
 
 
 def loans(
@@ -9498,6 +9652,27 @@ def handler_factory(
                 elif parsed.path == "/api/company/cbs/demo/contracts":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, cbs_source_demo_contracts(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/fund/plans":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        fund_source_plans(
+                            pool,
+                            query.get("projGuid", [None])[0],
+                            query.get("period", [None])[0],
+                            query.get("direction", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/fund/gap-analysis":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    if not proj_guid:
+                        raise CommandRejected("projGuid is required", 422)
+                    response(self, 200, fund_source_gap_analysis(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/fund/dispatches":
+                    response(self, 200, fund_source_dispatches(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/investment/meta/dimensions":
                     response(
                         self,

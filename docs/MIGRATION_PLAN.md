@@ -344,6 +344,14 @@ but no CBS dictionary/version/rule rows, so empty and covered-not-found states
 are preserved. CBS writes, budget reservation, accounting, cash, tax,
 production identity, and owner acceptance remain gates.
 
+Fund planning is now a connected read family after CBS: `/fund/plan` loads
+source-compatible project/period plans, gap analysis, and dispatch evidence
+from `/api/company/fund/{plans,gap-analysis,dispatches}`. The current export
+has no fund rows, so planned cash, gaps, and dispatches are shown as empty
+source state instead of designer numbers after a successful read. Creating
+plans, approving dispatches, releasing cash, accounting, tax, production
+identity, and owner acceptance remain gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,

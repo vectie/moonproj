@@ -399,6 +399,17 @@ struct CbsRow {
 }
 
 ///|
+struct FundPlanRow {
+  plan_period : String
+  direction : String
+  category : String
+  proj_name : String
+  plan_amount : String
+  actual_amount : String
+  state : String
+}
+
+///|
 struct InitiatedRow {
   id : String
   code : String
@@ -645,6 +656,11 @@ struct Model {
   cbs_r0_count : String
   cbs_missing_table_count : String
   cbs_note : String
+  fund_loaded : Bool
+  fund_rows : Array[FundPlanRow]
+  fund_gap_series_count : String
+  fund_dispatch_count : String
+  fund_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -807,6 +823,12 @@ enum Msg {
   CbsLoadFailed
   CbsR0Loaded(String)
   CbsR0LoadFailed
+  FundLoaded(String)
+  FundLoadFailed
+  FundGapLoaded(String)
+  FundGapLoadFailed
+  FundDispatchLoaded(String)
+  FundDispatchLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -991,6 +1013,11 @@ fn initial_model() -> Model {
     cbs_r0_count: "0",
     cbs_missing_table_count: "0",
     cbs_note: "CBS 读模型尚未加载 · 使用设计快照",
+    fund_loaded: false,
+    fund_rows: [],
+    fund_gap_series_count: "0",
+    fund_dispatch_count: "0",
+    fund_note: "资金计划读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2584,6 +2611,56 @@ fn cbs_r0_from_body(body : String) -> (Bool, String) {
 }
 
 ///|
+fn fund_from_body(body : String) -> (Bool, Array[FundPlanRow], String) {
+  let rows : Array[FundPlanRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  plan_period: json_object_text(row, "plan_period", "—"),
+                  direction: json_object_text(row, "direction", "—"),
+                  category: json_object_text(row, "category", "—"),
+                  proj_name: json_object_text(row, "proj_name", "—"),
+                  plan_amount: json_object_text(row, "plan_amount", "0"),
+                  actual_amount: json_object_text(row, "actual_amount", "0"),
+                  state: json_object_text(row, "state", "source_read_only"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn fund_count_from_body(body : String, field : String) -> (Bool, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          (true, json_array_field(data, field).length().to_string())
+        Some(Json::Array(items)) => (true, items.length().to_string())
+        _ => (false, "0")
+      }
+    _ => (false, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -3215,6 +3292,36 @@ fn load_cbs_r0(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_fund(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/fund/plans?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(FundLoaded(body))
+      Err(_) => emit(FundLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_fund_gap(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/fund/gap-analysis?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(FundGapLoaded(body))
+      Err(_) => emit(FundGapLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_fund_dispatches(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/fund/dispatches").expect_text(result => {
+    match result {
+      Ok(body) => emit(FundDispatchLoaded(body))
+      Err(_) => emit(FundDispatchLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -3798,6 +3905,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         path == "/cbs/r0-queue" ||
         path == "/cbs/approval-config" {
         load_cbs(emit)
+      } else if path == "/fund/plan" {
+        load_fund(emit)
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -5131,6 +5240,54 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, cbs_r0_count: if loaded { count } else { "0" } })
     }
     CbsR0LoadFailed => (none, { ..model, cbs_r0_count: "0" })
+    FundLoaded(body) => {
+      let (loaded, rows, missing_table_count) = fund_from_body(body)
+      (
+        if loaded {
+          load_fund_gap(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          fund_loaded: loaded,
+          fund_rows: rows,
+          fund_note: if loaded {
+            "已加载 PostgreSQL 资金计划源读模型 · 计划/调度保持只读 · 空源表 " +
+            missing_table_count
+          } else {
+            "资金计划响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    FundLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          fund_loaded: false,
+          fund_rows: [],
+          fund_note: "资金计划读模型不可用 · 使用设计快照",
+        },
+      )
+    FundGapLoaded(body) => {
+      let (loaded, count) = fund_count_from_body(body, "series")
+      (
+        if loaded {
+          load_fund_dispatches(emit)
+        } else {
+          none
+        },
+        { ..model, fund_gap_series_count: if loaded { count } else { "0" } },
+      )
+    }
+    FundGapLoadFailed => (none, { ..model, fund_gap_series_count: "0" })
+    FundDispatchLoaded(body) => {
+      let (loaded, count) = fund_count_from_body(body, "")
+      (none, { ..model, fund_dispatch_count: if loaded { count } else { "0" } })
+    }
+    FundDispatchLoadFailed => (none, { ..model, fund_dispatch_count: "0" })
     ProfileLoaded(body) => {
       let values = profile_from_body(body)
       if values.length() == 10 {
@@ -8614,48 +8771,120 @@ fn cbs_view(model : Model, path : String) -> @html.Html {
 }
 
 ///|
-fn fund_plan_view() -> @html.Html {
+fn fund_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.fund_loaded {
+    if model.fund_rows.length() == 0 {
+      rows.push([
+        "—", "—", "本次导出没有资金计划源记录", "—", "—", "—",
+        "imported_or_empty",
+      ])
+    } else {
+      for row in model.fund_rows {
+        rows.push([
+          row.plan_period,
+          row.direction,
+          row.category,
+          row.proj_name,
+          row.plan_amount,
+          row.actual_amount,
+          row.state,
+        ])
+      }
+    }
+    table_panel(
+      "PostgreSQL 资金计划 (" + model.fund_rows.length().to_string() + ")",
+      model.fund_note +
+      " · 缺口期间 " +
+      model.fund_gap_series_count +
+      " · 调度 " +
+      model.fund_dispatch_count,
+      data_table(
+        ["期间", "方向", "类别", "项目", "计划", "实际", "状态"],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "月度资金计划",
+      "设计快照 · 等待 PostgreSQL 源读模型",
+      data_table(
+        [
+          "项目 / 公司", "期初余额", "计划流入", "计划流出", "期末余额",
+          "缺口", "负责人", "状态",
+        ],
+        [
+          [
+            "成都和锦里", "¥1,820 万", "¥2,460 万", "¥2,180 万", "¥2,100 万",
+            "—", "陈志强", "正常",
+          ],
+          [
+            "重庆南山居", "¥860 万", "¥1,120 万", "¥1,360 万", "¥620 万",
+            "¥180 万", "刘松", "关注",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn fund_plan_view(model : Model) -> @html.Html {
+  let plan_outflow = if model.fund_loaded { "—" } else { "¥3,860 万" }
+  let gap = if model.fund_loaded { "—" } else { "¥620 万" }
   page_shell(
     "资金计划",
     "FINANCE / FUND PLAN",
     "统筹项目回款、融资、付款与资金缺口，形成月度和滚动资金计划。",
     [button(class="erp-primary-btn", "＋ 编制计划")],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.fund_loaded {
+            "PostgreSQL 资金计划源已连接"
+          } else {
+            "资金计划设计快照"
+          },
+        ),
+        span(" · " + model.fund_note),
+      ]),
       div(class="erp-stat-grid") <| [
         metric(
-          "本月可用资金", "¥4,280 万", "含银行余额", "metric-blue",
+          "本月可用资金",
+          if model.fund_loaded {
+            "—"
+          } else {
+            "¥4,280 万"
+          },
+          if model.fund_loaded {
+            "期初余额源未提供"
+          } else {
+            "含银行余额"
+          },
+          "metric-blue",
         ),
         metric(
-          "本月计划流出", "¥3,860 万", "付款 48 笔", "metric-blue",
+          "本月计划流出",
+          plan_outflow,
+          if model.fund_loaded {
+            "fund_plan 源读模型"
+          } else {
+            "付款 48 笔"
+          },
+          "metric-blue",
         ),
         metric(
-          "资金缺口", "¥620 万", "预计 8 月出现", "metric-green",
+          "资金缺口",
+          gap,
+          if model.fund_loaded {
+            "gap-analysis 源读模型"
+          } else {
+            "预计 8 月出现"
+          },
+          "metric-green",
         ),
       ],
-      table_panel(
-        "月度资金计划",
-        "2026 年 7 月",
-        data_table(
-          [
-            "项目 / 公司", "期初余额", "计划流入", "计划流出", "期末余额",
-            "缺口", "负责人", "状态",
-          ],
-          [
-            [
-              "成都和锦里", "¥1,820 万", "¥2,460 万", "¥2,180 万", "¥2,100 万",
-              "—", "陈志强", "正常",
-            ],
-            [
-              "重庆南山居", "¥860 万", "¥1,120 万", "¥1,360 万", "¥620 万",
-              "¥180 万", "刘松", "关注",
-            ],
-            [
-              "沈阳和山苑", "¥1,240 万", "¥960 万", "¥820 万", "¥1,380 万",
-              "—", "李明金", "正常",
-            ],
-          ],
-        ),
-      ),
+      fund_runtime_table(model),
     ],
   )
 }
@@ -11298,7 +11527,7 @@ fn business_view(
       "/cbs/versions" => cbs_view(model, path)
       "/cbs/r0-queue" => cbs_view(model, path)
       "/cbs/approval-config" => cbs_view(model, path)
-      "/fund/plan" => fund_plan_view()
+      "/fund/plan" => fund_plan_view(model)
       "/invoice" => invoice_view(model)
       "/expenses" => expenses_view(emit, model)
       "/expenses/new" => expense_editor_view(emit, model, false)

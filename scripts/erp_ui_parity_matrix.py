@@ -12,8 +12,8 @@ is not dashboard parity; the bounded dashboard v1 reads are now explicitly
 identified, while the local expense/contract/payment-application/
 tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime, non-authorizing workflow-definition,
-cashflow, and source-compatible CBS read boundaries. No workflow-instance
-mutation endpoint is inferred.
+cashflow, CBS, and source-compatible fund-plan read boundaries. No
+workflow-instance mutation endpoint is inferred.
 """
 
 from __future__ import annotations
@@ -214,6 +214,8 @@ def match_target(
             return function, "connected_cashflow_read"
         if path in {"/cbs/dict", "/cbs/versions", "/cbs/r0-queue", "/cbs/approval-config"} and function == "cbs_view":
             return function, "connected_cbs_read"
+        if path == "/fund/plan" and function == "fund_plan_view":
+            return function, "connected_fund_read"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
@@ -311,6 +313,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_cashflow_scenario_and_production_identity"
     if target_state == "connected_cbs_read":
         return "accept_browser_cbs_scenario_and_production_identity"
+    if target_state == "connected_fund_read":
+        return "accept_browser_fund_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -460,6 +464,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_cbs_read", "accept_browser_cbs_scenario_and_production_identity"
     if (
+        handler["module"] == "fund"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/plans", "/gap-analysis", "/dispatches"}
+    ):
+        return "connected_fund_read", "accept_browser_fund_scenario_and_production_identity"
+    if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
@@ -530,6 +540,8 @@ def build_matrix(
             api_state = "connected_cashflow_read"
         elif target_state == "connected_cbs_read":
             api_state = "connected_cbs_read"
+        elif target_state == "connected_fund_read":
+            api_state = "connected_fund_read"
         elif target_state == "connected_supplier_risk_read":
             api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":

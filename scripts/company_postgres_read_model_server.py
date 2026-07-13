@@ -47,6 +47,9 @@ from company_postgres_service import (
     cbs_source_approval_pick as service_cbs_source_approval_pick,
     cbs_source_changes as service_cbs_source_changes,
     cbs_source_demo_contracts as service_cbs_source_demo_contracts,
+    fund_source_plans as service_fund_source_plans,
+    fund_source_gap_analysis as service_fund_source_gap_analysis,
+    fund_source_dispatches as service_fund_source_dispatches,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -368,6 +371,23 @@ def cbs_source_changes(
 
 def cbs_source_demo_contracts(args: argparse.Namespace, proj_guid: str | None) -> dict[str, Any]:
     return service_cbs_source_demo_contracts(_ReadModelPool(args), proj_guid, 500)
+
+
+def fund_source_plans(
+    args: argparse.Namespace,
+    proj_guid: str | None,
+    period: str | None,
+    direction: str | None,
+) -> dict[str, Any]:
+    return service_fund_source_plans(_ReadModelPool(args), proj_guid, period, direction, 500)
+
+
+def fund_source_gap_analysis(args: argparse.Namespace, proj_guid: str) -> dict[str, Any]:
+    return service_fund_source_gap_analysis(_ReadModelPool(args), proj_guid, 500)
+
+
+def fund_source_dispatches(args: argparse.Namespace) -> dict[str, Any]:
+    return service_fund_source_dispatches(_ReadModelPool(args), 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -821,6 +841,29 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/cbs/demo/contracts":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, cbs_source_demo_contracts(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/fund/plans":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        fund_source_plans(
+                            args,
+                            query.get("projGuid", [None])[0],
+                            query.get("period", [None])[0],
+                            query.get("direction", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/fund/gap-analysis":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    if not proj_guid:
+                        response(self, 422, {"error": "projGuid is required"})
+                    else:
+                        response(self, 200, fund_source_gap_analysis(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/fund/dispatches":
+                    response(self, 200, fund_source_dispatches(args))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

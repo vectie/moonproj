@@ -74,8 +74,10 @@ settlement, and production identity remain separate gates. The `/cbs/*`
 screens now load the source-compatible PostgreSQL CBS dictionary and R0 queue
 reads, including explicit empty/covered source states when the export has no
 CBS dictionary/version rows; CBS mutations and budget ownership remain
-separate gates. The authenticated company service/gateway
-also exposes local
+separate gates. The `/fund/plan` screen now loads source-compatible PostgreSQL
+fund plans, gap analysis, and dispatch reads with explicit empty-source
+provenance; fund-plan and dispatch mutations remain gated. The authenticated
+company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;
 workflow synchronization stays gated until source workflow rows are available.

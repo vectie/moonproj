@@ -385,6 +385,43 @@ def main() -> int:
             raise SmokeError(
                 f"source CBS contract read failed: {status} {cbs_demo_contracts_payload}"
             )
+        status, fund_plans_payload = request(
+            args.port,
+            "/api/company/fund/plans?projGuid=proj-0001",
+            token=token,
+        )
+        if (
+            status != 200
+            or fund_plans_payload is None
+            or fund_plans_payload.get("data") != []
+            or fund_plans_payload.get("source_coverage", {}).get("fund_plan") != 0
+            or fund_plans_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source fund plans read failed: {status} {fund_plans_payload}")
+        status, fund_gap_payload = request(
+            args.port,
+            "/api/company/fund/gap-analysis?projGuid=proj-0001",
+            token=token,
+        )
+        if (
+            status != 200
+            or fund_gap_payload is None
+            or fund_gap_payload.get("data", {}).get("series") != []
+            or fund_gap_payload.get("source_coverage", {}).get("fund_plan") != 0
+            or fund_gap_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source fund gap read failed: {status} {fund_gap_payload}")
+        status, fund_dispatch_payload = request(
+            args.port, "/api/company/fund/dispatches", token=token,
+        )
+        if (
+            status != 200
+            or fund_dispatch_payload is None
+            or fund_dispatch_payload.get("data") != []
+            or fund_dispatch_payload.get("source_coverage", {}).get("fund_dispatch") != 0
+            or fund_dispatch_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source fund dispatch read failed: {status} {fund_dispatch_payload}")
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1890,6 +1927,9 @@ def main() -> int:
                     "cbs_r0_queue_rows": len(cbs_r0_payload.get("data", {}).get("items", [])),
                     "cbs_contract_rows": len(cbs_demo_contracts_payload.get("data", [])),
                     "cbs_dict_rows": len(cbs_dict_data.get("items", [])),
+                    "fund_plan_rows": len(fund_plans_payload.get("data", [])),
+                    "fund_gap_series_rows": len(fund_gap_payload.get("data", {}).get("series", [])),
+                    "fund_dispatch_rows": len(fund_dispatch_payload.get("data", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,
