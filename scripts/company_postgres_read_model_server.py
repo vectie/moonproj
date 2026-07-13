@@ -141,6 +141,7 @@ from company_postgres_service import (
     investment_indices as service_investment_indices,
     investment_profit_summary as service_investment_profit_summary,
     investment_sensitivity as service_investment_sensitivity,
+    dynamic_cost_remarks as service_dynamic_cost_remarks,
     cost_dashboard_v3 as service_cost_dashboard_v3,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
@@ -969,6 +970,10 @@ def investment_profit_summary(args: argparse.Namespace, project_id: str) -> dict
 
 def investment_sensitivity(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
     return service_investment_sensitivity(_ReadModelPool(args), project_id, 500)
+
+
+def dynamic_cost_remarks(args: argparse.Namespace, cost_id: str) -> dict[str, Any] | None:
+    return service_dynamic_cost_remarks(_ReadModelPool(args), cost_id, 500)
 
 
 def admin_quality_overview(args: argparse.Namespace) -> dict[str, Any]:
@@ -1856,6 +1861,17 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 422, {"error": "projGuid is required"})
                     else:
                         response(self, 200, dynamic_cost(args, project_id))
+                    return
+                dynamic_cost_remarks_match = re.fullmatch(
+                    r"/api/company/source/cost/dynamic-cost/([A-Za-z0-9_.:-]{1,128})/remarks",
+                    parsed.path,
+                )
+                if dynamic_cost_remarks_match is not None:
+                    result = dynamic_cost_remarks(args, dynamic_cost_remarks_match.group(1))
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "科目不存在"})
+                    else:
+                        response(self, 200, result)
                     return
                 investment_versions_match = re.fullmatch(
                     r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/versions",

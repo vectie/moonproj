@@ -116,6 +116,22 @@ def main() -> int:
             and dynamic.get("source_coverage", {}).get("cb_cost") == 7,
             f"source dynamic-cost read failed: {status} {dynamic}",
         )
+        status, remarks = request(
+            args.port,
+            "/api/company/source/cost/dynamic-cost/cost-001/remarks",
+            token=token,
+        )
+        remarks_data = (remarks or {}).get("data", {})
+        expect(
+            status == 200
+            and remarks is not None
+            and remarks_data.get("costCode") == "CB-101"
+            and remarks_data.get("costName") == "建安工程"
+            and remarks.get("source_coverage", {}).get("cb_cost") == 7
+            and remarks.get("authorizing") is False
+            and remarks.get("persisted") is False,
+            f"source dynamic-cost remarks read failed: {status} {remarks}",
+        )
         status, sensitivity = request(
             args.port,
             "/api/company/investment/projects/proj-0001/sensitivity",

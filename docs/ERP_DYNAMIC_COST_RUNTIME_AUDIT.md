@@ -17,7 +17,9 @@ The source `/dynamic-cost` route calculates five cost columns from `cb_cost`:
 The target now exposes the fixed read
 `/api/company/cost/dynamic-cost?projGuid=proj-0001`. It preserves seven
 imported `cb_cost` rows, six end-cost rows, cost hierarchy, remarks, and source
-coverage. The Rabbita `/dynamic-cost` screen renders the source columns and
+coverage. It also exposes the source-compatible
+`/api/company/source/cost/dynamic-cost/:id/remarks` observation for an imported
+cost subject. The Rabbita `/dynamic-cost` screen renders the source columns and
 summary while retaining the designer table as an offline fallback.
 
 ## Evidence
@@ -27,8 +29,10 @@ summary while retaining the designer table as an offline fallback.
   `cb_cost=7`.
 - Authenticated service smoke asserts the formula result and source coverage;
   read-model endpoint probing returns the same values.
-- The parity matrix marks the source `GET /dynamic-cost` handler as
-  `connected_cost_source_read`.
+- The parity matrix marks the source `GET /dynamic-cost` and
+  `GET /dynamic-cost/:id/remarks` handlers as `connected_cost_source_read`.
+- The remarks probe preserves `CB-101`/`建安工程`, `cb_cost=7` coverage, and
+  non-authorizing/non-persisting metadata.
 
 ## Remaining gate
 

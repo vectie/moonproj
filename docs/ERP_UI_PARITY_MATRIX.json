@@ -2185,8 +2185,8 @@
         "/dynamic-cost",
         "/cost-dashboard-v3"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cost_source_read",
+      "required_next": "accept_browser_cost_source_scenario_and_production_identity"
     },
     {
       "module": "cost",

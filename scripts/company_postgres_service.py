@@ -62,6 +62,8 @@ The bounded service exposes these endpoints:
   progress/output observations; empty or missing source tables stay explicit)
 * ``/api/company/reports/{cost-summary,contract-payment-ledger,
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
+* ``/api/company/source/cost/dynamic-cost/<id>/remarks`` (GET, source
+  cost-subject remark observation)
 * ``/api/company/dashboard/group/{overview,funnel,top-anomalies}`` and
   ``/api/company/dashboard/project/<id>/{kpi,anomalies}`` (GET,
   source-backed bounded cockpit reads)
@@ -7263,6 +7265,55 @@ def dynamic_cost(
     }
 
 
+def dynamic_cost_remarks(
+    pool: PsqlPool,
+    cost_id: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read the source dynamic-cost remark for one imported cost subject."""
+
+    if not IDENTIFIER.fullmatch(cost_id):
+        raise ValueError("invalid cost_id")
+    raw_costs = _raw_source_rows(pool, "cb_cost", max(max_rows, 500), DASHBOARD_SOURCE_TABLES)
+    projects = _raw_source_rows(pool, "ep_project", max(max_rows, 100), DASHBOARD_SOURCE_TABLES)
+    row = next(
+        (
+            item["payload"]
+            for item in raw_costs
+            if str(item["payload"].get("cost_guid") or item["record_id"]) == cost_id
+            and not item["payload"].get("deleted_at")
+        ),
+        None,
+    )
+    if row is None:
+        return None
+    project_id = str(row.get("proj_guid") or "")
+    project_name = next(
+        (
+            str(item["payload"].get("proj_name") or "")
+            for item in projects
+            if str(item["payload"].get("proj_guid") or "") == project_id
+        ),
+        "",
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "costCode": str(row.get("cost_code") or ""),
+            "costName": str(row.get("cost_name") or ""),
+            "remarks": str(row.get("remarks") or ""),
+            "projectName": project_name,
+            "sourceKind": "imported",
+        },
+        "source_kind": "imported",
+        "source_coverage": {"cb_cost": len(raw_costs), "ep_project": len(projects)},
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
 def cost_dashboard_v3(
     pool: PsqlPool,
     project_id: str,
@@ -13776,6 +13827,21 @@ def handler_factory(
                     response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
+                elif re.fullmatch(
+                    r"/api/company/source/cost/dynamic-cost/[A-Za-z0-9_.:-]{1,128}/remarks",
+                    parsed.path,
+                ):
+                    cost_value = parsed.path.split("/")[-2]
+                    result = dynamic_cost_remarks(pool, cost_value, max_response_rows)
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "科目不存在"},
+                            origin,
+                        )
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/cost/dynamic-cost":
                     project_value = parse_qs(parsed.query).get("projGuid", [""])[0]
                     if not project_value:
