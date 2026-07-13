@@ -53,16 +53,22 @@ on the server side and put the local gateway in front of the browser bundle:
 ```sh
 export MOONPROJ_SERVICE_TOKEN=choose-a-local-token
 export PGPASSWORD=your-local-password
+export MOONPROJ_DEV_USER=chengyuzhe
+export MOONPROJ_DEV_PASSWORD=123456
+export MOONPROJ_ACTOR_SIGNING_SECRET=choose-a-local-signing-secret
 python3 scripts/company_postgres_service.py --database moonproj \
-  --port 4174 --require-forwarded-tls
+  --port 4174 --require-forwarded-tls \
+  --actor-signing-secret-env MOONPROJ_ACTOR_SIGNING_SECRET
 python3 scripts/company_postgres_dev_gateway.py \
   --public-dir /path/to/warren/dist --port 4173 --service-port 4174
 ```
 
-Open `http://127.0.0.1:4173`. The gateway forwards `/api/` requests with the
-bearer token and HTTPS-forwarding marker, and translates the Rabbita form's
-JSON `idempotency_key` into the command header required by the service. It is
-intentionally a local development adapter: it binds to loopback, only
+Open `http://127.0.0.1:4173`. The gateway establishes an in-memory HttpOnly
+session from the configured local credentials, forwards `/api/` requests with
+the bearer token and HTTPS-forwarding marker, and signs the session actor
+assertion before forwarding it to the service. It also translates the Rabbita
+form's JSON `idempotency_key` into the command header required by the service.
+It is intentionally a local development adapter: it binds to loopback, only
 allow-lists expense POST commands, and is not the production deployment.
 
 The UI intentionally stays within the source product’s Element Plus visual

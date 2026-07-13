@@ -17,7 +17,9 @@ parity.
 
 The service token stayed in the gateway environment. The browser sent only
 same-origin JSON; the gateway supplied bearer authentication, forwarded HTTPS,
-and translated each JSON `idempotency_key` into `Idempotency-Key`.
+and translated each JSON `idempotency_key` into `Idempotency-Key`. The
+browser login established an in-memory HttpOnly session, and the gateway
+signed `rabbita-user` before forwarding command requests.
 
 ## Scenario
 
@@ -37,8 +39,8 @@ projection plus five `company_command` receipts and five
 
 ## Remaining gate
 
-This acceptance covers only the fixed local development probe. The expense
-form still uses a fixed demo ID and idempotency keys, the service actor is
-configured as `service-operator`, and the production identity/session/token
-boundary is not accepted. Other ERP route families remain fixture-backed or
-read-only.
+This acceptance covers only the local development probe. The expense form
+still uses a fixed demo ID and idempotency keys, the session store is
+in-memory, and the production identity/session/token issuer, persistence,
+rotation, and owner acceptance are not accepted. Other ERP route families
+remain fixture-backed or read-only.

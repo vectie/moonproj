@@ -192,7 +192,7 @@ def required_next(target_function: str | None, target_state: str) -> str:
     if target_state == "read_model_only":
         return "connect_authenticated_read_and_command_api"
     if target_state == "connected_command_form":
-        return "replace_dev_identity_and_accept_full_session_scenario"
+        return "accept_production_identity_and_full_session_scenario"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"

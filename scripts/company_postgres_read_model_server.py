@@ -170,6 +170,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             try:
+                if parsed.path == "/api/session":
+                    response(self, 200, {"authenticated": True, "adapter": "read_only"})
+                    return
                 if parsed.path == "/api/health":
                     response(self, 200, {"ok": True, "target": "postgresql", "read_only": True})
                     return
@@ -192,6 +195,16 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 super().do_GET()
             except (OSError, PostgresTargetError, ValueError) as error:
                 response(self, 500, {"error": str(error)})
+
+        def do_POST(self) -> None:  # noqa: N802
+            parsed = urlparse(self.path)
+            if parsed.path == "/api/session/login":
+                response(self, 200, {"authenticated": True, "adapter": "read_only"})
+                return
+            if parsed.path == "/api/session/logout":
+                response(self, 200, {"authenticated": False, "adapter": "read_only"})
+                return
+            response(self, 404, {"error": "read-model adapter is read-only"})
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-read-model: " + (format % values) + "\n")

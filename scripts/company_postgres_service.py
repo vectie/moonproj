@@ -20,7 +20,8 @@ The bounded service exposes these endpoints:
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
-argument or written to logs.
+argument or written to logs. When ``--actor-signing-secret-env`` is supplied,
+expense commands also require a gateway-signed actor assertion.
 """
 
 from __future__ import annotations
@@ -688,6 +689,7 @@ def handler_factory(
     cors_origins: set[str],
     max_response_rows: int,
     actor_id: str,
+    actor_signing_secret: bytes | None,
 ) -> type[BaseHTTPRequestHandler]:
     token_digest = hashlib.sha256(bearer_token.encode("utf-8")).digest()
 
@@ -739,6 +741,22 @@ def handler_factory(
             if not isinstance(value, dict):
                 raise CommandRejected("request body must be a JSON object", 400)
             return value
+
+        def _request_actor_id(self) -> str:
+            if actor_signing_secret is None:
+                return actor_id
+            supplied_actor = self.headers.get("X-Moonproj-Actor", "").strip()
+            supplied_signature = self.headers.get("X-Moonproj-Actor-Signature", "").strip()
+            if not IDENTIFIER.fullmatch(supplied_actor) or not supplied_signature:
+                raise CommandRejected("signed actor assertion is required", 403)
+            expected_signature = hmac.new(
+                actor_signing_secret,
+                supplied_actor.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+            if not hmac.compare_digest(supplied_signature, expected_signature):
+                raise CommandRejected("signed actor assertion is invalid", 403)
+            return supplied_actor
 
         def do_OPTIONS(self) -> None:  # noqa: N802
             origin = self.headers.get("Origin")
@@ -818,7 +836,7 @@ def handler_factory(
                     command_type=command_type,
                     expense_id=expense_id,
                     body=body,
-                    actor_id=actor_id,
+                    actor_id=self._request_actor_id(),
                     idempotency_key=idempotency_key,
                 )
                 status = 201 if command_type == "create" and not result["idempotent_replay"] else 200
@@ -852,6 +870,7 @@ def main() -> int:
     parser.add_argument("--query-timeout", type=float, default=10.0)
     parser.add_argument("--max-response-rows", type=int, default=500)
     parser.add_argument("--actor-id", default=os.environ.get("MOONPROJ_ACTOR_ID", "service-operator"))
+    parser.add_argument("--actor-signing-secret-env", default=None)
     parser.add_argument("--require-forwarded-tls", action="store_true")
     parser.add_argument("--cors-origin", action="append", default=[])
     args = parser.parse_args()
@@ -866,6 +885,17 @@ def main() -> int:
         parser.error("--max-response-rows must be between 1 and 10000")
     if not IDENTIFIER.fullmatch(args.actor_id):
         parser.error("--actor-id contains unsupported characters")
+    actor_signing_secret = None
+    if args.actor_signing_secret_env is not None:
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,127}", args.actor_signing_secret_env):
+            parser.error("--actor-signing-secret-env must be an uppercase environment variable name")
+        secret = os.environ.get(args.actor_signing_secret_env, "")
+        if not secret:
+            parser.error(
+                "actor signing secret environment variable is not set: "
+                f"{args.actor_signing_secret_env}"
+            )
+        actor_signing_secret = secret.encode("utf-8")
     if args.host in {"0.0.0.0", "::", "[::]"}:
         parser.error("service must bind privately behind its gateway")
     try:
@@ -889,6 +919,7 @@ def main() -> int:
                 cors_origins=set(args.cors_origin),
                 max_response_rows=args.max_response_rows,
                 actor_id=args.actor_id,
+                actor_signing_secret=actor_signing_secret,
             ),
         )
         print(f"company service listening on http://{args.host}:{args.port}", flush=True)

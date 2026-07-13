@@ -69,7 +69,9 @@ The authenticated bounded runtime is `scripts/company_postgres_service.py`.
 It keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a
 bearer token from an environment variable and forwarded TLS, exposes the four
 fixed reads, and now provides the local expense command vertical documented in
-`ERP_EXPENSE_RUNTIME_VERTICAL.md`. Run
+`ERP_EXPENSE_RUNTIME_VERTICAL.md`. Put
+`scripts/company_postgres_dev_gateway.py` in front of the browser to establish
+the local HttpOnly session and signed actor assertion. Run
 `scripts/company_postgres_service_smoke.py` against the local target to verify
 the lifecycle, idempotency, audit, missing-token, and forwarded-TLS contract;
 managed provider deployment and token issuer/audience validation remain

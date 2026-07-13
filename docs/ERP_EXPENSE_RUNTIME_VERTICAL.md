@@ -63,6 +63,8 @@ projection was `approved` with five command receipts and five audit events,
 and the probe rows were removed after verification.
 
 The browser evidence is recorded in
-`docs/ERP_EXPENSE_BROWSER_ACCEPTANCE.md`. The managed production-service manifest remains intentionally read-only until
+`docs/ERP_EXPENSE_BROWSER_ACCEPTANCE.md`. The local gateway now establishes
+an HttpOnly session and signs its actor assertion into the service boundary;
+the managed production-service manifest remains intentionally read-only until
 the command gateway receives its own provider, identity, audit, rollback, and
 business-acceptance approvals.

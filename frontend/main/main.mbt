@@ -59,6 +59,9 @@ enum Msg {
   RefreshApi
   ApiLoaded
   ApiFailed
+  SessionAuthenticated
+  SessionAdapterFallback
+  SessionLoginRejected(String)
   CreateExpense
   SubmitExpense
   RejectExpense
@@ -180,12 +183,40 @@ fn refresh_api(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn session_login_body(model : Model) -> String {
+  Json::object({
+    "user_code": Json::string(model.user_code),
+    "password": Json::string(model.password),
+  }).stringify()
+}
+
+///|
+fn login_session(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/session/login")
+  .with_text(session_login_body(model))
+  .expect_text(result => {
+    match result {
+      Ok(body) if body.contains("\"authenticated\":true") =>
+        emit(SessionAuthenticated)
+      Ok(body) if body.contains("unknown read-model endpoint") =>
+        emit(SessionAdapterFallback)
+      Err(_) => emit(SessionAdapterFallback)
+      Ok(body) => emit(SessionLoginRejected(body))
+    }
+  })
+}
+
+///|
 fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     Login =>
       (
-        refresh_api(emit),
-        { ..model, authenticated: true, page: "/dashboard", mobile_nav: false },
+        login_session(emit, model),
+        {
+          ..model,
+          api_status: "认证中",
+          api_note: "正在验证本地开发会话…",
+        },
       )
     ToggleDemo => (none, { ..model, show_demo: !model.show_demo })
     FillDemo(user_code, password) =>
@@ -204,6 +235,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, open_group, })
     }
     RefreshApi => (refresh_api(emit), model)
+    SessionAuthenticated =>
+      (
+        refresh_api(emit),
+        {
+          ..model,
+          authenticated: true,
+          page: "/dashboard",
+          mobile_nav: false,
+          api_status: "已认证",
+          api_note: "本地会话已建立",
+        },
+      )
+    SessionAdapterFallback =>
+      (
+        refresh_api(emit),
+        {
+          ..model,
+          authenticated: true,
+          page: "/dashboard",
+          mobile_nav: false,
+          api_note: "只读适配器未启用会话 · 使用已审核快照",
+        },
+      )
+    SessionLoginRejected(body) =>
+      (
+        none,
+        {
+          ..model,
+          authenticated: false,
+          page: "/login",
+          api_status: "登录失败",
+          api_note: body,
+        },
+      )
     ApiLoaded =>
       (
         none,

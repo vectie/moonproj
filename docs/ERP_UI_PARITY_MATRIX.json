@@ -174,7 +174,7 @@
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 7,
       "api_state": "connected_expense_command",
-      "required_next": "replace_dev_identity_and_accept_full_session_scenario"
+      "required_next": "accept_production_identity_and_full_session_scenario"
     },
     {
       "path": "/expenses/:guid",
