@@ -140,6 +140,7 @@ from company_postgres_service import (
     investment_versions as service_investment_versions,
     investment_indices as service_investment_indices,
     investment_profit_summary as service_investment_profit_summary,
+    investment_sensitivity as service_investment_sensitivity,
     cost_dashboard_v3 as service_cost_dashboard_v3,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
@@ -964,6 +965,10 @@ def investment_indices(
 
 def investment_profit_summary(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
     return service_investment_profit_summary(_ReadModelPool(args), project_id, 500)
+
+
+def investment_sensitivity(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_investment_sensitivity(_ReadModelPool(args), project_id, 500)
 
 
 def admin_quality_overview(args: argparse.Namespace) -> dict[str, Any]:
@@ -1895,6 +1900,13 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 )
                 if investment_profit_match is not None:
                     response(self, 200, investment_profit_summary(args, investment_profit_match.group(1)))
+                    return
+                investment_sensitivity_match = re.fullmatch(
+                    r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/sensitivity",
+                    parsed.path,
+                )
+                if investment_sensitivity_match is not None:
+                    response(self, 200, investment_sensitivity(args, investment_sensitivity_match.group(1)))
                     return
                 cost_dashboard_match = re.fullmatch(
                     r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/profit-actual-v2",

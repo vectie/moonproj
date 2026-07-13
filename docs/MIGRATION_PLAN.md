@@ -440,7 +440,7 @@ remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
-evidence-ready batch below, 27 remain; they are not one uniform backlog. Four
+evidence-ready batch below, 26 remain; they are not one uniform backlog. Four
 groups are now explicit:
 
 * **Evidence-ready reads:** contract/payment/milestone reads can use the
@@ -451,7 +451,10 @@ groups are now explicit:
   Responses preserve source-compatible shapes, report coverage, and keep
   missing `cb_contract_milestone`, empty workflow-instance/action tables, and
   empty `proj_progress`/`proj_output` tables explicit; no read grants
-  authority, persistence, provider execution, or cash.
+  authority, persistence, provider execution, or cash. The available
+  investment cohort also has one current `tzsy_version` and 26
+  `tzsy_plan_index` rows, so its deterministic six-case sensitivity read is
+  source-backed without activating or mutating the model.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
@@ -473,7 +476,7 @@ groups are now explicit:
   and similar status/verification endpoints remain provider and credential
   gates. A successful metadata read does not authorize a provider call.
 
-The remaining 204 API handlers are therefore deliberately split between these
+The remaining 203 API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
@@ -491,7 +494,8 @@ reads: cost `/contracts`, `/contracts/:guid`, `/contracts/:guid/milestones`,
 and `/tasks/my-history` (5); delivery `/progress` and `/outputs` (2); sales
 `/revenues`, `/customers`, `/subscriptions`, `/contracts`, `/mortgages`, and
 `/refunds` (6); tender `/tenders`, `/awards`, and `/splits` (3); supplier
-dictionary `/categories`, `/dict/eval-results`, and `/dict/sources` (3). The
+dictionary `/categories`, `/dict/eval-results`, and `/dict/sources` (3); and
+investment `/projects/:projGuid/sensitivity` (1). The
 PostgreSQL service and
 read-model adapter return the imported contract/payment rows (2 contracts,
 4 plans, 3 applications), the explicit empty milestone table, four scoped
@@ -499,7 +503,8 @@ budget users, a 3,500.00 loan balance for `limingjin`, empty invoice/tax
 source tables, and empty workflow
 instance/action observations with a source-compatible 404 for a missing detail,
 and explicit empty `proj_progress`/`proj_output`, sales-table, and tender-table
-observations.
+observations, plus the source investment sensitivity envelope over one version
+and 26 indices.
 Rabbita now loads source contracts/payment applications, renders budget scope
 and balance provenance on the expense surfaces, and chains all three workflow
 observation lists after the definition read. The dedicated
@@ -507,7 +512,9 @@ observation lists after the definition read. The dedicated
 and dynamic-cost probes pass without mutations. Supplier category reads preserve
 the empty `srm_category` coverage, while evaluation-result and source dictionary
 reads expose six and four reviewed, non-authorizing definitions respectively;
-they do not imply that source master rows are present or writable.
+they do not imply that source master rows are present or writable. Investment
+sensitivity exposes six deterministic scenarios and remains analytics-only;
+it does not activate a version, call a provider, or write finance state.
 These are still local evidence: production identity, browser acceptance, named
 owner reconciliation, and the missing 49-table export remain open.
 
@@ -660,10 +667,11 @@ Execute the remainder in this order:
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
     instance/task observation endpoints where the source tables are defined,
     plus explicit empty-safe progress/output, sales, tender, and supplier
-    dictionary source reads.
+    dictionary source reads, and the source-backed investment sensitivity
+    observation.
     The service, read-model, Rabbita, and
     dedicated read-only smoke checks pass; the parity action register now marks
-    32 source GET handlers connected. Do not use this batch to unlock commands
+    33 source GET handlers connected. Do not use this batch to unlock commands
     or to infer missing sales, invoice, supplier, tender, tax, or investment
     detail rows. The remaining gate is production identity, browser acceptance,
     owner evidence, and the missing-table export.

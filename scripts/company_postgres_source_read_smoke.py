@@ -116,6 +116,22 @@ def main() -> int:
             and dynamic.get("source_coverage", {}).get("cb_cost") == 7,
             f"source dynamic-cost read failed: {status} {dynamic}",
         )
+        status, sensitivity = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/sensitivity",
+            token=token,
+        )
+        sensitivity_data = (sensitivity or {}).get("data", {})
+        expect(
+            status == 200
+            and sensitivity is not None
+            and len(sensitivity_data.get("cases", [])) == 6
+            and sensitivity.get("source_coverage", {}).get("tzsy_version") == 1
+            and sensitivity.get("source_coverage", {}).get("tzsy_plan_index") == 26
+            and sensitivity.get("authorizing") is False
+            and sensitivity.get("persisted") is False,
+            f"source investment sensitivity read failed: {status} {sensitivity}",
+        )
         status, attachment_all = request(
             args.port, "/api/company/attachments/all", token=token,
         )
@@ -328,6 +344,7 @@ def main() -> int:
         )
         print(
             "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
+            "investment_sensitivity=6 "
             "attachments=0 invoices=0 budget_users=4 loan_balance=3500 "
             "workflow_instances=0 workflow_actions=0 progress=0 outputs=0 "
             "sales_customers=0 sales_revenues=0 tender_plans=0 tender_awards=0 "

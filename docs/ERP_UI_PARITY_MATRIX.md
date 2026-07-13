@@ -245,7 +245,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `POST` | `/versions/:versionGuid/indices` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `DELETE` | `/projects/:projGuid/versions/:versionGuid` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `DELETE` | `/indices/:indexGuid` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `investment` | `GET` | `/projects/:projGuid/sensitivity` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/projects/:projGuid/sensitivity` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/projects/:projGuid/ai-explain` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `GET` | `/excel-imports/:importGuid/profit-table` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
 | `investment` | `GET` | `/excel-imports/:importGuid/plan-line-preview` | `/investment` | `not_connected` | `connect_authenticated_read_api` |

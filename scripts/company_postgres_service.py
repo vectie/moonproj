@@ -79,6 +79,8 @@ The bounded service exposes these endpoints:
   reads)
 * ``/api/company/investment/{projects,versions,meta}/...`` (GET,
   source-compatible investment reads)
+* ``/api/company/investment/projects/<id>/sensitivity`` (GET,
+  source-compatible read-only sensitivity observation)
 * ``/api/company/investment/projects/<id>/profit-actual-v2`` (GET,
   source-compatible cost-dashboard v3 read)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
@@ -5966,6 +5968,92 @@ def investment_profit_summary(
         },
         "source_kind": "imported",
         "source_coverage": {"tzsy_version": len(versions), "tzsy_plan_index": len(rows)},
+    }
+
+
+def investment_sensitivity(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Return the ERP sensitivity scenarios from the current source version.
+
+    This mirrors the source route's deterministic calculation. It is an
+    observation only: it does not activate a version, write an index, call an
+    LLM, or authorize a valuation or accounting effect.
+    """
+
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    versions = [
+        row["payload"]
+        for row in _investment_source_rows(pool, "tzsy_version", max_rows)
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and not row["payload"].get("deleted_at")
+    ]
+    current = next(
+        (row for row in versions if _dashboard_flag(row.get("is_current"))),
+        None,
+    )
+    if current is None:
+        return {
+            "success": True,
+            "code": 0,
+            "data": {"msg": "尚无激活版本"},
+            "source_kind": "imported",
+            "source_coverage": {"tzsy_version": len(versions), "tzsy_plan_index": 0},
+            "authorizing": False,
+            "persisted": False,
+            "provider_execution": False,
+        }
+    version_id = str(current.get("version_guid") or "")
+    rows = [
+        row["payload"]
+        for row in _investment_source_rows(pool, "tzsy_plan_index", max_rows)
+        if str(row["payload"].get("version_guid") or "") == version_id
+        and not row["payload"].get("deleted_at")
+    ]
+
+    def find_value(*terms: str, default: float) -> float:
+        for row in rows:
+            name = str(row.get("index_name") or "")
+            if any(term in name for term in terms):
+                return _report_float(row, "index_value")
+        return default
+
+    sales = find_value("售价", "收入", default=0.0)
+    cost = find_value("成本", default=1.0)
+    tax = find_value("税", default=0.0)
+
+    def irr(sales_value: float, cost_value: float, tax_value: float) -> float:
+        if cost_value <= 0:
+            return 0.0
+        profit = sales_value - cost_value - tax_value
+        if profit <= 0:
+            return -100.0
+        return round(((profit / cost_value) ** (1 / 5) - 1) * 100, 2)
+
+    cases = [
+        {"name": "基线", "irr": irr(sales, cost, tax)},
+        {"name": "售价 -5%", "irr": irr(sales * 0.95, cost, tax)},
+        {"name": "售价 -10%", "irr": irr(sales * 0.90, cost, tax)},
+        {"name": "成本 +5%", "irr": irr(sales, cost * 1.05, tax)},
+        {"name": "成本 +10%", "irr": irr(sales, cost * 1.10, tax)},
+        {"name": "税费 +5%", "irr": irr(sales, cost, tax * 1.05)},
+    ]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "base": {"sales": sales, "cost": cost, "tax": tax},
+            "baseIrr": irr(sales, cost, tax),
+            "cases": cases,
+        },
+        "source_kind": "imported",
+        "source_coverage": {"tzsy_version": len(versions), "tzsy_plan_index": len(rows)},
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
     }
 
 
@@ -14100,6 +14188,12 @@ def handler_factory(
                 ):
                     project_value = parsed.path.split("/")[-2]
                     response(self, 200, investment_profit_summary(pool, project_value, max_response_rows), origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/sensitivity",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    response(self, 200, investment_sensitivity(pool, project_value, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/profit-actual-v2",
                     parsed.path,

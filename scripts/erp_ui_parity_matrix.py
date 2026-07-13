@@ -521,6 +521,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/projects/:projGuid/versions",
             "/versions/:versionGuid/indices",
             "/projects/:projGuid/profit-summary",
+            "/projects/:projGuid/sensitivity",
             "/meta/dimensions",
         }
     ):

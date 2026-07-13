@@ -354,6 +354,13 @@ struct InvestmentIndexRow {
 }
 
 ///|
+struct InvestmentSensitivityCase {
+  name : String
+  irr : String
+  source_kind : String
+}
+
+///|
 struct AuditRow {
   log_id : String
   created_at : String
@@ -755,6 +762,9 @@ struct Model {
   investment_net_profit : String
   investment_net_profit_margin : String
   investment_irr : String
+  investment_sensitivity_loaded : Bool
+  investment_sensitivity_cases : Array[InvestmentSensitivityCase]
+  investment_sensitivity_note : String
   investment_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
@@ -1068,6 +1078,7 @@ enum Msg {
   InvestmentVersionsLoaded(String)
   InvestmentIndicesLoaded(String)
   InvestmentProfitLoaded(String)
+  InvestmentSensitivityLoaded(String)
   InvestmentLoadFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
@@ -1306,6 +1317,9 @@ fn initial_model() -> Model {
     investment_net_profit: "0",
     investment_net_profit_margin: "0",
     investment_irr: "0",
+    investment_sensitivity_loaded: false,
+    investment_sensitivity_cases: [],
+    investment_sensitivity_note: "投资敏感性读模型尚未加载 · 使用设计快照",
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
     audit_loaded: false,
     audit_rows: [],
@@ -2972,6 +2986,39 @@ fn investment_profit_from_body(body : String) -> Array[String] {
     _ => ()
   }
   values
+}
+
+///|
+fn investment_sensitivity_from_body(
+  body : String,
+) -> (Bool, Array[InvestmentSensitivityCase], String) {
+  let rows : Array[InvestmentSensitivityCase] = []
+  let mut base_irr = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          base_irr = json_object_text(data, "baseIrr", "0")
+          for value in json_array_field(data, "cases") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  name: json_object_text(row, "name", ""),
+                  irr: json_object_text(row, "irr", "0"),
+                  source_kind: json_object_text(
+                    fields, "source_kind", "imported",
+                  ),
+                })
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  (rows.length() > 0, rows, base_irr)
 }
 
 ///|
@@ -5180,6 +5227,17 @@ fn load_investment_profit(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/investment/projects/proj-0001/profit-summary").expect_text(result => {
       match result {
         Ok(body) => emit(InvestmentProfitLoaded(body))
+        Err(_) => emit(InvestmentLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_investment_sensitivity(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/investment/projects/proj-0001/sensitivity").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvestmentSensitivityLoaded(body))
         Err(_) => emit(InvestmentLoadFailed)
       }
     },
@@ -7613,7 +7671,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let values = investment_profit_from_body(body)
       if values.length() == 7 {
         (
-          none,
+          load_investment_sensitivity(emit),
           {
             ..model,
             investment_loaded: true,
@@ -7638,6 +7696,24 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       }
     }
+    InvestmentSensitivityLoaded(body) => {
+      let (loaded, cases, base_irr) = investment_sensitivity_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          investment_sensitivity_loaded: loaded,
+          investment_sensitivity_cases: cases,
+          investment_sensitivity_note: if loaded {
+            "已加载 PostgreSQL 敏感性情景 · 基线 IRR " +
+            base_irr +
+            "% · 只读观察"
+          } else {
+            "投资敏感性响应为空 · 使用设计快照"
+          },
+        },
+      )
+    }
     InvestmentLoadFailed =>
       (
         none,
@@ -7647,6 +7723,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_version_id: "",
           investment_version_name: "",
           investment_index_rows: [],
+          investment_sensitivity_loaded: false,
+          investment_sensitivity_cases: [],
+          investment_sensitivity_note: "投资敏感性读模型不可用 · 使用设计快照",
           investment_note: "投资测算读模型不可用 · 使用设计快照",
         },
       )
@@ -11801,6 +11880,23 @@ fn investment_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn investment_sensitivity_table(model : Model) -> @html.Html {
+  if model.investment_sensitivity_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.investment_sensitivity_cases {
+      rows.push([row.name, row.irr + "%", row.source_kind])
+    }
+    table_panel(
+      "投资敏感性情景",
+      model.investment_sensitivity_note,
+      data_table(["情景", "IRR", "来源"], rows),
+    )
+  } else {
+    @html.nothing
+  }
+}
+
+///|
 fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let stats = if model.investment_loaded {
     div(class="erp-stat-grid") <| [
@@ -11859,6 +11955,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     div <| [
       stats,
       investment_runtime_table(model),
+      investment_sensitivity_table(model),
     ],
   )
 }
