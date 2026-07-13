@@ -87,7 +87,11 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/workflow_assignment_mapping.json \
   scripts/fixtures/delivery_progress_mapping.json \
   scripts/fixtures/advance_offset_mapping.json \
-  scripts/fixtures/payment_accounting_link_mapping.json
+  scripts/fixtures/payment_accounting_link_mapping.json \
+  "" "" "" "" "" "" "" \
+  scripts/fixtures/cbs_budget_source_mapping.json \
+  scripts/fixtures/warning_source_mapping.json \
+  scripts/fixtures/accounting_link_mapping.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -101,3 +105,10 @@ The nineteenth argument can instead supply
 source-bound warning from explicitly named positive `cb_cost` component
 overruns. It preserves scan evidence but does not deliver notifications,
 mutate workflows, release cash, or post accounting.
+
+The twentieth argument supplies the reviewed base accounting-link map. When it
+is present, the PostgreSQL cohort runner promotes the 19-item base domain
+receipt, persists its exact parity/replay evidence, and applies the three base
+source-to-journal links through the PostgreSQL accounting adapter. With all
+reviewed options, the fresh target rehearsal reaches 113 aggregate projections,
+7 accounting links, and 22 migration receipts; replay remains idempotent.

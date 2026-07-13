@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING] [BASE_ACCOUNTING_MAPPING]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -26,6 +26,7 @@ WARNING_PLAN=${16:-}
 CBS_BUDGET_PLAN=${17:-}
 CBS_BUDGET_SOURCE_MAPPING=${18:-}
 WARNING_SOURCE_MAPPING=${19:-}
+BASE_ACCOUNTING_MAPPING=${20:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -58,6 +59,23 @@ python3 "$SCRIPT_DIR/company_postgres_target_apply.py" \
 "$SCRIPT_DIR/erp_typed_cohort_rehearsal.sh" \
   "$EXPORT_DIR" "$MAPPING_PATH" "$SQLITE_DB" "$TYPED_WORK_DIR" > "$WORK_DIR/typed-cohort.log"
 
+"$SCRIPT_DIR/erp_promotion_plan.py" \
+  "$EXPORT_DIR" "$MAPPING_PATH" "$WORK_DIR/promotion-plan.json"
+moon run --target native cmd/promote -- \
+  "$WORK_DIR/promotion-plan.json" "$WORK_DIR/domain-promotion.json"
+python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
+  "$WORK_DIR/domain-promotion.json" \
+  --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+  --database "$PG_DATABASE" > "$WORK_DIR/base-projection-apply.json"
+python3 "$SCRIPT_DIR/company_postgres_projection_parity.py" \
+  "$WORK_DIR/domain-promotion.json" "$WORK_DIR/base-projection-parity.json" \
+  --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+  --database "$PG_DATABASE"
+python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
+  "$WORK_DIR/domain-promotion.json" \
+  --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+  --database "$PG_DATABASE" > "$WORK_DIR/base-projection-replay.json"
+
 apply_projection() {
   label=$1
   receipt=$2
@@ -86,6 +104,16 @@ apply_accounting() {
   python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" "$receipt" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" > "$replay"
 }
+
+if [ -n "$BASE_ACCOUNTING_MAPPING" ]; then
+  python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+    "$WORK_DIR/domain-promotion.json" "$BASE_ACCOUNTING_MAPPING" \
+    "$WORK_DIR/base-accounting-link-plan.json"
+  moon run --target native cmd/accounting_link -- \
+    "$WORK_DIR/base-accounting-link-plan.json" \
+    "$WORK_DIR/base-accounting-link-receipt.json"
+  apply_accounting base-accounting "$WORK_DIR/base-accounting-link-receipt.json"
+fi
 
 for label in workflow lifecycle task-structure task-state-project2 evidence investment payment users audit parameter
 do
