@@ -768,6 +768,133 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/receivables/{receivable_id}", token=token)
         if status != 200 or payload is None or payload.get("state") != "open":
             raise SmokeError(f"sales receivable detail failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/overview?project_id=proj-0001",
+            token=token,
+        )
+        if (
+            status != 200
+            or payload is None
+            or not isinstance(payload.get("tasks"), list)
+            or not isinstance(payload.get("reports"), list)
+            or not payload.get("tasks")
+        ):
+            raise SmokeError(f"delivery overview read failed: {status} {payload}")
+        delivery_progress_id = "PROG-SMOKE-" + nonce
+        delivery_progress_payload = {
+            "progress_id": delivery_progress_id,
+            "project_id": "proj-0001",
+            "principal_id": "co-smoke",
+            "project_scope": "project:proj-0001",
+            "stage": "主体结构",
+            "plan_pct": 70,
+            "completed_value_minor": 125000,
+            "currency": "CNY",
+            "evidence_ids": ["evidence:delivery-progress:" + nonce],
+            "remark": "service delivery progress smoke",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/progress",
+            token=token,
+            method="POST",
+            payload=delivery_progress_payload,
+            idempotency_key="delivery-progress-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("progress", {}).get("state") != "draft":
+            raise SmokeError(f"delivery progress create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/progress",
+            token=token,
+            method="POST",
+            payload=delivery_progress_payload,
+            idempotency_key="delivery-progress-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"delivery progress idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/delivery/progress/{delivery_progress_id}/report",
+            token=token,
+            method="POST",
+            payload={
+                "progress_pct": 55,
+                "actual_date": "2026-07-13",
+                "evidence_ids": ["evidence:delivery-report:" + nonce],
+                "remark": "service delivery report smoke",
+            },
+            idempotency_key="delivery-progress-report-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("progress", {}).get("state") != "submitted":
+            raise SmokeError(f"delivery progress report failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/delivery/progress/{delivery_progress_id}/accept",
+            token=token,
+            method="POST",
+            payload={
+                "acceptance_id": "accept-delivery-" + nonce,
+                "acceptance_evidence_ids": ["evidence:delivery-accept:" + nonce],
+            },
+            idempotency_key="delivery-progress-accept-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("progress", {}).get("state") != "accepted":
+            raise SmokeError(f"delivery progress accept failed: {status} {payload}")
+        delivery_output_id = "OUT-SMOKE-" + nonce
+        output_payload = {
+            "output_id": delivery_output_id,
+            "project_id": "proj-0001",
+            "contract_id": "ht-tj-001",
+            "period": "2026-07",
+            "output_amount": "125000",
+            "evidence_ids": ["evidence:delivery-output:" + nonce],
+            "remark": "service output smoke",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/outputs",
+            token=token,
+            method="POST",
+            payload=output_payload,
+            idempotency_key="delivery-output-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("output", {}).get("state") != "reported":
+            raise SmokeError(f"delivery output create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/delivery/outputs/{delivery_output_id}/confirm",
+            token=token,
+            method="POST",
+            payload={
+                "confirm_amount": "125000",
+                "confirmed_at": "2026-07-13",
+                "evidence_ids": ["evidence:delivery-output-confirm:" + nonce],
+            },
+            idempotency_key="delivery-output-confirm-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("output", {}).get("state") != "confirmed":
+            raise SmokeError(f"delivery output confirm failed: {status} {payload}")
+        task_report_id = "TASK-REPORT-SMOKE-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/tasks/task-003/report",
+            token=token,
+            method="POST",
+            payload={
+                "report_id": task_report_id,
+                "task_id": "task-003",
+                "project_id": "proj-0001",
+                "progress_pct": 70,
+                "report_date": "2026-07-13",
+                "summary": "service task report smoke",
+                "evidence_ids": ["evidence:task-report:" + nonce],
+            },
+            idempotency_key="delivery-task-report-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("task_report", {}).get("state") != "observed":
+            raise SmokeError(f"delivery task report failed: {status} {payload}")
         print(
             json.dumps(
                 {
@@ -787,6 +914,9 @@ def main() -> int:
                     "receivable_state": "open",
                     "mortgage_state": "released",
                     "refund_state": "paid",
+                    "delivery_progress_state": "accepted",
+                    "delivery_output_state": "confirmed",
+                    "delivery_task_report_state": "observed",
                     "port": args.port,
                     "database": args.database,
                 },

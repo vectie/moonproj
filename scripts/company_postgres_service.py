@@ -36,6 +36,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/receivables`` (GET)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds}`` (POST)
   with idempotent lifecycle commands
+* ``/api/company/delivery/{progress,outputs,tasks,task-reports,plan-summary}`` (GET)
+* ``/api/company/delivery/{progress,outputs,tasks}/...`` (POST)
+  with source-preserving reads and idempotent local commands
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -281,6 +284,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "sales_command",
             "receivable_read",
             "invoice_read",
+            "delivery_read",
+            "delivery_command",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -312,6 +317,8 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "sales_command",
             "receivable_read",
             "invoice_read",
+            "delivery_read",
+            "delivery_command",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -3014,6 +3021,779 @@ def _existing_command(pool: PsqlPool, idempotency_key: str) -> dict[str, Any] | 
     return value
 
 
+def _raw_delivery_rows(
+    pool: PsqlPool,
+    table: str,
+    *,
+    record_id: str | None,
+    project_id: str | None,
+    task_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    """Read a fixed, redacted ERP table without promoting it to company state."""
+
+    if table not in {"proj_progress", "proj_output", "jd_task", "jd_task_report"}:
+        raise ServiceError("unsupported delivery source table")
+    for name, value in (("record_id", record_id), ("project_id", project_id), ("task_id", task_id)):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {name}")
+    predicates = [f"record_type = {sql_literal('legacy/raw/' + table)}"]
+    if record_id is not None:
+        predicates.append(f"record_id = {sql_literal(record_id)}")
+    if project_id is not None:
+        predicates.append(f"payload->>'proj_guid' = {sql_literal(project_id)}")
+    if task_id is not None:
+        if table == "jd_task":
+            predicates.append(f"payload->>'task_guid' = {sql_literal(task_id)}")
+        else:
+            predicates.append(f"payload->>'task_guid' = {sql_literal(task_id)}")
+    query = f"""
+    SELECT encode(convert_to(record_id, 'UTF8'), 'hex'),
+           encode(convert_to(source_id, 'UTF8'), 'hex'),
+           encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record
+    WHERE {' AND '.join(predicates)}
+    ORDER BY record_id
+    LIMIT {max_rows}
+    """
+    rows: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 3:
+            raise ServiceError("unexpected delivery source row shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid delivery source row JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("delivery source row payload is not an object")
+        rows.append(
+            {
+                "record_id": decode_hex(fields[0]),
+                "source_id": decode_hex(fields[1]),
+                "payload": payload,
+            }
+        )
+    return rows
+
+
+def _latest_delivery_projection_rows(
+    pool: PsqlPool,
+    aggregate_type: str,
+    aggregate_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if not IDENTIFIER.fullmatch(aggregate_type):
+        raise ValueError("invalid delivery aggregate type")
+    if aggregate_id is not None and not IDENTIFIER.fullmatch(aggregate_id):
+        raise ValueError("invalid delivery aggregate id")
+    filters = [f"aggregate_type = {sql_literal(aggregate_type)}"]
+    if aggregate_id is not None:
+        filters.append(f"aggregate_id = {sql_literal(aggregate_id)}")
+    query = f"""
+    SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'),
+           encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_type, aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE {' AND '.join(filters)}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 5:
+            raise ServiceError("unexpected delivery projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[3]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid delivery projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("delivery projection payload is not an object")
+        result.append(
+            {
+                "aggregate_type": decode_hex(fields[0]),
+                "aggregate_id": decode_hex(fields[1]),
+                "revision": int(fields[2]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[4]),
+            }
+        )
+    return result
+
+
+def _delivery_text(payload: dict[str, Any], key: str, fallback: str = "") -> str:
+    value = payload.get(key)
+    if value is None:
+        return fallback
+    return str(value)
+
+
+def _delivery_int(payload: dict[str, Any], key: str, fallback: int = 0) -> int:
+    value = payload.get(key)
+    if value is None or value == "":
+        return fallback
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError) as error:
+        raise ServiceError(f"invalid delivery numeric field: {key}") from error
+
+
+def _delivery_source_fields(
+    row: dict[str, Any],
+    *,
+    table: str,
+) -> dict[str, Any]:
+    payload = row["payload"]
+    if table == "proj_progress":
+        return {
+            "progress_id": row["record_id"],
+            "project_id": _delivery_text(payload, "proj_guid"),
+            "building_no": _delivery_text(payload, "building_no"),
+            "stage": _delivery_text(payload, "stage"),
+            "plan_date": _delivery_text(payload, "plan_date"),
+            "plan_pct": _delivery_text(payload, "plan_pct", "0"),
+            "actual_pct": _delivery_text(payload, "actual_pct", "0"),
+            "actual_date": _delivery_text(payload, "actual_date"),
+            "contract_id": _delivery_text(payload, "contract_guid"),
+            "milestone_id": _delivery_text(payload, "milestone_guid"),
+            "state": _delivery_text(payload, "state", "pending"),
+            "remark": _delivery_text(payload, "remark"),
+            "reported_by": _delivery_text(payload, "reported_by"),
+            "evidence_ids": [],
+            "completed_value_minor": 0,
+            "source_kind": "imported",
+            "source_id": row["source_id"],
+            "source_table": table,
+        }
+    if table == "proj_output":
+        return {
+            "output_id": row["record_id"],
+            "output_code": _delivery_text(payload, "output_code"),
+            "project_id": _delivery_text(payload, "proj_guid"),
+            "contract_id": _delivery_text(payload, "contract_guid"),
+            "period": _delivery_text(payload, "period"),
+            "output_amount": _delivery_text(payload, "output_amount", "0"),
+            "confirm_amount": _delivery_text(payload, "confirm_amount", "0"),
+            "state": _delivery_text(payload, "state", "reported"),
+            "remark": _delivery_text(payload, "remark"),
+            "confirmed_by": _delivery_text(payload, "confirmed_by"),
+            "confirmed_at": _delivery_text(payload, "confirmed_at"),
+            "evidence_ids": [],
+            "source_kind": "imported",
+            "source_id": row["source_id"],
+            "source_table": table,
+        }
+    if table == "jd_task":
+        progress_pct = _delivery_int(payload, "progress_pct")
+        return {
+            "task_id": row["record_id"],
+            "task_code": _delivery_text(payload, "task_code"),
+            "task_name": _delivery_text(payload, "task_name"),
+            "project_id": _delivery_text(payload, "proj_guid"),
+            "task_type": _delivery_text(payload, "task_type", "task"),
+            "parent_task_id": _delivery_text(payload, "parent_task_guid"),
+            "plan_begin_date": _delivery_text(payload, "plan_begin_date"),
+            "plan_end_date": _delivery_text(payload, "plan_end_date"),
+            "actual_begin_date": _delivery_text(payload, "actual_begin_date"),
+            "actual_end_date": _delivery_text(payload, "actual_end_date"),
+            "progress_pct": str(progress_pct),
+            "progress_bps": progress_pct * 100,
+            "owner_id": _delivery_text(payload, "owner_guid"),
+            "status": _delivery_text(payload, "status", "pending"),
+            "remarks": _delivery_text(payload, "remarks"),
+            "sort_order": _delivery_int(payload, "sort_order"),
+            "source_kind": "imported",
+            "source_id": row["source_id"],
+            "source_table": table,
+        }
+    return {
+        "report_id": row["record_id"],
+        "task_id": _delivery_text(payload, "task_guid"),
+        "project_id": "",
+        "progress_pct": _delivery_text(payload, "progress_pct", "0"),
+        "progress_bps": _delivery_int(payload, "progress_pct") * 100,
+        "report_date": _delivery_text(payload, "report_date"),
+        "summary": _delivery_text(payload, "summary"),
+        "operator_id": _delivery_text(payload, "operator_guid"),
+        "state": "observed",
+        "source_kind": "imported",
+        "source_id": row["source_id"],
+        "source_table": table,
+    }
+
+
+def _delivery_projection_fields(
+    row: dict[str, Any],
+    *,
+    family: str,
+) -> dict[str, Any]:
+    payload = row["payload"]
+    if family == "progress":
+        progress_bps = _delivery_int(payload, "actual_progress_bps", _delivery_int(payload, "progress_bps"))
+        return {
+            "progress_id": row["aggregate_id"],
+            "project_id": _delivery_text(payload, "project_id"),
+            "building_no": _delivery_text(payload, "building_no"),
+            "stage": _delivery_text(payload, "stage"),
+            "plan_date": _delivery_text(payload, "plan_date"),
+            "plan_pct": str(_delivery_int(payload, "plan_pct_bps") / 100),
+            "actual_pct": str(progress_bps / 100),
+            "actual_date": _delivery_text(payload, "actual_date"),
+            "contract_id": _delivery_text(payload, "contract_id"),
+            "milestone_id": _delivery_text(payload, "milestone_id"),
+            "state": _delivery_text(payload, "state", "draft"),
+            "remark": _delivery_text(payload, "remark"),
+            "reported_by": _delivery_text(payload, "actor_id"),
+            "evidence_ids": payload.get("evidence_ids", []),
+            "completed_value_minor": _delivery_int(payload, "completed_value_minor"),
+            "source_kind": "command",
+            "source_id": row["source_event_id"],
+            "source_table": "company_command",
+            "revision": row["revision"],
+        }
+    if family == "output":
+        return {
+            "output_id": row["aggregate_id"],
+            "output_code": _delivery_text(payload, "output_code"),
+            "project_id": _delivery_text(payload, "project_id"),
+            "contract_id": _delivery_text(payload, "contract_id"),
+            "period": _delivery_text(payload, "period"),
+            "output_amount": _delivery_text(payload, "output_amount", "0"),
+            "confirm_amount": _delivery_text(payload, "confirm_amount", "0"),
+            "state": _delivery_text(payload, "state", "reported"),
+            "remark": _delivery_text(payload, "remark"),
+            "confirmed_by": _delivery_text(payload, "actor_id") if payload.get("state") == "confirmed" else "",
+            "confirmed_at": _delivery_text(payload, "confirmed_at"),
+            "evidence_ids": payload.get("evidence_ids", []),
+            "source_kind": "command",
+            "source_id": row["source_event_id"],
+            "source_table": "company_command",
+            "revision": row["revision"],
+        }
+    return {
+        "report_id": row["aggregate_id"],
+        "task_id": _delivery_text(payload, "task_id"),
+        "project_id": _delivery_text(payload, "project_id"),
+        "progress_pct": str(_delivery_int(payload, "progress_bps") / 100),
+        "progress_bps": _delivery_int(payload, "progress_bps"),
+        "report_date": _delivery_text(payload, "report_date"),
+        "summary": _delivery_text(payload, "summary"),
+        "operator_id": _delivery_text(payload, "actor_id"),
+        "state": _delivery_text(payload, "state", "observed"),
+        "evidence_ids": payload.get("evidence_ids", []),
+        "source_kind": "command",
+        "source_id": row["source_event_id"],
+        "source_table": "company_command",
+        "revision": row["revision"],
+    }
+
+
+def delivery_progress(
+    pool: PsqlPool,
+    progress_id: str | None,
+    project_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    raw = [
+        _delivery_source_fields(row, table="proj_progress")
+        for row in _raw_delivery_rows(
+            pool,
+            "proj_progress",
+            record_id=progress_id,
+            project_id=project_id,
+            task_id=None,
+            max_rows=max_rows,
+        )
+    ]
+    commands = [
+        _delivery_projection_fields(row, family="progress")
+        for row in _latest_delivery_projection_rows(pool, "delivery_progress", progress_id, max_rows)
+    ]
+    if project_id is not None:
+        commands = [row for row in commands if row.get("project_id") == project_id]
+    return raw + commands
+
+
+def delivery_outputs(
+    pool: PsqlPool,
+    output_id: str | None,
+    project_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    raw = [
+        _delivery_source_fields(row, table="proj_output")
+        for row in _raw_delivery_rows(
+            pool,
+            "proj_output",
+            record_id=output_id,
+            project_id=project_id,
+            task_id=None,
+            max_rows=max_rows,
+        )
+    ]
+    commands = [
+        _delivery_projection_fields(row, family="output")
+        for row in _latest_delivery_projection_rows(pool, "delivery_output", output_id, max_rows)
+    ]
+    if project_id is not None:
+        commands = [row for row in commands if row.get("project_id") == project_id]
+    return raw + commands
+
+
+def delivery_tasks(
+    pool: PsqlPool,
+    task_id: str | None,
+    project_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    return [
+        _delivery_source_fields(row, table="jd_task")
+        for row in _raw_delivery_rows(
+            pool,
+            "jd_task",
+            record_id=task_id,
+            project_id=project_id,
+            task_id=task_id,
+            max_rows=max_rows,
+        )
+    ]
+
+
+def delivery_task_reports(
+    pool: PsqlPool,
+    report_id: str | None,
+    task_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    raw = [
+        _delivery_source_fields(row, table="jd_task_report")
+        for row in _raw_delivery_rows(
+            pool,
+            "jd_task_report",
+            record_id=report_id,
+            project_id=None,
+            task_id=task_id,
+            max_rows=max_rows,
+        )
+    ]
+    commands = [
+        _delivery_projection_fields(row, family="task_report")
+        for row in _latest_delivery_projection_rows(pool, "task_report", report_id, max_rows)
+    ]
+    if task_id is not None:
+        commands = [row for row in commands if row.get("task_id") == task_id]
+    return raw + commands
+
+
+def delivery_plan_summary(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any]:
+    tasks = delivery_tasks(pool, None, project_id, max_rows)
+    summary = {"done": 0, "in_progress": 0, "pending": 0, "overdue": 0, "blocked": 0, "total": len(tasks)}
+    for task in tasks:
+        state = str(task.get("status", "pending"))
+        if state in summary:
+            summary[state] += 1
+        else:
+            summary["pending"] += 1
+    upcoming = sorted(
+        [task for task in tasks if task.get("status") != "done"],
+        key=lambda value: str(value.get("plan_end_date", "")),
+    )[:3]
+    return {
+        "project_id": project_id,
+        "summary": summary,
+        "upcoming": [
+            {
+                "task_id": task.get("task_id", ""),
+                "task_name": task.get("task_name", ""),
+                "plan_end_date": task.get("plan_end_date", ""),
+                "progress_pct": task.get("progress_pct", "0"),
+                "delayed": False,
+            }
+            for task in upcoming
+        ],
+        "source_kind": "imported",
+    }
+
+
+def delivery_overview(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    tasks = delivery_tasks(pool, None, project_id, max_rows)
+    task_ids = {str(task.get("task_id", "")) for task in tasks}
+    reports = [
+        report
+        for report in delivery_task_reports(pool, None, None, max_rows)
+        if str(report.get("task_id", "")) in task_ids
+    ]
+    return {
+        "project_id": project_id,
+        "progress": delivery_progress(pool, None, project_id, max_rows),
+        "outputs": delivery_outputs(pool, None, project_id, max_rows),
+        "tasks": tasks,
+        "reports": reports,
+        "plan_summary": delivery_plan_summary(pool, project_id, max_rows),
+        "source_kind": "imported_or_command",
+    }
+
+
+def _delivery_required_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _delivery_evidence(body: dict[str, Any], key: str = "evidence_ids") -> list[str]:
+    value = body.get(key)
+    if not isinstance(value, list) or not value:
+        raise CommandRejected(f"{key} must contain at least one evidence id", 422)
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip() or not IDENTIFIER.fullmatch(item.strip()):
+            raise CommandRejected(f"{key} contains an invalid evidence id", 422)
+        result.append(item.strip())
+    return result
+
+
+def _delivery_progress_bps(body: dict[str, Any], key: str = "progress_pct") -> int:
+    if "progress_bps" in body:
+        value = body.get("progress_bps")
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise CommandRejected("progress_bps must be an integer", 422)
+        bps = value
+    else:
+        value = body.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise CommandRejected(f"{key} must be a number", 422)
+        bps = round(float(value) * 100)
+    if bps < 0 or bps > 10000:
+        raise CommandRejected("progress must be between 0 and 100 percent", 422)
+    return int(bps)
+
+
+def _delivery_amount(body: dict[str, Any], key: str, *, positive: bool = False) -> int:
+    value = body.get(key)
+    if isinstance(value, bool) or not isinstance(value, int) or (value <= 0 if positive else value < 0):
+        requirement = "positive" if positive else "non-negative"
+        raise CommandRejected(f"{key} must be a {requirement} integer", 422)
+    return value
+
+
+def _delivery_request(
+    pool: PsqlPool,
+    family: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, str, dict[str, Any], bool, str | None, str]:
+    if family == "progress":
+        aggregate_type = "delivery_progress"
+        allowed = {"create", "report", "accept", "reject"}
+        id_key = "progress_id"
+    elif family == "output":
+        aggregate_type = "delivery_output"
+        allowed = {"create", "confirm"}
+        id_key = "output_id"
+    elif family == "task_report":
+        aggregate_type = "task_report"
+        allowed = {"report"}
+        id_key = "report_id"
+    else:
+        raise CommandRejected("unsupported delivery command family", 404)
+    if command_type not in allowed:
+        raise CommandRejected("unsupported delivery command", 404)
+    if family == "task_report":
+        report_id = _delivery_required_text(body, "report_id", identifier=True)
+        task_id = _delivery_required_text(body, "task_id", identifier=True)
+        project_id = _delivery_required_text(body, "project_id", identifier=True)
+        if not delivery_tasks(pool, task_id, project_id, 1):
+            raise CommandRejected("task report target task was not found in the source projection", 404)
+        request = {
+            "command_type": command_type,
+            "report_id": report_id,
+            "task_id": task_id,
+            "project_id": project_id,
+            "progress_bps": _delivery_progress_bps(body),
+            "report_date": _delivery_required_text(body, "report_date"),
+            "summary": _delivery_required_text(body, "summary"),
+            "evidence_ids": _delivery_evidence(body),
+            "actor_id": actor_id,
+            "state": "observed",
+        }
+        if delivery_task_reports(pool, report_id, task_id, 1):
+            raise CommandRejected("imported task report ids are read-only; use a new local report id", 409)
+        return report_id, aggregate_type, request, True, None, "observed"
+    if command_type == "create":
+        identifier = _delivery_required_text(body, id_key, identifier=True)
+        if family == "progress":
+            request = {
+                "command_type": command_type,
+                "progress_id": identifier,
+                "project_id": _delivery_required_text(body, "project_id", identifier=True),
+                "principal_id": _delivery_required_text(body, "principal_id", identifier=True),
+                "project_scope": _delivery_required_text(body, "project_scope", identifier=True),
+                "building_no": str(body.get("building_no", "")).strip(),
+                "stage": _delivery_required_text(body, "stage"),
+                "plan_date": str(body.get("plan_date", "")).strip(),
+                "plan_pct_bps": _delivery_progress_bps(body, "plan_pct"),
+                "completed_value_minor": _delivery_amount(body, "completed_value_minor"),
+                "currency": _delivery_required_text(body, "currency", identifier=True).upper(),
+                "contract_id": str(body.get("contract_id", "")).strip(),
+                "milestone_id": str(body.get("milestone_id", "")).strip(),
+                "evidence_ids": _delivery_evidence(body),
+                "remark": str(body.get("remark", "")).strip(),
+                "actor_id": actor_id,
+                "state": "draft",
+            }
+            if not re.fullmatch(r"[A-Z]{3}", request["currency"]):
+                raise CommandRejected("currency must be a three-letter code", 422)
+            if _raw_delivery_rows(
+                pool,
+                "proj_progress",
+                record_id=identifier,
+                project_id=None,
+                task_id=None,
+                max_rows=1,
+            ):
+                raise CommandRejected("imported progress rows are read-only; use a new local progress id", 409)
+            return identifier, aggregate_type, request, True, None, "draft"
+        request = {
+            "command_type": command_type,
+            "output_id": identifier,
+            "output_code": str(body.get("output_code", "")).strip(),
+            "project_id": _delivery_required_text(body, "project_id", identifier=True),
+            "contract_id": _delivery_required_text(body, "contract_id", identifier=True),
+            "period": _delivery_required_text(body, "period"),
+            "output_amount": _delivery_required_text(body, "output_amount"),
+            "confirm_amount": "0",
+            "evidence_ids": _delivery_evidence(body),
+            "remark": str(body.get("remark", "")).strip(),
+            "actor_id": actor_id,
+            "state": "reported",
+        }
+        if _raw_delivery_rows(
+            pool,
+            "proj_output",
+            record_id=identifier,
+            project_id=None,
+            task_id=None,
+            max_rows=1,
+        ):
+            raise CommandRejected("imported output rows are read-only; use a new local output id", 409)
+        return identifier, aggregate_type, request, True, None, "reported"
+    if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
+        raise CommandRejected(f"{id_key} is required", 422)
+    request: dict[str, Any] = {
+        "command_type": command_type,
+        id_key: aggregate_id,
+        "actor_id": actor_id,
+    }
+    if family == "progress":
+        if command_type == "report":
+            request["actual_progress_bps"] = _delivery_progress_bps(body)
+            request["actual_date"] = _delivery_required_text(body, "actual_date")
+            request["evidence_ids"] = _delivery_evidence(body)
+            request["remark"] = str(body.get("remark", "")).strip()
+            return aggregate_id, aggregate_type, request, False, "draft", "submitted"
+        if command_type == "accept":
+            request["acceptance_evidence_ids"] = _delivery_evidence(body, "acceptance_evidence_ids")
+            request["acceptance_id"] = _delivery_required_text(body, "acceptance_id", identifier=True)
+            return aggregate_id, aggregate_type, request, False, "submitted", "accepted"
+        request["reason"] = _delivery_required_text(body, "reason")
+        return aggregate_id, aggregate_type, request, False, "submitted", "rejected"
+    request["confirm_amount"] = _delivery_required_text(body, "confirm_amount")
+    request["evidence_ids"] = _delivery_evidence(body, "evidence_ids")
+    request["confirmed_at"] = _delivery_required_text(body, "confirmed_at")
+    return aggregate_id, aggregate_type, request, False, "reported", "confirmed"
+
+
+def _delivery_persist_command(
+    pool: PsqlPool,
+    *,
+    family: str,
+    command_type: str,
+    aggregate_id: str,
+    aggregate_type: str,
+    request: dict[str, Any],
+    create_mode: bool,
+    expected_state: str | None,
+    next_state: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored delivery command receipt has no result")
+        return {
+            "command": existing,
+            family: result,
+            "idempotent_replay": True,
+        }
+    current = _latest_delivery_projection_rows(pool, aggregate_type, aggregate_id, 1)
+    if create_mode:
+        if current:
+            raise CommandRejected("delivery record already exists", 409)
+        next_revision = 1
+    else:
+        if not current:
+            raise CommandRejected("delivery record not found", 404)
+        current_payload = current[0]["payload"]
+        if current_payload.get("source_kind") != "command":
+            raise CommandRejected("imported delivery records are read-only", 409)
+        actual_state = str(current_payload.get("state", ""))
+        if expected_state is not None and actual_state != expected_state:
+            raise CommandRejected(
+                f"delivery transition {command_type} requires {expected_state}, found {actual_state}",
+                409,
+            )
+        next_revision = int(current[0]["revision"]) + 1
+    event_id = f"{aggregate_type}:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": family,
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
+            "actor_id": request["actor_id"],
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+        AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(create_mode).lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'delivery record already exists'; END IF;
+        next_revision := 1;
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', {sql_literal(next_state)}, 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(str(request['actor_id']))});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'delivery record not found'; END IF;
+        IF current_payload->>'source_kind' <> 'command' THEN RAISE EXCEPTION 'imported delivery record is read-only'; END IF;
+        IF {sql_literal(expected_state or '')} <> current_payload->>'state' THEN
+          RAISE EXCEPTION 'delivery transition state conflict';
+        END IF;
+        next_revision := {next_revision};
+        next_payload := current_payload || {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', {sql_literal(next_state)}, 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(str(request['actor_id']))});
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ({sql_literal(aggregate_type)}, {sql_literal(aggregate_id)}, next_revision,
+        next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action',
+          {sql_literal('delivery.' + family + '.' + command_type)}, 'aggregate_type', {sql_literal(aggregate_type)},
+          'aggregate_id', {sql_literal(aggregate_id)}, 'actor_id', {sql_literal(str(request['actor_id']))},
+          'event_id', {sql_literal(event_id)}, 'state', {sql_literal(next_state)}, 'revision', next_revision),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('aggregate_id', {sql_literal(aggregate_id)},
+        'state', {sql_literal(next_state)}, 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(str(request['actor_id']))});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("delivery command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected delivery command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid stored delivery command receipt") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("delivery command receipt has no result")
+    return {"command": receipt, family: result, "idempotent_replay": not created}
+
+
+def delivery_command(
+    pool: PsqlPool,
+    *,
+    family: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    aggregate_id, aggregate_type, request, create_mode, expected_state, next_state = _delivery_request(
+        pool, family, command_type, aggregate_id, body, actor_id
+    )
+    return _delivery_persist_command(
+        pool,
+        family=family,
+        command_type=command_type,
+        aggregate_id=aggregate_id,
+        aggregate_type=aggregate_type,
+        request=request,
+        create_mode=create_mode,
+        expected_state=expected_state,
+        next_state=next_state,
+        idempotency_key=idempotency_key,
+    )
+
+
 def expense_command(
     pool: PsqlPool,
     *,
@@ -3452,6 +4232,78 @@ def handler_factory(
                             response(self, 200, items[0], origin)
                     else:
                         response(self, 200, {"items": items}, origin)
+                elif parsed.path == "/api/company/delivery/progress":
+                    query = parse_qs(parsed.query)
+                    progress_value = query.get("progress_id", [None])[0]
+                    project_value = query.get("project_id", [None])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": delivery_progress(pool, progress_value, project_value, max_response_rows)},
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/delivery/progress/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    progress_id = parsed.path.rsplit("/", 1)[-1]
+                    items = delivery_progress(pool, progress_id, None, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "delivery progress not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
+                elif parsed.path == "/api/company/delivery/outputs":
+                    query = parse_qs(parsed.query)
+                    output_value = query.get("output_id", [None])[0]
+                    project_value = query.get("project_id", [None])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": delivery_outputs(pool, output_value, project_value, max_response_rows)},
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/delivery/outputs/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    output_id = parsed.path.rsplit("/", 1)[-1]
+                    items = delivery_outputs(pool, output_id, None, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "delivery output not found"}, origin)
+                    else:
+                        response(self, 200, items[0], origin)
+                elif parsed.path == "/api/company/delivery/tasks":
+                    query = parse_qs(parsed.query)
+                    task_value = query.get("task_id", [None])[0]
+                    project_value = query.get("project_id", [None])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": delivery_tasks(pool, task_value, project_value, max_response_rows)},
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/delivery/tasks/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    task_id = parsed.path.rsplit("/", 1)[-1]
+                    items = delivery_tasks(pool, task_id, None, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "delivery task not found"}, origin)
+                    else:
+                        detail = {"task": items[0], "reports": delivery_task_reports(pool, None, task_id, max_response_rows)}
+                        response(self, 200, detail, origin)
+                elif parsed.path == "/api/company/delivery/task-reports":
+                    query = parse_qs(parsed.query)
+                    report_value = query.get("report_id", [None])[0]
+                    task_value = query.get("task_id", [None])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": delivery_task_reports(pool, report_value, task_value, max_response_rows)},
+                        origin,
+                    )
+                elif parsed.path == "/api/company/delivery/plan-summary":
+                    project_value = parse_qs(parsed.query).get("project_id", [""])[0]
+                    if not project_value:
+                        raise CommandRejected("project_id is required", 422)
+                    response(self, 200, delivery_plan_summary(pool, project_value, max_response_rows), origin)
+                elif parsed.path == "/api/company/delivery/overview":
+                    project_value = parse_qs(parsed.query).get("project_id", [""])[0]
+                    if not project_value:
+                        raise CommandRejected("project_id is required", 422)
+                    response(self, 200, delivery_overview(pool, project_value, max_response_rows), origin)
                 elif parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"}, origin)
                 else:
@@ -3504,6 +4356,16 @@ def handler_factory(
                     command_family = "sales"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/delivery/progress":
+                    command_family = "delivery"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_delivery_family"] = "progress"
+                elif parsed.path == "/api/company/delivery/outputs":
+                    command_family = "delivery"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_delivery_family"] = "output"
                 else:
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
@@ -3529,6 +4391,18 @@ def handler_factory(
                         r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject)",
                         parsed.path,
                     )
+                    delivery_progress_match = re.fullmatch(
+                        r"/api/company/delivery/progress/([A-Za-z0-9_.:-]{1,128})/(report|accept|reject)",
+                        parsed.path,
+                    )
+                    delivery_output_match = re.fullmatch(
+                        r"/api/company/delivery/outputs/([A-Za-z0-9_.:-]{1,128})/confirm",
+                        parsed.path,
+                    )
+                    delivery_task_report_match = re.fullmatch(
+                        r"/api/company/delivery/tasks/([A-Za-z0-9_.:-]{1,128})/report",
+                        parsed.path,
+                    )
                     if expense_match is not None:
                         aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
                     elif contract_match is not None:
@@ -3548,6 +4422,21 @@ def handler_factory(
                         aggregate_id = sales_match.group(2)
                         command_type = sales_match.group(3)
                         body["_sales_family"] = sales_match.group(1)
+                    elif delivery_progress_match is not None:
+                        command_family = "delivery"
+                        aggregate_id = delivery_progress_match.group(1)
+                        command_type = delivery_progress_match.group(2)
+                        body["_delivery_family"] = "progress"
+                    elif delivery_output_match is not None:
+                        command_family = "delivery"
+                        aggregate_id = delivery_output_match.group(1)
+                        command_type = "confirm"
+                        body["_delivery_family"] = "output"
+                    elif delivery_task_report_match is not None:
+                        command_family = "delivery"
+                        aggregate_id = delivery_task_report_match.group(1)
+                        command_type = "report"
+                        body["_delivery_family"] = "task_report"
                     else:
                         if parsed.path.startswith("/api/"):
                             response(self, 404, {"error": "unknown company command"}, origin)
@@ -3613,6 +4502,17 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "delivery":
+                    family = str(body.pop("_delivery_family", ""))
+                    result = delivery_command(
+                        pool,
+                        family=family,
+                        command_type=command_type,
+                        aggregate_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 else:
                     result = expense_command(
                         pool,
@@ -3624,6 +4524,8 @@ def handler_factory(
                     )
                 creates_record = command_type == "create" or (
                     command_family == "sales" and command_type == "open_receivable"
+                ) or (
+                    command_family == "delivery" and family == "task_report"
                 )
                 status = 201 if creates_record and not result["idempotent_replay"] else 200
                 response(self, status, result, origin)

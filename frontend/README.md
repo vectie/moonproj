@@ -45,7 +45,12 @@ PostgreSQL customer, reservation, agreement, mortgage, refund, revenue, and
 receivable projections through the gateway and show their source/state/amount
 metadata while preserving the source-shaped tables as an offline fallback. The
 invoice page also reads reviewed invoice projections when an invoice cohort is
-present. The other route families remain fixture-backed.
+present. `/project/progress` and `/project-plan` now load the PostgreSQL
+delivery overview and expose evidence-gated progress, output, and task-report
+commands; imported task/progress/output rows remain read-only, while local
+command projections are marked separately. Browser production-identity
+acceptance is still pending, and the other route families remain
+fixture-backed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

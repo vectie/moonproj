@@ -271,16 +271,15 @@ replacement of `erp_new`. The findings that now control sequencing are:
    evidence: the gateway session and actor assertion are not the production
    identity boundary, and no browser acceptance or named-owner sign-off has
    been recorded.
-3. **Delivery is domain-ready but runtime-disconnected.** The target
-   `operations/delivery` package and draft/recognition cohorts are tested, but
-   the source `/api/v1/progress` (7 handlers) and `/api/v1/plan` (9 handlers)
-   surfaces are not connected to PostgreSQL, the service, or Rabbita. The
-   source `ProjectProgress.vue` and `ProjectPlan.vue` therefore remain
-   fixture-backed/read-only in the target. `proj_progress` and `proj_output`
-   are mapped as typed-import candidates, but the available export has no rows;
-   the next slice must add source-preserving reads before commands and must
-   keep task-state, output confirmation, recognition, cash, tax, and close as
-   separate gates. See
+3. **Delivery is locally connected but not source-complete or accepted.** The
+   target `operations/delivery` package, PostgreSQL service/read-model routes,
+   and Rabbita `/project/progress` and `/project-plan` states now cover
+   source-preserving task/report reads plus evidence-gated progress/output/
+   task-report commands. Smoke evidence covers transitions and idempotent
+   replay. The available export still has no `proj_progress` or `proj_output`
+   rows, and production identity, browser acceptance, and named operations
+   ownership remain open. Task-state, output confirmation, recognition, cash,
+   tax, and close remain separate gates. See
    [`ERP_DELIVERY_RUNTIME_AUDIT.md`](ERP_DELIVERY_RUNTIME_AUDIT.md).
 4. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
@@ -293,10 +292,10 @@ replacement of `erp_new`. The findings that now control sequencing are:
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records twelve connected workflow routes across browser and API
-surfaces (expense, contract, payment, procurement, sales, and invoice),
-while 34 browser views and 41 API groups remain fixture-backed or read-model-
-only. Three additional fixed read-model routes are connected. That gap,
+currently records fourteen connected workflow routes across browser and API
+surfaces (expense, contract, payment, procurement, sales, invoice, and
+delivery), while 32 browser views and 39 API groups remain fixture-backed or
+read-model-only. Three additional fixed read-model routes are connected. That gap,
 rather than additional platform hardening, controls the next work.
 
 Execute the remainder in this order:
@@ -321,16 +320,16 @@ Execute the remainder in this order:
 4. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-5. Close the delivery/progress runtime gap before opening another broad
-   surface. Add source-preserving PostgreSQL reads for `proj_progress`,
-   `proj_output`, `jd_task`, and `jd_task_report`; then add evidence- and
-   authority-checked progress/output/task-report commands and wire
-   `/project/progress` and `/project-plan` in Rabbita. Keep the existing
-   designer layout, but do not count fixture rows or native synthetic cohorts
-   as browser/API parity. Require duplicate/replay, rejection/resubmission,
-   acceptance-evidence, output-confirmation, and dependency-conflict evidence.
-   Recognition, budget/cost, cash, tax, and period-close effects remain
-   separate gates.
+5. Finish delivery/progress acceptance before opening another broad surface.
+   The local PostgreSQL reads, evidence- and authority-checked
+   progress/output/task-report commands, gateway forwarding, and Rabbita
+   `/project/progress` and `/project-plan` states now work and pass smoke/replay.
+   Obtain source `proj_progress`/`proj_output` rows (or an owner-approved
+   redacted cohort), run browser acceptance through the production identity
+   boundary, and obtain operations-owner approval for task-state conflicts.
+   Keep the existing designer layout, but do not count local synthetic rows as
+   source import parity. Recognition, budget/cost, cash, tax, and period-close
+   effects remain separate gates.
 6. Expand runtime vertical slices to the ERP parity floor. The local
    sales/receivables read and lifecycle slice is now verified; after delivery,
    the next broad slices are treasury/financing, tax/close,

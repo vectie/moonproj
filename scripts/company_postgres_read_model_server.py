@@ -4,7 +4,7 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
-and reviewed invoice projections. Production authentication, pooling, TLS,
+reviewed invoice, and delivery/project-progress projections. Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
 
@@ -33,6 +33,12 @@ from company_postgres_service import (
     tenders as service_tenders,
     contract_splits as service_contract_splits,
     sales_rows as service_sales_rows,
+    delivery_progress as service_delivery_progress,
+    delivery_outputs as service_delivery_outputs,
+    delivery_tasks as service_delivery_tasks,
+    delivery_task_reports as service_delivery_task_reports,
+    delivery_plan_summary as service_delivery_plan_summary,
+    delivery_overview as service_delivery_overview,
 )
 
 
@@ -228,6 +234,46 @@ def sales_rows(args: argparse.Namespace, family: str, aggregate_id: str | None) 
     return service_sales_rows(_ReadModelPool(args), family, aggregate_id, 500)
 
 
+def delivery_progress(
+    args: argparse.Namespace,
+    progress_id: str | None,
+    project_id: str | None,
+) -> list[dict[str, Any]]:
+    return service_delivery_progress(_ReadModelPool(args), progress_id, project_id, 500)
+
+
+def delivery_outputs(
+    args: argparse.Namespace,
+    output_id: str | None,
+    project_id: str | None,
+) -> list[dict[str, Any]]:
+    return service_delivery_outputs(_ReadModelPool(args), output_id, project_id, 500)
+
+
+def delivery_tasks(
+    args: argparse.Namespace,
+    task_id: str | None,
+    project_id: str | None,
+) -> list[dict[str, Any]]:
+    return service_delivery_tasks(_ReadModelPool(args), task_id, project_id, 500)
+
+
+def delivery_task_reports(
+    args: argparse.Namespace,
+    report_id: str | None,
+    task_id: str | None,
+) -> list[dict[str, Any]]:
+    return service_delivery_task_reports(_ReadModelPool(args), report_id, task_id, 500)
+
+
+def delivery_plan_summary(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_delivery_plan_summary(_ReadModelPool(args), project_id, 500)
+
+
+def delivery_overview(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_delivery_overview(_ReadModelPool(args), project_id, 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -397,6 +443,84 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "invoice not found"})
                     else:
                         response(self, 200, rows[0])
+                    return
+                if parsed.path == "/api/company/delivery/progress":
+                    query = parse_qs(parsed.query)
+                    rows = delivery_progress(
+                        args,
+                        query.get("progress_id", [None])[0],
+                        query.get("project_id", [None])[0],
+                    )
+                    response(self, 200, {"items": rows})
+                    return
+                if re.fullmatch(r"/api/company/delivery/progress/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    progress_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = delivery_progress(args, progress_id, None)
+                    if not rows:
+                        response(self, 404, {"error": "delivery progress not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                if parsed.path == "/api/company/delivery/outputs":
+                    query = parse_qs(parsed.query)
+                    rows = delivery_outputs(
+                        args,
+                        query.get("output_id", [None])[0],
+                        query.get("project_id", [None])[0],
+                    )
+                    response(self, 200, {"items": rows})
+                    return
+                if re.fullmatch(r"/api/company/delivery/outputs/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    output_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = delivery_outputs(args, output_id, None)
+                    if not rows:
+                        response(self, 404, {"error": "delivery output not found"})
+                    else:
+                        response(self, 200, rows[0])
+                    return
+                if parsed.path == "/api/company/delivery/tasks":
+                    query = parse_qs(parsed.query)
+                    rows = delivery_tasks(
+                        args,
+                        query.get("task_id", [None])[0],
+                        query.get("project_id", [None])[0],
+                    )
+                    response(self, 200, {"items": rows})
+                    return
+                if re.fullmatch(r"/api/company/delivery/tasks/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    task_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = delivery_tasks(args, task_id, None)
+                    if not rows:
+                        response(self, 404, {"error": "delivery task not found"})
+                    else:
+                        response(
+                            self,
+                            200,
+                            {"task": rows[0], "reports": delivery_task_reports(args, None, task_id)},
+                        )
+                    return
+                if parsed.path == "/api/company/delivery/task-reports":
+                    query = parse_qs(parsed.query)
+                    rows = delivery_task_reports(
+                        args,
+                        query.get("report_id", [None])[0],
+                        query.get("task_id", [None])[0],
+                    )
+                    response(self, 200, {"items": rows})
+                    return
+                if parsed.path == "/api/company/delivery/plan-summary":
+                    project_id = parse_qs(parsed.query).get("project_id", [""])[0]
+                    if not project_id:
+                        response(self, 422, {"error": "project_id is required"})
+                    else:
+                        response(self, 200, delivery_plan_summary(args, project_id))
+                    return
+                if parsed.path == "/api/company/delivery/overview":
+                    project_id = parse_qs(parsed.query).get("project_id", [""])[0]
+                    if not project_id:
+                        response(self, 422, {"error": "project_id is required"})
+                    else:
+                        response(self, 200, delivery_overview(args, project_id))
                     return
                 if parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"})

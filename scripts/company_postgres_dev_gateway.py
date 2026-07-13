@@ -6,7 +6,8 @@ API. This private development gateway keeps the service bearer token on the
 server, establishes an in-memory HttpOnly session, signs its actor assertion,
 converts a JSON ``idempotency_key`` field into the required
 ``Idempotency-Key`` header, and forwards only the company
-read/expense/contract/payment-application/tender/supplier/split/sales paths.
+read/expense/contract/payment-application/tender/supplier/split/sales/delivery
+paths.
 It must bind to a private address and is not a production gateway.
 """
 
@@ -41,6 +42,7 @@ SUPPLIER_PATH_PREFIX = "/api/company/suppliers"
 TENDER_SPLIT_PATH_PREFIX = "/api/company/tender-splits"
 SALES_PATH_PREFIX = "/api/company/sales"
 RECEIVABLE_PATH_PREFIX = "/api/company/receivables"
+DELIVERY_PATH_PREFIX = "/api/company/delivery"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 
@@ -323,6 +325,8 @@ def handler_factory(
                 or parsed.path.startswith(SALES_PATH_PREFIX + "/")
                 or parsed.path == RECEIVABLE_PATH_PREFIX
                 or parsed.path.startswith(RECEIVABLE_PATH_PREFIX + "/")
+                or parsed.path == DELIVERY_PATH_PREFIX
+                or parsed.path.startswith(DELIVERY_PATH_PREFIX + "/")
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return

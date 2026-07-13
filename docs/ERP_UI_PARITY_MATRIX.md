@@ -10,8 +10,8 @@ verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_invoice_read": 1, "connected_payment_application_command_form": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 34, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_payment_application_command": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 41}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_payment_application_command_form": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 32, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_payment_application_command": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 39}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -38,7 +38,7 @@ verticals.
 | `/loans` | `../views/LoanList.vue` | `loans_view` | `fixture_backed_read_only` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/loans/new` | `../views/LoanCreate.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/loans/:guid` | `../views/LoanDetail.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
-| `/project-plan` | `../views/ProjectPlan.vue` | `project_plan_view` | `fixture_backed_read_only` | `plan` | 4 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/project-plan` | `../views/ProjectPlan.vue` | `project_plan_view` | `connected_delivery_command_form` | `plan` | 4 / 5 | `connected_delivery_command` | `accept_browser_delivery_scenario_and_production_identity` |
 | `/investment` | `../views/Investment.vue` | `investment_view` | `fixture_backed_read_only` | `investment` | 16 / 12 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cost-dashboard-v3` | `../views/CostDashboardV3.vue` | `cost_dashboard_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/sales/revenues` | `../views/SalesRevenue.vue` | `sales_revenues_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
@@ -48,7 +48,7 @@ verticals.
 | `/sales/mortgages` | `../views/SaleMortgages.vue` | `sales_mortgages_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
 | `/marketing` | `../views/Marketing.vue` | `marketing_view` | `fixture_backed_read_only` | `marketing` | 4 / 9 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/fund/plan` | `../views/FundPlan.vue` | `fund_plan_view` | `fixture_backed_read_only` | `fund` | 3 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/project/progress` | `../views/ProjectProgress.vue` | `progress_view` | `fixture_backed_read_only` | `progress` | 2 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/project/progress` | `../views/ProjectProgress.vue` | `progress_view` | `connected_delivery_command_form` | `progress` | 2 / 5 | `connected_delivery_command` | `accept_browser_delivery_scenario_and_production_identity` |
 | `/invoice` | `../views/Invoice.vue` | `invoice_view` | `connected_invoice_read` | `invoice` | 3 / 4 | `connected_invoice_read` | `accept_browser_invoice_scenario_and_production_identity` |
 | `/tender` | `../views/TenderPlan.vue` | `tender_view` | `connected_tender_command_form` | `tender` | 3 / 5 | `connected_tender_command` | `accept_browser_tender_scenario_and_production_identity` |
 | `/cbs/dict` | `../views/CbsDict.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |

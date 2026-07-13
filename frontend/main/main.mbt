@@ -121,6 +121,58 @@ struct SalesRow {
 }
 
 ///|
+struct DeliveryProgressRow {
+  progress_id : String
+  project_id : String
+  building_no : String
+  stage : String
+  plan_date : String
+  plan_pct : String
+  actual_pct : String
+  actual_date : String
+  state : String
+  remark : String
+  source_kind : String
+  source_id : String
+}
+
+///|
+struct DeliveryOutputRow {
+  output_id : String
+  project_id : String
+  contract_id : String
+  period : String
+  output_amount : String
+  confirm_amount : String
+  state : String
+  remark : String
+  source_kind : String
+}
+
+///|
+struct DeliveryTaskRow {
+  task_id : String
+  task_name : String
+  project_id : String
+  plan_begin_date : String
+  plan_end_date : String
+  progress_pct : String
+  status : String
+  source_kind : String
+}
+
+///|
+struct DeliveryReportRow {
+  report_id : String
+  task_id : String
+  progress_pct : String
+  report_date : String
+  summary : String
+  state : String
+  source_kind : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -163,6 +215,18 @@ struct Model {
   sales_family : String
   sales_rows : Array[SalesRow]
   sales_note : String
+  delivery_loaded : Bool
+  delivery_progress_rows : Array[DeliveryProgressRow]
+  delivery_output_rows : Array[DeliveryOutputRow]
+  delivery_task_rows : Array[DeliveryTaskRow]
+  delivery_report_rows : Array[DeliveryReportRow]
+  delivery_note : String
+  delivery_progress_id : String
+  delivery_progress_state : String
+  delivery_output_id : String
+  delivery_output_state : String
+  delivery_task_id : String
+  delivery_command_note : String
 }
 
 ///|
@@ -236,6 +300,17 @@ enum Msg {
   SupplierCommandFailed
   SalesLoaded(String, String)
   SalesLoadFailed(String)
+  DeliveryLoaded(String)
+  DeliveryLoadFailed
+  CreateDeliveryProgress
+  ReportDeliveryProgress
+  AcceptDeliveryProgress
+  RejectDeliveryProgress
+  CreateDeliveryOutput
+  ConfirmDeliveryOutput
+  ReportTaskProgress
+  DeliveryCommandFinished(String)
+  DeliveryCommandFailed
 }
 
 ///|
@@ -282,6 +357,18 @@ fn initial_model() -> Model {
     sales_family: "",
     sales_rows: [],
     sales_note: "销售/应收读模型尚未加载",
+    delivery_loaded: false,
+    delivery_progress_rows: [],
+    delivery_output_rows: [],
+    delivery_task_rows: [],
+    delivery_report_rows: [],
+    delivery_note: "工程进度/项目计划读模型尚未加载",
+    delivery_progress_id: "PROG-RABBITA-LOCAL",
+    delivery_progress_state: "new",
+    delivery_output_id: "OUT-RABBITA-LOCAL",
+    delivery_output_state: "new",
+    delivery_task_id: "task-003",
+    delivery_command_note: "导入任务保持只读；本地命令需要证据并写入审计",
   }
 }
 
@@ -719,6 +806,136 @@ fn sales_rows_from_body(body : String) -> Array[SalesRow] {
 }
 
 ///|
+fn json_array_field(fields : Map[String, Json], key : String) -> Array[Json] {
+  match fields.get(key) {
+    Some(Json::Array(values)) => values
+    _ => []
+  }
+}
+
+///|
+fn delivery_progress_from_json(value : Json) -> DeliveryProgressRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        progress_id: json_object_text(fields, "progress_id", ""),
+        project_id: json_object_text(fields, "project_id", ""),
+        building_no: json_object_text(fields, "building_no", ""),
+        stage: json_object_text(fields, "stage", ""),
+        plan_date: json_object_text(fields, "plan_date", ""),
+        plan_pct: json_object_text(fields, "plan_pct", "0"),
+        actual_pct: json_object_text(fields, "actual_pct", "0"),
+        actual_date: json_object_text(fields, "actual_date", ""),
+        state: json_object_text(fields, "state", ""),
+        remark: json_object_text(fields, "remark", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+        source_id: json_object_text(fields, "source_id", ""),
+      })
+    _ => None
+  }
+}
+
+///|
+fn delivery_output_from_json(value : Json) -> DeliveryOutputRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        output_id: json_object_text(fields, "output_id", ""),
+        project_id: json_object_text(fields, "project_id", ""),
+        contract_id: json_object_text(fields, "contract_id", ""),
+        period: json_object_text(fields, "period", ""),
+        output_amount: json_object_text(fields, "output_amount", "0"),
+        confirm_amount: json_object_text(fields, "confirm_amount", "0"),
+        state: json_object_text(fields, "state", "reported"),
+        remark: json_object_text(fields, "remark", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn delivery_task_from_json(value : Json) -> DeliveryTaskRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        task_id: json_object_text(fields, "task_id", ""),
+        task_name: json_object_text(fields, "task_name", ""),
+        project_id: json_object_text(fields, "project_id", ""),
+        plan_begin_date: json_object_text(fields, "plan_begin_date", ""),
+        plan_end_date: json_object_text(fields, "plan_end_date", ""),
+        progress_pct: json_object_text(fields, "progress_pct", "0"),
+        status: json_object_text(fields, "status", "pending"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn delivery_report_from_json(value : Json) -> DeliveryReportRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        report_id: json_object_text(fields, "report_id", ""),
+        task_id: json_object_text(fields, "task_id", ""),
+        progress_pct: json_object_text(fields, "progress_pct", "0"),
+        report_date: json_object_text(fields, "report_date", ""),
+        summary: json_object_text(fields, "summary", ""),
+        state: json_object_text(fields, "state", "observed"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn delivery_overview_from_body(
+  body : String,
+) -> (
+  Array[DeliveryProgressRow],
+  Array[DeliveryOutputRow],
+  Array[DeliveryTaskRow],
+  Array[DeliveryReportRow],
+) {
+  let progress : Array[DeliveryProgressRow] = []
+  let outputs : Array[DeliveryOutputRow] = []
+  let tasks : Array[DeliveryTaskRow] = []
+  let reports : Array[DeliveryReportRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      for value in json_array_field(fields, "progress") {
+        match delivery_progress_from_json(value) {
+          Some(row) => progress.push(row)
+          None => ()
+        }
+      }
+      for value in json_array_field(fields, "outputs") {
+        match delivery_output_from_json(value) {
+          Some(row) => outputs.push(row)
+          None => ()
+        }
+      }
+      for value in json_array_field(fields, "tasks") {
+        match delivery_task_from_json(value) {
+          Some(row) => tasks.push(row)
+          None => ()
+        }
+      }
+      for value in json_array_field(fields, "reports") {
+        match delivery_report_from_json(value) {
+          Some(row) => reports.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  (progress, outputs, tasks, reports)
+}
+
+///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
@@ -729,6 +946,66 @@ fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
     match result {
       Ok(body) => emit(SalesLoaded(family, body))
       Err(_) => emit(SalesLoadFailed(family))
+    }
+  })
+}
+
+///|
+fn load_delivery(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/delivery/overview?project_id=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(DeliveryLoaded(body))
+      Err(_) => emit(DeliveryLoadFailed)
+    }
+  })
+}
+
+///|
+fn delivery_command_body(command_type : String) -> String {
+  if command_type == "create_progress" {
+    "{\"idempotency_key\":\"rabbita-delivery-progress-create-v1\",\"progress_id\":\"PROG-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"principal_id\":\"co-rabbita\",\"project_scope\":\"project:proj-0001\",\"stage\":\"主体结构\",\"plan_pct\":70,\"completed_value_minor\":125000,\"currency\":\"CNY\",\"evidence_ids\":[\"rabbita:progress:photo-001\"],\"remark\":\"本地进度命令演示\"}"
+  } else if command_type == "report_progress" {
+    "{\"idempotency_key\":\"rabbita-delivery-progress-report-v1\",\"progress_pct\":55,\"actual_date\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:progress:report-001\"],\"remark\":\"已完成现场复核\"}"
+  } else if command_type == "accept_progress" {
+    "{\"idempotency_key\":\"rabbita-delivery-progress-accept-v1\",\"acceptance_id\":\"accept-rabbita-001\",\"acceptance_evidence_ids\":[\"rabbita:progress:acceptance-001\"]}"
+  } else if command_type == "reject_progress" {
+    "{\"idempotency_key\":\"rabbita-delivery-progress-reject-v1\",\"reason\":\"需要补充验收记录\"}"
+  } else if command_type == "create_output" {
+    "{\"idempotency_key\":\"rabbita-delivery-output-create-v1\",\"output_id\":\"OUT-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"contract_id\":\"ht-tj-001\",\"period\":\"2026-07\",\"output_amount\":\"125000\",\"evidence_ids\":[\"rabbita:output:measure-001\"],\"remark\":\"本地产值确认演示\"}"
+  } else if command_type == "confirm_output" {
+    "{\"idempotency_key\":\"rabbita-delivery-output-confirm-v1\",\"confirm_amount\":\"125000\",\"confirmed_at\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:output:acceptance-001\"]}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-delivery-task-report-v1\",\"report_id\":\"TASK-REPORT-RABBITA-LOCAL\",\"task_id\":\"task-003\",\"project_id\":\"proj-0001\",\"progress_pct\":70,\"report_date\":\"2026-07-13\",\"summary\":\"本地任务汇报演示\",\"evidence_ids\":[\"rabbita:task-report:001\"]}"
+  }
+}
+
+///|
+fn issue_delivery_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create_progress" {
+    "/api/company/delivery/progress"
+  } else if command_type == "report_progress" {
+    "/api/company/delivery/progress/\{model.delivery_progress_id}/report"
+  } else if command_type == "accept_progress" {
+    "/api/company/delivery/progress/\{model.delivery_progress_id}/accept"
+  } else if command_type == "reject_progress" {
+    "/api/company/delivery/progress/\{model.delivery_progress_id}/reject"
+  } else if command_type == "create_output" {
+    "/api/company/delivery/outputs"
+  } else if command_type == "confirm_output" {
+    "/api/company/delivery/outputs/\{model.delivery_output_id}/confirm"
+  } else {
+    "/api/company/delivery/tasks/\{model.delivery_task_id}/report"
+  }
+  @http.post(path)
+  .with_text(delivery_command_body(command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(DeliveryCommandFinished(body))
+      Err(_) => emit(DeliveryCommandFailed)
     }
   })
 }
@@ -1034,6 +1311,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "revenues")
       } else if path == "/invoice" {
         load_sales(emit, "invoices")
+      } else if path == "/project-plan" || path == "/project/progress" {
+        load_delivery(emit)
       } else {
         none
       }
@@ -1767,6 +2046,166 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_family: family,
           sales_rows: [],
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
+        },
+      )
+    DeliveryLoaded(body) => {
+      let (progress, outputs, tasks, reports) = delivery_overview_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          delivery_loaded: true,
+          delivery_progress_rows: progress,
+          delivery_output_rows: outputs,
+          delivery_task_rows: tasks,
+          delivery_report_rows: reports,
+          delivery_note: "已加载 PostgreSQL 工程进度、项目计划与任务汇报 · 导入记录保持只读",
+        },
+      )
+    }
+    DeliveryLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          delivery_loaded: false,
+          delivery_progress_rows: [],
+          delivery_output_rows: [],
+          delivery_task_rows: [],
+          delivery_report_rows: [],
+          delivery_note: "工程进度/项目计划读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateDeliveryProgress =>
+      if model.delivery_progress_state == "new" {
+        (
+          issue_delivery_command(emit, model, "create_progress"),
+          {
+            ..model,
+            delivery_progress_state: "pending",
+            delivery_command_note: "正在创建进度记录并校验证据…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ReportDeliveryProgress =>
+      if model.delivery_progress_state == "draft" {
+        (
+          issue_delivery_command(emit, model, "report_progress"),
+          {
+            ..model,
+            delivery_progress_state: "pending",
+            delivery_command_note: "正在提交实际进度与现场证据…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    AcceptDeliveryProgress =>
+      if model.delivery_progress_state == "submitted" {
+        (
+          issue_delivery_command(emit, model, "accept_progress"),
+          {
+            ..model,
+            delivery_progress_state: "pending",
+            delivery_command_note: "正在校验验收证据并写入审计…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    RejectDeliveryProgress =>
+      if model.delivery_progress_state == "submitted" {
+        (
+          issue_delivery_command(emit, model, "reject_progress"),
+          {
+            ..model,
+            delivery_progress_state: "pending",
+            delivery_command_note: "正在退回进度记录并写入审计…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    CreateDeliveryOutput =>
+      if model.delivery_output_state == "new" {
+        (
+          issue_delivery_command(emit, model, "create_output"),
+          {
+            ..model,
+            delivery_output_state: "pending",
+            delivery_command_note: "正在登记产值并校验证据…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ConfirmDeliveryOutput =>
+      if model.delivery_output_state == "reported" {
+        (
+          issue_delivery_command(emit, model, "confirm_output"),
+          {
+            ..model,
+            delivery_output_state: "pending",
+            delivery_command_note: "正在确认产值并写入审计…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ReportTaskProgress =>
+      (
+        issue_delivery_command(emit, model, "report_task"),
+        {
+          ..model,
+          delivery_command_note: "正在提交任务汇报（不直接修改导入任务状态）…",
+        },
+      )
+    DeliveryCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"accepted\"") {
+        "accepted"
+      } else if body.contains("\"state\":\"submitted\"") {
+        "submitted"
+      } else if body.contains("\"state\":\"rejected\"") {
+        "rejected"
+      } else if body.contains("\"state\":\"draft\"") {
+        "draft"
+      } else if body.contains("\"state\":\"reported\"") {
+        "reported"
+      } else if body.contains("\"state\":\"confirmed\"") {
+        "confirmed"
+      } else {
+        "observed"
+      }
+      (
+        load_delivery(emit),
+        {
+          ..model,
+          delivery_progress_state: if body.contains("delivery_progress") {
+            next_state
+          } else {
+            model.delivery_progress_state
+          },
+          delivery_output_state: if body.contains("delivery_output") {
+            next_state
+          } else {
+            model.delivery_output_state
+          },
+          delivery_command_note: "已写入 PostgreSQL · 进度/产值命令完成 · 审计凭证已生成",
+        },
+      )
+    }
+    DeliveryCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          delivery_progress_state: "error",
+          delivery_output_state: "error",
+          delivery_command_note: "公司工程进度命令服务不可用或拒绝了请求",
         },
       )
     CreateExpense =>
@@ -2650,93 +3089,232 @@ fn project_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn project_plan_view() -> @html.Html {
+fn delivery_runtime_banner(model : Model) -> @html.Html {
+  let row_count = if model.delivery_loaded {
+    (model.delivery_progress_rows.length() + model.delivery_task_rows.length()).to_string()
+  } else {
+    "—"
+  }
+  div(class="erp-runtime-banner", [
+    strong(
+      if model.delivery_loaded {
+        "PostgreSQL 已连接"
+      } else {
+        "工程进度读模型"
+      },
+    ),
+    span(
+      " · " +
+      row_count +
+      (if model.delivery_loaded {
+        " 条进度/任务投影"
+      } else {
+        " 等待加载"
+      }),
+    ),
+    span(" · " + model.delivery_note),
+    span(" · " + model.delivery_command_note),
+  ])
+}
+
+///|
+fn delivery_progress_table(model : Model) -> @html.Html {
+  if !model.delivery_loaded {
+    div(class="erp-runtime-empty", "等待 PostgreSQL 工程进度投影")
+  } else {
+    let rows : Array[Array[String]] = []
+    for row in model.delivery_progress_rows {
+      rows.push([
+        row.progress_id,
+        row.project_id,
+        row.building_no,
+        row.stage,
+        row.plan_date,
+        row.actual_date,
+        row.plan_pct + "%",
+        row.actual_pct + "%",
+        row.state,
+        row.source_kind,
+        row.source_id,
+        row.remark,
+      ])
+    }
+    table_panel(
+      "当前 PostgreSQL 工程进度",
+      "源记录只读 · 本地命令需要证据并保留审计",
+      data_table(
+        [
+          "记录", "项目", "楼栋", "阶段", "计划日期", "实际日期",
+          "计划%", "实际%", "状态", "来源", "源ID", "备注",
+        ],
+        rows,
+      ),
+    )
+  }
+}
+
+///|
+fn delivery_outputs_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for row in model.delivery_output_rows {
+    rows.push([
+      row.output_id,
+      row.project_id,
+      row.contract_id,
+      row.period,
+      row.output_amount,
+      row.confirm_amount,
+      row.state,
+      row.source_kind,
+      row.remark,
+    ])
+  }
+  table_panel(
+    "产值确认",
+    "确认不等于入账 · 需要独立证据",
+    data_table(
+      [
+        "记录", "项目", "合同", "期间", "申报产值", "确认产值", "状态",
+        "来源", "备注",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn delivery_tasks_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for row in model.delivery_task_rows {
+    rows.push([
+      row.task_id,
+      row.project_id,
+      row.task_name,
+      row.plan_begin_date,
+      row.plan_end_date,
+      row.progress_pct + "%",
+      row.status,
+      row.source_kind,
+    ])
+  }
+  table_panel(
+    "项目计划任务",
+    "导入任务状态保持只读 · 任务汇报单独留痕",
+    data_table(
+      [
+        "任务", "项目", "名称", "计划开始", "计划完成", "完成度",
+        "状态", "来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn delivery_reports_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for row in model.delivery_report_rows {
+    rows.push([
+      row.report_id,
+      row.task_id,
+      row.progress_pct + "%",
+      row.report_date,
+      row.state,
+      row.source_kind,
+      row.summary,
+    ])
+  }
+  table_panel(
+    "任务汇报证据",
+    "汇报记录不直接修改导入任务状态",
+    data_table(
+      ["报告", "任务", "进度", "日期", "状态", "来源", "摘要"],
+      rows,
+    ),
+  )
+}
+
+///|
+fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "项目计划",
     "PROJECT PLAN",
     "按项目阶段查看里程碑、计划工期与责任人，支持项目经理持续更新计划状态。",
-    [button(class="erp-primary-btn", "＋ 新建计划")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ReportTaskProgress),
+        "汇报当前任务",
+      ),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateDeliveryProgress),
+        "＋ 新建进度记录",
+      ),
+    ],
     div <| [
+      delivery_runtime_banner(model),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "计划总览"),
         button(class="erp-tab", "甘特图"),
         button(class="erp-tab", "里程碑"),
       ],
-      table_panel(
-        "计划任务",
-        "成都和锦里 · 2026 年度",
-        data_table(
-          [
-            "任务名称", "阶段", "责任人", "计划开始", "计划完成",
-            "完成度", "状态",
-          ],
-          [
-            [
-              "方案设计审查", "规划设计", "王工", "2026-02-01", "2026-02-18",
-              "100%", "已完成",
-            ],
-            [
-              "施工图审查", "开发建设", "李工", "2026-02-20", "2026-03-28",
-              "76%", "进行中",
-            ],
-            [
-              "主体结构封顶", "开发建设", "陈工", "2026-04-01", "2026-07-15",
-              "38%", "进行中",
-            ],
-            [
-              "首批房源开盘", "销售去化", "销售部", "2026-08-01", "2026-08-20",
-              "0%", "待处理",
-            ],
-          ],
-        ),
-      ),
+      delivery_tasks_table(model),
     ],
   )
 }
 
 ///|
-fn progress_view() -> @html.Html {
+fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "工程进度",
     "PROJECT PROGRESS",
     "对照计划日期与实际完成率跟踪楼栋、施工阶段和交付节点。",
     [
       button(class="erp-secondary-btn", "导出进度表"),
-      button(class="erp-primary-btn", "＋ 更新进度"),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateDeliveryProgress),
+        "＋ 更新进度",
+      ),
     ],
     div <| [
+      delivery_runtime_banner(model),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "进度总览"),
         button(class="erp-tab", "楼栋视图"),
         button(class="erp-tab", "交付节点"),
       ],
-      table_panel(
-        "楼栋进度",
-        "截至 2026-07-13",
-        data_table(
-          [
-            "楼栋", "阶段", "计划日期", "实际日期", "计划完成%",
-            "实际完成%", "状态", "备注",
-          ],
-          [
-            [
-              "1#", "主体结构", "2026-06-30", "2026-06-28", "100%", "100%", "已完成",
-              "",
-            ],
-            [
-              "2#", "砌体工程", "2026-07-10", "", "82%", "76%", "进行中",
-              "较计划晚 4 天",
-            ],
-            [
-              "3#", "基础施工", "2026-07-25", "", "54%", "49%", "进行中",
-              "材料已到场",
-            ],
-            [
-              "5#", "桩基工程", "2026-06-18", "", "100%", "91%", "逾期", "需增加班组",
-            ],
-          ],
+      delivery_progress_table(model),
+      delivery_outputs_table(model),
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(ReportDeliveryProgress),
+          "提交现场进度",
         ),
-      ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(AcceptDeliveryProgress),
+          "接受进度证据",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(RejectDeliveryProgress),
+          "退回进度证据",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CreateDeliveryOutput),
+          "登记产值",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(ConfirmDeliveryOutput),
+          "确认产值",
+        ),
+      ],
+      delivery_reports_table(model),
     ],
   )
 }
@@ -5843,8 +6421,8 @@ fn business_view(
       "/ai-stats" => ai_stats_view()
       "/projects" => project_view(emit)
       "/projects/CD-HJL" => project_detail_view(emit)
-      "/project-plan" => project_plan_view()
-      "/project/progress" => progress_view()
+      "/project-plan" => project_plan_view(emit, model)
+      "/project/progress" => progress_view(emit, model)
       "/tasks" => tasks_view()
       "/sales/customers" => sales_customers_view(model)
       "/sales/subscriptions" => sales_subscriptions_view(emit, model)

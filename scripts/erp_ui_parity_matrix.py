@@ -9,8 +9,8 @@ which source API module still needs a connected command/read workflow.
 The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the dashboard's fixed summary read-model
 and the local expense/contract/payment-application/tender/supplier/sales read
-verticals are explicitly identified, while no other mutation endpoint is
-inferred.
+verticals are explicitly identified, including the delivery/project-progress
+runtime, while no other mutation endpoint is inferred.
 """
 
 from __future__ import annotations
@@ -179,6 +179,8 @@ def match_target(
             "/sales/revenues",
         }:
             return function, "connected_sales_read"
+        if path in {"/project-plan", "/project/progress"}:
+            return function, "connected_delivery_command_form"
         if path == "/invoice" and function == "invoice_view":
             return function, "connected_invoice_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
@@ -228,6 +230,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_sales_scenario_and_production_identity"
     if target_state == "connected_invoice_read":
         return "accept_browser_invoice_scenario_and_production_identity"
+    if target_state == "connected_delivery_command_form":
+        return "accept_browser_delivery_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -266,6 +270,8 @@ def build_matrix(
             api_state = "connected_sales_read"
         elif target_state == "connected_invoice_read":
             api_state = "connected_invoice_read"
+        elif target_state == "connected_delivery_command_form":
+            api_state = "connected_delivery_command"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:
