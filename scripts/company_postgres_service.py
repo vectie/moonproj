@@ -5447,6 +5447,7 @@ WORKFLOW_SOURCE_TABLES = {
     "wf_process_def",
     "wf_step_def",
     "wf_step_assignee",
+    "sys_user",
     "wf_process_instance",
     "wf_step_action",
 }
@@ -5479,6 +5480,11 @@ def workflow_process_defs(
     process_rows = _workflow_rows(pool, "wf_process_def", max_rows)
     step_rows = _workflow_rows(pool, "wf_step_def", max(max_rows, 500))
     assignee_rows = _workflow_rows(pool, "wf_step_assignee", max(max_rows, 500))
+    user_rows = _workflow_rows(pool, "sys_user", max(max_rows, 500))
+    users_by_id = {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in user_rows
+    }
     assignees_by_step: dict[str, list[dict[str, Any]]] = {}
     for row in assignee_rows:
         payload = row["payload"]
@@ -5489,6 +5495,12 @@ def workflow_process_defs(
             {
                 "assignee_guid": str(payload.get("assignee_guid", row["record_id"])),
                 "user_guid": str(payload.get("assignee_user_guid", "")),
+                "user_code": str(
+                    users_by_id.get(str(payload.get("assignee_user_guid", "")), {}).get("user_code") or ""
+                ),
+                "user_name": str(
+                    users_by_id.get(str(payload.get("assignee_user_guid", "")), {}).get("emp_name") or ""
+                ),
                 "weight": int(payload.get("weight") or 1),
                 "source_kind": "imported",
             }

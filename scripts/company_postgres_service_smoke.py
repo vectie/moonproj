@@ -219,6 +219,22 @@ def main() -> int:
             raise SmokeError(f"workflow definition read failed: {status} {payload}")
         if len(payload["items"]) != 2:
             raise SmokeError(f"workflow definition count failed: {payload}")
+        workflow_assignees = [
+            assignee
+            for process in payload["items"]
+            for step in process.get("steps", [])
+            for assignee in step.get("assignees", [])
+        ]
+        if (
+            len(workflow_assignees) != 6
+            or next(
+                (row for row in workflow_assignees if row.get("user_guid") == "user-lmj-0001"),
+                {},
+            ).get("user_name")
+            != "李明津"
+            or payload.get("source_coverage", {}).get("sys_user") != 5
+        ):
+            raise SmokeError(f"workflow assignee identity read failed: {payload}")
         status, workflow_preview = request(
             args.port,
             "/api/company/workflow/process-defs/loan-approval/preview",
@@ -1473,6 +1489,7 @@ def main() -> int:
                     "dashboard_missing_source_tables": dashboard_overview.get("missing_source_tables", []),
                     "workflow_definition_count": 2,
                     "workflow_step_count": 12,
+                    "workflow_assignee_rows": len(workflow_assignees),
                     "business_unit_root_count": 1,
                     "business_unit_rows": 7,
                     "cost_subject_rows": 5,

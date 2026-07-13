@@ -267,6 +267,7 @@ struct WorkflowStepRow {
   step_name : String
   threshold : String
   assignee_count : String
+  assignee_names : String
   source_kind : String
 }
 
@@ -1490,7 +1491,26 @@ fn loan_rows_from_body(body : String) -> Array[LoanRow] {
 ///|
 fn workflow_step_from_json(value : Json) -> WorkflowStepRow? {
   match value {
-    Json::Object(fields) =>
+    Json::Object(fields) => {
+      let mut assignee_names = ""
+      for assignee in json_array_field(fields, "assignees") {
+        match assignee {
+          Json::Object(assignee_fields) => {
+            let name = json_object_text(
+              assignee_fields,
+              "user_name",
+              json_object_text(assignee_fields, "user_code", ""),
+            )
+            if name != "" {
+              if assignee_names != "" {
+                assignee_names = assignee_names + "、"
+              }
+              assignee_names = assignee_names + name
+            }
+          }
+          _ => ()
+        }
+      }
       Some({
         step_guid: json_object_text(fields, "step_guid", ""),
         step_key: json_object_text(fields, "step_key", ""),
@@ -1500,8 +1520,10 @@ fn workflow_step_from_json(value : Json) -> WorkflowStepRow? {
         assignee_count: json_array_field(fields, "assignees")
         .length()
         .to_string(),
+        assignee_names,
         source_kind: json_object_text(fields, "source_kind", "imported"),
       })
+    }
     _ => None
   }
 }
@@ -4635,6 +4657,11 @@ fn workflow_runtime_table(model : Model) -> @html.Html {
         step.threshold +
         "; 指派 " +
         step.assignee_count +
+        (if step.assignee_names != "" {
+          " (" + step.assignee_names + ")"
+        } else {
+          ""
+        }) +
         "; " +
         step.source_kind +
         "]"

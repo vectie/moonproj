@@ -65,8 +65,8 @@ The Rabbita loan editor now emits the local create/submit/update/void commands
 and keeps imported detail routes read-only; the offset action remains available
 only after an approved workflow state is supplied. The other route families
 remain fixture-backed. `/tasks` now reads the source workflow definitions and
-previews (two processes, twelve steps, six assignee mappings) through the
-authenticated service; source instances/actions are empty, so the task cards
+previews (two processes, twelve steps, six assignee mappings with imported user
+labels) through the authenticated service; source instances/actions are empty, so the task cards
 remain a clearly labelled design snapshot and no approval mutation is exposed.
 `/projects` and `/projects/:guid` now read the source project master and
 lifecycle/task evidence (two projects, fourteen lifecycle rows, nine tasks),

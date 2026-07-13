@@ -1,6 +1,6 @@
 # ERP Workflow Definition Runtime Audit
 
-Recorded: 2026-07-13  
+Recorded: 2026-07-14
 Source: `../erp/erp_new`  
 Target: this repository
 
@@ -25,11 +25,12 @@ workflow instances from this slice.
 ## Current evidence
 
 - PostgreSQL service smoke returns two process definitions, twelve steps, six
-  assignees, and zero instance/action rows.
+  assignees with imported user labels, and zero instance/action rows.
 - The loan preview returns the five source-defined loan approval steps while
   retaining `instances_available=0` and `actions_available=0`.
-- Rabbita `/tasks` shows the connected definition rows and labels the existing
-  task cards as a design snapshot when no source instances exist.
+- Rabbita `/tasks` shows the connected definition rows, imported assignee names,
+  and labels the existing task cards as a design snapshot when no source
+  instances exist.
 - The parity matrix marks the two source definition GET handlers and `/tasks`
   as `connected_workflow_definition_read`; instance/task reads and all
   workflow mutations remain unconnected.
