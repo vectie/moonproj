@@ -171,6 +171,19 @@ def main() -> int:
             or len(project_detail.get("reports", [])) != 1
         ):
             raise SmokeError(f"project detail read failed: {status} {project_detail}")
+        status, lifecycle_payload = request(
+            args.port,
+            "/api/company/projects/proj-0001/lifecycle",
+            token=token,
+        )
+        if (
+            status != 200
+            or lifecycle_payload is None
+            or lifecycle_payload.get("data", {}).get("project", {}).get("projGuid") != "proj-0001"
+            or len(lifecycle_payload.get("data", {}).get("stages", [])) != 7
+            or lifecycle_payload.get("data", {}).get("stages", [])[0].get("stageCode") != "initiation"
+        ):
+            raise SmokeError(f"project lifecycle read failed: {status} {lifecycle_payload}")
         status, plan_tasks_payload = request(
             args.port,
             "/api/company/projects/proj-0001/tasks",
@@ -211,6 +224,19 @@ def main() -> int:
             or len(plan_summary_payload.get("data", {}).get("upcoming", [])) != 3
         ):
             raise SmokeError(f"project plan summary read failed: {status} {plan_summary_payload}")
+        status, delay_payload = request(
+            args.port,
+            "/api/company/tasks/task-003/delay-impact?delayDays=10",
+            token=token,
+        )
+        if (
+            status != 200
+            or delay_payload is None
+            or delay_payload.get("data", {}).get("source", {}).get("delayDays") != 10
+            or delay_payload.get("data", {}).get("source", {}).get("newEnd") != "2026-12-25"
+            or delay_payload.get("data", {}).get("impactCount") != 2
+        ):
+            raise SmokeError(f"project task delay-impact read failed: {status} {delay_payload}")
         status, payload = request(args.port, "/api/company/loans", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"loan read failed: {status} {payload}")
@@ -1160,6 +1186,8 @@ def main() -> int:
                     "plan_task_rows": 7,
                     "plan_task_report_rows": 1,
                     "plan_key_node_total": 5,
+                    "project_lifecycle_stage_rows": 7,
+                    "project_delay_impact_rows": 2,
                     "loan_rows": loan_rows,
                     "loan_command_state": "Voided",
                     "loan_workflow_gate": "rejected_until_source_rows",

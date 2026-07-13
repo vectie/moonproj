@@ -45,7 +45,8 @@ The bounded service exposes these endpoints:
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
-  ``/api/company/projects/<id>/plan-summary`` (GET, source-compatible plan reads)
+  ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
+  ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
 * ``/api/company/loans`` and ``/api/company/loans/<id>`` (GET)
 * ``/api/company/loans`` (POST create draft)
 * ``/api/company/loans/<id>/{submit-for-approval,offset,update,void}`` (POST)
@@ -3637,6 +3638,118 @@ def plan_summary(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, An
     }
 
 
+def project_lifecycle(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    result = projects(pool, project_id, None, None, max_rows)
+    if not result["items"]:
+        return None
+    project = result["items"][0]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "project": {
+                "projGuid": project["project_id"],
+                "projCode": project["project_code"],
+                "projName": project["project_name"],
+                "buGuid": project["bu_guid"],
+                "buName": project["bu_name"],
+                "projStatus": project["proj_status"],
+            },
+            "stages": [
+                {
+                    "stageCode": stage["stage_code"],
+                    "stageName": stage["stage_name"],
+                    "stageOrder": stage["stage_order"],
+                    "status": stage["status"],
+                    "progressPct": stage["progress_pct"],
+                    "plannedStart": stage["planned_start"],
+                    "plannedEnd": stage["planned_end"],
+                    "actualStart": stage["actual_start"],
+                    "actualEnd": stage["actual_end"],
+                    "sourceKind": "imported",
+                }
+                for stage in project["lifecycle"]
+            ],
+        },
+        "source_kind": "imported",
+        "source_coverage": {
+            "ep_project": 1,
+            "proj_lifecycle_stage": len(project["lifecycle"]),
+            "proj_lifecycle_instance": result["source_coverage"].get("proj_lifecycle_instance", 0),
+        },
+    }
+
+
+def _shift_plan_date(value: Any, delay_days: int) -> str:
+    parsed = _report_date(str(value or ""))
+    if parsed is None:
+        return str(value or "")
+    return (parsed + timedelta(days=delay_days)).isoformat()
+
+
+def plan_delay_impact(
+    pool: PsqlPool,
+    task_id: str,
+    delay_days: int,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(task_id):
+        raise ValueError("invalid task_id")
+    if delay_days < -3650 or delay_days > 3650:
+        raise ValueError("delay_days is outside the supported range")
+    raw_rows = _raw_delivery_rows(
+        pool,
+        "jd_task",
+        record_id=task_id,
+        project_id=None,
+        task_id=task_id,
+        max_rows=max_rows,
+    )
+    if not raw_rows:
+        return None
+    source = raw_rows[0]["payload"]
+    project_id = str(source.get("proj_guid") or "")
+    old_end = str(source.get("plan_end_date") or "")
+    tasks = plan_tasks(pool, project_id, None, max_rows)["data"]
+    old_end_date = _report_date(old_end)
+    followers = []
+    for task in tasks:
+        begin = _report_date(str(task.get("planBeginDate") or ""))
+        if begin is None or old_end_date is None or begin < old_end_date:
+            continue
+        followers.append(
+            {
+                "taskGuid": task.get("taskGuid", ""),
+                "taskName": task.get("taskName", ""),
+                "taskType": task.get("taskType", "task"),
+                "oldBegin": task.get("planBeginDate", ""),
+                "oldEnd": task.get("planEndDate", ""),
+                "newBegin": _shift_plan_date(task.get("planBeginDate"), delay_days),
+                "newEnd": _shift_plan_date(task.get("planEndDate"), delay_days),
+                "sourceKind": "imported",
+            }
+        )
+    followers.sort(key=lambda value: (str(value["oldBegin"]), str(value["taskGuid"])))
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "source": {
+                "taskName": str(source.get("task_name") or ""),
+                "oldEnd": old_end,
+                "newEnd": _shift_plan_date(old_end, delay_days),
+                "delayDays": delay_days,
+            },
+            "impact": followers,
+            "impactCount": len(followers),
+        },
+        "source_kind": "imported",
+        "source_coverage": {"jd_task": len(tasks)},
+    }
+
+
 def delivery_overview(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any]:
     if not IDENTIFIER.fullmatch(project_id):
         raise ValueError("invalid project_id")
@@ -5907,6 +6020,41 @@ def handler_factory(
                 ):
                     project_value = parsed.path.split("/")[-2]
                     response(self, 200, plan_summary(pool, project_value, max_response_rows), origin)
+                elif re.fullmatch(
+                    r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/lifecycle",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    result = project_lifecycle(pool, project_value, max_response_rows)
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "项目不存在"},
+                            origin,
+                        )
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/tasks/[A-Za-z0-9_.:-]{1,128}/delay-impact",
+                    parsed.path,
+                ):
+                    task_value = parsed.path.split("/")[-2]
+                    delay_text = parse_qs(parsed.query).get("delayDays", ["0"])[0]
+                    try:
+                        delay_value = int(delay_text)
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid delayDays") from error
+                    result = plan_delay_impact(pool, task_value, delay_value, max_response_rows)
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "任务不存在"},
+                            origin,
+                        )
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/workflow/process-defs":
                     process_value = parse_qs(parsed.query).get("process_key", [None])[0]
                     response(

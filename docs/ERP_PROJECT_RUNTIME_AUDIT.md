@@ -20,6 +20,8 @@ The target now connects the source-preserving project master/detail boundary:
 | Project task list | `/api/company/projects/:id/tasks` | source-compatible read |
 | Task detail/report history | `/api/company/tasks/:id` | source-compatible read |
 | Project plan summary | `/api/company/projects/:id/plan-summary` | source-compatible read |
+| Project lifecycle | `/api/company/projects/:id/lifecycle` | source-compatible read |
+| Task delay impact | `/api/company/tasks/:id/delay-impact` | source-compatible read |
 | Rabbita project list | `/projects` | connected read with designer fallback |
 | Rabbita project detail | `/projects/:guid` | connected read with designer fallback |
 
@@ -34,6 +36,9 @@ evidence-gated boundaries.
 - The source-compatible plan reads return seven tasks, one task report for
   `task-003`, and a five-key-node summary for `proj-0001` (two done, one
   in-progress, and two pending).
+- Lifecycle compatibility returns all seven ordered stages, and delay-impact
+  analysis preserves the source rule for downstream tasks without mutating
+  imported task state.
 - Project, company, lifecycle, task, owner, and report identities remain tied to
   the imported source payload and are marked `source_kind=imported`.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
@@ -47,8 +52,8 @@ evidence-gated boundaries.
 
 1. Run browser acceptance through production identity and verify BU/entity scope
    and lifecycle/task reconciliation against the source implementation.
-2. Bind the source-compatible plan reads to the full project-plan UI scenario
-   and preserve task reporting/progress mutation authority as a separate
-   evidence-gated boundary.
+2. Bind the source-compatible plan/lifecycle reads to the full project-plan UI
+   scenario and preserve task reporting/progress mutation authority as a
+   separate evidence-gated boundary.
 3. Obtain named project/operations owner acceptance before treating imported
    project state as target-owned.

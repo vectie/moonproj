@@ -70,8 +70,9 @@ while the designer project tables/forms remain an explicitly labelled fallback;
 project and plan mutations are not inferred from those reads.
 Source-compatible plan reads are also available at
 `/api/company/projects/:id/tasks`, `/api/company/tasks/:id`, and
-`/api/company/projects/:id/plan-summary`; task reporting and plan mutations
-remain separate evidence-gated boundaries.
+`/api/company/projects/:id/plan-summary`, plus lifecycle and delay-impact
+reads; task reporting and plan mutations remain separate evidence-gated
+boundaries.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

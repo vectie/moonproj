@@ -316,6 +316,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/projects/:projGuid/tasks",
             "/tasks/:guid",
             "/projects/:projGuid/plan-summary",
+            "/tasks/:guid/delay-impact",
         }
     ):
         return "connected_project_plan_read", "accept_browser_project_plan_scenario_and_production_identity"
