@@ -17,6 +17,9 @@ The target now connects the source-preserving project master/detail boundary:
 |---|---|---|
 | Project list | `/api/company/projects` | source-preserving read |
 | Project detail/lifecycle/tasks | `/api/company/projects/:id` | source-preserving read |
+| Project task list | `/api/company/projects/:id/tasks` | source-compatible read |
+| Task detail/report history | `/api/company/tasks/:id` | source-compatible read |
+| Project plan summary | `/api/company/projects/:id/plan-summary` | source-compatible read |
 | Rabbita project list | `/projects` | connected read with designer fallback |
 | Rabbita project detail | `/projects/:guid` | connected read with designer fallback |
 
@@ -28,6 +31,9 @@ evidence-gated boundaries.
 
 - PostgreSQL service smoke returns two projects, fourteen lifecycle rows, and
   nine tasks; `proj-0001` detail returns seven lifecycle stages and seven tasks.
+- The source-compatible plan reads return seven tasks, one task report for
+  `task-003`, and a five-key-node summary for `proj-0001` (two done, one
+  in-progress, and two pending).
 - Project, company, lifecycle, task, owner, and report identities remain tied to
   the imported source payload and are marked `source_kind=imported`.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
@@ -41,8 +47,8 @@ evidence-gated boundaries.
 
 1. Run browser acceptance through production identity and verify BU/entity scope
    and lifecycle/task reconciliation against the source implementation.
-2. Connect the source plan task/detail reads to the project-plan UI as a
-   separate read slice; keep task reporting and progress mutation authority
-   separate from project master data.
+2. Bind the source-compatible plan reads to the full project-plan UI scenario
+   and preserve task reporting/progress mutation authority as a separate
+   evidence-gated boundary.
 3. Obtain named project/operations owner acceptance before treating imported
    project state as target-owned.

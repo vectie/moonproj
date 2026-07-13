@@ -171,6 +171,46 @@ def main() -> int:
             or len(project_detail.get("reports", [])) != 1
         ):
             raise SmokeError(f"project detail read failed: {status} {project_detail}")
+        status, plan_tasks_payload = request(
+            args.port,
+            "/api/company/projects/proj-0001/tasks",
+            token=token,
+        )
+        if (
+            status != 200
+            or plan_tasks_payload is None
+            or not isinstance(plan_tasks_payload.get("data"), list)
+            or len(plan_tasks_payload["data"]) != 7
+            or plan_tasks_payload.get("source_coverage", {}).get("jd_task") != 7
+            or plan_tasks_payload["data"][0].get("taskGuid") != "task-001"
+        ):
+            raise SmokeError(f"project plan task list read failed: {status} {plan_tasks_payload}")
+        status, plan_task_detail_payload = request(
+            args.port,
+            "/api/company/tasks/task-003",
+            token=token,
+        )
+        if (
+            status != 200
+            or plan_task_detail_payload is None
+            or plan_task_detail_payload.get("data", {}).get("task", {}).get("taskGuid") != "task-003"
+            or len(plan_task_detail_payload.get("data", {}).get("reports", [])) != 1
+            or plan_task_detail_payload.get("source_coverage", {}).get("jd_task_report") != 1
+        ):
+            raise SmokeError(f"project plan task detail read failed: {status} {plan_task_detail_payload}")
+        status, plan_summary_payload = request(
+            args.port,
+            "/api/company/projects/proj-0001/plan-summary",
+            token=token,
+        )
+        if (
+            status != 200
+            or plan_summary_payload is None
+            or plan_summary_payload.get("data", {}).get("summary", {}).get("total") != 5
+            or plan_summary_payload.get("data", {}).get("summary", {}).get("done") != 2
+            or len(plan_summary_payload.get("data", {}).get("upcoming", [])) != 3
+        ):
+            raise SmokeError(f"project plan summary read failed: {status} {plan_summary_payload}")
         status, payload = request(args.port, "/api/company/loans", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"loan read failed: {status} {payload}")
@@ -1117,6 +1157,9 @@ def main() -> int:
                     "project_lifecycle_rows": 14,
                     "project_task_rows": 9,
                     "project_task_report_rows": 1,
+                    "plan_task_rows": 7,
+                    "plan_task_report_rows": 1,
+                    "plan_key_node_total": 5,
                     "loan_rows": loan_rows,
                     "loan_command_state": "Voided",
                     "loan_workflow_gate": "rejected_until_source_rows",

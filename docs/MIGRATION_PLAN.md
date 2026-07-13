@@ -301,7 +301,9 @@ those capabilities as source parity.
    [`ERP_DELIVERY_RUNTIME_AUDIT.md`](ERP_DELIVERY_RUNTIME_AUDIT.md).
    Project master/detail reads now preserve the two available projects and
    lifecycle/task evidence through `/projects`; project and plan mutations
-   remain separate and source-owner acceptance is still open. See
+   remain separate and source-owner acceptance is still open. Source-compatible
+   project-plan task/detail/summary reads now preserve seven tasks, one report,
+   and five key nodes without enabling task mutations. See
    [`ERP_PROJECT_RUNTIME_AUDIT.md`](ERP_PROJECT_RUNTIME_AUDIT.md).
 4. **Reporting is locally connected but source-incomplete and not accepted.**
    The five core report reads now run through the local PostgreSQL service,

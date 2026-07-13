@@ -7,7 +7,8 @@ not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
 project master read, delivery, core report read, employee-loan
-read/command, and non-authorizing workflow-definition read verticals.
+read/command, project-plan read, and non-authorizing workflow-definition
+read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
@@ -308,10 +309,10 @@ are attached. The JSON output contains all 338 handler rows.
 | `notify` | `POST` | `/email-outbox/:eid/redeliver` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `notify` | `GET` | `/llm-providers` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
 | `notify` | `POST` | `/llm-test` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `plan` | `GET` | `/projects/:projGuid/tasks` | `/project-plan` | `not_connected` | `connect_authenticated_read_api` |
-| `plan` | `GET` | `/tasks/:guid` | `/project-plan` | `not_connected` | `connect_authenticated_read_api` |
+| `plan` | `GET` | `/projects/:projGuid/tasks` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
+| `plan` | `GET` | `/tasks/:guid` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
 | `plan` | `POST` | `/tasks/:guid/report` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `plan` | `GET` | `/projects/:projGuid/plan-summary` | `/project-plan` | `not_connected` | `connect_authenticated_read_api` |
+| `plan` | `GET` | `/projects/:projGuid/plan-summary` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
 | `plan` | `POST` | `/tasks` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `plan` | `PUT` | `/tasks/:guid` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `plan` | `DELETE` | `/tasks/:guid` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |

@@ -44,6 +44,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
+* ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
+  ``/api/company/projects/<id>/plan-summary`` (GET, source-compatible plan reads)
 * ``/api/company/loans`` and ``/api/company/loans/<id>`` (GET)
 * ``/api/company/loans`` (POST create draft)
 * ``/api/company/loans/<id>/{submit-for-approval,offset,update,void}`` (POST)
@@ -3445,6 +3447,196 @@ def delivery_plan_summary(pool: PsqlPool, project_id: str, max_rows: int) -> dic
     }
 
 
+def _plan_task_source_fields(task: dict[str, Any]) -> dict[str, Any]:
+    plan_end = _report_date(str(task.get("plan_end_date", "")))
+    actual_end = _report_date(str(task.get("actual_end_date", "")))
+    today = date.today()
+    delayed = bool(
+        str(task.get("status", "")) == "overdue"
+        or (
+            plan_end is not None
+            and str(task.get("status", "")) != "done"
+            and plan_end < today
+        )
+    )
+    actual_delay_days = None
+    if plan_end is not None and actual_end is not None and actual_end > plan_end:
+        actual_delay_days = (actual_end - plan_end).days
+    return {
+        "taskGuid": task.get("task_id", ""),
+        "taskCode": task.get("task_code", ""),
+        "taskName": task.get("task_name", ""),
+        "taskType": task.get("task_type", "task"),
+        "parentTaskGuid": task.get("parent_task_id", ""),
+        "planBeginDate": task.get("plan_begin_date", ""),
+        "planEndDate": task.get("plan_end_date", ""),
+        "actualBeginDate": task.get("actual_begin_date", ""),
+        "actualEndDate": task.get("actual_end_date", ""),
+        "progressPct": task.get("progress_pct", "0"),
+        "status": task.get("status", "pending"),
+        "ownerGuid": task.get("owner_id", ""),
+        "ownerName": task.get("owner_name", ""),
+        "remarks": task.get("remarks", ""),
+        "sortOrder": task.get("sort_order", 0),
+        "delayed": delayed,
+        "actualDelayDays": actual_delay_days,
+        "sourceKind": "imported",
+        "sourceId": task.get("source_id", ""),
+    }
+
+
+def plan_tasks(
+    pool: PsqlPool,
+    project_id: str,
+    task_type: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    if task_type is not None and not IDENTIFIER.fullmatch(task_type):
+        raise ValueError("invalid task_type")
+    raw = _raw_delivery_rows(
+        pool,
+        "jd_task",
+        record_id=None,
+        project_id=project_id,
+        task_id=None,
+        max_rows=max_rows,
+    )
+    user_rows = _raw_source_rows(pool, "sys_user", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    user_names = {
+        str(row["payload"].get("user_id", row["record_id"])): str(
+            row["payload"].get("emp_name") or row["payload"].get("user_name") or ""
+        )
+        for row in user_rows
+    }
+    tasks: list[dict[str, Any]] = []
+    for row in raw:
+        if task_type is not None and str(row["payload"].get("task_type") or "task") != task_type:
+            continue
+        source_task = _delivery_source_fields(row, table="jd_task")
+        source_task["owner_name"] = user_names.get(str(source_task.get("owner_id") or ""), "")
+        tasks.append(_plan_task_source_fields(source_task))
+    tasks.sort(key=lambda value: (int(value.get("sortOrder", 0)), str(value.get("planBeginDate", ""))))
+    return {
+        "success": True,
+        "code": 0,
+        "data": tasks,
+        "source_kind": "imported",
+        "source_coverage": {"jd_task": len(raw)},
+    }
+
+
+def plan_task_detail(
+    pool: PsqlPool,
+    task_id: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(task_id):
+        raise ValueError("invalid task_id")
+    # The project is not known until the source row is found; query the bounded
+    # raw table by task identity rather than guessing a project.
+    raw_rows = _raw_delivery_rows(
+        pool,
+        "jd_task",
+        record_id=task_id,
+        project_id=None,
+        task_id=task_id,
+        max_rows=max_rows,
+    )
+    if not raw_rows:
+        return None
+    user_rows = _raw_source_rows(pool, "sys_user", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    user_names = {
+        str(row["payload"].get("user_id", row["record_id"])): str(
+            row["payload"].get("emp_name") or row["payload"].get("user_name") or ""
+        )
+        for row in user_rows
+    }
+    source_task = _delivery_source_fields(raw_rows[0], table="jd_task")
+    source_task["owner_name"] = user_names.get(str(source_task.get("owner_id") or ""), "")
+    task = _plan_task_source_fields(source_task)
+    project_id = str(raw_rows[0]["payload"].get("proj_guid") or "")
+    reports = [
+        _delivery_source_fields(row, table="jd_task_report")
+        for row in _raw_delivery_rows(
+            pool,
+            "jd_task_report",
+            record_id=None,
+            project_id=None,
+            task_id=task_id,
+            max_rows=max_rows,
+        )
+    ]
+    project_name = ""
+    if project_id:
+        project_result = projects(pool, project_id, None, None, max_rows)
+        if project_result["items"]:
+            project_name = str(project_result["items"][0].get("project_name", ""))
+    task["projGuid"] = project_id
+    task["projName"] = project_name
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "task": task,
+            "reports": [
+                {
+                    "reportGuid": report.get("report_id", ""),
+                    "reportDate": report.get("report_date", ""),
+                    "progressPct": report.get("progress_pct", "0"),
+                    "summary": report.get("summary", ""),
+                    "operatorGuid": report.get("operator_id", ""),
+                    "operatorName": user_names.get(str(report.get("operator_id") or ""), ""),
+                    "sourceKind": "imported",
+                }
+                for report in reports
+            ],
+        },
+        "source_kind": "imported",
+        "source_coverage": {
+            "jd_task": 1,
+            "jd_task_report": len(reports),
+        },
+    }
+
+
+def plan_summary(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any]:
+    result = plan_tasks(pool, project_id, "key_node", max_rows)
+    tasks = result["data"]
+    summary = {"done": 0, "in_progress": 0, "pending": 0, "overdue": 0, "blocked": 0, "total": len(tasks)}
+    for task in tasks:
+        status = str(task.get("status", "pending"))
+        if status in summary:
+            summary[status] += 1
+        else:
+            summary["pending"] += 1
+    upcoming = sorted(
+        [task for task in tasks if task.get("status") != "done"],
+        key=lambda value: str(value.get("planEndDate", "")),
+    )[:3]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "summary": summary,
+            "upcoming": [
+                {
+                    "taskGuid": task.get("taskGuid", ""),
+                    "taskName": task.get("taskName", ""),
+                    "planEndDate": task.get("planEndDate", ""),
+                    "progressPct": task.get("progressPct", "0"),
+                    "delayed": task.get("delayed", False),
+                }
+                for task in upcoming
+            ],
+        },
+        "project_id": project_id,
+        "source_kind": "imported",
+        "source_coverage": result["source_coverage"],
+    }
+
+
 def delivery_overview(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any]:
     if not IDENTIFIER.fullmatch(project_id):
         raise ValueError("invalid project_id")
@@ -5685,6 +5877,36 @@ def handler_factory(
                         response(self, 404, {"error": "project not found"}, origin)
                     else:
                         response(self, 200, result["items"][0], origin)
+                elif re.fullmatch(
+                    r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    task_type = parse_qs(parsed.query).get("type", [None])[0]
+                    response(
+                        self,
+                        200,
+                        plan_tasks(pool, project_value, task_type, max_response_rows),
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/tasks/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    task_value = parsed.path.rsplit("/", 1)[-1]
+                    result = plan_task_detail(pool, task_value, max_response_rows)
+                    if result is None:
+                        response(
+                            self,
+                            404,
+                            {"success": False, "code": 43001, "message": "任务不存在"},
+                            origin,
+                        )
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/plan-summary",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    response(self, 200, plan_summary(pool, project_value, max_response_rows), origin)
                 elif parsed.path == "/api/company/workflow/process-defs":
                     process_value = parse_qs(parsed.query).get("process_key", [None])[0]
                     response(

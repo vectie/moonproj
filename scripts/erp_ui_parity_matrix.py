@@ -253,6 +253,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_workflow_definition_scenario_and_production_identity"
     if target_state == "connected_project_read":
         return "accept_browser_project_scenario_and_production_identity"
+    if target_state == "connected_project_plan_read":
+        return "accept_browser_project_plan_scenario_and_production_identity"
     if target_state == "connected_loan_read":
         return "accept_browser_loan_scenario_and_production_identity"
     if target_state == "connected_loan_command_form":
@@ -306,6 +308,17 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/projects", "/projects/:projGuid/lifecycle"}
     ):
         return "connected_project_read", "accept_browser_project_scenario_and_production_identity"
+    if (
+        handler["module"] == "plan"
+        and handler["method"] == "GET"
+        and handler["path"]
+        in {
+            "/projects/:projGuid/tasks",
+            "/tasks/:guid",
+            "/projects/:projGuid/plan-summary",
+        }
+    ):
+        return "connected_project_plan_read", "accept_browser_project_plan_scenario_and_production_identity"
     if (
         handler["module"] == "loan"
         and handler["path"] == "/loans/:guid"
@@ -434,7 +447,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "the fixed dashboard read-model and the local",
         "expense/contract/payment-application/tender command, supplier read,",
         "project master read, delivery, core report read, employee-loan",
-        "read/command, and non-authorizing workflow-definition read verticals.",
+        "read/command, project-plan read, and non-authorizing workflow-definition",
+        "read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",
