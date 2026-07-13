@@ -6,7 +6,7 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-delivery, core report read, and employee-loan read verticals.
+delivery, core report read, and employee-loan read/command verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
@@ -263,12 +263,12 @@ are attached. The JSON output contains all 338 handler rows.
 | `invoice` | `GET` | `/tax-ledger` | `/invoice` | `not_connected` | `connect_authenticated_read_api` |
 | `loan` | `GET` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
 | `loan` | `GET` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
-| `loan` | `POST` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `loan` | `POST` | `/loans/:guid/submit-for-approval` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `loan` | `POST` | `/loans/:guid/offset` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `loan` | `POST` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
+| `loan` | `POST` | `/loans/:guid/submit-for-approval` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
+| `loan` | `POST` | `/loans/:guid/offset` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
 | `loan` | `POST` | `/loans/:guid/sync-from-workflow` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `loan` | `PUT` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `loan` | `DELETE` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `loan` | `PUT` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
+| `loan` | `DELETE` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
 | `marketing` | `GET` | `/campaigns` | `/marketing` | `not_connected` | `connect_authenticated_read_api` |
 | `marketing` | `POST` | `/campaigns` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `PUT` | `/campaigns/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |

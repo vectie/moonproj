@@ -267,6 +267,22 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/loans", "/loans/:guid"}
     ):
         return "connected_loan_read", "accept_browser_loan_scenario_and_production_identity"
+    if (
+        handler["module"] == "loan"
+        and handler["path"] in {
+            "/loans",
+            "/loans/:guid/submit-for-approval",
+            "/loans/:guid/offset",
+        }
+        and handler["method"] == "POST"
+    ):
+        return "connected_loan_command", "accept_browser_loan_command_scenario_and_finance_owner"
+    if (
+        handler["module"] == "loan"
+        and handler["path"] == "/loans/:guid"
+        and handler["method"] in {"PUT", "DELETE"}
+    ):
+        return "connected_loan_command", "accept_browser_loan_command_scenario_and_finance_owner"
     return (
         "not_connected",
         "connect_authenticated_read_api"
@@ -382,7 +398,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The connected exceptions are",
         "the fixed dashboard read-model and the local",
         "expense/contract/payment-application/tender command, supplier read,",
-        "delivery, core report read, and employee-loan read verticals.",
+        "delivery, core report read, and employee-loan read/command verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

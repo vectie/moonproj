@@ -42,6 +42,10 @@ The bounded service exposes these endpoints:
 * ``/api/company/reports/{cost-summary,contract-payment-ledger,
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
 * ``/api/company/loans`` and ``/api/company/loans/<id>`` (GET)
+* ``/api/company/loans`` (POST create draft)
+* ``/api/company/loans/<id>/{submit-for-approval,offset,update,void}`` (POST)
+* ``PUT|DELETE /api/company/loans/<id>`` (source-compatible update/void aliases)
+  (workflow synchronization stays explicitly gated until source workflow rows exist)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -53,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
@@ -292,6 +297,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_command",
             "report_read",
             "loan_read",
+            "loan_command",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -327,6 +333,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_command",
             "report_read",
             "loan_read",
+            "loan_command",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -3631,7 +3638,555 @@ def loans(
                 "source_table": "vcb_loan_simple",
             }
         )
+    command_offset_rows: list[dict[str, Any]] = []
+    command_offset_query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM company_aggregate_projection
+    WHERE aggregate_type = 'loan_offset'
+      AND payload->>'source_kind' = 'command'
+    ORDER BY aggregate_id, revision DESC
+    LIMIT {max_rows}
+    """
+    for line in query_lines(pool, command_offset_query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected loan offset projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid loan offset projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("loan offset projection payload is not an object")
+        command_offset_rows.append(
+            {
+                "offset_id": decode_hex(fields[0]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[3]),
+            }
+        )
+    command_offsets_by_loan: dict[str, list[dict[str, Any]]] = {}
+    for row in command_offset_rows:
+        payload = row["payload"]
+        offset_loan_id = _report_text(payload, "loan_id")
+        amount_minor = int(payload.get("offset_amount_minor", 0))
+        command_offsets_by_loan.setdefault(offset_loan_id, []).append(
+            {
+                "offset_id": row["offset_id"],
+                "offset_amount": amount_minor / 100,
+                "offset_date": _report_text(payload, "offset_date"),
+                "related_expense_id": _report_text(payload, "related_expense_id"),
+                "remark": _report_text(payload, "remark"),
+                "operator_name": _report_text(payload, "operator_id"),
+                "source_kind": "command",
+                "source_id": row["source_event_id"],
+            }
+        )
+    command_query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'employee_advance'
+        AND payload->>'source_kind' = 'command'
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max_rows}
+    """
+    for line in query_lines(pool, command_query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected loan command projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid loan command projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("loan command projection payload is not an object")
+        current_id = decode_hex(fields[0])
+        state = _report_text(payload, "apply_state", "Draft")
+        if loan_id is not None and current_id != loan_id:
+            continue
+        if apply_state is not None and state != apply_state:
+            continue
+        amount_minor = int(payload.get("loan_amount_minor", 0))
+        balance_minor = int(payload.get("balance_amount_minor", 0))
+        remain_minor = int(payload.get("remain_amount_minor", amount_minor - balance_minor))
+        command_offsets = command_offsets_by_loan.get(current_id, [])
+        result.append(
+            {
+                "loan_id": current_id,
+                "loan_code": _report_text(payload, "loan_code", current_id),
+                "subject": _report_text(payload, "subject"),
+                "apply_state": state,
+                "loan_amount": amount_minor / 100,
+                "balance_amount": balance_minor / 100,
+                "remain_amount": remain_minor / 100,
+                "amount_display": f"¥{amount_minor / 100:,.2f}",
+                "remain_amount_display": f"¥{remain_minor / 100:,.2f}",
+                "applied_by": _report_text(payload, "applied_by"),
+                "applied_by_name": _report_text(payload, "applied_by"),
+                "apply_dept_guid": _report_text(payload, "apply_dept_guid"),
+                "apply_dept_name": _report_text(payload, "apply_dept_guid"),
+                "project_id": _report_text(payload, "proj_guid"),
+                "project_name": _report_text(payload, "proj_guid"),
+                "apply_date": _report_text(payload, "apply_date"),
+                "pay_unit": _report_text(payload, "pay_unit"),
+                "process_instance_id": _report_text(payload, "process_instance_guid"),
+                "offsets": command_offsets,
+                "source_kind": "command",
+                "source_id": decode_hex(fields[3]),
+                "source_table": "employee_advance",
+                "currency": _report_text(payload, "currency", "CNY"),
+            }
+        )
+    result.sort(key=lambda item: str(item.get("apply_date", "")), reverse=True)
+    return result[:max_rows]
+
+
+def _loan_required_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    identifier: bool = False,
+) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    cleaned = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(cleaned):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return cleaned
+
+
+def _loan_amount_minor(body: dict[str, Any], key: str = "amount_minor", *, required: bool = True) -> int:
+    value = body.get(key)
+    if value is None and key == "amount_minor":
+        value = body.get("loan_amount")
+        if value is not None:
+            try:
+                value = int((Decimal(str(value)) * 100).quantize(Decimal("1")))
+            except (InvalidOperation, ValueError, TypeError) as error:
+                raise CommandRejected("loan_amount must be a decimal number", 422) from error
+    if value is None:
+        if required:
+            raise CommandRejected(f"{key} is required", 422)
+        return 0
+    try:
+        amount = int(value)
+    except (TypeError, ValueError) as error:
+        raise CommandRejected(f"{key} must be an integer amount in minor units", 422) from error
+    if amount <= 0:
+        raise CommandRejected("loan amount must be > 0", 422)
+    return amount
+
+
+def _loan_authority(
+    body: dict[str, Any],
+    *,
+    actor_id: str,
+    principal_id: str,
+    employee_id: str,
+    capability: str,
+    amount_minor: int,
+) -> dict[str, Any]:
+    value = body.get("authority")
+    if not isinstance(value, dict):
+        raise CommandRejected("authority grant is required", 403)
+    if value.get("active") is not True:
+        raise CommandRejected("authority grant is inactive", 403)
+    if value.get("principal_id") != principal_id:
+        raise CommandRejected("authority grant principal does not match loan", 403)
+    if value.get("actor_id") != actor_id:
+        raise CommandRejected("authority grant actor does not match signed actor", 403)
+    if value.get("capability") != capability:
+        raise CommandRejected(f"authority grant must allow {capability}", 403)
+    if value.get("scope") != f"employee:{employee_id}":
+        raise CommandRejected("authority grant scope must be employee-scoped", 403)
+    try:
+        max_amount = int(value.get("max_amount_minor"))
+    except (TypeError, ValueError) as error:
+        raise CommandRejected("authority grant max_amount_minor is required", 403) from error
+    if max_amount < amount_minor:
+        raise CommandRejected("authority grant amount is exceeded", 403)
+    return {
+        "active": True,
+        "principal_id": principal_id,
+        "actor_id": actor_id,
+        "capability": capability,
+        "scope": f"employee:{employee_id}",
+        "max_amount_minor": max_amount,
+    }
+
+
+def _loan_projection_rows(
+    pool: PsqlPool,
+    loan_id: str,
+    max_rows: int = 1,
+) -> list[dict[str, Any]]:
+    if not IDENTIFIER.fullmatch(loan_id):
+        raise ValueError("invalid loan_id")
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM company_aggregate_projection
+    WHERE aggregate_type = 'employee_advance'
+      AND aggregate_id = {sql_literal(loan_id)}
+    ORDER BY revision DESC
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected loan projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid loan projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("loan projection payload is not an object")
+        result.append(
+            {
+                "aggregate_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[3]),
+            }
+        )
     return result
+
+
+def _loan_request(
+    pool: PsqlPool,
+    command_type: str,
+    loan_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> tuple[str, dict[str, Any], bool, str | None, str]:
+    allowed = {"create", "submit", "offset", "sync_from_workflow", "update", "void"}
+    if command_type not in allowed:
+        raise CommandRejected("unsupported loan command", 404)
+    if command_type == "create":
+        identifier = body.get("loan_id")
+        if identifier is None:
+            identifier = "loan-" + idempotency_key
+        if not isinstance(identifier, str) or not IDENTIFIER.fullmatch(identifier):
+            raise CommandRejected("loan_id contains unsupported characters", 422)
+        employee_id = _loan_required_text(body, "employee_id", identifier=True)
+        principal_id = _loan_required_text(body, "principal_id", identifier=True)
+        scope = _loan_required_text(body, "scope", identifier=True)
+        if scope != f"employee:{employee_id}":
+            raise CommandRejected("scope must equal employee:<employee_id>", 422)
+        amount_minor = _loan_amount_minor(body)
+        authority = _loan_authority(
+            body,
+            actor_id=actor_id,
+            principal_id=principal_id,
+            employee_id=employee_id,
+            capability="advance:create",
+            amount_minor=amount_minor,
+        )
+        loan_code = body.get("loan_code", "JK-" + identifier)
+        if not isinstance(loan_code, str) or not loan_code.strip():
+            raise CommandRejected("loan_code must be non-empty text", 422)
+        request: dict[str, Any] = {
+            "command_type": "create",
+            "loan_id": identifier,
+            "loan_code": loan_code.strip(),
+            "subject": _loan_required_text(body, "subject"),
+            "employee_id": employee_id,
+            "principal_id": principal_id,
+            "scope": scope,
+            "currency": _loan_required_text(body, "currency", identifier=True).upper()
+            if body.get("currency") is not None
+            else "CNY",
+            "loan_amount_minor": amount_minor,
+            "balance_amount_minor": 0,
+            "remain_amount_minor": amount_minor,
+            "apply_dept_guid": _loan_required_text(body, "apply_dept_guid", identifier=True),
+            "applied_by": actor_id,
+            "apply_date": _loan_required_text(body, "apply_date"),
+            "pay_unit": str(body.get("pay_unit", "")).strip(),
+            "proj_guid": str(body.get("proj_guid", "")).strip(),
+            "process_instance_guid": "",
+            "evidence_ids": body.get("evidence_ids", []),
+            "authority": authority,
+            "state": "Draft",
+            "source_kind": "command",
+        }
+        if not re.fullmatch(r"[A-Z]{3}", request["currency"]):
+            raise CommandRejected("currency must be a three-letter code", 422)
+        if not isinstance(request["evidence_ids"], list) or not all(
+            isinstance(value, str) and IDENTIFIER.fullmatch(value) for value in request["evidence_ids"]
+        ):
+            raise CommandRejected("evidence_ids must be identifier strings", 422)
+        return identifier, request, True, None, "Draft"
+    if loan_id is None or not IDENTIFIER.fullmatch(loan_id):
+        raise CommandRejected("loan_id is required", 422)
+    request = {"command_type": command_type, "loan_id": loan_id, "actor_id": actor_id}
+    if command_type == "sync_from_workflow":
+        raise CommandRejected(
+            "workflow synchronization is gated until wf_process_instance source rows are available",
+            409,
+        )
+    if command_type == "offset":
+        current = _loan_projection_rows(pool, loan_id, 1)
+        if not current or current[0]["payload"].get("source_kind") != "command":
+            raise CommandRejected("imported loans are read-only; create a local loan first", 409)
+        payload = current[0]["payload"]
+        employee_id = _loan_required_text(payload, "employee_id", identifier=True)
+        principal_id = _loan_required_text(payload, "principal_id", identifier=True)
+        amount_minor = _loan_amount_minor(body, "offset_amount_minor")
+        remain_minor = int(payload.get("remain_amount_minor", 0))
+        if amount_minor > remain_minor:
+            raise CommandRejected("offset amount exceeds remaining loan balance", 422)
+        request.update(
+            {
+                "offset_id": "offset-" + idempotency_key,
+                "offset_amount_minor": amount_minor,
+                "offset_date": _loan_required_text(body, "offset_date"),
+                "related_expense_id": str(body.get("related_expense_id", "")).strip(),
+                "remark": str(body.get("remark", "")).strip(),
+                "authority": _loan_authority(
+                    body,
+                    actor_id=actor_id,
+                    principal_id=principal_id,
+                    employee_id=employee_id,
+                    capability="advance:offset",
+                    amount_minor=amount_minor,
+                ),
+            }
+        )
+    elif command_type == "update":
+        changes: dict[str, Any] = {}
+        if "subject" in body:
+            changes["subject"] = _loan_required_text(body, "subject")
+        if "loan_amount" in body or "amount_minor" in body:
+            amount_minor = _loan_amount_minor(body)
+            current = _loan_projection_rows(pool, loan_id, 1)
+            if not current:
+                raise CommandRejected("loan not found", 404)
+            balance_minor = int(current[0]["payload"].get("balance_amount_minor", 0))
+            if amount_minor <= balance_minor:
+                raise CommandRejected("loan amount must exceed already offset balance", 422)
+            changes["loan_amount_minor"] = amount_minor
+            request["next_remain_amount_minor"] = amount_minor - balance_minor
+        for key in ("pay_unit", "proj_guid"):
+            if key in body:
+                value = body[key]
+                if not isinstance(value, str):
+                    raise CommandRejected(f"{key} must be text", 422)
+                changes[key] = value.strip()
+        if not changes:
+            raise CommandRejected("update requires at least one mutable field", 422)
+        request["changes"] = changes
+    elif command_type == "void":
+        reason = body.get("reason", "")
+        if not isinstance(reason, str):
+            raise CommandRejected("reason must be text", 422)
+        request["reason"] = reason.strip()
+    return loan_id, request, False, {
+        "submit": "Draft",
+        "update": "Draft",
+        "void": "Draft,Rejected",
+        "offset": "Approved",
+    }[command_type], {
+        "submit": "Approving",
+        "update": "Draft",
+        "void": "Voided",
+        "offset": "Approved",
+    }[command_type]
+
+
+def loan_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    loan_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    loan_id, request, create_mode, expected_state, next_state = _loan_request(
+        pool, command_type, loan_id, body, actor_id, idempotency_key
+    )
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored loan command receipt has no result")
+        return {"command": existing, "loan": result, "idempotent_replay": True}
+    current = _loan_projection_rows(pool, loan_id, 1)
+    imported = loans(pool, loan_id, None, 1)
+    if create_mode:
+        if current or imported:
+            raise CommandRejected("loan already exists", 409)
+    else:
+        if not current:
+            if imported:
+                raise CommandRejected("imported loans are read-only; create a local loan first", 409)
+            raise CommandRejected("loan not found", 404)
+        payload = current[0]["payload"]
+        if payload.get("source_kind") != "command":
+            raise CommandRejected("imported loans are read-only", 409)
+        actual_state = str(payload.get("apply_state", ""))
+        expected_states = tuple(expected_state.split(",")) if expected_state else ()
+        if actual_state not in expected_states:
+            raise CommandRejected(
+                f"loan transition {command_type} requires {','.join(expected_states)}, found {actual_state}",
+                409,
+            )
+        if command_type in {"submit", "update", "void"} and payload.get("applied_by") != actor_id:
+            raise CommandRejected("only the loan applicant may change this loan", 403)
+    event_id = f"employee_advance:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "loan",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "employee_advance",
+            "aggregate_id": loan_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    offset_projection = command_type == "offset"
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      next_revision integer;
+      next_balance bigint;
+      next_remain bigint;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'employee_advance'
+        AND p.aggregate_id = {sql_literal(loan_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(create_mode).lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'loan already exists'; END IF;
+        next_revision := 1;
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'apply_state', 'Draft', 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'loan not found'; END IF;
+        IF current_payload->>'source_kind' <> 'command' THEN RAISE EXCEPTION 'imported loan is read-only'; END IF;
+        IF NOT ((current_payload->>'apply_state') = ANY(string_to_array({sql_literal(expected_state or '')}, ','))) THEN
+          RAISE EXCEPTION 'loan transition state conflict';
+        END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'employee_advance' AND p.aggregate_id = {sql_literal(loan_id)};
+        IF {sql_literal(command_type)} = 'offset' THEN
+          next_balance := coalesce((current_payload->>'balance_amount_minor')::bigint, 0)
+            + ({sql_literal(request_json)}::jsonb->>'offset_amount_minor')::bigint;
+          next_remain := coalesce((current_payload->>'loan_amount_minor')::bigint, 0) - next_balance;
+          IF next_remain < 0 THEN RAISE EXCEPTION 'offset exceeds remaining loan balance'; END IF;
+          next_payload := current_payload || jsonb_build_object(
+            'balance_amount_minor', next_balance, 'remain_amount_minor', next_remain,
+            'apply_state', 'Approved', 'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)});
+        ELSIF {sql_literal(command_type)} = 'update' THEN
+          next_payload := current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb)
+            || jsonb_build_object('remain_amount_minor', coalesce(({sql_literal(request_json)}::jsonb->>'next_remain_amount_minor')::bigint,
+              (current_payload->>'remain_amount_minor')::bigint), 'apply_state', 'Draft',
+              'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+        ELSE
+          next_payload := current_payload || jsonb_build_object(
+            'apply_state', {sql_literal(next_state)}, 'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        END IF;
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('employee_advance', {sql_literal(loan_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      IF {str(offset_projection).lower()} THEN
+        INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+        VALUES ('loan_offset', {sql_literal(request.get('offset_id', ''))}, 1,
+          {sql_literal(request_json)}::jsonb || jsonb_build_object(
+            'loan_id', {sql_literal(loan_id)}, 'source_kind', 'command',
+            'source_id', {sql_literal(event_id)}), {sql_literal(event_id)} || ':offset');
+      END IF;
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action',
+          'loan.' || {sql_literal(command_type)}, 'aggregate_type', 'employee_advance',
+          'aggregate_id', {sql_literal(loan_id)}, 'actor_id', {sql_literal(actor_id)},
+          'event_id', {sql_literal(event_id)}, 'state', next_payload->>'apply_state',
+          'revision', next_revision), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('loan_id', {sql_literal(loan_id)},
+        'state', next_payload->>'apply_state', 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)});
+      IF {str(offset_projection).lower()} THEN
+        result := result || jsonb_build_object(
+          'offset_id', {sql_literal(request.get('offset_id', ''))},
+          'balance_amount_minor', next_payload->>'balance_amount_minor',
+          'remain_amount_minor', next_payload->>'remain_amount_minor');
+      END IF;
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("loan command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected loan command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid stored loan command receipt") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("loan command receipt has no result")
+    return {"command": receipt, "loan": result, "idempotent_replay": not created}
 
 
 def report_cost_summary(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
@@ -4600,6 +5155,42 @@ def handler_factory(
                 raise CommandRejected("signed actor assertion is invalid", 403)
             return supplied_actor
 
+        def _loan_method_alias(self, method: str) -> None:
+            """Translate source PUT/DELETE loan actions to audited commands."""
+
+            origin = self._origin()
+            if not self._authorize(origin):
+                return
+            parsed = urlparse(self.path)
+            match = re.fullmatch(r"/api/company/loans/([A-Za-z0-9_.:-]{1,128})", parsed.path)
+            if match is None:
+                response(self, 404, {"error": "unknown company command"}, origin)
+                return
+            try:
+                if self.headers.get("Content-Length"):
+                    body = self._json_body()
+                else:
+                    body = {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = loan_command(
+                    pool,
+                    command_type="update" if method == "PUT" else "void",
+                    loan_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+
         def do_OPTIONS(self) -> None:  # noqa: N802
             origin = self.headers.get("Origin")
             if origin not in cors_origins:
@@ -4607,8 +5198,11 @@ def handler_factory(
                 return
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", origin)
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header(
+                "Access-Control-Allow-Headers",
+                "Authorization, Content-Type, Idempotency-Key, X-Moonproj-Actor, X-Moonproj-Actor-Signature",
+            )
             self.send_header("Vary", "Origin")
             self.end_headers()
 
@@ -4900,6 +5494,10 @@ def handler_factory(
                     command_family = "supplier"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/loans":
+                    command_family = "loan"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/tender-splits":
                     command_family = "contract_split"
                     command_type = "create"
@@ -4942,6 +5540,10 @@ def handler_factory(
                         r"/api/company/suppliers/([A-Za-z0-9_.:-]{1,128})/(update|submit_review|review|blacklist|void)",
                         parsed.path,
                     )
+                    loan_match = re.fullmatch(
+                        r"/api/company/loans/([A-Za-z0-9_.:-]{1,128})/(submit-for-approval|offset|sync-from-workflow|update|void)",
+                        parsed.path,
+                    )
                     sales_match = re.fullmatch(
                         r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject)",
                         parsed.path,
@@ -4972,6 +5574,13 @@ def handler_factory(
                     elif supplier_match is not None:
                         command_family = "supplier"
                         aggregate_id, command_type = supplier_match.group(1), supplier_match.group(2)
+                    elif loan_match is not None:
+                        command_family = "loan"
+                        aggregate_id = loan_match.group(1)
+                        command_type = {
+                            "submit-for-approval": "submit",
+                            "sync-from-workflow": "sync_from_workflow",
+                        }.get(loan_match.group(2), loan_match.group(2))
                     elif sales_match is not None:
                         command_family = "sales"
                         aggregate_id = sales_match.group(2)
@@ -5068,6 +5677,15 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "loan":
+                    result = loan_command(
+                        pool,
+                        command_type=command_type,
+                        loan_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 else:
                     result = expense_command(
                         pool,
@@ -5090,6 +5708,12 @@ def handler_factory(
                 response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
+
+        def do_PUT(self) -> None:  # noqa: N802
+            self._loan_method_alias("PUT")
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

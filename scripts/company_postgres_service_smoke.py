@@ -131,13 +131,132 @@ def main() -> int:
             status, detail = request(args.port, f"/api/company/loans/{loan_id}", token=token)
             if status != 200 or detail is None or not isinstance(detail.get("offsets"), list):
                 raise SmokeError(f"loan detail failed: {status} {detail}")
+        nonce = uuid.uuid4().hex[:10]
+        loan_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
+        loan_id = "LOAN-SMOKE-" + nonce
+        loan_payload = {
+            "loan_id": loan_id,
+            "loan_code": "JK-SMOKE-" + nonce,
+            "subject": "service employee-loan command smoke",
+            "employee_id": "employee-smoke",
+            "principal_id": "co-smoke",
+            "scope": "employee:employee-smoke",
+            "currency": "CNY",
+            "amount_minor": 800000,
+            "apply_dept_guid": "bu-smoke",
+            "apply_date": "2026-07-13",
+            "pay_unit": "smoke account",
+            "proj_guid": "proj-0001",
+            "evidence_ids": ["evidence-loan-smoke-" + nonce],
+            "authority": {
+                "active": True,
+                "principal_id": "co-smoke",
+                "actor_id": loan_actor,
+                "capability": "advance:create",
+                "scope": "employee:employee-smoke",
+                "max_amount_minor": 800000,
+            },
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/loans",
+            token=token,
+            method="POST",
+            payload=loan_payload,
+            idempotency_key="loan-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("loan", {}).get("state") != "Draft":
+            raise SmokeError(f"loan create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/loans",
+            token=token,
+            method="POST",
+            payload=loan_payload,
+            idempotency_key="loan-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"loan idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/loans/{loan_id}/submit-for-approval",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="loan-submit-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("loan", {}).get("state") != "Approving":
+            raise SmokeError(f"loan submit failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/loans/{loan_id}/offset",
+            token=token,
+            method="POST",
+            payload={
+                "offset_amount_minor": 100000,
+                "offset_date": "2026-07-13",
+                "authority": {
+                    "active": True,
+                    "principal_id": "co-smoke",
+                    "actor_id": loan_actor,
+                    "capability": "advance:offset",
+                    "scope": "employee:employee-smoke",
+                    "max_amount_minor": 100000,
+                },
+            },
+            idempotency_key="loan-offset-before-approval-" + nonce,
+        )
+        if status != 409:
+            raise SmokeError(f"loan offset state guard failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/loans/{loan_id}/sync-from-workflow",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="loan-sync-" + nonce,
+        )
+        if status != 409:
+            raise SmokeError(f"loan workflow gate failed: {status} {payload}")
+        draft_loan_id = "LOAN-SMOKE-DRAFT-" + nonce
+        draft_payload = dict(loan_payload)
+        draft_payload.update({"loan_id": draft_loan_id, "loan_code": "JK-SMOKE-DRAFT-" + nonce})
+        status, payload = request(
+            args.port,
+            "/api/company/loans",
+            token=token,
+            method="POST",
+            payload=draft_payload,
+            idempotency_key="loan-draft-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("loan", {}).get("state") != "Draft":
+            raise SmokeError(f"draft loan create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/loans/{draft_loan_id}",
+            token=token,
+            method="PUT",
+            payload={"subject": "updated employee-loan smoke"},
+            idempotency_key="loan-update-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("loan", {}).get("state") != "Draft":
+            raise SmokeError(f"loan update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/loans/{draft_loan_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "service control smoke void"},
+            idempotency_key="loan-void-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("loan", {}).get("state") != "Voided":
+            raise SmokeError(f"loan void failed: {status} {payload}")
         status, _ = request(args.port, "/api/health", token=None)
         if status != 401:
             raise SmokeError(f"missing bearer token was not rejected: {status}")
         status, _ = request(args.port, "/api/health", token=token, forwarded_tls=False)
         if status != 400:
             raise SmokeError(f"missing forwarded TLS was not rejected: {status}")
-        nonce = uuid.uuid4().hex[:10]
         expense_id = "EXP-SMOKE-" + nonce
         create_payload = {
             "expense_id": expense_id,
@@ -942,6 +1061,8 @@ def main() -> int:
                     "report_contract_rows": report_contract_rows,
                     "report_missing_source_tables": report_missing_tables,
                     "loan_rows": loan_rows,
+                    "loan_command_state": "Voided",
+                    "loan_workflow_gate": "rejected_until_source_rows",
                     "port": args.port,
                     "database": args.database,
                 },

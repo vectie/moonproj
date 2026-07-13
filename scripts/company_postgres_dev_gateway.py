@@ -7,7 +7,7 @@ server, establishes an in-memory HttpOnly session, signs its actor assertion,
 converts a JSON ``idempotency_key`` field into the required
 ``Idempotency-Key`` header, and forwards only the company
 read/expense/contract/payment-application/tender/supplier/split/sales/delivery/
-reports paths.
+loan/reports paths.
 It must bind to a private address and is not a production gateway.
 """
 
@@ -43,6 +43,7 @@ TENDER_SPLIT_PATH_PREFIX = "/api/company/tender-splits"
 SALES_PATH_PREFIX = "/api/company/sales"
 RECEIVABLE_PATH_PREFIX = "/api/company/receivables"
 DELIVERY_PATH_PREFIX = "/api/company/delivery"
+LOAN_PATH_PREFIX = "/api/company/loans"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 
@@ -191,7 +192,7 @@ def handler_factory(
 
         def do_OPTIONS(self) -> None:  # noqa: N802
             self.send_response(204)
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key")
             self.end_headers()
 
@@ -218,6 +219,26 @@ def handler_factory(
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(encoded)
+
+        def _forward_loan_method(self, method: str) -> None:
+            actor = self._require_session()
+            if actor is None:
+                return
+            parsed = urlparse(self.path)
+            if not re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                response(self, 404, {"error": "development gateway command is not allow-listed"})
+                return
+            try:
+                value = self._json_body() if self.headers.get("Content-Length") else {}
+                key = value.pop("idempotency_key", None)
+                if key is None:
+                    key = self.headers.get("Idempotency-Key", "")
+                if not isinstance(key, str) or not key.strip():
+                    raise GatewayError("idempotency_key or Idempotency-Key is required")
+                body = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+                self._forward(method, self.path, body if value else None, key.strip(), actor)
+            except GatewayError as error:
+                response(self, 400, {"error": str(error)})
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -327,6 +348,8 @@ def handler_factory(
                 or parsed.path.startswith(RECEIVABLE_PATH_PREFIX + "/")
                 or parsed.path == DELIVERY_PATH_PREFIX
                 or parsed.path.startswith(DELIVERY_PATH_PREFIX + "/")
+                or parsed.path == LOAN_PATH_PREFIX
+                or parsed.path.startswith(LOAN_PATH_PREFIX + "/")
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return
@@ -341,6 +364,12 @@ def handler_factory(
                 return
             body = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
             self._forward("POST", self.path, body, key.strip(), actor)
+
+        def do_PUT(self) -> None:  # noqa: N802
+            self._forward_loan_method("PUT")
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            self._forward_loan_method("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-dev-gateway: " + (format % values) + "\n")

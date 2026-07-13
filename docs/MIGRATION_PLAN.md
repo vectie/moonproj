@@ -263,12 +263,14 @@ replacement of `erp_new`. The findings that now control sequencing are:
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise bounded expense,
    contract, payment-application, procurement, sales/receivables, invoice,
-   core-report, and employee-loan read slices. Procurement covers supplier
+   core-report, and employee-loan read/command slices. Procurement covers supplier
    lifecycle/risk reads, tender planning/award, and contract splits; sales
    covers customer, reservation, agreement, mortgage, refund, receivable, and
    revenue evidence reads; employee loans preserve source balances and offset
-   evidence. They persist idempotent command receipts, immutable revisions, and
-   audit evidence where commands exist. This is still local-only
+   evidence, and now expose local create/submit/bounded-offset/draft-update/
+   void commands with native employee-scoped authority evidence, idempotent
+   receipts, immutable revisions, and audit evidence. Workflow synchronization
+   remains gated because the export has no process-instance rows. This is still local-only
    evidence: the gateway session and actor assertion are not the production
    identity boundary, and no browser acceptance or named-owner sign-off has
    been recorded.
@@ -303,7 +305,7 @@ The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
 currently records sixteen connected workflow routes across browser and API
 surfaces (expense, contract, payment, procurement, sales, invoice, delivery,
-core reports, and employee-loan reads), while 30 browser views and 37 API groups
+core reports, and employee-loan reads/commands), while 30 browser views and 37 API groups
 remain fixture-backed or read-model-only. Three additional fixed read-model routes
 are connected. That gap,
 rather than additional platform hardening, controls the next work.
@@ -323,14 +325,20 @@ Execute the remainder in this order:
    replacement), a redacted source export, supplier identity mapping, browser
    acceptance, award-to-commitment acceptance, and procurement-owner sign-off.
    Imported rows remain read-only and no award creates a commitment implicitly.
-3. Replace the local session/actor adapter with the reviewed production
+3. Treat the employee-loan command boundary as a finance-owner acceptance
+   slice: verify authority grants, applicant ownership, replay/conflict
+   behavior, bounded offset projections, and imported-row read-only behavior.
+   Do not enable workflow synchronization until `wf_process_instance` rows,
+   state mapping, and a named workflow owner are available. The Rabbita loan
+   editor still needs command-form wiring.
+4. Replace the local session/actor adapter with the reviewed production
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for every connected slice. Browser acceptance must exercise the
    real gateway session and visible durable state changes.
-4. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
+5. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-5. Finish delivery/progress acceptance before opening another broad surface.
+6. Finish delivery/progress acceptance before opening another broad surface.
    The local PostgreSQL reads, evidence- and authority-checked
    progress/output/task-report commands, gateway forwarding, and Rabbita
    `/project/progress` and `/project-plan` states now work and pass smoke/replay.
@@ -340,7 +348,7 @@ Execute the remainder in this order:
    Keep the existing designer layout, but do not count local synthetic rows as
    source import parity. Recognition, budget/cost, cash, tax, and period-close
    effects remain separate gates.
-6. Finish report acceptance and then expand runtime vertical slices to the ERP
+7. Finish report acceptance and then expand runtime vertical slices to the ERP
    parity floor. The five core report reads and `/reports` overview now work;
    obtain the missing supplier/workflow source rows (or owner-approved redacted
    cohort), run browser/report-owner reconciliation, and keep templates/share
@@ -348,7 +356,7 @@ Execute the remainder in this order:
    reporting/notifications beyond the core reads, and investment. Synthetic
    rehearsals remain design evidence until real source rows and user acceptance
    are attached. See `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
-7. Run named-owner acceptance and a read-only shadow period for each accepted
+8. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
    controls, not as substitutes for functional work.

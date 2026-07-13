@@ -51,9 +51,14 @@ commands; imported task/progress/output rows remain read-only, while local
 command projections are marked separately. Browser production-identity
 acceptance is still pending. `/reports` now loads the five core report reads
 through `/api/company/reports/overview` and shows source coverage; report
-templates, sharing, and loan mutations remain separate gates. `/loans` now
-loads source-preserving employee-loan/offset reads; imported balances remain
-read-only. The other route families remain fixture-backed.
+templates and sharing remain separate gates. `/loans` now loads
+source-preserving employee-loan/offset reads; imported balances remain
+read-only. The authenticated company service/gateway also exposes local
+employee-loan create, applicant submit, bounded offset, draft update, and
+draft/rejected void commands with explicit authority evidence and idempotency;
+workflow synchronization stays gated until source workflow rows are available.
+The Rabbita loan editor is still source-shaped and does not yet emit those
+commands. The other route families remain fixture-backed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
@@ -74,7 +79,7 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
 ```
 
 To exercise the connected expense, contract, payment-application, tender,
-supplier, or sales lifecycle paths, keep the service token
+supplier, sales, or employee-loan lifecycle paths, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh

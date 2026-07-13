@@ -18,9 +18,22 @@ PostgreSQL service, read-model adapter, and Rabbita `/loans` page.
 
 The read shape preserves the source loan identity, amount/balance/remain
 amounts, applicant/department/project labels, workflow state, and offset
-evidence. Imported loans are read-only. Local creation, approval, offset, sync,
-update, and void commands remain a separate authority-gated slice; no command
-is inferred from the source page merely because it renders.
+evidence. Imported loans are read-only. Local commands use the same
+source-shaped transitions but persist as `employee_advance` revisions with
+idempotent `company_command` receipts and immutable audit events:
+
+| Source action | Target command | Boundary |
+|---|---|---|
+| Create draft | `POST /api/company/loans` | Requires an explicit `advance:create` grant with `employee:<id>` scope and amount bound. |
+| Submit for approval | `POST /api/company/loans/:id/submit-for-approval` | Applicant-only; moves `Draft` to `Approving`. |
+| Offset | `POST /api/company/loans/:id/offset` | Requires `advance:offset`, remains bounded by outstanding minor units, and emits a separate offset projection. |
+| Edit draft | `POST /api/company/loans/:id/update` or source-compatible `PUT /api/company/loans/:id` | Applicant-only and `Draft`-only; preserves the source mutable fields. |
+| Void | `POST /api/company/loans/:id/void` or source-compatible `DELETE /api/company/loans/:id` | Applicant-only and limited to `Draft`/`Rejected`, represented as `Voided`. |
+| Workflow sync | `POST /api/company/loans/:id/sync-from-workflow` | Deliberately rejected until `wf_process_instance` source rows and a local workflow owner are available. |
+
+The service accepts minor-unit amounts for command writes, while the read
+shape keeps the source decimal amount/balance/remain fields. No loan command
+posts cash, accounting, tax, or approval state implicitly.
 
 ## Current evidence
 
@@ -32,16 +45,22 @@ is inferred from the source page merely because it renders.
 - Rabbita `/loans` loads the live list and keeps the designer's existing
   summary/table layout as an offline fallback.
 - The parity matrix marks the two source loan GET actions and `/loans` as
-  connected-read evidence. The five source loan mutations remain open.
+  connected-read evidence and marks create, submit, offset, update, and void
+  as connected command handlers. The workflow-sync handler remains explicitly
+  gated.
+- PostgreSQL service smoke proves create/replay, applicant submit, draft
+  update, draft void, amount/state guards, and the workflow-sync gate. A
+  temporary approved local projection also proves bounded offset persistence
+  and the separate offset read shape; the temporary rows are removed after
+  the rehearsal.
 
 ## Remaining gate
 
 1. Run browser acceptance through the production identity and verify entity,
    employee, and department scope; imported loan rows must remain read-only.
-2. Define and test local advance create/submit/offset commands against the
-   native `finance/employee_finance` authority and evidence rules, with
-   idempotency and audit receipts. Offset must remain bounded by outstanding
-   balance and must not post cash or accounting implicitly.
-3. Attach a named finance/operations owner decision before enabling any loan
-   mutation or workflow synchronization.
-
+2. Supply real `wf_process_instance` rows and map their states through a
+   named workflow owner before enabling workflow synchronization or local
+   approval completion.
+3. Attach a named finance/operations owner decision before enabling loan
+   mutations in production; the local command boundary is ready for review,
+   not a production cutover authorization.

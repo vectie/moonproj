@@ -2915,8 +2915,8 @@
         "/loans/new",
         "/loans/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "module": "loan",
@@ -2927,8 +2927,8 @@
         "/loans/new",
         "/loans/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "module": "loan",
@@ -2939,8 +2939,8 @@
         "/loans/new",
         "/loans/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "module": "loan",
@@ -2963,8 +2963,8 @@
         "/loans/new",
         "/loans/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "module": "loan",
@@ -2975,8 +2975,8 @@
         "/loans/new",
         "/loans/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "module": "marketing",
