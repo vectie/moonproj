@@ -569,10 +569,12 @@ read audit of the Rabbita loaders found two runtime gaps that the earlier
 screen sample did not exercise: `/api/company/workflow/process-defs` and
 `/api/company/business-units/tree` were missing from the development
 read-model server even though their service adapters and frontend loaders were
-present. Both routes are now connected as fixed PostgreSQL reads. The workflow
-endpoint returns the two imported definitions, twelve steps, six assignee
-links, and explicit zero instance/action coverage; the business-unit endpoint
-returns one root and seven imported nodes. The browser `/tasks` state now shows
+present. Both routes are now connected as fixed PostgreSQL reads, including
+the workflow preview path (`/process-defs/:processKey/preview`) with
+source-style 404 behavior for an unknown process. The workflow endpoint
+returns the two imported definitions, twelve steps, six assignee links, and
+explicit zero instance/action coverage; the business-unit endpoint returns
+one root and seven imported nodes. The browser `/tasks` state now shows
 those definitions and keeps pending/initiated/history source observations
 empty, rather than falling back to approval fixtures. The hierarchy endpoint
 is source-verified directly; its full organization-screen/browser scope pass

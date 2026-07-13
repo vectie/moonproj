@@ -43,6 +43,9 @@ workflow instances from this slice.
   the authenticated service; a browser recheck rendered both imported
   definitions, twelve steps, six assignee links, and zero instance/action
   rows without a 404 or fixture substitution.
+- The read-model preview endpoint returns the source-shaped seven-step
+  `expense-approval` preview and a 404 for an unknown process key, preserving
+  the service adapter's detail boundary.
 - `scripts/company_postgres_source_read_smoke.py` verifies the three empty list
   reads, a null by-business lookup, and the source-compatible 43001 detail 404.
 - The parity matrix marks the two definition GET handlers as

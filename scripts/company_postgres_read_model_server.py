@@ -1674,6 +1674,30 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     process_key = parse_qs(parsed.query).get("process_key", [None])[0]
                     response(self, 200, workflow_process_defs(args, process_key))
                     return
+                workflow_preview_match = re.fullmatch(
+                    r"/api/company/workflow/process-defs/([A-Za-z0-9_.:-]{1,128})/preview",
+                    parsed.path,
+                )
+                if workflow_preview_match is not None:
+                    process_result = workflow_process_defs(args, workflow_preview_match.group(1))
+                    if not process_result["items"]:
+                        response(self, 404, {"error": "workflow process definition not found"})
+                    else:
+                        item = process_result["items"][0]
+                        response(
+                            self,
+                            200,
+                            {
+                                "process_key": item["process_key"],
+                                "process_name": item["process_name"],
+                                "biz_type": item["biz_type"],
+                                "steps": item["steps"],
+                                "source_kind": item["source_kind"],
+                                "instances_available": process_result["instances_available"],
+                                "actions_available": process_result["actions_available"],
+                            },
+                        )
+                    return
                 if parsed.path == "/api/company/source/workflow/tasks/mine":
                     query = parse_qs(parsed.query)
                     response(
