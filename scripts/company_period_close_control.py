@@ -9,6 +9,7 @@ authority after the named period owner accepts the report.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -30,10 +31,14 @@ def load(path: Path) -> dict[str, Any]:
 
 
 def run(work_dir: Path, output: Path, period_id: str) -> dict[str, Any]:
+    if not period_id.strip():
+        raise PeriodCloseError("period_id must be non-empty")
     paths = sorted(work_dir.glob("*-reconciliation.json"))
     if not paths:
         raise PeriodCloseError("no accounting reconciliation cohorts found")
     cohorts: list[dict[str, Any]] = []
+    source_snapshots: set[str] = set()
+    mapping_versions: set[str] = set()
     total_links = 0
     for path in paths:
         value = load(path)
@@ -45,28 +50,62 @@ def run(work_dir: Path, output: Path, period_id: str) -> dict[str, Any]:
             raise PeriodCloseError(f"unhealthy cohort: {path}")
         if value.get("cash_released") is not False or value.get("period_posted") is not False:
             raise PeriodCloseError(f"economic side effect already asserted: {path}")
+        source_snapshot_id = value.get("source_snapshot_id")
+        mapping_version = value.get("mapping_version")
+        if not isinstance(source_snapshot_id, str) or not source_snapshot_id.strip():
+            raise PeriodCloseError(f"reconciliation has no source snapshot: {path}")
+        if not isinstance(mapping_version, str) or not mapping_version.strip():
+            raise PeriodCloseError(f"reconciliation has no mapping version: {path}")
         link_count = int(value.get("link_count", 0))
         if link_count <= 0:
             raise PeriodCloseError(f"empty reconciliation cohort: {path}")
         total_links += link_count
+        source_snapshots.add(source_snapshot_id)
+        mapping_versions.add(mapping_version)
         cohorts.append(
             {
                 "file": str(path),
-                "mapping_version": value.get("mapping_version"),
+                "source_snapshot_id": source_snapshot_id,
+                "mapping_version": mapping_version,
                 "link_count": link_count,
                 "state": value.get("state"),
             }
         )
+    if len(source_snapshots) != 1:
+        raise PeriodCloseError("reconciliation cohorts come from different source snapshots")
+    evidence = json.dumps(
+        [
+            {
+                "source_snapshot_id": cohort["source_snapshot_id"],
+                "mapping_version": cohort["mapping_version"],
+                "link_count": cohort["link_count"],
+                "state": cohort["state"],
+            }
+            for cohort in cohorts
+        ],
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    evidence_hash = "sha256:" + hashlib.sha256(evidence).hexdigest()
     report = {
         "format": "moonproj.erp.period-close-control.v1",
         "period_id": period_id,
+        "source_snapshot_id": next(iter(source_snapshots)),
+        "mapping_versions": sorted(mapping_versions),
         "cohort_count": len(cohorts),
         "link_count": total_links,
+        "evidence_hash": evidence_hash,
         "cohorts": cohorts,
         "state": "ready_for_reconciled_close",
         "close_authorized": False,
         "cash_released": False,
         "period_posted": False,
+        "close_requires": [
+            "named period owner approval",
+            "native AccountingBook.close_reconciled",
+            "rollback evidence retained",
+        ],
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -88,6 +127,7 @@ def main() -> int:
                     "state": report["state"],
                     "cohort_count": report["cohort_count"],
                     "link_count": report["link_count"],
+                    "evidence_hash": report["evidence_hash"],
                 },
                 sort_keys=True,
             )

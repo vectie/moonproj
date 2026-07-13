@@ -380,6 +380,12 @@ def run(
                 "name": "period_close_control",
                 "passed": period_close.get("format") == "moonproj.erp.period-close-control.v1"
                 and period_close.get("state") == "ready_for_reconciled_close"
+                and isinstance(period_close.get("source_snapshot_id"), str)
+                and bool(period_close.get("source_snapshot_id"))
+                and isinstance(period_close.get("mapping_versions"), list)
+                and bool(period_close.get("mapping_versions"))
+                and isinstance(period_close.get("evidence_hash"), str)
+                and period_close.get("evidence_hash", "").startswith("sha256:")
                 and period_close.get("close_authorized") is False
                 and period_close.get("cash_released") is False
                 and period_close.get("period_posted") is False
@@ -387,6 +393,8 @@ def run(
                 "state": period_close.get("state"),
                 "cohort_count": period_close.get("cohort_count"),
                 "link_count": period_close.get("link_count"),
+                "source_snapshot_id": period_close.get("source_snapshot_id"),
+                "evidence_hash": period_close.get("evidence_hash"),
                 "close_authorized": period_close.get("close_authorized"),
             }
         )
