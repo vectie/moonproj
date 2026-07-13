@@ -6,8 +6,9 @@ exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report and
 report-builder metadata/template,
-employee-loan, dynamic-cost, source contract/payment, budget scope/loan
-balance, workflow instance observation, investment, admin-quality, attachment metadata,
+employee-loan, dynamic-cost, source contract/payment, invoice/tax-ledger,
+budget scope/loan balance, workflow instance observation, investment,
+admin-quality, attachment metadata,
 non-secret profile, AI analytics, AI Hub observation, and webhook configuration
 reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
@@ -42,6 +43,8 @@ from company_postgres_service import (
     cost_source_contracts as service_cost_source_contracts,
     cost_source_contract_detail as service_cost_source_contract_detail,
     cost_source_payment_applications as service_cost_source_payment_applications,
+    invoice_source_rows as service_invoice_source_rows,
+    invoice_source_tax_ledger as service_invoice_source_tax_ledger,
     cashflow_source_forecast as service_cashflow_source_forecast,
     cashflow_source_forecast_v3 as service_cashflow_source_forecast_v3,
     cashflow_source_detail as service_cashflow_source_detail,
@@ -755,6 +758,24 @@ def contract_splits(
 
 def sales_rows(args: argparse.Namespace, family: str, aggregate_id: str | None) -> list[dict[str, Any]]:
     return service_sales_rows(_ReadModelPool(args), family, aggregate_id, 500)
+
+
+def invoice_source_rows(
+    args: argparse.Namespace,
+    direction: str,
+    proj_guid: str | None,
+    contract_guid: str | None,
+) -> dict[str, Any]:
+    return service_invoice_source_rows(
+        _ReadModelPool(args), direction, proj_guid, contract_guid, 500
+    )
+
+
+def invoice_source_tax_ledger(
+    args: argparse.Namespace,
+    proj_guid: str | None,
+) -> dict[str, Any]:
+    return service_invoice_source_tax_ledger(_ReadModelPool(args), proj_guid, 500)
 
 
 def delivery_progress(
@@ -1658,6 +1679,27 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "receivable not found"})
                     else:
                         response(self, 200, rows[0])
+                    return
+                source_invoice_match = re.fullmatch(
+                    r"/api/company/source/invoice/(in|out)",
+                    parsed.path,
+                )
+                if source_invoice_match is not None:
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        invoice_source_rows(
+                            args,
+                            source_invoice_match.group(1),
+                            query.get("projGuid", [None])[0],
+                            query.get("contractGuid", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/source/invoice/tax-ledger":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, invoice_source_tax_ledger(args, proj_guid))
                     return
                 invoice_match = re.fullmatch(
                     r"/api/company/invoices(?:/([A-Za-z0-9_.:-]{1,128}))?",

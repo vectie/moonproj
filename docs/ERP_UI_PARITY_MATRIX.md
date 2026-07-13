@@ -257,13 +257,13 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `GET` | `/projects/:projGuid/profit-cockpit` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
 | `investment` | `GET` | `/projects/:projGuid/profit-actual` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
 | `investment` | `GET` | `/projects/:projGuid/profit-actual-v2` | `/investment` | `connected_cost_dashboard_read` | `accept_browser_cost_dashboard_scenario_and_production_identity` |
-| `invoice` | `GET` | `/in` | `/invoice` | `not_connected` | `connect_authenticated_read_api` |
+| `invoice` | `GET` | `/in` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
 | `invoice` | `POST` | `/in` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `invoice` | `DELETE` | `/in/:guid` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `invoice` | `GET` | `/out` | `/invoice` | `not_connected` | `connect_authenticated_read_api` |
+| `invoice` | `GET` | `/out` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
 | `invoice` | `POST` | `/out` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `invoice` | `DELETE` | `/out/:guid` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `invoice` | `GET` | `/tax-ledger` | `/invoice` | `not_connected` | `connect_authenticated_read_api` |
+| `invoice` | `GET` | `/tax-ledger` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
 | `loan` | `GET` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
 | `loan` | `GET` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
 | `loan` | `POST` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |

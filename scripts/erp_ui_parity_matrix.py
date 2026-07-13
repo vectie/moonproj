@@ -452,6 +452,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_attachment_read", "accept_browser_attachment_scenario_and_production_identity"
     if (
+        handler["module"] == "invoice"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/in", "/out", "/tax-ledger"}
+    ):
+        return "connected_invoice_source_read", "accept_browser_invoice_source_scenario_and_production_identity"
+    if (
         handler["module"] == "budget"
         and handler["method"] == "GET"
         and handler["path"] in {"/users-in-bu", "/my-loan-balance"}

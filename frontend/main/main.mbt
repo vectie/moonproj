@@ -684,6 +684,11 @@ struct Model {
   sales_family : String
   sales_rows : Array[SalesRow]
   sales_note : String
+  invoice_source_loaded : Bool
+  invoice_source_in_count : String
+  invoice_source_out_count : String
+  invoice_source_tax_count : String
+  invoice_source_note : String
   delivery_loaded : Bool
   delivery_progress_rows : Array[DeliveryProgressRow]
   delivery_output_rows : Array[DeliveryOutputRow]
@@ -1012,6 +1017,10 @@ enum Msg {
   SupplierCommandFailed
   SalesLoaded(String, String)
   SalesLoadFailed(String)
+  InvoiceSourceInLoaded(String)
+  InvoiceSourceOutLoaded(String)
+  InvoiceSourceTaxLoaded(String)
+  InvoiceSourceLoadFailed
   DeliveryLoaded(String)
   DeliveryLoadFailed
   CreateDeliveryProgress
@@ -1204,6 +1213,11 @@ fn initial_model() -> Model {
     sales_family: "",
     sales_rows: [],
     sales_note: "销售/应收读模型尚未加载",
+    invoice_source_loaded: false,
+    invoice_source_in_count: "0",
+    invoice_source_out_count: "0",
+    invoice_source_tax_count: "0",
+    invoice_source_note: "发票源读模型尚未加载 · 使用设计快照",
     delivery_loaded: false,
     delivery_progress_rows: [],
     delivery_output_rows: [],
@@ -2341,6 +2355,12 @@ fn sales_row_from_json(value : Json) -> SalesRow? {
         json_object_text(fields, "reason", aggregate_id)
       } else if aggregate_type == "sale_revenue" {
         json_object_text(fields, "revenue_code", aggregate_id)
+      } else if aggregate_type == "invoice" {
+        json_object_text(
+          fields,
+          "invoiceNo",
+          json_object_text(fields, "name", aggregate_id),
+        )
       } else {
         json_object_text(fields, "customer_id", aggregate_id)
       }
@@ -2367,20 +2387,44 @@ fn sales_rows_from_body(body : String) -> Array[SalesRow] {
   let rows : Array[SalesRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
-    Json::Object(fields) =>
-      match fields.get("items") {
-        Some(Json::Array(values)) =>
-          for value in values {
-            match sales_row_from_json(value) {
-              Some(row) => rows.push(row)
-              None => ()
-            }
-          }
-        _ => ()
+    Json::Object(fields) => {
+      let values = match fields.get("items") {
+        Some(Json::Array(values)) => values
+        _ => json_array_field(fields, "data")
       }
+      for value in values {
+        match sales_row_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
     _ => ()
   }
   rows
+}
+
+///|
+fn append_sales_rows(target : Array[SalesRow], body : String) -> Int {
+  let rows = sales_rows_from_body(body)
+  for row in rows {
+    target.push(row)
+  }
+  rows.length()
+}
+
+///|
+fn invoice_tax_row_count_from_body(body : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          json_array_field(data, "rows").length().to_string()
+        _ => "0"
+      }
+    _ => "0"
+  }
 }
 
 ///|
@@ -4930,6 +4974,37 @@ fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
+fn load_invoice_source_in(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/invoice/in?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(InvoiceSourceInLoaded(body))
+      Err(_) => emit(InvoiceSourceLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_invoice_source_out(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/invoice/out?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(InvoiceSourceOutLoaded(body))
+      Err(_) => emit(InvoiceSourceLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_invoice_source_tax(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/invoice/tax-ledger?projGuid=proj-0001").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvoiceSourceTaxLoaded(body))
+        Err(_) => emit(InvoiceSourceLoadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_delivery(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/delivery/overview?project_id=proj-0001").expect_text(result => {
     match result {
@@ -6044,7 +6119,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/sales/revenues" {
         load_sales(emit, "revenues")
       } else if path == "/invoice" {
-        load_sales(emit, "invoices")
+        load_invoice_source_in(emit)
       } else if path == "/ai-stats" {
         load_ai_stats_overview(emit)
       } else if path == "/ai-hub" {
@@ -7030,6 +7105,67 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_family: family,
           sales_rows: [],
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
+        },
+      )
+    InvoiceSourceInLoaded(body) =>
+      (
+        load_invoice_source_out(emit),
+        {
+          ..model,
+          sales_loaded: true,
+          sales_family: "invoices",
+          sales_rows: sales_rows_from_body(body),
+          invoice_source_loaded: false,
+          invoice_source_in_count: sales_rows_from_body(body)
+          .length()
+          .to_string(),
+          invoice_source_out_count: "0",
+          invoice_source_tax_count: "0",
+          sales_note: "已加载 PostgreSQL 进项发票源读模型 · 正在读取销项与税务台账",
+          invoice_source_note: "进项源已连接 · 继续读取销项/税务台账",
+        },
+      )
+    InvoiceSourceOutLoaded(body) => {
+      let rows = model.sales_rows
+      let out_count = append_sales_rows(rows, body)
+      (
+        load_invoice_source_tax(emit),
+        {
+          ..model,
+          sales_rows: rows,
+          invoice_source_out_count: out_count.to_string(),
+          sales_note: "已加载 PostgreSQL 进项/销项发票源读模型 · 正在读取税务台账",
+          invoice_source_note: "进项/销项源已连接 · 正在读取税务台账",
+        },
+      )
+    }
+    InvoiceSourceTaxLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          invoice_source_loaded: true,
+          invoice_source_tax_count: invoice_tax_row_count_from_body(body),
+          sales_note: "已加载 PostgreSQL 发票与税务台账源读模型 · 空表保持可见",
+          invoice_source_note: "进项 " +
+          model.invoice_source_in_count +
+          " · 销项 " +
+          model.invoice_source_out_count +
+          " · 税务台账 " +
+          invoice_tax_row_count_from_body(body) +
+          " 行",
+        },
+      )
+    InvoiceSourceLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          invoice_source_loaded: false,
+          sales_loaded: false,
+          sales_rows: [],
+          invoice_source_note: "发票源读模型不可用 · 使用设计快照",
+          sales_note: "发票源读模型不可用 · 使用设计快照",
         },
       )
     DeliveryLoaded(body) => {
@@ -12416,6 +12552,22 @@ fn invoice_view(model : Model) -> @html.Html {
     [button(class="erp-primary-btn", "＋ 录入发票")],
     div <| [
       sales_runtime_banner(model, "invoices"),
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.invoice_source_loaded {
+            "PostgreSQL 发票/税务源已连接"
+          } else {
+            "发票源读模型"
+          },
+        ),
+        span(
+          " · " +
+          model.invoice_source_note +
+          " · 税务台账 " +
+          model.invoice_source_tax_count +
+          " 行",
+        ),
+      ]),
       sales_projection_table(model, "invoices"),
       div(class="erp-stat-grid") <| [
         metric("本月进项", "¥1,286 万", "218 张", "metric-blue"),

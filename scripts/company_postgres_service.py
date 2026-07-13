@@ -24,6 +24,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/source/cost/contracts[/{id}[/milestones]]`` and
   ``/api/company/source/cost/payment-applies`` (GET, imported-source contract
   and payment observations)
+* ``/api/company/source/invoice/{in,out}`` and
+  ``/api/company/source/invoice/tax-ledger`` (GET, imported-source invoice
+  and tax-ledger observations)
 * ``/api/company/contracts`` (POST create draft)
 * ``/api/company/contracts/<id>/{submit,approve,reject,resubmit}`` (POST)
 * ``/api/company/payment-applies`` and ``/api/company/payment-applies/<id>`` (GET)
@@ -2393,6 +2396,153 @@ def sales_rows(
         _sales_row(row)
         for row in _latest_sales_projection_rows(pool, aggregate_type, aggregate_id, max_rows)
     ]
+
+
+INVOICE_SOURCE_TABLES = {
+    "invoice_in",
+    "invoice_out",
+    "ep_project",
+    "mu_business_unit",
+}
+
+
+def _invoice_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _invoice_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), INVOICE_SOURCE_TABLES))
+        for table in sorted(INVOICE_SOURCE_TABLES)
+    }
+
+
+def _invoice_source_row(
+    row: dict[str, Any],
+    direction: str,
+    projects: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    payload = row["payload"]
+    invoice_id = _report_text(payload, "invoice_guid", row["record_id"])
+    invoice_no = _report_text(payload, "invoice_no", invoice_id)
+    project_id = _report_text(payload, "proj_guid")
+    total = _report_float(payload, "total_amount")
+    tax = _report_float(payload, "tax_amount")
+    project_name = _report_text(projects.get(project_id, {}), "proj_name", project_id)
+    source = {
+        "invoiceGuid": invoice_id,
+        "invoiceNo": invoice_no,
+        "projGuid": project_id,
+        "projName": project_name,
+        "buGuid": _report_text(payload, "bu_guid"),
+        "contractGuid": _report_text(payload, "contract_guid"),
+        "providerName": _report_text(payload, "provider_name"),
+        "customerName": _report_text(payload, "customer_name"),
+        "scontractGuid": _report_text(payload, "scontract_guid"),
+        "revenueGuid": _report_text(payload, "revenue_guid"),
+        "invoiceDate": _report_text(payload, "invoice_date"),
+        "totalAmount": total,
+        "taxAmount": tax,
+        "taxRate": _report_float(payload, "tax_rate"),
+        "invoiceType": _report_text(payload, "invoice_type"),
+        "state": _report_text(payload, "state"),
+        "remark": _report_text(payload, "remark"),
+        "direction": direction,
+        "sourceKind": "imported",
+        "sourceId": row["source_id"],
+        # Compatibility fields let the existing Rabbita table consume the
+        # source observation without treating it as a company projection.
+        "aggregate_type": "invoice",
+        "aggregate_id": invoice_id,
+        "name": invoice_no,
+        "amount_display": f"¥{total:,.2f}",
+        "source_kind": "imported",
+    }
+    return source
+
+
+def invoice_source_rows(
+    pool: PsqlPool,
+    direction: str,
+    proj_guid: str | None,
+    contract_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if direction not in {"in", "out"}:
+        raise ValueError("unsupported invoice direction")
+    for value, label in ((proj_guid, "proj_guid"), (contract_guid, "contract_guid")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    table = "invoice_" + direction
+    raw = _raw_source_rows(pool, table, max(max_rows, 500), INVOICE_SOURCE_TABLES)
+    raw_projects = _raw_source_rows(pool, "ep_project", max(max_rows, 100), INVOICE_SOURCE_TABLES)
+    projects = {
+        _report_text(row["payload"], "proj_guid", row["record_id"]): row["payload"]
+        for row in raw_projects
+    }
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if proj_guid is not None and _report_text(payload, "proj_guid") != proj_guid:
+            continue
+        if contract_guid is not None and _report_text(payload, "contract_guid") != contract_guid:
+            continue
+        rows.append(_invoice_source_row(row, direction, projects))
+    rows.sort(
+        key=lambda value: (str(value.get("invoiceDate", "")), str(value.get("invoiceGuid", ""))),
+        reverse=True,
+    )
+    coverage = _invoice_source_coverage(pool, max_rows)
+    return {"success": True, "code": 0, "data": rows[:max_rows], **_invoice_source_metadata(coverage)}
+
+
+def invoice_source_tax_ledger(
+    pool: PsqlPool,
+    proj_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if proj_guid is not None and not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    grouped: dict[str, dict[str, Any]] = {}
+    for direction in ("in", "out"):
+        source = invoice_source_rows(pool, direction, proj_guid, None, max_rows)
+        for row in source["data"]:
+            period = str(row.get("invoiceDate") or "")[:7]
+            if not period:
+                continue
+            entry = grouped.setdefault(
+                period,
+                {"period": period, "totalIn": 0.0, "taxIn": 0.0, "totalOut": 0.0, "taxOut": 0.0},
+            )
+            if direction == "in":
+                entry["totalIn"] += float(row.get("totalAmount") or 0)
+                entry["taxIn"] += float(row.get("taxAmount") or 0)
+            else:
+                entry["totalOut"] += float(row.get("totalAmount") or 0)
+                entry["taxOut"] += float(row.get("taxAmount") or 0)
+    rows = []
+    for period, entry in grouped.items():
+        entry["netTax"] = round(float(entry["taxOut"]) - float(entry["taxIn"]), 2)
+        rows.append(entry)
+    rows.sort(key=lambda value: str(value.get("period", "")), reverse=True)
+    coverage = _invoice_source_coverage(pool, max_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"rows": rows[:max_rows]},
+        **_invoice_source_metadata(coverage),
+    }
 
 
 def _sales_command_text(
@@ -12930,6 +13080,26 @@ def handler_factory(
                             response(self, 200, items[0], origin)
                     else:
                         response(self, 200, {"items": items}, origin)
+                elif re.fullmatch(r"/api/company/source/invoice/(in|out)", parsed.path):
+                    query = parse_qs(parsed.query)
+                    result = invoice_source_rows(
+                        pool,
+                        parsed.path.rsplit("/", 1)[-1],
+                        query.get("projGuid", [None])[0],
+                        query.get("contractGuid", [None])[0],
+                        max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif parsed.path == "/api/company/source/invoice/tax-ledger":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        invoice_source_tax_ledger(
+                            pool, query.get("projGuid", [None])[0], max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif re.fullmatch(r"/api/company/invoices(/[A-Za-z0-9_.:-]{1,128})?", parsed.path):
                     invoice_id = parsed.path.rsplit("/", 1)[-1] if parsed.path.count("/") > 3 else None
                     items = sales_rows(pool, "invoices", invoice_id, max_response_rows)

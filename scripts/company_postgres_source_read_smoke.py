@@ -140,6 +140,32 @@ def main() -> int:
             and attachment_stats.get("authorizing") is False,
             f"source attachment stats read failed: {status} {attachment_stats}",
         )
+        for direction in ("in", "out"):
+            status, invoice_rows = request(
+                args.port,
+                f"/api/company/source/invoice/{direction}?projGuid=proj-0001",
+                token=token,
+            )
+            expect(
+                status == 200
+                and invoice_rows is not None
+                and invoice_rows.get("data") == []
+                and invoice_rows.get("source_coverage", {}).get("invoice_" + direction) == 0
+                and invoice_rows.get("authorizing") is False,
+                f"source invoice {direction} read failed: {status} {invoice_rows}",
+            )
+        status, tax_ledger = request(
+            args.port,
+            "/api/company/source/invoice/tax-ledger?projGuid=proj-0001",
+            token=token,
+        )
+        expect(
+            status == 200
+            and tax_ledger is not None
+            and (tax_ledger.get("data") or {}).get("rows") == []
+            and tax_ledger.get("authorizing") is False,
+            f"source invoice tax ledger read failed: {status} {tax_ledger}",
+        )
         status, scope = request(
             args.port,
             "/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001",
@@ -206,7 +232,7 @@ def main() -> int:
         )
         print(
             "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
-            "attachments=0 budget_users=4 loan_balance=3500 "
+            "attachments=0 invoices=0 budget_users=4 loan_balance=3500 "
             "workflow_instances=0 workflow_actions=0",
         )
         return 0
