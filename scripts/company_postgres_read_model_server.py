@@ -61,6 +61,14 @@ from company_postgres_service import (
     marketing_source_placements as service_marketing_source_placements,
     marketing_source_channels as service_marketing_source_channels,
     marketing_source_materials as service_marketing_source_materials,
+    notification_source_messages as service_notification_source_messages,
+    notification_source_unread_count as service_notification_source_unread_count,
+    notification_source_subscriptions as service_notification_source_subscriptions,
+    notification_source_config as service_notification_source_config,
+    notification_source_email_outbox as service_notification_source_email_outbox,
+    notification_source_digest_preview as service_notification_source_digest_preview,
+    notification_source_digest_log as service_notification_source_digest_log,
+    notification_source_llm_providers as service_notification_source_llm_providers,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -471,6 +479,46 @@ def marketing_source_materials(
     proj_guid: str | None,
 ) -> dict[str, Any]:
     return service_marketing_source_materials(_ReadModelPool(args), proj_guid, 500)
+
+
+def notification_source_messages(
+    args: argparse.Namespace,
+    user_code: str | None,
+    status: str,
+    limit: int,
+    offset: int,
+) -> dict[str, Any]:
+    return service_notification_source_messages(
+        _ReadModelPool(args), user_code, status, limit, offset, 500,
+    )
+
+
+def notification_source_unread_count(args: argparse.Namespace, user_code: str | None) -> dict[str, Any]:
+    return service_notification_source_unread_count(_ReadModelPool(args), user_code, 500)
+
+
+def notification_source_subscriptions(args: argparse.Namespace, user_code: str | None) -> dict[str, Any]:
+    return service_notification_source_subscriptions(_ReadModelPool(args), user_code, 500)
+
+
+def notification_source_config(args: argparse.Namespace) -> dict[str, Any]:
+    return service_notification_source_config(_ReadModelPool(args), 500)
+
+
+def notification_source_email_outbox(args: argparse.Namespace) -> dict[str, Any]:
+    return service_notification_source_email_outbox(_ReadModelPool(args), 500)
+
+
+def notification_source_digest_preview(args: argparse.Namespace) -> dict[str, Any]:
+    return service_notification_source_digest_preview(_ReadModelPool(args), 500)
+
+
+def notification_source_digest_log(args: argparse.Namespace) -> dict[str, Any]:
+    return service_notification_source_digest_log(_ReadModelPool(args), 500)
+
+
+def notification_source_llm_providers(args: argparse.Namespace) -> dict[str, Any]:
+    return service_notification_source_llm_providers(_ReadModelPool(args), 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -1031,6 +1079,49 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/marketing/materials":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, marketing_source_materials(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/notify/messages":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["50"])[0])
+                        offset = int(query.get("offset", ["0"])[0])
+                    except (TypeError, ValueError):
+                        response(self, 422, {"error": "invalid notification pagination"})
+                    else:
+                        response(
+                            self,
+                            200,
+                            notification_source_messages(
+                                args,
+                                query.get("userCode", [None])[0],
+                                query.get("status", ["unread"])[0],
+                                limit,
+                                offset,
+                            ),
+                        )
+                    return
+                if parsed.path == "/api/company/notify/messages/unread-count":
+                    user_code = parse_qs(parsed.query).get("userCode", [None])[0]
+                    response(self, 200, notification_source_unread_count(args, user_code))
+                    return
+                if parsed.path == "/api/company/notify/subscriptions":
+                    user_code = parse_qs(parsed.query).get("userCode", [None])[0]
+                    response(self, 200, notification_source_subscriptions(args, user_code))
+                    return
+                if parsed.path == "/api/company/notify/config":
+                    response(self, 200, notification_source_config(args))
+                    return
+                if parsed.path == "/api/company/notify/email-outbox":
+                    response(self, 200, notification_source_email_outbox(args))
+                    return
+                if parsed.path == "/api/company/notify/digest/preview":
+                    response(self, 200, notification_source_digest_preview(args))
+                    return
+                if parsed.path == "/api/company/notify/digest/log":
+                    response(self, 200, notification_source_digest_log(args))
+                    return
+                if parsed.path == "/api/company/notify/llm-providers":
+                    response(self, 200, notification_source_llm_providers(args))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

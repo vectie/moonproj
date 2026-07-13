@@ -89,6 +89,13 @@ metadata from PostgreSQL; the export has no marketing rows, so successful reads
 show an explicit empty source state and keep the reviewed cohort/designer rows
 only as transport fallback. Marketing mutations, spend/CBS consumption, and
 attribution remain gated.
+The authenticated `/inbox` screen now reads user-scoped notification messages
+and unread counts through the PostgreSQL service. `/notify-config` chains
+source subscriptions, redacted configuration-key status, email-outbox
+metadata, digest preview/log evidence, and provider discovery. The export has
+no notification source rows, so successful reads show explicit empty-source
+states; message acknowledgement, subscription/configuration writes, digest
+dispatch, provider calls, consent/retry policy, and delivery remain gated.
 The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

@@ -9,12 +9,12 @@ aliases now use the bounded connected v1 read. The connected exceptions are the 
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
-fund-plan, observed-warning, attachment-metadata, and marketing read verticals.
+fund-plan, observed-warning, attachment-metadata, marketing, and notification metadata read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_attachment_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_marketing_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "fixture_backed_form": 1, "fixture_backed_read_only": 9, "public": 1, "read_only_public": 1}`
-- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_attachment_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_marketing_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 12}`
+- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_attachment_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_marketing_read": 1, "connected_notification_read": 2, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "fixture_backed_form": 1, "fixture_backed_read_only": 7, "public": 1, "read_only_public": 1}`
+- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_attachment_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_marketing_read": 1, "connected_notification_read": 2, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 10}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -73,8 +73,8 @@ fund-plan, observed-warning, attachment-metadata, and marketing read verticals.
 | `/system-health` | `../views/SystemHealth.vue` | `health_view` | `connected_admin_health_read` | `admin` | 13 / 5 | `connected_admin_health_read` | `accept_browser_admin_health_scenario_and_super_user_owner` |
 | `/users` | `../views/UserManagement.vue` | `users_view` | `connected_rbac_user_read` | `rbac` | 5 / 7 | `connected_rbac_user_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `/profile` | `../views/Profile.vue` | `profile_view` | `connected_profile_read` | `auth` | 3 / 6 | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
-| `/inbox` | `../views/Inbox.vue` | `inbox_view` | `fixture_backed_read_only` | `notify` | 8 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/notify-config` | `../views/NotifyConfig.vue` | `notify_view` | `fixture_backed_read_only` | `notify` | 8 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/inbox` | `../views/Inbox.vue` | `inbox_view` | `connected_notification_read` | `notify` | 8 / 11 | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
+| `/notify-config` | `../views/NotifyConfig.vue` | `notify_view` | `connected_notification_read` | `notify` | 8 / 11 | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `/webhook-config` | `../views/WebhookConfig.vue` | `webhook_view` | `fixture_backed_read_only` | `webhook` | 1 / 4 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/admin` | `../views/Admin.vue` | `admin_view` | `connected_admin_read` | `admin` | 13 / 5 | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 
@@ -291,24 +291,24 @@ are attached. The JSON output contains all 338 handler rows.
 | `mdm` | `POST` | `/projects` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `mdm` | `PUT` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `mdm` | `DELETE` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `notify` | `GET` | `/messages` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
-| `notify` | `GET` | `/messages/unread-count` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
+| `notify` | `GET` | `/messages` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
+| `notify` | `GET` | `/messages/unread-count` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/messages/:guid/read` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `notify` | `POST` | `/messages/read-all` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `notify` | `GET` | `/subscriptions` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
+| `notify` | `GET` | `/subscriptions` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/subscriptions` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `notify` | `PATCH` | `/subscriptions/:id` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `notify` | `DELETE` | `/subscriptions/:id` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `notify` | `GET` | `/config` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
+| `notify` | `GET` | `/config` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `PUT` | `/config` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `notify` | `POST` | `/config/test-webhook` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `notify` | `GET` | `/email-outbox` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
+| `notify` | `GET` | `/email-outbox` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/digest/dispatch` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `notify` | `GET` | `/digest/preview` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
-| `notify` | `GET` | `/digest/log` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
+| `notify` | `GET` | `/digest/preview` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
+| `notify` | `GET` | `/digest/log` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/email-outbox/test` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `notify` | `POST` | `/email-outbox/:eid/redeliver` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `notify` | `GET` | `/llm-providers` | `/inbox`, `/notify-config` | `not_connected` | `connect_authenticated_read_api` |
+| `notify` | `GET` | `/llm-providers` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/llm-test` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `plan` | `GET` | `/projects/:projGuid/tasks` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
 | `plan` | `GET` | `/tasks/:guid` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |

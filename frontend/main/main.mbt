@@ -710,6 +710,23 @@ struct Model {
   marketing_material_count : String
   marketing_missing_table_count : String
   marketing_note : String
+  inbox_loaded : Bool
+  inbox_rows : Array[Array[String]]
+  inbox_total : String
+  inbox_unread : String
+  inbox_missing_table_count : String
+  inbox_note : String
+  notify_loaded : Bool
+  notify_subscription_rows : Array[Array[String]]
+  notify_config_rows : Array[Array[String]]
+  notify_outbox_rows : Array[Array[String]]
+  notify_digest_rows : Array[Array[String]]
+  notify_subscription_count : String
+  notify_configured_count : String
+  notify_outbox_count : String
+  notify_digest_count : String
+  notify_missing_table_count : String
+  notify_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -888,6 +905,17 @@ enum Msg {
   AttachmentStatsLoadFailed
   MarketingLoaded(String, String)
   MarketingLoadFailed(String)
+  InboxLoaded(String)
+  InboxLoadFailed
+  InboxUnreadLoaded(String)
+  InboxUnreadLoadFailed
+  NotifySubscriptionsLoaded(String)
+  NotifyConfigLoaded(String)
+  NotifyOutboxLoaded(String)
+  NotifyDigestPreviewLoaded(String)
+  NotifyDigestLoaded(String)
+  NotifyProvidersLoaded(String)
+  NotifyLoadFailed(String)
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1100,6 +1128,23 @@ fn initial_model() -> Model {
     marketing_material_count: "0",
     marketing_missing_table_count: "0",
     marketing_note: "营销源读模型尚未加载 · 使用设计快照",
+    inbox_loaded: false,
+    inbox_rows: [],
+    inbox_total: "0",
+    inbox_unread: "0",
+    inbox_missing_table_count: "0",
+    inbox_note: "站内信源读模型尚未加载 · 使用设计快照",
+    notify_loaded: false,
+    notify_subscription_rows: [],
+    notify_config_rows: [],
+    notify_outbox_rows: [],
+    notify_digest_rows: [],
+    notify_subscription_count: "0",
+    notify_configured_count: "0",
+    notify_outbox_count: "0",
+    notify_digest_count: "0",
+    notify_missing_table_count: "0",
+    notify_note: "通知配置源读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2982,6 +3027,223 @@ fn marketing_rows_from_body(
 }
 
 ///|
+fn inbox_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String, String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let total = json_object_text(data, "total", "0")
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  if json_object_text(row, "isRead", "false") == "true" {
+                    ""
+                  } else {
+                    "●"
+                  },
+                  json_object_text(row, "title", "—"),
+                  json_object_text(row, "content", "—"),
+                  json_object_text(row, "bizType", "—"),
+                  json_object_text(row, "createdAt", "—"),
+                  if json_object_text(row, "isRead", "false") == "true" {
+                    "已读"
+                  } else {
+                    "未读"
+                  },
+                  "查看",
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, total, missing)
+        }
+        _ => (false, rows, "0", missing)
+      }
+    }
+    _ => (false, rows, "0", "0")
+  }
+}
+
+///|
+fn inbox_unread_from_body(body : String) -> (Bool, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => (true, json_object_text(data, "count", "0"))
+        _ => (false, "0")
+      }
+    _ => (false, "0")
+  }
+}
+
+///|
+fn notify_subscriptions_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "ruleCode", "全部规则"),
+                  json_object_text(row, "bizType", "全部业务"),
+                  json_object_text(row, "severityMin", "—"),
+                  json_object_text(row, "channels", "—"),
+                  if json_object_text(row, "enabled", "false") == "true" {
+                    "启用"
+                  } else {
+                    "停用"
+                  },
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn notify_config_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String, String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let configured = json_array_field(data, "configured")
+          for value in configured {
+            match value {
+              Json::String(key) => rows.push([key, "已配置", "源表"])
+              _ => ()
+            }
+          }
+          (true, rows, configured.length().to_string(), missing)
+        }
+        _ => (false, rows, "0", missing)
+      }
+    }
+    _ => (false, rows, "0", "0")
+  }
+}
+
+///|
+fn notify_outbox_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "toAddr", "—"),
+                  json_object_text(row, "subject", "—"),
+                  json_object_text(row, "createdAt", "—"),
+                  json_object_text(row, "status", "—"),
+                  "查看",
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn notify_digest_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "warningGuid", "—"),
+                  json_object_text(row, "ruleCode", "—"),
+                  json_object_text(row, "severity", "—"),
+                  json_object_text(row, "title", "—"),
+                  "预览",
+                  "0",
+                  "source_read_only",
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "digestDate", "—"),
+                  json_object_text(row, "triggeredAt", "—"),
+                  json_object_text(row, "userCount", "0"),
+                  json_object_text(row, "errorCount", "0"),
+                  json_object_text(row, "warningCount", "0"),
+                  json_object_text(row, "newCount", "0"),
+                  json_object_text(row, "triggeredBy", "—"),
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -3702,6 +3964,57 @@ fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
+fn load_inbox(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/notify/messages?userCode=admin&status=unread").expect_text(result => {
+      match result {
+        Ok(body) => emit(InboxLoaded(body))
+        Err(_) => emit(InboxLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_inbox_unread(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/notify/messages/unread-count?userCode=admin").expect_text(result => {
+      match result {
+        Ok(body) => emit(InboxUnreadLoaded(body))
+        Err(_) => emit(InboxUnreadLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_notify(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+  let path = if family == "subscriptions" {
+    "/api/company/notify/subscriptions?userCode=admin"
+  } else if family == "config" {
+    "/api/company/notify/config"
+  } else if family == "outbox" {
+    "/api/company/notify/email-outbox"
+  } else if family == "preview" {
+    "/api/company/notify/digest/preview"
+  } else if family == "digest" {
+    "/api/company/notify/digest/log"
+  } else {
+    "/api/company/notify/llm-providers"
+  }
+  @http.get(path).expect_text(result => {
+    match result {
+      Ok(body) if family == "subscriptions" =>
+        emit(NotifySubscriptionsLoaded(body))
+      Ok(body) if family == "config" => emit(NotifyConfigLoaded(body))
+      Ok(body) if family == "outbox" => emit(NotifyOutboxLoaded(body))
+      Ok(body) if family == "preview" => emit(NotifyDigestPreviewLoaded(body))
+      Ok(body) if family == "digest" => emit(NotifyDigestLoaded(body))
+      Ok(body) => emit(NotifyProvidersLoaded(body))
+      Err(_) => emit(NotifyLoadFailed(family))
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -4293,6 +4606,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_attachments(emit)
       } else if path == "/marketing" {
         load_marketing(emit, "campaigns")
+      } else if path == "/inbox" {
+        load_inbox(emit)
+      } else if path == "/notify-config" {
+        load_notify(emit, "subscriptions")
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -5873,6 +6190,232 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             model.marketing_loaded
           },
           marketing_note: "营销 " +
+          family +
+          " 源读模型不可用 · 使用设计快照",
+        },
+      )
+    InboxLoaded(body) => {
+      let (loaded, rows, total, missing) = inbox_from_body(body)
+      (
+        if loaded {
+          load_inbox_unread(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          inbox_loaded: loaded,
+          inbox_rows: rows,
+          inbox_total: if loaded {
+            total
+          } else {
+            "0"
+          },
+          inbox_missing_table_count: missing,
+          inbox_note: if loaded {
+            "已加载 PostgreSQL 通知消息 · 仅只读源记录 · 空源表 " +
+            missing
+          } else {
+            "通知消息响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    InboxLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          inbox_loaded: false,
+          inbox_rows: [],
+          inbox_note: "通知消息读模型不可用 · 使用设计快照",
+        },
+      )
+    InboxUnreadLoaded(body) => {
+      let (loaded, count) = inbox_unread_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          inbox_unread: if loaded {
+            count
+          } else {
+            model.inbox_unread
+          },
+          inbox_note: if loaded {
+            model.inbox_note
+          } else {
+            "通知未读统计不可用 · 保留消息源状态"
+          },
+        },
+      )
+    }
+    InboxUnreadLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          inbox_note: "通知未读统计不可用 · 保留消息源状态",
+        },
+      )
+    NotifySubscriptionsLoaded(body) => {
+      let (loaded, rows, missing) = notify_subscriptions_from_body(body)
+      (
+        if loaded {
+          load_notify(emit, "config")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_loaded: loaded,
+          notify_subscription_rows: rows,
+          notify_subscription_count: if loaded {
+            rows.length().to_string()
+          } else {
+            "0"
+          },
+          notify_missing_table_count: missing,
+          notify_note: if loaded {
+            "已加载 PostgreSQL 通知订阅 · 仅只读源记录 · 空源表 " +
+            missing
+          } else {
+            "通知订阅响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    NotifyConfigLoaded(body) => {
+      let (loaded, rows, configured, missing) = notify_config_from_body(body)
+      (
+        if loaded {
+          load_notify(emit, "outbox")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_config_rows: rows,
+          notify_configured_count: if loaded {
+            configured
+          } else {
+            "0"
+          },
+          notify_missing_table_count: missing,
+          notify_note: if loaded {
+            "通知配置仅显示已配置键 · 敏感值已隐藏 · 空源表 " +
+            missing
+          } else {
+            "通知配置响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    NotifyOutboxLoaded(body) => {
+      let (loaded, rows, missing) = notify_outbox_from_body(body)
+      (
+        if loaded {
+          load_notify(emit, "preview")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_outbox_rows: rows,
+          notify_outbox_count: if loaded {
+            rows.length().to_string()
+          } else {
+            "0"
+          },
+          notify_missing_table_count: missing,
+          notify_note: if loaded {
+            "通知邮件队列仅显示元数据 · 邮件正文未导入 · 空源表 " +
+            missing
+          } else {
+            "通知邮件队列响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    NotifyDigestPreviewLoaded(body) => {
+      let (loaded, rows, missing) = notify_digest_from_body(body)
+      (
+        if loaded {
+          load_notify(emit, "digest")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_digest_rows: rows,
+          notify_digest_count: if loaded {
+            rows.length().to_string()
+          } else {
+            "0"
+          },
+          notify_missing_table_count: missing,
+          notify_note: if loaded {
+            "通知摘要预览来自开放预警源 · 不触发发送 · 空源表 " +
+            missing
+          } else {
+            "通知摘要预览响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    NotifyDigestLoaded(body) => {
+      let (loaded, rows, missing) = notify_digest_from_body(body)
+      (
+        if loaded {
+          load_notify(emit, "providers")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_digest_rows: if loaded {
+            rows
+          } else {
+            model.notify_digest_rows
+          },
+          notify_digest_count: if loaded {
+            rows.length().to_string()
+          } else {
+            model.notify_digest_count
+          },
+          notify_missing_table_count: missing,
+          notify_note: if loaded {
+            "通知摘要日志仅只读 · 不执行投递 · 空源表 " +
+            missing
+          } else {
+            "通知摘要日志响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    NotifyProvidersLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          notify_note: if body.contains("\"provider_execution\":false") {
+            "通知源读取完成 · LLM 提供商仅发现，不执行调用"
+          } else {
+            "通知源读取完成 · 提供商执行未授权"
+          },
+        },
+      )
+    NotifyLoadFailed(family) =>
+      (
+        none,
+        {
+          ..model,
+          notify_loaded: if family == "subscriptions" {
+            false
+          } else {
+            model.notify_loaded
+          },
+          notify_note: "通知 " +
           family +
           " 源读模型不可用 · 使用设计快照",
         },
@@ -11318,47 +11861,90 @@ fn marketing_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn inbox_view() -> @html.Html {
+fn inbox_view(model : Model) -> @html.Html {
+  let rows = if model.inbox_loaded {
+    if model.inbox_rows.length() == 0 {
+      [["—", "—", "—", "—", "—", "无源记录", "—"]]
+    } else {
+      model.inbox_rows
+    }
+  } else {
+    [
+      [
+        "●", "付款申请待审批", "成都和锦里主体结构施工合同付款申请 ¥128 万",
+        "付款申请", "今天 09:18", "未读", "查看",
+      ],
+      [
+        "●", "项目延期预警", "2# 楼砌体工程较计划晚 4 天，请确认处理方案",
+        "异常预警", "今天 08:42", "未读", "查看",
+      ],
+      [
+        "", "报销已通过", "EXP-260628-011 已完成审批并进入付款队列",
+        "我的报销", "昨天 16:20", "已读", "查看",
+      ],
+      [
+        "", "系统维护通知", "PostgreSQL 读模型已完成本次迁移校验",
+        "系统", "2026-07-11", "已读", "查看",
+      ],
+    ]
+  }
+  let unread = if model.inbox_loaded { model.inbox_unread } else { "8" }
+  let total = if model.inbox_loaded { model.inbox_total } else { "26" }
+  let business = if model.inbox_loaded { model.inbox_total } else { "18" }
   page_shell(
     "站内信",
     "SYSTEM / INBOX",
     "统一接收审批、预警、系统和业务通知，保留已读状态与业务关联。",
-    [button(class="erp-secondary-btn", "全部标记已读")],
+    [button(class="erp-secondary-btn", "全部标记已读（待授权）")],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("未读消息", "8", "高优先级 2", "metric-blue"),
-        metric("本周新增", "26", "较上周 +4", "metric-blue"),
-        metric("业务通知", "18", "审批 / 预警", "metric-green"),
+        metric(
+          "未读消息",
+          unread,
+          if model.inbox_loaded {
+            "源表未读计数"
+          } else {
+            "高优先级 2"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "本周新增",
+          total,
+          if model.inbox_loaded {
+            "消息源总数"
+          } else {
+            "较上周 +4"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "业务通知",
+          business,
+          if model.inbox_loaded {
+            "源表未提供分类统计"
+          } else {
+            "审批 / 预警"
+          },
+          "metric-green",
+        ),
       ],
       div(class="erp-tabs") <| [
-        button(class="erp-tab is-active", "未读 (8)"),
+        button(class="erp-tab is-active", "未读 (" + unread + ")"),
         button(class="erp-tab", "全部消息"),
         button(class="erp-tab", "审批通知"),
         button(class="erp-tab", "系统通知"),
       ],
       table_panel(
         "消息列表",
-        "按时间倒序",
+        if model.inbox_loaded {
+          model.inbox_note + " · 空源表 " + model.inbox_missing_table_count
+        } else {
+          "按时间倒序"
+        },
         data_table(
           ["", "标题", "内容", "业务", "时间", "状态", "操作"],
-          [
-            [
-              "●", "付款申请待审批", "成都和锦里主体结构施工合同付款申请 ¥128 万",
-              "付款申请", "今天 09:18", "未读", "查看",
-            ],
-            [
-              "●", "项目延期预警", "2# 楼砌体工程较计划晚 4 天，请确认处理方案",
-              "异常预警", "今天 08:42", "未读", "查看",
-            ],
-            [
-              "", "报销已通过", "EXP-260628-011 已完成审批并进入付款队列",
-              "我的报销", "昨天 16:20", "已读", "查看",
-            ],
-            [
-              "", "系统维护通知", "PostgreSQL 读模型已完成本次迁移校验",
-              "系统", "2026-07-11", "已读", "查看",
-            ],
-          ],
+          rows,
         ),
       ),
     ],
@@ -11905,17 +12491,91 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn notify_view() -> @html.Html {
+fn notify_view(model : Model) -> @html.Html {
+  let subscription_rows = if model.notify_loaded {
+    if model.notify_subscription_rows.length() == 0 {
+      [["—", "—", "—", "—", "无源记录"]]
+    } else {
+      model.notify_subscription_rows
+    }
+  } else {
+    [
+      [
+        "cost_variance", "成本", "warning", "站内信 + 企业微信", "启用",
+      ],
+      ["task_overdue", "项目任务", "warning", "站内信", "启用"],
+      ["cash_gap", "资金计划", "critical", "邮件 + 站内信", "启用"],
+    ]
+  }
+  let config_rows = if model.notify_loaded {
+    if model.notify_config_rows.length() == 0 {
+      [["—", "无已配置键", "未导入"]]
+    } else {
+      model.notify_config_rows
+    }
+  } else {
+    [["notify.webhook.url", "已配置", "设计快照"]]
+  }
+  let outbox_rows = if model.notify_loaded {
+    if model.notify_outbox_rows.length() == 0 {
+      [["—", "—", "—", "无源记录", "—"]]
+    } else {
+      model.notify_outbox_rows
+    }
+  } else {
+    [
+      [
+        "Giant Claw", "成本偏差超过 5% · 成都和锦里", "今天 09:18",
+        "已发送", "查看",
+      ],
+      ["陈志强", "2# 楼任务延期", "今天 08:42", "已发送", "查看"],
+      ["刘松", "现金流缺口预测", "2026-07-11", "待发送", "重试"],
+    ]
+  }
+  let digest_rows = if model.notify_loaded {
+    if model.notify_digest_rows.length() == 0 {
+      [["—", "—", "0", "0", "0", "0", "无源记录"]]
+    } else {
+      model.notify_digest_rows
+    }
+  } else {
+    [
+      ["2026-07-13", "09:20", "5", "0", "2", "8", "定时摘要"],
+      ["2026-07-12", "18:00", "5", "0", "4", "26", "定时摘要"],
+    ]
+  }
+  let source_note = if model.notify_loaded {
+    model.notify_note +
+    " · 订阅 " +
+    model.notify_subscription_count +
+    " · 配置 " +
+    model.notify_configured_count +
+    " · 队列 " +
+    model.notify_outbox_count +
+    " · 摘要 " +
+    model.notify_digest_count +
+    " · 空源表 " +
+    model.notify_missing_table_count
+  } else {
+    "设计快照 · 生产通知投递与凭据仍需授权"
+  }
   page_shell(
     "通知配置 / 订阅",
     "SYSTEM / NOTIFICATIONS",
     "配置站内信、邮件和 Webhook 的通知规则；敏感凭据只由生产密钥服务托管。",
-    [button(class="erp-primary-btn", "＋ 新建规则")],
+    [button(class="erp-primary-btn", "＋ 新建规则（待授权）")],
     div <| [
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("通知规则"),
-          span(class="erp-info-tag", "只读迁移快照"),
+          span(
+            class="erp-info-tag",
+            if model.notify_loaded {
+              "PostgreSQL 源读"
+            } else {
+              "只读迁移快照"
+            },
+          ),
         ],
         div(class="erp-form-grid") <| [
           form_field("规则", "cost_variance", "规则编码"),
@@ -11927,36 +12587,43 @@ fn notify_view() -> @html.Html {
         ],
       ],
       table_panel(
+        "通知订阅",
+        source_note,
+        data_table(
+          ["规则", "业务", "最低级别", "通道", "状态"],
+          subscription_rows,
+        ),
+      ),
+      table_panel(
+        "源配置摘要",
+        "仅显示配置键和状态 · 密码 / API Key / Token 永不返回",
+        data_table(["配置键", "状态", "来源"], config_rows),
+      ),
+      table_panel(
         "通知队列",
-        "最近发送记录",
+        if model.notify_loaded {
+          "源表邮件元数据 · 正文未导入 · " + model.notify_note
+        } else {
+          "最近发送记录"
+        },
         data_table(
           ["收件人", "主题", "入队时间", "状态", "操作"],
-          [
-            [
-              "Giant Claw", "成本偏差超过 5% · 成都和锦里", "今天 09:18",
-              "已发送", "查看",
-            ],
-            [
-              "陈志强", "2# 楼任务延期", "今天 08:42", "已发送", "查看",
-            ],
-            [
-              "刘松", "现金流缺口预测", "2026-07-11", "待发送", "重试",
-            ],
-          ],
+          outbox_rows,
         ),
       ),
       table_panel(
         "通知日志",
-        "每日摘要",
+        if model.notify_loaded {
+          "每日摘要 · 只读日志 · 不触发发送"
+        } else {
+          "每日摘要"
+        },
         data_table(
           [
             "日期", "发送时间", "接收人数", "错误", "警告", "新增",
             "触发",
           ],
-          [
-            ["2026-07-13", "09:20", "5", "0", "2", "8", "定时摘要"],
-            ["2026-07-12", "18:00", "5", "0", "4", "26", "定时摘要"],
-          ],
+          digest_rows,
         ),
       ),
     ],
@@ -12379,9 +13046,9 @@ fn business_view(
       "/warning" => warning_view(model)
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)
-      "/inbox" => inbox_view()
+      "/inbox" => inbox_view(model)
       "/attachments" => attachments_view(model)
-      "/notify-config" => notify_view()
+      "/notify-config" => notify_view(model)
       "/audit-log" => audit_view(emit, model)
       "/error-log" => error_view()
       "/system-health" => health_view(emit, model)

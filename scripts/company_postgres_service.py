@@ -357,6 +357,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "loan_command",
             "audit_receipt",
             "attachment_metadata_read",
+            "notification_metadata_read",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -6557,6 +6558,41 @@ MARKETING_SOURCE_TABLES = {
 }
 
 
+NOTIFICATION_SOURCE_TABLES = {
+    "sys_message",
+    "sys_warning_subscription",
+    "sys_param",
+    "sys_email_outbox",
+    "sys_warning_digest_log",
+    "sys_warning",
+    "sys_user",
+}
+
+
+NOTIFICATION_CONFIG_KEYS = (
+    "notify.webhook.url",
+    "notify.webhook.kind",
+    "notify.email.from",
+    "notify.email.enabled",
+    "notify.email.smtp.host",
+    "notify.email.smtp.port",
+    "notify.email.smtp.user",
+    "notify.email.smtp.pass",
+    "notify.email.smtp.secure",
+    "ai.ocr.provider",
+    "ai.ocr.http.url",
+    "ai.llm.provider",
+    "ai.llm.key",
+    "ai.llm.model",
+    "ai.llm.endpoint",
+    "ai.llm.fallback_providers",
+    "notify.digest.enabled",
+    "notify.digest.hour",
+    "notify.ticket_email.enabled",
+    "notify.ticket_webhook.enabled",
+)
+
+
 def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
@@ -8281,6 +8317,275 @@ def marketing_source_materials(
         )
     result.sort(key=lambda item: (str(item["materialCode"]), str(item["materialGuid"])), reverse=True)
     return {"success": True, "code": 0, "data": result[:max_rows], **_marketing_source_metadata(coverage)}
+
+
+def _notification_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _notification_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(
+            _raw_source_rows(pool, table, max(max_rows, 500), NOTIFICATION_SOURCE_TABLES)
+        )
+        for table in sorted(NOTIFICATION_SOURCE_TABLES)
+    }
+
+
+def _notification_text(payload: dict[str, Any], *keys: str, fallback: str = "") -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value is not None and value != "":
+            return str(value)
+    return fallback
+
+
+def _notification_int(payload: dict[str, Any], *keys: str) -> int:
+    value = _notification_text(payload, *keys)
+    if not value:
+        return 0
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _notification_bool(payload: dict[str, Any], *keys: str, fallback: bool = False) -> bool:
+    value = _notification_text(payload, *keys)
+    if not value:
+        return fallback
+    return value.strip().lower() in {"1", "true", "yes", "y", "enabled", "启用"}
+
+
+def _notification_user_id(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> str | None:
+    if user_code is None or user_code == "":
+        return None
+    users = _raw_source_rows(pool, "sys_user", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES)
+    for row in users:
+        payload = row["payload"]
+        current_code = _notification_text(payload, "user_code", "userCode", "login_name")
+        if current_code == user_code:
+            return _notification_text(payload, "user_id", "userId", fallback=row["record_id"])
+    return user_code
+
+
+def notification_source_messages(
+    pool: PsqlPool,
+    user_code: str | None,
+    status: str,
+    limit: int,
+    offset: int,
+    max_rows: int,
+) -> dict[str, Any]:
+    if user_code is not None and user_code != "" and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    if status not in {"all", "unread", "read"}:
+        raise ValueError("invalid notification status")
+    if limit < 1 or limit > 200 or offset < 0:
+        raise ValueError("invalid notification pagination")
+    coverage = _notification_source_coverage(pool, max_rows)
+    user_id = _notification_user_id(pool, user_code, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "sys_message", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES):
+        payload = source["payload"]
+        current_user = _notification_text(payload, "user_id", "userId")
+        is_read = _notification_bool(payload, "is_read", "isRead")
+        if user_id and current_user != user_id:
+            continue
+        if status == "unread" and is_read:
+            continue
+        if status == "read" and not is_read:
+            continue
+        result.append(
+            {
+                "msgGuid": _notification_text(payload, "msg_guid", "msgGuid", fallback=source["record_id"]),
+                "userId": current_user,
+                "msgType": _notification_text(payload, "msg_type", "msgType"),
+                "title": _notification_text(payload, "title"),
+                "content": _notification_text(payload, "content"),
+                "bizType": _notification_text(payload, "biz_type", "bizType"),
+                "bizDataGuid": _notification_text(payload, "biz_data_guid", "bizDataGuid"),
+                "severity": _notification_text(payload, "severity"),
+                "createdAt": _notification_text(payload, "created_at", "createdAt"),
+                "isRead": is_read,
+                "readAt": _notification_text(payload, "read_at", "readAt"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["createdAt"]), str(item["msgGuid"])), reverse=True)
+    total = len(result)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"total": total, "rows": result[offset : offset + min(limit, max_rows)]},
+        "user_code": user_code or "",
+        **_notification_source_metadata(coverage),
+    }
+
+
+def notification_source_unread_count(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    result = notification_source_messages(pool, user_code, "unread", 200, 0, max_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"count": result["data"]["total"]},
+        "user_code": user_code or "",
+        **{key: value for key, value in result.items() if key not in {"data", "user_code"}},
+    }
+
+
+def notification_source_subscriptions(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    coverage = _notification_source_coverage(pool, max_rows)
+    user_id = _notification_user_id(pool, user_code, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(
+        pool, "sys_warning_subscription", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES,
+    ):
+        payload = source["payload"]
+        if user_id and _notification_text(payload, "user_id", "userId") != user_id:
+            continue
+        result.append(
+            {
+                "subId": _notification_int(payload, "sub_id", "subId"),
+                "userId": _notification_text(payload, "user_id", "userId"),
+                "ruleCode": _notification_text(payload, "rule_code", "ruleCode"),
+                "bizType": _notification_text(payload, "biz_type", "bizType"),
+                "severityMin": _notification_text(payload, "severity_min", "severityMin"),
+                "channels": _notification_text(payload, "channels"),
+                "enabled": _notification_bool(payload, "enabled", fallback=True),
+                "createdAt": _notification_text(payload, "created_at", "createdAt"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (int(item["subId"]), str(item["createdAt"])), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:max_rows],
+        "user_code": user_code or "",
+        **_notification_source_metadata(coverage),
+    }
+
+
+def notification_source_config(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _notification_source_coverage(pool, max_rows)
+    values = {key: "" for key in NOTIFICATION_CONFIG_KEYS}
+    configured: list[str] = []
+    for source in _raw_source_rows(pool, "sys_param", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES):
+        payload = source["payload"]
+        key = _notification_text(payload, "pk", "key", "param_key")
+        if key not in values:
+            continue
+        raw_value = _notification_text(payload, "pv", "value", "param_value")
+        if raw_value:
+            configured.append(key)
+        lowered = key.lower()
+        values[key] = "已配置" if any(marker in lowered for marker in ("pass", "key", "secret", "token")) and raw_value else raw_value
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"values": values, "configured": sorted(set(configured)), "keys": list(NOTIFICATION_CONFIG_KEYS)},
+        **_notification_source_metadata(coverage),
+    }
+
+
+def notification_source_email_outbox(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _notification_source_coverage(pool, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "sys_email_outbox", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES):
+        payload = source["payload"]
+        result.append(
+            {
+                "eid": _notification_text(payload, "eid", fallback=source["record_id"]),
+                "toAddr": _notification_text(payload, "to_addr", "toAddr"),
+                "subject": _notification_text(payload, "subject"),
+                "createdAt": _notification_text(payload, "created_at", "createdAt"),
+                "sentAt": _notification_text(payload, "sent_at", "sentAt"),
+                "status": _notification_text(payload, "status"),
+                "error": _notification_text(payload, "error"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["createdAt"]), str(item["eid"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_notification_source_metadata(coverage)}
+
+
+def notification_source_digest_preview(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _notification_source_coverage(pool, max_rows)
+    warnings: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "sys_warning", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES):
+        payload = source["payload"]
+        if _notification_text(payload, "status") not in {"", "open"}:
+            continue
+        warnings.append(
+            {
+                "warningGuid": _notification_text(payload, "warning_guid", "warningGuid", fallback=source["record_id"]),
+                "ruleCode": _notification_text(payload, "rule_code", "ruleCode"),
+                "title": _notification_text(payload, "title"),
+                "severity": _notification_text(payload, "severity"),
+                "sourceKind": "imported",
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"total": len(warnings), "rows": warnings[:max_rows], "new": len(warnings)},
+        **_notification_source_metadata(coverage),
+    }
+
+
+def notification_source_digest_log(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _notification_source_coverage(pool, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "sys_warning_digest_log", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES):
+        payload = source["payload"]
+        result.append(
+            {
+                "logId": _notification_int(payload, "log_id", "logId") or source["record_id"],
+                "digestDate": _notification_text(payload, "digest_date", "digestDate"),
+                "triggeredAt": _notification_text(payload, "triggered_at", "triggeredAt"),
+                "userCount": _notification_int(payload, "user_count", "userCount"),
+                "errorCount": _notification_int(payload, "error_count", "errorCount"),
+                "warningCount": _notification_int(payload, "warning_count", "warningCount"),
+                "newCount": _notification_int(payload, "new_count", "newCount"),
+                "triggeredBy": _notification_text(payload, "triggered_by", "triggeredBy"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["triggeredAt"]), str(item["logId"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_notification_source_metadata(coverage)}
+
+
+def notification_source_llm_providers(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _notification_source_coverage(pool, max_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": [],
+        "provider_execution": False,
+        **_notification_source_metadata(coverage),
+    }
 
 
 def loans(
@@ -10440,6 +10745,42 @@ def handler_factory(
                 elif parsed.path == "/api/company/marketing/materials":
                     proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
                     response(self, 200, marketing_source_materials(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/messages":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["50"])[0])
+                        offset = int(query.get("offset", ["0"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid notification pagination") from error
+                    response(
+                        self,
+                        200,
+                        notification_source_messages(
+                            pool,
+                            query.get("userCode", [None])[0],
+                            query.get("status", ["unread"])[0],
+                            limit,
+                            offset,
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/notify/messages/unread-count":
+                    user_code = parse_qs(parsed.query).get("userCode", [None])[0]
+                    response(self, 200, notification_source_unread_count(pool, user_code, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/subscriptions":
+                    user_code = parse_qs(parsed.query).get("userCode", [None])[0]
+                    response(self, 200, notification_source_subscriptions(pool, user_code, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/config":
+                    response(self, 200, notification_source_config(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/email-outbox":
+                    response(self, 200, notification_source_email_outbox(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/digest/preview":
+                    response(self, 200, notification_source_digest_preview(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/digest/log":
+                    response(self, 200, notification_source_digest_log(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/notify/llm-providers":
+                    response(self, 200, notification_source_llm_providers(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/investment/meta/dimensions":
                     response(
                         self,

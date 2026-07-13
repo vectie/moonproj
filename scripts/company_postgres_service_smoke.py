@@ -236,6 +236,82 @@ def main() -> int:
             ):
                 raise SmokeError(f"source marketing read failed: {marketing_path}: {status} {marketing_payload}")
             marketing_payloads[marketing_path] = marketing_payload
+        status, notification_messages_payload = request(
+            args.port,
+            "/api/company/notify/messages?userCode=admin&status=unread",
+            token=token,
+        )
+        notification_messages_data = (notification_messages_payload or {}).get("data", {})
+        if (
+            status != 200
+            or notification_messages_payload is None
+            or notification_messages_data.get("total") != 0
+            or notification_messages_data.get("rows") != []
+            or notification_messages_payload.get("source_coverage", {}).get("sys_message") != 0
+            or notification_messages_payload.get("source_coverage", {}).get("sys_user") != 5
+            or notification_messages_payload.get("authorizing") is not False
+            or notification_messages_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"source notification message read failed: {status} {notification_messages_payload}")
+        status, notification_unread_payload = request(
+            args.port,
+            "/api/company/notify/messages/unread-count?userCode=admin",
+            token=token,
+        )
+        if (
+            status != 200
+            or notification_unread_payload is None
+            or notification_unread_payload.get("data", {}).get("count") != 0
+            or notification_unread_payload.get("source_coverage", {}).get("sys_message") != 0
+            or notification_unread_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source notification unread read failed: {status} {notification_unread_payload}")
+        status, notification_subscriptions_payload = request(
+            args.port,
+            "/api/company/notify/subscriptions?userCode=admin",
+            token=token,
+        )
+        if (
+            status != 200
+            or notification_subscriptions_payload is None
+            or notification_subscriptions_payload.get("data") != []
+            or notification_subscriptions_payload.get("source_coverage", {}).get("sys_warning_subscription") != 0
+            or notification_subscriptions_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source notification subscription read failed: {status} {notification_subscriptions_payload}")
+        status, notification_config_payload = request(
+            args.port, "/api/company/notify/config", token=token,
+        )
+        notification_config_data = (notification_config_payload or {}).get("data", {})
+        if (
+            status != 200
+            or notification_config_payload is None
+            or notification_config_data.get("configured") != []
+            or notification_config_payload.get("source_coverage", {}).get("sys_param") != 0
+            or notification_config_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source notification config read failed: {status} {notification_config_payload}")
+        notification_read_payloads: dict[str, dict[str, Any]] = {}
+        for notification_path in (
+            "/api/company/notify/email-outbox",
+            "/api/company/notify/digest/preview",
+            "/api/company/notify/digest/log",
+            "/api/company/notify/llm-providers",
+        ):
+            status, notification_payload = request(args.port, notification_path, token=token)
+            if (
+                status != 200
+                or notification_payload is None
+                or notification_payload.get("source_coverage", {}).get("sys_user") != 5
+                or notification_payload.get("authorizing") is not False
+                or notification_payload.get("provider_execution") is not False
+            ):
+                raise SmokeError(f"source notification read failed: {notification_path}: {status} {notification_payload}")
+            if notification_path != "/api/company/notify/digest/preview" and notification_payload.get("data") != []:
+                raise SmokeError(f"source notification empty read failed: {notification_path}: {notification_payload}")
+            if notification_path == "/api/company/notify/digest/preview" and notification_payload.get("data", {}).get("total") != 0:
+                raise SmokeError(f"source notification digest preview failed: {notification_path}: {notification_payload}")
+            notification_read_payloads[notification_path] = notification_payload
         status, cashflow_payload = request(
             args.port,
             "/api/company/cashflow/forecast?months=6&projGuid=proj-0001",
@@ -2043,6 +2119,12 @@ def main() -> int:
                     "marketing_placement_rows": len(marketing_payloads["/api/company/marketing/placements"].get("data", [])),
                     "marketing_channel_rows": len(marketing_payloads["/api/company/marketing/channels"].get("data", [])),
                     "marketing_material_rows": len(marketing_payloads["/api/company/marketing/materials?projGuid=proj-0001"].get("data", [])),
+                    "notification_message_rows": notification_messages_data.get("total"),
+                    "notification_unread_count": notification_unread_payload.get("data", {}).get("count"),
+                    "notification_subscription_rows": len(notification_subscriptions_payload.get("data", [])),
+                    "notification_configured_keys": len(notification_config_data.get("configured", [])),
+                    "notification_outbox_rows": len(notification_read_payloads["/api/company/notify/email-outbox"].get("data", [])),
+                    "notification_digest_rows": len(notification_read_payloads["/api/company/notify/digest/log"].get("data", [])),
                     "cashflow_series_rows": len(cashflow_data.get("series", [])),
                     "cashflow_planned_total": cashflow_data.get("totals", {}).get("plannedTotal"),
                     "cashflow_missing_source_tables": len(cashflow_payload.get("missing_or_empty_source_tables", [])),

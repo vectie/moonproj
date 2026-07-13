@@ -378,6 +378,16 @@ the reviewed marketing cohort remains separate from imported ERP data. Create,
 update, delete, effect tracking, CBS/spend consumption, accounting,
 attribution, production identity, and owner acceptance remain gates.
 
+Notification is now a bounded source-read family rather than a delivery
+integration. `/inbox` loads user-scoped messages and unread counts;
+`/notify-config` chains subscriptions, redacted configuration status,
+email-outbox metadata, digest preview/log evidence, and provider discovery.
+The current export has no notification source rows, so successful reads show
+explicit empty-source states while five imported users remain available for
+scope coverage. Message acknowledgement, subscription/configuration writes,
+digest dispatch, provider calls, consent/retry policy, production identity,
+and owner acceptance remain separate gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
