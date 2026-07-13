@@ -113,6 +113,7 @@ def main() -> int:
             or payload is None
             or payload.get("target") != "postgresql"
             or "ai_analytics_read" not in payload.get("capabilities", [])
+            or "webhook_config_read" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, payload = request(args.port, "/api/company/projections?aggregate_type=notification_outbox", token=token)
@@ -286,6 +287,23 @@ def main() -> int:
             or ai_badge_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source AI badge read failed: {status} {ai_badge_payload}")
+        status, webhook_payload = request(
+            args.port,
+            "/api/company/webhook/config",
+            token=token,
+        )
+        webhook_data = (webhook_payload or {}).get("data", {})
+        if (
+            status != 200
+            or webhook_payload is None
+            or sorted(webhook_data) != ["dingtalk", "feishu", "wecom"]
+            or any(webhook_data[platform].get("enabled") is not False for platform in webhook_data)
+            or any(webhook_data[platform].get("hasSecret") is not False for platform in webhook_data)
+            or webhook_payload.get("source_coverage", {}).get("sys_param") != 0
+            or webhook_payload.get("secret_values_redacted") is not True
+            or webhook_payload.get("provider_execution") is not False
+        ):
+            raise SmokeError(f"source webhook config read failed: {status} {webhook_payload}")
         status, notification_messages_payload = request(
             args.port,
             "/api/company/notify/messages?userCode=admin&status=unread",
@@ -2206,6 +2224,10 @@ def main() -> int:
                     "ai_skip_rows": ai_kpi.get("skipTotal"),
                     "ai_activity_rows": len(ai_activity_payload.get("data", [])),
                     "ai_badge_by_ai": ai_badge_payload.get("data", {}).get("byAi"),
+                    "webhook_platform_rows": len(webhook_data),
+                    "webhook_configured_platforms": sum(
+                        1 for platform in webhook_data.values() if platform.get("urlConfigured")
+                    ),
                     "notification_message_rows": notification_messages_data.get("total"),
                     "notification_unread_count": notification_unread_payload.get("data", {}).get("count"),
                     "notification_subscription_rows": len(notification_subscriptions_payload.get("data", [])),

@@ -6,7 +6,7 @@ exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
 employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
-non-secret profile, and AI analytics reads.
+non-secret profile, AI analytics, and webhook configuration reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
 stacks; they never execute a provider or expose a mutation path.
 Production authentication, pooling, TLS,
@@ -76,6 +76,7 @@ from company_postgres_service import (
     ai_stats_source_overview as service_ai_stats_source_overview,
     ai_stats_source_activity as service_ai_stats_source_activity,
     ai_stats_source_badge as service_ai_stats_source_badge,
+    webhook_source_config as service_webhook_source_config,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -554,6 +555,10 @@ def ai_stats_source_badge(
     biz_guid: str | None,
 ) -> dict[str, Any]:
     return service_ai_stats_source_badge(_ReadModelPool(args), biz_type, biz_guid, 500)
+
+
+def webhook_source_config(args: argparse.Namespace) -> dict[str, Any]:
+    return service_webhook_source_config(_ReadModelPool(args), 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -1141,6 +1146,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 422, {"error": "invalid AI badge identifiers"})
                     else:
                         response(self, 200, ai_stats_source_badge(args, biz_type, biz_guid))
+                    return
+                if parsed.path == "/api/company/webhook/config":
+                    response(self, 200, webhook_source_config(args))
                     return
                 if parsed.path == "/api/company/admin/ocr/status":
                     response(self, 200, ocr_source_status(args))

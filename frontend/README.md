@@ -109,6 +109,12 @@ overview, activity, and badge evidence from PostgreSQL. The export has no
 successful reads show explicit empty-source analytics; LLM/OCR execution,
 draft confirmation, workflow authority, prompt retention, and AI-owner
 acceptance remain gated.
+The authenticated `/webhook-config` screen now reads the three-platform
+source-compatible webhook configuration through `/api/company/webhook/config`.
+URL and secret values are redacted, and the current export has no `sys_param`
+rows, so successful reads show explicit empty-source metadata. Configuration
+writes, test delivery, overdue scans, provider credentials, and
+notification-owner acceptance remain gated.
 The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

@@ -278,11 +278,12 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 49 connected browser states, 5
-fixture-backed states (4 read-only plus 1 form), 2 public states, 49
-connected API groups, and 7 fixture/no-source API groups. The newly connected
-AI analytics read family is included in those counts; its source tables are
-currently empty and are not treated as provider or draft authority.
+handlers (182 mutations), with 50 connected browser states, 4
+fixture-backed states (3 read-only plus 1 form), 2 public states, 50
+connected API groups, and 6 fixture/no-source API groups. The newly connected
+AI analytics and webhook configuration read families are included in those
+counts; their source tables are currently empty and are not treated as
+provider, draft, or notification authority.
 
 The source-handler action register now marks the ERP `GET /srm/providers` and
 `GET /srm/providers/:guid` reads as connected through separate
@@ -406,6 +407,15 @@ rows, so successful reads show empty-source state while preserving
 LLM/OCR execution, draft promotion, workflow authority, prompt retention,
 production identity, and AI-owner acceptance remain separate gates.
 
+Webhook configuration is now a bounded notification read family. `/webhook-config`
+loads `/api/company/webhook/config` over the three source `sys_param` platform
+names, enabled flags, and redacted URL/secret status. The export has no
+`sys_param` rows, so successful reads show explicit empty-source metadata while
+preserving `authorizing=false`, `persisted=false`, and
+`provider_execution=false`. Configuration writes, test delivery, overdue scans,
+credential ownership, production identity, and notification-owner acceptance
+remain separate gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
@@ -510,9 +520,9 @@ production identity, and AI-owner acceptance remain separate gates.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 49 connected browser states, 5 fixture-backed browser
-states (4 read-only and 1 form), and two public states. Its API matrix records
-49 connected API groups and 7 fixture/no-source groups across MDM
+currently records 50 connected browser states, 4 fixture-backed browser
+states (3 read-only and 1 form), and two public states. Its API matrix records
+50 connected API groups and 6 fixture/no-source groups across MDM
 organization/project, budget dictionary, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
@@ -537,8 +547,9 @@ Execute the remainder in this order:
    boundary for the currently connected bounded reads. Accept the imported
    profile/initiated-documents, expense-list, dynamic-cost, project/MDM,
    investment, governance, report, supplier-provider, supplier-risk, notification,
-   OCR/error metadata, and AI analytics reads through the real gateway session
-   with named owner reconciliation. A truthful empty source response is an
+   OCR/error metadata, AI analytics, and webhook configuration reads through
+   the real gateway session with named owner reconciliation. A truthful empty
+   source response is an
    accepted read result only when the owner accepts the source coverage; it is
    not permission to seed fixture rows.
 3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export

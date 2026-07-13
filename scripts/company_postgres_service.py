@@ -66,6 +66,8 @@ The bounded service exposes these endpoints:
   remain gated)
 * ``/api/company/ai-stats/{overview,activity,badge}`` (GET, source-compatible
   AI analytics reads; LLM/OCR execution and draft mutation remain gated)
+* ``/api/company/webhook/config`` (GET, source-compatible redacted webhook
+  configuration read; provider delivery, writes, and overdue scans remain gated)
 * ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast-v3`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast/detail`` (GET, source-compatible drill-down)
@@ -366,6 +368,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "ocr_status_read",
             "error_log_metadata_read",
             "ai_analytics_read",
+            "webhook_config_read",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -6620,6 +6623,16 @@ AI_STATS_SOURCE_TABLES = {
     "sys_user",
 }
 
+WEBHOOK_SOURCE_TABLES = {
+    "sys_param",
+}
+
+WEBHOOK_PLATFORM_DEFINITIONS = (
+    ("feishu", "飞书"),
+    ("dingtalk", "钉钉"),
+    ("wecom", "企微"),
+)
+
 OCR_PROVIDER_DEFINITIONS = (
     ("mock", "演示 Mock", False, ()),
     ("paddle", "本地 PaddleOCR", False, ()),
@@ -9043,6 +9056,72 @@ def ai_stats_source_badge(
     return {"success": True, "code": 0, "data": data, **_ai_stats_source_metadata(coverage)}
 
 
+def _webhook_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "secret_values_redacted": True,
+        "network_fields_redacted": True,
+    }
+
+
+def _webhook_mask_url(value: str) -> str:
+    if not value:
+        return ""
+    parsed = urlparse(value)
+    if parsed.scheme and parsed.netloc:
+        path = parsed.path or ""
+        return f"{parsed.scheme}://{parsed.netloc}{path}（已脱敏）"
+    return "已配置（已脱敏）"
+
+
+def _webhook_mask_secret(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 6:
+        return "****"
+    return value[:3] + "****" + value[-3:]
+
+
+def webhook_source_config(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), WEBHOOK_SOURCE_TABLES))
+        for table in sorted(WEBHOOK_SOURCE_TABLES)
+    }
+    params: dict[str, str] = {}
+    for source in _raw_source_rows(pool, "sys_param", max(max_rows, 500), WEBHOOK_SOURCE_TABLES):
+        payload = source["payload"]
+        key = _notification_text(payload, "pk", "key", "param_key")
+        if key:
+            params[key] = _notification_text(payload, "pv", "value", "param_value")
+    data: dict[str, dict[str, Any]] = {}
+    for platform, label in WEBHOOK_PLATFORM_DEFINITIONS:
+        enabled = params.get(f"notify.webhook.{platform}.enabled", "")
+        url = params.get(f"notify.webhook.{platform}.url", "")
+        secret = params.get(f"notify.webhook.{platform}.secret", "")
+        data[platform] = {
+            "label": label,
+            "enabled": _notification_bool({"value": enabled}, "value"),
+            "url": _webhook_mask_url(url),
+            "secret": _webhook_mask_secret(secret),
+            "hasSecret": bool(secret),
+            "urlConfigured": bool(url),
+        }
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "note": "Webhook 配置只读；URL/密钥已脱敏，写入与 provider 投递仍需授权。",
+        **_webhook_source_metadata(coverage),
+    }
+
+
 def loans(
     pool: PsqlPool,
     loan_id: str | None,
@@ -11224,6 +11303,8 @@ def handler_factory(
                         ai_stats_source_badge(pool, biz_type, biz_guid, max_response_rows),
                         origin,
                     )
+                elif parsed.path == "/api/company/webhook/config":
+                    response(self, 200, webhook_source_config(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/ocr/status":
                     response(self, 200, ocr_source_status(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/error-log":

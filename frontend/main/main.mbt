@@ -753,6 +753,10 @@ struct Model {
   ai_stats_activity_rows : Array[Array[String]]
   ai_stats_missing_table_count : String
   ai_stats_note : String
+  webhook_loaded : Bool
+  webhook_rows : Array[Array[String]]
+  webhook_missing_table_count : String
+  webhook_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -949,6 +953,8 @@ enum Msg {
   AiStatsOverviewLoaded(String)
   AiStatsActivityLoaded(String)
   AiStatsLoadFailed
+  WebhookLoaded(String)
+  WebhookLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1204,6 +1210,10 @@ fn initial_model() -> Model {
     ai_stats_activity_rows: [],
     ai_stats_missing_table_count: "0",
     ai_stats_note: "AI 分析源读模型尚未加载 · 使用设计快照",
+    webhook_loaded: false,
+    webhook_rows: [],
+    webhook_missing_table_count: "0",
+    webhook_note: "Webhook 配置源读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -3498,6 +3508,54 @@ fn ai_stats_activity_from_body(
 }
 
 ///|
+fn webhook_config_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String, String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      let note = json_object_text(fields, "note", "Webhook 配置只读")
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for platform in ["wecom", "feishu", "dingtalk"] {
+            match data.get(platform) {
+              Some(Json::Object(row)) =>
+                rows.push([
+                  json_object_text(row, "label", platform),
+                  if json_object_text(row, "enabled", "false") == "true" {
+                    "已启用"
+                  } else {
+                    "未启用"
+                  },
+                  if json_object_text(row, "urlConfigured", "false") == "true" {
+                    json_object_text(row, "url", "已配置（已脱敏）")
+                  } else {
+                    "— 未配置 —"
+                  },
+                  if json_object_text(row, "hasSecret", "false") == "true" {
+                    json_object_text(row, "secret", "****")
+                  } else {
+                    "未设置"
+                  },
+                  "imported",
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing, note)
+        }
+        _ => (false, rows, missing, note)
+      }
+    }
+    _ => (false, rows, "0", "Webhook 配置响应无效")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -4309,6 +4367,16 @@ fn load_ai_stats_activity(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/webhook/config").expect_text(result => {
+    match result {
+      Ok(body) => emit(WebhookLoaded(body))
+      Err(_) => emit(WebhookLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -4873,6 +4941,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "invoices")
       } else if path == "/ai-stats" {
         load_ai_stats_overview(emit)
+      } else if path == "/webhook-config" {
+        load_webhook_config(emit)
       } else if path == "/reports" {
         load_reports(emit)
       } else if path == "/expenses" {
@@ -6863,6 +6933,33 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_stats_scene_rows: [],
           ai_stats_activity_rows: [],
           ai_stats_note: "AI 分析读模型不可用 · 使用设计快照",
+        },
+      )
+    WebhookLoaded(body) => {
+      let (loaded, rows, missing, note) = webhook_config_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          webhook_loaded: loaded,
+          webhook_rows: rows,
+          webhook_missing_table_count: missing,
+          webhook_note: if loaded {
+            note + " · 空源表 " + missing
+          } else {
+            "Webhook 配置响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    WebhookLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          webhook_loaded: false,
+          webhook_rows: [],
+          webhook_note: "Webhook 配置读模型不可用 · 使用设计快照",
         },
       )
     ProfileLoaded(body) => {
@@ -13298,12 +13395,51 @@ fn ocr_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn webhook_view() -> @html.Html {
+fn webhook_view(model : Model) -> @html.Html {
+  let config_rows = if model.webhook_loaded {
+    if model.webhook_rows.length() == 0 {
+      [["—", "—", "—", "—", "无源记录"]]
+    } else {
+      model.webhook_rows
+    }
+  } else {
+    [
+      [
+        "企微", "已启用", "https://qyapi.weixin.qq.com/••••", "••••••••",
+        "设计快照",
+      ],
+      ["飞书", "未启用", "— 未配置 —", "未设置", "设计快照"],
+      ["钉钉", "未启用", "— 未配置 —", "未设置", "设计快照"],
+    ]
+  }
+  let active_row = if model.webhook_loaded && model.webhook_rows.length() > 0 {
+    model.webhook_rows[0]
+  } else {
+    [
+      "企微", "已启用", "https://qyapi.weixin.qq.com/••••", "••••••••",
+      "设计快照",
+    ]
+  }
+  let recent_rows = if model.webhook_loaded {
+    [["—", "—", "—", "—", "—", "无源记录"]]
+  } else {
+    [
+      [
+        "企业微信", "任务延期", "今天 08:42", "已发送", "0", "成都和锦里 2# 楼",
+      ],
+      [
+        "飞书", "合同到期", "昨天 17:20", "已发送", "1", "供应商资质到期",
+      ],
+      [
+        "钉钉", "资金缺口", "2026-07-11", "失败", "3", "重庆南山居 8 月预测",
+      ],
+    ]
+  }
   page_shell(
     "工单超期 Webhook",
     "SYSTEM / WEBHOOK",
     "为企业微信、飞书、钉钉配置工单超期通知；密钥和 URL 仅保留密文引用。",
-    [button(class="erp-primary-btn", "保存配置")],
+    [button(class="erp-primary-btn", "保存配置（待授权）")],
     div <| [
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "企业微信"),
@@ -13313,39 +13449,43 @@ fn webhook_view() -> @html.Html {
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("企业微信配置"),
-          span(class="erp-status-tag is-success", "已启用"),
+          span(class="erp-status-tag is-success", active_row[1]),
         ],
         div(class="erp-form-grid") <| [
-          form_field("启用", "是", "启用状态"),
-          form_field(
-            "Webhook URL", "https://qyapi.weixin.qq.com/••••", "Webhook URL",
-          ),
-          form_field(
-            "密钥", "••••••••", "由密钥服务托管",
-          ),
+          form_field("启用", active_row[1], "启用状态"),
+          form_field("Webhook URL", active_row[2], "Webhook URL"),
+          form_field("密钥", active_row[3], "由密钥服务托管"),
           form_field("超期阈值", "3 天", "工单超期"),
           form_field("通知范围", "项目任务", "业务范围"),
           form_field("重试策略", "3 次 / 5 分钟", "失败重试"),
         ],
       ],
       table_panel(
+        "三平台配置源读",
+        if model.webhook_loaded {
+          model.webhook_note +
+          " · 空源表 " +
+          model.webhook_missing_table_count
+        } else {
+          "设计快照 · URL/密钥仅显示脱敏摘要"
+        },
+        data_table(
+          ["平台", "状态", "Webhook URL", "密钥", "来源"],
+          config_rows,
+        ),
+      ),
+      table_panel(
         "最近发送",
-        "仅保留投递结果和摘要",
+        if model.webhook_loaded {
+          "源表未提供投递记录 · provider 执行与扫描仍需授权"
+        } else {
+          "仅保留投递结果和摘要"
+        },
         data_table(
           [
             "平台", "事件", "发送时间", "状态", "重试次数", "摘要",
           ],
-          [
-            [
-              "企业微信", "任务延期", "今天 08:42", "已发送", "0", "成都和锦里 2# 楼",
-            ],
-            [
-              "飞书", "合同到期", "昨天 17:20", "已发送", "1", "供应商资质到期",
-            ],
-            [
-              "钉钉", "资金缺口", "2026-07-11", "失败", "3", "重庆南山居 8 月预测",
-            ],
-          ],
+          recent_rows,
         ),
       ),
     ],
@@ -13706,7 +13846,7 @@ fn business_view(
       "/users" => users_view(model)
       "/admin" => admin_view(emit, model)
       "/ocr-config" => ocr_view(model)
-      "/webhook-config" => webhook_view()
+      "/webhook-config" => webhook_view(model)
       "/profile" => profile_view(emit, model)
       _ => placeholder_view(path)
     }
