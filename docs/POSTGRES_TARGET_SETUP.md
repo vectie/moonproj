@@ -88,10 +88,11 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/delivery_progress_mapping.json \
   scripts/fixtures/advance_offset_mapping.json \
   scripts/fixtures/payment_accounting_link_mapping.json \
-  "" "" "" "" "" "" "" \
+  "" "" "" "" "" "" \
   scripts/fixtures/cbs_budget_source_mapping.json \
   scripts/fixtures/warning_source_mapping.json \
-  scripts/fixtures/accounting_link_mapping.json
+  scripts/fixtures/accounting_link_mapping.json \
+  scripts/fixtures/notification_plan.example.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -112,3 +113,8 @@ receipt, persists its exact parity/replay evidence, and applies the three base
 source-to-journal links through the PostgreSQL accounting adapter. With all
 reviewed options, the fresh target rehearsal reaches 113 aggregate projections,
 7 accounting links, and 22 migration receipts; replay remains idempotent.
+The twenty-first argument supplies the reviewed notification plan. It adds one
+source-bound `notification_outbox` projection and receipt, so the complete
+rehearsal reaches 114 projections, 7 accounting links, and 23 receipts. The
+notification boundary records queue intent only; provider delivery,
+workflow mutation, cash release, and accounting posting remain separate gates.

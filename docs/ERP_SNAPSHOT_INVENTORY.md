@@ -91,6 +91,10 @@ requires the eighth CBS cost mapping, derives an explicit plan from positive
 The optional twenty-second argument supplies a source-bound warning mapping; it
 derives an explicit cost-overrun finding from named `cb_cost` rows and rejects
 any mismatch between the mapping and positive overruns.
+The optional twenty-third argument supplies a reviewed notification plan; it
+creates a source-bound `notification_outbox` projection with explicit queue
+intent, but no provider delivery, workflow mutation, cash release, or
+accounting posting.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

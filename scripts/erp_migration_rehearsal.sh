@@ -28,6 +28,7 @@ WARNING_PLAN=${19:-}
 CBS_BUDGET_PLAN=${20:-}
 CBS_BUDGET_SOURCE_MAPPING=${21:-}
 WARNING_SOURCE_MAPPING=${22:-}
+NOTIFICATION_PLAN=${23:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -443,6 +444,25 @@ if [ -n "$WARNING_SOURCE_MAPPING" ]; then
   echo "warning_source_replay=$WARNING_SOURCE_REPLAY"
 fi
 
+if [ -n "$NOTIFICATION_PLAN" ]; then
+  NOTIFICATION_RECEIPT="$WORK_DIR/notification-receipt.json"
+  moon run --target native cmd/notification -- \
+    "$NOTIFICATION_PLAN" "$NOTIFICATION_RECEIPT"
+  echo "notification_receipt=$NOTIFICATION_RECEIPT"
+  NOTIFICATION_APPLY="$WORK_DIR/notification-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$NOTIFICATION_RECEIPT" "$TARGET_DB" > "$NOTIFICATION_APPLY"
+  echo "notification_apply=$NOTIFICATION_APPLY"
+  NOTIFICATION_PARITY="$WORK_DIR/notification-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$NOTIFICATION_RECEIPT" "$TARGET_DB" "$NOTIFICATION_PARITY"
+  echo "notification_parity=$NOTIFICATION_PARITY"
+  NOTIFICATION_REPLAY="$WORK_DIR/notification-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$NOTIFICATION_RECEIPT" "$TARGET_DB" > "$NOTIFICATION_REPLAY"
+  echo "notification_replay=$NOTIFICATION_REPLAY"
+fi
+
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
 python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
@@ -509,6 +529,9 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$CBS_BUDGET_PLAN" ] || [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$NOTIFICATION_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then

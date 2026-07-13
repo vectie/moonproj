@@ -72,6 +72,12 @@ links, and 21 migration receipts with exact parity and idempotent replay.
 The same source-bound warning scan can add one `warning_finding` projection for
 the two explicit leaf-row component overruns, reaching 113 projections and 22
 receipts while notification routing and workflow mutation remain separate.
+The optional notification cohort maps a reviewed source event to one
+authority-checked `notification_outbox` projection, reaching 114 projections
+and 23 receipts in the complete rehearsal. It proves queue intent and
+idempotent replay without invoking a provider or mutating workflow, cash, or
+accounting state; source notification rows and production delivery remain
+later gates.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

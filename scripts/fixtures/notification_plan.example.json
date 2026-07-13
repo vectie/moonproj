@@ -1,0 +1,19 @@
+{
+  "format": "moonproj.company.notification-plan.v1",
+  "source_snapshot_id": "erp-snapshot:notification-001",
+  "mapping_version": "notification-map-v1-review-001",
+  "source_table": "workflow",
+  "source_id": "workflow-instance-001",
+  "evidence_id": "workflow:instance-001:notification-001",
+  "principal_id": "co-001",
+  "scope": "project:p-001",
+  "notification_id": "notification-001",
+  "recipient_id": "user-lmj-0001",
+  "channel": "in_app",
+  "template_code": "task.overdue",
+  "subject": "",
+  "body": "Task requires review",
+  "source_event_id": "workflow:instance-001:task-overdue",
+  "idempotency_key": "workflow:instance-001:task-overdue:user-lmj-0001",
+  "queue": true
+}

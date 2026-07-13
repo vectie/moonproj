@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/notification"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror NotificationPromotionError {
+  InvalidInput
+  Io(@fs.IOError)
+  Notification(@vectie/moonproj/intelligence/notification.NotificationError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

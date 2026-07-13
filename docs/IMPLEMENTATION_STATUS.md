@@ -149,7 +149,8 @@ existing ERP remains authoritative.
 | CBS cost-subject link | `finance/cbs` + `persistence/store` | Active/frozen CBS versions accept scoped source-to-subject cost links with explicit source identity and immutable link projections; separate budget-ledger reservation/consumption and broader schema/source coverage remain distinct. |
 | ERP CBS cost-link cohort | `scripts/erp_cbs_cost_link_plan.py` + `cmd/cbs_link` + `cmd/cbs_budget` + `persistence/store` | An eighth, independently mapped cohort translates all 7 non-empty `cb_cost` rows into explicit CBS subject links and one deduplicated `cbs_version` configuration projection, persists exact parity, and replays idempotently without budget consumption or accounting posting; an opt-in budget plan now persists subject-scoped control evidence. |
 | Agent boundary | `intelligence/agent_port` | MoonClaw-neutral request/result contracts with authority ceiling and idempotency. |
-| Warning findings | `intelligence/warning` + `cmd/warning` + `scripts/erp_warning_plan.py` + `persistence/store` | Deterministic cost-overrun finding plus scoped acknowledge/resolve/suppress lifecycle; the source planner scans explicitly named `cb_cost` leaf rows and persists immutable warning evidence with non-notification, non-workflow, non-cash, and non-accounting markers. |
+| Warning findings | `intelligence/warning` + `cmd/warning` + `scripts/erp_warning_plan.py` + `persistence/store` | Deterministic cost-overrun finding plus scoped acknowledge/resolve/suppress lifecycle; the source planner scans explicitly named `cb_cost` leaf rows and persists immutable warning evidence with non-workflow, non-cash, and non-accounting markers. |
+| Notification outbox boundary | `intelligence/notification` + `cmd/notification` + `ERP_NOTIFICATION_BOUNDARY.md` | Complete locally as a reviewed, authority-checked, source-bound outbox lifecycle for in-app/email/webhook intent. The synthetic plan passes native promotion, exact SQLite parity/replay, and PostgreSQL adapter replay; no provider call, workflow mutation, cash release, or accounting posting is performed. |
 | Investment analytics seed | `investment/analytics` | Deterministic moving average and trend fixture translated from Moonfish intent. |
 | Investment mandate and proposal | `investment/domain` | Local mandate limits, deterministic analysis attachment, proposal approval, controlled execution, and position creation. |
 | Investment mandate/proposal/position projections | `investment/domain` + `persistence/store` | Mandate limits, Moonfish analysis evidence, proposal states, executed positions, validated acquisition journals, and acquisition accounting-event links persist as immutable revisioned evidence. |
@@ -310,7 +311,9 @@ migration receipts; the CBS budget ledger remains reservation evidence with
 accounting and cash effects false. A source-bound warning scan over the two
 explicit positive `cb_cost` component overruns adds one warning projection and
 reaches 113 projections and 22 receipts while notification, workflow, cash,
-and accounting effects remain false.
+and accounting effects remain false. The optional reviewed notification
+cohort adds one authority-checked outbox projection, reaching 114 projections
+and 23 receipts without provider, workflow, cash, or accounting effects.
 Access tests also reject incompatible role assignments both when a new role is
 assigned and when a separation rule is added after existing assignments.
 They also prove delegation effective windows, amount ceilings, revocation, and
@@ -338,8 +341,11 @@ promotion of the remaining typed-staged rows, or production readiness.
    commitment-state/payment, user, audit, parameter, and draft delivery-
    progress promotion now have durable projection/parity rehearsal gates;
    task-state replay remains a reviewed exception cohort.
-3. Complete remaining cross-domain persistence links: workflow notification
-   delivery and broader CBS configuration. Typed workflow-assignment
+3. Complete remaining cross-domain persistence links: production workflow
+   notification delivery and broader CBS configuration. The standalone
+   notification outbox now has a reviewed, source-bound lifecycle and exact
+   parity/replay evidence; production provider routing, consent, and retention
+   remain separate gates. Typed workflow-assignment
    attachment, effective-dated delegation/revocation evidence, and
    non-authorizing projection evidence are implemented, as is a separately
    reviewed pending-posting delivery recognition projection (the available
@@ -348,7 +354,7 @@ promotion of the remaining typed-staged rows, or production readiness.
    `cb_cost.dfs_budget` reservations while the synthetic ledger exercises
    consumption controls, and a source-bound warning scan records the two
    explicit component overruns; full CBS schema/source coverage, real budget
-   ownership, and notification routing remain open. Invoice/receivable and milestone/settlement projections now
+   ownership, and provider notification routing remain open. Invoice/receivable and milestone/settlement projections now
    retain separate identities and cross-domain source links in the same store
    boundary.
 4. Extend the reviewed accounting-link/subledger reconciliation gate from the
