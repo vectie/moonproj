@@ -258,6 +258,26 @@ struct InvestmentIndexRow {
 }
 
 ///|
+struct AuditRow {
+  log_id : String
+  created_at : String
+  emp_name : String
+  user_id : String
+  action : String
+  target_type : String
+  target_id : String
+  ip : String
+  source_kind : String
+}
+
+///|
+struct AuditActionRow {
+  action : String
+  count : String
+  source_kind : String
+}
+
+///|
 struct UserRosterRow {
   user_code : String
   emp_name : String
@@ -431,6 +451,11 @@ struct Model {
   investment_net_profit_margin : String
   investment_irr : String
   investment_note : String
+  audit_loaded : Bool
+  audit_rows : Array[AuditRow]
+  audit_action_rows : Array[AuditActionRow]
+  audit_total : String
+  audit_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -553,6 +578,9 @@ enum Msg {
   InvestmentIndicesLoaded(String)
   InvestmentProfitLoaded(String)
   InvestmentLoadFailed
+  AuditLoaded(String)
+  AuditActionsLoaded(String)
+  AuditLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
   HealthTablesLoaded(String)
@@ -672,6 +700,11 @@ fn initial_model() -> Model {
     investment_net_profit_margin: "0",
     investment_irr: "0",
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
+    audit_loaded: false,
+    audit_rows: [],
+    audit_action_rows: [],
+    audit_total: "0",
+    audit_note: "审计读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -1642,6 +1675,63 @@ fn investment_profit_from_body(body : String) -> Array[String] {
 }
 
 ///|
+fn audit_rows_from_body(body : String) -> (Array[AuditRow], String) {
+  let rows : Array[AuditRow] = []
+  let mut total = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          total = json_object_text(data, "total", "0")
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  log_id: json_object_text(row, "logId", ""),
+                  created_at: json_object_text(row, "createdAt", ""),
+                  emp_name: json_object_text(row, "empName", ""),
+                  user_id: json_object_text(row, "userId", ""),
+                  action: json_object_text(row, "action", ""),
+                  target_type: json_object_text(row, "targetType", ""),
+                  target_id: json_object_text(row, "targetId", ""),
+                  ip: json_object_text(row, "ip", "已脱敏"),
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                })
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  (rows, total)
+}
+
+///|
+fn audit_action_rows_from_body(body : String) -> Array[AuditActionRow] {
+  let rows : Array[AuditActionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              action: json_object_text(row, "action", ""),
+              count: json_object_text(row, "count", "0"),
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -2088,6 +2178,26 @@ fn load_investment_profit(emit : @rabbita.Emit[Msg]) -> Cmd {
       }
     },
   )
+}
+
+///|
+fn load_audit_logs(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/audit/logs?limit=100").expect_text(result => {
+    match result {
+      Ok(body) => emit(AuditLoaded(body))
+      Err(_) => emit(AuditLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_audit_actions(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/audit/actions").expect_text(result => {
+    match result {
+      Ok(body) => emit(AuditActionsLoaded(body))
+      Err(_) => emit(AuditLoadFailed)
+    }
+  })
 }
 
 ///|
@@ -2566,6 +2676,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_users(emit)
       } else if path == "/investment" {
         load_investment_versions(emit)
+      } else if path == "/audit-log" {
+        load_audit_logs(emit)
       } else if path == "/system-health" {
         load_health_tables(emit)
       } else if path == "/loans" {
@@ -3569,6 +3681,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_version_name: "",
           investment_index_rows: [],
           investment_note: "投资测算读模型不可用 · 使用设计快照",
+        },
+      )
+    AuditLoaded(body) => {
+      let (rows, total) = audit_rows_from_body(body)
+      (
+        load_audit_actions(emit),
+        {
+          ..model,
+          audit_rows: rows,
+          audit_total: total,
+          audit_note: "已加载 PostgreSQL 审计日志 · 正在读取动作汇总",
+        },
+      )
+    }
+    AuditActionsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          audit_loaded: true,
+          audit_action_rows: audit_action_rows_from_body(body),
+          audit_note: "已加载 PostgreSQL 审计日志 · append-only 只读证据",
+        },
+      )
+    AuditLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          audit_loaded: false,
+          audit_rows: [],
+          audit_action_rows: [],
+          audit_total: "0",
+          audit_note: "审计读模型不可用 · 使用设计快照",
         },
       )
     UsersLoaded(body) =>
@@ -8650,42 +8796,91 @@ fn webhook_view() -> @html.Html {
 }
 
 ///|
-fn audit_view() -> @html.Html {
+fn audit_runtime_table(model : Model) -> @html.Html {
+  if model.audit_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.audit_rows {
+      rows.push([
+        row.log_id,
+        row.created_at,
+        row.emp_name,
+        row.user_id,
+        row.action,
+        row.target_type,
+        row.target_id,
+        row.ip + " · " + row.source_kind,
+      ])
+    }
+    let action_note = if model.audit_action_rows.length() == 0 {
+      "无动作汇总"
+    } else {
+      let action = model.audit_action_rows[0]
+      "动作 " +
+      action.action +
+      " × " +
+      action.count +
+      " · " +
+      action.source_kind
+    }
+    table_panel(
+      "审计日志（" + model.audit_total + " 条）",
+      model.audit_note + " · " + action_note,
+      data_table(
+        [
+          "ID", "时间", "用户", "user_id", "操作", "对象类型", "对象 ID",
+          "IP / 来源",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "审计日志",
+      "只读 · append-only · " + model.audit_note,
+      data_table(
+        [
+          "ID", "时间", "用户", "user_id", "操作", "对象类型", "对象 ID",
+          "IP",
+        ],
+        [
+          [
+            "1", "2026-07-13 09:24", "系统管理员", "user-admin-0001", "登录",
+            "identity", "user-admin-0001", "已脱敏",
+          ],
+          [
+            "2", "2026-07-12 18:12", "系统管理员", "user-admin-0001", "更新通知配置",
+            "notify_config", "cost_variance", "已脱敏",
+          ],
+          [
+            "3", "2026-07-11 16:42", "程玉哲", "user-tgl-0001", "提交报销",
+            "expense", "EXP-260712-008", "已脱敏",
+          ],
+          [
+            "4", "2026-07-10 11:20", "李明金", "user-lmj-0001", "审批付款",
+            "payment_apply", "PAY-260710-004", "已脱敏",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn audit_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "审计日志",
     "SYSTEM / AUDIT",
     "记录身份、权限、配置和业务对象变更；网络字段在迁移快照中按安全策略保留或脱敏。",
-    [button(class="erp-secondary-btn", "导出审计")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/audit-log")),
+        "刷新审计",
+      ),
+    ],
     div <| [
       filter_bar("用户 / 对象类型 / 对象 ID / 时间范围"),
-      table_panel(
-        "审计日志",
-        "只读 · append-only",
-        data_table(
-          [
-            "ID", "时间", "用户", "user_id", "操作", "对象类型", "对象 ID",
-            "IP",
-          ],
-          [
-            [
-              "1", "2026-07-13 09:24", "系统管理员", "user-admin-0001", "登录",
-              "identity", "user-admin-0001", "已脱敏",
-            ],
-            [
-              "2", "2026-07-12 18:12", "系统管理员", "user-admin-0001", "更新通知配置",
-              "notify_config", "cost_variance", "已脱敏",
-            ],
-            [
-              "3", "2026-07-11 16:42", "程玉哲", "user-tgl-0001", "提交报销",
-              "expense", "EXP-260712-008", "已脱敏",
-            ],
-            [
-              "4", "2026-07-10 11:20", "李明金", "user-lmj-0001", "审批付款",
-              "payment_apply", "PAY-260710-004", "已脱敏",
-            ],
-          ],
-        ),
-      ),
+      audit_runtime_table(model),
     ],
   )
 }
@@ -8910,7 +9105,7 @@ fn business_view(
       "/inbox" => inbox_view()
       "/attachments" => attachments_view()
       "/notify-config" => notify_view()
-      "/audit-log" => audit_view()
+      "/audit-log" => audit_view(emit, model)
       "/error-log" => error_view()
       "/system-health" => health_view(emit, model)
       "/users" => users_view(model)

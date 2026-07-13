@@ -49,6 +49,10 @@ is inferred from the super-user flag.
 The Rabbita `/users` screen consumes that roster read and keeps its role and
 permission panels as an explicitly offline design snapshot; it does not treat
 the imported super-user flag as target authority.
+The Rabbita `/audit-log` screen now consumes the two imported login rows and
+the `login × 2` action aggregate through the read-only adapter. It keeps the
+source IP redaction and append-only presentation; filtering, retention,
+deletion, and export authority remain separate gates.
 The target does not expose dictionary writes, audit deletion, role changes, or
 super-user elevation.
 
@@ -70,6 +74,9 @@ super-user elevation.
   `connected_rbac_user_read`; role and permission endpoints remain gated.
 - The parity matrix marks `/users` as `connected_rbac_user_read`; the
   production identity and super-user owner scenario remain required.
+- The parity matrix marks `/audit-log` as `connected_admin_audit_read`; audit
+  retention/export ownership and the production super-user scenario remain
+  required.
 - The parity matrix marks `/system-health` as
   `connected_admin_health_read`; the production identity and super-user owner
   scenario remain required before treating the screen as an accepted admin
