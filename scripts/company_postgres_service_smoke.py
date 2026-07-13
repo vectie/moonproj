@@ -338,6 +338,26 @@ def main() -> int:
             or admin_groups_payload.get("data", [])[0].get("enabled") != 5
         ):
             raise SmokeError(f"admin dictionary groups read failed: {status} {admin_groups_payload}")
+        status, admin_quality_payload = request(
+            args.port,
+            "/api/company/admin/quality/overview",
+            token=token,
+        )
+        quality_summary = (admin_quality_payload or {}).get("data", {}).get("summary", {})
+        quality_rules = (admin_quality_payload or {}).get("data", {}).get("rules", [])
+        if (
+            status != 200
+            or admin_quality_payload is None
+            or quality_summary.get("totalRules") != 12
+            or quality_summary.get("evaluatedRules") != 8
+            or quality_summary.get("unavailableRules") != 4
+            or quality_summary.get("failed") != 1
+            or len(quality_rules) != 12
+            or next((row for row in quality_rules if row.get("ruleCode") == "project_without_dynamic_cost"), {}).get("count") != 1
+            or next((row for row in quality_rules if row.get("ruleCode") == "supplier_duplicate_name"), {}).get("status") != "NO_SOURCE_ROWS"
+            or "srm_provider" not in admin_quality_payload.get("missing_or_empty_source_tables", [])
+        ):
+            raise SmokeError(f"admin quality overview read failed: {status} {admin_quality_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -1445,6 +1465,8 @@ def main() -> int:
                     "investment_profit_revenue": 18500.0,
                     "admin_dictionary_group_rows": 1,
                     "admin_dictionary_option_rows": 5,
+                    "admin_quality_rule_rows": len(quality_rules),
+                    "admin_quality_unavailable_rules": quality_summary.get("unavailableRules"),
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,

@@ -221,6 +221,15 @@ struct DashboardAnomalyRow {
 }
 
 ///|
+struct AdminQualityRow {
+  rule : String
+  count : String
+  severity : String
+  status : String
+  source_kind : String
+}
+
+///|
 struct LoanRow {
   loan_id : String
   loan_code : String
@@ -353,6 +362,9 @@ struct Model {
   dashboard_funnel_rows : Array[DashboardFunnelRow]
   dashboard_anomaly_rows : Array[DashboardAnomalyRow]
   dashboard_note : String
+  admin_quality_loaded : Bool
+  admin_quality_rows : Array[AdminQualityRow]
+  admin_quality_note : String
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
@@ -456,6 +468,8 @@ enum Msg {
   DashboardFunnelLoaded(String)
   DashboardAnomaliesLoaded(String)
   DashboardLoadFailed
+  AdminQualityLoaded(String)
+  AdminQualityLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
   CreateLoan
@@ -551,6 +565,9 @@ fn initial_model() -> Model {
     dashboard_funnel_rows: [],
     dashboard_anomaly_rows: [],
     dashboard_note: "驾驶舱读模型尚未加载 · 使用设计快照",
+    admin_quality_loaded: false,
+    admin_quality_rows: [],
+    admin_quality_note: "质量规则尚未加载 · 使用设计快照",
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
@@ -1337,6 +1354,36 @@ fn dashboard_anomaly_rows_from_body(
 }
 
 ///|
+fn admin_quality_rows_from_body(body : String) -> Array[AdminQualityRow] {
+  let rows : Array[AdminQualityRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          for value in json_array_field(data, "rules") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  rule: json_object_text(row, "rule", ""),
+                  count: json_object_text(row, "count", "—"),
+                  severity: json_object_text(row, "severity", "info"),
+                  status: json_object_text(row, "status", "NO_SOURCE_ROWS"),
+                  source_kind: json_object_text(
+                    row, "sourceKind", "imported_or_empty",
+                  ),
+                })
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn loan_from_json(value : Json) -> LoanRow? {
   match value {
     Json::Object(fields) =>
@@ -1584,6 +1631,16 @@ fn load_dashboard_anomalies(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(DashboardAnomaliesLoaded(body))
       Err(_) => emit(DashboardLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_admin_quality(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/quality/overview").expect_text(result => {
+    match result {
+      Ok(body) => emit(AdminQualityLoaded(body))
+      Err(_) => emit(AdminQualityLoadFailed)
     }
   })
 }
@@ -2028,6 +2085,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "invoices")
       } else if path == "/reports" {
         load_reports(emit)
+      } else if path == "/admin" {
+        load_admin_quality(emit)
       } else if path == "/loans" {
         load_loans(emit)
       } else if path == "/tasks" {
@@ -2903,6 +2962,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dashboard_funnel_rows: [],
           dashboard_anomaly_rows: [],
           dashboard_note: "驾驶舱读模型不可用 · 使用已审核快照",
+        },
+      )
+    AdminQualityLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          admin_quality_loaded: true,
+          admin_quality_rows: admin_quality_rows_from_body(body),
+          admin_quality_note: "已加载 PostgreSQL 数据质量规则 · 不可用源表保持可见",
+        },
+      )
+    AdminQualityLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          admin_quality_loaded: false,
+          admin_quality_rows: [],
+          admin_quality_note: "数据质量读模型不可用 · 使用已审核快照",
         },
       )
     LoansLoaded(body) =>
@@ -7782,7 +7861,42 @@ fn error_view() -> @html.Html {
 }
 
 ///|
-fn admin_view() -> @html.Html {
+fn admin_quality_table(model : Model) -> @html.Html {
+  if model.admin_quality_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.admin_quality_rows {
+      rows.push([row.rule, row.count, row.severity, row.status, row.source_kind])
+    }
+    table_panel(
+      "数据质量看板",
+      model.admin_quality_note,
+      data_table(
+        ["检查项", "异常数", "严重度", "状态", "来源"],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "数据质量看板",
+      model.admin_quality_note,
+      data_table(["检查项", "规则", "异常数", "严重度", "状态"], [
+        ["来源身份唯一性", "source_id 不重复", "0", "低", "通过"],
+        [
+          "投影来源可追溯", "source_snapshot + mapping", "0", "中", "通过",
+        ],
+        [
+          "会计链接主键", "event/source/journal 唯一", "0", "高", "通过",
+        ],
+        [
+          "任务依赖状态", "父任务完成度约束", "2", "高", "需复核",
+        ],
+      ]),
+    )
+  }
+}
+
+///|
+fn admin_view(model : Model) -> @html.Html {
   page_shell(
     "数据后台",
     "SYSTEM / ADMIN",
@@ -7809,27 +7923,7 @@ fn admin_view() -> @html.Html {
           ],
         ]),
       ),
-      table_panel(
-        "数据质量看板",
-        "当前批次检查结果",
-        data_table(
-          ["检查项", "规则", "异常数", "严重度", "状态"],
-          [
-            [
-              "来源身份唯一性", "source_id 不重复", "0", "低", "通过",
-            ],
-            [
-              "投影来源可追溯", "source_snapshot + mapping", "0", "中", "通过",
-            ],
-            [
-              "会计链接主键", "event/source/journal 唯一", "0", "高", "通过",
-            ],
-            [
-              "任务依赖状态", "父任务完成度约束", "2", "高", "需复核",
-            ],
-          ],
-        ),
-      ),
+      admin_quality_table(model),
     ],
   )
 }
@@ -7903,7 +7997,7 @@ fn business_view(
       "/error-log" => error_view()
       "/system-health" => health_view()
       "/users" => users_view()
-      "/admin" => admin_view()
+      "/admin" => admin_view(model)
       "/ocr-config" => ocr_view()
       "/webhook-config" => webhook_view()
       "/profile" => profile_view()

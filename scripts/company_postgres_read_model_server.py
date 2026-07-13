@@ -4,8 +4,8 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
-reviewed invoice, delivery/project-progress, dashboard v1, core-report, and employee-loan
-projections.
+reviewed invoice, delivery/project-progress, dashboard v1, core-report,
+employee-loan, and admin-quality projections.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
@@ -52,6 +52,7 @@ from company_postgres_service import (
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
+    admin_quality_overview as service_admin_quality_overview,
     loans as service_loans,
 )
 
@@ -183,6 +184,9 @@ class _ReadModelPool:
     def execute(self, sql: str) -> list[str]:
         output = run_psql(self.args, sql)
         return [line for line in output.splitlines() if line]
+
+    def execute_read(self, sql: str) -> list[str]:
+        return self.execute(sql)
 
 
 def contracts(args: argparse.Namespace, contract_id: str | None) -> list[dict[str, Any]]:
@@ -330,6 +334,10 @@ def dashboard_project_kpi(args: argparse.Namespace, project_id: str) -> dict[str
 
 def dashboard_project_anomalies(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
     return service_dashboard_project_anomalies(_ReadModelPool(args), project_id, 500)
+
+
+def admin_quality_overview(args: argparse.Namespace) -> dict[str, Any]:
+    return service_admin_quality_overview(_ReadModelPool(args), 500)
 
 
 def loans(
@@ -527,6 +535,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(args))
+                    return
+                if parsed.path == "/api/company/admin/quality/overview":
+                    response(self, 200, admin_quality_overview(args))
                     return
                 if parsed.path == "/api/company/dashboard/group/overview":
                     response(self, 200, dashboard_group_overview(args))

@@ -341,6 +341,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         in {
             "/dict/groups",
             "/dict/options",
+            "/quality/overview",
             "/audit/logs",
             "/audit/actions",
             "/health/tables",

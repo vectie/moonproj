@@ -53,7 +53,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/investment/{projects,versions,meta}/...`` (GET,
   source-compatible investment reads)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
-* ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage health reads)
+* ``/api/company/admin/quality/overview`` and
+  ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -3957,6 +3958,198 @@ def investment_profit_summary(
     }
 
 
+def admin_quality_overview(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    """Evaluate the source admin quality rules without inventing empty data."""
+
+    rows_by_table = {
+        table: _raw_source_rows(pool, table, max(max_rows, 500), ADMIN_QUALITY_SOURCE_TABLES)
+        for table in sorted(ADMIN_QUALITY_SOURCE_TABLES)
+    }
+    coverage = {table: len(rows) for table, rows in rows_by_table.items()}
+    missing_or_empty = [table for table, count in coverage.items() if count == 0]
+
+    def payloads(table: str) -> list[dict[str, Any]]:
+        return [row["payload"] for row in rows_by_table[table]]
+
+    def quality_rule(
+        code: str,
+        name: str,
+        source_tables: list[str],
+        count: int,
+    ) -> dict[str, Any]:
+        unavailable = [table for table in source_tables if coverage.get(table, 0) == 0]
+        if unavailable:
+            return {
+                "ruleCode": code,
+                "rule": name,
+                "count": None,
+                "status": "NO_SOURCE_ROWS",
+                "severity": "info",
+                "sourceTables": source_tables,
+                "missingSourceTables": unavailable,
+                "sourceKind": "imported_or_empty",
+            }
+        severity = "info" if count == 0 else ("error" if count > 5 else "warning")
+        return {
+            "ruleCode": code,
+            "rule": name,
+            "count": count,
+            "status": "PASS" if count == 0 else "FAIL",
+            "severity": severity,
+            "sourceTables": source_tables,
+            "missingSourceTables": [],
+            "sourceKind": "imported",
+        }
+
+    projects = payloads("ep_project")
+    contracts = payloads("cb_contract")
+    applies = payloads("cb_htfk_apply")
+    costs = payloads("cb_cost")
+    tasks = payloads("jd_task")
+    loans = payloads("vcb_loan_simple")
+    users = payloads("sys_user")
+    payments_by_contract: dict[str, float] = {}
+    for apply in applies:
+        if str(apply.get("apply_state") or "") == "已审核":
+            contract_id = str(apply.get("contract_guid") or "")
+            payments_by_contract[contract_id] = payments_by_contract.get(contract_id, 0.0) + _report_float(
+                apply, "apply_amount"
+            )
+    cost_projects = {
+        str(cost.get("proj_guid") or "")
+        for cost in costs
+        if _dashboard_flag(cost.get("is_end_cost"))
+    }
+    rules = [
+        quality_rule(
+            "project_without_bu",
+            "项目缺少所属公司",
+            ["ep_project"],
+            sum(1 for project in projects if not str(project.get("bu_guid") or "")),
+        ),
+        quality_rule(
+            "contract_without_project",
+            "合同未关联项目",
+            ["cb_contract"],
+            sum(1 for contract in contracts if not str(contract.get("proj_guid") or "")),
+        ),
+        quality_rule(
+            "payment_without_contract",
+            "付款申请缺少合同",
+            ["cb_htfk_apply"],
+            sum(1 for apply in applies if not str(apply.get("contract_guid") or "")),
+        ),
+        quality_rule(
+            "payment_over_contract",
+            "付款累计超合同总额",
+            ["cb_contract", "cb_htfk_apply"],
+            sum(
+                1
+                for contract in contracts
+                if payments_by_contract.get(str(contract.get("contract_guid") or ""), 0.0)
+                > _report_float(contract, "ht_amount") + _report_float(contract, "sum_alter_amount")
+            ),
+        ),
+        quality_rule(
+            "project_without_dynamic_cost",
+            "在建项目无动态成本科目",
+            ["ep_project", "cb_cost"],
+            sum(
+                1
+                for project in projects
+                if str(project.get("proj_status") or "") in {"planning", "development", "sales"}
+                and str(project.get("proj_guid") or "") not in cost_projects
+            ),
+        ),
+        quality_rule(
+            "expense_split_mismatch",
+            "报销分摊合计 ≠ 应付金额",
+            ["vcb_expense", "cb_expense_split"],
+            0,
+        ),
+        quality_rule(
+            "workflow_overdue",
+            "BPM 实例进行中超 7 天",
+            ["wf_process_instance"],
+            sum(
+                1
+                for row in rows_by_table["wf_process_instance"]
+                if str(row["payload"].get("status") or "") == "Running"
+                and (_report_date(row["payload"].get("initiated_at")) or date.max)
+                < date.today() - timedelta(days=7)
+            ),
+        ),
+        quality_rule(
+            "loan_balance_inconsistent",
+            "借款三态字段不一致",
+            ["vcb_loan_simple"],
+            sum(
+                1
+                for loan in loans
+                if abs(
+                    _report_float(loan, "remain_amount")
+                    - (_report_float(loan, "loan_amount") - _report_float(loan, "balance_amount"))
+                )
+                > 0.01
+            ),
+        ),
+        quality_rule(
+            "task_dates_reversed",
+            "任务计划完成 < 开始日期",
+            ["jd_task"],
+            sum(
+                1
+                for task in tasks
+                if (_report_date(task.get("plan_end_date")) or date.max)
+                < (_report_date(task.get("plan_begin_date")) or date.min)
+            ),
+        ),
+        quality_rule(
+            "supplier_duplicate_name",
+            "供应商重名(SRM)",
+            ["srm_provider"],
+            0,
+        ),
+        quality_rule(
+            "workflow_zombie",
+            "BPM 实例僵尸(>30 天 Running)",
+            ["wf_process_instance"],
+            sum(
+                1
+                for row in rows_by_table["wf_process_instance"]
+                if str(row["payload"].get("status") or "") == "Running"
+                and (_report_date(row["payload"].get("initiated_at")) or date.max)
+                < date.today() - timedelta(days=30)
+            ),
+        ),
+        quality_rule(
+            "user_without_bu",
+            "用户缺少所属组织",
+            ["sys_user"],
+            sum(1 for user in users if not str(user.get("bu_guid") or "")),
+        ),
+    ]
+    evaluated = [rule for rule in rules if rule["status"] != "NO_SOURCE_ROWS"]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "summary": {
+                "total": sum(int(rule["count"]) for rule in evaluated),
+                "passed": sum(1 for rule in evaluated if rule["status"] == "PASS"),
+                "failed": sum(1 for rule in evaluated if rule["status"] == "FAIL"),
+                "totalRules": len(rules),
+                "evaluatedRules": len(evaluated),
+                "unavailableRules": len(rules) - len(evaluated),
+            },
+            "rules": rules,
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": missing_or_empty,
+    }
+
+
 def admin_dict_groups(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
     groups: dict[str, dict[str, int]] = {}
@@ -4951,6 +5144,20 @@ INVESTMENT_SOURCE_TABLES = {
 ADMIN_SOURCE_TABLES = {
     "audit_log",
     "my_biz_param_option",
+    "sys_user",
+}
+
+ADMIN_QUALITY_SOURCE_TABLES = {
+    "ep_project",
+    "cb_contract",
+    "cb_htfk_apply",
+    "cb_cost",
+    "vcb_expense",
+    "cb_expense_split",
+    "wf_process_instance",
+    "vcb_loan_simple",
+    "jd_task",
+    "srm_provider",
     "sys_user",
 }
 
@@ -7184,6 +7391,8 @@ def handler_factory(
                     response(self, 200, investment_profit_summary(pool, project_value, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/dict/groups":
                     response(self, 200, admin_dict_groups(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/quality/overview":
+                    response(self, 200, admin_quality_overview(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/dict/options":
                     group_name = parse_qs(parsed.query).get("groupName", [None])[0]
                     response(self, 200, admin_dict_options(pool, group_name, max_response_rows), origin)

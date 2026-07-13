@@ -1,7 +1,7 @@
 # ERP-to-Company-Product Migration Plan
 
 Status: active strangler-migration plan; no cutover authorized  
-Recorded: 2026-07-13  
+Recorded: 2026-07-14
 Source: working site ERP in `../erp/erp_new`  
 Target: standalone company product in this repository
 
@@ -315,8 +315,9 @@ those capabilities as source parity.
    (one version, 26 indices, five dimensions, and profit summary); import,
    activation, valuation, cash, accounting, and tax remain gated. See
    [`ERP_INVESTMENT_RUNTIME_AUDIT.md`](ERP_INVESTMENT_RUNTIME_AUDIT.md).
-   Admin dictionary, audit, and health reads are connected for the available
-   governance rows (one group, five options, two audit events, 29 health-table
+   Admin dictionary, bounded quality, audit, and health reads are connected
+   for the available governance rows (one group, five options, twelve quality
+   rules with four unavailable dependencies, two audit events, 29 health-table
    coverage rows, and an empty BPM pool); super-user scope, writes, retention,
    source completeness, and security-owner acceptance remain gated. See
    [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).
