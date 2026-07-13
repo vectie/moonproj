@@ -30,10 +30,11 @@
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
+    "connected_supplier_risk_read": 1,
     "connected_tender_command_form": 1,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 2,
-    "fixture_backed_read_only": 20,
+    "fixture_backed_read_only": 19,
     "public": 1,
     "read_only_public": 1
   },
@@ -58,9 +59,10 @@
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command": 1,
+    "connected_supplier_risk_read": 1,
     "connected_tender_command": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 24
+    "read_only_fixture_no_source_api": 23
   },
   "routes": [
     {
@@ -615,13 +617,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "srm_risk_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_supplier_risk_read",
       "source_api_module": "srm",
       "source_api_handler_count": 14,
       "source_api_read_handler_count": 9,
       "source_api_mutation_handler_count": 5,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_supplier_risk_read",
+      "required_next": "accept_browser_supplier_risk_scenario_and_production_identity"
     },
     {
       "path": "/ocr-config",
@@ -4228,8 +4230,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_supplier_risk_read",
+      "required_next": "accept_browser_supplier_risk_scenario_and_production_identity"
     },
     {
       "module": "srm",

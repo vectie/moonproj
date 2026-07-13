@@ -278,9 +278,9 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 32 connected browser states, 22
-fixture-backed states (20 read-only plus 2 forms), 2 public states, 32
-connected API groups, and 24 fixture/no-source API groups.
+handlers (182 mutations), with 33 connected browser states, 21
+fixture-backed states (19 read-only plus 2 forms), 2 public states, 33
+connected API groups, and 23 fixture/no-source API groups.
 
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
@@ -291,6 +291,13 @@ designer fallback remain separate from those source reads. This changes the
 next step from “add another screen” to “accept the connected batch through the
 real identity boundary and named owners, then obtain the missing export before
 opening broad fixture-backed surfaces.”
+
+The supplier risk board is now an additional bounded source read: `/srm/risk-board`
+uses the ERP risk calculation over imported `srm_provider`, `cb_contract`, and
+`cb_contract_milestone` envelopes, returns source coverage, and explicitly
+marks the response non-authorizing. With the current snapshot it returns zero
+risk rows because the supplier and milestone tables are unavailable; the
+existing local supplier projection/risk endpoint remains separate.
 
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
@@ -396,12 +403,13 @@ opening broad fixture-backed surfaces.”
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 32 connected browser states, 22 fixture-backed browser
+currently records 33 connected browser states, 21 fixture-backed browser
 states, no browser states classified as read-model-only, and two public
-states. Its API matrix records 32 connected API groups and 24 fixture/no-source
+states. Its API matrix records 33 connected API groups and 23 fixture/no-source
 groups across MDM
 organization/project, budget dictionary, investment,
-admin governance, dynamic cost, expense, contract, payment, procurement,
+admin governance, dynamic cost, expense, contract, payment, procurement and
+supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan, and
 workflow-definition reads; the three dashboard aliases now represent the
 bounded source-backed v1 read, while `/cost-dashboard-v3` remains in the
@@ -422,8 +430,8 @@ Execute the remainder in this order:
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for the currently connected bounded reads. Accept the imported
    profile/initiated-documents, expense-list, dynamic-cost, project/MDM,
-   investment, governance, and report reads through the real gateway session
-   with named owner reconciliation. A truthful empty source response is an
+   investment, governance, report, and supplier-risk reads through the real
+   gateway session with named owner reconciliation. A truthful empty source response is an
    accepted read result only when the owner accepts the source coverage; it is
    not permission to seed fixture rows.
 3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export
@@ -434,7 +442,8 @@ Execute the remainder in this order:
    backup. Keep the current 26-table/120-row snapshot as the immutable
    rehearsal baseline and compare the new export before raw staging.
 4. Close the procurement acceptance gap after the source-data decision.
-   The local supplier lifecycle/risk reads, tender planning/award/complete,
+   The local supplier lifecycle/risk reads, source-compatible risk-board read,
+   tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
    command-state checks. Remaining procurement work is the source signature-
    check and external risk-rescore integration (or an owner-approved derived

@@ -324,6 +324,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "payment_application_command",
             "procurement_read",
             "supplier_read",
+            "supplier_risk_read",
             "supplier_command",
             "tender_command",
             "contract_split_command",
@@ -362,6 +363,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "payment_application_command",
             "procurement_read",
             "supplier_read",
+            "supplier_risk_read",
             "supplier_command",
             "tender_command",
             "contract_split_command",
@@ -967,6 +969,160 @@ def supplier_risk_board(
             result.append({**row, **risk})
     result.sort(key=lambda item: (int(item["score"]), str(item["supplier_id"])))
     return result[:max_rows]
+
+
+SRM_RISK_SOURCE_TABLES = {
+    "srm_provider",
+    "srm_provider_bu",
+    "srm_category",
+    "cb_contract",
+    "cb_contract_milestone",
+}
+
+
+def _srm_source_number(payload: dict[str, Any], key: str) -> float:
+    value = payload.get(key)
+    if value is None or value == "":
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError) as error:
+        raise ServiceError(f"invalid supplier risk numeric field: {key}") from error
+
+
+def _source_supplier_risk(
+    provider: dict[str, Any],
+    contracts: list[dict[str, Any]],
+    milestones: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Reproduce the ERP risk-board calculation from imported source rows.
+
+    This deliberately operates on raw source envelopes and never falls back to
+    local supplier command projections.  If the source supplier table is
+    absent, the caller returns an explicit empty/source-coverage response.
+    """
+
+    payload = provider["payload"]
+    provider_name = str(payload.get("provider_name") or "")
+    short_name = str(payload.get("short_name") or provider_name)
+    if str(payload.get("eval_result") or "") in {"黑名单", "不合格"}:
+        return {
+            "score": 0.0,
+            "rating": "E",
+            "tags": ["blacklist"],
+            "contract_count": 0,
+            "contract_total": 0.0,
+            "overdue_count": 0,
+            "overdue_amount": 0.0,
+        }
+    matching_contracts: list[dict[str, Any]] = []
+    for row in contracts:
+        contract = row["payload"]
+        if contract.get("deleted_at"):
+            continue
+        name = str(contract.get("yf_provider_name") or "")
+        if name == provider_name or (short_name and short_name in name):
+            matching_contracts.append(row)
+    contract_ids = {
+        str(row["payload"].get("contract_guid") or row["record_id"])
+        for row in matching_contracts
+    }
+    overdue_rows = [
+        row
+        for row in milestones
+        if str(row["payload"].get("contract_guid") or "") in contract_ids
+        and str(row["payload"].get("state") or "") == "overdue"
+    ]
+    contract_total = sum(
+        _srm_source_number(row["payload"], "ht_amount")
+        + _srm_source_number(row["payload"], "sum_alter_amount")
+        for row in matching_contracts
+    )
+    overdue_amount = sum(_srm_source_number(row["payload"], "plan_amount") for row in overdue_rows)
+    score = 70.0 + min(15.0, float(len(matching_contracts)))
+    score -= min(35.0, float(len(overdue_rows)) * 5.0)
+    if contract_total > 0:
+        score -= min(30.0, overdue_amount / contract_total * 50.0)
+    tags: list[str] = []
+    if str(payload.get("inspect_state") or "") == "不合格":
+        score -= 15.0
+        tags.append("inspect_failed")
+    if overdue_rows:
+        tags.append("overdue")
+    if contract_total > 50_000_000:
+        tags.append("heavy_concentration")
+    score = max(0.0, min(100.0, round(score, 1)))
+    rating = "A" if score >= 85 else "B" if score >= 70 else "C" if score >= 55 else "D" if score >= 40 else "E"
+    return {
+        "score": score,
+        "rating": rating,
+        "tags": tags,
+        "contract_count": len(matching_contracts),
+        "contract_total": contract_total,
+        "overdue_count": len(overdue_rows),
+        "overdue_amount": overdue_amount,
+    }
+
+
+def supplier_risk_board_source(
+    pool: PsqlPool,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read the ERP SRM risk-board source tables without local projections."""
+
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), SRM_RISK_SOURCE_TABLES))
+        for table in sorted(SRM_RISK_SOURCE_TABLES)
+    }
+    providers = _raw_source_rows(pool, "srm_provider", max(max_rows, 500), SRM_RISK_SOURCE_TABLES)
+    contracts = _raw_source_rows(pool, "cb_contract", max(max_rows, 500), SRM_RISK_SOURCE_TABLES)
+    milestones = _raw_source_rows(pool, "cb_contract_milestone", max(max_rows, 500), SRM_RISK_SOURCE_TABLES)
+    distribution: dict[str, int] = {}
+    high_risk: list[dict[str, Any]] = []
+    for provider in providers:
+        payload = provider["payload"]
+        if payload.get("deleted_at"):
+            continue
+        risk = _source_supplier_risk(provider, contracts, milestones)
+        rating = str(risk["rating"])
+        distribution[rating] = distribution.get(rating, 0) + 1
+        if rating not in {"D", "E"}:
+            continue
+        high_risk.append(
+            {
+                "providerGuid": str(payload.get("provider_guid") or provider["record_id"]),
+                "providerCode": str(payload.get("provider_code") or ""),
+                "providerName": str(payload.get("provider_name") or ""),
+                "shortName": str(payload.get("short_name") or ""),
+                "mainCategoryCode": str(payload.get("main_category_code") or ""),
+                "rating": rating,
+                "riskScore": risk["score"],
+                "riskTags": ",".join(risk["tags"]),
+                "ratingUpdatedAt": str(payload.get("rating_updated_at") or ""),
+                "contractCount": risk["contract_count"],
+                "contractTotal": risk["contract_total"],
+                "overdueCount": risk["overdue_count"],
+                "overdueAmount": risk["overdue_amount"],
+                "sourceKind": "imported",
+            }
+        )
+    high_risk.sort(key=lambda item: (float(item["riskScore"]), str(item["providerGuid"])))
+    distribution_rows = [
+        {"rating": rating, "c": distribution[rating]}
+        for rating in sorted(distribution)
+    ]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "highRisk": high_risk[:max_rows],
+            "distribution": distribution_rows,
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+        "authorizing": False,
+    }
 
 
 def _decode_split_fields(line: str) -> dict[str, Any]:
@@ -7663,6 +7819,8 @@ def handler_factory(
                     response(self, 200, {"items": suppliers(pool, value, max_response_rows)}, origin)
                 elif parsed.path == "/api/company/supplier-risk-board":
                     response(self, 200, {"items": supplier_risk_board(pool, max_response_rows)}, origin)
+                elif parsed.path == "/api/company/srm/risk-board":
+                    response(self, 200, supplier_risk_board_source(pool, max_response_rows), origin)
                 elif re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
                     supplier_id = parsed.path.split("/")[-2]
                     result = supplier_risk(pool, supplier_id)

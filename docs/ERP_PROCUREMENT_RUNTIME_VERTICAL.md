@@ -30,6 +30,10 @@ rows are production data.
   for the local supplier lifecycle;
 - `GET /api/company/suppliers/<id>/risk` and
   `GET /api/company/supplier-risk-board` for derived risk reads;
+- `GET /api/company/srm/risk-board` for the source-compatible ERP risk-board
+  envelope. It computes the source risk formula only from imported
+  `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
+  coverage/missing tables; it never falls back to local supplier projections;
 - `GET/POST /api/company/tender-splits` and
   `GET /api/company/tender-splits/<id>` for explicit contract-split evidence.
 
@@ -46,13 +50,15 @@ publish, bidding, award, completion, and cancellation actions through the
 authenticated gateway;
 `/srm/providers` loads the same supplier projection boundary while retaining
 the source-shaped supplier detail/new screen alongside the local command
-states. Supplier risk is a derived read; it does not mutate qualification.
+states. `/srm/risk-board` now loads the source-compatible risk envelope and
+shows an explicit empty/missing-source state for the available snapshot;
+supplier risk is a derived read and does not mutate qualification.
 
 The source parity audit also records the remaining differences. The source
 `srm.js` signature-check endpoint and external risk rescore job are not
-connected; the target risk board is deliberately derived from target-owned
-supplier state. All target mutations above are separate idempotent company
-commands, not proxied legacy writes.
+connected; the source-compatible risk board remains read-only and
+non-authorizing while the snapshot has no supplier rows. All target mutations
+above are separate idempotent company commands, not proxied legacy writes.
 
 ## Evidence
 
@@ -69,7 +75,10 @@ workflow: supplier create/update/submit/review, derived risk, tender
 publish/open-bidding/award/complete, and contract-split create/read. It checks
 idempotent replay and removes all disposable rows afterward; the PostgreSQL
 baseline is restored to 120 aggregate projections, 7 accounting links, and 22
-migration receipts. Imported supplier and tender mutation attempts return 409
+migration receipts. It separately verifies the source risk-board response has
+zero high-risk rows, two imported contracts, missing `srm_provider`,
+`srm_category`, and `cb_contract_milestone` coverage, and
+`authorizing=false`. Imported supplier and tender mutation attempts return 409
 read-only rejections.
 
 Remaining gates are the supplier/tender command slice above, a redacted source

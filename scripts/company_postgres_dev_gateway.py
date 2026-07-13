@@ -6,7 +6,7 @@ API. This private development gateway keeps the service bearer token on the
 server, establishes an in-memory HttpOnly session, signs its actor assertion,
 converts a JSON ``idempotency_key`` field into the required
 ``Idempotency-Key`` header, and forwards only the company
-read/expense/contract/payment-application/tender/supplier/split/sales/delivery/
+read/expense/contract/payment-application/tender/supplier/supplier-risk/split/sales/delivery/
 loan/reports paths.
 It must bind to a private address and is not a production gateway.
 """

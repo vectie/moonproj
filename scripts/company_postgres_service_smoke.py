@@ -118,6 +118,20 @@ def main() -> int:
         status, payload = request(args.port, "/api/company/suppliers", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"supplier read failed: {status} {payload}")
+        status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
+        supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
+        if (
+            status != 200
+            or supplier_risk_payload is None
+            or supplier_risk_data.get("highRisk") != []
+            or supplier_risk_data.get("distribution") != []
+            or supplier_risk_payload.get("source_coverage", {}).get("cb_contract") != 2
+            or "srm_provider" not in supplier_risk_payload.get("missing_or_empty_source_tables", [])
+            or "srm_category" not in supplier_risk_payload.get("missing_or_empty_source_tables", [])
+            or "cb_contract_milestone" not in supplier_risk_payload.get("missing_or_empty_source_tables", [])
+            or supplier_risk_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source supplier risk read failed: {status} {supplier_risk_payload}")
         status, payload = request(args.port, "/api/company/reports/overview", token=token)
         if (
             status != 200
@@ -1592,6 +1606,8 @@ def main() -> int:
                     "profile_initiated_applies": len(initiated_data.get("applies", [])),
                     "expense_source_rows": len(expense_source_data),
                     "expense_source_vcb_expense_rows": expense_source_payload.get("source_coverage", {}).get("vcb_expense"),
+                    "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
+                    "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,

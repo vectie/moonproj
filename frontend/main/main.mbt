@@ -125,6 +125,24 @@ struct SupplierRow {
 }
 
 ///|
+struct SupplierRiskRow {
+  provider_guid : String
+  provider_code : String
+  provider_name : String
+  short_name : String
+  main_category_code : String
+  rating : String
+  risk_score : String
+  risk_tags : String
+  rating_updated_at : String
+  contract_count : String
+  contract_total : String
+  overdue_count : String
+  overdue_amount : String
+  source_kind : String
+}
+
+///|
 struct SalesRow {
   aggregate_id : String
   primary : String
@@ -438,6 +456,11 @@ struct Model {
   tender_note : String
   suppliers_loaded : Bool
   supplier_rows : Array[SupplierRow]
+  supplier_risk_loaded : Bool
+  supplier_risk_rows : Array[SupplierRiskRow]
+  supplier_risk_distribution_total : String
+  supplier_risk_missing_table_count : String
+  supplier_risk_note : String
   supplier_id : String
   supplier_state : String
   supplier_evaluation : String
@@ -617,6 +640,8 @@ enum Msg {
   TenderCommandFailed
   SuppliersLoaded(String)
   SuppliersLoadFailed
+  SupplierRiskLoaded(String)
+  SupplierRiskLoadFailed
   CreateSupplier
   UpdateSupplier
   SubmitSupplierReview
@@ -722,6 +747,11 @@ fn initial_model() -> Model {
     tender_note: "合约规划读模型尚未加载",
     suppliers_loaded: false,
     supplier_rows: [],
+    supplier_risk_loaded: false,
+    supplier_risk_rows: [],
+    supplier_risk_distribution_total: "0",
+    supplier_risk_missing_table_count: "0",
+    supplier_risk_note: "供应商风险读模型尚未加载 · 使用设计快照",
     supplier_id: "SUP-RABBITA-LOCAL",
     supplier_state: "new",
     supplier_evaluation: "unrated",
@@ -1190,6 +1220,67 @@ fn supplier_rows_from_body(body : String) -> Array[SupplierRow] {
     _ => ()
   }
   rows
+}
+
+///|
+fn supplier_risk_from_json(value : Json) -> SupplierRiskRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        provider_guid: json_object_text(fields, "providerGuid", ""),
+        provider_code: json_object_text(fields, "providerCode", ""),
+        provider_name: json_object_text(fields, "providerName", ""),
+        short_name: json_object_text(fields, "shortName", ""),
+        main_category_code: json_object_text(fields, "mainCategoryCode", ""),
+        rating: json_object_text(fields, "rating", ""),
+        risk_score: json_object_text(fields, "riskScore", "0"),
+        risk_tags: json_object_text(fields, "riskTags", ""),
+        rating_updated_at: json_object_text(fields, "ratingUpdatedAt", ""),
+        contract_count: json_object_text(fields, "contractCount", "0"),
+        contract_total: json_object_text(fields, "contractTotal", "0"),
+        overdue_count: json_object_text(fields, "overdueCount", "0"),
+        overdue_amount: json_object_text(fields, "overdueAmount", "0"),
+        source_kind: json_object_text(fields, "sourceKind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn supplier_risk_from_body(
+  body : String,
+) -> (Array[SupplierRiskRow], String, String) {
+  let rows : Array[SupplierRiskRow] = []
+  let mut distribution_total = 0
+  let mut missing_table_count = 0
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      missing_table_count = json_array_field(
+        fields, "missing_or_empty_source_tables",
+      ).length()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "highRisk") {
+            match supplier_risk_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+          for value in json_array_field(data, "distribution") {
+            match value {
+              Json::Object(row) =>
+                distribution_total += json_object_int(row, "c")
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (rows, distribution_total.to_string(), missing_table_count.to_string())
 }
 
 ///|
@@ -2696,6 +2787,16 @@ fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_supplier_risk(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/srm/risk-board").expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierRiskLoaded(body))
+      Err(_) => emit(SupplierRiskLoadFailed)
+    }
+  })
+}
+
+///|
 fn supplier_command_body(_model : Model, command_type : String) -> String {
   if command_type == "create" {
     "{\"idempotency_key\":\"rabbita-supplier-create-v1\",\"supplier_id\":\"SUP-RABBITA-LOCAL\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"supplier_code\":\"SUP-RABBITA-LOCAL\",\"name\":\"Rabbita 本地示例供应商\",\"category_code\":\"construction\"}"
@@ -2982,6 +3083,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_tenders(emit)
       } else if path == "/srm/providers" {
         load_suppliers(emit)
+      } else if path == "/srm/risk-board" {
+        load_supplier_risk(emit)
       } else if path == "/sales/customers" {
         load_sales(emit, "customers")
       } else if path == "/sales/subscriptions" {
@@ -3608,6 +3711,34 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           suppliers_loaded: false,
           supplier_note: "供应商读模型不可用 · 使用已审核快照",
+        },
+      )
+    SupplierRiskLoaded(body) => {
+      let (rows, distribution_total, missing_table_count) = supplier_risk_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          supplier_risk_loaded: true,
+          supplier_risk_rows: rows,
+          supplier_risk_distribution_total: distribution_total,
+          supplier_risk_missing_table_count: missing_table_count,
+          supplier_risk_note: "已加载 PostgreSQL 供应商风险源读模型 · D/E 风险行只读",
+        },
+      )
+    }
+    SupplierRiskLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_risk_loaded: false,
+          supplier_risk_rows: [],
+          supplier_risk_distribution_total: "0",
+          supplier_risk_missing_table_count: "0",
+          supplier_risk_note: "供应商风险源读模型不可用 · 使用设计快照",
         },
       )
     CreateSupplier =>
@@ -7287,41 +7418,157 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn srm_risk_view() -> @html.Html {
+fn supplier_risk_table(rows : Array[SupplierRiskRow]) -> @html.Html {
+  let rendered : Array[Array[String]] = []
+  if rows.length() == 0 {
+    rendered.push([
+      "—", "—", "本次 ERP 源导出没有供应商风险记录", "—", "—",
+      "—", "imported_or_empty",
+    ])
+  } else {
+    for row in rows {
+      rendered.push([
+        row.provider_name +
+        " · " +
+        row.provider_code +
+        " / " +
+        row.provider_guid,
+        if row.risk_tags == "" {
+          "评级 " + row.rating
+        } else {
+          row.risk_tags
+        },
+        "评分 " +
+        row.risk_score +
+        " · 合同 " +
+        row.contract_count +
+        " 笔 · " +
+        row.contract_total,
+        row.overdue_count +
+        " / " +
+        row.contract_count +
+        " · " +
+        row.overdue_amount,
+        row.main_category_code,
+        if row.rating_updated_at == "" {
+          row.short_name
+        } else {
+          row.rating_updated_at
+        },
+        row.rating + " · " + row.source_kind,
+      ])
+    }
+  }
+  data_table(
+    [
+      "供应商", "风险类型", "风险说明", "影响合同", "主营类别",
+      "更新时间", "状态",
+    ],
+    rendered,
+  )
+}
+
+///|
+fn srm_risk_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let risk_table = if model.supplier_risk_loaded {
+    supplier_risk_table(model.supplier_risk_rows)
+  } else {
+    data_table(
+      [
+        "供应商", "风险类型", "风险说明", "影响合同", "责任人",
+        "截止日期", "状态",
+      ],
+      [
+        [
+          "华北建材贸易有限公司", "资质到期", "安全生产许可证 15 天后到期",
+          "3", "王磊", "2026-07-28", "待处理",
+        ],
+        [
+          "众成广告传媒有限公司", "履约偏差", "投放效果低于约定 18%",
+          "2", "刘松", "2026-07-20", "进行中",
+        ],
+        [
+          "中建三局集团有限公司", "集中度", "单一供应商合同额占比 42%",
+          "8", "陈志强", "2026-08-15", "关注",
+        ],
+      ],
+    )
+  }
+  let high_risk_count = if model.supplier_risk_loaded {
+    model.supplier_risk_rows.length().to_string()
+  } else {
+    "6"
+  }
+  let distribution_total = if model.supplier_risk_loaded {
+    model.supplier_risk_distribution_total
+  } else {
+    "18"
+  }
+  let expiring_count = if model.supplier_risk_loaded { "—" } else { "12" }
   page_shell(
     "供应商风险面板",
     "SRM / RISK",
     "集中查看资质到期、履约偏差、诉讼和集中度风险，支持责任人跟进。",
-    [button(class="erp-secondary-btn", "导出风险清单")],
+    [
+      button(class="erp-secondary-btn", "导出风险清单"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/srm/risk-board")),
+        "刷新风险清单",
+      ),
+    ],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.supplier_risk_loaded {
+            "PostgreSQL 供应商风险源已连接"
+          } else {
+            "供应商风险源读模型"
+          },
+        ),
+        span(" · " + model.supplier_risk_note),
+        span(" · 缺失/空源表 " + model.supplier_risk_missing_table_count),
+      ]),
       div(class="erp-stat-grid") <| [
-        metric("高风险", "6", "需在 7 日内处理", "metric-blue"),
-        metric("中风险", "18", "较上周 -2", "metric-blue"),
-        metric("资质即将到期", "12", "未来 30 天", "metric-green"),
+        metric(
+          "高风险",
+          high_risk_count,
+          if model.supplier_risk_loaded {
+            "源 D/E 风险行"
+          } else {
+            "需在 7 日内处理"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "评级分布",
+          distribution_total,
+          if model.supplier_risk_loaded {
+            "源供应商总数"
+          } else {
+            "较上周 -2"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "资质即将到期",
+          expiring_count,
+          if model.supplier_risk_loaded {
+            "源未提供到期字段"
+          } else {
+            "未来 30 天"
+          },
+          "metric-green",
+        ),
       ],
       table_panel(
         "风险清单",
-        "按风险等级排序",
-        data_table(
-          [
-            "供应商", "风险类型", "风险说明", "影响合同", "责任人",
-            "截止日期", "状态",
-          ],
-          [
-            [
-              "华北建材贸易有限公司", "资质到期", "安全生产许可证 15 天后到期",
-              "3", "王磊", "2026-07-28", "待处理",
-            ],
-            [
-              "众成广告传媒有限公司", "履约偏差", "投放效果低于约定 18%",
-              "2", "刘松", "2026-07-20", "进行中",
-            ],
-            [
-              "中建三局集团有限公司", "集中度", "单一供应商合同额占比 42%",
-              "8", "陈志强", "2026-08-15", "关注",
-            ],
-          ],
-        ),
+        if model.supplier_risk_loaded {
+          "按 ERP 源风险计算排序 · 源行只读"
+        } else {
+          "按风险等级排序 · 等待 PostgreSQL 源读模型"
+        },
+        risk_table,
       ),
     ],
   )
@@ -9735,7 +9982,7 @@ fn business_view(
       "/tender" => tender_view(emit, model)
       "/srm/providers" => srm_providers_view(emit, model)
       "/srm/providers/SUP-00018" => provider_detail_view(emit)
-      "/srm/risk-board" => srm_risk_view()
+      "/srm/risk-board" => srm_risk_view(emit, model)
       "/cbs/dict" => cbs_view(path)
       "/cbs/versions" => cbs_view(path)
       "/cbs/r0-queue" => cbs_view(path)

@@ -6,15 +6,15 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The generic PostgreSQL
 summary/read-model adapter is not dashboard parity; the three dashboard
 aliases now use the bounded connected v1 read. The connected exceptions are the local
-expense/contract/payment-application/tender command, supplier read,
+expense/contract/payment-application/tender command, supplier and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, and non-authorizing workflow-definition
 read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 20, "public": 1, "read_only_public": 1}`
-- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 24}`
+- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 19, "public": 1, "read_only_public": 1}`
+- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 23}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -60,7 +60,7 @@ read verticals.
 | `/cbs/approval-config` | `../views/ApprovalConfig.vue` | `cbs_view` | `fixture_backed_read_only` | `cbs` | 10 / 20 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/srm/providers` | `../views/Providers.vue` | `srm_providers_view` | `connected_supplier_command_form` | `srm` | 9 / 5 | `connected_supplier_command` | `accept_browser_supplier_scenario_and_production_identity` |
 | `/srm/providers/:guid` | `../views/ProviderDetail.vue` | `provider_detail_view` | `fixture_backed_form` | `srm` | 9 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
-| `/srm/risk-board` | `../views/RiskBoard.vue` | `srm_risk_view` | `fixture_backed_read_only` | `srm` | 9 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/srm/risk-board` | `../views/RiskBoard.vue` | `srm_risk_view` | `connected_supplier_risk_read` | `srm` | 9 / 5 | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
 | `/ocr-config` | `../views/OcrConfig.vue` | `ocr_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/reports` | `../views/Reports.vue` | `reports_view` | `connected_report_read` | `reports` | 7 / 3 | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
 | `/report-builder` | `../views/ReportBuilder.vue` | `report_builder_view` | `fixture_backed_read_only` | `reports` | 7 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
@@ -380,7 +380,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `srm` | `DELETE` | `/providers/:guid` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `srm` | `GET` | `/providers/:guid/risk` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
 | `srm` | `POST` | `/providers/rescore-all` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `srm` | `GET` | `/risk-board` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
+| `srm` | `GET` | `/risk-board` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers/:guid/check-sign` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
 | `tender` | `GET` | `/tenders` | `/tender` | `not_connected` | `connect_authenticated_read_api` |
 | `tender` | `POST` | `/tenders` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |

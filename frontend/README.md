@@ -131,7 +131,7 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
 ```
 
 To exercise the connected expense, contract, payment-application, tender,
-supplier, sales, or employee-loan lifecycle paths, keep the service token
+supplier, supplier-risk, sales, or employee-loan lifecycle paths, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh

@@ -10,7 +10,7 @@ The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the generic summary/read-model adapter
 is not dashboard parity; the bounded dashboard v1 reads are now explicitly
 identified, while the local expense/contract/payment-application/
-tender/supplier/sales read verticals are explicitly identified, including the
+tender/supplier/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime and the non-authorizing workflow-definition
 read boundary. No workflow-instance mutation endpoint is inferred.
 """
@@ -173,6 +173,8 @@ def match_target(
             return function, "connected_tender_command_form"
         if path == "/srm/providers" and function == "srm_providers_view":
             return function, "connected_supplier_command_form"
+        if path == "/srm/risk-board" and function == "srm_risk_view":
+            return function, "connected_supplier_risk_read"
         if path in {
             "/sales/customers",
             "/sales/subscriptions",
@@ -254,6 +256,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_profile_scenario_and_production_identity"
     if target_state == "connected_expense_read":
         return "accept_browser_expense_scenario_and_production_identity"
+    if target_state == "connected_supplier_risk_read":
+        return "accept_browser_supplier_risk_scenario_and_production_identity"
     if target_state == "connected_command_form":
         return "accept_production_identity_and_full_session_scenario"
     if target_state in {"connected_contract_read", "connected_contract_command_form"}:
@@ -415,6 +419,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_expense_read", "accept_browser_expense_scenario_and_production_identity"
     if (
+        handler["module"] == "srm"
+        and handler["method"] == "GET"
+        and handler["path"] == "/risk-board"
+    ):
+        return "connected_supplier_risk_read", "accept_browser_supplier_risk_scenario_and_production_identity"
+    if (
         handler["module"] == "plan"
         and handler["method"] == "GET"
         and handler["path"]
@@ -463,6 +473,8 @@ def build_matrix(
             api_state = "connected_profile_read"
         elif target_state == "connected_expense_read":
             api_state = "connected_expense_read"
+        elif target_state == "connected_supplier_risk_read":
+            api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":
             api_state = "connected_expense_command"
         elif target_state in {"connected_contract_read", "connected_contract_command_form"}:
@@ -571,7 +583,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The generic PostgreSQL",
         "summary/read-model adapter is not dashboard parity; the three dashboard",
         "aliases now use the bounded connected v1 read. The connected exceptions are the local",
-        "expense/contract/payment-application/tender command, supplier read,",
+        "expense/contract/payment-application/tender command, supplier and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, and non-authorizing workflow-definition",
         "read verticals.",

@@ -3,7 +3,7 @@
 
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
-no mutation endpoints.  It covers company, procurement, sales/receivables,
+no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
 employee-loan, dynamic-cost, investment, admin-quality, and non-secret profile
 reads.
@@ -36,6 +36,7 @@ from company_postgres_service import (
     suppliers as service_suppliers,
     supplier_risk as service_supplier_risk,
     supplier_risk_board as service_supplier_risk_board,
+    supplier_risk_board_source as service_supplier_risk_board_source,
     tenders as service_tenders,
     contract_splits as service_contract_splits,
     sales_rows as service_sales_rows,
@@ -270,6 +271,10 @@ def supplier_risk(args: argparse.Namespace, supplier_id: str) -> dict[str, Any] 
 
 def supplier_risk_board(args: argparse.Namespace) -> list[dict[str, Any]]:
     return service_supplier_risk_board(_ReadModelPool(args), 500)
+
+
+def supplier_risk_board_source(args: argparse.Namespace) -> dict[str, Any]:
+    return service_supplier_risk_board_source(_ReadModelPool(args), 500)
 
 
 def contract_splits(
@@ -561,6 +566,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/supplier-risk-board":
                     response(self, 200, {"items": supplier_risk_board(args)})
+                    return
+                if parsed.path == "/api/company/srm/risk-board":
+                    response(self, 200, supplier_risk_board_source(args))
                     return
                 if re.fullmatch(r"/api/company/suppliers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
                     supplier_id = parsed.path.split("/")[-2]
