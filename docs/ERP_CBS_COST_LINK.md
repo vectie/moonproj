@@ -20,6 +20,8 @@ project mapping names:
 
 Missing projects or subject mappings quarantine the affected source row. The
 planner never treats a legacy cost code as a CBS subject by convention.
+Activation also rejects unknown parent codes and cyclic subject hierarchies;
+the target version cannot become active with an invalid tree.
 
 ## Native and durable boundary
 
@@ -52,7 +54,10 @@ scripts/erp_migration_rehearsal.sh \
 
 The cohort emits its own plan, native receipt, projection apply, exact parity,
 and idempotent replay artifacts. The reviewed fixture contains seven ready
-links for the seven non-empty `cb_cost` rows.
+links for the seven non-empty `cb_cost` rows and one deduplicated active
+`cbs_version` configuration projection. The configuration candidate records
+`configuration_only=true`, zero budget consumption, and
+`accounting_posted=false`.
 
 ## Remaining gates
 

@@ -49,15 +49,16 @@ snapshots/reports, assignees, lifecycle history/catalog, and proceedings) are
 preserved without becoming business state, bringing the typed-cohort total to
 74.
 The optional eighth cohort maps all seven non-empty `cb_cost` rows to explicit
-CBS subjects through `cmd/cbs_link`; its 102-projection/17-receipt rehearsal
-passes exact parity and replay while leaving budget consumption and accounting
-posting separate. Full CBS schema coverage remains open.
+CBS subjects through `cmd/cbs_link`, and persists one deduplicated active
+`cbs_version` configuration projection; its 103-projection/17-receipt
+rehearsal passes exact parity and replay while leaving budget consumption and
+accounting posting separate. Full CBS schema coverage remains open.
 The optional ninth cohort maps all six `wf_step_assignee` rows through
-`cmd/workflow_assignment`; its 108-projection/18-receipt rehearsal retains
+`cmd/workflow_assignment`; its 109-projection/18-receipt rehearsal retains
 workflow configuration, validates explicit process/step attachment, and does
 not create permissions or approve instances.
 The optional eleventh cohort maps the one `jd_task_report` row through
-`cmd/delivery_progress`; the full rehearsal reaches 109 projections while
+`cmd/delivery_progress`; the full rehearsal reaches 110 projections while
 retaining the report as a draft-only delivery intake with acceptance,
 recognition, budget/cost consumption, and task-state mutation false.
 The optional fourteenth cohort maps only separately reviewed accepted delivery

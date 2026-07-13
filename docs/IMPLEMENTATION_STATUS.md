@@ -147,7 +147,7 @@ existing ERP remains authoritative.
 | CBS subject/version | `finance/cbs` | Draft/active/frozen subject dictionary with duplicate-code and target-total controls. |
 | CBS aggregate projections | `finance/cbs` + `persistence/store` | Subject versions persist targets, hierarchy, state, and totals as immutable revisioned projections. |
 | CBS cost-subject link | `finance/cbs` + `persistence/store` | Active/frozen CBS versions accept scoped source-to-subject cost links with explicit source identity and immutable link projections; the reviewed fixture cohort is migrated, while budget consumption and broader schema/source coverage remain separate. |
-| ERP CBS cost-link cohort | `scripts/erp_cbs_cost_link_plan.py` + `cmd/cbs_link` + `persistence/store` | An eighth, independently mapped cohort translates all 7 non-empty `cb_cost` rows into explicit CBS subject links, persists exact parity, and replays idempotently without budget consumption or accounting posting. |
+| ERP CBS cost-link cohort | `scripts/erp_cbs_cost_link_plan.py` + `cmd/cbs_link` + `persistence/store` | An eighth, independently mapped cohort translates all 7 non-empty `cb_cost` rows into explicit CBS subject links and one deduplicated `cbs_version` configuration projection, persists exact parity, and replays idempotently without budget consumption or accounting posting. |
 | Agent boundary | `intelligence/agent_port` | MoonClaw-neutral request/result contracts with authority ceiling and idempotency. |
 | Warning findings | `intelligence/warning` | Deterministic cost-overrun finding plus scoped acknowledge/resolve/suppress lifecycle. |
 | Investment analytics seed | `investment/analytics` | Deterministic moving average and trend fixture translated from Moonfish intent. |
@@ -171,7 +171,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 230 passing MoonBit tests across the new packages. The
+The current scaffold has 232 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -288,16 +288,17 @@ projections and 13 migration receipts before task-state; with the clean
 project-2 state and typed-evidence cohorts it reaches 95 projections and 16
 receipts. A second full run is idempotent.
 With the optional eighth CBS cost-link mapping, the same target database
-reaches 102 projections and 17 migration receipts; all seven `cb_cost` links
-report exact `shadow_verified` parity and a second apply inserts zero rows.
-With the optional ninth workflow-assignment mapping, it reaches 108 projections
+reaches 103 projections and 17 migration receipts; all seven `cb_cost` links
+and the deduplicated `cbs_version` configuration report exact
+`shadow_verified` parity and a second apply inserts zero rows.
+With the optional ninth workflow-assignment mapping, it reaches 109 projections
 and 18 migration receipts; all six assignee rows report exact parity and a
 second apply inserts zero rows. Assignments remain configuration, not
 authority.
 The assignment planner refuses missing source users, target identities,
 processes, scopes, or capability mappings before native promotion.
 With the optional eleventh delivery-progress mapping, the same rehearsal
-reaches 109 projections and an exact `progress_report` parity/replay result;
+reaches 110 projections and an exact `progress_report` parity/replay result;
 the native receipt records `acceptance_created=false` and
 `recognition_created=false`.
 Access tests also reject incompatible role assignments both when a new role is

@@ -41,6 +41,8 @@ pub(all) suberror CbsError {
   InvalidAmount
   InvalidCurrency
   UnknownSubject
+  UnknownParent
+  HierarchyCycle
   DuplicateCode
   Frozen
   InvalidTransition
@@ -119,6 +121,22 @@ pub fn CbsVersion::activate(
   if self.state != CbsVersionState::Draft {
     raise CbsError::InvalidTransition
   }
+  for subject in self.subjects {
+    if subject.parent_code != "" {
+      let mut parent_found = false
+      for parent in self.subjects {
+        if parent.code == subject.parent_code {
+          parent_found = true
+        }
+      }
+      if !parent_found {
+        raise CbsError::UnknownParent
+      }
+      if hierarchy_cycle(self.subjects, subject) {
+        raise CbsError::HierarchyCycle
+      }
+    }
+  }
   @foundation.require_authority(
     grant,
     principal_id=grant.principal_id,
@@ -130,6 +148,34 @@ pub fn CbsVersion::activate(
     error => raise CbsError::NotAuthorized(error)
   }
   { ..self, state: CbsVersionState::Active }
+}
+
+///|
+fn hierarchy_cycle(
+  subjects : Array[CostSubject],
+  subject : CostSubject,
+) -> Bool {
+  let mut current = subject.parent_code
+  let visited : Array[String] = []
+  for _ in 0..<subjects.length() {
+    if current == "" {
+      return false
+    }
+    for seen in visited {
+      if seen == current {
+        return true
+      }
+    }
+    visited.push(current)
+    let mut next = ""
+    for candidate in subjects {
+      if candidate.code == current {
+        next = candidate.parent_code
+      }
+    }
+    current = next
+  }
+  true
 }
 
 ///|

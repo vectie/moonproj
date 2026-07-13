@@ -18,6 +18,8 @@ pub(all) suberror CbsError {
   InvalidAmount
   InvalidCurrency
   UnknownSubject
+  UnknownParent
+  HierarchyCycle
   DuplicateCode
   Frozen
   InvalidTransition

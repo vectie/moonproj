@@ -108,6 +108,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise CbsLinkError {
   let accepted : Array[Json] = []
   let link_ids : Array[String] = []
   let version_ids : Array[String] = []
+  let configuration_ids : Array[String] = []
   for item_value in items {
     let item = object(item_value)
     let source_table = required_string(item, "source_table")
@@ -182,6 +183,37 @@ fn run(plan_path : String, output_path : String) -> Unit raise CbsLinkError {
     ) catch {
       error => raise CbsLinkError::Cbs(error)
     }
+    let mut configuration_seen = false
+    for existing_id in configuration_ids {
+      if existing_id == cbs_version.version_id {
+        configuration_seen = true
+      }
+    }
+    if !configuration_seen {
+      accepted.push(
+        Json::object({
+          "source_table": Json::string("cbs_configuration"),
+          "source_id": Json::string(cbs_version.version_id),
+          "target_type": Json::string("cbs_version"),
+          "target_id": Json::string(cbs_version.version_id),
+          "target_candidate": Json::object({
+            "version_id": Json::string(cbs_version.version_id),
+            "project_scope": Json::string(cbs_version.project_scope),
+            "principal_id": Json::string(principal_id),
+            "state": Json::string("active"),
+            "target_total_minor": Json::number(
+              cbs_version.target_total_minor().to_double(),
+              repr=cbs_version.target_total_minor().to_string(),
+            ),
+            "subjects": required(version, "subjects"),
+            "configuration_only": Json::boolean(true),
+            "budget_consumption_minor": Json::number(0.0, repr="0"),
+            "accounting_posted": Json::boolean(false),
+          }),
+        }),
+      )
+      configuration_ids.push(cbs_version.version_id)
+    }
     let amount = @finance.Money::new(
       minor=required_int64(candidate, "amount_minor"),
       currency=required_string(candidate, "currency"),
@@ -227,6 +259,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise CbsLinkError {
     "accepted_items": Json::array(accepted),
     "cbs_cost_link_ids": strings_json(link_ids),
     "cbs_version_ids": strings_json(version_ids),
+    "cbs_configuration_ids": strings_json(configuration_ids),
   }).stringify(indent=2)
   @fs.write_string_to_file(output_path, report) catch {
     error => raise CbsLinkError::Io(error)

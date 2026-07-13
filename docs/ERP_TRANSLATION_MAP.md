@@ -157,7 +157,8 @@ period posting.
 The eighth wrapper argument can supply the independently reviewed CBS
 cost-subject map; it translates all seven non-empty `cb_cost` rows through the
 native `finance/cbs` link API, persists `cbs_cost_link` projections, and proves
-exact parity/replay without budget consumption or accounting posting. See
+exact parity/replay plus one deduplicated active `cbs_version` configuration
+projection without budget consumption or accounting posting. See
 [ERP_CBS_COST_LINK.md](ERP_CBS_COST_LINK.md).
 The ninth wrapper argument can supply the independently reviewed workflow
 assignment map; it translates all six `wf_step_assignee` rows through the
@@ -285,7 +286,7 @@ importer.
 | `cb_htfkplan`, `cb_htfk_apply` | Payment plan and application | `operations/contract` + `operations/settlement` + `migration/erp` + `cmd/promote` | The real fixture promotes 4 planned milestones and 3 requested settlements after an explicit two-contract performed-state replay; reached milestones retain their ID on requested settlements and on separate immutable projections, approval/payment flags remain evidence, and release plus accounting-event links require separate target authority. |
 | `cb_cost`, `cb_subject_dict`, CBS versions | Dynamic/project cost | `finance/cost` + `finance/cbs` + `migration/erp` | `B = D + E + F + G` deterministic calculation and target/commitment/actual/progress forecast implemented; the reviewed fixture maps all 7 non-empty `cb_cost` rows to explicit active/frozen CBS subjects with durable projections, while broader schema coverage and budget consumption remain pending. |
 | dynamic-cost and forecast snapshots | Cost persistence | `finance/cost` + `persistence/store` | Component totals, progress, forecast-at-completion, and signed variance serialize as revisioned projections. |
-| CBS subject/version snapshots | Cost structure persistence | `finance/cbs` + `persistence/store` | Hierarchical subjects, targets, totals, version state, and reviewed source-to-subject link projections serialize with source identity; wider CBS link persistence remains pending. |
+| CBS subject/version snapshots | Cost structure persistence | `finance/cbs` + `cmd/cbs_link` + `persistence/store` | Hierarchical subjects, targets, totals, version state, and reviewed source-to-subject link projections serialize with source identity; the mapped cohort now persists one deduplicated active `cbs_version` configuration projection, while wider CBS schema and budget-control coverage remain pending. |
 | budget checks and reservations | Budget availability and consumption | `finance` + `operations/commitment` | Reservation, consumption, release, and explicit commitment link implemented. |
 | `vcb_expense`, `cb_expense_split` | Expense and multidimensional allocation | `operations/expense` | Allocation, approval, advance offsetting, durable projection, and balanced recognition journal implemented. |
 | expense snapshots and recognition events | Expense persistence/accounting | `operations/expense` + `persistence/store` + `finance/accounting` | Allocations, offsets, approval state, balanced recognition journal, and source-to-journal event adapter serialize for reconciliation. |

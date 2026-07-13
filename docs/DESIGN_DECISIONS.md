@@ -89,7 +89,7 @@ depreciation, explicit opening receivable/payable source-to-journal links,
 separate sales-to-receivable and invoice-to-receivable recognition boundaries,
 acceptance-gated delivery recognition links, and accepted-progress cost
 forecast linkage.
-It also has 230 passing MoonBit tests, executable opening control-total checks,
+It also has 232 passing MoonBit tests, executable opening control-total checks,
 a credential-safe deterministic ERP row-export boundary, an idempotent durable
 SQLite migration rehearsal, a repeatable end-to-end rehearsal wrapper, a
 fail-closed mapped-cohort promotion planner, and a native domain-promotion
@@ -145,8 +145,9 @@ The next gates are managed production SQL deployment, persistent cross-domain
 accounting/subledger links, remaining typed-row reconciliation, ERP shadow
 acceptance, and cutover rehearsal.
 The optional CBS cost-link cohort now demonstrates explicit source-cost to
-governed-subject translation and replay, while full CBS schema coverage and
-budget consumption remain migration gates.
+governed-subject translation, a deduplicated active-version configuration
+projection, and replay; full CBS schema coverage and budget consumption remain
+migration gates.
 The optional workflow-assignment cohort likewise translates six assignee rows
 as configuration only; identity, delegation, and decision-time authority stay
 separate controls.

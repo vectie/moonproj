@@ -93,6 +93,80 @@ test "CBS version rejects duplicate subject codes" {
 }
 
 ///|
+test "CBS activation rejects an unknown parent" {
+  let version = CbsVersion::new(
+    version_id="cbs-parent-missing",
+    project_scope="project:p-001",
+    actor_id="alice",
+    grant=cbs_grant("cbs:create", "project:p-001"),
+  ).add_subject(
+    subject={
+      subject_id: "s-child",
+      code: "CHILD",
+      name: "Child",
+      parent_code: "MISSING",
+      target_minor: 1,
+    },
+    actor_id="alice",
+    grant=cbs_grant("cbs:edit", "project:p-001"),
+  )
+  try
+    version.activate(
+      actor_id="alice",
+      grant=cbs_grant("cbs:activate", "project:p-001"),
+    )
+  catch {
+    CbsError::UnknownParent => ()
+    _ => fail("wrong CBS parent error")
+  } noraise {
+    _ => fail("expected unknown CBS parent")
+  }
+}
+
+///|
+test "CBS activation rejects hierarchy cycles" {
+  let version = CbsVersion::new(
+      version_id="cbs-parent-cycle",
+      project_scope="project:p-001",
+      actor_id="alice",
+      grant=cbs_grant("cbs:create", "project:p-001"),
+    )
+    .add_subject(
+      subject={
+        subject_id: "s-a",
+        code: "A",
+        name: "A",
+        parent_code: "B",
+        target_minor: 1,
+      },
+      actor_id="alice",
+      grant=cbs_grant("cbs:edit", "project:p-001"),
+    )
+    .add_subject(
+      subject={
+        subject_id: "s-b",
+        code: "B",
+        name: "B",
+        parent_code: "A",
+        target_minor: 1,
+      },
+      actor_id="alice",
+      grant=cbs_grant("cbs:edit", "project:p-001"),
+    )
+  try
+    version.activate(
+      actor_id="alice",
+      grant=cbs_grant("cbs:activate", "project:p-001"),
+    )
+  catch {
+    CbsError::HierarchyCycle => ()
+    _ => fail("wrong CBS cycle error")
+  } noraise {
+    _ => fail("expected CBS hierarchy cycle")
+  }
+}
+
+///|
 test "active CBS version links a cost source to a governed subject" {
   let version = CbsVersion::new(
       version_id="cbs-link-v1",

@@ -90,10 +90,14 @@ def build_plan(export_dir: Path, mapping_path: Path) -> dict[str, Any]:
         raise PlanError("money_policy must be an object")
 
     plans: dict[str, dict[str, Any]] = {}
+    seen_version_ids: set[str] = set()
     for project_id, raw in projects.items():
         if not isinstance(raw, dict):
             raise PlanError(f"CBS project mapping is not an object: {project_id}")
         version_id = subject_value(raw.get("version_id"), "version_id")
+        if version_id in seen_version_ids:
+            raise PlanError(f"duplicate CBS version_id across projects: {version_id}")
+        seen_version_ids.add(version_id)
         principal_id = subject_value(raw.get("principal_id"), "principal_id")
         project_scope = subject_value(raw.get("project_scope"), "project_scope")
         amount_field = subject_value(raw.get("amount_field"), "amount_field")
