@@ -5,8 +5,10 @@ This browser surface is a Rabbita port of the designer-built ERP in
 dashboard are copied from the source UI language and labels. The major ERP
 route families now have their own screen compositions—projects, plans,
 workflow, AI, sales, cost/procurement, finance, analysis, and system
-administration—with the source tables, tabs, KPI cards, and action boundaries
-represented as read-only fixtures.
+administration—with the source tables, tabs, KPI cards, forms, and action
+boundaries represented as read-only fixtures. Inbox, attachments, health,
+users/roles, profile, notifications, OCR, and webhook routes now retain their
+distinct source layouts instead of sharing a generic administrative table.
 
 The UI is deliberately fixture-backed while the HTTP/API boundary is being
 connected. It is a visual and interaction migration, not a claim that a button

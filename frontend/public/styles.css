@@ -180,6 +180,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-status-tag.is-success { color: #15803d; background: #f0fdf4; }
 .erp-status-tag.is-pending { color: #b45309; background: #fffbeb; }
 .erp-status-tag.is-danger { color: #b91c1c; background: #fef2f2; }
+.erp-health-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.erp-health-item { display: flex; flex-direction: column; gap: 5px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 5px; background: #f8fafc; }
+.erp-health-item span:first-child { color: #475569; font-size: 12px; }
+.erp-health-item strong { color: #15803d; font-size: 14px; }
+.erp-health-item span:last-child { color: #94a3b8; font-size: 11px; }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -213,6 +218,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-ai-grid, .erp-report-grid { grid-template-columns: 1fr; }
   .erp-builder-options { grid-template-columns: 1fr 1fr; }
   .erp-form-grid { grid-template-columns: 1fr 1fr; }
+  .erp-health-grid { grid-template-columns: 1fr 1fr; }
   .login-brand-side { max-width: 100%; text-align: center; }
   .login-brand-side h1 { font-size: 24px; }
   .login-features { display: none; }
@@ -240,6 +246,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-builder-options { grid-template-columns: 1fr 1fr; }
   .erp-form-grid { grid-template-columns: 1fr; }
   .erp-detail-card { padding: 12px; }
+  .erp-health-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

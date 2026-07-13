@@ -2580,6 +2580,479 @@ fn system_view(path : String) -> @html.Html {
 }
 
 ///|
+fn inbox_view() -> @html.Html {
+  page_shell(
+    "站内信",
+    "SYSTEM / INBOX",
+    "统一接收审批、预警、系统和业务通知，保留已读状态与业务关联。",
+    [button(class="erp-secondary-btn", "全部标记已读")],
+    div <| [
+      div(class="erp-stat-grid") <| [
+        metric("未读消息", "8", "高优先级 2", "metric-blue"),
+        metric("本周新增", "26", "较上周 +4", "metric-blue"),
+        metric("业务通知", "18", "审批 / 预警", "metric-green"),
+      ],
+      div(class="erp-tabs") <| [
+        button(class="erp-tab is-active", "未读 (8)"),
+        button(class="erp-tab", "全部消息"),
+        button(class="erp-tab", "审批通知"),
+        button(class="erp-tab", "系统通知"),
+      ],
+      table_panel(
+        "消息列表",
+        "按时间倒序",
+        data_table(
+          ["", "标题", "内容", "业务", "时间", "状态", "操作"],
+          [
+            [
+              "●", "付款申请待审批", "成都和锦里主体结构施工合同付款申请 ¥128 万",
+              "付款申请", "今天 09:18", "未读", "查看",
+            ],
+            [
+              "●", "项目延期预警", "2# 楼砌体工程较计划晚 4 天，请确认处理方案",
+              "异常预警", "今天 08:42", "未读", "查看",
+            ],
+            [
+              "", "报销已通过", "EXP-260628-011 已完成审批并进入付款队列",
+              "我的报销", "昨天 16:20", "已读", "查看",
+            ],
+            [
+              "", "系统维护通知", "PostgreSQL 读模型已完成本次迁移校验",
+              "系统", "2026-07-11", "已读", "查看",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn attachments_view() -> @html.Html {
+  page_shell(
+    "附件中心",
+    "SYSTEM / ATTACHMENTS",
+    "搜索合同、发票、报销和项目证据，查看 AI 识别状态与业务关联。",
+    [button(class="erp-primary-btn", "＋ 上传附件")],
+    div <| [
+      div(class="erp-stat-grid") <| [
+        metric("附件总数", "2,846", "本月新增 186", "metric-blue"),
+        metric("待 OCR", "14", "需人工确认 6", "metric-blue"),
+        metric("已关联", "98.4%", "来源可追溯", "metric-green"),
+      ],
+      filter_bar("文件名 / 业务类型 / 上传人"),
+      table_panel(
+        "附件搜索",
+        "最近上传",
+        data_table(
+          [
+            "文件名", "业务", "大小", "类型", "上传人", "上传时间",
+            "AI", "操作",
+          ],
+          [
+            [
+              "主体结构施工合同.pdf", "合同 HT-CD-260701", "2.4 MB", "application/pdf",
+              "陈志强", "今天 09:12", "已识别", "预览 / 下载",
+            ],
+            [
+              "成都出差发票-01.pdf", "报销 EXP-260712-008", "428 KB", "application/pdf",
+              "程玉哲", "昨天 16:42", "已验真", "预览 / 下载",
+            ],
+            [
+              "工程进度照片-2#-0712.zip", "进度报告 rep-001", "18.6 MB",
+              "application/zip", "王工", "昨天 15:20", "—", "预览 / 下载",
+            ],
+            [
+              "销售合同扫描件.jpg", "签约 SC-260713-004", "1.1 MB", "image/jpeg",
+              "刘松", "2026-07-11", "待确认", "预览 / 下载",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn health_view() -> @html.Html {
+  page_shell(
+    "系统健康",
+    "SYSTEM / HEALTH",
+    "查看服务、数据库、存储和消息队列的当前状态，所有指标来自只读运维探针。",
+    [button(class="erp-secondary-btn", "刷新探针")],
+    div <| [
+      div(class="erp-stat-grid") <| [
+        metric("启动时长", "18d 06h", "最近重启 06-25", "metric-blue"),
+        metric("内存 RSS", "486 MB", "上限 2 GB", "metric-green"),
+        metric("数据库大小", "1.82 GB", "增长 +4.6%", "metric-blue"),
+      ],
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("服务状态"),
+          span(class="erp-status-tag is-success", "全部正常"),
+        ],
+        div(class="erp-health-grid") <| [
+          div(class="erp-health-item") <| [
+            span("PostgreSQL 主库"),
+            strong("正常"),
+            span("延迟 4 ms"),
+          ],
+          div(class="erp-health-item") <| [
+            span("读模型 API"),
+            strong("正常"),
+            span("请求 1,842 / 日"),
+          ],
+          div(class="erp-health-item") <| [
+            span("附件存储"),
+            strong("正常"),
+            span("可用 86%"),
+          ],
+          div(class="erp-health-item") <| [
+            span("通知队列"),
+            strong("正常"),
+            span("积压 0"),
+          ],
+        ],
+      ],
+      table_panel(
+        "表行数(主要 21 张)",
+        "最近探测 2026-07-13 09:40",
+        data_table(["表名", "行数", "说明", "状态"], [
+          ["company_record", "120", "原始 ERP 证据 envelope", "正常"],
+          [
+            "company_aggregate_projection", "109", "公司域聚合投影", "正常",
+          ],
+          [
+            "company_accounting_event_link", "7", "来源到会计事件链接",
+            "正常",
+          ],
+          [
+            "company_migration_receipt", "19", "迁移批次与回放凭证", "正常",
+          ],
+        ]),
+      ),
+    ],
+  )
+}
+
+///|
+fn users_view() -> @html.Html {
+  page_shell(
+    "用户/角色管理",
+    "SYSTEM / USERS",
+    "管理用户身份、组织范围和角色权限；超级用户标记不会直接迁移为目标权限。",
+    [button(class="erp-primary-btn", "＋ 新建用户")],
+    div <| [
+      div(class="erp-tabs") <| [
+        button(class="erp-tab is-active", "用户管理"),
+        button(class="erp-tab", "角色管理"),
+        button(class="erp-tab", "权限目录"),
+      ],
+      table_panel(
+        "用户管理",
+        "5 个已迁移身份 · 密码由认证服务管理",
+        data_table(
+          [
+            "账号", "姓名", "组织", "角色", "超级用户", "状态", "操作",
+          ],
+          [
+            [
+              "admin", "系统管理员", "集团总部", "超级管理员", "是(证据)",
+              "启用", "编辑 / 重置",
+            ],
+            [
+              "chengyuzhe", "程玉哲", "天津公司", "报销发起人", "否",
+              "启用", "编辑 / 禁用",
+            ],
+            [
+              "tianguanglei", "田光磊", "天津公司", "费用使用人", "否",
+              "启用", "编辑 / 禁用",
+            ],
+            [
+              "limingjin", "李明金", "天津公司", "部门负责人", "否",
+              "启用", "编辑 / 禁用",
+            ],
+            [
+              "liusong", "刘松", "集团总部", "综管负责人", "否", "启用",
+              "编辑 / 禁用",
+            ],
+          ],
+        ),
+      ),
+      table_panel(
+        "角色管理",
+        "按范围分配能力，不直接授予会计或付款权限",
+        data_table(
+          [
+            "编码", "名称", "描述", "数据范围", "权限数", "用户数",
+            "状态",
+          ],
+          [
+            [
+              "super_admin", "超级管理员", "平台配置与运维", "全集团",
+              "86", "1", "正常",
+            ],
+            [
+              "expense_user", "费用使用人", "发起报销和借款", "所属组织",
+              "12", "2", "正常",
+            ],
+            [
+              "department_owner", "部门负责人", "部门预算与审批", "所属部门",
+              "18", "1", "正常",
+            ],
+            [
+              "general_manager", "综管负责人", "业务流程复核", "集团 / 项目",
+              "24", "1", "正常",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn profile_view() -> @html.Html {
+  page_shell(
+    "个人中心",
+    "SYSTEM / PROFILE",
+    "管理个人资料、密码、通知订阅以及本人发起的业务单据。",
+    [button(class="erp-secondary-btn", "保存资料")],
+    div <| [
+      div(class="erp-tabs") <| [
+        button(class="erp-tab is-active", "基本信息"),
+        button(class="erp-tab", "修改密码"),
+        button(class="erp-tab", "我的订阅"),
+        button(class="erp-tab", "我的发起 (6)"),
+      ],
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("基本信息"),
+          span(class="erp-info-tag", "Giant Claw"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("账号", "admin", "用户编码"),
+          form_field("姓名", "系统管理员", "姓名"),
+          form_field("所属公司", "集团总部", "所属公司"),
+          form_field("所属部门", "数字化中心", "所属部门"),
+          form_field("联系电话", "138****0000", "联系电话"),
+          form_field("最后登录", "2026-07-13 09:38", "最后登录"),
+        ],
+      ],
+      table_panel(
+        "我的订阅",
+        "异常预警通知规则",
+        data_table(
+          ["规则", "业务", "级别下限", "通道", "状态", "操作"],
+          [
+            [
+              "cost_variance", "成本", "warning", "站内信 + 企业微信", "启用",
+              "编辑",
+            ],
+            [
+              "task_overdue", "项目任务", "warning", "站内信", "启用", "编辑",
+            ],
+            [
+              "cash_gap", "资金计划", "critical", "邮件 + 站内信", "启用",
+              "编辑",
+            ],
+          ],
+        ),
+      ),
+      table_panel(
+        "我的发起",
+        "报销 / 借款 / 付款申请",
+        data_table(
+          ["编号", "主题 / 事由", "金额", "状态", "日期", "操作"],
+          [
+            [
+              "EXP-260712-008", "成都项目现场出差", "¥8,560", "审批中",
+              "2026-07-12", "查看",
+            ],
+            [
+              "LOAN-260713-001", "沈阳项目会议", "¥8,000", "审批中", "2026-07-13",
+              "查看",
+            ],
+            [
+              "PAY-260713-006", "主体结构施工合同付款", "¥1,280,000",
+              "审批中", "2026-07-13", "查看",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn notify_view() -> @html.Html {
+  page_shell(
+    "通知配置 / 订阅",
+    "SYSTEM / NOTIFICATIONS",
+    "配置站内信、邮件和 Webhook 的通知规则；敏感凭据只由生产密钥服务托管。",
+    [button(class="erp-primary-btn", "＋ 新建规则")],
+    div <| [
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("通知规则"),
+          span(class="erp-info-tag", "只读迁移快照"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("规则", "cost_variance", "规则编码"),
+          form_field("业务", "成本", "业务类型"),
+          form_field("最低级别", "warning", "级别下限"),
+          form_field("通道", "站内信,企业微信", "通道"),
+          form_field("启用", "是", "启用状态"),
+          form_field("发送时间", "实时", "发送时间"),
+        ],
+      ],
+      table_panel(
+        "通知队列",
+        "最近发送记录",
+        data_table(
+          ["收件人", "主题", "入队时间", "状态", "操作"],
+          [
+            [
+              "Giant Claw", "成本偏差超过 5% · 成都和锦里", "今天 09:18",
+              "已发送", "查看",
+            ],
+            [
+              "陈志强", "2# 楼任务延期", "今天 08:42", "已发送", "查看",
+            ],
+            [
+              "刘松", "现金流缺口预测", "2026-07-11", "待发送", "重试",
+            ],
+          ],
+        ),
+      ),
+      table_panel(
+        "通知日志",
+        "每日摘要",
+        data_table(
+          [
+            "日期", "发送时间", "接收人数", "错误", "警告", "新增",
+            "触发",
+          ],
+          [
+            ["2026-07-13", "09:20", "5", "0", "2", "8", "定时摘要"],
+            ["2026-07-12", "18:00", "5", "0", "4", "26", "定时摘要"],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn ocr_view() -> @html.Html {
+  page_shell(
+    "OCR 配置",
+    "SYSTEM / OCR",
+    "配置发票、合同和身份证的 OCR 服务方，并在写入业务单据前保留人工确认。",
+    [
+      button(class="erp-secondary-btn", "测试连接"),
+      button(class="erp-primary-btn", "保存配置"),
+    ],
+    div <| [
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("OCR 配置 / 测试"),
+          span(class="erp-info-tag", "AI-4"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("服务方", "本地 PaddleOCR", "服务方"),
+          form_field(
+            "远程 OCR URL", "https://ocr.internal.example/v1", "远程 OCR URL",
+          ),
+          form_field(
+            "API Key", "••••••••", "由密钥服务托管",
+          ),
+          form_field("合同识别", "启用", "合同识别"),
+          form_field("发票识别", "启用", "发票识别"),
+          form_field("人工确认阈值", "0.85", "置信度"),
+        ],
+      ],
+      table_panel(
+        "最近识别任务",
+        "识别结果只产生草稿，不直接入账",
+        data_table(
+          ["任务", "文件", "类型", "字段数", "置信度", "状态"],
+          [
+            [
+              "OCR-260713-018", "主体结构施工合同.pdf", "合同", "32", "0.96",
+              "已完成",
+            ],
+            [
+              "OCR-260712-008", "成都出差发票-01.pdf", "发票", "18", "0.91",
+              "待确认",
+            ],
+            [
+              "OCR-260711-004", "销售合同扫描件.jpg", "合同", "26", "0.78",
+              "需复核",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn webhook_view() -> @html.Html {
+  page_shell(
+    "工单超期 Webhook",
+    "SYSTEM / WEBHOOK",
+    "为企业微信、飞书、钉钉配置工单超期通知；密钥和 URL 仅保留密文引用。",
+    [button(class="erp-primary-btn", "保存配置")],
+    div <| [
+      div(class="erp-tabs") <| [
+        button(class="erp-tab is-active", "企业微信"),
+        button(class="erp-tab", "飞书"),
+        button(class="erp-tab", "钉钉"),
+      ],
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("企业微信配置"),
+          span(class="erp-status-tag is-success", "已启用"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("启用", "是", "启用状态"),
+          form_field(
+            "Webhook URL", "https://qyapi.weixin.qq.com/••••", "Webhook URL",
+          ),
+          form_field(
+            "密钥", "••••••••", "由密钥服务托管",
+          ),
+          form_field("超期阈值", "3 天", "工单超期"),
+          form_field("通知范围", "项目任务", "业务范围"),
+          form_field("重试策略", "3 次 / 5 分钟", "失败重试"),
+        ],
+      ],
+      table_panel(
+        "最近发送",
+        "仅保留投递结果和摘要",
+        data_table(
+          [
+            "平台", "事件", "发送时间", "状态", "重试次数", "摘要",
+          ],
+          [
+            [
+              "企业微信", "任务延期", "今天 08:42", "已发送", "0", "成都和锦里 2# 楼",
+            ],
+            [
+              "飞书", "合同到期", "昨天 17:20", "已发送", "1", "供应商资质到期",
+            ],
+            [
+              "钉钉", "资金缺口", "2026-07-11", "失败", "3", "重庆南山居 8 月预测",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
 fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
   match path {
     "/ai-hub" => ai_hub_view()
@@ -2622,17 +3095,17 @@ fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
     "/warning" => warning_view()
     "/warning-rules" => warning_rules_view()
     "/cashflow" => cashflow_view()
-    "/inbox" => system_view(path)
-    "/attachments" => system_view(path)
-    "/notify-config" => system_view(path)
+    "/inbox" => inbox_view()
+    "/attachments" => attachments_view()
+    "/notify-config" => notify_view()
     "/audit-log" => system_view(path)
     "/error-log" => system_view(path)
-    "/system-health" => system_view(path)
-    "/users" => system_view(path)
+    "/system-health" => health_view()
+    "/users" => users_view()
     "/admin" => system_view(path)
-    "/ocr-config" => system_view(path)
-    "/webhook-config" => system_view(path)
-    "/profile" => system_view(path)
+    "/ocr-config" => ocr_view()
+    "/webhook-config" => webhook_view()
+    "/profile" => profile_view()
     _ => placeholder_view(path)
   }
 }
@@ -2706,7 +3179,11 @@ fn header_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         attrs=@html.Attrs::build().aria_label("异常预警"),
         "♧",
       ),
-      button(class="erp-user-area", "♙  Giant Claw  ·  超级用户"),
+      button(
+        class="erp-user-area",
+        on_click=emit(Navigate("/profile")),
+        "♙  Giant Claw  ·  超级用户",
+      ),
     ],
   ]
 }
