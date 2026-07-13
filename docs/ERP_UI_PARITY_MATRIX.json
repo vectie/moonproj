@@ -87,7 +87,7 @@
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 0,
       "api_state": "connected_fixed_read_model",
-      "required_next": "connect_authenticated_read_and_command_api"
+      "required_next": "connect_authenticated_dashboard_read_model_and_accept_scope"
     },
     {
       "path": "/dashboard-v3",
@@ -101,7 +101,7 @@
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 0,
       "api_state": "connected_fixed_read_model",
-      "required_next": "connect_authenticated_read_and_command_api"
+      "required_next": "connect_authenticated_dashboard_read_model_and_accept_scope"
     },
     {
       "path": "/ai-hub",
@@ -143,7 +143,7 @@
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 0,
       "api_state": "connected_fixed_read_model",
-      "required_next": "connect_authenticated_read_and_command_api"
+      "required_next": "connect_authenticated_dashboard_read_model_and_accept_scope"
     },
     {
       "path": "/projects",

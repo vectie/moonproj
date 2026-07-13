@@ -328,6 +328,17 @@ those capabilities as source parity.
    tables and zero workflow-instance/action rows. Templates, share links, production
    identity, browser acceptance, and report-owner reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
+4a. **The dashboard/cockpit is still designer-fixture/read-model only.** The
+   source cockpit exposes seven GET handlers (overview, funnel, top anomalies,
+   project KPI/anomalies, and v2/v3 group views) over 30 unique tables. Only
+   14 of those tables are present in the controlled export; 16 cross-domain
+   tables needed by sales, funds, invoices, tenders, warnings, and CBS are
+   absent. Rabbita currently calls only the generic `/api/company/summary`
+   endpoint to show adapter status; its KPI, funnel, and risk values are still
+   designer fixtures. The target has no `/api/company/dashboard/*` route, so
+   the parity matrix correctly leaves all seven source dashboard handlers
+   unconnected. Report reads do not constitute cockpit parity. See
+   [`ERP_DASHBOARD_RUNTIME_AUDIT.md`](ERP_DASHBOARD_RUNTIME_AUDIT.md).
 5. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
    only 26 tables and 120 rows. The remaining 49 tables require a real
@@ -396,11 +407,18 @@ Execute the remainder in this order:
    parity floor. The five core report reads and `/reports` overview now work;
    obtain the missing supplier/workflow source rows (or owner-approved redacted
    cohort), run browser/report-owner reconciliation, and keep templates/share
-   links separate. The next broad slices are treasury/financing, tax/close,
-   reporting/notifications beyond the core reads, and investment. Synthetic
-   rehearsals remain design evidence until real source rows and user acceptance
-   are attached. See `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
-8. Run named-owner acceptance and a read-only shadow period for each accepted
+   links separate. Synthetic rehearsals remain design evidence until real
+   source rows and user acceptance are attached. See
+   `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
+8. After the source-data decision and report reconciliation, implement the
+   dashboard gate in `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`: first the bounded
+   overview/funnel/project KPI/anomaly reads, then v2/v3 only when the missing
+   sales/fund/invoice/tender/warning/CBS tables are available. Bind the
+   designer-preserving Rabbita dashboard only after scoped KPI definitions,
+   source coverage, production identity, and operations/finance acceptance are
+   proven. Do not treat `/api/company/summary`, report reads, or fixture KPI
+   cards as cockpit parity.
+9. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
    controls, not as substitutes for functional work.

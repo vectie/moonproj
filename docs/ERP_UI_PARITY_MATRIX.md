@@ -3,8 +3,9 @@
 Generated from `../erp/erp_new/web/src/router/index.js`, the source
 `server/src/routes` directory, and `frontend/main/main.mbt`. This is an
 acceptance register, not a completion claim: mounted fixture screens do
-not count as connected company behavior. The connected exceptions are
-the fixed dashboard read-model and the local
+not count as connected company behavior. The generic PostgreSQL
+summary/read-model adapter is not dashboard parity; the dashboard
+aliases remain read-model-only. The connected exceptions are the local
 expense/contract/payment-application/tender command, supplier read,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 read/command, project-plan read, and non-authorizing workflow-definition
@@ -22,11 +23,11 @@ read verticals.
 |---|---|---|---|---|---:|---|---|
 | `/login` | `../views/Login.vue` | `login_view` | `public` | `auth` | 3 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_identity_boundary` |
 | `/share/:token` | `../views/ShareReport.vue` | `share_view` | `read_only_public` | `share` | 0 / 0 | `read_only_fixture_no_source_api` | `accept_public_read_scenario` |
-| `/dashboard` | `../views/cockpit/index.vue` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_read_and_command_api` |
-| `/dashboard-v3` | `redirect → /dashboard` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_read_and_command_api` |
+| `/dashboard` | `../views/cockpit/index.vue` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_dashboard_read_model_and_accept_scope` |
+| `/dashboard-v3` | `redirect → /dashboard` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_dashboard_read_model_and_accept_scope` |
 | `/ai-hub` | `../views/AIHub.vue` | `ai_hub_view` | `fixture_backed_read_only` | `ai-hub` | 6 / 10 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/ai-stats` | `../views/AIStats.vue` | `ai_stats_view` | `fixture_backed_read_only` | `ai-stats` | 3 / 1 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/cockpit` | `redirect → /dashboard` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_read_and_command_api` |
+| `/cockpit` | `redirect → /dashboard` | `dashboard_view` | `read_model_only` | `dashboard` | 7 / 0 | `connected_fixed_read_model` | `connect_authenticated_dashboard_read_model_and_accept_scope` |
 | `/projects` | `../views/Projects.vue` | `project_view` | `connected_project_read` | `mdm` | 3 / 3 | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `/projects/:projGuid` | `../views/ProjectDetail.vue` | `project_detail_view` | `connected_project_read` | `mdm` | 3 / 3 | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `/expenses` | `../views/ExpenseList.vue` | `expenses_view` | `fixture_backed_read_only` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |

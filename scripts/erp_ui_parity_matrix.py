@@ -7,11 +7,11 @@ Rabbita view is mounted, whether it is a real/read-model/fixture surface, and
 which source API module still needs a connected command/read workflow.
 
 The report is intentionally evidence-oriented.  A mounted page is not marked
-functional merely because it renders: the dashboard's fixed summary read-model
-and the local expense/contract/payment-application/tender/supplier/sales read
-verticals are explicitly identified, including the delivery/project-progress
-runtime and the non-authorizing workflow-definition read boundary, while no
-workflow-instance mutation endpoint is inferred.
+functional merely because it renders: the generic summary/read-model adapter
+is not dashboard parity, while the local expense/contract/payment-application/
+tender/supplier/sales read verticals are explicitly identified, including the
+delivery/project-progress runtime and the non-authorizing workflow-definition
+read boundary. No workflow-instance mutation endpoint is inferred.
 """
 
 from __future__ import annotations
@@ -228,6 +228,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
     if target_state == "read_only_public":
         return "accept_public_read_scenario"
     if target_state == "read_model_only":
+        if target_function == "dashboard_view":
+            return "connect_authenticated_dashboard_read_model_and_accept_scope"
         return "connect_authenticated_read_and_command_api"
     if target_state == "connected_command_form":
         return "accept_production_identity_and_full_session_scenario"
@@ -481,8 +483,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         "Generated from `../erp/erp_new/web/src/router/index.js`, the source",
         "`server/src/routes` directory, and `frontend/main/main.mbt`. This is an",
         "acceptance register, not a completion claim: mounted fixture screens do",
-        "not count as connected company behavior. The connected exceptions are",
-        "the fixed dashboard read-model and the local",
+        "not count as connected company behavior. The generic PostgreSQL",
+        "summary/read-model adapter is not dashboard parity; the dashboard",
+        "aliases remain read-model-only. The connected exceptions are the local",
         "expense/contract/payment-application/tender command, supplier read,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "read/command, project-plan read, and non-authorizing workflow-definition",
