@@ -241,6 +241,10 @@ domain evidence; production adapters and period-close acceptance remain later
 gates. The managed-production manifest validator is likewise in place, but the
 fixture intentionally remains `ready_for_owner_review` until finance,
 operations, and security approve it.
+The PostgreSQL rehearsal now emits a cross-domain projection-parity report that
+compares every supplied domain receipt’s source identity and canonical payload
+between the isolated SQLite rehearsal and PostgreSQL; this is evidence of
+target agreement, not an ownership or cutover authorization.
 The first schema-only wave now has an explicit six-table target/security map.
 Because the available snapshot has zero rows for `foundation-security`, this
 artifact records semantic ownership and exclusion rules only; it does not

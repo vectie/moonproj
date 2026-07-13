@@ -81,6 +81,13 @@ python3 "$SCRIPT_DIR/company_postgres_target_apply.py" \
   "$EXPORT_DIR" "$MAPPING_PATH" "$WORK_DIR/promotion-plan.json"
 moon run --target native cmd/promote -- \
   "$WORK_DIR/promotion-plan.json" "$WORK_DIR/domain-promotion.json"
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" > "$WORK_DIR/base-sqlite-projection-apply.json"
+python3 "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+  "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" \
+  "$WORK_DIR/base-sqlite-projection-parity.json"
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" > "$WORK_DIR/base-sqlite-projection-replay.json"
 python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
   "$WORK_DIR/domain-promotion.json" \
   --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
@@ -400,6 +407,16 @@ if [ -n "$EXPENSE_ADVANCE_MAPPING" ]; then
   apply_projection expense-advance \
     "$WORK_DIR/expense-advance-receipt.json"
 fi
+
+# Individual backend parity reports prove each receipt can be reopened. The
+# cross-domain report additionally compares canonical projection payloads in
+# the isolated SQLite rehearsal and the PostgreSQL target.
+CROSS_DOMAIN_PARITY="$WORK_DIR/cross-domain-projection-parity.json"
+python3 "$SCRIPT_DIR/company_cross_domain_projection_parity.py" \
+  "$WORK_DIR" "$SQLITE_DB" "$CROSS_DOMAIN_PARITY" \
+  --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+  --database "$PG_DATABASE"
+echo "cross_domain_projection_parity=$CROSS_DOMAIN_PARITY"
 
 echo "postgres_target=$PG_DATABASE"
 echo "work_dir=$WORK_DIR"

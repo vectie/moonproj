@@ -343,7 +343,10 @@ The source-bound investment evaluation adds one analytics-only projection.
 Together the 34 business, 40 typed-evidence, one task-state-observation, and
 one evaluation cohort items add 76 accepted typed projections to the rehearsal
 database; evidence rows remain explicitly non-authoritative.
-The full wrapper also emits `cutover-gate.json`; a technical pass means
+The PostgreSQL cohort wrapper additionally emits
+`cross-domain-projection-parity.json`, comparing every supplied domain receipt
+between the SQLite and PostgreSQL payloads after both stores are reopened. The
+full wrapper also emits `cutover-gate.json`; a technical pass means
 `ready_for_business_acceptance`, not ownership transfer. The artifact records
 the unresolved project-1 dependency, managed-production database deployment,
 and 49 schema-only-table scope as explicit next actions.
