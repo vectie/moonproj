@@ -441,9 +441,16 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/contracts/:guid",
             "/contracts/:guid/milestones",
             "/payment-applies",
+            "/dynamic-cost",
         }
     ):
         return "connected_cost_source_read", "accept_browser_cost_source_scenario_and_production_identity"
+    if (
+        handler["module"] == "attachment"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/list", "/all", "/stats"}
+    ):
+        return "connected_attachment_read", "accept_browser_attachment_scenario_and_production_identity"
     if (
         handler["module"] == "budget"
         and handler["method"] == "GET"

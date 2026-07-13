@@ -27,7 +27,8 @@ summary while retaining the designer table as an offline fallback.
   `cb_cost=7`.
 - Authenticated service smoke asserts the formula result and source coverage;
   read-model endpoint probing returns the same values.
-- The parity matrix marks `/dynamic-cost` as `connected_cost_read`.
+- The parity matrix marks the source `GET /dynamic-cost` handler as
+  `connected_cost_source_read`.
 
 ## Remaining gate
 

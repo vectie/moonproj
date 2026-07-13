@@ -99,6 +99,47 @@ def main() -> int:
             and applies.get("authorizing") is False,
             f"source payment application read failed: {status} {applies}",
         )
+        status, dynamic = request(
+            args.port,
+            "/api/company/cost/dynamic-cost?projGuid=proj-0001",
+            token=token,
+        )
+        dynamic_data = (dynamic or {}).get("data", {})
+        dynamic_summary = dynamic_data.get("summary", {})
+        expect(
+            status == 200
+            and dynamic is not None
+            and len(dynamic_data.get("items", [])) == 7
+            and dynamic_summary.get("endCount") == 6
+            and dynamic_summary.get("A_targetCost") == 35900000.0
+            and dynamic_summary.get("B_dtCost") == 36350000.0
+            and dynamic.get("source_coverage", {}).get("cb_cost") == 7,
+            f"source dynamic-cost read failed: {status} {dynamic}",
+        )
+        status, attachment_all = request(
+            args.port, "/api/company/attachments/all", token=token,
+        )
+        attachment_all_data = (attachment_all or {}).get("data", {})
+        expect(
+            status == 200
+            and attachment_all is not None
+            and attachment_all_data.get("total") == 0
+            and attachment_all_data.get("rows") == []
+            and attachment_all.get("source_coverage", {}).get("attachment") == 0
+            and attachment_all.get("downloadable") is False
+            and attachment_all.get("authorizing") is False,
+            f"source attachment metadata read failed: {status} {attachment_all}",
+        )
+        status, attachment_stats = request(
+            args.port, "/api/company/attachments/stats", token=token,
+        )
+        expect(
+            status == 200
+            and attachment_stats is not None
+            and (attachment_stats.get("data") or {}).get("total") == {"count": 0, "bytes": 0}
+            and attachment_stats.get("authorizing") is False,
+            f"source attachment stats read failed: {status} {attachment_stats}",
+        )
         status, scope = request(
             args.port,
             "/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001",
@@ -164,8 +205,9 @@ def main() -> int:
             f"source workflow detail 404 failed: {status} {missing}",
         )
         print(
-            "source-read-smoke: contracts=2 payment_applies=3 budget_users=4 "
-            "loan_balance=3500 workflow_instances=0 workflow_actions=0",
+            "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
+            "attachments=0 budget_users=4 loan_balance=3500 "
+            "workflow_instances=0 workflow_actions=0",
         )
         return 0
     finally:

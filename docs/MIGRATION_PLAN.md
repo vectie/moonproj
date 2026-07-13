@@ -440,7 +440,7 @@ remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
-evidence-ready batch below, 45 remain; they are not one uniform backlog. Four
+evidence-ready batch below, 44 remain; they are not one uniform backlog. Four
 groups are now explicit:
 
 * **Evidence-ready reads:** contract/payment/milestone reads can use the
@@ -467,7 +467,7 @@ groups are now explicit:
   and similar status/verification endpoints remain provider and credential
   gates. A successful metadata read does not authorize a provider call.
 
-The remaining 222 API handlers are therefore deliberately split between these
+The remaining 221 API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
@@ -478,9 +478,10 @@ the missing-table export gate for the remaining candidates.
 **Evidence-ready read batch checkpoint (2026-07-14).** The following source
 handlers are now connected in the action register as bounded, non-authorizing
 reads: cost `/contracts`, `/contracts/:guid`, `/contracts/:guid/milestones`,
-and `/payment-applies` (4); budget `/users-in-bu` and `/my-loan-balance` (2);
-and workflow `/tasks/mine`, `/tasks/initiated`, `/instances/by-biz`,
-`/instances/:piGuid`, and `/tasks/my-history` (5). The PostgreSQL service and
+`/payment-applies`, and `/dynamic-cost` (5); attachment `/list`, `/all`, and
+`/stats` (3); budget `/users-in-bu` and `/my-loan-balance` (2); and workflow
+`/tasks/mine`, `/tasks/initiated`, `/instances/by-biz`, `/instances/:piGuid`,
+and `/tasks/my-history` (5). The PostgreSQL service and
 read-model adapter return the imported contract/payment rows (2 contracts,
 4 plans, 3 applications), the explicit empty milestone table, four scoped
 budget users, a 3,500.00 loan balance for `limingjin`, and empty workflow
@@ -488,7 +489,8 @@ instance/action observations with a source-compatible 404 for a missing detail.
 Rabbita now loads source contracts/payment applications, renders budget scope
 and balance provenance on the expense surfaces, and chains all three workflow
 observation lists after the definition read. The dedicated
-`scripts/company_postgres_source_read_smoke.py` passes without mutations.
+`scripts/company_postgres_source_read_smoke.py` plus the existing attachment
+and dynamic-cost probes pass without mutations.
 These are still local evidence: production identity, browser acceptance, named
 owner reconciliation, and the missing 49-table export remain open.
 
@@ -641,7 +643,7 @@ Execute the remainder in this order:
     budget user/loan scope, and workflow instance/task observation endpoints
     where the source tables are defined. The service, read-model, Rabbita, and
     dedicated read-only smoke checks pass; the parity action register now marks
-    11 source GET handlers connected. Do not use this batch to unlock commands
+    15 source GET handlers connected. Do not use this batch to unlock commands
     or to infer missing sales, invoice, supplier, tender, tax, or investment
     detail rows. The remaining gate is production identity, browser acceptance,
     owner evidence, and the missing-table export.

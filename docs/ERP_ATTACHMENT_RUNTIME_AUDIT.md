@@ -30,6 +30,9 @@ state (`total=0`, `bytes=0`) rather than designer fixture files. The Rabbita
 `/attachments` screen renders that state after a successful read and only uses
 its reviewed fixture rows when the transport fails.
 
+The parity matrix marks source `GET /list`, `/all`, and `/stats` as
+`connected_attachment_read`; only binary download remains unconnected.
+
 ## Open gates
 
 Upload, binary download/preview, deletion, OCR re-extraction, retention,

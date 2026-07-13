@@ -194,7 +194,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `cost` | `GET` | `/contracts` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `GET` | `/contracts/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `GET` | `/payment-applies` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
-| `cost` | `GET` | `/dynamic-cost` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
+| `cost` | `GET` | `/dynamic-cost` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `GET` | `/dynamic-cost/:guid/remarks` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
 | `cost` | `POST` | `/contracts` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cost` | `POST` | `/payment-applies` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
