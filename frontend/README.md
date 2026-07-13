@@ -92,6 +92,9 @@ separately gated.
 The `/investment` screen loads the imported current version, 26 grouped
 indices, and profit summary through the read-only adapter; its designer
 comparison table remains an offline fallback.
+The `/dynamic-cost` screen loads the seven imported `cb_cost` rows and source
+A/B/C/D/E/F/G/H calculation for `proj-0001`; cost writes and downstream
+accounting/cash effects remain gated.
 Admin governance reads are available at
 `/api/company/admin/dict/groups`, `/api/company/admin/dict/options`,
 `/api/company/admin/quality/overview`,

@@ -4656,6 +4656,89 @@ def _dashboard_flag(value: Any) -> bool:
     return value in {True, 1, "1", "true", "True", "TRUE"}
 
 
+def dynamic_cost(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Return the source ERP five-column dynamic-cost calculation."""
+
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    raw_costs = _raw_source_rows(pool, "cb_cost", max(max_rows, 500), DASHBOARD_SOURCE_TABLES)
+    projects = _raw_source_rows(pool, "ep_project", max(max_rows, 100), DASHBOARD_SOURCE_TABLES)
+    project_name = next(
+        (
+            str(row["payload"].get("proj_name") or "")
+            for row in projects
+            if str(row["payload"].get("proj_guid") or "") == project_id
+        ),
+        "",
+    )
+    source_rows = [
+        row["payload"]
+        for row in raw_costs
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and not row["payload"].get("deleted_at")
+    ]
+    source_rows.sort(
+        key=lambda payload: (
+            str(payload.get("cost_code") or ""),
+            str(payload.get("cost_guid") or ""),
+        )
+    )
+    items: list[dict[str, Any]] = []
+    for payload in source_rows:
+        target = _report_float(payload, "target_cost")
+        dynamic = sum(
+            _report_float(payload, key)
+            for key in ("ht_alter_amount", "zt_cost", "dfs_budget", "yg_alter")
+        )
+        items.append(
+            {
+                "costGuid": str(payload.get("cost_guid") or ""),
+                "costCode": str(payload.get("cost_code") or ""),
+                "costName": str(payload.get("cost_name") or ""),
+                "costLevel": int(payload.get("cost_level") or 0),
+                "parentCostGuid": str(payload.get("parent_cost_guid") or ""),
+                "isEndCost": _dashboard_flag(payload.get("is_end_cost")),
+                "A_targetCost": target,
+                "B_dtCost": round(dynamic, 2),
+                "C_deviationPct": round((target - dynamic) / target * 100, 4) if target > 0 else None,
+                "D_htAlterAmount": _report_float(payload, "ht_alter_amount"),
+                "E_ztCost": _report_float(payload, "zt_cost"),
+                "F_dfsBudget": _report_float(payload, "dfs_budget"),
+                "G_ygAlter": _report_float(payload, "yg_alter"),
+                "H_layoutSpare": round(target - dynamic, 2),
+                "remarks": str(payload.get("remarks") or ""),
+                "projectName": project_name,
+                "sourceKind": "imported",
+            }
+        )
+    end_rows = [item for item in items if item["isEndCost"]]
+    target_total = sum(float(item["A_targetCost"]) for item in end_rows)
+    dynamic_total = sum(float(item["B_dtCost"]) for item in end_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "items": items,
+            "summary": {
+                "A_targetCost": round(target_total, 2),
+                "B_dtCost": round(dynamic_total, 2),
+                "C_deviationPct": round((target_total - dynamic_total) / target_total * 100, 4)
+                if target_total > 0
+                else None,
+                "H_layoutSpare": round(target_total - dynamic_total, 2),
+                "endCount": len(end_rows),
+                "projectName": project_name,
+            },
+        },
+        "source_kind": "imported",
+        "source_coverage": {"cb_cost": len(raw_costs), "ep_project": len(projects)},
+    }
+
+
 def _dashboard_context(
     pool: PsqlPool,
     max_rows: int,
@@ -7384,6 +7467,12 @@ def handler_factory(
                     response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/cost/dynamic-cost":
+                    project_value = parse_qs(parsed.query).get("projGuid", [""])[0]
+                    if not project_value:
+                        response(self, 422, {"error": "projGuid is required"}, origin)
+                    else:
+                        response(self, 200, dynamic_cost(pool, project_value, max_response_rows), origin)
                 elif parsed.path == "/api/company/dashboard/group/overview":
                     response(self, 200, dashboard_group_overview(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/dashboard/group/funnel":

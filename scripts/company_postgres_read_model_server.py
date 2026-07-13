@@ -5,7 +5,7 @@ This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
-employee-loan, and admin-quality projections.
+employee-loan, dynamic-cost, investment, and admin-quality projections.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
@@ -52,6 +52,7 @@ from company_postgres_service import (
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
+    dynamic_cost as service_dynamic_cost,
     investment_versions as service_investment_versions,
     investment_indices as service_investment_indices,
     investment_profit_summary as service_investment_profit_summary,
@@ -346,6 +347,10 @@ def dashboard_project_anomalies(args: argparse.Namespace, project_id: str) -> di
     return service_dashboard_project_anomalies(_ReadModelPool(args), project_id, 500)
 
 
+def dynamic_cost(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_dynamic_cost(_ReadModelPool(args), project_id, 500)
+
+
 def investment_versions(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
     return service_investment_versions(_ReadModelPool(args), project_id, 500)
 
@@ -605,6 +610,17 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/admin/quality/overview":
                     response(self, 200, admin_quality_overview(args))
+                    return
+                dynamic_cost_match = re.fullmatch(
+                    r"/api/company/cost/dynamic-cost",
+                    parsed.path,
+                )
+                if dynamic_cost_match is not None:
+                    project_id = parse_qs(parsed.query).get("projGuid", [""])[0]
+                    if not project_id:
+                        response(self, 422, {"error": "projGuid is required"})
+                    else:
+                        response(self, 200, dynamic_cost(args, project_id))
                     return
                 investment_versions_match = re.fullmatch(
                     r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/versions",

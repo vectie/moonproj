@@ -278,6 +278,26 @@ struct AuditActionRow {
 }
 
 ///|
+struct DynamicCostRow {
+  cost_guid : String
+  cost_code : String
+  cost_name : String
+  cost_level : String
+  target_cost : String
+  dynamic_cost : String
+  deviation_pct : String
+  contract_change : String
+  actual_cost : String
+  budget_cost : String
+  estimate_change : String
+  layout_spare : String
+  end_cost : String
+  remarks : String
+  project_name : String
+  source_kind : String
+}
+
+///|
 struct UserRosterRow {
   user_code : String
   emp_name : String
@@ -456,6 +476,15 @@ struct Model {
   audit_action_rows : Array[AuditActionRow]
   audit_total : String
   audit_note : String
+  dynamic_cost_loaded : Bool
+  dynamic_cost_rows : Array[DynamicCostRow]
+  dynamic_cost_project_name : String
+  dynamic_cost_target : String
+  dynamic_cost_total : String
+  dynamic_cost_deviation : String
+  dynamic_cost_spare : String
+  dynamic_cost_end_count : String
+  dynamic_cost_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -581,6 +610,8 @@ enum Msg {
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
+  DynamicCostLoaded(String)
+  DynamicCostLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
   HealthTablesLoaded(String)
@@ -705,6 +736,15 @@ fn initial_model() -> Model {
     audit_action_rows: [],
     audit_total: "0",
     audit_note: "审计读模型尚未加载 · 使用设计快照",
+    dynamic_cost_loaded: false,
+    dynamic_cost_rows: [],
+    dynamic_cost_project_name: "",
+    dynamic_cost_target: "0",
+    dynamic_cost_total: "0",
+    dynamic_cost_deviation: "0",
+    dynamic_cost_spare: "0",
+    dynamic_cost_end_count: "0",
+    dynamic_cost_note: "动态成本读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -1732,6 +1772,71 @@ fn audit_action_rows_from_body(body : String) -> Array[AuditActionRow] {
 }
 
 ///|
+fn dynamic_cost_from_body(
+  body : String,
+) -> (Array[DynamicCostRow], Array[String]) {
+  let rows : Array[DynamicCostRow] = []
+  let summary : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          match data.get("summary") {
+            Some(Json::Object(summary_fields)) => {
+              summary.push(json_object_text(summary_fields, "projectName", ""))
+              summary.push(
+                json_object_text(summary_fields, "A_targetCost", "0"),
+              )
+              summary.push(json_object_text(summary_fields, "B_dtCost", "0"))
+              summary.push(
+                json_object_text(summary_fields, "C_deviationPct", "0"),
+              )
+              summary.push(
+                json_object_text(summary_fields, "H_layoutSpare", "0"),
+              )
+              summary.push(json_object_text(summary_fields, "endCount", "0"))
+            }
+            _ => ()
+          }
+          for value in json_array_field(data, "items") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  cost_guid: json_object_text(row, "costGuid", ""),
+                  cost_code: json_object_text(row, "costCode", ""),
+                  cost_name: json_object_text(row, "costName", ""),
+                  cost_level: json_object_text(row, "costLevel", "0"),
+                  target_cost: json_object_text(row, "A_targetCost", "0"),
+                  dynamic_cost: json_object_text(row, "B_dtCost", "0"),
+                  deviation_pct: json_object_text(row, "C_deviationPct", "—"),
+                  contract_change: json_object_text(row, "D_htAlterAmount", "0"),
+                  actual_cost: json_object_text(row, "E_ztCost", "0"),
+                  budget_cost: json_object_text(row, "F_dfsBudget", "0"),
+                  estimate_change: json_object_text(row, "G_ygAlter", "0"),
+                  layout_spare: json_object_text(row, "H_layoutSpare", "0"),
+                  end_cost: if json_object_text(row, "isEndCost", "false") ==
+                    "true" {
+                    "是"
+                  } else {
+                    "否"
+                  },
+                  remarks: json_object_text(row, "remarks", ""),
+                  project_name: json_object_text(row, "projectName", ""),
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                })
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  (rows, summary)
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -2196,6 +2301,16 @@ fn load_audit_actions(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(AuditActionsLoaded(body))
       Err(_) => emit(AuditLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_dynamic_cost(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/cost/dynamic-cost?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(DynamicCostLoaded(body))
+      Err(_) => emit(DynamicCostLoadFailed)
     }
   })
 }
@@ -2678,6 +2793,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_investment_versions(emit)
       } else if path == "/audit-log" {
         load_audit_logs(emit)
+      } else if path == "/dynamic-cost" {
+        load_dynamic_cost(emit)
       } else if path == "/system-health" {
         load_health_tables(emit)
       } else if path == "/loans" {
@@ -3715,6 +3832,46 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           audit_action_rows: [],
           audit_total: "0",
           audit_note: "审计读模型不可用 · 使用设计快照",
+        },
+      )
+    DynamicCostLoaded(body) => {
+      let (rows, summary) = dynamic_cost_from_body(body)
+      if summary.length() == 6 {
+        (
+          none,
+          {
+            ..model,
+            dynamic_cost_loaded: true,
+            dynamic_cost_rows: rows,
+            dynamic_cost_project_name: summary[0],
+            dynamic_cost_target: summary[1],
+            dynamic_cost_total: summary[2],
+            dynamic_cost_deviation: summary[3],
+            dynamic_cost_spare: summary[4],
+            dynamic_cost_end_count: summary[5],
+            dynamic_cost_note: "已加载 PostgreSQL 动态成本 · 五列公式保持源口径",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            dynamic_cost_loaded: false,
+            dynamic_cost_rows: [],
+            dynamic_cost_note: "动态成本响应无效 · 使用设计快照",
+          },
+        )
+      }
+    }
+    DynamicCostLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          dynamic_cost_loaded: false,
+          dynamic_cost_rows: [],
+          dynamic_cost_note: "动态成本读模型不可用 · 使用设计快照",
         },
       )
     UsersLoaded(body) =>
@@ -6305,38 +6462,116 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn dynamic_cost_view() -> @html.Html {
+fn dynamic_cost_table(model : Model) -> @html.Html {
+  if model.dynamic_cost_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.dynamic_cost_rows {
+      rows.push([
+        row.cost_guid,
+        row.cost_code + " · " + row.cost_name,
+        row.cost_level,
+        row.target_cost,
+        row.dynamic_cost,
+        row.deviation_pct,
+        row.contract_change,
+        row.actual_cost,
+        row.budget_cost,
+        row.estimate_change,
+        row.layout_spare,
+        row.end_cost,
+        row.project_name + " · " + row.remarks + " · " + row.source_kind,
+      ])
+    }
+    table_panel(
+      "动态成本明细（" +
+      model.dynamic_cost_rows.length().to_string() +
+      " 项）",
+      model.dynamic_cost_note +
+      " · " +
+      model.dynamic_cost_project_name +
+      " · 末级 " +
+      model.dynamic_cost_end_count,
+      data_table(
+        [
+          "成本 ID", "科目", "层级", "目标 A", "动态 B", "偏差 C%", "合同 D",
+          "已发 E", "预算 F", "预估 G", "余量 H", "末级", "备注/来源",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "动态成本明细",
+      "成都和锦里 · " + model.dynamic_cost_note,
+      data_table(
+        [
+          "变更编号", "成本科目", "变更原因", "目标成本", "动态成本",
+          "变更额", "发起人", "状态",
+        ],
+        [
+          [
+            "DC-260713-002", "03-01 建安工程", "设计优化", "¥264,000,000",
+            "¥282,400,000", "+¥18,400,000", "王工", "审批中",
+          ],
+          [
+            "DC-260709-006", "04-03 营销费用", "渠道政策调整", "¥42,800,000",
+            "¥45,600,000", "+¥2,800,000", "刘松", "已完成",
+          ],
+          [
+            "DC-260704-001", "05-02 配套工程", "管线迁改", "¥18,600,000",
+            "¥19,280,000", "+¥680,000", "陈工", "待处理",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn dynamic_cost_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let stats = if model.dynamic_cost_loaded {
+    div(class="erp-stat-grid") <| [
+      metric(
+        "目标成本 A",
+        model.dynamic_cost_target,
+        "末级科目 " + model.dynamic_cost_end_count,
+        "metric-blue",
+      ),
+      metric(
+        "动态成本 B",
+        model.dynamic_cost_total,
+        "A + D + E + F + G",
+        "metric-green",
+      ),
+      metric(
+        "偏差 C",
+        model.dynamic_cost_deviation + "%",
+        "规划余量 H " + model.dynamic_cost_spare,
+        "metric-blue",
+      ),
+    ]
+  } else {
+    div(class="erp-stat-grid") <| [
+      metric("目标成本", "¥6.08 亿", "15 个项目", "metric-blue"),
+      metric("动态成本", "¥6.45 亿", "偏差 +6.20%", "metric-green"),
+      metric("已签合同", "¥5.82 亿", "覆盖率 90.2%", "metric-blue"),
+    ]
+  }
   page_shell(
     "动态成本",
     "COST / FORECAST",
     "汇总合同、签证、变更和待发生成本，形成可追溯的动态成本预测。",
-    [button(class="erp-primary-btn", "＋ 新增变更")],
-    div <| [
-      filter_bar("项目 / 成本科目 / 变更编号"),
-      table_panel(
-        "动态成本明细",
-        "成都和锦里",
-        data_table(
-          [
-            "变更编号", "成本科目", "变更原因", "目标成本", "动态成本",
-            "变更额", "发起人", "状态",
-          ],
-          [
-            [
-              "DC-260713-002", "03-01 建安工程", "设计优化", "¥264,000,000",
-              "¥282,400,000", "+¥18,400,000", "王工", "审批中",
-            ],
-            [
-              "DC-260709-006", "04-03 营销费用", "渠道政策调整", "¥42,800,000",
-              "¥45,600,000", "+¥2,800,000", "刘松", "已完成",
-            ],
-            [
-              "DC-260704-001", "05-02 配套工程", "管线迁改", "¥18,600,000",
-              "¥19,280,000", "+¥680,000", "陈工", "待处理",
-            ],
-          ],
-        ),
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/dynamic-cost")),
+        "刷新成本",
       ),
+    ],
+    div <| [
+      stats,
+      filter_bar("项目 / 成本科目 / 变更编号"),
+      dynamic_cost_table(model),
     ],
   )
 }
@@ -9080,7 +9315,7 @@ fn business_view(
       "/payment-applies" => payment_applies_view(emit, model)
       "/cost-dashboard-v3" => cost_dashboard_view()
       "/investment" => investment_view(emit, model)
-      "/dynamic-cost" => dynamic_cost_view()
+      "/dynamic-cost" => dynamic_cost_view(emit, model)
       "/tender" => tender_view(emit, model)
       "/srm/providers" => srm_providers_view(emit, model)
       "/srm/providers/SUP-00018" => provider_detail_view(emit)

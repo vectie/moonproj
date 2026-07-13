@@ -341,6 +341,24 @@ def main() -> int:
             or investment_dimensions_payload.get("data", [])[0].get("code") != "key_point"
         ):
             raise SmokeError(f"investment dimension read failed: {status} {investment_dimensions_payload}")
+        status, dynamic_cost_payload = request(
+            args.port,
+            "/api/company/cost/dynamic-cost?projGuid=proj-0001",
+            token=token,
+        )
+        dynamic_cost_data = (dynamic_cost_payload or {}).get("data", {})
+        dynamic_cost_summary = dynamic_cost_data.get("summary", {})
+        if (
+            status != 200
+            or dynamic_cost_payload is None
+            or len(dynamic_cost_data.get("items", [])) != 7
+            or dynamic_cost_summary.get("endCount") != 6
+            or dynamic_cost_summary.get("A_targetCost") != 35900000.0
+            or dynamic_cost_summary.get("B_dtCost") != 36350000.0
+            or dynamic_cost_summary.get("C_deviationPct") != -1.2535
+            or dynamic_cost_payload.get("source_coverage", {}).get("cb_cost") != 7
+        ):
+            raise SmokeError(f"dynamic cost read failed: {status} {dynamic_cost_payload}")
         status, admin_groups_payload = request(
             args.port,
             "/api/company/admin/dict/groups",
@@ -1498,6 +1516,11 @@ def main() -> int:
                     "investment_index_rows": 26,
                     "investment_dimension_rows": 5,
                     "investment_profit_revenue": 18500.0,
+                    "dynamic_cost_rows": len(dynamic_cost_data.get("items", [])),
+                    "dynamic_cost_end_rows": dynamic_cost_summary.get("endCount"),
+                    "dynamic_cost_target": dynamic_cost_summary.get("A_targetCost"),
+                    "dynamic_cost_total": dynamic_cost_summary.get("B_dtCost"),
+                    "dynamic_cost_deviation": dynamic_cost_summary.get("C_deviationPct"),
                     "admin_dictionary_group_rows": 1,
                     "admin_dictionary_option_rows": 5,
                     "admin_quality_rule_rows": len(quality_rules),
