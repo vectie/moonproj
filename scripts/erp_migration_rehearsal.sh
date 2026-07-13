@@ -19,6 +19,8 @@ PRODUCTION_MANIFEST=${10:-}
 DELIVERY_PROGRESS_MAPPING=${11:-}
 BUSINESS_ACCEPTANCE_MANIFEST=${12:-$SCRIPT_DIR/fixtures/business_acceptance_manifest.example.json}
 SHADOW_PERIOD_MANIFEST=${13:-$SCRIPT_DIR/fixtures/shadow_period_manifest.example.json}
+DELIVERY_RECOGNITION_MAPPING=${14:-}
+DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${15:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -28,6 +30,11 @@ TARGET_DB="$WORK_DIR/company.sqlite3"
 
 if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ] && [ -z "$TYPED_MAPPING" ]; then
   echo "payment accounting mapping requires the typed cohort mapping" >&2
+  exit 2
+fi
+if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ] &&
+  [ -z "$DELIVERY_RECOGNITION_MAPPING" ]; then
+  echo "delivery recognition accounting mapping requires the delivery recognition mapping" >&2
   exit 2
 fi
 
@@ -240,6 +247,57 @@ if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
   echo "delivery_progress_replay=$DELIVERY_PROGRESS_REPLAY"
 fi
 
+if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
+  DELIVERY_RECOGNITION_PLAN="$WORK_DIR/delivery-recognition-plan.json"
+  "$SCRIPT_DIR/erp_delivery_recognition_plan.py" \
+    "$EXPORT_DIR" "$DELIVERY_RECOGNITION_MAPPING" "$DELIVERY_RECOGNITION_PLAN"
+  echo "delivery_recognition_plan=$DELIVERY_RECOGNITION_PLAN"
+  DELIVERY_RECOGNITION_RECEIPT="$WORK_DIR/delivery-recognition-receipt.json"
+  moon run --target native cmd/delivery_recognition -- \
+    "$DELIVERY_RECOGNITION_PLAN" "$DELIVERY_RECOGNITION_RECEIPT"
+  echo "delivery_recognition_receipt=$DELIVERY_RECOGNITION_RECEIPT"
+  DELIVERY_RECOGNITION_APPLY="$WORK_DIR/delivery-recognition-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$DELIVERY_RECOGNITION_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_APPLY"
+  echo "delivery_recognition_apply=$DELIVERY_RECOGNITION_APPLY"
+  DELIVERY_RECOGNITION_PARITY="$WORK_DIR/delivery-recognition-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$DELIVERY_RECOGNITION_RECEIPT" "$TARGET_DB" "$DELIVERY_RECOGNITION_PARITY"
+  echo "delivery_recognition_parity=$DELIVERY_RECOGNITION_PARITY"
+  DELIVERY_RECOGNITION_REPLAY="$WORK_DIR/delivery-recognition-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$DELIVERY_RECOGNITION_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_REPLAY"
+  echo "delivery_recognition_replay=$DELIVERY_RECOGNITION_REPLAY"
+  if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
+    DELIVERY_RECOGNITION_ACCOUNTING_PLAN="$WORK_DIR/delivery-recognition-accounting-link-plan.json"
+    "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+      "$DELIVERY_RECOGNITION_RECEIPT" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_PLAN"
+    echo "delivery_recognition_accounting_plan=$DELIVERY_RECOGNITION_ACCOUNTING_PLAN"
+    DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT="$WORK_DIR/delivery-recognition-accounting-link-receipt.json"
+    moon run --target native cmd/accounting_link -- \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_PLAN" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT"
+    echo "delivery_recognition_accounting_receipt=$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT"
+    DELIVERY_RECOGNITION_ACCOUNTING_APPLY="$WORK_DIR/delivery-recognition-accounting-link-apply.json"
+    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_ACCOUNTING_APPLY"
+    echo "delivery_recognition_accounting_apply=$DELIVERY_RECOGNITION_ACCOUNTING_APPLY"
+    DELIVERY_RECOGNITION_ACCOUNTING_REPLAY="$WORK_DIR/delivery-recognition-accounting-link-replay.json"
+    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_ACCOUNTING_REPLAY"
+    echo "delivery_recognition_accounting_replay=$DELIVERY_RECOGNITION_ACCOUNTING_REPLAY"
+    DELIVERY_RECOGNITION_RECONCILIATION="$WORK_DIR/delivery-recognition-accounting-reconciliation.json"
+    "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+      "$DELIVERY_RECOGNITION_RECEIPT" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_PLAN" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" \
+      "$TARGET_DB" "$DELIVERY_RECOGNITION_RECONCILIATION"
+    echo "delivery_recognition_reconciliation=$DELIVERY_RECOGNITION_RECONCILIATION"
+  fi
+fi
+
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
 python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
@@ -288,6 +346,12 @@ if [ -n "$TYPED_MAPPING" ]; then
   fi
   if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
+    EXPECTED_LINKS=$((EXPECTED_LINKS + 1))
   fi
   if [ -n "$MAPPING_PATH" ] && [ -n "$ACCOUNTING_MAPPING" ] && [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
     "$SCRIPT_DIR/company_migration_cutover_gate.py" "$WORK_DIR" "$CUTOVER_GATE" \

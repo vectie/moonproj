@@ -88,6 +88,17 @@ def run(
             if domain_item.get("target_type") == "payment_application":
                 application = domain_candidate.get("application")
                 domain_amount = application.get("amount_minor") if isinstance(application, dict) else None
+            elif domain_amount is None:
+                for amount_field in (
+                    "completed_value_minor",
+                    "tax_amount_minor",
+                    "reported_tax_amount_minor",
+                    "notional_minor",
+                    "actual_amount_minor",
+                ):
+                    if amount_field in domain_candidate:
+                        domain_amount = domain_candidate.get(amount_field)
+                        break
             if journal.get("amount_minor") != domain_amount:
                 raise RehearsalError(f"amount_minor mismatch at {source_key[0]}:{source_key[1]}")
             if journal.get("currency") != domain_candidate.get("currency"):

@@ -34,3 +34,9 @@ then verify the cohort independently.
 This is a target-owned draft intake candidate, not delivery acceptance or
 accounting recognition. Acceptance must be performed later by the normal
 delivery workflow with evidence and authority.
+
+Once a business owner supplies separately reviewed acceptance evidence and a
+positive measured amount, the opt-in
+[`ERP_DELIVERY_RECOGNITION.md`](ERP_DELIVERY_RECOGNITION.md) cohort can create a
+pending-posting source-to-journal link. It does not upgrade this draft row in
+place or perform posting, cash release, tax, or period close.

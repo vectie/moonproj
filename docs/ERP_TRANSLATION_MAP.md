@@ -172,6 +172,12 @@ delivery API as a `Draft` `progress_report` with explicit evidence and zero
 completed value. Acceptance, recognition, budget/cost effects, and task-state
 mutation remain separate. See
 [ERP_DELIVERY_PROGRESS.md](ERP_DELIVERY_PROGRESS.md).
+The fourteenth wrapper argument can supply a separately reviewed delivery
+recognition map; it translates accepted progress evidence through the native
+recognition API into a `delivery_recognition` projection with explicit
+acceptance evidence and pending-posting state. Posting, cash release, tax, and
+period close remain separate. See
+[ERP_DELIVERY_RECOGNITION.md](ERP_DELIVERY_RECOGNITION.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -263,7 +269,7 @@ importer.
 | `proj_lifecycle_stage` | Lifecycle-stage catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Seven source catalog rows are preserved as typed evidence; target lifecycle semantics remain governed by the explicit stage map. |
 | project and task-plan snapshots | Project persistence | `operations/project` + `persistence/store` | Lifecycle, task, dependency, planned-cost, and progress snapshots serialize as revisioned projections. |
 | `jd_task`, `jd_task_report` | Project plan, task dependencies, and progress | `operations/project` + `operations/delivery` + `migration/erp` + `cmd/promote` | The real fixture promotes 7/2 dependency-ordered task structures; all 9 source task snapshots and the report are also preserved as typed evidence. Clean `proj-0002` replays 2 states, while two `proj-0001` child states remain quarantined because their parent is still in progress. |
-| `jd_task_report` | Task progress report evidence and draft delivery intake | `operations/delivery` + `migration/erp` + `cmd/delivery_progress` + `persistence/store` | One redacted report remains a `typed_evidence` projection and, only with an explicit project/principal/value/evidence map, becomes one `Draft` `progress_report` projection. Acceptance, recognition, budget/cost consumption, and task-state mutation remain separate. |
+| `jd_task_report` | Task progress report evidence and draft delivery intake | `operations/delivery` + `migration/erp` + `cmd/delivery_progress` + `cmd/delivery_recognition` + `persistence/store` | One redacted report remains a `typed_evidence` projection and, only with an explicit project/principal/value/evidence map, becomes one `Draft` `progress_report` projection. A separate reviewed acceptance cohort can create a pending-posting `delivery_recognition` projection with acceptance evidence; posting, cash, tax, and task-state mutation remain separate. |
 | `proj_progress`, `proj_output` | Evidence-backed progress and delivery acceptance | `operations/delivery` | Progress submission/acceptance and deliverable remediation states implemented. |
 | progress/deliverable snapshots | Delivery persistence | `operations/delivery` + `persistence/store` | Accepted value/progress and evidence-linked deliverables serialize as revisioned projections. |
 | accepted delivery progress | Cost, revenue, and contract-asset recognition boundary | `operations/delivery` + `finance/cost` + `finance/accounting` | Accepted evidence-backed progress feeds the project cost forecast and can construct a balanced source-to-journal recognition event; posting, cash, tax, and revenue policy remain separate. |

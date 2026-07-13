@@ -49,11 +49,29 @@ pub(all) struct Deliverable {
 } derive(Debug, Eq)
 
 ///|
+/// Reviewed recognition evidence derived from an accepted progress report.
+/// This is a source-to-journal link only: posting, cash release, tax, and
+/// period close remain separate accounting controls.
+pub(all) struct DeliveryRecognition {
+  recognition_id : String
+  report_id : String
+  project_id : String
+  principal_id : String
+  project_scope : String
+  acceptance_id : String
+  acceptance_evidence_ids : Array[String]
+  accepted_by : String
+  created_by : String
+  accounting_event : @accounting.AccountingEvent
+} derive(Debug, Eq)
+
+///|
 pub(all) suberror DeliveryError {
   EmptyIdentifier
   InvalidProgress
   InvalidAmount
   MissingEvidence
+  AcceptanceMismatch
   InvalidState
   AccountingEvent(@accounting.AccountingEventError)
   CostForecast(@cost.ForecastError)

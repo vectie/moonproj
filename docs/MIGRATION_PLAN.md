@@ -60,6 +60,10 @@ The optional eleventh cohort maps the one `jd_task_report` row through
 `cmd/delivery_progress`; the full rehearsal reaches 109 projections while
 retaining the report as a draft-only delivery intake with acceptance,
 recognition, budget/cost consumption, and task-state mutation false.
+The optional fourteenth cohort maps only separately reviewed accepted delivery
+evidence through `cmd/delivery_recognition`; it requires a positive measured
+value and explicit acceptance evidence, and produces a pending-posting
+source-to-journal link without posting, cash release, tax, or period close.
 The authority directory now proves effective-dated bounded delegation,
 revocation, and exact-scope separation-of-duties checks; legacy role-table
 migration and site-specific delegation policy remain later cohorts.

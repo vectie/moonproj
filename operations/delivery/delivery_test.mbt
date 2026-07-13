@@ -103,6 +103,125 @@ test "accepted progress builds a recognition link without posting" {
 }
 
 ///|
+fn recognition_grant() -> @foundation.AuthorityGrant {
+  {
+    grant_id: "grant-delivery-recognition",
+    principal_id: "co-001",
+    actor_id: "alice",
+    capability: "delivery:recognition:create",
+    scope: "project:p-001",
+    max_amount_minor: 1000000,
+    active: true,
+  }
+}
+
+///|
+test "reviewed delivery recognition persists without posting or cash release" {
+  let report = ProgressReport::new(
+      report_id="progress-reviewed-recognition",
+      project_id="p-001",
+      principal_id="co-001",
+      project_scope="project:p-001",
+      progress_bps=4500L,
+      completed_value=@finance.Money::new(minor=300000, currency="CNY"),
+      evidence_ids=["inspection-reviewed-001"],
+      actor_id="alice",
+      grant=delivery_grant("delivery:progress:create"),
+    )
+    .submit(actor_id="alice", grant=delivery_grant("delivery:progress:submit"))
+    .accept(actor_id="alice", grant=delivery_grant("delivery:progress:accept"))
+  let recognition = report.recognize(
+    recognition_id="recognition-reviewed-001",
+    acceptance_id="acceptance-reviewed-001",
+    acceptance_evidence_ids=["acceptance-evidence-reviewed-001"],
+    accepted_by="alice",
+    actor_id="alice",
+    contract_asset_account="contract-asset",
+    revenue_account="revenue",
+    grant=recognition_grant(),
+  )
+  assert_eq(recognition.report_id, "progress-reviewed-recognition")
+  assert_eq(recognition.accepted_by, "alice")
+  assert_eq(recognition.accounting_event.source_type, "delivery_progress")
+  let schema = @schema.SchemaState::initial()
+  let migration = @schema.MigrationStep::new(
+    version=1,
+    migration_id="V1__foundation",
+    checksum="sha256:one",
+    description="Create foundation tables",
+  )
+  let store = @store.RecordStore::new(schema).migrate(migration)
+  let projection = @store.AggregateProjection::new(
+    store,
+    aggregate_type="delivery_recognition",
+    aggregate_id="recognition-reviewed-001",
+  )
+  let projection = recognition.append_projection(projection)
+  match projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("pending_posting"))
+      assert_true(latest.payload.contains("cash_released"))
+      assert_true(latest.payload.contains("period_closed"))
+      assert_true(latest.payload.contains("false"))
+      assert_true(latest.payload.contains("acceptance-reviewed-001"))
+      assert_true(latest.payload.contains("acceptance-evidence-reviewed-001"))
+    }
+    None => fail("expected delivery recognition projection")
+  }
+}
+
+///|
+test "delivery recognition requires matching acceptance evidence and authority" {
+  let report = ProgressReport::new(
+      report_id="progress-recognition-guard",
+      project_id="p-001",
+      principal_id="co-001",
+      project_scope="project:p-001",
+      progress_bps=4500L,
+      completed_value=@finance.Money::new(minor=300000, currency="CNY"),
+      evidence_ids=["inspection-guard-001"],
+      actor_id="alice",
+      grant=delivery_grant("delivery:progress:create"),
+    )
+    .submit(actor_id="alice", grant=delivery_grant("delivery:progress:submit"))
+    .accept(actor_id="alice", grant=delivery_grant("delivery:progress:accept"))
+  try
+    report.recognize(
+      recognition_id="recognition-guard-001",
+      acceptance_id="acceptance-guard-001",
+      acceptance_evidence_ids=["acceptance-evidence-guard-001"],
+      accepted_by="bob",
+      actor_id="alice",
+      contract_asset_account="contract-asset",
+      revenue_account="revenue",
+      grant=recognition_grant(),
+    )
+  catch {
+    DeliveryError::AcceptanceMismatch => ()
+    _ => fail("wrong acceptance evidence error")
+  } noraise {
+    _ => fail("expected acceptance evidence guard")
+  }
+  try
+    report.recognize(
+      recognition_id="recognition-guard-002",
+      acceptance_id="acceptance-guard-002",
+      acceptance_evidence_ids=["acceptance-evidence-guard-002"],
+      accepted_by="alice",
+      actor_id="alice",
+      contract_asset_account="contract-asset",
+      revenue_account="revenue",
+      grant=delivery_grant("delivery:progress:accept"),
+    )
+  catch {
+    DeliveryError::NotAuthorized(_) => ()
+    _ => fail("wrong recognition authority error")
+  } noraise {
+    _ => fail("expected recognition authority guard")
+  }
+}
+
+///|
 test "delivery recognition link is appendable and source-identifiable" {
   let report = ProgressReport::new(
       report_id="progress-recognition-record",

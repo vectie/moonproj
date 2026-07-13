@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -18,6 +18,8 @@ DELIVERY_PROGRESS_MAPPING=${8:-}
 ADVANCE_OFFSET_MAPPING=${9:-}
 PAYMENT_ACCOUNTING_MAPPING=${10:-}
 OFFSET_ACCOUNTING_MAPPING=${11:-$SCRIPT_DIR/fixtures/accounting_offset_link_mapping.json}
+DELIVERY_RECOGNITION_MAPPING=${12:-}
+DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${13:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -87,6 +89,27 @@ if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
   python3 "$SCRIPT_DIR/erp_delivery_progress_plan.py" "$EXPORT_DIR" "$DELIVERY_PROGRESS_MAPPING" "$WORK_DIR/delivery-progress-plan.json"
   moon run --target native cmd/delivery_progress -- "$WORK_DIR/delivery-progress-plan.json" "$WORK_DIR/delivery-progress-receipt.json"
   apply_projection delivery-progress "$WORK_DIR/delivery-progress-receipt.json"
+fi
+
+if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
+  python3 "$SCRIPT_DIR/erp_delivery_recognition_plan.py" \
+    "$EXPORT_DIR" "$DELIVERY_RECOGNITION_MAPPING" \
+    "$WORK_DIR/delivery-recognition-plan.json"
+  moon run --target native cmd/delivery_recognition -- \
+    "$WORK_DIR/delivery-recognition-plan.json" \
+    "$WORK_DIR/delivery-recognition-receipt.json"
+  apply_projection delivery-recognition "$WORK_DIR/delivery-recognition-receipt.json"
+  if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
+    python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+      "$WORK_DIR/delivery-recognition-receipt.json" \
+      "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" \
+      "$WORK_DIR/delivery-recognition-accounting-plan.json"
+    moon run --target native cmd/accounting_link -- \
+      "$WORK_DIR/delivery-recognition-accounting-plan.json" \
+      "$WORK_DIR/delivery-recognition-accounting-receipt.json"
+    apply_accounting delivery-recognition-accounting \
+      "$WORK_DIR/delivery-recognition-accounting-receipt.json"
+  fi
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then

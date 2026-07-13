@@ -105,3 +105,76 @@ pub fn Deliverable::append_projection(
     error => raise DeliveryError::Projection(error)
   }
 }
+
+///|
+fn recognition_postings_json(event : @accounting.AccountingEvent) -> Json {
+  let postings : Array[Json] = []
+  for posting in event.journal.postings {
+    let side = match posting.side {
+      @finance.PostingSide::Debit => "debit"
+      @finance.PostingSide::Credit => "credit"
+    }
+    postings.push(
+      Json::object({
+        "account": Json::string(posting.account),
+        "side": Json::string(side),
+        "amount_minor": Json::number(
+          posting.amount.minor.to_double(),
+          repr=posting.amount.minor.to_string(),
+        ),
+        "currency": Json::string(posting.amount.currency),
+      }),
+    )
+  }
+  Json::array(postings)
+}
+
+///|
+fn recognition_projection_payload(recognition : DeliveryRecognition) -> String {
+  let event = recognition.accounting_event
+  Json::object({
+    "recognition_id": Json::string(recognition.recognition_id),
+    "report_id": Json::string(recognition.report_id),
+    "project_id": Json::string(recognition.project_id),
+    "principal_id": Json::string(recognition.principal_id),
+    "project_scope": Json::string(recognition.project_scope),
+    "acceptance_id": Json::string(recognition.acceptance_id),
+    "acceptance_evidence_ids": evidence_json(
+      recognition.acceptance_evidence_ids,
+    ),
+    "accepted_by": Json::string(recognition.accepted_by),
+    "created_by": Json::string(recognition.created_by),
+    "event_id": Json::string(event.event_id),
+    "source_type": Json::string(event.source_type),
+    "source_id": Json::string(event.source_id),
+    "event_type": Json::string(event.event_type),
+    "journal_entry_id": Json::string(event.journal.entry_id),
+    "postings": recognition_postings_json(event),
+    "recognition_state": Json::string("pending_posting"),
+    "posted": Json::boolean(false),
+    "cash_released": Json::boolean(false),
+    "period_closed": Json::boolean(false),
+  }).stringify()
+}
+
+///|
+pub fn DeliveryRecognition::append_projection(
+  self : DeliveryRecognition,
+  projection : @store.AggregateProjection,
+) -> @store.AggregateProjection raise DeliveryError {
+  if projection.aggregate_type != "delivery_recognition" ||
+    projection.aggregate_id != self.recognition_id {
+    raise DeliveryError::ProjectionIdentity
+  }
+  let revision = projection.revision + 1
+  projection.append(
+    expected_revision=revision,
+    payload=recognition_projection_payload(self),
+    source_event_id="company:delivery-recognition:" +
+      self.recognition_id +
+      ":r" +
+      revision.to_string(),
+  ) catch {
+    error => raise DeliveryError::Projection(error)
+  }
+}

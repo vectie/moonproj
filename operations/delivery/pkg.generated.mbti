@@ -18,6 +18,7 @@ pub(all) suberror DeliveryError {
   InvalidProgress
   InvalidAmount
   MissingEvidence
+  AcceptanceMismatch
   InvalidState
   AccountingEvent(@accounting.AccountingEventError)
   CostForecast(@cost.ForecastError)
@@ -59,6 +60,20 @@ pub(all) struct DeliveryEvent {
   capability : String
 } derive(Eq, @debug.Debug)
 
+pub(all) struct DeliveryRecognition {
+  recognition_id : String
+  report_id : String
+  project_id : String
+  principal_id : String
+  project_scope : String
+  acceptance_id : String
+  acceptance_evidence_ids : Array[String]
+  accepted_by : String
+  created_by : String
+  accounting_event : @accounting.AccountingEvent
+} derive(Eq, @debug.Debug)
+pub fn DeliveryRecognition::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise DeliveryError
+
 pub(all) struct ProgressReport {
   report_id : String
   project_id : String
@@ -73,6 +88,7 @@ pub(all) struct ProgressReport {
 pub fn ProgressReport::accept(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
 pub fn ProgressReport::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise DeliveryError
 pub fn ProgressReport::new(report_id~ : String, project_id~ : String, principal_id~ : String, project_scope~ : String, progress_bps~ : Int64, completed_value~ : @finance.Money, evidence_ids~ : Array[String], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
+pub fn ProgressReport::recognize(Self, recognition_id~ : String, acceptance_id~ : String, acceptance_evidence_ids~ : Array[String], accepted_by~ : String, actor_id~ : String, contract_asset_account~ : String, revenue_account~ : String, grant~ : @foundation.AuthorityGrant) -> DeliveryRecognition raise DeliveryError
 pub fn ProgressReport::reject(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
 pub fn ProgressReport::submit(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise DeliveryError
 pub fn ProgressReport::to_cost_forecast(Self, target~ : @finance.Money, committed~ : @finance.Money, actual~ : @finance.Money) -> @cost.CostForecast raise DeliveryError

@@ -155,6 +155,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise LinkError {
       "settlement" => "settlement"
       "expense_claim" => "expense_claim"
       "delivery_progress" => "delivery_progress"
+      "delivery_recognition" => "delivery_progress"
       "asset_depreciation" => "asset_depreciation"
       "receivable" => "receivable"
       "payable" => "payable"
