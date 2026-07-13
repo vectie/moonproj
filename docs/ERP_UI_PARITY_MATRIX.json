@@ -13,6 +13,7 @@
     "connected_admin_health_read": 1,
     "connected_admin_read": 1,
     "connected_cashflow_read": 1,
+    "connected_cbs_read": 4,
     "connected_command_form": 1,
     "connected_contract_command_form": 1,
     "connected_contract_read": 1,
@@ -36,7 +37,7 @@
     "connected_tender_command_form": 1,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 1,
-    "fixture_backed_read_only": 18,
+    "fixture_backed_read_only": 14,
     "public": 1,
     "read_only_public": 1
   },
@@ -45,6 +46,7 @@
     "connected_admin_health_read": 1,
     "connected_admin_read": 1,
     "connected_cashflow_read": 1,
+    "connected_cbs_read": 4,
     "connected_contract_command": 2,
     "connected_cost_read": 1,
     "connected_dashboard_read": 3,
@@ -66,7 +68,7 @@
     "connected_supplier_risk_read": 1,
     "connected_tender_command": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 21
+    "read_only_fixture_no_source_api": 17
   },
   "routes": [
     {
@@ -537,13 +539,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "cbs_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_cbs_read",
       "source_api_module": "cbs",
       "source_api_handler_count": 30,
       "source_api_read_handler_count": 10,
       "source_api_mutation_handler_count": 20,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "path": "/cbs/versions",
@@ -551,13 +553,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "cbs_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_cbs_read",
       "source_api_module": "cbs",
       "source_api_handler_count": 30,
       "source_api_read_handler_count": 10,
       "source_api_mutation_handler_count": 20,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "path": "/cbs/r0-queue",
@@ -565,13 +567,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "cbs_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_cbs_read",
       "source_api_module": "cbs",
       "source_api_handler_count": 30,
       "source_api_read_handler_count": 10,
       "source_api_mutation_handler_count": 20,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "path": "/cbs/approval-config",
@@ -579,13 +581,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "cbs_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_cbs_read",
       "source_api_module": "cbs",
       "source_api_handler_count": 30,
       "source_api_read_handler_count": 10,
       "source_api_mutation_handler_count": 20,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "path": "/srm/providers",
@@ -1712,8 +1714,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1725,8 +1727,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1764,8 +1766,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1777,8 +1779,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1829,8 +1831,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1842,8 +1844,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1868,8 +1870,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1881,8 +1883,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -1894,8 +1896,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",
@@ -2011,8 +2013,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_cbs_read",
+      "required_next": "accept_browser_cbs_scenario_and_production_identity"
     },
     {
       "module": "cbs",

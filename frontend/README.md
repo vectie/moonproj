@@ -70,7 +70,11 @@ payment-plan, application, expense, loan, and revenue evidence with explicit
 missing-table coverage. The authenticated service/read-model adapter also
 exposes `/forecast-v3`, `/forecast/detail`, `/inflow`, `/net`, and `/gap-alert`
 for source-compatible drill-downs. Cash release, accounting, tax, bank
-settlement, and production identity remain separate gates. The authenticated company service/gateway
+settlement, and production identity remain separate gates. The `/cbs/*`
+screens now load the source-compatible PostgreSQL CBS dictionary and R0 queue
+reads, including explicit empty/covered source states when the export has no
+CBS dictionary/version rows; CBS mutations and budget ownership remain
+separate gates. The authenticated company service/gateway
 also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

@@ -37,6 +37,16 @@ from company_postgres_service import (
     cashflow_source_inflow as service_cashflow_source_inflow,
     cashflow_source_net as service_cashflow_source_net,
     cashflow_source_gap_alert as service_cashflow_source_gap_alert,
+    cbs_source_r_master as service_cbs_source_r_master,
+    cbs_source_dict as service_cbs_source_dict,
+    cbs_source_f_balance as service_cbs_source_f_balance,
+    cbs_source_versions as service_cbs_source_versions,
+    cbs_source_versions_compare as service_cbs_source_versions_compare,
+    cbs_source_r0_queue as service_cbs_source_r0_queue,
+    cbs_source_approval_rules as service_cbs_source_approval_rules,
+    cbs_source_approval_pick as service_cbs_source_approval_pick,
+    cbs_source_changes as service_cbs_source_changes,
+    cbs_source_demo_contracts as service_cbs_source_demo_contracts,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -308,6 +318,56 @@ def cashflow_source_net(args: argparse.Namespace, months: int) -> dict[str, Any]
 
 def cashflow_source_gap_alert(args: argparse.Namespace, horizon_days: int) -> dict[str, Any]:
     return service_cashflow_source_gap_alert(_ReadModelPool(args), horizon_days, 500)
+
+
+def cbs_source_r_master(args: argparse.Namespace) -> dict[str, Any]:
+    return service_cbs_source_r_master(_ReadModelPool(args), 500)
+
+
+def cbs_source_dict(
+    args: argparse.Namespace, proj_guid: str, plan_version: str | None, r_code: str | None,
+) -> dict[str, Any]:
+    return service_cbs_source_dict(_ReadModelPool(args), proj_guid, plan_version, r_code, 500)
+
+
+def cbs_source_f_balance(
+    args: argparse.Namespace, proj_guid: str, l3_code: str, plan_version: str | None,
+) -> dict[str, Any]:
+    return service_cbs_source_f_balance(_ReadModelPool(args), proj_guid, l3_code, plan_version, 500)
+
+
+def cbs_source_versions(args: argparse.Namespace, proj_guid: str) -> dict[str, Any]:
+    return service_cbs_source_versions(_ReadModelPool(args), proj_guid, 500)
+
+
+def cbs_source_versions_compare(
+    args: argparse.Namespace, proj_guid: str, version_a: str, version_b: str, version_c: str | None,
+) -> dict[str, Any]:
+    return service_cbs_source_versions_compare(
+        _ReadModelPool(args), proj_guid, version_a, version_b, version_c, 500,
+    )
+
+
+def cbs_source_r0_queue(args: argparse.Namespace, proj_guid: str | None) -> dict[str, Any]:
+    return service_cbs_source_r0_queue(_ReadModelPool(args), proj_guid, 500)
+
+
+def cbs_source_approval_rules(args: argparse.Namespace, biz_type: str | None) -> dict[str, Any]:
+    return service_cbs_source_approval_rules(_ReadModelPool(args), biz_type, 500)
+
+
+def cbs_source_approval_pick(args: argparse.Namespace, biz_type: str, amount: float) -> dict[str, Any]:
+    return service_cbs_source_approval_pick(_ReadModelPool(args), biz_type, amount, 500)
+
+
+def cbs_source_changes(
+    args: argparse.Namespace, proj_guid: str | None, contract_guid: str | None,
+) -> dict[str, Any]:
+    return service_cbs_source_changes(_ReadModelPool(args), proj_guid, contract_guid, 500)
+
+
+def cbs_source_demo_contracts(args: argparse.Namespace, proj_guid: str | None) -> dict[str, Any]:
+    return service_cbs_source_demo_contracts(_ReadModelPool(args), proj_guid, 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -675,6 +735,92 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/cashflow/gap-alert":
                     horizon_days = int(parse_qs(parsed.query).get("horizonDays", ["90"])[0])
                     response(self, 200, cashflow_source_gap_alert(args, horizon_days))
+                    return
+                if parsed.path == "/api/company/cbs/r-master":
+                    response(self, 200, cbs_source_r_master(args))
+                    return
+                if parsed.path == "/api/company/cbs/dict":
+                    query = parse_qs(parsed.query)
+                    proj_guid = query.get("projGuid", [None])[0]
+                    if not proj_guid:
+                        response(self, 422, {"error": "projGuid is required"})
+                    else:
+                        response(
+                            self,
+                            200,
+                            cbs_source_dict(
+                                args,
+                                proj_guid,
+                                query.get("planVersion", [None])[0],
+                                query.get("rCode", [None])[0],
+                            ),
+                        )
+                    return
+                if parsed.path == "/api/company/cbs/dict/f-balance":
+                    query = parse_qs(parsed.query)
+                    proj_guid = query.get("projGuid", [None])[0]
+                    l3_code = query.get("l3Code", [None])[0]
+                    if not proj_guid or not l3_code:
+                        response(self, 422, {"error": "projGuid and l3Code are required"})
+                    else:
+                        result = cbs_source_f_balance(
+                            args, proj_guid, l3_code, query.get("planVersion", [None])[0],
+                        )
+                        response(self, 200 if result.get("success") is True else 404, result)
+                    return
+                if parsed.path == "/api/company/cbs/versions":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    if not proj_guid:
+                        response(self, 422, {"error": "projGuid is required"})
+                    else:
+                        response(self, 200, cbs_source_versions(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/cbs/versions/compare":
+                    query = parse_qs(parsed.query)
+                    proj_guid = query.get("projGuid", [None])[0]
+                    version_a = query.get("a", [None])[0]
+                    version_b = query.get("b", [None])[0]
+                    if not proj_guid or not version_a or not version_b:
+                        response(self, 422, {"error": "projGuid, a, and b are required"})
+                    else:
+                        response(
+                            self,
+                            200,
+                            cbs_source_versions_compare(
+                                args, proj_guid, version_a, version_b, query.get("c", [None])[0],
+                            ),
+                        )
+                    return
+                if parsed.path == "/api/company/cbs/r0/queue":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, cbs_source_r0_queue(args, proj_guid))
+                    return
+                if parsed.path == "/api/company/cbs/approval-rules/pick":
+                    query = parse_qs(parsed.query)
+                    biz_type = query.get("bizType", [None])[0]
+                    amount = query.get("amount", [None])[0]
+                    if not biz_type or amount is None:
+                        response(self, 422, {"error": "bizType and amount are required"})
+                    else:
+                        response(self, 200, cbs_source_approval_pick(args, biz_type, float(amount)))
+                    return
+                if parsed.path == "/api/company/cbs/approval-rules":
+                    biz_type = parse_qs(parsed.query).get("bizType", [None])[0]
+                    response(self, 200, cbs_source_approval_rules(args, biz_type))
+                    return
+                if parsed.path == "/api/company/cbs/changes":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cbs_source_changes(
+                            args, query.get("projGuid", [None])[0], query.get("contractGuid", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/cbs/demo/contracts":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, cbs_source_demo_contracts(args, proj_guid))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

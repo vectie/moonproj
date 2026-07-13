@@ -389,6 +389,16 @@ struct CashflowRow {
 }
 
 ///|
+struct CbsRow {
+  l3_code : String
+  r_code : String
+  l2_name : String
+  subject : String
+  plan_amount : String
+  src : String
+}
+
+///|
 struct InitiatedRow {
   id : String
   code : String
@@ -629,6 +639,12 @@ struct Model {
   cashflow_inflow_total : String
   cashflow_inflow_missing_table_count : String
   cashflow_inflow_note : String
+  cbs_loaded : Bool
+  cbs_rows : Array[CbsRow]
+  cbs_plan_version : String
+  cbs_r0_count : String
+  cbs_missing_table_count : String
+  cbs_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -787,6 +803,10 @@ enum Msg {
   CashflowLoadFailed
   CashflowInflowLoaded(String)
   CashflowInflowLoadFailed
+  CbsLoaded(String)
+  CbsLoadFailed
+  CbsR0Loaded(String)
+  CbsR0LoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -965,6 +985,12 @@ fn initial_model() -> Model {
     cashflow_inflow_total: "0",
     cashflow_inflow_missing_table_count: "0",
     cashflow_inflow_note: "回款源读模型尚未加载",
+    cbs_loaded: false,
+    cbs_rows: [],
+    cbs_plan_version: "baseline",
+    cbs_r0_count: "0",
+    cbs_missing_table_count: "0",
+    cbs_note: "CBS 读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2501,6 +2527,63 @@ fn cashflow_inflow_from_body(body : String) -> (Bool, String, String, String) {
 }
 
 ///|
+fn cbs_from_body(
+  body : String,
+) -> (Bool, Array[CbsRow], String, String, String) {
+  let rows : Array[CbsRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let version = json_object_text(data, "planVersion", "baseline")
+          for value in json_array_field(data, "items") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  l3_code: json_object_text(row, "l3_code", ""),
+                  r_code: json_object_text(row, "r_code", ""),
+                  l2_name: json_object_text(row, "l2_name", ""),
+                  subject: json_object_text(row, "subject", ""),
+                  plan_amount: json_object_text(row, "plan_amount", "0"),
+                  src: json_object_text(row, "src", "imported"),
+                })
+              _ => ()
+            }
+          }
+          (
+            true, rows, version, missing, "已加载 PostgreSQL CBS 源读模型 · 字典保持只读",
+          )
+        }
+        _ =>
+          (
+            false, rows, "baseline", missing, "CBS 响应无效 · 使用设计快照",
+          )
+      }
+    }
+    _ =>
+      (false, rows, "baseline", "0", "CBS 响应无效 · 使用设计快照")
+  }
+}
+
+///|
+fn cbs_r0_from_body(body : String) -> (Bool, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          (true, json_array_field(data, "items").length().to_string())
+        _ => (false, "0")
+      }
+    _ => (false, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -3112,6 +3195,26 @@ fn load_cashflow_inflow(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_cbs(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/cbs/dict?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(CbsLoaded(body))
+      Err(_) => emit(CbsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_cbs_r0(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/cbs/r0/queue?projGuid=proj-0001").expect_text(result => {
+    match result {
+      Ok(body) => emit(CbsR0Loaded(body))
+      Err(_) => emit(CbsR0LoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -3690,6 +3793,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_dynamic_cost(emit)
       } else if path == "/cashflow" {
         load_cashflow(emit)
+      } else if path == "/cbs/dict" ||
+        path == "/cbs/versions" ||
+        path == "/cbs/r0-queue" ||
+        path == "/cbs/approval-config" {
+        load_cbs(emit)
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -4988,6 +5096,41 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           cashflow_inflow_note: "回款读模型不可用 · 保留空源状态",
         },
       )
+    CbsLoaded(body) => {
+      let (loaded, rows, version, missing_table_count, note) = cbs_from_body(
+        body,
+      )
+      (
+        if loaded {
+          load_cbs_r0(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          cbs_loaded: loaded,
+          cbs_rows: rows,
+          cbs_plan_version: version,
+          cbs_missing_table_count: missing_table_count,
+          cbs_note: note,
+        },
+      )
+    }
+    CbsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          cbs_loaded: false,
+          cbs_rows: [],
+          cbs_note: "CBS 读模型不可用 · 使用设计快照",
+        },
+      )
+    CbsR0Loaded(body) => {
+      let (loaded, count) = cbs_r0_from_body(body)
+      (none, { ..model, cbs_r0_count: if loaded { count } else { "0" } })
+    }
+    CbsR0LoadFailed => (none, { ..model, cbs_r0_count: "0" })
     ProfileLoaded(body) => {
       let values = profile_from_body(body)
       if values.length() == 10 {
@@ -8392,7 +8535,71 @@ fn srm_risk_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn cbs_view(path : String) -> @html.Html {
+fn cbs_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.cbs_loaded {
+    if model.cbs_rows.length() == 0 {
+      rows.push([
+        "—", "—", "—", "本次导出没有 CBS 字典源记录", "—", "imported_or_empty",
+      ])
+    } else {
+      for row in model.cbs_rows {
+        rows.push([
+          row.l3_code,
+          row.r_code,
+          row.l2_name,
+          row.subject,
+          row.plan_amount,
+          row.src,
+        ])
+      }
+    }
+    table_panel(
+      "PostgreSQL CBS 字典 (" + model.cbs_rows.length().to_string() + ")",
+      model.cbs_note +
+      " · 版本 " +
+      model.cbs_plan_version +
+      " · R0 待归类 " +
+      model.cbs_r0_count +
+      " · 空源表 " +
+      model.cbs_missing_table_count,
+      data_table(
+        [
+          "L3 编码", "R 编码", "L2 名称", "科目", "计划金额", "来源",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "CBS 数据",
+      "设计快照 · 等待 PostgreSQL 源读模型",
+      data_table(
+        [
+          "编码", "名称", "层级", "适用范围", "最近更新", "维护人",
+          "状态",
+        ],
+        [
+          [
+            "03", "建安工程", "一级", "全集团", "2026-07-01", "李明金",
+            "正常",
+          ],
+          [
+            "03-01", "主体结构工程", "二级", "开发项目", "2026-07-08",
+            "李明金", "正常",
+          ],
+          [
+            "03-01-002", "混凝土工程", "三级", "开发项目", "2026-07-12",
+            "系统", "待审核",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn cbs_view(model : Model, path : String) -> @html.Html {
   let title = title_for(path)
   page_shell(
     title,
@@ -8401,34 +8608,7 @@ fn cbs_view(path : String) -> @html.Html {
     [button(class="erp-primary-btn", "＋ 新建条目")],
     div <| [
       filter_bar("科目编码 / 科目名称 / 版本"),
-      table_panel(
-        "CBS 数据",
-        "当前版本 V2026.07",
-        data_table(
-          [
-            "编码", "名称", "层级", "适用范围", "最近更新", "维护人",
-            "状态",
-          ],
-          [
-            [
-              "03", "建安工程", "一级", "全集团", "2026-07-01", "李明金",
-              "正常",
-            ],
-            [
-              "03-01", "主体结构工程", "二级", "开发项目", "2026-07-08",
-              "李明金", "正常",
-            ],
-            [
-              "03-01-002", "混凝土工程", "三级", "开发项目", "2026-07-12",
-              "系统", "待审核",
-            ],
-            [
-              "04-03", "营销费用", "二级", "销售项目", "2026-06-20", "刘松",
-              "正常",
-            ],
-          ],
-        ),
-      ),
+      cbs_runtime_table(model),
     ],
   )
 }
@@ -11114,10 +11294,10 @@ fn business_view(
       "/srm/providers" => srm_providers_view(emit, model)
       "/srm/providers/SUP-00018" => provider_detail_view(emit, model)
       "/srm/risk-board" => srm_risk_view(emit, model)
-      "/cbs/dict" => cbs_view(path)
-      "/cbs/versions" => cbs_view(path)
-      "/cbs/r0-queue" => cbs_view(path)
-      "/cbs/approval-config" => cbs_view(path)
+      "/cbs/dict" => cbs_view(model, path)
+      "/cbs/versions" => cbs_view(model, path)
+      "/cbs/r0-queue" => cbs_view(model, path)
+      "/cbs/approval-config" => cbs_view(model, path)
       "/fund/plan" => fund_plan_view()
       "/invoice" => invoice_view(model)
       "/expenses" => expenses_view(emit, model)

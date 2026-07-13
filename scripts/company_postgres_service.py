@@ -67,6 +67,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/cashflow/inflow`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/net`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/gap-alert`` (GET, source-compatible cashflow read)
+* ``/api/company/cbs/*`` (GET, source-compatible non-authorizing CBS reads)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
@@ -6485,7 +6486,30 @@ CASHFLOW_SOURCE_TABLES = {
 }
 
 
+CBS_SOURCE_TABLES = {
+    "cb_change_apply",
+    "cb_contract",
+    "cb_expense_split",
+    "cb_plan_version",
+    "cb_r_master",
+    "cb_subject_dict",
+    "vcb_expense",
+    "wf_approval_rule",
+}
+
+
 def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+    }
+
+
+def _cbs_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
         "source_coverage": coverage,
@@ -7030,6 +7054,390 @@ def cashflow_source_forecast_v3(
         "data": {"projGuid": proj_guid, "planVersion": plan_version, "months": month_list, "series": series, "totals": totals},
         **_cashflow_source_metadata(coverage),
     }
+
+
+def _cbs_rows_and_coverage(
+    pool: PsqlPool, max_rows: int,
+) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
+    limit = max(max_rows, 500)
+    rows = {
+        table: _raw_source_rows(pool, table, limit, CBS_SOURCE_TABLES)
+        for table in sorted(CBS_SOURCE_TABLES)
+    }
+    return {table: len(values) for table, values in rows.items()}, rows
+
+
+def _cbs_version(
+    rows: list[dict[str, Any]], proj_guid: str, requested: str | None,
+) -> str:
+    if requested:
+        return requested
+    active = next(
+        (
+            row["payload"] for row in rows
+            if not row["payload"].get("deleted_at")
+            and str(row["payload"].get("proj_guid") or "") == proj_guid
+            and _srm_source_bool(row["payload"], "is_active")
+        ),
+        None,
+    )
+    return _report_text(active or {}, "plan_version", "baseline")
+
+
+def cbs_source_r_master(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    items = []
+    for row in rows["cb_r_master"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        items.append(
+            {
+                "r_code": _report_text(payload, "r_code"),
+                "r_name": _report_text(payload, "r_name"),
+                "r_kind": _report_text(payload, "r_kind"),
+                "formula": _report_text(payload, "formula"),
+                "display_order": _report_float(payload, "display_order"),
+                "is_live": _srm_source_bool(payload, "is_live", True),
+            }
+        )
+    items.sort(key=lambda item: (item["display_order"], item["r_code"]))
+    return {"success": True, "code": 0, "data": items, **_cbs_source_metadata(coverage)}
+
+
+def cbs_source_dict(
+    pool: PsqlPool,
+    proj_guid: str,
+    plan_version: str | None,
+    r_code: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    for value, label in ((plan_version, "plan_version"), (r_code, "r_code")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    version = _cbs_version(rows["cb_plan_version"], proj_guid, plan_version)
+    items = []
+    for row in rows["cb_subject_dict"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if _report_text(payload, "plan_version", "baseline") != version:
+            continue
+        if r_code is not None and _report_text(payload, "r_code") != r_code:
+            continue
+        items.append(
+            {
+                "dict_guid": _report_text(payload, "dict_guid", row["record_id"]),
+                "l3_code": _report_text(payload, "l3_code"),
+                "r_code": _report_text(payload, "r_code"),
+                "l2_code": _report_text(payload, "l2_code"),
+                "l2_name": _report_text(payload, "l2_name"),
+                "subject": _report_text(payload, "subject"),
+                "plan_amount": _report_float(payload, "plan_amount"),
+                "src": _report_text(payload, "src"),
+            }
+        )
+    items.sort(key=lambda item: item["l3_code"])
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"planVersion": version, "items": items},
+        **_cbs_source_metadata(coverage),
+    }
+
+
+def cbs_source_f_balance(
+    pool: PsqlPool,
+    proj_guid: str,
+    l3_code: str,
+    plan_version: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(proj_guid) or not IDENTIFIER.fullmatch(l3_code):
+        raise ValueError("invalid CBS identifier")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    version = _cbs_version(rows["cb_plan_version"], proj_guid, plan_version or "execution")
+    leaf = next(
+        (
+            row["payload"] for row in rows["cb_subject_dict"]
+            if not row["payload"].get("deleted_at")
+            and str(row["payload"].get("proj_guid") or "") == proj_guid
+            and _report_text(row["payload"], "plan_version", "baseline") == version
+            and _report_text(row["payload"], "l3_code") == l3_code
+        ),
+        None,
+    )
+    if leaf is None:
+        return {
+            "success": False,
+            "code": 43001,
+            "message": "CBS leaf not found",
+            "data": None,
+            **_cbs_source_metadata(coverage),
+        }
+    plan_amount = _report_float(leaf, "plan_amount")
+    used = 0.0
+    for row in rows["cb_contract"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if _report_text(payload, "l3_code") != l3_code:
+            continue
+        if _report_text(payload, "cb_state") in {"signed", "paid", "approving"}:
+            used += (
+                _report_float(payload, "ht_amount")
+                + _report_float(payload, "sum_alter_amount")
+            ) / 10000
+    expense_by_id = {
+        str(row["payload"].get("expense_guid") or row["record_id"]): row["payload"]
+        for row in rows["vcb_expense"]
+        if not row["payload"].get("deleted_at")
+    }
+    for row in rows["cb_expense_split"]:
+        payload = row["payload"]
+        expense = expense_by_id.get(str(payload.get("expense_guid") or ""), {})
+        if _report_text(payload, "l3_code") == l3_code and _report_text(
+            expense, "apply_state"
+        ) in {"approving", "approved", "Approved"}:
+            used += _report_float(payload, "amount") / 10000
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "planVersion": version,
+            "l3Code": l3_code,
+            "A": round(plan_amount, 2),
+            "usedDplusE": round(used, 2),
+            "F": round(max(0.0, plan_amount - used), 2),
+        },
+        **_cbs_source_metadata(coverage),
+    }
+
+
+def cbs_source_versions(
+    pool: PsqlPool, proj_guid: str, max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    result = []
+    for row in rows["cb_plan_version"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        result.append(
+            {
+                "plan_version": _report_text(payload, "plan_version"),
+                "version_name": _report_text(payload, "version_name"),
+                "parent_version": _report_text(payload, "parent_version"),
+                "is_active": _srm_source_bool(payload, "is_active"),
+                "frozen_at": _report_text(payload, "frozen_at"),
+                "frozen_by": _report_text(payload, "frozen_by"),
+                "created_at": _report_text(payload, "created_at"),
+                "created_by": _report_text(payload, "created_by"),
+            }
+        )
+    result.sort(key=lambda item: item["created_at"])
+    return {"success": True, "code": 0, "data": result, **_cbs_source_metadata(coverage)}
+
+
+def cbs_source_versions_compare(
+    pool: PsqlPool,
+    proj_guid: str,
+    version_a: str,
+    version_b: str,
+    version_c: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    for value, label in ((version_a, "version_a"), (version_b, "version_b"), (version_c, "version_c")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    maps: list[dict[str, dict[str, Any]]] = []
+    for version in (version_a, version_b, version_c):
+        if version is None:
+            maps.append({})
+            continue
+        maps.append(
+            {
+                _report_text(row["payload"], "l3_code"): row["payload"]
+                for row in rows["cb_subject_dict"]
+                if not row["payload"].get("deleted_at")
+                and str(row["payload"].get("proj_guid") or "") == proj_guid
+                and _report_text(row["payload"], "plan_version", "baseline") == version
+            }
+        )
+    codes = sorted(set().union(*(set(value) for value in maps)))
+    differences = []
+    for code in codes:
+        values = [mapping.get(code) for mapping in maps]
+        amounts = [None if value is None else _report_float(value, "plan_amount") for value in values]
+        if amounts[0] == amounts[1] and (version_c is None or amounts[0] == amounts[2]):
+            continue
+        source = next((value for value in values if value is not None), {})
+        differences.append(
+            {
+                "l3Code": code,
+                "rCode": _report_text(source, "r_code"),
+                "l2Name": _report_text(source, "l2_name"),
+                "subject": _report_text(source, "subject"),
+                "a": amounts[0],
+                "b": amounts[1],
+                "c": amounts[2] if version_c is not None else None,
+                "delta": round((amounts[1] or 0.0) - (amounts[0] or 0.0), 2),
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"rows": differences},
+        **_cbs_source_metadata(coverage),
+    }
+
+
+def cbs_source_r0_queue(
+    pool: PsqlPool, proj_guid: str | None, max_rows: int,
+) -> dict[str, Any]:
+    if proj_guid is not None and not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    items = []
+    for row in rows["cb_contract"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if _report_text(payload, "r_code") not in {"", "R0"}:
+            continue
+        items.append(
+            {
+                "refId": _report_text(payload, "contract_guid", row["record_id"]),
+                "kind": "contract",
+                "name": _report_text(payload, "contract_name"),
+                "amount": _report_float(payload, "ht_amount"),
+                "rCode": _report_text(payload, "r_code", "R0") or "R0",
+                "l3Code": _report_text(payload, "l3_code"),
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"items": items},
+        **_cbs_source_metadata(coverage),
+    }
+
+
+def cbs_source_approval_rules(
+    pool: PsqlPool, biz_type: str | None, max_rows: int,
+) -> dict[str, Any]:
+    if biz_type is not None and len(biz_type) > 128:
+        raise ValueError("invalid biz_type")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    result = []
+    for row in rows["wf_approval_rule"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or (biz_type is not None and _report_text(payload, "biz_type") != biz_type):
+            continue
+        result.append(
+            {
+                "rule_guid": _report_text(payload, "rule_guid", row["record_id"]),
+                "biz_type": _report_text(payload, "biz_type"),
+                "threshold": _report_float(payload, "threshold"),
+                "actor_user_id": _report_text(payload, "actor_user_id"),
+                "description": _report_text(payload, "description"),
+                "display_order": _report_float(payload, "display_order"),
+            }
+        )
+    result.sort(key=lambda item: (item["biz_type"], item["threshold"]))
+    return {"success": True, "code": 0, "data": result, **_cbs_source_metadata(coverage)}
+
+
+def cbs_source_approval_pick(
+    pool: PsqlPool, biz_type: str, amount: float, max_rows: int,
+) -> dict[str, Any]:
+    if not biz_type or len(biz_type) > 128:
+        raise ValueError("invalid biz_type")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    candidates = [
+        row["payload"] for row in rows["wf_approval_rule"]
+        if not row["payload"].get("deleted_at")
+        and _report_text(row["payload"], "biz_type") == biz_type
+        and _report_float(row["payload"], "threshold") <= amount
+    ]
+    selected = max(candidates, key=lambda value: _report_float(value, "threshold"), default=None)
+    data = None if selected is None else {
+        "actor_user_id": _report_text(selected, "actor_user_id"),
+        "threshold": _report_float(selected, "threshold"),
+        "description": _report_text(selected, "description"),
+    }
+    return {"success": True, "code": 0, "data": data, **_cbs_source_metadata(coverage)}
+
+
+def cbs_source_changes(
+    pool: PsqlPool, proj_guid: str | None, contract_guid: str | None, max_rows: int,
+) -> dict[str, Any]:
+    for value, label in ((proj_guid, "proj_guid"), (contract_guid, "contract_guid")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    contracts = _cashflow_contract_map(rows["cb_contract"])
+    result = []
+    for row in rows["cb_change_apply"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if contract_guid is not None and str(payload.get("contract_guid") or "") != contract_guid:
+            continue
+        contract = contracts.get(str(payload.get("contract_guid") or ""), {})
+        result.append(
+            {
+                **payload,
+                "change_guid": _report_text(payload, "change_guid", row["record_id"]),
+                "contract_name": _report_text(contract, "contract_name"),
+                "contract_code": _report_text(contract, "contract_code"),
+            }
+        )
+    result.sort(key=lambda value: _report_text(value, "created_at"), reverse=True)
+    return {"success": True, "code": 0, "data": result, **_cbs_source_metadata(coverage)}
+
+
+def cbs_source_demo_contracts(
+    pool: PsqlPool, proj_guid: str | None, max_rows: int,
+) -> dict[str, Any]:
+    if proj_guid is not None and not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    coverage, rows = _cbs_rows_and_coverage(pool, max_rows)
+    result = []
+    for row in rows["cb_contract"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        result.append(
+            {
+                "id": _report_text(payload, "contract_guid", row["record_id"]),
+                "code": _report_text(payload, "contract_code"),
+                "name": _report_text(payload, "contract_name"),
+                "rCode": _report_text(payload, "r_code", "R0") or "R0",
+                "l3Code": _report_text(payload, "l3_code"),
+                "amount": round(_report_float(payload, "ht_amount") / 10000, 2),
+                "alterAmount": round(_report_float(payload, "sum_alter_amount") / 10000, 2),
+                "state": _report_text(payload, "cb_state", "draft") or "draft",
+            }
+        )
+    result.sort(key=lambda value: value["code"], reverse=True)
+    return {"success": True, "code": 0, "data": result, **_cbs_source_metadata(coverage)}
 
 
 def loans(
@@ -9002,6 +9410,94 @@ def handler_factory(
                     response(self, 200, budget_cost_subjects(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/budget/proceedings":
                     response(self, 200, budget_proceedings(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/cbs/r-master":
+                    response(self, 200, cbs_source_r_master(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/cbs/dict":
+                    query = parse_qs(parsed.query)
+                    proj_guid = query.get("projGuid", [None])[0]
+                    if not proj_guid:
+                        raise CommandRejected("projGuid is required", 422)
+                    response(
+                        self,
+                        200,
+                        cbs_source_dict(
+                            pool,
+                            proj_guid,
+                            query.get("planVersion", [None])[0],
+                            query.get("rCode", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/cbs/dict/f-balance":
+                    query = parse_qs(parsed.query)
+                    proj_guid = query.get("projGuid", [None])[0]
+                    l3_code = query.get("l3Code", [None])[0]
+                    if not proj_guid or not l3_code:
+                        raise CommandRejected("projGuid and l3Code are required", 422)
+                    result = cbs_source_f_balance(
+                        pool, proj_guid, l3_code, query.get("planVersion", [None])[0], max_response_rows,
+                    )
+                    response(self, 200 if result.get("success") is True else 404, result, origin)
+                elif parsed.path == "/api/company/cbs/versions":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    if not proj_guid:
+                        raise CommandRejected("projGuid is required", 422)
+                    response(self, 200, cbs_source_versions(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/cbs/versions/compare":
+                    query = parse_qs(parsed.query)
+                    proj_guid = query.get("projGuid", [None])[0]
+                    version_a = query.get("a", [None])[0]
+                    version_b = query.get("b", [None])[0]
+                    if not proj_guid or not version_a or not version_b:
+                        raise CommandRejected("projGuid, a, and b are required", 422)
+                    response(
+                        self,
+                        200,
+                        cbs_source_versions_compare(
+                            pool,
+                            proj_guid,
+                            version_a,
+                            version_b,
+                            query.get("c", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/cbs/r0/queue":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, cbs_source_r0_queue(pool, proj_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/cbs/approval-rules/pick":
+                    query = parse_qs(parsed.query)
+                    biz_type = query.get("bizType", [None])[0]
+                    amount = query.get("amount", [None])[0]
+                    if not biz_type or amount is None:
+                        raise CommandRejected("bizType and amount are required", 422)
+                    response(
+                        self,
+                        200,
+                        cbs_source_approval_pick(pool, biz_type, float(amount), max_response_rows),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/cbs/approval-rules":
+                    biz_type = parse_qs(parsed.query).get("bizType", [None])[0]
+                    response(self, 200, cbs_source_approval_rules(pool, biz_type, max_response_rows), origin)
+                elif parsed.path == "/api/company/cbs/changes":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cbs_source_changes(
+                            pool,
+                            query.get("projGuid", [None])[0],
+                            query.get("contractGuid", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/cbs/demo/contracts":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, cbs_source_demo_contracts(pool, proj_guid, max_response_rows), origin)
                 elif parsed.path == "/api/company/investment/meta/dimensions":
                     response(
                         self,

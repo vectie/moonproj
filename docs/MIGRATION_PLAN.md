@@ -334,6 +334,16 @@ is read-only liquidity evidence. Cash release, accounting, tax, bank
 settlement, AI explanation, browser production identity, and owner acceptance
 remain separate gates.
 
+CBS is the next connected finance master-data family. The service and
+read-model adapter now expose source-compatible R master, dictionary,
+F-balance, version/compare, R0 queue, approval-rule, change, and source
+contract reads under `/api/company/cbs/*`; Rabbita `/cbs/dict`, `/cbs/versions`,
+`/cbs/r0-queue`, and `/cbs/approval-config` consume the dictionary/R0 read and
+show source provenance. The controlled export has two unclassified contracts
+but no CBS dictionary/version/rule rows, so empty and covered-not-found states
+are preserved. CBS writes, budget reservation, accounting, cash, tax,
+production identity, and owner acceptance remain gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,

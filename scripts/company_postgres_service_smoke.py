@@ -266,6 +266,125 @@ def main() -> int:
             or cashflow_v3_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source cashflow v3 read failed: {status} {cashflow_v3_payload}")
+        status, cbs_master_payload = request(args.port, "/api/company/cbs/r-master", token=token)
+        if (
+            status != 200
+            or cbs_master_payload is None
+            or cbs_master_payload.get("data") != []
+            or cbs_master_payload.get("source_coverage", {}).get("cb_r_master") != 0
+            or cbs_master_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS R master read failed: {status} {cbs_master_payload}")
+        status, cbs_dict_payload = request(
+            args.port,
+            "/api/company/cbs/dict?projGuid=proj-0001",
+            token=token,
+        )
+        cbs_dict_data = (cbs_dict_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cbs_dict_payload is None
+            or cbs_dict_data.get("planVersion") != "baseline"
+            or cbs_dict_data.get("items") != []
+            or cbs_dict_payload.get("source_coverage", {}).get("cb_subject_dict") != 0
+            or cbs_dict_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS dict read failed: {status} {cbs_dict_payload}")
+        status, cbs_f_balance_payload = request(
+            args.port,
+            "/api/company/cbs/dict/f-balance?projGuid=proj-0001&l3Code=03.01.01",
+            token=token,
+        )
+        if (
+            status != 404
+            or cbs_f_balance_payload is None
+            or cbs_f_balance_payload.get("data") is not None
+            or cbs_f_balance_payload.get("source_coverage", {}).get("cb_subject_dict") != 0
+            or cbs_f_balance_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS F balance read failed: {status} {cbs_f_balance_payload}")
+        status, cbs_versions_payload = request(
+            args.port,
+            "/api/company/cbs/versions?projGuid=proj-0001",
+            token=token,
+        )
+        if (
+            status != 200
+            or cbs_versions_payload is None
+            or cbs_versions_payload.get("data") != []
+            or cbs_versions_payload.get("source_coverage", {}).get("cb_plan_version") != 0
+            or cbs_versions_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS versions read failed: {status} {cbs_versions_payload}")
+        status, cbs_compare_payload = request(
+            args.port,
+            "/api/company/cbs/versions/compare?projGuid=proj-0001&a=baseline&b=execution",
+            token=token,
+        )
+        if (
+            status != 200
+            or cbs_compare_payload is None
+            or cbs_compare_payload.get("data", {}).get("rows") != []
+            or cbs_compare_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS version compare read failed: {status} {cbs_compare_payload}")
+        status, cbs_r0_payload = request(
+            args.port, "/api/company/cbs/r0/queue?projGuid=proj-0001", token=token,
+        )
+        if (
+            status != 200
+            or cbs_r0_payload is None
+            or len(cbs_r0_payload.get("data", {}).get("items", [])) != 2
+            or cbs_r0_payload.get("source_coverage", {}).get("cb_contract") != 2
+            or cbs_r0_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS R0 queue read failed: {status} {cbs_r0_payload}")
+        status, cbs_rules_payload = request(
+            args.port, "/api/company/cbs/approval-rules", token=token,
+        )
+        if (
+            status != 200
+            or cbs_rules_payload is None
+            or cbs_rules_payload.get("data") != []
+            or cbs_rules_payload.get("source_coverage", {}).get("wf_approval_rule") != 0
+            or cbs_rules_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS approval-rules read failed: {status} {cbs_rules_payload}")
+        status, cbs_pick_payload = request(
+            args.port,
+            "/api/company/cbs/approval-rules/pick?bizType=Contract&amount=100000",
+            token=token,
+        )
+        if (
+            status != 200
+            or cbs_pick_payload is None
+            or cbs_pick_payload.get("data") is not None
+            or cbs_pick_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS approval pick read failed: {status} {cbs_pick_payload}")
+        status, cbs_changes_payload = request(
+            args.port, "/api/company/cbs/changes?projGuid=proj-0001", token=token,
+        )
+        if (
+            status != 200
+            or cbs_changes_payload is None
+            or cbs_changes_payload.get("data") != []
+            or cbs_changes_payload.get("source_coverage", {}).get("cb_change_apply") != 0
+            or cbs_changes_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source CBS changes read failed: {status} {cbs_changes_payload}")
+        status, cbs_demo_contracts_payload = request(
+            args.port, "/api/company/cbs/demo/contracts?projGuid=proj-0001", token=token,
+        )
+        if (
+            status != 200
+            or cbs_demo_contracts_payload is None
+            or len(cbs_demo_contracts_payload.get("data", [])) != 2
+            or cbs_demo_contracts_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(
+                f"source CBS contract read failed: {status} {cbs_demo_contracts_payload}"
+            )
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1768,6 +1887,9 @@ def main() -> int:
                     "cashflow_net_series_rows": len(cashflow_net_data.get("series", [])),
                     "cashflow_gap_week_rows": len(cashflow_gap_data.get("gapWeeks", [])),
                     "cashflow_v3_series_rows": len(cashflow_v3_data.get("series", [])),
+                    "cbs_r0_queue_rows": len(cbs_r0_payload.get("data", {}).get("items", [])),
+                    "cbs_contract_rows": len(cbs_demo_contracts_payload.get("data", [])),
+                    "cbs_dict_rows": len(cbs_dict_data.get("items", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,
