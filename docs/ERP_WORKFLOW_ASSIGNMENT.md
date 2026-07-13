@@ -46,6 +46,8 @@ explicit attachment reference, and an idempotent replay. The target process
 definition remains opt-in; attachment metadata does not mutate permissions or
 approval state.
 Approval-execution enforcement is still a separate decision-time capability
-check; a valid assignee without that capability is rejected. Effective-dated
-delegation, SLA escalation, and segregation of duties remain later workflow
-gates.
+check; a valid assignee without that capability is rejected. A delegated
+decision can now use `AccessDirectory::issue_delegated_grant` through the
+workflow boundary; its effective window, revocation, assignee identity, and
+delegation ID are retained as decision evidence. SLA escalation and
+segregation of duties remain later workflow gates.

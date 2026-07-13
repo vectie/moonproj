@@ -138,6 +138,14 @@ pub fn WorkflowAssignment::append_projection(
 fn actions_json(actions : Array[ApprovalAction]) -> Json {
   let values : Array[Json] = []
   for action in actions {
+    let delegation_id = match action.delegation_id {
+      Some(value) => Json::string(value)
+      None => Json::null()
+    }
+    let authority_source = match action.delegation_id {
+      Some(_) => "delegation"
+      None => "direct"
+    }
     values.push(
       Json::object({
         "step_id": Json::string(action.step_id),
@@ -147,6 +155,8 @@ fn actions_json(actions : Array[ApprovalAction]) -> Json {
           action.weight.to_double(),
           repr=action.weight.to_string(),
         ),
+        "authority_source": Json::string(authority_source),
+        "delegation_id": delegation_id,
       }),
     )
   }

@@ -89,7 +89,7 @@ depreciation, explicit opening receivable/payable source-to-journal links,
 separate sales-to-receivable and invoice-to-receivable recognition boundaries,
 acceptance-gated delivery recognition links, and accepted-progress cost
 forecast linkage.
-It also has 232 passing MoonBit tests, executable opening control-total checks,
+It also has 233 passing MoonBit tests, executable opening control-total checks,
 a credential-safe deterministic ERP row-export boundary, an idempotent durable
 SQLite migration rehearsal, a repeatable end-to-end rehearsal wrapper, a
 fail-closed mapped-cohort promotion planner, and a native domain-promotion
@@ -150,7 +150,9 @@ projection, and replay; full CBS schema coverage and budget consumption remain
 migration gates.
 The optional workflow-assignment cohort likewise translates six assignee rows
 as configuration only; identity, delegation, and decision-time authority stay
-separate controls.
+separate controls. When a delegated decision is used, the bounded grant's
+effective window and delegation ID are retained in the workflow action rather
+than being mistaken for assignment configuration.
 The local access directory now also supports exact-scope separation-of-duties
 rules that reject incompatible role assignments before a grant can be issued;
 effective-dated delegation and revocation are bounded locally, while legacy

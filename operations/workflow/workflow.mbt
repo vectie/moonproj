@@ -57,6 +57,7 @@ pub(all) struct ApprovalAction {
   actor_id : String
   decision : Decision
   weight : Int
+  delegation_id : String?
 } derive(Debug, Eq)
 
 ///|
@@ -89,6 +90,7 @@ pub(all) suberror WorkflowError {
   DuplicateAction
   ProjectionIdentity
   Projection(@store.ProjectionError)
+  Delegation(@access.AccessError)
   NotAuthorized(@foundation.AuthorityError)
 } derive(Debug, Eq)
 
@@ -324,6 +326,62 @@ pub fn ProcessInstance::decide(
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> ProcessInstance raise WorkflowError {
+  self.decide_with_source(
+    step_id~,
+    decision~,
+    weight~,
+    actor_id~,
+    grant~,
+    delegation_id=None,
+  )
+}
+
+///|
+/// Decide through a separately recorded, effective-dated delegation. The
+/// access directory issues a bounded grant; the workflow still enforces the
+/// attached-assignee check and the step capability. Delegation is evidence of
+/// how authority was obtained, not a workflow assignment or approval itself.
+pub fn ProcessInstance::decide_delegated(
+  self : ProcessInstance,
+  step_id~ : String,
+  decision~ : Decision,
+  weight~ : Int,
+  actor_id~ : String,
+  delegation_id~ : String,
+  at_epoch~ : Int64,
+  directory~ : @access.AccessDirectory,
+) -> ProcessInstance raise WorkflowError {
+  if delegation_id.trim() == "" {
+    raise WorkflowError::EmptyIdentifier
+  }
+  let grant = directory.issue_delegated_grant(
+    delegation_id~,
+    requester_id=actor_id,
+    at_epoch~,
+    amount_minor=0L,
+  ) catch {
+    error => raise WorkflowError::Delegation(error)
+  }
+  self.decide_with_source(
+    step_id~,
+    decision~,
+    weight~,
+    actor_id~,
+    grant~,
+    delegation_id=Some(delegation_id),
+  )
+}
+
+///|
+fn ProcessInstance::decide_with_source(
+  self : ProcessInstance,
+  step_id~ : String,
+  decision~ : Decision,
+  weight~ : Int,
+  actor_id~ : String,
+  grant~ : @foundation.AuthorityGrant,
+  delegation_id~ : String?,
+) -> ProcessInstance raise WorkflowError {
   if self.status != ProcessStatus::Pending ||
     self.current_step >= self.steps.length() {
     raise WorkflowError::InvalidState
@@ -358,7 +416,7 @@ pub fn ProcessInstance::decide(
     error => raise WorkflowError::NotAuthorized(error)
   }
   let actions = self.actions.copy()
-  actions.push({ step_id, actor_id, decision, weight })
+  actions.push({ step_id, actor_id, decision, weight, delegation_id })
   match decision {
     Decision::Reject => { ..self, status: ProcessStatus::Rejected, actions }
     Decision::Approve => {

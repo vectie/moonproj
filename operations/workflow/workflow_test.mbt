@@ -228,6 +228,157 @@ test "attached workflow assignments enforce the decision actor" {
 }
 
 ///|
+test "workflow delegated decisions require an attached assignment and retain delegation evidence" {
+  let definition = ProcessDefinition::new(
+    process_id="delegated-assignment-definition",
+    process_key="expense-approval",
+    steps=[
+      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+    ],
+  )
+  let assignment = definition.assign_step(
+    assignment_id="delegated-assignment-001",
+    step_id="manager",
+    assignee_id="delegate-001",
+    principal_id="co-001",
+    scope="workflow:delegated-assignment-definition",
+    weight=1,
+    actor_id="alice",
+    grant={
+      grant_id: "delegated-assignment-add",
+      principal_id: "co-001",
+      actor_id: "alice",
+      capability: "workflow:assignment:add",
+      scope: "workflow:delegated-assignment-definition",
+      max_amount_minor: 0,
+      active: true,
+    },
+  )
+  let definition = definition.attach_assignment(assignment)
+  let directory = @access.AccessDirectory::empty().add_delegation(
+    {
+      delegation_id: "workflow-delegation-001",
+      principal_id: "co-001",
+      delegator_id: "admin-001",
+      delegate_actor_id: "delegate-001",
+      capability: "expense:approve",
+      scope: "expense:expense-001",
+      max_amount_minor: 0,
+      not_before_epoch: 100L,
+      expires_at_epoch: Some(200L),
+      active: true,
+    },
+    actor_id="admin-001",
+    grant={
+      grant_id: "workflow-delegation-create",
+      principal_id: "co-001",
+      actor_id: "admin-001",
+      capability: "rbac:delegation:create",
+      scope: "expense:expense-001",
+      max_amount_minor: 0,
+      active: true,
+    },
+  )
+  let instance = start_process(
+    definition,
+    instance_id="wf-delegated-001",
+    principal_id="co-001",
+    subject_id="expense:expense-001",
+    actor_id="alice",
+    grant=workflow_grant("workflow:start"),
+  )
+  try
+    instance.decide_delegated(
+      step_id="manager",
+      decision=Decision::Approve,
+      weight=1,
+      actor_id="delegate-001",
+      delegation_id="workflow-delegation-001",
+      at_epoch=99L,
+      directory~,
+    )
+  catch {
+    WorkflowError::Delegation(@access.AccessError::DelegationNotYetEffective) =>
+      ()
+    _ => fail("wrong workflow delegation window error")
+  } noraise {
+    _ => fail("expected workflow delegation window")
+  }
+  let approved = instance.decide_delegated(
+    step_id="manager",
+    decision=Decision::Approve,
+    weight=1,
+    actor_id="delegate-001",
+    delegation_id="workflow-delegation-001",
+    at_epoch=100L,
+    directory~,
+  )
+  assert_true(approved.status == ProcessStatus::Approved)
+  match approved.actions[0].delegation_id {
+    Some(value) => assert_eq(value, "workflow-delegation-001")
+    None => fail("missing delegation evidence")
+  }
+  let schema = @schema.SchemaState::initial()
+  let migration = @schema.MigrationStep::new(
+    version=1,
+    migration_id="V1__foundation",
+    checksum="sha256:one",
+    description="Create foundation tables",
+  )
+  let store = @store.RecordStore::new(schema).migrate(migration)
+  let projection = @store.AggregateProjection::new(
+    store,
+    aggregate_type="workflow_instance",
+    aggregate_id="wf-delegated-001",
+  )
+  let projection = approved.append_projection(projection)
+  match projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("workflow-delegation-001"))
+      assert_true(latest.payload.contains("delegation"))
+    }
+    None => fail("expected delegated workflow projection")
+  }
+  let revoked_directory = directory.revoke_delegation(
+    delegation_id="workflow-delegation-001",
+    actor_id="admin-001",
+    grant={
+      grant_id: "workflow-delegation-revoke",
+      principal_id: "co-001",
+      actor_id: "admin-001",
+      capability: "rbac:delegation:revoke",
+      scope: "expense:expense-001",
+      max_amount_minor: 0,
+      active: true,
+    },
+  )
+  let second_instance = start_process(
+    definition,
+    instance_id="wf-delegated-002",
+    principal_id="co-001",
+    subject_id="expense:expense-001",
+    actor_id="alice",
+    grant=workflow_grant("workflow:start"),
+  )
+  try
+    second_instance.decide_delegated(
+      step_id="manager",
+      decision=Decision::Approve,
+      weight=1,
+      actor_id="delegate-001",
+      delegation_id="workflow-delegation-001",
+      at_epoch=101L,
+      directory=revoked_directory,
+    )
+  catch {
+    WorkflowError::Delegation(@access.AccessError::InactiveDelegation) => ()
+    _ => fail("wrong revoked workflow delegation error")
+  } noraise {
+    _ => fail("expected revoked workflow delegation")
+  }
+}
+
+///|
 test "workflow assignment attachment validates identity and remains non-authorizing" {
   let definition = ProcessDefinition::new(
     process_id="assignment-identity-definition",
