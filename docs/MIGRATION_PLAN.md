@@ -315,11 +315,12 @@ those capabilities as source parity.
    (one version, 26 indices, five dimensions, and profit summary); import,
    activation, valuation, cash, accounting, and tax remain gated. See
    [`ERP_INVESTMENT_RUNTIME_AUDIT.md`](ERP_INVESTMENT_RUNTIME_AUDIT.md).
-   Admin dictionary, bounded quality, audit, and health reads are connected
+   Admin dictionary, bounded quality, audit, health, and user-roster reads are connected
    for the available governance rows (one group, five options, twelve quality
-   rules with four unavailable dependencies, two audit events, 29 health-table
-   coverage rows, and an empty BPM pool); super-user scope, writes, retention,
-   source completeness, and security-owner acceptance remain gated. See
+   rules with four unavailable dependencies, five imported users, two audit
+   events, 29 health-table coverage rows, and an empty BPM pool); super-user
+   scope, writes, role tables, retention, source completeness, and
+   security-owner acceptance remain gated. See
    [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).
 4. **Reporting is locally connected but source-incomplete and not accepted.**
    The five core report reads now run through the local PostgreSQL service,

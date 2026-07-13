@@ -230,6 +230,19 @@ struct AdminQualityRow {
 }
 
 ///|
+struct UserRosterRow {
+  user_code : String
+  emp_name : String
+  bu_name : String
+  dept_name : String
+  roles : String
+  roles_source_status : String
+  super_user : String
+  enabled : String
+  source_kind : String
+}
+
+///|
 struct LoanRow {
   loan_id : String
   loan_code : String
@@ -365,6 +378,9 @@ struct Model {
   admin_quality_loaded : Bool
   admin_quality_rows : Array[AdminQualityRow]
   admin_quality_note : String
+  users_loaded : Bool
+  user_roster_rows : Array[UserRosterRow]
+  users_note : String
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
@@ -470,6 +486,8 @@ enum Msg {
   DashboardLoadFailed
   AdminQualityLoaded(String)
   AdminQualityLoadFailed
+  UsersLoaded(String)
+  UsersLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
   CreateLoan
@@ -568,6 +586,9 @@ fn initial_model() -> Model {
     admin_quality_loaded: false,
     admin_quality_rows: [],
     admin_quality_note: "质量规则尚未加载 · 使用设计快照",
+    users_loaded: false,
+    user_roster_rows: [],
+    users_note: "身份读模型尚未加载 · 使用设计快照",
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
@@ -1384,6 +1405,49 @@ fn admin_quality_rows_from_body(body : String) -> Array[AdminQualityRow] {
 }
 
 ///|
+fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
+  let rows : Array[UserRosterRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              user_code: json_object_text(row, "userCode", ""),
+              emp_name: json_object_text(row, "empName", ""),
+              bu_name: json_object_text(row, "buName", "—"),
+              dept_name: json_object_text(row, "deptName", "—"),
+              roles: if json_array_field(row, "roles").length() == 0 {
+                "—"
+              } else {
+                json_array_field(row, "roles").length().to_string()
+              },
+              roles_source_status: json_object_text(
+                row, "rolesSourceStatus", "NO_SOURCE_ROWS",
+              ),
+              super_user: if json_object_text(row, "isSuperUser", "false") ==
+                "true" {
+                "是(证据)"
+              } else {
+                "否"
+              },
+              enabled: if json_object_text(row, "enabled", "false") == "true" {
+                "启用"
+              } else {
+                "禁用"
+              },
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn loan_from_json(value : Json) -> LoanRow? {
   match value {
     Json::Object(fields) =>
@@ -1641,6 +1705,16 @@ fn load_admin_quality(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(AdminQualityLoaded(body))
       Err(_) => emit(AdminQualityLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/rbac/users").expect_text(result => {
+    match result {
+      Ok(body) => emit(UsersLoaded(body))
+      Err(_) => emit(UsersLoadFailed)
     }
   })
 }
@@ -2087,6 +2161,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_reports(emit)
       } else if path == "/admin" {
         load_admin_quality(emit)
+      } else if path == "/users" {
+        load_users(emit)
       } else if path == "/loans" {
         load_loans(emit)
       } else if path == "/tasks" {
@@ -2982,6 +3058,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           admin_quality_loaded: false,
           admin_quality_rows: [],
           admin_quality_note: "数据质量读模型不可用 · 使用已审核快照",
+        },
+      )
+    UsersLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          users_loaded: true,
+          user_roster_rows: user_roster_rows_from_body(body),
+          users_note: "已加载 PostgreSQL 身份 roster · 角色源表缺失保持可见",
+        },
+      )
+    UsersLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          users_loaded: false,
+          user_roster_rows: [],
+          users_note: "身份读模型不可用 · 使用已审核快照",
         },
       )
     LoansLoaded(body) =>
@@ -7464,7 +7560,78 @@ fn health_view() -> @html.Html {
 }
 
 ///|
-fn users_view() -> @html.Html {
+fn user_roster_table(model : Model) -> @html.Html {
+  if model.users_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.user_roster_rows {
+      let organization = if row.dept_name != "—" &&
+        row.dept_name != row.bu_name {
+        row.bu_name + " / " + row.dept_name
+      } else {
+        row.bu_name
+      }
+      let role_display = if row.roles == "—" {
+        "— (" + row.roles_source_status + ")"
+      } else {
+        row.roles
+      }
+      rows.push([
+        row.user_code,
+        row.emp_name,
+        organization,
+        role_display,
+        row.super_user,
+        row.enabled,
+        "只读 · " + row.source_kind,
+      ])
+    }
+    table_panel(
+      "用户管理",
+      model.users_note,
+      data_table(
+        [
+          "账号", "姓名", "组织", "角色", "超级用户", "状态", "操作",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "用户管理",
+      "5 个已迁移身份 · 密码由认证服务管理",
+      data_table(
+        [
+          "账号", "姓名", "组织", "角色", "超级用户", "状态", "操作",
+        ],
+        [
+          [
+            "admin", "系统管理员", "集团总部", "超级管理员", "是(证据)",
+            "启用", "编辑 / 重置",
+          ],
+          [
+            "chengyuzhe", "程玉哲", "天津公司", "报销发起人", "否",
+            "启用", "编辑 / 禁用",
+          ],
+          [
+            "tianguanglei", "田光磊", "天津公司", "费用使用人", "否",
+            "启用", "编辑 / 禁用",
+          ],
+          [
+            "limingjin", "李明金", "天津公司", "部门负责人", "否", "启用",
+            "编辑 / 禁用",
+          ],
+          [
+            "liusong", "刘松", "集团总部", "综管负责人", "否", "启用",
+            "编辑 / 禁用",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn users_view(model : Model) -> @html.Html {
   page_shell(
     "用户/角色管理",
     "SYSTEM / USERS",
@@ -7476,40 +7643,14 @@ fn users_view() -> @html.Html {
         button(class="erp-tab", "角色管理"),
         button(class="erp-tab", "权限目录"),
       ],
-      table_panel(
-        "用户管理",
-        "5 个已迁移身份 · 密码由认证服务管理",
-        data_table(
-          [
-            "账号", "姓名", "组织", "角色", "超级用户", "状态", "操作",
-          ],
-          [
-            [
-              "admin", "系统管理员", "集团总部", "超级管理员", "是(证据)",
-              "启用", "编辑 / 重置",
-            ],
-            [
-              "chengyuzhe", "程玉哲", "天津公司", "报销发起人", "否",
-              "启用", "编辑 / 禁用",
-            ],
-            [
-              "tianguanglei", "田光磊", "天津公司", "费用使用人", "否",
-              "启用", "编辑 / 禁用",
-            ],
-            [
-              "limingjin", "李明金", "天津公司", "部门负责人", "否",
-              "启用", "编辑 / 禁用",
-            ],
-            [
-              "liusong", "刘松", "集团总部", "综管负责人", "否", "启用",
-              "编辑 / 禁用",
-            ],
-          ],
-        ),
-      ),
+      user_roster_table(model),
       table_panel(
         "角色管理",
-        "按范围分配能力，不直接授予会计或付款权限",
+        if model.users_loaded {
+          "角色源表未随导出 · 仅显示离线设计快照，不用于授权"
+        } else {
+          "按范围分配能力，不直接授予会计或付款权限"
+        },
         data_table(
           [
             "编码", "名称", "描述", "数据范围", "权限数", "用户数",
@@ -7996,7 +8137,7 @@ fn business_view(
       "/audit-log" => audit_view()
       "/error-log" => error_view()
       "/system-health" => health_view()
-      "/users" => users_view()
+      "/users" => users_view(model)
       "/admin" => admin_view(model)
       "/ocr-config" => ocr_view()
       "/webhook-config" => webhook_view()

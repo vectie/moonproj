@@ -350,6 +350,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_admin_read", "accept_browser_admin_scenario_and_super_user_owner"
     if (
+        handler["module"] == "rbac"
+        and handler["method"] == "GET"
+        and handler["path"] == "/users"
+    ):
+        return "connected_rbac_user_read", "accept_browser_user_roster_scenario_and_super_user_owner"
+    if (
         handler["module"] == "dashboard"
         and handler["method"] == "GET"
         and handler["path"]

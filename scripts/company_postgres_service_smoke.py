@@ -358,6 +358,24 @@ def main() -> int:
             or "srm_provider" not in admin_quality_payload.get("missing_or_empty_source_tables", [])
         ):
             raise SmokeError(f"admin quality overview read failed: {status} {admin_quality_payload}")
+        status, users_payload = request(
+            args.port,
+            "/api/company/rbac/users",
+            token=token,
+        )
+        user_rows = (users_payload or {}).get("data", [])
+        if (
+            status != 200
+            or users_payload is None
+            or len(user_rows) != 5
+            or user_rows[0].get("userCode") != "admin"
+            or user_rows[0].get("isSuperUser") is not True
+            or user_rows[0].get("rolesSourceStatus") != "NO_SOURCE_ROWS"
+            or users_payload.get("source_coverage", {}).get("sys_user") != 5
+            or users_payload.get("source_coverage", {}).get("mu_business_unit") != 7
+            or "sys_role" not in users_payload.get("missing_or_empty_source_tables", [])
+        ):
+            raise SmokeError(f"RBAC user roster read failed: {status} {users_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -1467,6 +1485,8 @@ def main() -> int:
                     "admin_dictionary_option_rows": 5,
                     "admin_quality_rule_rows": len(quality_rules),
                     "admin_quality_unavailable_rules": quality_summary.get("unavailableRules"),
+                    "rbac_user_rows": len(user_rows),
+                    "rbac_role_source_status": user_rows[0].get("rolesSourceStatus"),
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,

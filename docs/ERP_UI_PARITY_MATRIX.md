@@ -329,7 +329,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `rbac` | `GET` | `/me` | `/users` | `not_connected` | `connect_authenticated_read_api` |
 | `rbac` | `GET` | `/roles` | `/users` | `not_connected` | `connect_authenticated_read_api` |
 | `rbac` | `GET` | `/roles/:code` | `/users` | `not_connected` | `connect_authenticated_read_api` |
-| `rbac` | `GET` | `/users` | `/users` | `not_connected` | `connect_authenticated_read_api` |
+| `rbac` | `GET` | `/users` | `/users` | `connected_rbac_user_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `POST` | `/users` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `PUT` | `/users/:userId` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `POST` | `/users/:userId/toggle` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |

@@ -53,6 +53,7 @@ from company_postgres_service import (
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
     admin_quality_overview as service_admin_quality_overview,
+    admin_rbac_users as service_admin_rbac_users,
     loans as service_loans,
 )
 
@@ -340,6 +341,14 @@ def admin_quality_overview(args: argparse.Namespace) -> dict[str, Any]:
     return service_admin_quality_overview(_ReadModelPool(args), 500)
 
 
+def admin_rbac_users(
+    args: argparse.Namespace,
+    keyword: str | None,
+    enabled: str | None,
+) -> dict[str, Any]:
+    return service_admin_rbac_users(_ReadModelPool(args), keyword, enabled, 500)
+
+
 def loans(
     args: argparse.Namespace,
     loan_id: str | None,
@@ -538,6 +547,18 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/admin/quality/overview":
                     response(self, 200, admin_quality_overview(args))
+                    return
+                if parsed.path == "/api/company/rbac/users":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        admin_rbac_users(
+                            args,
+                            query.get("keyword", [None])[0],
+                            query.get("enabled", [None])[0],
+                        ),
+                    )
                     return
                 if parsed.path == "/api/company/dashboard/group/overview":
                     response(self, 200, dashboard_group_overview(args))

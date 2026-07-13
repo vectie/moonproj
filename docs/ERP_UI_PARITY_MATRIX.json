@@ -3586,8 +3586,8 @@
       "browser_route_paths": [
         "/users"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_rbac_user_read",
+      "required_next": "accept_browser_user_roster_scenario_and_super_user_owner"
     },
     {
       "module": "rbac",

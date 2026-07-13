@@ -55,6 +55,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
+* ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -4150,6 +4151,69 @@ def admin_quality_overview(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     }
 
 
+def admin_rbac_users(
+    pool: PsqlPool,
+    keyword: str | None,
+    enabled: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if keyword is not None and len(keyword) > 128:
+        raise ValueError("invalid user keyword")
+    if enabled not in {None, "", "0", "1"}:
+        raise ValueError("enabled must be 0 or 1")
+    rows_by_table = {
+        table: _raw_source_rows(pool, table, max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES)
+        for table in sorted(ADMIN_RBAC_SOURCE_TABLES)
+    }
+    coverage = {table: len(rows) for table, rows in rows_by_table.items()}
+    units = {
+        str(row["payload"].get("bu_guid") or row["record_id"]): row["payload"]
+        for row in rows_by_table["mu_business_unit"]
+    }
+    filtered: list[dict[str, Any]] = []
+    folded_keyword = keyword.casefold() if keyword else None
+    for row in rows_by_table["sys_user"]:
+        payload = row["payload"]
+        user_code = str(payload.get("user_code") or "")
+        emp_name = str(payload.get("emp_name") or payload.get("user_name") or "")
+        is_enabled = bool(payload.get("enabled", 0))
+        if folded_keyword and folded_keyword not in (user_code + " " + emp_name).casefold():
+            continue
+        if enabled in {"0", "1"} and is_enabled != (enabled == "1"):
+            continue
+        bu_guid = str(payload.get("bu_guid") or "")
+        dept_guid = str(payload.get("dept_guid") or "")
+        filtered.append(
+            {
+                "userId": str(payload.get("user_id") or row["record_id"]),
+                "userCode": user_code,
+                "empName": emp_name,
+                "isSuperUser": bool(payload.get("is_super_user", 0)),
+                "enabled": is_enabled,
+                "buGuid": bu_guid,
+                "buName": str(units.get(bu_guid, {}).get("bu_name") or ""),
+                "deptGuid": dept_guid,
+                "deptName": str(units.get(dept_guid, {}).get("bu_name") or ""),
+                "roles": [],
+                "rolesSourceStatus": (
+                    "NO_SOURCE_ROWS"
+                    if coverage.get("sys_role", 0) == 0 or coverage.get("sys_user_role", 0) == 0
+                    else "NOT_MAPPED"
+                ),
+                "sourceKind": "imported",
+            }
+        )
+    filtered.sort(key=lambda value: (not value["isSuperUser"], value["userCode"], value["userId"]))
+    return {
+        "success": True,
+        "code": 0,
+        "data": filtered[:max_rows],
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+    }
+
+
 def admin_dict_groups(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
     groups: dict[str, dict[str, int]] = {}
@@ -5159,6 +5223,13 @@ ADMIN_QUALITY_SOURCE_TABLES = {
     "jd_task",
     "srm_provider",
     "sys_user",
+}
+
+ADMIN_RBAC_SOURCE_TABLES = {
+    "sys_user",
+    "mu_business_unit",
+    "sys_role",
+    "sys_user_role",
 }
 
 ADMIN_HEALTH_SOURCE_TABLES = {
@@ -7393,6 +7464,19 @@ def handler_factory(
                     response(self, 200, admin_dict_groups(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/quality/overview":
                     response(self, 200, admin_quality_overview(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/rbac/users":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        admin_rbac_users(
+                            pool,
+                            query.get("keyword", [None])[0],
+                            query.get("enabled", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif parsed.path == "/api/company/admin/dict/options":
                     group_name = parse_qs(parsed.query).get("groupName", [None])[0]
                     response(self, 200, admin_dict_options(pool, group_name, max_response_rows), origin)
