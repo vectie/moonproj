@@ -60,7 +60,10 @@ workflow synchronization stays gated until source workflow rows are available.
 The Rabbita loan editor now emits the local create/submit/update/void commands
 and keeps imported detail routes read-only; the offset action remains available
 only after an approved workflow state is supplied. The other route families
-remain fixture-backed.
+remain fixture-backed. `/tasks` now reads the source workflow definitions and
+previews (two processes, twelve steps, six assignee mappings) through the
+authenticated service; source instances/actions are empty, so the task cards
+remain a clearly labelled design snapshot and no approval mutation is exposed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

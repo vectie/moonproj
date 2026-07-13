@@ -122,6 +122,34 @@ def main() -> int:
         report_cost_rows = len(payload["cost_summary"]["rows"])
         report_contract_rows = len(payload["contract_payment_ledger"])
         report_missing_tables = payload.get("missing_source_tables", [])
+        status, payload = request(args.port, "/api/company/workflow/process-defs", token=token)
+        if (
+            status != 200
+            or payload is None
+            or not isinstance(payload.get("items"), list)
+            or payload.get("source_coverage", {}).get("wf_process_def") != 2
+            or payload.get("source_coverage", {}).get("wf_step_def") != 12
+            or payload.get("source_coverage", {}).get("wf_step_assignee") != 6
+            or payload.get("instances_available") != 0
+            or payload.get("actions_available") != 0
+        ):
+            raise SmokeError(f"workflow definition read failed: {status} {payload}")
+        if len(payload["items"]) != 2:
+            raise SmokeError(f"workflow definition count failed: {payload}")
+        status, workflow_preview = request(
+            args.port,
+            "/api/company/workflow/process-defs/loan-approval/preview",
+            token=token,
+        )
+        if (
+            status != 200
+            or workflow_preview is None
+            or workflow_preview.get("process_key") != "loan-approval"
+            or len(workflow_preview.get("steps", [])) != 5
+            or workflow_preview.get("instances_available") != 0
+            or workflow_preview.get("actions_available") != 0
+        ):
+            raise SmokeError(f"workflow preview read failed: {status} {workflow_preview}")
         status, payload = request(args.port, "/api/company/loans", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"loan read failed: {status} {payload}")
@@ -1060,6 +1088,10 @@ def main() -> int:
                     "report_cost_rows": report_cost_rows,
                     "report_contract_rows": report_contract_rows,
                     "report_missing_source_tables": report_missing_tables,
+                    "workflow_definition_count": 2,
+                    "workflow_step_count": 12,
+                    "workflow_instance_rows": 0,
+                    "workflow_action_rows": 0,
                     "loan_rows": loan_rows,
                     "loan_command_state": "Voided",
                     "loan_workflow_gate": "rejected_until_source_rows",

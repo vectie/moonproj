@@ -222,6 +222,30 @@ struct LoanRow {
 }
 
 ///|
+struct WorkflowStepRow {
+  step_guid : String
+  step_key : String
+  step_order : String
+  step_name : String
+  threshold : String
+  assignee_count : String
+  source_kind : String
+}
+
+///|
+struct WorkflowProcessRow {
+  process_guid : String
+  process_key : String
+  process_name : String
+  biz_type : String
+  step_count : String
+  instances_available : String
+  actions_available : String
+  source_kind : String
+  steps : Array[WorkflowStepRow]
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -289,6 +313,9 @@ struct Model {
   loan_id : String
   loan_state : String
   loan_command_note : String
+  workflow_loaded : Bool
+  workflow_process_rows : Array[WorkflowProcessRow]
+  workflow_note : String
 }
 
 ///|
@@ -383,6 +410,8 @@ enum Msg {
   VoidLoan
   LoanCommandFinished(String)
   LoanCommandFailed
+  WorkflowLoaded(String)
+  WorkflowLoadFailed
 }
 
 ///|
@@ -454,6 +483,9 @@ fn initial_model() -> Model {
     loan_id: "LOAN-RABBITA-LOCAL",
     loan_state: "new",
     loan_command_note: "本地借款命令需要员工范围 authority 与证据",
+    workflow_loaded: false,
+    workflow_process_rows: [],
+    workflow_note: "工作流定义读模型尚未加载",
   }
 }
 
@@ -1175,6 +1207,75 @@ fn loan_rows_from_body(body : String) -> Array[LoanRow] {
 }
 
 ///|
+fn workflow_step_from_json(value : Json) -> WorkflowStepRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        step_guid: json_object_text(fields, "step_guid", ""),
+        step_key: json_object_text(fields, "step_key", ""),
+        step_order: json_object_text(fields, "step_order", "0"),
+        step_name: json_object_text(fields, "step_name", ""),
+        threshold: json_object_text(fields, "threshold", "1"),
+        assignee_count: json_array_field(fields, "assignees")
+        .length()
+        .to_string(),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn workflow_process_from_json(value : Json) -> WorkflowProcessRow? {
+  match value {
+    Json::Object(fields) => {
+      let steps : Array[WorkflowStepRow] = []
+      for step in json_array_field(fields, "steps") {
+        match workflow_step_from_json(step) {
+          Some(row) => steps.push(row)
+          None => ()
+        }
+      }
+      Some({
+        process_guid: json_object_text(fields, "process_guid", ""),
+        process_key: json_object_text(fields, "process_key", ""),
+        process_name: json_object_text(fields, "process_name", ""),
+        biz_type: json_object_text(fields, "biz_type", ""),
+        step_count: json_object_text(
+          fields,
+          "step_count",
+          steps.length().to_string(),
+        ),
+        instances_available: json_object_text(
+          fields, "instances_available", "0",
+        ),
+        actions_available: json_object_text(fields, "actions_available", "0"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+        steps,
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn workflow_rows_from_body(body : String) -> Array[WorkflowProcessRow] {
+  let rows : Array[WorkflowProcessRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "items") {
+        match workflow_process_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
@@ -1215,6 +1316,16 @@ fn load_loans(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(LoansLoaded(body))
       Err(_) => emit(LoansLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_workflow(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/workflow/process-defs").expect_text(result => {
+    match result {
+      Ok(body) => emit(WorkflowLoaded(body))
+      Err(_) => emit(WorkflowLoadFailed)
     }
   })
 }
@@ -1613,6 +1724,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_reports(emit)
       } else if path == "/loans" {
         load_loans(emit)
+      } else if path == "/tasks" {
+        load_workflow(emit)
       } else if path == "/project-plan" || path == "/project/progress" {
         load_delivery(emit)
       } else {
@@ -2443,6 +2556,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loans_loaded: false,
           loan_rows: [],
           loan_note: "员工借款读模型不可用 · 使用已审核快照",
+        },
+      )
+    WorkflowLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          workflow_loaded: true,
+          workflow_process_rows: workflow_rows_from_body(body),
+          workflow_note: "已加载 PostgreSQL 工作流定义 · 实例与动作仍按源数据保持空白",
+        },
+      )
+    WorkflowLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          workflow_loaded: false,
+          workflow_process_rows: [],
+          workflow_note: "工作流定义读模型不可用 · 使用已审核快照",
         },
       )
     CreateLoan =>
@@ -3780,13 +3913,76 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn tasks_view() -> @html.Html {
+fn workflow_runtime_table(model : Model) -> @html.Html {
+  fn step_text(steps : Array[WorkflowStepRow]) -> String {
+    let mut text = ""
+    for step in steps {
+      if text != "" {
+        text = text + " · "
+      }
+      text = text +
+        step.step_order +
+        "." +
+        step.step_name +
+        " (" +
+        step.step_guid +
+        ") [" +
+        step.step_key +
+        "; 阈值 " +
+        step.threshold +
+        "; 指派 " +
+        step.assignee_count +
+        "; " +
+        step.source_kind +
+        "]"
+    }
+    text
+  }
+  let rows : Array[Array[String]] = []
+  for row in model.workflow_process_rows {
+    rows.push([
+      row.process_guid,
+      row.process_name,
+      row.process_key,
+      row.biz_type,
+      row.step_count,
+      row.instances_available,
+      row.actions_available,
+      row.source_kind,
+      step_text(row.steps),
+    ])
+  }
+  table_panel(
+    "PostgreSQL 工作流定义",
+    model.workflow_note + " · 审批实例与动作不从空源数据推断",
+    data_table(
+      [
+        "流程 ID", "流程", "流程键", "业务类型", "步骤", "实例行",
+        "动作行", "来源", "步骤定义",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn tasks_view(model : Model) -> @html.Html {
   page_shell(
     "我的待办",
     "WORKFLOW",
     "集中处理报销、借款、付款申请与项目协同任务，查看发起记录和审批历史。",
     [button(class="erp-primary-btn", "＋ 发起流程")],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.workflow_loaded {
+            "PostgreSQL 工作流定义已连接"
+          } else {
+            "工作流读模型"
+          },
+        ),
+        span(" · " + model.workflow_note),
+      ]),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "待办 (8)"),
         button(class="erp-tab", "已发起"),
@@ -3821,6 +4017,7 @@ fn tasks_view() -> @html.Html {
           ],
         ),
       ),
+      workflow_runtime_table(model),
     ],
   )
 }
@@ -7095,7 +7292,7 @@ fn business_view(
       "/projects/CD-HJL" => project_detail_view(emit)
       "/project-plan" => project_plan_view(emit, model)
       "/project/progress" => progress_view(emit, model)
-      "/tasks" => tasks_view()
+      "/tasks" => tasks_view(model)
       "/sales/customers" => sales_customers_view(model)
       "/sales/subscriptions" => sales_subscriptions_view(emit, model)
       "/sales/contracts" => sales_contracts_view(emit, model)

@@ -320,11 +320,12 @@ those capabilities as source parity.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records eighteen connected workflow routes across browser and API
-surfaces (expense, contract, payment, procurement, sales, invoice, delivery,
-core reports, and employee-loan reads/commands), while 30 browser views and 35 API groups
-remain fixture-backed or read-model-only. Three additional fixed read-model routes
-are connected. That gap,
+currently records nineteen connected browser states and twenty-two connected API
+state entries across expense, contract, payment, procurement, sales,
+invoice, delivery, core reports, employee-loan, and workflow-definition reads,
+while 29 browser views and 34 API groups remain fixture-backed or read-model-only.
+Three additional fixed read-model routes are connected. Workflow definitions are
+connected only as non-authorizing reads; instance/task actions remain gated. That gap,
 rather than additional platform hardening, controls the next work.
 
 Execute the remainder in this order:

@@ -21,8 +21,9 @@
     "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
     "connected_tender_command_form": 1,
+    "connected_workflow_definition_read": 1,
     "fixture_backed_form": 3,
-    "fixture_backed_read_only": 30,
+    "fixture_backed_read_only": 29,
     "public": 1,
     "read_model_only": 3,
     "read_only_public": 1
@@ -40,7 +41,8 @@
     "connected_sales_read": 5,
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
-    "read_only_fixture_no_source_api": 35
+    "connected_workflow_definition_read": 1,
+    "read_only_fixture_no_source_api": 34
   },
   "routes": [
     {
@@ -217,13 +219,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "tasks_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_workflow_definition_read",
       "source_api_module": "workflow",
       "source_api_handler_count": 12,
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 5,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_workflow_definition_read",
+      "required_next": "accept_browser_workflow_definition_scenario_and_production_identity"
     },
     {
       "path": "/contracts",
@@ -4618,8 +4620,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_workflow_definition_read",
+      "required_next": "accept_browser_workflow_definition_scenario_and_production_identity"
     },
     {
       "module": "workflow",
@@ -4628,8 +4630,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_workflow_definition_read",
+      "required_next": "accept_browser_workflow_definition_scenario_and_production_identity"
     },
     {
       "module": "workflow",

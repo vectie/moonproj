@@ -6,12 +6,13 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-delivery, core report read, and employee-loan read/command verticals.
+delivery, core report read, employee-loan read/command, and
+non-authorizing workflow-definition read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 3, "fixture_backed_read_only": 30, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 35}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 3, "fixture_backed_read_only": 29, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 34}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -30,7 +31,7 @@ delivery, core report read, and employee-loan read/command verticals.
 | `/expenses` | `../views/ExpenseList.vue` | `expenses_view` | `fixture_backed_read_only` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/expenses/new` | `../views/ExpenseCreate.vue` | `expense_editor_view` | `connected_command_form` | `budget` | 6 / 7 | `connected_expense_command` | `accept_production_identity_and_full_session_scenario` |
 | `/expenses/:guid` | `../views/ExpenseDetail.vue` | `expense_editor_view` | `fixture_backed_form` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
-| `/tasks` | `../views/Tasks.vue` | `tasks_view` | `fixture_backed_read_only` | `workflow` | 7 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/tasks` | `../views/Tasks.vue` | `tasks_view` | `connected_workflow_definition_read` | `workflow` | 7 / 5 | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
 | `/contracts` | `../views/Contracts.vue` | `contracts_view` | `connected_contract_read` | `cost` | 7 / 13 | `connected_contract_command` | `accept_browser_contract_scenario_and_production_identity` |
 | `/contracts/:guid` | `../views/ContractDetail.vue` | `contract_detail_view` | `connected_contract_command_form` | `cost` | 7 / 13 | `connected_contract_command` | `accept_browser_contract_scenario_and_production_identity` |
 | `/payment-applies` | `../views/PaymentApplies.vue` | `payment_applies_view` | `connected_payment_application_command_form` | `cost` | 7 / 13 | `connected_payment_application_command` | `accept_browser_payment_application_scenario_and_production_identity` |
@@ -416,8 +417,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `workflow` | `GET` | `/instances/:piGuid` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
 | `workflow` | `POST` | `/instances/:piGuid/approve` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `POST` | `/instances/:piGuid/reject` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `workflow` | `GET` | `/process-defs` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
-| `workflow` | `GET` | `/process-defs/:processKey/preview` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
+| `workflow` | `GET` | `/process-defs` | `/tasks` | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
+| `workflow` | `GET` | `/process-defs/:processKey/preview` | `/tasks` | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
 | `workflow` | `GET` | `/tasks/my-history` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
 | `workflow` | `POST` | `/instances` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `POST` | `/instances/:piGuid/cosigners` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |

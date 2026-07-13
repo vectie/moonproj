@@ -41,6 +41,8 @@ The bounded service exposes these endpoints:
   with source-preserving reads and idempotent local commands
 * ``/api/company/reports/{cost-summary,contract-payment-ledger,
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
+* ``/api/company/workflow/process-defs`` and
+  ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/loans`` and ``/api/company/loans/<id>`` (GET)
 * ``/api/company/loans`` (POST create draft)
 * ``/api/company/loans/<id>/{submit-for-approval,offset,update,void}`` (POST)
@@ -296,6 +298,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_read",
             "delivery_command",
             "report_read",
+            "workflow_definition_read",
             "loan_read",
             "loan_command",
             "audit_receipt",
@@ -332,6 +335,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_read",
             "delivery_command",
             "report_read",
+            "workflow_definition_read",
             "loan_read",
             "loan_command",
             "audit_receipt",
@@ -3543,6 +3547,114 @@ def _report_date(value: Any) -> date | None:
         return None
 
 
+WORKFLOW_SOURCE_TABLES = {
+    "wf_process_def",
+    "wf_step_def",
+    "wf_step_assignee",
+    "wf_process_instance",
+    "wf_step_action",
+}
+
+
+def _workflow_rows(
+    pool: PsqlPool,
+    table: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    return _raw_source_rows(
+        pool,
+        table,
+        min(max_rows, 5000),
+        WORKFLOW_SOURCE_TABLES,
+    )
+
+
+def workflow_process_defs(
+    pool: PsqlPool,
+    process_key: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if process_key is not None and not IDENTIFIER.fullmatch(process_key):
+        raise ValueError("invalid process_key")
+    coverage = {
+        table: len(_workflow_rows(pool, table, max_rows))
+        for table in sorted(WORKFLOW_SOURCE_TABLES)
+    }
+    process_rows = _workflow_rows(pool, "wf_process_def", max_rows)
+    step_rows = _workflow_rows(pool, "wf_step_def", max(max_rows, 500))
+    assignee_rows = _workflow_rows(pool, "wf_step_assignee", max(max_rows, 500))
+    assignees_by_step: dict[str, list[dict[str, Any]]] = {}
+    for row in assignee_rows:
+        payload = row["payload"]
+        step_guid = str(payload.get("step_guid", ""))
+        if not step_guid:
+            continue
+        assignees_by_step.setdefault(step_guid, []).append(
+            {
+                "assignee_guid": str(payload.get("assignee_guid", row["record_id"])),
+                "user_guid": str(payload.get("assignee_user_guid", "")),
+                "weight": int(payload.get("weight") or 1),
+                "source_kind": "imported",
+            }
+        )
+    steps_by_process: dict[str, list[dict[str, Any]]] = {}
+    for row in step_rows:
+        payload = row["payload"]
+        process_guid = str(payload.get("process_guid", ""))
+        if not process_guid:
+            continue
+        step_guid = str(payload.get("step_guid", row["record_id"]))
+        steps_by_process.setdefault(process_guid, []).append(
+            {
+                "step_guid": step_guid,
+                "step_key": str(payload.get("step_key", "")),
+                "step_order": int(payload.get("step_order") or 0),
+                "step_type": int(payload.get("step_type") or 0),
+                "step_name": str(payload.get("step_name", "")),
+                "threshold": int(payload.get("threshold") or 1),
+                "remind_days": payload.get("remind_days"),
+                "warn_days": payload.get("warn_days"),
+                "assignees": assignees_by_step.get(step_guid, []),
+                "source_kind": "imported",
+            }
+        )
+    items: list[dict[str, Any]] = []
+    for row in process_rows:
+        payload = row["payload"]
+        key = str(payload.get("process_key", ""))
+        if process_key is not None and key != process_key:
+            continue
+        process_guid = str(payload.get("process_guid", row["record_id"]))
+        steps = sorted(
+            steps_by_process.get(process_guid, []),
+            key=lambda value: (int(value["step_order"]), str(value["step_guid"])),
+        )
+        items.append(
+            {
+                "process_guid": process_guid,
+                "process_key": key,
+                "process_name": str(payload.get("process_name", key)),
+                "biz_type": str(payload.get("biz_type", "")),
+                "is_active": bool(payload.get("is_active", 0)),
+                "is_mandatory": bool(payload.get("is_mandatory", 0)),
+                "step_count": len(steps),
+                "instances_available": coverage["wf_process_instance"],
+                "actions_available": coverage["wf_step_action"],
+                "steps": steps,
+                "source_kind": "imported",
+            }
+        )
+    items.sort(key=lambda value: (str(value["process_key"]), str(value["process_guid"])))
+    return {
+        "items": items,
+        "source_kind": "imported",
+        "source_coverage": coverage,
+        "missing_source_tables": [table for table, count in coverage.items() if count == 0],
+        "instances_available": coverage["wf_process_instance"],
+        "actions_available": coverage["wf_step_action"],
+    }
+
+
 LOAN_SOURCE_TABLES = {
     "vcb_loan_simple",
     "cb_loan_offset",
@@ -5364,6 +5476,38 @@ def handler_factory(
                     response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/workflow/process-defs":
+                    process_value = parse_qs(parsed.query).get("process_key", [None])[0]
+                    response(
+                        self,
+                        200,
+                        workflow_process_defs(pool, process_value, max_response_rows),
+                        origin,
+                    )
+                elif re.fullmatch(
+                    r"/api/company/workflow/process-defs/[A-Za-z0-9_.:-]{1,128}/preview",
+                    parsed.path,
+                ):
+                    process_value = parsed.path.split("/")[-2]
+                    result = workflow_process_defs(pool, process_value, max_response_rows)
+                    if not result["items"]:
+                        response(self, 404, {"error": "workflow process definition not found"}, origin)
+                    else:
+                        item = result["items"][0]
+                        response(
+                            self,
+                            200,
+                            {
+                                "process_key": item["process_key"],
+                                "process_name": item["process_name"],
+                                "biz_type": item["biz_type"],
+                                "steps": item["steps"],
+                                "source_kind": item["source_kind"],
+                                "instances_available": result["instances_available"],
+                                "actions_available": result["actions_available"],
+                            },
+                            origin,
+                        )
                 elif parsed.path == "/api/company/loans":
                     query = parse_qs(parsed.query)
                     loan_value = query.get("loan_id", [None])[0]
