@@ -5,7 +5,8 @@ This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
-employee-loan, dynamic-cost, investment, and admin-quality projections.
+employee-loan, dynamic-cost, investment, admin-quality, and non-secret profile
+reads.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
@@ -25,6 +26,7 @@ from urllib.parse import parse_qs, urlparse
 
 from company_postgres_target_apply import PostgresTargetError, run_psql, sql_literal
 from company_postgres_service import (
+    auth_current_user as service_auth_current_user,
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
     payment_applications as service_payment_applications,
@@ -101,6 +103,10 @@ def summary(args: argparse.Namespace) -> dict[str, Any]:
         "accounting_links": links,
         "receipts": receipts,
     }
+
+
+def auth_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
+    return service_auth_current_user(_ReadModelPool(args), user_code, 500)
 
 
 def receipts(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -457,6 +463,14 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/summary":
                     response(self, 200, summary(args))
+                    return
+                if parsed.path == "/api/company/auth/me":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = auth_current_user(args, user_code)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"})
+                    else:
+                        response(self, 200, result)
                     return
                 if parsed.path == "/api/company/receipts":
                     response(self, 200, {"items": receipts(args)})

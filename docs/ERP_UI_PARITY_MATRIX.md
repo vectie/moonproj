@@ -4,17 +4,17 @@ Generated from `../erp/erp_new/web/src/router/index.js`, the source
 `server/src/routes` directory, and `frontend/main/main.mbt`. This is an
 acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The generic PostgreSQL
-summary/read-model adapter is not dashboard parity; the dashboard
-aliases remain read-model-only. The connected exceptions are the local
+summary/read-model adapter is not dashboard parity; the three dashboard
+aliases now use the bounded connected v1 read. The connected exceptions are the local
 expense/contract/payment-application/tender command, supplier read,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
-read/command, project-plan read, and non-authorizing workflow-definition
+profile read, project-plan read, and non-authorizing workflow-definition
 read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 22, "public": 1, "read_only_public": 1}`
-- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 26}`
+- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 21, "public": 1, "read_only_public": 1}`
+- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 25}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -72,7 +72,7 @@ read verticals.
 | `/error-log` | `../views/ErrorLog.vue` | `error_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/system-health` | `../views/SystemHealth.vue` | `health_view` | `connected_admin_health_read` | `admin` | 13 / 5 | `connected_admin_health_read` | `accept_browser_admin_health_scenario_and_super_user_owner` |
 | `/users` | `../views/UserManagement.vue` | `users_view` | `connected_rbac_user_read` | `rbac` | 5 / 7 | `connected_rbac_user_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
-| `/profile` | `../views/Profile.vue` | `profile_view` | `fixture_backed_read_only` | `auth` | 3 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/profile` | `../views/Profile.vue` | `profile_view` | `connected_profile_read` | `auth` | 3 / 6 | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `/inbox` | `../views/Inbox.vue` | `inbox_view` | `fixture_backed_read_only` | `notify` | 8 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/notify-config` | `../views/NotifyConfig.vue` | `notify_view` | `fixture_backed_read_only` | `notify` | 8 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/webhook-config` | `../views/WebhookConfig.vue` | `webhook_view` | `fixture_backed_read_only` | `webhook` | 1 / 4 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
@@ -133,7 +133,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `attachment` | `GET` | `/all` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
 | `attachment` | `GET` | `/stats` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
 | `auth` | `POST` | `/login` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `auth` | `GET` | `/me` | `/login`, `/profile` | `not_connected` | `connect_authenticated_read_api` |
+| `auth` | `GET` | `/me` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `auth` | `POST` | `/logout` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `POST` | `/change-password` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `PUT` | `/profile` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |

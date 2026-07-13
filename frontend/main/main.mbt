@@ -488,6 +488,18 @@ struct Model {
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
+  profile_loaded : Bool
+  profile_user_id : String
+  profile_user_code : String
+  profile_user_name : String
+  profile_emp_name : String
+  profile_bu_name : String
+  profile_dept_name : String
+  profile_super_user : String
+  profile_enabled : String
+  profile_last_login : String
+  profile_source_kind : String
+  profile_note : String
   health_loaded : Bool
   health_table_rows : Array[HealthTableRow]
   health_source_table_count : String
@@ -612,6 +624,8 @@ enum Msg {
   AuditLoadFailed
   DynamicCostLoaded(String)
   DynamicCostLoadFailed
+  ProfileLoaded(String)
+  ProfileLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
   HealthTablesLoaded(String)
@@ -748,6 +762,18 @@ fn initial_model() -> Model {
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
+    profile_loaded: false,
+    profile_user_id: "user-admin-0001",
+    profile_user_code: "admin",
+    profile_user_name: "系统管理员",
+    profile_emp_name: "系统管理员",
+    profile_bu_name: "集团总部",
+    profile_dept_name: "数字化中心",
+    profile_super_user: "是",
+    profile_enabled: "是",
+    profile_last_login: "2026-07-13 09:38",
+    profile_source_kind: "设计快照",
+    profile_note: "个人资料读模型尚未加载 · 使用设计快照",
     health_loaded: false,
     health_table_rows: [],
     health_source_table_count: "0",
@@ -1837,6 +1863,44 @@ fn dynamic_cost_from_body(
 }
 
 ///|
+fn profile_from_body(body : String) -> Array[String] {
+  let values : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          values.push(json_object_text(data, "userId", ""))
+          values.push(json_object_text(data, "userCode", ""))
+          values.push(json_object_text(data, "userName", ""))
+          values.push(json_object_text(data, "empName", ""))
+          values.push(json_object_text(data, "buName", ""))
+          values.push(json_object_text(data, "deptName", ""))
+          values.push(
+            if json_object_text(data, "isSuperUser", "false") == "true" {
+              "是"
+            } else {
+              "否"
+            },
+          )
+          values.push(
+            if json_object_text(data, "enabled", "false") == "true" {
+              "是"
+            } else {
+              "否"
+            },
+          )
+          values.push(json_object_text(data, "lastLoginTime", ""))
+          values.push(json_object_text(data, "sourceKind", "imported"))
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  values
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -2311,6 +2375,17 @@ fn load_dynamic_cost(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(DynamicCostLoaded(body))
       Err(_) => emit(DynamicCostLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
+  let code = if user_code == "" { "admin" } else { user_code }
+  @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
+    match result {
+      Ok(body) => emit(ProfileLoaded(body))
+      Err(_) => emit(ProfileLoadFailed)
     }
   })
 }
@@ -2795,6 +2870,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_audit_logs(emit)
       } else if path == "/dynamic-cost" {
         load_dynamic_cost(emit)
+      } else if path == "/profile" {
+        load_profile(emit, model.user_code)
       } else if path == "/system-health" {
         load_health_tables(emit)
       } else if path == "/loans" {
@@ -3872,6 +3949,47 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dynamic_cost_loaded: false,
           dynamic_cost_rows: [],
           dynamic_cost_note: "动态成本读模型不可用 · 使用设计快照",
+        },
+      )
+    ProfileLoaded(body) => {
+      let values = profile_from_body(body)
+      if values.length() == 10 {
+        (
+          none,
+          {
+            ..model,
+            profile_loaded: true,
+            profile_user_id: values[0],
+            profile_user_code: values[1],
+            profile_user_name: values[2],
+            profile_emp_name: values[3],
+            profile_bu_name: values[4],
+            profile_dept_name: values[5],
+            profile_super_user: values[6],
+            profile_enabled: values[7],
+            profile_last_login: values[8],
+            profile_source_kind: values[9],
+            profile_note: "已加载 PostgreSQL 个人资料 · 敏感认证字段未导入",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            profile_loaded: false,
+            profile_note: "个人资料响应无效 · 使用设计快照",
+          },
+        )
+      }
+    }
+    ProfileLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          profile_loaded: false,
+          profile_note: "个人资料读模型不可用 · 使用设计快照",
         },
       )
     UsersLoaded(body) =>
@@ -8790,12 +8908,18 @@ fn users_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn profile_view() -> @html.Html {
+fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "个人中心",
     "SYSTEM / PROFILE",
     "管理个人资料、密码、通知订阅以及本人发起的业务单据。",
-    [button(class="erp-secondary-btn", "保存资料")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/profile")),
+        "刷新资料",
+      ),
+    ],
     div <| [
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "基本信息"),
@@ -8806,17 +8930,33 @@ fn profile_view() -> @html.Html {
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("基本信息"),
-          span(class="erp-info-tag", "Giant Claw"),
+          span(
+            class="erp-info-tag",
+            if model.profile_loaded {
+              model.profile_source_kind
+            } else {
+              "Giant Claw · " + model.profile_source_kind
+            },
+          ),
         ],
         div(class="erp-form-grid") <| [
-          form_field("账号", "admin", "用户编码"),
-          form_field("姓名", "系统管理员", "姓名"),
-          form_field("所属公司", "集团总部", "所属公司"),
-          form_field("所属部门", "数字化中心", "所属部门"),
+          form_field("账号", model.profile_user_code, "用户编码"),
+          form_field("用户 ID", model.profile_user_id, "内部标识"),
+          form_field("姓名", model.profile_emp_name, "姓名"),
+          form_field("显示名", model.profile_user_name, "用户名称"),
+          form_field("所属公司", model.profile_bu_name, "所属公司"),
+          form_field("所属部门", model.profile_dept_name, "所属部门"),
+          form_field("管理员", model.profile_super_user, "超级用户"),
+          form_field("状态", model.profile_enabled, "启用状态"),
           form_field("联系电话", "138****0000", "联系电话"),
-          form_field("最后登录", "2026-07-13 09:38", "最后登录"),
+          form_field("最后登录", model.profile_last_login, "最后登录"),
         ],
       ],
+      p(
+        class="erp-dashboard-note",
+        model.profile_note +
+        " · 资料/密码/偏好写入仍需生产身份与命令授权",
+      ),
       table_panel(
         "我的订阅",
         "异常预警通知规则",
@@ -9347,7 +9487,7 @@ fn business_view(
       "/admin" => admin_view(emit, model)
       "/ocr-config" => ocr_view()
       "/webhook-config" => webhook_view()
-      "/profile" => profile_view()
+      "/profile" => profile_view(emit, model)
       _ => placeholder_view(path)
     }
   }

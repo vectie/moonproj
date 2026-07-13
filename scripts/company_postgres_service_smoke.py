@@ -410,6 +410,32 @@ def main() -> int:
             or "sys_role" not in users_payload.get("missing_or_empty_source_tables", [])
         ):
             raise SmokeError(f"RBAC user roster read failed: {status} {users_payload}")
+        status, profile_payload = request(
+            args.port,
+            "/api/company/auth/me?userCode=admin",
+            token=token,
+        )
+        profile_data = (profile_payload or {}).get("data", {})
+        if (
+            status != 200
+            or profile_payload is None
+            or profile_data.get("userId") != "user-admin-0001"
+            or profile_data.get("userCode") != "admin"
+            or profile_data.get("buName") != "和泓置地总部"
+            or profile_data.get("deptName") != "和泓置地总部"
+            or profile_data.get("isSuperUser") is not True
+            or profile_data.get("sourceKind") != "imported"
+            or profile_payload.get("source_coverage", {}).get("sys_user") != 5
+            or profile_payload.get("source_coverage", {}).get("mu_business_unit") != 7
+        ):
+            raise SmokeError(f"auth profile read failed: {status} {profile_payload}")
+        status, missing_profile_payload = request(
+            args.port,
+            "/api/company/auth/me?userCode=missing-user",
+            token=token,
+        )
+        if status != 404 or missing_profile_payload is None or missing_profile_payload.get("error") != "user not found":
+            raise SmokeError(f"missing auth profile should be 404: {status} {missing_profile_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -1527,6 +1553,8 @@ def main() -> int:
                     "admin_quality_unavailable_rules": quality_summary.get("unavailableRules"),
                     "rbac_user_rows": len(user_rows),
                     "rbac_role_source_status": user_rows[0].get("rolesSourceStatus"),
+                    "profile_user_code": profile_data.get("userCode"),
+                    "profile_source_kind": profile_data.get("sourceKind"),
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,

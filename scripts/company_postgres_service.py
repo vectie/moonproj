@@ -12,6 +12,7 @@ The bounded service exposes these endpoints:
 
 * ``/api/health``
 * ``/api/company/summary``
+* ``/api/company/auth/me?userCode=<source user code>`` (GET, non-secret profile read)
 * ``/api/company/receipts``
 * ``/api/company/projections?aggregate_type=<optional>``
 * ``/api/company/expenses`` and ``/api/company/expenses/<id>`` (GET)
@@ -4214,6 +4215,64 @@ def admin_rbac_users(
     }
 
 
+def auth_current_user(
+    pool: PsqlPool,
+    user_code: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Return the imported, non-secret profile for one source user.
+
+    This mirrors the source ``GET /auth/me`` read without exposing password,
+    login-failure, or network fields.  It is deliberately a read boundary:
+    profile updates, password changes, preferences, and initiated-document
+    mutations remain separate authenticated commands.
+    """
+
+    if not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    users = _raw_source_rows(pool, "sys_user", max(max_rows, 100), ADMIN_RBAC_SOURCE_TABLES)
+    units = {
+        str(row["payload"].get("bu_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "mu_business_unit", max(max_rows, 100), ADMIN_RBAC_SOURCE_TABLES)
+    }
+    selected = next(
+        (
+            row
+            for row in users
+            if str(row["payload"].get("user_code") or "") == user_code
+        ),
+        None,
+    )
+    if selected is None:
+        return None
+    payload = selected["payload"]
+    bu_guid = str(payload.get("bu_guid") or "")
+    dept_guid = str(payload.get("dept_guid") or "")
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "userId": str(payload.get("user_id") or selected["record_id"]),
+            "userCode": user_code,
+            "userName": str(payload.get("user_name") or ""),
+            "empName": str(payload.get("emp_name") or payload.get("user_name") or ""),
+            "buGuid": bu_guid,
+            "buName": str(units.get(bu_guid, {}).get("bu_name") or ""),
+            "deptGuid": dept_guid,
+            "deptName": str(units.get(dept_guid, {}).get("bu_name") or ""),
+            "isSuperUser": bool(payload.get("is_super_user", 0)),
+            "enabled": bool(payload.get("enabled", 0)),
+            "lastLoginTime": str(payload.get("last_login_time") or ""),
+            "sourceKind": "imported",
+        },
+        "source_kind": "imported",
+        "source_coverage": {
+            "sys_user": len(users),
+            "mu_business_unit": len(units),
+        },
+    }
+
+
 def admin_dict_groups(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
     groups: dict[str, dict[str, int]] = {}
@@ -7319,6 +7378,13 @@ def handler_factory(
                     response(self, 200, health(pool, expected_schema_version), origin)
                 elif parsed.path == "/api/company/summary":
                     response(self, 200, summary(pool, expected_schema_version), origin)
+                elif parsed.path == "/api/company/auth/me":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = auth_current_user(pool, user_code, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/receipts":
                     response(self, 200, {"items": receipts(pool)}, origin)
                 elif parsed.path == "/api/company/projections":

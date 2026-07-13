@@ -324,7 +324,8 @@ those capabilities as source parity.
    selection, and the missing budget/expense/change tables before it can be
    promoted beyond the designer fixture. See
    [`ERP_DYNAMIC_COST_RUNTIME_AUDIT.md`](ERP_DYNAMIC_COST_RUNTIME_AUDIT.md).
-   Admin dictionary, bounded quality, audit, health, and user-roster reads are connected
+   Admin dictionary, bounded quality, audit, health, user-roster, and
+   imported-profile reads are connected
    for the available governance rows (one group, five options, twelve quality
    rules with four unavailable dependencies, five imported users, two audit
    events, 29 health-table coverage rows, and an empty BPM pool); super-user
@@ -365,9 +366,9 @@ those capabilities as source parity.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 30 connected browser states, 24 fixture-backed browser
+currently records 31 connected browser states, 23 fixture-backed browser
 states, no browser states classified as read-model-only, and two public
-states. Its API matrix records 30 connected API groups and 26 fixture/no-source
+states. Its API matrix records 31 connected API groups and 25 fixture/no-source
 groups across MDM
 organization/project, budget dictionary, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,
