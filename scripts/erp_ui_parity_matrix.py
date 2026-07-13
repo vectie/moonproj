@@ -305,6 +305,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "mdm"
         and handler["method"] == "GET"
+        and handler["path"] == "/business-units/tree"
+    ):
+        return "connected_mdm_read", "accept_browser_mdm_scenario_and_production_identity"
+    if (
+        handler["module"] == "mdm"
+        and handler["method"] == "GET"
         and handler["path"] in {"/projects", "/projects/:projGuid/lifecycle"}
     ):
         return "connected_project_read", "accept_browser_project_scenario_and_production_identity"
@@ -447,7 +453,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The connected exceptions are",
         "the fixed dashboard read-model and the local",
         "expense/contract/payment-application/tender command, supplier read,",
-        "project master read, delivery, core report read, employee-loan",
+        "MDM organization/project master reads, delivery, core report read, employee-loan",
         "read/command, project-plan read, and non-authorizing workflow-definition",
         "read verticals.",
         "",

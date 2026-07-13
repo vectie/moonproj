@@ -73,6 +73,9 @@ Source-compatible plan reads are also available at
 `/api/company/projects/:id/plan-summary`, plus lifecycle and delay-impact
 reads; task reporting and plan mutations remain separate evidence-gated
 boundaries.
+The source MDM business-unit tree is available to company-scoped screens at
+`/api/company/business-units/tree`; imported organization rows remain read-only
+until legal-principal and role ownership are accepted.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

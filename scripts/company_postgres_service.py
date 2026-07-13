@@ -44,6 +44,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
+* ``/api/company/business-units/tree`` (GET, source-compatible MDM read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -3682,6 +3683,47 @@ def project_lifecycle(pool: PsqlPool, project_id: str, max_rows: int) -> dict[st
     }
 
 
+def business_units_tree(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    raw_units = _raw_source_rows(pool, "mu_business_unit", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    payloads = [row["payload"] for row in raw_units]
+    payloads.sort(key=lambda value: (int(value.get("level") or 0), str(value.get("bu_code") or "")))
+    nodes: dict[str, dict[str, Any]] = {}
+    for payload in payloads:
+        guid = str(payload.get("bu_guid") or "")
+        if not guid:
+            continue
+        nodes[guid] = {
+            "buGuid": guid,
+            "buCode": str(payload.get("bu_code") or ""),
+            "buName": str(payload.get("bu_name") or ""),
+            "legalName": str(payload.get("legal_name") or ""),
+            "hierarchyCode": str(payload.get("hierarchy_code") or ""),
+            "level": int(payload.get("level") or 0),
+            "buType": str(payload.get("bu_type") or ""),
+            "children": [],
+            "sourceKind": "imported",
+        }
+    roots: list[dict[str, Any]] = []
+    for payload in payloads:
+        guid = str(payload.get("bu_guid") or "")
+        node = nodes.get(guid)
+        if node is None:
+            continue
+        parent_guid = str(payload.get("parent_guid") or "")
+        parent = nodes.get(parent_guid)
+        if parent is None:
+            roots.append(node)
+        else:
+            parent["children"].append(node)
+    return {
+        "success": True,
+        "code": 0,
+        "data": roots,
+        "source_kind": "imported",
+        "source_coverage": {"mu_business_unit": len(raw_units)},
+    }
+
+
 def _shift_plan_date(value: Any, delay_days: int) -> str:
     parsed = _report_date(str(value or ""))
     if parsed is None:
@@ -5990,6 +6032,8 @@ def handler_factory(
                         response(self, 404, {"error": "project not found"}, origin)
                     else:
                         response(self, 200, result["items"][0], origin)
+                elif parsed.path == "/api/company/business-units/tree":
+                    response(self, 200, business_units_tree(pool, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
                     parsed.path,

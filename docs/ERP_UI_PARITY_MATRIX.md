@@ -6,7 +6,7 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-project master read, delivery, core report read, employee-loan
+MDM organization/project master reads, delivery, core report read, employee-loan
 read/command, project-plan read, and non-authorizing workflow-definition
 read verticals.
 
@@ -284,7 +284,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `marketing` | `GET` | `/materials` | `/marketing` | `not_connected` | `connect_authenticated_read_api` |
 | `marketing` | `POST` | `/materials` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `DELETE` | `/materials/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `mdm` | `GET` | `/business-units/tree` | `/projects`, `/projects/:projGuid` | `not_connected` | `connect_authenticated_read_api` |
+| `mdm` | `GET` | `/business-units/tree` | `/projects`, `/projects/:projGuid` | `connected_mdm_read` | `accept_browser_mdm_scenario_and_production_identity` |
 | `mdm` | `GET` | `/projects` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `mdm` | `GET` | `/projects/:projGuid/lifecycle` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `mdm` | `POST` | `/projects` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |

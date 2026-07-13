@@ -20,6 +20,10 @@ class SmokeError(RuntimeError):
     pass
 
 
+def tree_count(nodes: list[dict[str, Any]]) -> int:
+    return sum(1 + tree_count(node.get("children", [])) for node in nodes)
+
+
 def request(
     port: int,
     path: str,
@@ -150,6 +154,21 @@ def main() -> int:
             or workflow_preview.get("actions_available") != 0
         ):
             raise SmokeError(f"workflow preview read failed: {status} {workflow_preview}")
+        status, business_units_payload = request(
+            args.port,
+            "/api/company/business-units/tree",
+            token=token,
+        )
+        if (
+            status != 200
+            or business_units_payload is None
+            or not isinstance(business_units_payload.get("data"), list)
+            or len(business_units_payload["data"]) != 1
+            or tree_count(business_units_payload["data"]) != 7
+            or len(business_units_payload["data"][0].get("children", [])) != 2
+            or business_units_payload.get("source_coverage", {}).get("mu_business_unit") != 7
+        ):
+            raise SmokeError(f"business-unit tree read failed: {status} {business_units_payload}")
         status, project_payload = request(args.port, "/api/company/projects", token=token)
         if (
             status != 200
@@ -1177,6 +1196,8 @@ def main() -> int:
                     "report_missing_source_tables": report_missing_tables,
                     "workflow_definition_count": 2,
                     "workflow_step_count": 12,
+                    "business_unit_root_count": 1,
+                    "business_unit_rows": 7,
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
                     "project_count": 2,
