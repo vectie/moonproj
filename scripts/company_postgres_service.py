@@ -356,6 +356,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "loan_read",
             "loan_command",
             "audit_receipt",
+            "attachment_metadata_read",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -6542,6 +6543,20 @@ WARNING_RULE_DEFINITIONS = [
 ]
 
 
+ATTACHMENT_SOURCE_TABLES = {
+    "attachment",
+    "sys_user",
+}
+
+
+MARKETING_SOURCE_TABLES = {
+    "mkt_campaign",
+    "mkt_placement",
+    "mkt_channel",
+    "mkt_material",
+}
+
+
 def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
         "source_kind": "imported_or_empty",
@@ -7865,6 +7880,407 @@ def warning_source_empty_read(pool: PsqlPool, table: str, max_rows: int) -> dict
     if table == "scans":
         data = []
     return {"success": True, "code": 0, "data": data, **_warning_source_metadata(coverage)}
+
+
+def _attachment_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    """Describe the imported attachment boundary without claiming file access."""
+
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "downloadable": False,
+        "binary_storage": "not_imported",
+    }
+
+
+def _attachment_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(
+            _raw_source_rows(pool, table, max(max_rows, 500), ATTACHMENT_SOURCE_TABLES)
+        )
+        for table in sorted(ATTACHMENT_SOURCE_TABLES)
+    }
+
+
+def _attachment_text(payload: dict[str, Any], *keys: str, fallback: str = "") -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value is not None and value != "":
+            return str(value)
+    return fallback
+
+
+def _attachment_int(payload: dict[str, Any], *keys: str) -> int:
+    value = _attachment_text(payload, *keys)
+    if not value:
+        return 0
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _attachment_ai(payload: dict[str, Any]) -> dict[str, Any] | None:
+    value = payload.get("ai_extracted", payload.get("aiExtracted"))
+    extracted: Any = None
+    if isinstance(value, dict):
+        extracted = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            extracted = parsed
+    status = _attachment_text(payload, "ai_status", "aiStatus")
+    confidence = payload.get("ai_confidence", payload.get("aiConfidence"))
+    if extracted is None and not status and confidence in (None, ""):
+        return None
+    return {
+        "extracted": extracted or {},
+        "confidence": confidence,
+        "status": status or "pending",
+    }
+
+
+def _attachment_source_rows(
+    pool: PsqlPool,
+    *,
+    biz_type: str | None,
+    biz_guid: str | None,
+    uploaded_by: str | None,
+    ai_status: str | None,
+    keyword: str | None,
+    max_rows: int,
+) -> tuple[dict[str, int], list[dict[str, Any]]]:
+    coverage = _attachment_source_coverage(pool, max_rows)
+    raw = _raw_source_rows(pool, "attachment", max(max_rows, 500), ATTACHMENT_SOURCE_TABLES)
+    users = {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), ATTACHMENT_SOURCE_TABLES)
+    }
+    rows: list[dict[str, Any]] = []
+    for source in raw:
+        payload = source["payload"]
+        if payload.get("deleted_at") or payload.get("deletedAt"):
+            continue
+        current_biz_type = _attachment_text(payload, "biz_type", "bizType")
+        current_biz_guid = _attachment_text(payload, "biz_guid", "bizGuid")
+        current_uploaded_by = _attachment_text(payload, "uploaded_by", "uploadedBy")
+        current_ai_status = _attachment_text(payload, "ai_status", "aiStatus")
+        file_name = _attachment_text(payload, "file_name", "fileName")
+        if biz_type and current_biz_type != biz_type:
+            continue
+        if biz_guid and current_biz_guid != biz_guid:
+            continue
+        if uploaded_by and current_uploaded_by != uploaded_by:
+            continue
+        if ai_status and current_ai_status != ai_status:
+            continue
+        if keyword and keyword.lower() not in file_name.lower():
+            continue
+        user = users.get(current_uploaded_by, {})
+        ai = _attachment_ai(payload)
+        rows.append(
+            {
+                "attGuid": _attachment_text(payload, "att_guid", "attGuid", fallback=source["record_id"]),
+                "fileName": file_name,
+                "fileSize": _attachment_int(payload, "file_size", "fileSize"),
+                "mimeType": _attachment_text(payload, "mime_type", "mimeType"),
+                "bizType": current_biz_type,
+                "bizGuid": current_biz_guid,
+                "uploadedBy": current_uploaded_by,
+                "uploadedByName": _attachment_text(user, "emp_name", "empName"),
+                "uploadedAt": _attachment_text(payload, "uploaded_at", "uploadedAt"),
+                "ai": ai,
+                "downloadAvailable": False,
+                "sourceKind": "imported",
+            }
+        )
+    rows.sort(key=lambda item: (str(item["uploadedAt"]), str(item["attGuid"])), reverse=True)
+    return coverage, rows[:max_rows]
+
+
+def attachment_source_list(
+    pool: PsqlPool,
+    biz_type: str | None,
+    biz_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read attachments linked to one business aggregate, if imported."""
+
+    coverage, rows = _attachment_source_rows(
+        pool,
+        biz_type=biz_type,
+        biz_guid=biz_guid,
+        uploaded_by=None,
+        ai_status=None,
+        keyword=None,
+        max_rows=max_rows,
+    )
+    return {"success": True, "code": 0, "data": rows, **_attachment_source_metadata(coverage)}
+
+
+def attachment_source_all(
+    pool: PsqlPool,
+    biz_type: str | None,
+    uploaded_by: str | None,
+    ai_status: str | None,
+    keyword: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read the ERP attachment search shape from imported envelopes."""
+
+    coverage, rows = _attachment_source_rows(
+        pool,
+        biz_type=biz_type,
+        biz_guid=None,
+        uploaded_by=uploaded_by,
+        ai_status=ai_status,
+        keyword=keyword,
+        max_rows=max_rows,
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"total": len(rows), "rows": rows},
+        **_attachment_source_metadata(coverage),
+    }
+
+
+def attachment_source_stats(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    """Return attachment counts without exposing paths or binary content."""
+
+    coverage, rows = _attachment_source_rows(
+        pool,
+        biz_type=None,
+        biz_guid=None,
+        uploaded_by=None,
+        ai_status=None,
+        keyword=None,
+        max_rows=max_rows,
+    )
+    by_biz: dict[str, dict[str, Any]] = {}
+    by_ai: dict[str, int] = {}
+    for row in rows:
+        biz = str(row["bizType"])
+        entry = by_biz.setdefault(biz, {"bizType": biz, "count": 0, "bytes": 0})
+        entry["count"] += 1
+        entry["bytes"] += int(row["fileSize"])
+        ai = row.get("ai") or {}
+        ai_state = str(ai.get("status") or "unprocessed")
+        by_ai[ai_state] = by_ai.get(ai_state, 0) + 1
+    total_bytes = sum(int(row["fileSize"]) for row in rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "total": {"count": len(rows), "bytes": total_bytes},
+            "byBizType": sorted(by_biz.values(), key=lambda item: (-item["count"], item["bizType"])),
+            "byAiStatus": [
+                {"aiStatus": status, "count": count}
+                for status, count in sorted(by_ai.items())
+            ],
+        },
+        **_attachment_source_metadata(coverage),
+    }
+
+
+def _marketing_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+    }
+
+
+def _marketing_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(
+            _raw_source_rows(pool, table, max(max_rows, 500), MARKETING_SOURCE_TABLES)
+        )
+        for table in sorted(MARKETING_SOURCE_TABLES)
+    }
+
+
+def _marketing_text(payload: dict[str, Any], *keys: str, fallback: str = "") -> str:
+    for key in keys:
+        value = payload.get(key)
+        if value is not None and value != "":
+            return str(value)
+    return fallback
+
+
+def _marketing_number(payload: dict[str, Any], *keys: str) -> int | float:
+    value = _marketing_text(payload, *keys)
+    if not value:
+        return 0
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0
+    return int(number) if number.is_integer() else number
+
+
+def marketing_source_campaigns(
+    pool: PsqlPool,
+    proj_guid: str | None,
+    state: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if proj_guid is not None and not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    if state is not None and len(state) > 64:
+        raise ValueError("invalid state")
+    coverage = _marketing_source_coverage(pool, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "mkt_campaign", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+        payload = source["payload"]
+        current_proj = _marketing_text(payload, "proj_guid", "projGuid")
+        current_state = _marketing_text(payload, "state")
+        if proj_guid and current_proj != proj_guid:
+            continue
+        if state and current_state != state:
+            continue
+        result.append(
+            {
+                "campaignGuid": _marketing_text(payload, "campaign_guid", "campaignGuid", fallback=source["record_id"]),
+                "campaignCode": _marketing_text(payload, "campaign_code", "campaignCode"),
+                "projGuid": current_proj,
+                "buGuid": _marketing_text(payload, "bu_guid", "buGuid"),
+                "name": _marketing_text(payload, "name"),
+                "campaignType": _marketing_text(payload, "campaign_type", "campaignType"),
+                "budget": _marketing_number(payload, "budget"),
+                "actualCost": _marketing_number(payload, "actual_cost", "actualCost"),
+                "startDate": _marketing_text(payload, "start_date", "startDate"),
+                "endDate": _marketing_text(payload, "end_date", "endDate"),
+                "state": current_state,
+                "goal": _marketing_text(payload, "goal"),
+                "remark": _marketing_text(payload, "remark"),
+                "l3Code": _marketing_text(payload, "l3_code", "l3Code"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["startDate"]), str(item["campaignCode"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_marketing_source_metadata(coverage)}
+
+
+def marketing_source_placements(
+    pool: PsqlPool,
+    campaign_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if campaign_guid is not None and not IDENTIFIER.fullmatch(campaign_guid):
+        raise ValueError("invalid campaign_guid")
+    coverage = _marketing_source_coverage(pool, max_rows)
+    campaigns = {
+        _marketing_text(row["payload"], "campaign_guid", "campaignGuid", fallback=row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "mkt_campaign", max(max_rows, 500), MARKETING_SOURCE_TABLES)
+    }
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "mkt_placement", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+        payload = source["payload"]
+        current_campaign = _marketing_text(payload, "campaign_guid", "campaignGuid")
+        if campaign_guid and current_campaign != campaign_guid:
+            continue
+        campaign = campaigns.get(current_campaign, {})
+        result.append(
+            {
+                "placementGuid": _marketing_text(payload, "placement_guid", "placementGuid", fallback=source["record_id"]),
+                "placementCode": _marketing_text(payload, "placement_code", "placementCode"),
+                "campaignGuid": current_campaign,
+                "campaignName": _marketing_text(campaign, "name"),
+                "channelGuid": _marketing_text(payload, "channel_guid", "channelGuid"),
+                "channelName": _marketing_text(payload, "channel_name", "channelName"),
+                "amount": _marketing_number(payload, "amount"),
+                "placeDate": _marketing_text(payload, "place_date", "placeDate"),
+                "durationDays": _marketing_number(payload, "duration_days", "durationDays"),
+                "state": _marketing_text(payload, "state"),
+                "impressions": _marketing_number(payload, "impressions"),
+                "clicks": _marketing_number(payload, "clicks"),
+                "leads": _marketing_number(payload, "leads"),
+                "l3Code": _marketing_text(payload, "l3_code", "l3Code"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["placeDate"]), str(item["placementCode"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_marketing_source_metadata(coverage)}
+
+
+def marketing_source_channels(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = _marketing_source_coverage(pool, max_rows)
+    placements = _raw_source_rows(pool, "mkt_placement", max(max_rows, 500), MARKETING_SOURCE_TABLES)
+    counts: dict[str, tuple[int, int | float]] = {}
+    for row in placements:
+        payload = row["payload"]
+        channel_guid = _marketing_text(payload, "channel_guid", "channelGuid")
+        if not channel_guid:
+            continue
+        count, total = counts.get(channel_guid, (0, 0))
+        counts[channel_guid] = (count + 1, total + _marketing_number(payload, "amount"))
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "mkt_channel", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+        payload = source["payload"]
+        guid = _marketing_text(payload, "channel_guid", "channelGuid", fallback=source["record_id"])
+        count, total = counts.get(guid, (0, _marketing_number(payload, "total_cost", "totalCost")))
+        result.append(
+            {
+                "channelGuid": guid,
+                "channelCode": _marketing_text(payload, "channel_code", "channelCode"),
+                "name": _marketing_text(payload, "name"),
+                "channelType": _marketing_text(payload, "channel_type", "channelType"),
+                "contactPerson": _marketing_text(payload, "contact_person", "contactPerson"),
+                "contactPhone": _marketing_text(payload, "contact_phone", "contactPhone"),
+                "state": _marketing_text(payload, "state"),
+                "totalCost": total,
+                "placementCount": count,
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (float(item["totalCost"]), str(item["channelCode"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_marketing_source_metadata(coverage)}
+
+
+def marketing_source_materials(
+    pool: PsqlPool,
+    proj_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if proj_guid is not None and not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    coverage = _marketing_source_coverage(pool, max_rows)
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(pool, "mkt_material", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+        payload = source["payload"]
+        current_proj = _marketing_text(payload, "proj_guid", "projGuid")
+        if proj_guid and current_proj != proj_guid:
+            continue
+        result.append(
+            {
+                "materialGuid": _marketing_text(payload, "material_guid", "materialGuid", fallback=source["record_id"]),
+                "materialCode": _marketing_text(payload, "material_code", "materialCode"),
+                "projGuid": current_proj,
+                "name": _marketing_text(payload, "name"),
+                "materialType": _marketing_text(payload, "material_type", "materialType"),
+                "unitCost": _marketing_number(payload, "unit_cost", "unitCost"),
+                "quantity": _marketing_number(payload, "quantity"),
+                "totalCost": _marketing_number(payload, "total_cost", "totalCost"),
+                "usagePeriod": _marketing_text(payload, "usage_period", "usagePeriod"),
+                "state": _marketing_text(payload, "state"),
+                "remark": _marketing_text(payload, "remark"),
+                "l3Code": _marketing_text(payload, "l3_code", "l3Code"),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["materialCode"]), str(item["materialGuid"])), reverse=True)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_marketing_source_metadata(coverage)}
 
 
 def loans(
@@ -9973,6 +10389,57 @@ def handler_factory(
                     response(self, 200, warning_source_empty_read(pool, "rule-templates", max_response_rows), origin)
                 elif parsed.path == "/api/company/warning/tickets/mine":
                     response(self, 200, warning_source_empty_read(pool, "tickets", max_response_rows), origin)
+                elif parsed.path == "/api/company/attachments/list":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        attachment_source_list(
+                            pool,
+                            query.get("bizType", [None])[0],
+                            query.get("bizGuid", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/attachments/all" or parsed.path == "/api/company/attachments":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        attachment_source_all(
+                            pool,
+                            query.get("bizType", [None])[0],
+                            query.get("uploadedBy", [None])[0],
+                            query.get("aiStatus", [None])[0],
+                            query.get("keyword", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/attachments/stats":
+                    response(self, 200, attachment_source_stats(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/marketing/campaigns":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        marketing_source_campaigns(
+                            pool,
+                            query.get("projGuid", [None])[0],
+                            query.get("state", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/marketing/placements":
+                    campaign_guid = parse_qs(parsed.query).get("campaignGuid", [None])[0]
+                    response(self, 200, marketing_source_placements(pool, campaign_guid, max_response_rows), origin)
+                elif parsed.path == "/api/company/marketing/channels":
+                    response(self, 200, marketing_source_channels(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/marketing/materials":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, marketing_source_materials(pool, proj_guid, max_response_rows), origin)
                 elif parsed.path == "/api/company/investment/meta/dimensions":
                     response(
                         self,

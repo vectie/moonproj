@@ -5,8 +5,8 @@ This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report,
-employee-loan, dynamic-cost, investment, admin-quality, and non-secret profile
-reads.
+employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
+and non-secret profile reads.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
@@ -54,6 +54,13 @@ from company_postgres_service import (
     warning_source_list as service_warning_source_list,
     warning_source_rules as service_warning_source_rules,
     warning_source_empty_read as service_warning_source_empty_read,
+    attachment_source_list as service_attachment_source_list,
+    attachment_source_all as service_attachment_source_all,
+    attachment_source_stats as service_attachment_source_stats,
+    marketing_source_campaigns as service_marketing_source_campaigns,
+    marketing_source_placements as service_marketing_source_placements,
+    marketing_source_channels as service_marketing_source_channels,
+    marketing_source_materials as service_marketing_source_materials,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -414,6 +421,56 @@ def warning_source_rules(args: argparse.Namespace) -> dict[str, Any]:
 
 def warning_source_empty_read(args: argparse.Namespace, table: str) -> dict[str, Any]:
     return service_warning_source_empty_read(_ReadModelPool(args), table, 500)
+
+
+def attachment_source_list(
+    args: argparse.Namespace,
+    biz_type: str | None,
+    biz_guid: str | None,
+) -> dict[str, Any]:
+    return service_attachment_source_list(_ReadModelPool(args), biz_type, biz_guid, 500)
+
+
+def attachment_source_all(
+    args: argparse.Namespace,
+    biz_type: str | None,
+    uploaded_by: str | None,
+    ai_status: str | None,
+    keyword: str | None,
+) -> dict[str, Any]:
+    return service_attachment_source_all(
+        _ReadModelPool(args), biz_type, uploaded_by, ai_status, keyword, 500,
+    )
+
+
+def attachment_source_stats(args: argparse.Namespace) -> dict[str, Any]:
+    return service_attachment_source_stats(_ReadModelPool(args), 500)
+
+
+def marketing_source_campaigns(
+    args: argparse.Namespace,
+    proj_guid: str | None,
+    state: str | None,
+) -> dict[str, Any]:
+    return service_marketing_source_campaigns(_ReadModelPool(args), proj_guid, state, 500)
+
+
+def marketing_source_placements(
+    args: argparse.Namespace,
+    campaign_guid: str | None,
+) -> dict[str, Any]:
+    return service_marketing_source_placements(_ReadModelPool(args), campaign_guid, 500)
+
+
+def marketing_source_channels(args: argparse.Namespace) -> dict[str, Any]:
+    return service_marketing_source_channels(_ReadModelPool(args), 500)
+
+
+def marketing_source_materials(
+    args: argparse.Namespace,
+    proj_guid: str | None,
+) -> dict[str, Any]:
+    return service_marketing_source_materials(_ReadModelPool(args), proj_guid, 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -922,6 +979,58 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/warning/tickets/mine":
                     response(self, 200, warning_source_empty_read(args, "tickets"))
+                    return
+                if parsed.path == "/api/company/attachments/list":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        attachment_source_list(
+                            args,
+                            query.get("bizType", [None])[0],
+                            query.get("bizGuid", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/attachments/all" or parsed.path == "/api/company/attachments":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        attachment_source_all(
+                            args,
+                            query.get("bizType", [None])[0],
+                            query.get("uploadedBy", [None])[0],
+                            query.get("aiStatus", [None])[0],
+                            query.get("keyword", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/attachments/stats":
+                    response(self, 200, attachment_source_stats(args))
+                    return
+                if parsed.path == "/api/company/marketing/campaigns":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        marketing_source_campaigns(
+                            args,
+                            query.get("projGuid", [None])[0],
+                            query.get("state", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/marketing/placements":
+                    campaign_guid = parse_qs(parsed.query).get("campaignGuid", [None])[0]
+                    response(self, 200, marketing_source_placements(args, campaign_guid))
+                    return
+                if parsed.path == "/api/company/marketing/channels":
+                    response(self, 200, marketing_source_channels(args))
+                    return
+                if parsed.path == "/api/company/marketing/materials":
+                    proj_guid = parse_qs(parsed.query).get("projGuid", [None])[0]
+                    response(self, 200, marketing_source_materials(args, proj_guid))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

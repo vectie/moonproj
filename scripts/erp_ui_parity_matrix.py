@@ -12,7 +12,8 @@ is not dashboard parity; the bounded dashboard v1 reads are now explicitly
 identified, while the local expense/contract/payment-application/
 tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime, non-authorizing workflow-definition,
-cashflow, CBS, fund-plan, and observed-warning read boundaries. No
+cashflow, CBS, fund-plan, observed-warning, attachment-metadata, and marketing
+read boundaries. No
 workflow-instance mutation endpoint is inferred.
 """
 
@@ -218,6 +219,10 @@ def match_target(
             return function, "connected_fund_read"
         if path in {"/warning", "/warning-rules"} and function in {"warning_view", "warning_rules_view"}:
             return function, "connected_warning_read"
+        if path == "/attachments" and function == "attachments_view":
+            return function, "connected_attachment_read"
+        if path == "/marketing" and function == "marketing_view":
+            return function, "connected_marketing_read"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
@@ -319,6 +324,10 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_fund_scenario_and_production_identity"
     if target_state == "connected_warning_read":
         return "accept_browser_warning_scenario_and_production_identity"
+    if target_state == "connected_attachment_read":
+        return "accept_browser_attachment_scenario_and_production_identity"
+    if target_state == "connected_marketing_read":
+        return "accept_browser_marketing_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -488,6 +497,18 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_warning_read", "accept_browser_warning_scenario_and_production_identity"
     if (
+        handler["module"] == "attachment"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/list", "/all", "/stats"}
+    ):
+        return "connected_attachment_read", "accept_browser_attachment_scenario_and_production_identity"
+    if (
+        handler["module"] == "marketing"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/campaigns", "/placements", "/channels", "/materials"}
+    ):
+        return "connected_marketing_read", "accept_browser_marketing_scenario_and_production_identity"
+    if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
@@ -562,6 +583,10 @@ def build_matrix(
             api_state = "connected_fund_read"
         elif target_state == "connected_warning_read":
             api_state = "connected_warning_read"
+        elif target_state == "connected_attachment_read":
+            api_state = "connected_attachment_read"
+        elif target_state == "connected_marketing_read":
+            api_state = "connected_marketing_read"
         elif target_state == "connected_supplier_risk_read":
             api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":
@@ -675,7 +700,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, and observed-warning read verticals.",
+        "fund-plan, observed-warning, attachment-metadata, and marketing read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

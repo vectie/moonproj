@@ -360,6 +360,24 @@ one deterministic W005 observation from project/cost evidence. Findings are
 not persisted or authorizing, and warning/ticket mutations, notifications,
 production identity, and owner acceptance remain gates.
 
+The attachment center now has a bounded source-metadata read family. `/attachments`
+loads `/api/company/attachments/all` and `/api/company/attachments/stats`, with
+`/list` available for business-linked evidence queries. The adapter reports
+`attachment`/`sys_user` coverage, counts, AI metadata, and an explicit
+`binary_storage=not_imported`/`downloadable=false` boundary. The current
+PostgreSQL export has no attachment rows, so the screen shows an empty source
+state after a successful read rather than designer files. Upload, binary
+download, deletion, OCR re-extraction, production identity, and owner
+acceptance remain separate gates.
+
+The marketing screen is now a bounded source read family. `/marketing` loads
+`/api/company/marketing/{campaigns,placements,channels,materials}` with
+project/state filters and explicit source-table coverage. The current export
+has no marketing rows, so successful reads show an empty source state while
+the reviewed marketing cohort remains separate from imported ERP data. Create,
+update, delete, effect tracking, CBS/spend consumption, accounting,
+attribution, production identity, and owner acceptance remain gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,

@@ -81,7 +81,15 @@ The `/warning` and `/warning-rules` screens now load observed source warning
 badge/list/rule reads. Imported project/cost evidence yields one W005 finding;
 the adapter marks observations non-persistent and non-authorizing, while
 scans, rule writes, tickets, and notifications remain gated. The authenticated
-company service/gateway also exposes local
+`/attachments` screen now reads source attachment metadata and statistics from
+PostgreSQL; the export has no attachment rows or binary storage, so the empty
+state is explicit and upload/download/OCR remain gated.
+The `/marketing` screen now reads campaign, placement, channel, and material
+metadata from PostgreSQL; the export has no marketing rows, so successful reads
+show an explicit empty source state and keep the reviewed cohort/designer rows
+only as transport fallback. Marketing mutations, spend/CBS consumption, and
+attribution remain gated.
+The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;
 workflow synchronization stays gated until source workflow rows are available.

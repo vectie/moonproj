@@ -9,12 +9,12 @@ aliases now use the bounded connected v1 read. The connected exceptions are the 
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
-fund-plan, and observed-warning read verticals.
+fund-plan, observed-warning, attachment-metadata, and marketing read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "fixture_backed_form": 1, "fixture_backed_read_only": 11, "public": 1, "read_only_public": 1}`
-- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 14}`
+- Target states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_attachment_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command_form": 2, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_marketing_read": 1, "connected_payment_application_command_form": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command_form": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "fixture_backed_form": 1, "fixture_backed_read_only": 9, "public": 1, "read_only_public": 1}`
+- API states: `{"connected_admin_audit_read": 1, "connected_admin_health_read": 1, "connected_admin_read": 1, "connected_attachment_read": 1, "connected_cashflow_read": 1, "connected_cbs_read": 4, "connected_contract_command": 2, "connected_cost_read": 1, "connected_dashboard_read": 3, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_expense_read": 1, "connected_fund_read": 1, "connected_investment_read": 1, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_marketing_read": 1, "connected_payment_application_command": 1, "connected_profile_read": 1, "connected_project_read": 2, "connected_rbac_user_read": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_supplier_read": 1, "connected_supplier_risk_read": 1, "connected_tender_command": 1, "connected_warning_read": 2, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 12}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -49,7 +49,7 @@ fund-plan, and observed-warning read verticals.
 | `/sales/subscriptions` | `../views/SaleSubscriptions.vue` | `sales_subscriptions_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
 | `/sales/contracts` | `../views/SaleContracts.vue` | `sales_contracts_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
 | `/sales/mortgages` | `../views/SaleMortgages.vue` | `sales_mortgages_view` | `connected_sales_read` | `sales` | 6 / 14 | `connected_sales_read` | `accept_browser_sales_scenario_and_production_identity` |
-| `/marketing` | `../views/Marketing.vue` | `marketing_view` | `fixture_backed_read_only` | `marketing` | 4 / 9 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/marketing` | `../views/Marketing.vue` | `marketing_view` | `connected_marketing_read` | `marketing` | 4 / 9 | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
 | `/fund/plan` | `../views/FundPlan.vue` | `fund_plan_view` | `connected_fund_read` | `fund` | 3 / 5 | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
 | `/project/progress` | `../views/ProjectProgress.vue` | `progress_view` | `connected_delivery_command_form` | `progress` | 2 / 5 | `connected_delivery_command` | `accept_browser_delivery_scenario_and_production_identity` |
 | `/invoice` | `../views/Invoice.vue` | `invoice_view` | `connected_invoice_read` | `invoice` | 3 / 4 | `connected_invoice_read` | `accept_browser_invoice_scenario_and_production_identity` |
@@ -67,7 +67,7 @@ fund-plan, and observed-warning read verticals.
 | `/warning` | `../views/WarningCenter.vue` | `warning_view` | `connected_warning_read` | `warning` | 7 / 11 | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `/warning-rules` | `../views/WarningRules.vue` | `warning_rules_view` | `connected_warning_read` | `warning` | 7 / 11 | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `/cashflow` | `../views/CashflowForecast.vue` | `cashflow_view` | `connected_cashflow_read` | `cashflow` | 6 / 1 | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
-| `/attachments` | `../views/AttachmentCenter.vue` | `attachments_view` | `fixture_backed_read_only` | `attachment` | 4 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/attachments` | `../views/AttachmentCenter.vue` | `attachments_view` | `connected_attachment_read` | `attachment` | 4 / 3 | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
 | `/audit-log` | `../views/AuditLog.vue` | `audit_view` | `connected_admin_audit_read` | `admin` | 13 / 5 | `connected_admin_audit_read` | `accept_browser_admin_audit_scenario_and_super_user_owner` |
 | `/error-log` | `../views/ErrorLog.vue` | `error_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/system-health` | `../views/SystemHealth.vue` | `health_view` | `connected_admin_health_read` | `admin` | 13 / 5 | `connected_admin_health_read` | `accept_browser_admin_health_scenario_and_super_user_owner` |
@@ -126,12 +126,12 @@ are attached. The JSON output contains all 338 handler rows.
 | `ai-stats` | `GET` | `/badge` | `/ai-stats` | `not_connected` | `connect_authenticated_read_api` |
 | `ai-stats` | `POST` | `/badge/batch` | `/ai-stats` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `POST` | `/upload` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `attachment` | `GET` | `/list` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
+| `attachment` | `GET` | `/list` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
 | `attachment` | `GET` | `/download/:guid` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
 | `attachment` | `DELETE` | `/:guid` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `POST` | `/re-extract/:guid` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `attachment` | `GET` | `/all` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
-| `attachment` | `GET` | `/stats` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
+| `attachment` | `GET` | `/all` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
+| `attachment` | `GET` | `/stats` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
 | `auth` | `POST` | `/login` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `GET` | `/me` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `auth` | `POST` | `/logout` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -272,17 +272,17 @@ are attached. The JSON output contains all 338 handler rows.
 | `loan` | `POST` | `/loans/:guid/sync-from-workflow` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `loan` | `PUT` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
 | `loan` | `DELETE` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
-| `marketing` | `GET` | `/campaigns` | `/marketing` | `not_connected` | `connect_authenticated_read_api` |
+| `marketing` | `GET` | `/campaigns` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
 | `marketing` | `POST` | `/campaigns` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `PUT` | `/campaigns/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `DELETE` | `/campaigns/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `GET` | `/placements` | `/marketing` | `not_connected` | `connect_authenticated_read_api` |
+| `marketing` | `GET` | `/placements` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
 | `marketing` | `POST` | `/placements` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `PUT` | `/placements/:guid/effect` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `GET` | `/channels` | `/marketing` | `not_connected` | `connect_authenticated_read_api` |
+| `marketing` | `GET` | `/channels` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
 | `marketing` | `POST` | `/channels` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `DELETE` | `/channels/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `GET` | `/materials` | `/marketing` | `not_connected` | `connect_authenticated_read_api` |
+| `marketing` | `GET` | `/materials` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
 | `marketing` | `POST` | `/materials` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `marketing` | `DELETE` | `/materials/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `mdm` | `GET` | `/business-units/tree` | `/projects`, `/projects/:projGuid` | `connected_mdm_read` | `accept_browser_mdm_scenario_and_production_identity` |

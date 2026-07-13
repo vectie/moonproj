@@ -173,6 +173,69 @@ def main() -> int:
             or supplier_stats_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source supplier stats read failed: {status} {supplier_stats_payload}")
+        status, attachment_all_payload = request(
+            args.port, "/api/company/attachments/all", token=token,
+        )
+        attachment_all_data = (attachment_all_payload or {}).get("data", {})
+        if (
+            status != 200
+            or attachment_all_payload is None
+            or attachment_all_data.get("total") != 0
+            or attachment_all_data.get("rows") != []
+            or attachment_all_payload.get("source_coverage", {}).get("attachment") != 0
+            or attachment_all_payload.get("source_coverage", {}).get("sys_user") != 5
+            or "attachment" not in attachment_all_payload.get("missing_or_empty_source_tables", [])
+            or attachment_all_payload.get("authorizing") is not False
+            or attachment_all_payload.get("downloadable") is not False
+            or attachment_all_payload.get("binary_storage") != "not_imported"
+        ):
+            raise SmokeError(f"source attachment all read failed: {status} {attachment_all_payload}")
+        status, attachment_list_payload = request(
+            args.port,
+            "/api/company/attachments/list?bizType=contract&bizGuid=ht-tj-001",
+            token=token,
+        )
+        if (
+            status != 200
+            or attachment_list_payload is None
+            or attachment_list_payload.get("data") != []
+            or attachment_list_payload.get("source_coverage", {}).get("attachment") != 0
+            or attachment_list_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source attachment list read failed: {status} {attachment_list_payload}")
+        status, attachment_stats_payload = request(
+            args.port, "/api/company/attachments/stats", token=token,
+        )
+        attachment_stats_data = (attachment_stats_payload or {}).get("data", {})
+        if (
+            status != 200
+            or attachment_stats_payload is None
+            or attachment_stats_data.get("total") != {"count": 0, "bytes": 0}
+            or attachment_stats_data.get("byBizType") != []
+            or attachment_stats_data.get("byAiStatus") != []
+            or attachment_stats_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source attachment stats read failed: {status} {attachment_stats_payload}")
+        marketing_payloads: dict[str, dict[str, Any]] = {}
+        for marketing_path in (
+            "/api/company/marketing/campaigns?projGuid=proj-0001",
+            "/api/company/marketing/placements",
+            "/api/company/marketing/channels",
+            "/api/company/marketing/materials?projGuid=proj-0001",
+        ):
+            status, marketing_payload = request(args.port, marketing_path, token=token)
+            if (
+                status != 200
+                or marketing_payload is None
+                or marketing_payload.get("data") != []
+                or marketing_payload.get("source_coverage", {}).get("mkt_campaign") != 0
+                or marketing_payload.get("source_coverage", {}).get("mkt_placement") != 0
+                or marketing_payload.get("source_coverage", {}).get("mkt_channel") != 0
+                or marketing_payload.get("source_coverage", {}).get("mkt_material") != 0
+                or marketing_payload.get("authorizing") is not False
+            ):
+                raise SmokeError(f"source marketing read failed: {marketing_path}: {status} {marketing_payload}")
+            marketing_payloads[marketing_path] = marketing_payload
         status, cashflow_payload = request(
             args.port,
             "/api/company/cashflow/forecast?months=6&projGuid=proj-0001",
@@ -1972,6 +2035,14 @@ def main() -> int:
                     "supplier_detail_risk_source_status": supplier_detail_risk_status,
                     "supplier_stats_total": supplier_stats_data.get("total"),
                     "supplier_stats_contract_rows": supplier_stats_payload.get("source_coverage", {}).get("cb_contract"),
+                    "attachment_rows": attachment_all_data.get("total"),
+                    "attachment_source_rows": attachment_all_payload.get("source_coverage", {}).get("attachment"),
+                    "attachment_total_bytes": attachment_stats_data.get("total", {}).get("bytes"),
+                    "attachment_binary_storage": attachment_all_payload.get("binary_storage"),
+                    "marketing_campaign_rows": len(marketing_payloads["/api/company/marketing/campaigns?projGuid=proj-0001"].get("data", [])),
+                    "marketing_placement_rows": len(marketing_payloads["/api/company/marketing/placements"].get("data", [])),
+                    "marketing_channel_rows": len(marketing_payloads["/api/company/marketing/channels"].get("data", [])),
+                    "marketing_material_rows": len(marketing_payloads["/api/company/marketing/materials?projGuid=proj-0001"].get("data", [])),
                     "cashflow_series_rows": len(cashflow_data.get("series", [])),
                     "cashflow_planned_total": cashflow_data.get("totals", {}).get("plannedTotal"),
                     "cashflow_missing_source_tables": len(cashflow_payload.get("missing_or_empty_source_tables", [])),

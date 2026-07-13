@@ -421,6 +421,21 @@ struct WarningRow {
 }
 
 ///|
+struct AttachmentRow {
+  att_guid : String
+  file_name : String
+  file_size : String
+  mime_type : String
+  biz_type : String
+  biz_guid : String
+  uploaded_by_name : String
+  uploaded_at : String
+  ai_status : String
+  source_kind : String
+  download_available : String
+}
+
+///|
 struct InitiatedRow {
   id : String
   code : String
@@ -677,6 +692,24 @@ struct Model {
   warning_rule_count : String
   warning_missing_table_count : String
   warning_note : String
+  attachments_loaded : Bool
+  attachment_rows : Array[AttachmentRow]
+  attachment_total : String
+  attachment_bytes : String
+  attachment_pending : String
+  attachment_missing_table_count : String
+  attachment_note : String
+  marketing_loaded : Bool
+  marketing_campaign_rows : Array[Array[String]]
+  marketing_placement_rows : Array[Array[String]]
+  marketing_channel_rows : Array[Array[String]]
+  marketing_material_rows : Array[Array[String]]
+  marketing_campaign_count : String
+  marketing_placement_count : String
+  marketing_channel_count : String
+  marketing_material_count : String
+  marketing_missing_table_count : String
+  marketing_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -849,6 +882,12 @@ enum Msg {
   WarningsLoadFailed
   WarningRulesLoaded(String)
   WarningRulesLoadFailed
+  AttachmentsLoaded(String)
+  AttachmentsLoadFailed
+  AttachmentStatsLoaded(String)
+  AttachmentStatsLoadFailed
+  MarketingLoaded(String, String)
+  MarketingLoadFailed(String)
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1043,6 +1082,24 @@ fn initial_model() -> Model {
     warning_rule_count: "0",
     warning_missing_table_count: "0",
     warning_note: "预警读模型尚未加载 · 使用设计快照",
+    attachments_loaded: false,
+    attachment_rows: [],
+    attachment_total: "0",
+    attachment_bytes: "0",
+    attachment_pending: "0",
+    attachment_missing_table_count: "0",
+    attachment_note: "附件源读模型尚未加载 · 使用设计快照",
+    marketing_loaded: false,
+    marketing_campaign_rows: [],
+    marketing_placement_rows: [],
+    marketing_channel_rows: [],
+    marketing_material_rows: [],
+    marketing_campaign_count: "0",
+    marketing_placement_count: "0",
+    marketing_channel_count: "0",
+    marketing_material_count: "0",
+    marketing_missing_table_count: "0",
+    marketing_note: "营销源读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2731,6 +2788,200 @@ fn warning_rules_count_from_body(body : String) -> (Bool, String) {
 }
 
 ///|
+fn attachments_from_body(
+  body : String,
+) -> (Bool, Array[AttachmentRow], String, String) {
+  let rows : Array[AttachmentRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let total = json_object_text(data, "total", "0")
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) => {
+                let mut ai_status = "未处理"
+                match row.get("ai") {
+                  Some(Json::Object(ai)) =>
+                    ai_status = json_object_text(ai, "status", "未处理")
+                  _ => ()
+                }
+                rows.push({
+                  att_guid: json_object_text(row, "attGuid", ""),
+                  file_name: json_object_text(row, "fileName", ""),
+                  file_size: json_object_text(row, "fileSize", "0"),
+                  mime_type: json_object_text(row, "mimeType", ""),
+                  biz_type: json_object_text(row, "bizType", ""),
+                  biz_guid: json_object_text(row, "bizGuid", ""),
+                  uploaded_by_name: json_object_text(row, "uploadedByName", ""),
+                  uploaded_at: json_object_text(row, "uploadedAt", ""),
+                  ai_status,
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                  download_available: if json_object_text(
+                      row, "downloadAvailable", "false",
+                    ) ==
+                    "true" {
+                    "可下载"
+                  } else {
+                    "未导入文件"
+                  },
+                })
+              }
+              _ => ()
+            }
+          }
+          (true, rows, total, missing)
+        }
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  att_guid: json_object_text(row, "attGuid", ""),
+                  file_name: json_object_text(row, "fileName", ""),
+                  file_size: json_object_text(row, "fileSize", "0"),
+                  mime_type: json_object_text(row, "mimeType", ""),
+                  biz_type: json_object_text(row, "bizType", ""),
+                  biz_guid: json_object_text(row, "bizGuid", ""),
+                  uploaded_by_name: json_object_text(row, "uploadedByName", ""),
+                  uploaded_at: json_object_text(row, "uploadedAt", ""),
+                  ai_status: "未处理",
+                  source_kind: json_object_text(row, "sourceKind", "imported"),
+                  download_available: "未导入文件",
+                })
+              _ => ()
+            }
+          }
+          (true, rows, rows.length().to_string(), missing)
+        }
+        _ => (false, rows, "0", missing)
+      }
+    }
+    _ => (false, rows, "0", "0")
+  }
+}
+
+///|
+fn attachment_stats_from_body(
+  body : String,
+) -> (Bool, String, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let total = match data.get("total") {
+            Some(Json::Object(total_fields)) =>
+              json_object_text(total_fields, "count", "0")
+            _ => "0"
+          }
+          let bytes = match data.get("total") {
+            Some(Json::Object(total_fields)) =>
+              json_object_text(total_fields, "bytes", "0")
+            _ => "0"
+          }
+          let mut pending = "0"
+          for value in json_array_field(data, "byAiStatus") {
+            match value {
+              Json::Object(row) => {
+                let status = json_object_text(row, "aiStatus", "")
+                if status == "pending" {
+                  pending = json_object_text(row, "count", "0")
+                }
+              }
+              _ => ()
+            }
+          }
+          (true, total, bytes, pending, missing)
+        }
+        _ => (false, "0", "0", "0", missing)
+      }
+    }
+    _ => (false, "0", "0", "0", "0")
+  }
+}
+
+///|
+fn marketing_rows_from_body(
+  body : String,
+  family : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                if family == "campaigns" {
+                  rows.push([
+                    json_object_text(row, "campaignCode", "—"),
+                    json_object_text(row, "name", "—"),
+                    json_object_text(row, "campaignType", "—"),
+                    json_object_text(row, "budget", "0"),
+                    json_object_text(row, "actualCost", "0"),
+                    json_object_text(row, "startDate", "") +
+                    " ~ " +
+                    json_object_text(row, "endDate", ""),
+                    json_object_text(row, "state", "—"),
+                    json_object_text(row, "l3Code", "—"),
+                  ])
+                } else if family == "placements" {
+                  rows.push([
+                    json_object_text(row, "placementCode", "—"),
+                    json_object_text(row, "campaignName", "—"),
+                    json_object_text(row, "channelName", "—"),
+                    json_object_text(row, "amount", "0"),
+                    json_object_text(row, "placeDate", ""),
+                    json_object_text(row, "impressions", "0"),
+                    json_object_text(row, "leads", "0"),
+                  ])
+                } else if family == "channels" {
+                  rows.push([
+                    json_object_text(row, "channelCode", "—"),
+                    json_object_text(row, "name", "—"),
+                    json_object_text(row, "channelType", "—"),
+                    json_object_text(row, "totalCost", "0"),
+                    json_object_text(row, "placementCount", "0"),
+                    json_object_text(row, "state", "—"),
+                  ])
+                } else {
+                  rows.push([
+                    json_object_text(row, "materialCode", "—"),
+                    json_object_text(row, "name", "—"),
+                    json_object_text(row, "materialType", "—"),
+                    json_object_text(row, "unitCost", "0"),
+                    json_object_text(row, "quantity", "0"),
+                    json_object_text(row, "totalCost", "0"),
+                    json_object_text(row, "usagePeriod", "—"),
+                    json_object_text(row, "state", "—"),
+                  ])
+                }
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -3412,6 +3663,45 @@ fn load_warning_rules(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_attachments(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/attachments/all").expect_text(result => {
+    match result {
+      Ok(body) => emit(AttachmentsLoaded(body))
+      Err(_) => emit(AttachmentsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_attachment_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/attachments/stats").expect_text(result => {
+    match result {
+      Ok(body) => emit(AttachmentStatsLoaded(body))
+      Err(_) => emit(AttachmentStatsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+  let path = if family == "campaigns" {
+    "/api/company/marketing/campaigns?projGuid=proj-0001"
+  } else if family == "placements" {
+    "/api/company/marketing/placements"
+  } else if family == "channels" {
+    "/api/company/marketing/channels"
+  } else {
+    "/api/company/marketing/materials?projGuid=proj-0001"
+  }
+  @http.get(path).expect_text(result => {
+    match result {
+      Ok(body) => emit(MarketingLoaded(family, body))
+      Err(_) => emit(MarketingLoadFailed(family))
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -3999,6 +4289,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_fund(emit)
       } else if path == "/warning" || path == "/warning-rules" {
         load_warnings(emit)
+      } else if path == "/attachments" {
+        load_attachments(emit)
+      } else if path == "/marketing" {
+        load_marketing(emit, "campaigns")
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -5417,6 +5711,172 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, warning_rule_count: if loaded { count } else { "0" } })
     }
     WarningRulesLoadFailed => (none, { ..model, warning_rule_count: "0" })
+    AttachmentsLoaded(body) => {
+      let (loaded, rows, total, missing) = attachments_from_body(body)
+      (
+        if loaded {
+          load_attachment_stats(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          attachments_loaded: loaded,
+          attachment_rows: rows,
+          attachment_total: total,
+          attachment_missing_table_count: missing,
+          attachment_note: if loaded {
+            "已加载 PostgreSQL 附件源读模型 · 不含二进制文件 · 空源表 " +
+            missing
+          } else {
+            "附件响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    AttachmentsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          attachments_loaded: false,
+          attachment_rows: [],
+          attachment_note: "附件源读模型不可用 · 使用设计快照",
+        },
+      )
+    AttachmentStatsLoaded(body) => {
+      let (loaded, total, bytes, pending, missing) = attachment_stats_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          attachment_total: if loaded {
+            total
+          } else {
+            model.attachment_total
+          },
+          attachment_bytes: if loaded {
+            bytes
+          } else {
+            model.attachment_bytes
+          },
+          attachment_pending: if loaded {
+            pending
+          } else {
+            model.attachment_pending
+          },
+          attachment_missing_table_count: if loaded {
+            missing
+          } else {
+            model.attachment_missing_table_count
+          },
+          attachment_note: if loaded {
+            "已加载 PostgreSQL 附件统计 · 不含二进制文件 · 空源表 " +
+            missing
+          } else {
+            "附件统计不可用 · 保留已加载附件源状态"
+          },
+        },
+      )
+    }
+    AttachmentStatsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          attachment_note: "附件统计不可用 · 保留已加载附件源状态",
+        },
+      )
+    MarketingLoaded(family, body) => {
+      let (loaded, rows, missing) = marketing_rows_from_body(body, family)
+      let command = if !loaded {
+        none
+      } else if family == "campaigns" {
+        load_marketing(emit, "placements")
+      } else if family == "placements" {
+        load_marketing(emit, "channels")
+      } else if family == "channels" {
+        load_marketing(emit, "materials")
+      } else {
+        none
+      }
+      let next_loaded = if family == "campaigns" {
+        loaded
+      } else {
+        model.marketing_loaded
+      }
+      (
+        command,
+        {
+          ..model,
+          marketing_loaded: next_loaded,
+          marketing_campaign_rows: if family == "campaigns" {
+            rows
+          } else {
+            model.marketing_campaign_rows
+          },
+          marketing_placement_rows: if family == "placements" {
+            rows
+          } else {
+            model.marketing_placement_rows
+          },
+          marketing_channel_rows: if family == "channels" {
+            rows
+          } else {
+            model.marketing_channel_rows
+          },
+          marketing_material_rows: if family == "materials" {
+            rows
+          } else {
+            model.marketing_material_rows
+          },
+          marketing_campaign_count: if family == "campaigns" {
+            rows.length().to_string()
+          } else {
+            model.marketing_campaign_count
+          },
+          marketing_placement_count: if family == "placements" {
+            rows.length().to_string()
+          } else {
+            model.marketing_placement_count
+          },
+          marketing_channel_count: if family == "channels" {
+            rows.length().to_string()
+          } else {
+            model.marketing_channel_count
+          },
+          marketing_material_count: if family == "materials" {
+            rows.length().to_string()
+          } else {
+            model.marketing_material_count
+          },
+          marketing_missing_table_count: missing,
+          marketing_note: if loaded {
+            "已加载 PostgreSQL 营销源读模型 · 活动/投放/渠道/物料保持只读 · 空源表 " +
+            missing
+          } else {
+            "营销 " + family + " 响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    MarketingLoadFailed(family) =>
+      (
+        none,
+        {
+          ..model,
+          marketing_loaded: if family == "campaigns" {
+            false
+          } else {
+            model.marketing_loaded
+          },
+          marketing_note: "营销 " +
+          family +
+          " 源读模型不可用 · 使用设计快照",
+        },
+      )
     ProfileLoaded(body) => {
       let values = profile_from_body(body)
       if values.length() == 10 {
@@ -10684,17 +11144,109 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn marketing_view() -> @html.Html {
+fn marketing_view(model : Model) -> @html.Html {
+  let campaign_rows = if model.marketing_loaded {
+    if model.marketing_campaign_rows.length() == 0 {
+      [["—", "—", "—", "0", "0", "—", "无源记录", "—"]]
+    } else {
+      model.marketing_campaign_rows
+    }
+  } else {
+    [
+      [
+        "CAM-260701", "成都和锦里开盘推广", "开盘活动", "¥1,800,000",
+        "¥680,000", "2026-07-01 ~ 08-20", "运行中", "04-03",
+      ],
+      [
+        "CAM-260615", "南山居线上投放", "线上获客", "¥960,000", "¥812,000",
+        "2026-06-15 ~ 07-31", "运行中", "04-03",
+      ],
+      [
+        "CAM-260501", "沈阳和山苑暖场", "客户活动", "¥420,000", "¥420,000",
+        "2026-05-01 ~ 06-30", "已结束", "04-03",
+      ],
+    ]
+  }
+  let placement_rows = if model.marketing_loaded {
+    if model.marketing_placement_rows.length() == 0 {
+      [["—", "—", "—", "0", "—", "0", "无源记录"]]
+    } else {
+      model.marketing_placement_rows
+    }
+  } else {
+    [
+      [
+        "PLC-260712-008", "成都和锦里开盘推广", "抖音", "¥180,000", "2026-07-12",
+        "286,000", "420",
+      ],
+      [
+        "PLC-260708-004", "南山居线上投放", "SEM", "¥96,000", "2026-07-11",
+        "112,000", "186",
+      ],
+      [
+        "PLC-260701-012", "成都和锦里开盘推广", "渠道分销", "¥240,000",
+        "—", "98", "—",
+      ],
+    ]
+  }
+  let channel_rows = if model.marketing_channel_rows.length() == 0 {
+    [["—", "—", "—", "0", "0", "无源记录"]]
+  } else {
+    model.marketing_channel_rows
+  }
+  let material_rows = if model.marketing_material_rows.length() == 0 {
+    [["—", "—", "—", "0", "0", "0", "—", "无源记录"]]
+  } else {
+    model.marketing_material_rows
+  }
+  let campaign_count = if model.marketing_loaded {
+    model.marketing_campaign_count
+  } else {
+    "18"
+  }
+  let placement_count = if model.marketing_loaded {
+    model.marketing_placement_count
+  } else {
+    "—"
+  }
+  let lead_count = if model.marketing_loaded { "—" } else { "3,842" }
   page_shell(
     "营销管理",
     "SALES / MARKETING",
     "管理营销活动、投放记录、渠道与营销物料，预算和实际花费挂接 CBS。",
-    [button(class="erp-primary-btn", "＋ 新建营销活动")],
+    [button(class="erp-primary-btn", "＋ 新建营销活动（待授权）")],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("营销活动数", "18", "运行中 6 个", "metric-blue"),
-        metric("投放总额", "¥1,286 万", "本年度", "metric-blue"),
-        metric("有效线索", "3,842", "转化率 12.6%", "metric-green"),
+        metric(
+          "营销活动数",
+          campaign_count,
+          if model.marketing_loaded {
+            "源表导入记录"
+          } else {
+            "运行中 6 个"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "投放记录",
+          placement_count,
+          if model.marketing_loaded {
+            "源表导入记录"
+          } else {
+            "本年度 ¥1,286 万"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "有效线索",
+          lead_count,
+          if model.marketing_loaded {
+            "源表未提供归因"
+          } else {
+            "转化率 12.6%"
+          },
+          "metric-green",
+        ),
       ],
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "营销活动"),
@@ -10704,26 +11256,17 @@ fn marketing_view() -> @html.Html {
       ],
       table_panel(
         "营销活动",
-        "v3.8 · R19 营销费用",
+        if model.marketing_loaded {
+          model.marketing_note
+        } else {
+          "v3.8 · R19 营销费用 · " + model.marketing_note
+        },
         data_table(
           [
             "编号", "活动名称", "类型", "预算(元)", "已花(元)", "周期",
             "状态", "挂 CBS",
           ],
-          [
-            [
-              "CAM-260701", "成都和锦里开盘推广", "开盘活动", "¥1,800,000",
-              "¥680,000", "2026-07-01 ~ 08-20", "运行中", "04-03",
-            ],
-            [
-              "CAM-260615", "南山居线上投放", "线上获客", "¥960,000",
-              "¥812,000", "2026-06-15 ~ 07-31", "运行中", "04-03",
-            ],
-            [
-              "CAM-260501", "沈阳和山苑暖场", "客户活动", "¥420,000",
-              "¥420,000", "2026-05-01 ~ 06-30", "已结束", "04-03",
-            ],
-          ],
+          campaign_rows,
         ),
       ),
       table_panel(
@@ -10734,22 +11277,42 @@ fn marketing_view() -> @html.Html {
             "编号", "所属活动", "投放渠道", "金额(元)", "投放日",
             "曝光", "线索",
           ],
-          [
-            [
-              "PLC-260712-008", "成都和锦里开盘推广", "抖音", "¥180,000",
-              "2026-07-12", "286,000", "420",
-            ],
-            [
-              "PLC-260708-004", "南山居线上投放", "SEM", "¥96,000", "112,000",
-              "186",
-            ],
-            [
-              "PLC-260701-012", "成都和锦里开盘推广", "渠道分销", "¥240,000",
-              "—", "98",
-            ],
-          ],
+          placement_rows,
         ),
       ),
+      if model.marketing_loaded {
+        table_panel(
+          "营销渠道",
+          "源表渠道与投放次数 · " +
+          model.marketing_channel_count +
+          " 条 · 空源表 " +
+          model.marketing_missing_table_count,
+          data_table(
+            [
+              "编号", "渠道名称", "类型", "投放金额", "投放次数",
+              "状态",
+            ],
+            channel_rows,
+          ),
+        )
+      } else {
+        @html.nothing
+      },
+      if model.marketing_loaded {
+        table_panel(
+          "营销物料",
+          "源表物料与成本 · " + model.marketing_material_count + " 条",
+          data_table(
+            [
+              "编号", "物料名称", "类型", "单价", "数量", "总成本",
+              "使用周期", "状态",
+            ],
+            material_rows,
+          ),
+        )
+      } else {
+        @html.nothing
+      },
     ],
   )
 }
@@ -10803,45 +11366,110 @@ fn inbox_view() -> @html.Html {
 }
 
 ///|
-fn attachments_view() -> @html.Html {
+fn attachments_view(model : Model) -> @html.Html {
+  let source_rows : Array[Array[String]] = []
+  for row in model.attachment_rows {
+    source_rows.push([
+      row.file_name,
+      row.biz_type + " " + row.biz_guid,
+      row.file_size,
+      row.mime_type,
+      row.uploaded_by_name,
+      row.uploaded_at,
+      row.ai_status,
+      row.download_available + " · " + row.source_kind + " · " + row.att_guid,
+    ])
+  }
+  if model.attachment_rows.length() == 0 && model.attachments_loaded {
+    source_rows.push([
+      "—", "—", "0", "—", "—", "—", "无源记录", "未导入文件",
+    ])
+  }
+  let rows = if model.attachments_loaded {
+    source_rows
+  } else {
+    [
+      [
+        "主体结构施工合同.pdf", "合同 HT-CD-260701", "2.4 MB", "application/pdf",
+        "陈志强", "今天 09:12", "已识别", "预览 / 下载",
+      ],
+      [
+        "成都出差发票-01.pdf", "报销 EXP-260712-008", "428 KB", "application/pdf",
+        "程玉哲", "昨天 16:42", "已验真", "预览 / 下载",
+      ],
+      [
+        "工程进度照片-2#-0712.zip", "进度报告 rep-001", "18.6 MB", "application/zip",
+        "王工", "昨天 15:20", "—", "预览 / 下载",
+      ],
+      [
+        "销售合同扫描件.jpg", "签约 SC-260713-004", "1.1 MB", "image/jpeg",
+        "刘松", "2026-07-11", "待确认", "预览 / 下载",
+      ],
+    ]
+  }
+  let total = if model.attachments_loaded {
+    model.attachment_total
+  } else {
+    "2,846"
+  }
+  let pending = if model.attachments_loaded {
+    model.attachment_pending
+  } else {
+    "14"
+  }
+  let linked = if model.attachments_loaded { "—" } else { "98.4%" }
   page_shell(
     "附件中心",
     "SYSTEM / ATTACHMENTS",
     "搜索合同、发票、报销和项目证据，查看 AI 识别状态与业务关联。",
-    [button(class="erp-primary-btn", "＋ 上传附件")],
+    [button(class="erp-primary-btn", "＋ 上传附件（待授权）")],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric("附件总数", "2,846", "本月新增 186", "metric-blue"),
-        metric("待 OCR", "14", "需人工确认 6", "metric-blue"),
-        metric("已关联", "98.4%", "来源可追溯", "metric-green"),
+        metric(
+          "附件总数",
+          total,
+          if model.attachments_loaded {
+            "源表导入记录"
+          } else {
+            "本月新增 186"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "待 OCR",
+          pending,
+          if model.attachments_loaded {
+            "仅统计已导入元数据"
+          } else {
+            "需人工确认 6"
+          },
+          "metric-blue",
+        ),
+        metric(
+          "已关联",
+          linked,
+          if model.attachments_loaded {
+            "二进制文件未迁移"
+          } else {
+            "来源可追溯"
+          },
+          "metric-green",
+        ),
       ],
       filter_bar("文件名 / 业务类型 / 上传人"),
       table_panel(
         "附件搜索",
-        "最近上传",
+        if model.attachments_loaded {
+          model.attachment_note + " · 字节数 " + model.attachment_bytes
+        } else {
+          "最近上传 · " + model.attachment_note
+        },
         data_table(
           [
             "文件名", "业务", "大小", "类型", "上传人", "上传时间",
             "AI", "操作",
           ],
-          [
-            [
-              "主体结构施工合同.pdf", "合同 HT-CD-260701", "2.4 MB", "application/pdf",
-              "陈志强", "今天 09:12", "已识别", "预览 / 下载",
-            ],
-            [
-              "成都出差发票-01.pdf", "报销 EXP-260712-008", "428 KB", "application/pdf",
-              "程玉哲", "昨天 16:42", "已验真", "预览 / 下载",
-            ],
-            [
-              "工程进度照片-2#-0712.zip", "进度报告 rep-001", "18.6 MB",
-              "application/zip", "王工", "昨天 15:20", "—", "预览 / 下载",
-            ],
-            [
-              "销售合同扫描件.jpg", "签约 SC-260713-004", "1.1 MB", "image/jpeg",
-              "刘松", "2026-07-11", "待确认", "预览 / 下载",
-            ],
-          ],
+          rows,
         ),
       ),
     ],
@@ -11723,7 +12351,7 @@ fn business_view(
       "/sales/contracts" => sales_contracts_view(emit, model)
       "/sales/mortgages" => sales_mortgages_view(model)
       "/sales/revenues" => sales_revenues_view(emit, model)
-      "/marketing" => marketing_view()
+      "/marketing" => marketing_view(model)
       "/contracts" => contracts_view(emit, model)
       "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
       "/payment-applies" => payment_applies_view(emit, model)
@@ -11752,7 +12380,7 @@ fn business_view(
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)
       "/inbox" => inbox_view()
-      "/attachments" => attachments_view()
+      "/attachments" => attachments_view(model)
       "/notify-config" => notify_view()
       "/audit-log" => audit_view(emit, model)
       "/error-log" => error_view()
