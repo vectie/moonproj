@@ -150,6 +150,13 @@ pass for four projections. It is obligation evidence only: cash release,
 accounting posting, settlement, tax, period close, and owner acceptance remain
 separate. The available snapshot has no supplier or tender rows, so a redacted
 procurement export and business-owner review are still required.
+The reviewed investment-performance boundary now preserves one bounded
+portfolio with two positions, explicit quote valuation, period return, and an
+external benchmark observation through native mandate and analytics checks.
+Exact SQLite/PostgreSQL parity and zero-insert replay pass for three
+projections. It is analytics evidence only: position mutation, cash release,
+accounting posting, period close, and owner acceptance remain separate. A real
+source feed and investment-owner review are still required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

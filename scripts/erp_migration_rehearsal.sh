@@ -39,6 +39,7 @@ ASSET_LIFECYCLE_MAPPING=${30:-}
 TREASURY_PLAN_DISPATCH_MAPPING=${31:-}
 INVOICE_SUBLEDGER_MAPPING=${32:-}
 PROCUREMENT_COHORT_MAPPING=${33:-}
+INVESTMENT_PERFORMANCE_MAPPING=${34:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -385,6 +386,30 @@ if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" > "$PROCUREMENT_COHORT_REPLAY"
   echo "procurement_cohort_replay=$PROCUREMENT_COHORT_REPLAY"
+fi
+
+if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
+  INVESTMENT_PERFORMANCE_PLAN="$WORK_DIR/investment-performance-plan.json"
+  python3 "$SCRIPT_DIR/erp_investment_performance_plan.py" \
+    "$INVESTMENT_PERFORMANCE_MAPPING" "$INVESTMENT_PERFORMANCE_PLAN"
+  echo "investment_performance_plan=$INVESTMENT_PERFORMANCE_PLAN"
+  INVESTMENT_PERFORMANCE_RECEIPT="$WORK_DIR/investment-performance-receipt.json"
+  moon run --target native cmd/investment_performance -- \
+    "$INVESTMENT_PERFORMANCE_PLAN" "$INVESTMENT_PERFORMANCE_RECEIPT"
+  echo "investment_performance_receipt=$INVESTMENT_PERFORMANCE_RECEIPT"
+  INVESTMENT_PERFORMANCE_APPLY="$WORK_DIR/investment-performance-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$INVESTMENT_PERFORMANCE_RECEIPT" "$TARGET_DB" > "$INVESTMENT_PERFORMANCE_APPLY"
+  echo "investment_performance_apply=$INVESTMENT_PERFORMANCE_APPLY"
+  INVESTMENT_PERFORMANCE_PARITY="$WORK_DIR/investment-performance-parity.json"
+  python3 "$SCRIPT_DIR/company_investment_performance_parity.py" \
+    "$INVESTMENT_PERFORMANCE_RECEIPT" "$INVESTMENT_PERFORMANCE_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "investment_performance_parity=$INVESTMENT_PERFORMANCE_PARITY"
+  INVESTMENT_PERFORMANCE_REPLAY="$WORK_DIR/investment-performance-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$INVESTMENT_PERFORMANCE_RECEIPT" "$TARGET_DB" > "$INVESTMENT_PERFORMANCE_REPLAY"
+  echo "investment_performance_replay=$INVESTMENT_PERFORMANCE_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -819,6 +844,9 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
     PROCUREMENT_COHORT_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["suppliers"]) + len(p["tenders"]) * 2)' "$WORK_DIR/procurement-cohort-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + PROCUREMENT_COHORT_COUNT))
+  fi
+  if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 3))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

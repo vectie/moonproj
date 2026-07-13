@@ -200,3 +200,10 @@ and performance validation and persists two `supplier`, one `tender`, and one
 demonstrated full run reaches 139 aggregate projections. Cash release,
 accounting posting, settlement, tax treatment, and period close remain separate
 gates.
+The thirty-second argument supplies the reviewed investment-performance map. It
+builds a bounded portfolio, attributes explicit quotes, and reconciles an
+external benchmark observation, persisting one `investment_portfolio`, one
+`investment_performance`, and one `investment_benchmark_reconciliation`
+projection with exact parity and idempotent replay. The demonstrated full run
+reaches 142 aggregate projections. Position mutation, cash release, accounting
+posting, and period close remain separate gates.

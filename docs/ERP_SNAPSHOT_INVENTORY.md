@@ -126,6 +126,10 @@ The optional thirty-third argument supplies a reviewed procurement cohort; it
 validates supplier qualification, tender award, and commitment evidence only.
 Cash release, accounting posting, settlement, tax treatment, and period close
 remain separate gates.
+The optional thirty-fourth argument supplies a reviewed investment-performance
+map; it validates bounded portfolio valuation and external benchmark evidence
+only. Position mutation, cash release, accounting posting, and period close
+remain separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

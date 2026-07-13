@@ -1,0 +1,59 @@
+{
+  "format": "moonproj.erp.investment-performance-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:investment-performance-synthetic-001",
+  "mapping_version": "investment-performance-map-v1-review-001",
+  "run_id": "investment-performance-run-2026-15",
+  "portfolio": {
+    "source_table": "investment_portfolio",
+    "source_id": "portfolio-001",
+    "portfolio_id": "portfolio-001",
+    "mandate_id": "mandate-001",
+    "principal_id": "co-001",
+    "project_scope": "investment:portfolio-001",
+    "currency": "CNY",
+    "max_exposure_minor": 5000000,
+    "max_single_position_minor": 3000000,
+    "positions": [
+      {
+        "position_id": "position-001",
+        "instrument": "CN-EQ-001",
+        "quantity": 100,
+        "cost_basis_minor": 2000000,
+        "currency": "CNY"
+      },
+      {
+        "position_id": "position-002",
+        "instrument": "CN-EQ-002",
+        "quantity": 50,
+        "cost_basis_minor": 1000000,
+        "currency": "CNY"
+      }
+    ],
+    "quotes": [
+      {
+        "instrument": "CN-EQ-001",
+        "price_minor": 22000,
+        "currency": "CNY"
+      },
+      {
+        "instrument": "CN-EQ-002",
+        "price_minor": 18000,
+        "currency": "CNY"
+      }
+    ]
+  },
+  "benchmark": {
+    "source_table": "investment_benchmark_observation",
+    "source_id": "benchmark-observation-001",
+    "period_id": "2026-07",
+    "benchmark_id": "benchmark-cn-equity-2026-07",
+    "observation_id": "benchmark-observation-001",
+    "evidence_id": "feed:cn-equity:2026-07",
+    "benchmark_return_bps": 300,
+    "observed_return_bps": 302,
+    "tolerance_bps": 2,
+    "expected_within_mandate": true,
+    "expected_reconciled": true
+  }
+}
