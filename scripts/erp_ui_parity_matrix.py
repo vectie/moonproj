@@ -334,7 +334,15 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "admin"
         and handler["method"] == "GET"
-        and handler["path"] in {"/dict/groups", "/dict/options", "/audit/logs", "/audit/actions"}
+        and handler["path"]
+        in {
+            "/dict/groups",
+            "/dict/options",
+            "/audit/logs",
+            "/audit/actions",
+            "/health/tables",
+            "/health/bpm-pool",
+        }
     ):
         return "connected_admin_read", "accept_browser_admin_scenario_and_super_user_owner"
     if (

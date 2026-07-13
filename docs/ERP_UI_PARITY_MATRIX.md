@@ -93,8 +93,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `admin` | `GET` | `/quality/overview` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
 | `admin` | `GET` | `/audit/logs` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/audit/actions` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
-| `admin` | `GET` | `/health/tables` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
-| `admin` | `GET` | `/health/bpm-pool` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
+| `admin` | `GET` | `/health/tables` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
+| `admin` | `GET` | `/health/bpm-pool` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/backup/db` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
 | `admin` | `GET` | `/health/full` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
 | `admin` | `GET` | `/error-log` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |

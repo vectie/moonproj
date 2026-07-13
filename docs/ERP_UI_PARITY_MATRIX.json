@@ -942,8 +942,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_admin_read",
+      "required_next": "accept_browser_admin_scenario_and_super_user_owner"
     },
     {
       "module": "admin",
@@ -956,8 +956,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_admin_read",
+      "required_next": "accept_browser_admin_scenario_and_super_user_owner"
     },
     {
       "module": "admin",

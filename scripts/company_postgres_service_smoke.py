@@ -297,6 +297,34 @@ def main() -> int:
             or audit_actions_payload.get("data", [])[0].get("count") != 2
         ):
             raise SmokeError(f"admin audit actions read failed: {status} {audit_actions_payload}")
+        status, health_tables_payload = request(
+            args.port,
+            "/api/company/admin/health/tables",
+            token=token,
+        )
+        if (
+            status != 200
+            or health_tables_payload is None
+            or len(health_tables_payload.get("data", [])) != 29
+            or health_tables_payload.get("source_coverage", {}).get("mu_business_unit") != 7
+            or health_tables_payload.get("source_coverage", {}).get("wf_process_instance") != 0
+            or "srm_provider" not in health_tables_payload.get("missing_or_empty_source_tables", [])
+        ):
+            raise SmokeError(f"admin health tables read failed: {status} {health_tables_payload}")
+        status, health_bpm_payload = request(
+            args.port,
+            "/api/company/admin/health/bpm-pool",
+            token=token,
+        )
+        if (
+            status != 200
+            or health_bpm_payload is None
+            or health_bpm_payload.get("data", {}).get("byStatus")
+            or health_bpm_payload.get("data", {}).get("recent")
+            or health_bpm_payload.get("source_coverage", {}).get("wf_process_instance") != 0
+            or health_bpm_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"admin BPM health read failed: {status} {health_bpm_payload}")
         status, project_payload = request(args.port, "/api/company/projects", token=token)
         if (
             status != 200
@@ -1336,6 +1364,8 @@ def main() -> int:
                     "admin_dictionary_option_rows": 5,
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
+                    "admin_health_table_rows": 29,
+                    "admin_bpm_instance_rows": 0,
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
                     "project_count": 2,

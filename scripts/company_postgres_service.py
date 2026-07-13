@@ -50,6 +50,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/investment/{projects,versions,meta}/...`` (GET,
   source-compatible investment reads)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
+* ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage health reads)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -4076,6 +4077,96 @@ def admin_audit_actions(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     }
 
 
+def admin_health_tables(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), ADMIN_HEALTH_SOURCE_TABLES))
+        for table in sorted(ADMIN_HEALTH_SOURCE_TABLES)
+    }
+    rows = [
+        {
+            "table": table,
+            "rowCount": count,
+            "sourceStatus": "rows_imported" if count else "no_rows_in_export",
+            "sourceKind": "imported_or_empty",
+        }
+        for table, count in coverage.items()
+    ]
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+    }
+
+
+def admin_health_bpm_pool(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    instance_rows = _raw_source_rows(
+        pool,
+        "wf_process_instance",
+        max(max_rows, 500),
+        ADMIN_HEALTH_SOURCE_TABLES,
+    )
+    definition_rows = _raw_source_rows(
+        pool,
+        "wf_process_def",
+        max(max_rows, 100),
+        ADMIN_HEALTH_SOURCE_TABLES,
+    )
+    process_names = {
+        str(row["payload"].get("process_guid", row["record_id"])): str(
+            row["payload"].get("process_name") or row["payload"].get("process_key") or ""
+        )
+        for row in definition_rows
+    }
+    by_status: dict[str, int] = {}
+    by_biz_type: dict[tuple[str, str], int] = {}
+    recent: list[dict[str, Any]] = []
+    for row in instance_rows:
+        payload = row["payload"]
+        status = str(payload.get("status") or "")
+        biz_type = str(payload.get("biz_type") or "")
+        by_status[status] = by_status.get(status, 0) + 1
+        key = (biz_type, status)
+        by_biz_type[key] = by_biz_type.get(key, 0) + 1
+        recent.append(
+            {
+                "piGuid": str(payload.get("process_instance_guid", row["record_id"])),
+                "processName": process_names.get(str(payload.get("process_guid") or ""), ""),
+                "bizType": biz_type,
+                "bizDataGuid": str(payload.get("biz_data_guid") or ""),
+                "status": status,
+                "currentStepOrder": payload.get("current_step_order"),
+                "initiatedAt": str(payload.get("initiated_at") or ""),
+                "completedAt": str(payload.get("completed_at") or ""),
+                "sourceKind": "imported",
+            }
+        )
+    recent.sort(key=lambda value: str(value.get("initiatedAt", "")), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "byStatus": [{"status": key, "count": value} for key, value in sorted(by_status.items())],
+            "byBizType": [
+                {"bizType": biz_type, "status": status, "count": count}
+                for (biz_type, status), count in sorted(by_biz_type.items())
+            ],
+            "recent": recent[:20],
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": {
+            "wf_process_def": len(definition_rows),
+            "wf_process_instance": len(instance_rows),
+            "wf_step_action": len(
+                _raw_source_rows(pool, "wf_step_action", max(max_rows, 500), ADMIN_HEALTH_SOURCE_TABLES)
+            ),
+        },
+        "authorizing": False,
+    }
+
+
 def _shift_plan_date(value: Any, delay_days: int) -> str:
     parsed = _report_date(str(value or ""))
     if parsed is None:
@@ -4276,6 +4367,38 @@ ADMIN_SOURCE_TABLES = {
     "audit_log",
     "my_biz_param_option",
     "sys_user",
+}
+
+ADMIN_HEALTH_SOURCE_TABLES = {
+    "mu_business_unit",
+    "sys_user",
+    "ep_project",
+    "proj_lifecycle_stage",
+    "proj_lifecycle_instance",
+    "my_biz_param_option",
+    "vys_proceeding",
+    "wf_process_def",
+    "wf_step_def",
+    "wf_step_assignee",
+    "wf_process_instance",
+    "wf_step_action",
+    "vcb_expense",
+    "cb_expense_detail",
+    "cb_expense_split",
+    "cb_contract",
+    "cb_htfkplan",
+    "cb_htfk_apply",
+    "cb_cost",
+    "vcb_loan_simple",
+    "cb_loan_offset",
+    "jd_task",
+    "jd_task_report",
+    "tzsy_version",
+    "tzsy_plan_index",
+    "audit_log",
+    "srm_provider",
+    "srm_provider_bu",
+    "srm_category",
 }
 
 
@@ -6468,6 +6591,10 @@ def handler_factory(
                     )
                 elif parsed.path == "/api/company/admin/audit/actions":
                     response(self, 200, admin_audit_actions(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/health/tables":
+                    response(self, 200, admin_health_tables(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/health/bpm-pool":
+                    response(self, 200, admin_health_bpm_pool(pool, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
                     parsed.path,

@@ -87,8 +87,9 @@ Investment read evidence is available at
 separately gated.
 Admin governance reads are available at
 `/api/company/admin/dict/groups`, `/api/company/admin/dict/options`,
-`/api/company/admin/audit/logs`, and `/api/company/admin/audit/actions`; the
-source super-user boundary and all admin writes remain gated.
+`/api/company/admin/audit/logs`, `/api/company/admin/audit/actions`,
+`/api/company/admin/health/tables`, and `/api/company/admin/health/bpm-pool`;
+the source super-user boundary and all admin writes remain gated.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
