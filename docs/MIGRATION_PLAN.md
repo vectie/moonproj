@@ -278,9 +278,9 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 34 connected browser states, 20
-fixture-backed states (19 read-only plus 1 form), 2 public states, 34
-connected API groups, and 22 fixture/no-source API groups.
+handlers (182 mutations), with 35 connected browser states, 19
+fixture-backed states (18 read-only plus 1 form), 2 public states, 35
+connected API groups, and 21 fixture/no-source API groups.
 
 The source-handler action register now marks the ERP `GET /srm/providers` and
 `GET /srm/providers/:guid` reads as connected through separate
@@ -322,6 +322,15 @@ provider detail now has the same bounded per-provider risk read, returning
 score/rating/tags and contract/overdue counts from imported rows without
 creating a qualification decision. The existing local supplier
 projection/risk endpoint remains separate.
+
+The cashflow route is now the next connected finance read: `/cashflow` loads
+`/api/company/cashflow/forecast` for a six-month project-scoped horizon. It
+reproduces the ERP monthly payment-plan/application forecast from imported
+`cb_htfkplan`, `cb_htfk_apply`, `cb_contract`, `vcb_loan_simple`, project, and
+organization envelopes, and carries expense/sales/CBS dependencies as
+explicit missing coverage. This is read-only liquidity evidence; forecast-v3,
+inflow/net/gap-alert, cash release, accounting, tax, bank settlement, and
+production identity remain separate gates.
 
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but

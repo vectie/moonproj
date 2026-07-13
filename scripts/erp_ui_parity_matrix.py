@@ -209,6 +209,8 @@ def match_target(
             return function, "connected_admin_audit_read"
         if path == "/dynamic-cost" and function == "dynamic_cost_view":
             return function, "connected_cost_read"
+        if path == "/cashflow" and function == "cashflow_view":
+            return function, "connected_cashflow_read"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
@@ -302,6 +304,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_admin_audit_scenario_and_super_user_owner"
     if target_state == "connected_cost_read":
         return "accept_browser_cost_scenario_and_production_identity"
+    if target_state == "connected_cashflow_read":
+        return "accept_browser_cashflow_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -421,6 +425,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_expense_read", "accept_browser_expense_scenario_and_production_identity"
     if (
+        handler["module"] == "cashflow"
+        and handler["method"] == "GET"
+        and handler["path"] == "/forecast"
+    ):
+        return "connected_cashflow_read", "accept_browser_cashflow_scenario_and_production_identity"
+    if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
@@ -487,6 +497,8 @@ def build_matrix(
             api_state = "connected_profile_read"
         elif target_state == "connected_expense_read":
             api_state = "connected_expense_read"
+        elif target_state == "connected_cashflow_read":
+            api_state = "connected_cashflow_read"
         elif target_state == "connected_supplier_risk_read":
             api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":

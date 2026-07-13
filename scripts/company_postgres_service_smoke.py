@@ -172,6 +172,24 @@ def main() -> int:
             or supplier_stats_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source supplier stats read failed: {status} {supplier_stats_payload}")
+        status, cashflow_payload = request(
+            args.port,
+            "/api/company/cashflow/forecast?months=6&projGuid=proj-0001",
+            token=token,
+        )
+        cashflow_data = (cashflow_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cashflow_payload is None
+            or len(cashflow_data.get("series", [])) != 6
+            or cashflow_payload.get("source_coverage", {}).get("cb_htfkplan") != 4
+            or cashflow_payload.get("source_coverage", {}).get("cb_htfk_apply") != 3
+            or cashflow_payload.get("source_coverage", {}).get("cb_contract") != 2
+            or cashflow_payload.get("source_coverage", {}).get("vcb_expense") != 0
+            or cashflow_payload.get("source_coverage", {}).get("sale_revenue") != 0
+            or cashflow_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source cashflow forecast read failed: {status} {cashflow_payload}")
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1666,6 +1684,9 @@ def main() -> int:
                     "supplier_detail_risk_source_status": supplier_detail_risk_status,
                     "supplier_stats_total": supplier_stats_data.get("total"),
                     "supplier_stats_contract_rows": supplier_stats_payload.get("source_coverage", {}).get("cb_contract"),
+                    "cashflow_series_rows": len(cashflow_data.get("series", [])),
+                    "cashflow_planned_total": cashflow_data.get("totals", {}).get("plannedTotal"),
+                    "cashflow_missing_source_tables": len(cashflow_payload.get("missing_or_empty_source_tables", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,

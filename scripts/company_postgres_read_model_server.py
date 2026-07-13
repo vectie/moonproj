@@ -31,6 +31,7 @@ from company_postgres_service import (
     budget_expenses as service_budget_expenses,
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
+    cashflow_source_forecast as service_cashflow_source_forecast,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -267,6 +268,17 @@ def tenders(args: argparse.Namespace, tender_id: str | None) -> list[dict[str, A
 def suppliers(args: argparse.Namespace, supplier_id: str | None) -> list[dict[str, Any]]:
     pool = _ReadModelPool(args)
     return service_suppliers(pool, supplier_id, 500)
+
+
+def cashflow_source_forecast(
+    args: argparse.Namespace,
+    months: int,
+    bu_guid: str | None,
+    proj_guid: str | None,
+) -> dict[str, Any]:
+    return service_cashflow_source_forecast(
+        _ReadModelPool(args), months, bu_guid, proj_guid, 500,
+    )
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -583,6 +595,13 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/suppliers":
                     supplier_id = parse_qs(parsed.query).get("supplier_id", [None])[0]
                     response(self, 200, {"items": suppliers(args, supplier_id)})
+                    return
+                if parsed.path == "/api/company/cashflow/forecast":
+                    query = parse_qs(parsed.query)
+                    months = int(query.get("months", ["6"])[0])
+                    bu_guid = query.get("buGuid", [None])[0]
+                    proj_guid = query.get("projGuid", [None])[0]
+                    response(self, 200, cashflow_source_forecast(args, months, bu_guid, proj_guid))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

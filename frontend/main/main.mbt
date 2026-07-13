@@ -375,6 +375,20 @@ struct DynamicCostRow {
 }
 
 ///|
+struct CashflowRow {
+  ym : String
+  planned : String
+  pending : String
+  confirmed : String
+  expense : String
+  loan : String
+  total_outflow : String
+  cumulative_outflow : String
+  actual_outflow : String
+  actual_cumulative : String
+}
+
+///|
 struct InitiatedRow {
   id : String
   code : String
@@ -601,6 +615,16 @@ struct Model {
   dynamic_cost_spare : String
   dynamic_cost_end_count : String
   dynamic_cost_note : String
+  cashflow_loaded : Bool
+  cashflow_rows : Array[CashflowRow]
+  cashflow_planned_total : String
+  cashflow_pending_total : String
+  cashflow_confirmed_total : String
+  cashflow_expense_total : String
+  cashflow_loan_total : String
+  cashflow_total_outflow : String
+  cashflow_missing_table_count : String
+  cashflow_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -755,6 +779,8 @@ enum Msg {
   AuditLoadFailed
   DynamicCostLoaded(String)
   DynamicCostLoadFailed
+  CashflowLoaded(String)
+  CashflowLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -919,6 +945,16 @@ fn initial_model() -> Model {
     dynamic_cost_spare: "0",
     dynamic_cost_end_count: "0",
     dynamic_cost_note: "动态成本读模型尚未加载 · 使用设计快照",
+    cashflow_loaded: false,
+    cashflow_rows: [],
+    cashflow_planned_total: "0",
+    cashflow_pending_total: "0",
+    cashflow_confirmed_total: "0",
+    cashflow_expense_total: "0",
+    cashflow_loan_total: "0",
+    cashflow_total_outflow: "0",
+    cashflow_missing_table_count: "0",
+    cashflow_note: "现金流预测读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2362,6 +2398,65 @@ fn dynamic_cost_from_body(
 }
 
 ///|
+fn cashflow_from_body(
+  body : String,
+) -> (Array[CashflowRow], Array[String], String) {
+  let rows : Array[CashflowRow] = []
+  let totals : Array[String] = []
+  let mut missing_table_count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      missing_table_count = json_array_field(
+          fields, "missing_or_empty_source_tables",
+        )
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          match data.get("totals") {
+            Some(Json::Object(summary)) => {
+              totals.push(json_object_text(summary, "plannedTotal", "0"))
+              totals.push(json_object_text(summary, "pendingTotal", "0"))
+              totals.push(json_object_text(summary, "confirmedTotal", "0"))
+              totals.push(json_object_text(summary, "expenseTotal", "0"))
+              totals.push(json_object_text(summary, "loanTotal", "0"))
+              totals.push(json_object_text(summary, "totalOutflow", "0"))
+            }
+            _ => ()
+          }
+          for value in json_array_field(data, "series") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  ym: json_object_text(row, "ym", ""),
+                  planned: json_object_text(row, "planned", "0"),
+                  pending: json_object_text(row, "pending", "0"),
+                  confirmed: json_object_text(row, "confirmed", "0"),
+                  expense: json_object_text(row, "expense", "0"),
+                  loan: json_object_text(row, "loan", "0"),
+                  total_outflow: json_object_text(row, "totalOutflow", "0"),
+                  cumulative_outflow: json_object_text(
+                    row, "cumulativeOutflow", "0",
+                  ),
+                  actual_outflow: json_object_text(row, "actualOutflow", "0"),
+                  actual_cumulative: json_object_text(
+                    row, "actualCumulative", "0",
+                  ),
+                })
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (rows, totals, missing_table_count)
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -2951,6 +3046,17 @@ fn load_dynamic_cost(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_cashflow(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/cashflow/forecast?months=6&projGuid=proj-0001").expect_text(result => {
+      match result {
+        Ok(body) => emit(CashflowLoaded(body))
+        Err(_) => emit(CashflowLoadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -3527,6 +3633,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_audit_logs(emit)
       } else if path == "/dynamic-cost" {
         load_dynamic_cost(emit)
+      } else if path == "/cashflow" {
+        load_cashflow(emit)
       } else if path == "/profile" {
         load_profile(emit, model.user_code)
       } else if path == "/system-health" {
@@ -4757,6 +4865,47 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dynamic_cost_loaded: false,
           dynamic_cost_rows: [],
           dynamic_cost_note: "动态成本读模型不可用 · 使用设计快照",
+        },
+      )
+    CashflowLoaded(body) => {
+      let (rows, totals, missing_table_count) = cashflow_from_body(body)
+      if totals.length() == 6 {
+        (
+          none,
+          {
+            ..model,
+            cashflow_loaded: true,
+            cashflow_rows: rows,
+            cashflow_planned_total: totals[0],
+            cashflow_pending_total: totals[1],
+            cashflow_confirmed_total: totals[2],
+            cashflow_expense_total: totals[3],
+            cashflow_loan_total: totals[4],
+            cashflow_total_outflow: totals[5],
+            cashflow_missing_table_count: missing_table_count,
+            cashflow_note: "已加载 PostgreSQL 现金流预测 · 源计划/申请保持只读",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            cashflow_loaded: false,
+            cashflow_rows: [],
+            cashflow_note: "现金流预测响应无效 · 使用设计快照",
+          },
+        )
+      }
+    }
+    CashflowLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          cashflow_loaded: false,
+          cashflow_rows: [],
+          cashflow_note: "现金流预测读模型不可用 · 使用设计快照",
         },
       )
     ProfileLoaded(body) => {
@@ -8823,7 +8972,80 @@ fn warning_rules_view() -> @html.Html {
 }
 
 ///|
-fn cashflow_view() -> @html.Html {
+fn cashflow_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.cashflow_loaded {
+    for row in model.cashflow_rows {
+      rows.push([
+        row.ym,
+        row.planned,
+        row.pending,
+        row.confirmed,
+        row.expense,
+        row.loan,
+        row.total_outflow,
+        row.cumulative_outflow,
+        row.actual_outflow,
+        row.actual_cumulative,
+      ])
+    }
+  } else {
+    rows.push([
+      "W29 · 07/13", "¥1,260 万", "—", "¥1,180 万", "—", "—", "¥1,180 万",
+      "¥4,360 万", "¥1,180 万", "¥1,180 万",
+    ])
+    rows.push([
+      "W30 · 07/20", "¥820 万", "—", "¥1,560 万", "—", "—", "¥1,560 万",
+      "¥3,620 万", "¥1,560 万", "¥2,740 万",
+    ])
+  }
+  table_panel(
+    "滚动现金流",
+    if model.cashflow_loaded {
+      model.cashflow_note +
+      " · 空源表 " +
+      model.cashflow_missing_table_count
+    } else {
+      "设计快照 · 等待 PostgreSQL 源预测"
+    },
+    data_table(
+      [
+        "月份", "计划流出", "申请中", "已审核", "报销", "借款", "总流出",
+        "累计流出", "实际流出", "实际累计",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn cashflow_view(model : Model) -> @html.Html {
+  let planned = if model.cashflow_loaded {
+    "¥" + model.cashflow_planned_total
+  } else {
+    "¥4,280 万"
+  }
+  let total_outflow = if model.cashflow_loaded {
+    "¥" + model.cashflow_total_outflow
+  } else {
+    "¥9,180 万"
+  }
+  let confirmed = if model.cashflow_loaded {
+    "¥" + model.cashflow_confirmed_total
+  } else {
+    "截至今天"
+  }
+  let minimum_balance = if model.cashflow_loaded { "—" } else { "¥380 万" }
+  let minimum_note = if model.cashflow_loaded {
+    "期初余额/回款源表未提供"
+  } else {
+    "8 月 18 日"
+  }
+  let source_note = if model.cashflow_loaded {
+    model.cashflow_note
+  } else {
+    "现金流预测读模型尚未加载 · 使用设计快照"
+  }
   page_shell(
     "现金流预测",
     "FINANCE / CASHFLOW",
@@ -8833,40 +9055,42 @@ fn cashflow_view() -> @html.Html {
       button(class="erp-secondary-btn", "导出预测"),
     ],
     div <| [
-      div(class="erp-stat-grid") <| [
-        metric("当前余额", "¥4,280 万", "截至今天", "metric-blue"),
-        metric("90 天流入", "¥8,620 万", "回款 + 融资", "metric-green"),
-        metric("90 天流出", "¥9,180 万", "工程 + 费用", "metric-blue"),
-        metric("最低余额", "¥380 万", "8 月 18 日", "metric-blue"),
-      ],
-      table_panel(
-        "滚动现金流",
-        "未来 12 周",
-        data_table(
-          [
-            "周次", "期初余额", "预计流入", "预计流出", "期末余额",
-            "最大支出", "风险",
-          ],
-          [
-            [
-              "W29 · 07/13", "¥4,280 万", "¥1,260 万", "¥1,180 万", "¥4,360 万",
-              "工程款", "正常",
-            ],
-            [
-              "W30 · 07/20", "¥4,360 万", "¥820 万", "¥1,560 万", "¥3,620 万",
-              "土地款", "关注",
-            ],
-            [
-              "W31 · 07/27", "¥3,620 万", "¥1,180 万", "¥1,920 万", "¥2,880 万",
-              "建安款", "关注",
-            ],
-            [
-              "W32 · 08/03", "¥2,880 万", "¥1,460 万", "¥2,420 万", "¥1,920 万",
-              "工程款", "关注",
-            ],
-          ],
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.cashflow_loaded {
+            "PostgreSQL 现金流预测已连接"
+          } else {
+            "现金流预测设计快照"
+          },
         ),
-      ),
+        span(
+          " · " +
+          source_note +
+          (if model.cashflow_loaded {
+            " · 申请中 " +
+            model.cashflow_pending_total +
+            " · 报销 " +
+            model.cashflow_expense_total +
+            " · 借款 " +
+            model.cashflow_loan_total
+          } else {
+            ""
+          }),
+        ),
+      ]),
+      div(class="erp-stat-grid") <| [
+        metric(
+          "计划流出", planned, "付款计划源读模型", "metric-blue",
+        ),
+        metric(
+          "已审核流出", confirmed, "付款申请源读模型", "metric-green",
+        ),
+        metric(
+          "预测总流出", total_outflow, "计划 + 申请 + 借款", "metric-blue",
+        ),
+        metric("最低余额", minimum_balance, minimum_note, "metric-blue"),
+      ],
+      cashflow_runtime_table(model),
     ],
   )
 }
@@ -10801,7 +11025,7 @@ fn business_view(
       "/report-builder" => report_builder_view()
       "/warning" => warning_view()
       "/warning-rules" => warning_rules_view()
-      "/cashflow" => cashflow_view()
+      "/cashflow" => cashflow_view(model)
       "/inbox" => inbox_view()
       "/attachments" => attachments_view()
       "/notify-config" => notify_view()

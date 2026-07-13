@@ -61,6 +61,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
+* ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
@@ -6464,6 +6465,226 @@ LOAN_SOURCE_TABLES = {
 }
 
 
+CASHFLOW_SOURCE_TABLES = {
+    "cb_contract",
+    "cb_contract_milestone",
+    "cb_htfk_apply",
+    "cb_htfkplan",
+    "cb_plan_version",
+    "cb_subject_dict",
+    "ep_project",
+    "mu_business_unit",
+    "sale_revenue",
+    "vcb_expense",
+    "vcb_loan_simple",
+}
+
+
+def _cashflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+    }
+
+
+def _cashflow_month(value: Any) -> str | None:
+    if value is None:
+        return None
+    match = re.match(r"^(\d{4})[-/.]?(\d{1,2})", str(value))
+    if match is None:
+        return None
+    return f"{match.group(1)}-{int(match.group(2)):02d}"
+
+
+def _cashflow_months(months: int) -> list[str]:
+    current = date.today().replace(day=1)
+    result: list[str] = []
+    for offset in range(months):
+        month_index = current.month - 1 + offset
+        year = current.year + month_index // 12
+        month = month_index % 12 + 1
+        result.append(f"{year:04d}-{month:02d}")
+    return result
+
+
+def cashflow_source_forecast(
+    pool: PsqlPool,
+    months: int,
+    bu_guid: str | None,
+    proj_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Reproduce the ERP cashflow forecast from imported source envelopes.
+
+    This is intentionally a read-only projection.  Missing sales, expense, or
+    financing tables remain visible in coverage metadata and contribute zero;
+    no forecast row is invented to make an empty source look populated.
+    """
+
+    if months < 1 or months > 24:
+        raise ValueError("months must be between 1 and 24")
+    for value, label in ((bu_guid, "bu_guid"), (proj_guid, "proj_guid")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    limit = max(max_rows, 500)
+    coverage = {
+        table: len(_raw_source_rows(pool, table, limit, CASHFLOW_SOURCE_TABLES))
+        for table in sorted(CASHFLOW_SOURCE_TABLES)
+    }
+    plans = _raw_source_rows(pool, "cb_htfkplan", limit, CASHFLOW_SOURCE_TABLES)
+    contracts = _raw_source_rows(pool, "cb_contract", limit, CASHFLOW_SOURCE_TABLES)
+    applications = _raw_source_rows(pool, "cb_htfk_apply", limit, CASHFLOW_SOURCE_TABLES)
+    expenses = _raw_source_rows(pool, "vcb_expense", limit, CASHFLOW_SOURCE_TABLES)
+    loans = _raw_source_rows(pool, "vcb_loan_simple", limit, CASHFLOW_SOURCE_TABLES)
+    units = {
+        str(row["payload"].get("bu_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "mu_business_unit", limit, CASHFLOW_SOURCE_TABLES)
+    }
+    projects = {
+        str(row["payload"].get("proj_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "ep_project", limit, CASHFLOW_SOURCE_TABLES)
+    }
+    contract_by_id = {
+        str(row["payload"].get("contract_guid") or row["record_id"]): row["payload"]
+        for row in contracts
+        if not row["payload"].get("deleted_at")
+    }
+
+    def included_plan(row: dict[str, Any]) -> bool:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            return False
+        if bu_guid is not None and str(payload.get("bu_guid") or "") != bu_guid:
+            return False
+        contract = contract_by_id.get(str(payload.get("contract_guid") or ""), {})
+        return proj_guid is None or str(contract.get("proj_guid") or "") == proj_guid
+
+    def included_direct(row: dict[str, Any], *, project: bool = False) -> bool:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            return False
+        if bu_guid is not None and str(payload.get("bu_guid") or "") != bu_guid:
+            return False
+        return not project or proj_guid is None or str(payload.get("proj_guid") or "") == proj_guid
+
+    selected_plans = [row for row in plans if included_plan(row)]
+    selected_apps = [row for row in applications if included_direct(row, project=True)]
+    selected_expenses = [row for row in expenses if included_direct(row)]
+    selected_loans = [row for row in loans if included_direct(row, project=True)]
+    month_list = _cashflow_months(months)
+    month_set = set(month_list)
+    series: dict[str, dict[str, Any]] = {
+        month: {
+            "ym": month,
+            "planned": 0.0,
+            "pending": 0.0,
+            "confirmed": 0.0,
+            "expense": 0.0,
+            "loan": 0.0,
+        }
+        for month in month_list
+    }
+    by_bu: dict[str, float] = {}
+    by_project: dict[str, float] = {}
+    for row in selected_plans:
+        payload = row["payload"]
+        month = _cashflow_month(payload.get("jhfk_date"))
+        amount = _report_float(payload, "jhfk_amount")
+        if month not in month_set:
+            continue
+        series[month]["planned"] += amount
+        bu = str(payload.get("bu_guid") or "")
+        by_bu[bu] = by_bu.get(bu, 0.0) + amount
+        contract = contract_by_id.get(str(payload.get("contract_guid") or ""), {})
+        project = str(contract.get("proj_guid") or "")
+        if project:
+            by_project[project] = by_project.get(project, 0.0) + amount
+    for row in selected_apps:
+        payload = row["payload"]
+        month = _cashflow_month(payload.get("apply_date"))
+        if month not in month_set:
+            continue
+        state = str(payload.get("apply_state") or "")
+        if state == "申请审批中":
+            series[month]["pending"] += _report_float(payload, "apply_amount")
+        elif state == "已审核":
+            series[month]["confirmed"] += _report_float(payload, "apply_amount")
+    for row in selected_expenses:
+        payload = row["payload"]
+        month = _cashflow_month(payload.get("apply_date"))
+        if (
+            month in month_set
+            and str(payload.get("apply_state") or "") == "Approved"
+            and str(payload.get("pay_state") or "") != "完全支付"
+        ):
+            series[month]["expense"] += _report_float(payload, "pay_amount")
+    for row in selected_loans:
+        payload = row["payload"]
+        month = _cashflow_month(payload.get("apply_date"))
+        amount = _report_float(payload, "remain_amount")
+        if month in month_set and str(payload.get("apply_state") or "") == "Approved" and amount > 0:
+            series[month]["loan"] += amount
+
+    cumulative = 0.0
+    actual_cumulative = 0.0
+    rows: list[dict[str, Any]] = []
+    for month in month_list:
+        row = series[month]
+        base_outflow = row["confirmed"] + row["pending"] + max(
+            0.0, row["planned"] - row["confirmed"] - row["pending"]
+        )
+        total_outflow = base_outflow + row["expense"] + row["loan"]
+        actual_outflow = row["confirmed"] + row["expense"] + row["loan"]
+        cumulative += total_outflow
+        actual_cumulative += actual_outflow
+        rows.append(
+            {
+                **row,
+                "totalOutflow": round(total_outflow, 2),
+                "cumulativeOutflow": round(cumulative, 2),
+                "actualOutflow": round(actual_outflow, 2),
+                "actualCumulative": round(actual_cumulative, 2),
+            }
+        )
+
+    def top_rows(values: dict[str, float], name_key: str) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for key, amount in sorted(values.items(), key=lambda item: (-item[1], item[0]))[:5]:
+            if name_key == "buName":
+                name = str(units.get(key, {}).get("bu_name") or key)
+                result.append({"buGuid": key, "buName": name, "amount": round(amount, 2)})
+            else:
+                name = str(projects.get(key, {}).get("proj_name") or key)
+                result.append({"projGuid": key, "projName": name, "amount": round(amount, 2)})
+        return result
+
+    totals = {
+        "plannedTotal": round(sum(row["planned"] for row in rows), 2),
+        "pendingTotal": round(sum(row["pending"] for row in rows), 2),
+        "confirmedTotal": round(sum(row["confirmed"] for row in rows), 2),
+        "expenseTotal": round(sum(row["expense"] for row in rows), 2),
+        "loanTotal": round(sum(row["loan"] for row in rows), 2),
+        "totalOutflow": round(sum(row["totalOutflow"] for row in rows), 2),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "filters": {"months": months, "buGuid": bu_guid, "projGuid": proj_guid},
+            "months": month_list,
+            "series": rows,
+            "totals": totals,
+            "byBu": top_rows(by_bu, "buName"),
+            "byProj": top_rows(by_project, "projName"),
+        },
+        **_cashflow_source_metadata(coverage),
+    }
+
+
 def loans(
     pool: PsqlPool,
     loan_id: str | None,
@@ -8214,6 +8435,15 @@ def handler_factory(
                 elif parsed.path == "/api/company/suppliers":
                     value = parse_qs(parsed.query).get("supplier_id", [None])[0]
                     response(self, 200, {"items": suppliers(pool, value, max_response_rows)}, origin)
+                elif parsed.path == "/api/company/cashflow/forecast":
+                    query = parse_qs(parsed.query)
+                    months = int(query.get("months", ["6"])[0])
+                    bu_guid = query.get("buGuid", [None])[0]
+                    proj_guid = query.get("projGuid", [None])[0]
+                    result = cashflow_source_forecast(
+                        pool, months, bu_guid, proj_guid, max_response_rows,
+                    )
+                    response(self, 200, result, origin)
                 elif parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(pool, max_response_rows), origin)
                 elif re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
