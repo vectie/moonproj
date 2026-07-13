@@ -572,6 +572,116 @@ def run(
             }
         )
 
+        # The review artifact is deliberately non-authorizing, but once it is
+        # present the cutover gate must also prove that its source evidence was
+        # durably promoted, compared, and replayed without mutating task state.
+        # This keeps the preservation boundary visible to the gate without
+        # treating an observation as an owner decision.
+        evidence_promotion_path = work_dir / "typed-cohorts" / "task-state-exception-evidence-promotion.json"
+        evidence_parity_path = work_dir / "typed-cohorts" / "task-state-exception-evidence-projection-parity.json"
+        evidence_replay_path = work_dir / "typed-cohorts" / "task-state-exception-evidence-projection-replay.json"
+        evidence_values: dict[str, Any] = {}
+        evidence_passed = False
+        if evidence_promotion_path.is_file() and evidence_parity_path.is_file() and evidence_replay_path.is_file():
+            promotion = load(evidence_promotion_path)
+            parity = load(evidence_parity_path)
+            replay = load(evidence_replay_path)
+            accepted_items = promotion.get("accepted_items", [])
+            candidate = (
+                accepted_items[0].get("target_candidate", {})
+                if isinstance(accepted_items, list)
+                and len(accepted_items) == 1
+                and isinstance(accepted_items[0], dict)
+                else {}
+            )
+            evidence_passed = (
+                promotion.get("format") == "moonproj.erp.domain-promotion.v1"
+                and promotion.get("state") == "promoted_through_domain_importers"
+                and promotion.get("cohort") == "task-state-exception-evidence-v1"
+                and promotion.get("decision_required") is True
+                and promotion.get("target_state_mutated") is False
+                and promotion.get("cash_released") is False
+                and promotion.get("accounting_posted") is False
+                and promotion.get("period_closed") is False
+                and isinstance(accepted_items, list)
+                and len(accepted_items) == 1
+                and accepted_items[0].get("target_type") == "project_task_state_observation"
+                and candidate.get("observation_policy") == "quarantined_source_evidence"
+                and candidate.get("decision_required") is True
+                and candidate.get("target_state_mutated") is False
+                and candidate.get("decision") is None
+                and candidate.get("decision_owner") is None
+                and candidate.get("cash_released") is False
+                and candidate.get("accounting_posted") is False
+                and candidate.get("period_closed") is False
+                and promotion.get("source_snapshot_id") == exception_review.get("source_snapshot_id")
+                and promotion.get("mapping_version") == exception_review.get("mapping_version")
+                and parity.get("format") == "moonproj.erp.projection-parity.v1"
+                and parity.get("source_snapshot_id") == promotion.get("source_snapshot_id")
+                and parity.get("mapping_version") == promotion.get("mapping_version")
+                and parity.get("state") == "shadow_verified"
+                and parity.get("expected_items") == 1
+                and parity.get("actual_items") == 1
+                and parity.get("missing") == []
+                and parity.get("extra") == []
+                and replay.get("integrity") == "ok"
+                and replay.get("source_snapshot_id") == promotion.get("source_snapshot_id")
+                and replay.get("mapping_version") == promotion.get("mapping_version")
+                and replay.get("inserted_projections") == 0
+                and replay.get("receipt_inserted") is False
+            )
+            evidence_values = {
+                "promotion_file": str(evidence_promotion_path),
+                "parity_file": str(evidence_parity_path),
+                "replay_file": str(evidence_replay_path),
+                "mapping_version": promotion.get("mapping_version"),
+                "source_snapshot_id": promotion.get("source_snapshot_id"),
+                "observation_count": promotion.get("observation_count"),
+                "parity_state": parity.get("state"),
+                "expected_items": parity.get("expected_items"),
+                "actual_items": parity.get("actual_items"),
+                "replay_inserted_projections": replay.get("inserted_projections"),
+                "replay_receipt_inserted": replay.get("receipt_inserted"),
+            }
+        else:
+            evidence_values = {
+                "promotion_file": str(evidence_promotion_path),
+                "parity_file": str(evidence_parity_path),
+                "replay_file": str(evidence_replay_path),
+                "missing_artifacts": True,
+            }
+        checks.append(
+            {
+                "name": "task_state_exception_observed_evidence",
+                "passed": evidence_passed,
+                "evidence_only": True,
+                "target_state_mutated": False,
+                "decision_required": True,
+                "evidence": evidence_values,
+            }
+        )
+    elif (work_dir / "typed-cohorts").is_dir():
+        checks.append(
+            {
+                "name": "task_state_exception_review",
+                "passed": False,
+                "state": "missing",
+                "exception_count": 0,
+            }
+        )
+        checks.append(
+            {
+                "name": "task_state_exception_observed_evidence",
+                "passed": False,
+                "evidence_only": True,
+                "target_state_mutated": False,
+                "decision_required": True,
+                "evidence": {
+                    "missing_review_artifact": str(exception_review_path),
+                },
+            }
+        )
+
     replay_paths = [
         work_dir / "projection-replay.json",
         work_dir / "advance-offset-projection-replay.json",

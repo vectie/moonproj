@@ -339,9 +339,10 @@ The evidence plan additionally preserves 40 rows from task snapshots/reports,
 workflow assignees, lifecycle-instance history, lifecycle-stage catalog, and
 proceeding catalog as `typed_evidence` projections. These are queryable
 redacted evidence, not target workflow, authority, or economic state.
-Together the 34 business, 40 typed-evidence, and one task-state-observation
-cohort items add 75 accepted typed projections to the rehearsal database;
-evidence rows remain explicitly non-authoritative.
+The source-bound investment evaluation adds one analytics-only projection.
+Together the 34 business, 40 typed-evidence, one task-state-observation, and
+one evaluation cohort items add 76 accepted typed projections to the rehearsal
+database; evidence rows remain explicitly non-authoritative.
 The full wrapper also emits `cutover-gate.json`; a technical pass means
 `ready_for_business_acceptance`, not ownership transfer. The artifact records
 the unresolved project-1 dependency, managed-production database deployment,

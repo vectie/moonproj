@@ -779,7 +779,13 @@ echo "backup_restore=$BACKUP_RESTORE"
 if [ -n "$TYPED_MAPPING" ]; then
   CUTOVER_GATE="$WORK_DIR/cutover-gate.json"
   EXPECTED_LINKS=4
-  EXPECTED_PROJECTIONS=96
+  # The typed runner includes one quarantined task-state observation and one
+  # source-bound investment evaluation. Base plus typed cohorts total 95
+  # aggregate projections before an optional advance-offset cohort.
+  EXPECTED_PROJECTIONS=95
+  if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 2))
+  fi
   if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=7
   fi

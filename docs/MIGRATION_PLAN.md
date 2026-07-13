@@ -52,7 +52,8 @@ version and exact parity report for each cohort. Task-state conflicts in project
 1 remain quarantined. Forty additional typed-evidence rows (task
 snapshots/reports, assignees, lifecycle history/catalog, and proceedings) are
 preserved without becoming business state, and one quarantined project-1
-task-state observation, bringing the typed-cohort total to 75 projections.
+task-state observation plus one source-bound investment evaluation, bringing
+the typed-cohort total to 76 projections.
 The optional eighth cohort maps all seven non-empty `cb_cost` rows to explicit
 CBS subjects through `cmd/cbs_link`, and persists one deduplicated active
 `cbs_version` configuration projection; its 103-projection/17-receipt
