@@ -1888,7 +1888,7 @@ fn loans_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn reports_view() -> @html.Html {
+fn reports_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "报表中心",
     "ANALYSIS / REPORTS",
@@ -1906,7 +1906,9 @@ fn reports_view() -> @html.Html {
           span(class="erp-report-icon", "¥"),
           h2("成本月报"),
           p("目标成本、动态成本与偏差分析"),
-          button(class="erp-secondary-btn", "打开"),
+          nav_button(
+            emit, "/share/cost-demo", "erp-secondary-btn", "分享预览",
+          ),
         ],
         section(class="erp-report-card") <| [
           span(class="erp-report-icon", "⌁"),
@@ -1947,6 +1949,61 @@ fn reports_view() -> @html.Html {
       ),
     ],
   )
+}
+
+///|
+fn share_view(path : String) -> @html.Html {
+  let token = if path.has_prefix("/share/") {
+    path[7:].to_owned()
+  } else {
+    "demo-cost"
+  }
+  div(class="erp-share-page") <| [
+    div(class="erp-share-bar") <| [
+      div <| [
+        span(class="erp-share-brand", "ERP · 分享报表"),
+        span(class="erp-share-note", "只读公开快照 · 不需要登录"),
+      ],
+      span(class="erp-share-token", "链接 \{token}"),
+    ],
+    div(class="erp-share-meta") <| [
+      h1("集团成本汇总"),
+      span(class="erp-status-tag is-success", "成本月报"),
+      span(class="erp-share-expiry", "永不过期 · 数据期间 2026-07"),
+    ],
+    table_panel(
+      "R1 集团成本汇总",
+      "分享链接只展示已审核投影，不提供业务写入或导出权限",
+      data_table(
+        [
+          "公司", "项目编码", "项目名称", "目标成本", "动态成本",
+          "偏差%", "布置余地",
+        ],
+        [
+          [
+            "成都公司", "CD-HJL", "成都和锦里", "¥1860 万", "¥2016 万",
+            "+8.4%", "¥42 万",
+          ],
+          [
+            "重庆公司", "CQ-NSJ", "重庆南山居", "¥1240 万", "¥1261 万",
+            "+1.7%", "¥86 万",
+          ],
+          [
+            "沈阳公司", "SY-HSY", "沈阳和山苑", "¥980 万", "¥966 万",
+            "-1.4%", "¥58 万",
+          ],
+          [
+            "集团合计", "—", "3 个项目", "¥4080 万", "¥4243 万", "+4.0%",
+            "¥186 万",
+          ],
+        ],
+      ),
+    ),
+    div(
+      class="erp-share-footer",
+      "本页面由 ERP 报表分享链接生成 · 数据来自 PostgreSQL 投影读模型 · 仅链接持有者可访问",
+    ),
+  ]
 }
 
 ///|
@@ -3187,7 +3244,7 @@ fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
     "/loans" => loans_view(emit)
     "/loans/new" => loan_editor_view(emit, false)
     "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
-    "/reports" => reports_view()
+    "/reports" => reports_view(emit)
     "/report-builder" => report_builder_view()
     "/warning" => warning_view()
     "/warning-rules" => warning_rules_view()
@@ -3203,7 +3260,12 @@ fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
     "/ocr-config" => ocr_view()
     "/webhook-config" => webhook_view()
     "/profile" => profile_view()
-    _ => placeholder_view(path)
+    _ =>
+      if path.has_prefix("/share/") {
+        share_view(path)
+      } else {
+        placeholder_view(path)
+      }
   }
 }
 
@@ -3310,7 +3372,9 @@ fn app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  if model.authenticated {
+  if model.page.has_prefix("/share/") {
+    share_view(model.page)
+  } else if model.authenticated {
     app_view(emit, model)
   } else {
     login_view(emit, model)

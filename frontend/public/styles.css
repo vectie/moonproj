@@ -186,6 +186,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-health-item strong { color: #15803d; font-size: 14px; }
 .erp-health-item span:last-child { color: #94a3b8; font-size: 11px; }
 
+/* ShareReport.vue is a public, read-only surface without the authenticated shell. */
+.erp-share-page { min-height: 100vh; padding: 16px; color: #1e293b; background: #f1f5f9; }
+.erp-share-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 15px 20px; border-radius: 8px; color: #f8fafc; background: linear-gradient(135deg, #1e293b, #0f172a); }
+.erp-share-brand { display: block; font-size: 18px; font-weight: 700; }
+.erp-share-note { display: block; margin-top: 3px; color: #94a3b8; font-size: 11px; }
+.erp-share-token { color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; }
+.erp-share-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 0; padding: 0 4px; }
+.erp-share-meta h1 { margin: 0; color: #0f172a; font-size: 20px; }
+.erp-share-expiry { color: #94a3b8; font-size: 11px; }
+.erp-share-page .erp-table-panel { margin-top: 14px; }
+.erp-share-footer { padding: 18px 0 4px; color: #94a3b8; font-size: 11px; text-align: center; }
+
 @keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 1100px) {
@@ -219,6 +231,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-builder-options { grid-template-columns: 1fr 1fr; }
   .erp-form-grid { grid-template-columns: 1fr 1fr; }
   .erp-health-grid { grid-template-columns: 1fr 1fr; }
+  .erp-share-page { padding: 10px; }
+  .erp-share-bar { padding: 13px 14px; }
   .login-brand-side { max-width: 100%; text-align: center; }
   .login-brand-side h1 { font-size: 24px; }
   .login-features { display: none; }

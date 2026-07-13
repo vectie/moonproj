@@ -9,6 +9,9 @@ administration—with the source tables, tabs, KPI cards, forms, and action
 boundaries represented as read-only fixtures. Inbox, attachments, health,
 users/roles, profile, notifications, OCR, and webhook routes now retain their
 distinct source layouts instead of sharing a generic administrative table.
+The report center also opens a read-only `/share/:token`-shaped cost report
+preview with the source metadata bar, dense summary table, expiry label, and
+public-link boundary.
 
 The UI is deliberately fixture-backed while the HTTP/API boundary is being
 connected. It is a visual and interaction migration, not a claim that a button
