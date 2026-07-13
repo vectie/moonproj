@@ -110,6 +110,8 @@ from company_postgres_service import (
     sales_rows as service_sales_rows,
     delivery_progress as service_delivery_progress,
     delivery_outputs as service_delivery_outputs,
+    source_delivery_progress as service_source_delivery_progress,
+    source_delivery_outputs as service_source_delivery_outputs,
     delivery_tasks as service_delivery_tasks,
     delivery_task_reports as service_delivery_task_reports,
     delivery_plan_summary as service_delivery_plan_summary,
@@ -792,6 +794,22 @@ def delivery_outputs(
     project_id: str | None,
 ) -> list[dict[str, Any]]:
     return service_delivery_outputs(_ReadModelPool(args), output_id, project_id, 500)
+
+
+def source_delivery_progress(
+    args: argparse.Namespace,
+    project_id: str | None,
+) -> dict[str, Any]:
+    return service_source_delivery_progress(_ReadModelPool(args), project_id, 500)
+
+
+def source_delivery_outputs(
+    args: argparse.Namespace,
+    project_id: str | None,
+    period: str | None,
+    state: str | None,
+) -> dict[str, Any]:
+    return service_source_delivery_outputs(_ReadModelPool(args), project_id, period, state, 500)
 
 
 def delivery_tasks(
@@ -1903,6 +1921,14 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     )
                     response(self, 200, {"items": rows})
                     return
+                if parsed.path == "/api/company/source/delivery/progress":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        source_delivery_progress(args, query.get("projGuid", query.get("project_id", [None]))[0]),
+                    )
+                    return
                 if re.fullmatch(r"/api/company/delivery/progress/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     progress_id = parsed.path.rsplit("/", 1)[-1]
                     rows = delivery_progress(args, progress_id, None)
@@ -1919,6 +1945,19 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         query.get("project_id", [None])[0],
                     )
                     response(self, 200, {"items": rows})
+                    return
+                if parsed.path == "/api/company/source/delivery/outputs":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        source_delivery_outputs(
+                            args,
+                            query.get("projGuid", query.get("project_id", [None]))[0],
+                            query.get("period", [None])[0],
+                            query.get("state", [None])[0],
+                        ),
+                    )
                     return
                 if re.fullmatch(r"/api/company/delivery/outputs/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     output_id = parsed.path.rsplit("/", 1)[-1]

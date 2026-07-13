@@ -166,6 +166,34 @@ def main() -> int:
             and tax_ledger.get("authorizing") is False,
             f"source invoice tax ledger read failed: {status} {tax_ledger}",
         )
+        status, source_progress = request(
+            args.port,
+            "/api/company/source/delivery/progress?projGuid=proj-0001",
+            token=token,
+        )
+        expect(
+            status == 200
+            and source_progress is not None
+            and source_progress.get("data") == []
+            and source_progress.get("source_coverage", {}).get("proj_progress") == 0
+            and source_progress.get("authorizing") is False
+            and source_progress.get("persisted") is False,
+            f"source delivery progress empty boundary failed: {status} {source_progress}",
+        )
+        status, source_outputs = request(
+            args.port,
+            "/api/company/source/delivery/outputs?projGuid=proj-0001",
+            token=token,
+        )
+        expect(
+            status == 200
+            and source_outputs is not None
+            and source_outputs.get("data") == []
+            and source_outputs.get("source_coverage", {}).get("proj_output") == 0
+            and source_outputs.get("authorizing") is False
+            and source_outputs.get("persisted") is False,
+            f"source delivery outputs empty boundary failed: {status} {source_outputs}",
+        )
         status, scope = request(
             args.port,
             "/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001",
@@ -233,7 +261,7 @@ def main() -> int:
         print(
             "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
             "attachments=0 invoices=0 budget_users=4 loan_balance=3500 "
-            "workflow_instances=0 workflow_actions=0",
+            "workflow_instances=0 workflow_actions=0 progress=0 outputs=0",
         )
         return 0
     finally:

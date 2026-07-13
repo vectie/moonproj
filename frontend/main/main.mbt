@@ -695,6 +695,10 @@ struct Model {
   delivery_task_rows : Array[DeliveryTaskRow]
   delivery_report_rows : Array[DeliveryReportRow]
   delivery_note : String
+  delivery_source_loaded : Bool
+  delivery_source_progress_count : String
+  delivery_source_output_count : String
+  delivery_source_note : String
   delivery_progress_id : String
   delivery_progress_state : String
   delivery_output_id : String
@@ -1021,6 +1025,9 @@ enum Msg {
   InvoiceSourceOutLoaded(String)
   InvoiceSourceTaxLoaded(String)
   InvoiceSourceLoadFailed
+  DeliverySourceProgressLoaded(String)
+  DeliverySourceOutputsLoaded(String)
+  DeliverySourceLoadFailed
   DeliveryLoaded(String)
   DeliveryLoadFailed
   CreateDeliveryProgress
@@ -1224,6 +1231,10 @@ fn initial_model() -> Model {
     delivery_task_rows: [],
     delivery_report_rows: [],
     delivery_note: "工程进度/项目计划读模型尚未加载",
+    delivery_source_loaded: false,
+    delivery_source_progress_count: "0",
+    delivery_source_output_count: "0",
+    delivery_source_note: "源进度/产值观察尚未加载 · 使用设计快照",
     delivery_progress_id: "PROG-RABBITA-LOCAL",
     delivery_progress_state: "new",
     delivery_output_id: "OUT-RABBITA-LOCAL",
@@ -2555,6 +2566,15 @@ fn delivery_overview_from_body(
     _ => ()
   }
   (progress, outputs, tasks, reports)
+}
+
+///|
+fn source_data_row_count(body : String) -> Int {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => json_array_field(fields, "data").length()
+    _ => 0
+  }
 }
 
 ///|
@@ -5006,6 +5026,28 @@ fn load_invoice_source_tax(emit : @rabbita.Emit[Msg]) -> Cmd {
 
 ///|
 fn load_delivery(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/delivery/progress?projGuid=proj-0001").expect_text(result => {
+      match result {
+        Ok(body) => emit(DeliverySourceProgressLoaded(body))
+        Err(_) => emit(DeliverySourceLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_delivery_source_outputs(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/delivery/outputs?projGuid=proj-0001").expect_text(result => {
+      match result {
+        Ok(body) => emit(DeliverySourceOutputsLoaded(body))
+        Err(_) => emit(DeliverySourceLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_delivery_overview(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/delivery/overview?project_id=proj-0001").expect_text(result => {
     match result {
       Ok(body) => emit(DeliveryLoaded(body))
@@ -7166,6 +7208,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_rows: [],
           invoice_source_note: "发票源读模型不可用 · 使用设计快照",
           sales_note: "发票源读模型不可用 · 使用设计快照",
+        },
+      )
+    DeliverySourceProgressLoaded(body) =>
+      (
+        load_delivery_source_outputs(emit),
+        {
+          ..model,
+          delivery_source_loaded: false,
+          delivery_source_progress_count: source_data_row_count(body).to_string(),
+          delivery_source_note: "ERP 源进度已读取 · 继续读取源产值",
+        },
+      )
+    DeliverySourceOutputsLoaded(body) =>
+      (
+        load_delivery_overview(emit),
+        {
+          ..model,
+          delivery_source_loaded: true,
+          delivery_source_output_count: source_data_row_count(body).to_string(),
+          delivery_source_note: "ERP 源进度 " +
+          model.delivery_source_progress_count +
+          " 行 · 源产值 " +
+          source_data_row_count(body).to_string() +
+          " 行 · 空表保持可见",
+        },
+      )
+    DeliverySourceLoadFailed =>
+      (
+        load_delivery_overview(emit),
+        {
+          ..model,
+          delivery_source_loaded: false,
+          delivery_source_note: "ERP 源进度/产值读取不可用 · 使用已审核任务观察",
         },
       )
     DeliveryLoaded(body) => {
@@ -10006,6 +10081,13 @@ fn delivery_runtime_banner(model : Model) -> @html.Html {
   } else {
     "—"
   }
+  let source_row_count = if model.delivery_source_loaded {
+    model.delivery_source_progress_count +
+    "/" +
+    model.delivery_source_output_count
+  } else {
+    "—"
+  }
   div(class="erp-runtime-banner", [
     strong(
       if model.delivery_loaded {
@@ -10023,6 +10105,8 @@ fn delivery_runtime_banner(model : Model) -> @html.Html {
         " 等待加载"
       }),
     ),
+    span(" · 源进度/产值 " + source_row_count + " 行"),
+    span(" · " + model.delivery_source_note),
     span(" · " + model.delivery_note),
     span(" · " + model.delivery_command_note),
   ])

@@ -322,6 +322,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_invoice_scenario_and_production_identity"
     if target_state == "connected_delivery_command_form":
         return "accept_browser_delivery_scenario_and_production_identity"
+    if target_state == "connected_delivery_source_read":
+        return "accept_browser_delivery_source_scenario_and_production_identity"
     if target_state == "connected_report_read":
         return "accept_browser_report_scenario_and_production_identity"
     if target_state == "connected_workflow_definition_read":
@@ -445,6 +447,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         }
     ):
         return "connected_cost_source_read", "accept_browser_cost_source_scenario_and_production_identity"
+    if (
+        handler["module"] == "progress"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/progress", "/outputs"}
+    ):
+        return "connected_delivery_source_read", "accept_browser_delivery_source_scenario_and_production_identity"
     if (
         handler["module"] == "attachment"
         and handler["method"] == "GET"

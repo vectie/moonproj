@@ -56,22 +56,28 @@ delivery parity until their source joins and calculations are reproduced.
 
 ## Current target state
 
-- Rabbita mounts `/project/progress` and `/project-plan` and loads
-  `/api/company/delivery/overview?project_id=...` through the local gateway.
-  The pages show source/command provenance and expose guarded progress, output,
-  and task-report commands while retaining the designer layout.
+- Rabbita mounts `/project/progress` and `/project-plan`. Before loading the
+  combined delivery overview it reads the source-compatible
+  `/api/company/source/delivery/progress` and `/outputs` boundaries, then loads
+  `/api/company/delivery/overview?project_id=...` for the task/report view. The
+  pages show source/command provenance and expose guarded progress, output, and
+  task-report commands while retaining the designer layout.
 - The local service and read-model adapter expose these fixed reads:
   `/api/company/delivery/progress`, `/outputs`, `/tasks`, `/task-reports`,
-  `/plan-summary`, and `/overview`. Commands cover progress create/report/
-  accept/reject, output create/confirm, and task reporting.
+  `/plan-summary`, and `/overview`, plus the source-only
+  `/api/company/source/delivery/progress` and `/outputs` reads. Commands cover
+  progress create/report/accept/reject, output create/confirm, and task
+  reporting.
 - Imported rows are source-preserving and read-only. Local commands require
   explicit evidence, scope, currency/value, and idempotency keys; each command
   persists an immutable projection revision and audit receipt.
-- The parity matrix marks the two browser pages and their API groups as
-  `connected_delivery_command_form` / `connected_delivery_command`. The
-  source export still contains no `proj_progress` or `proj_output` rows, so
-  current progress/output examples are local command evidence rather than a
-  source-row import.
+- The parity matrix marks the two browser pages and their command groups as
+  `connected_delivery_command_form` / `connected_delivery_command`, and marks
+  source GET `/progress` and `/outputs` as
+  `connected_delivery_source_read`. The source export still contains no
+  `proj_progress` or `proj_output` rows, so the new source reads return an
+  explicit empty observation; current progress/output examples remain local
+  command evidence rather than a source-row import.
 - `scripts/erp_delivery_progress_plan.py` promotes only `jd_task_report` to a
   `Draft` `ProgressReport`; it requires explicit project/principal/scope,
   evidence, currency, and measured-value mapping and never mutates task state.
@@ -88,14 +94,15 @@ Therefore the delivery migration state is:
 domain model                  implemented and tested
 typed draft/recognition       replayable evidence cohorts
 local runtime reads/commands  connected and PostgreSQL-smoke verified
-source-row coverage           blocked by missing proj_progress/proj_output rows
+source-row coverage           explicitly observed empty; promotion blocked until a reviewed cohort exists
 browser acceptance            pending real session/production identity
 production ownership          not authorized
 ```
 
 ## Revised execution slice
 
-The first local runtime slice is complete. Its remaining acceptance work is:
+The first local runtime slice, including the empty-safe source progress/output
+read boundary, is complete. Its remaining acceptance work is:
 
 1. Obtain a credential-safe export containing real `proj_progress` and
    `proj_output` rows (or an explicitly redacted, owner-approved cohort), then

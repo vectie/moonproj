@@ -52,6 +52,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/delivery/{progress,outputs,tasks,task-reports,plan-summary}`` (GET)
 * ``/api/company/delivery/{progress,outputs,tasks}/...`` (POST)
   with source-preserving reads and idempotent local commands
+* ``/api/company/source/delivery/{progress,outputs}`` (GET, source ERP
+  progress/output observations; empty or missing source tables stay explicit)
 * ``/api/company/reports/{cost-summary,contract-payment-ledger,
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
 * ``/api/company/dashboard/group/{overview,funnel,top-anomalies}`` and
@@ -4764,6 +4766,131 @@ def delivery_outputs(
     if project_id is not None:
         commands = [row for row in commands if row.get("project_id") == project_id]
     return raw + commands
+
+
+def _delivery_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def source_delivery_progress(
+    pool: PsqlPool,
+    project_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Observe the ERP ``proj_progress`` rows without mixing commands in."""
+
+    if project_id is not None and not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    raw = _raw_delivery_rows(
+        pool,
+        "proj_progress",
+        record_id=None,
+        project_id=None,
+        task_id=None,
+        max_rows=max_rows,
+    )
+    rows = []
+    for row in raw:
+        value = _delivery_source_fields(row, table="proj_progress")
+        if project_id is not None and value.get("project_id") != project_id:
+            continue
+        value.update(
+            {
+                "progress_guid": value.get("progress_id", ""),
+                "proj_guid": value.get("project_id", ""),
+                "bu_guid": "",
+                "progressGuid": value.get("progress_id", ""),
+                "projGuid": value.get("project_id", ""),
+                "planDate": value.get("plan_date", ""),
+                "planPct": value.get("plan_pct", "0"),
+                "actualPct": value.get("actual_pct", "0"),
+                "actualDate": value.get("actual_date", ""),
+                "contractGuid": value.get("contract_id", ""),
+                "milestoneGuid": value.get("milestone_id", ""),
+            }
+        )
+        rows.append(value)
+    rows.sort(key=lambda value: (str(value.get("plan_date", "")), str(value.get("progress_id", ""))))
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows,
+        **_delivery_source_metadata({"proj_progress": len(raw)}),
+    }
+
+
+def source_delivery_outputs(
+    pool: PsqlPool,
+    project_id: str | None,
+    period: str | None,
+    state: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Observe the ERP ``proj_output`` rows and preserve contract labels."""
+
+    if project_id is not None and not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    if period is not None and len(period) > 64:
+        raise ValueError("invalid period")
+    if state is not None and len(state) > 64:
+        raise ValueError("invalid state")
+    raw = _raw_delivery_rows(
+        pool,
+        "proj_output",
+        record_id=None,
+        project_id=None,
+        task_id=None,
+        max_rows=max_rows,
+    )
+    contracts = _raw_source_rows(pool, "cb_contract", max(max_rows, 500), COST_SOURCE_TABLES)
+    contract_names = {
+        str(row["record_id"]): str(
+            row["payload"].get("contract_name")
+            or row["payload"].get("ht_name")
+            or ""
+        )
+        for row in contracts
+    }
+    rows = []
+    for row in raw:
+        value = _delivery_source_fields(row, table="proj_output")
+        if project_id is not None and value.get("project_id") != project_id:
+            continue
+        if period is not None and value.get("period") != period:
+            continue
+        if state is not None and value.get("state") != state:
+            continue
+        value["contract_name"] = contract_names.get(str(value.get("contract_id") or ""), "")
+        value.update(
+            {
+                "output_guid": value.get("output_id", ""),
+                "proj_guid": value.get("project_id", ""),
+                "contract_guid": value.get("contract_id", ""),
+                "outputGuid": value.get("output_id", ""),
+                "outputCode": value.get("output_code", ""),
+                "projGuid": value.get("project_id", ""),
+                "contractGuid": value.get("contract_id", ""),
+                "outputAmount": value.get("output_amount", "0"),
+                "confirmAmount": value.get("confirm_amount", "0"),
+            }
+        )
+        rows.append(value)
+    rows.sort(key=lambda value: (str(value.get("period", "")), str(value.get("output_id", ""))), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows,
+        **_delivery_source_metadata({"proj_output": len(raw), "cb_contract": len(contracts)}),
+    }
 
 
 def delivery_tasks(
@@ -13802,6 +13929,32 @@ def handler_factory(
                         response(self, 404, {"error": "loan not found"}, origin)
                     else:
                         response(self, 200, {"loan": items[0], "offsets": items[0].get("offsets", [])}, origin)
+                elif parsed.path == "/api/company/source/delivery/progress":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        source_delivery_progress(
+                            pool,
+                            query.get("projGuid", query.get("project_id", [None]))[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/source/delivery/outputs":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        source_delivery_outputs(
+                            pool,
+                            query.get("projGuid", query.get("project_id", [None]))[0],
+                            query.get("period", [None])[0],
+                            query.get("state", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif parsed.path == "/api/company/delivery/progress":
                     query = parse_qs(parsed.query)
                     progress_value = query.get("progress_id", [None])[0]
