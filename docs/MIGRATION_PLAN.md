@@ -262,11 +262,12 @@ replacement of `erp_new`. The findings that now control sequencing are:
    interaction, or route-action comparison has been accepted.
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise bounded expense,
-   contract, payment-application, procurement, sales/receivables, and
-   invoice-read slices. Procurement covers supplier lifecycle/risk reads,
-   tender planning/award, and contract splits; sales covers customer,
-   reservation, agreement, mortgage, refund, receivable, and revenue evidence
-   reads. They persist idempotent command receipts, immutable revisions, and
+   contract, payment-application, procurement, sales/receivables, invoice,
+   core-report, and employee-loan read slices. Procurement covers supplier
+   lifecycle/risk reads, tender planning/award, and contract splits; sales
+   covers customer, reservation, agreement, mortgage, refund, receivable, and
+   revenue evidence reads; employee loans preserve source balances and offset
+   evidence. They persist idempotent command receipts, immutable revisions, and
    audit evidence where commands exist. This is still local-only
    evidence: the gateway session and actor assertion are not the production
    identity boundary, and no browser acceptance or named-owner sign-off has
@@ -300,10 +301,11 @@ replacement of `erp_new`. The findings that now control sequencing are:
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records fifteen connected workflow routes across browser and API
+currently records sixteen connected workflow routes across browser and API
 surfaces (expense, contract, payment, procurement, sales, invoice, delivery,
-and core reports), while 31 browser views and 38 API groups remain fixture-backed
-or read-model-only. Three additional fixed read-model routes are connected. That gap,
+core reports, and employee-loan reads), while 30 browser views and 37 API groups
+remain fixture-backed or read-model-only. Three additional fixed read-model routes
+are connected. That gap,
 rather than additional platform hardening, controls the next work.
 
 Execute the remainder in this order:

@@ -4,7 +4,8 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement, sales/receivables,
-reviewed invoice, delivery/project-progress, and core-report projections.
+reviewed invoice, delivery/project-progress, core-report, and employee-loan
+projections.
 Production authentication, pooling, TLS,
 observability and command APIs remain deployment gates.
 """
@@ -46,6 +47,7 @@ from company_postgres_service import (
     report_approval_efficiency as service_report_approval_efficiency,
     report_project_stage_matrix as service_report_project_stage_matrix,
     reports_overview as service_reports_overview,
+    loans as service_loans,
 )
 
 
@@ -305,6 +307,14 @@ def reports_overview(args: argparse.Namespace) -> dict[str, Any]:
     return service_reports_overview(_ReadModelPool(args), 500)
 
 
+def loans(
+    args: argparse.Namespace,
+    loan_id: str | None,
+    apply_state: str | None,
+) -> list[dict[str, Any]]:
+    return service_loans(_ReadModelPool(args), loan_id, apply_state, 500)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -492,6 +502,28 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(args))
+                    return
+                if parsed.path == "/api/company/loans":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        {
+                            "items": loans(
+                                args,
+                                query.get("loan_id", [None])[0],
+                                query.get("apply_state", [None])[0],
+                            )
+                        },
+                    )
+                    return
+                if re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    loan_id = parsed.path.rsplit("/", 1)[-1]
+                    rows = loans(args, loan_id, None)
+                    if not rows:
+                        response(self, 404, {"error": "loan not found"})
+                    else:
+                        response(self, 200, {"loan": rows[0], "offsets": rows[0].get("offsets", [])})
                     return
                 if parsed.path == "/api/company/delivery/progress":
                     query = parse_qs(parsed.query)

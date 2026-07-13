@@ -205,6 +205,23 @@ struct ReportStageRow {
 }
 
 ///|
+struct LoanRow {
+  loan_id : String
+  loan_code : String
+  subject : String
+  apply_state : String
+  loan_amount : String
+  balance_amount : String
+  remain_amount : String
+  applied_by_name : String
+  apply_dept_name : String
+  project_name : String
+  apply_date : String
+  pay_unit : String
+  source_kind : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -266,6 +283,9 @@ struct Model {
   report_supplier_count : String
   report_approval_count : String
   reports_note : String
+  loans_loaded : Bool
+  loan_rows : Array[LoanRow]
+  loan_note : String
 }
 
 ///|
@@ -352,6 +372,8 @@ enum Msg {
   DeliveryCommandFailed
   ReportsLoaded(String)
   ReportsLoadFailed
+  LoansLoaded(String)
+  LoansLoadFailed
 }
 
 ///|
@@ -417,6 +439,9 @@ fn initial_model() -> Model {
     report_supplier_count: "0",
     report_approval_count: "0",
     reports_note: "核心报表读模型尚未加载",
+    loans_loaded: false,
+    loan_rows: [],
+    loan_note: "员工借款读模型尚未加载",
   }
 }
 
@@ -1098,6 +1123,46 @@ fn reports_from_body(
 }
 
 ///|
+fn loan_from_json(value : Json) -> LoanRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        loan_id: json_object_text(fields, "loan_id", ""),
+        loan_code: json_object_text(fields, "loan_code", ""),
+        subject: json_object_text(fields, "subject", ""),
+        apply_state: json_object_text(fields, "apply_state", ""),
+        loan_amount: json_object_text(fields, "loan_amount", "0"),
+        balance_amount: json_object_text(fields, "balance_amount", "0"),
+        remain_amount: json_object_text(fields, "remain_amount", "0"),
+        applied_by_name: json_object_text(fields, "applied_by_name", ""),
+        apply_dept_name: json_object_text(fields, "apply_dept_name", ""),
+        project_name: json_object_text(fields, "project_name", ""),
+        apply_date: json_object_text(fields, "apply_date", ""),
+        pay_unit: json_object_text(fields, "pay_unit", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn loan_rows_from_body(body : String) -> Array[LoanRow] {
+  let rows : Array[LoanRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "items") {
+        match loan_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
@@ -1128,6 +1193,16 @@ fn load_reports(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(ReportsLoaded(body))
       Err(_) => emit(ReportsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_loans(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/loans").expect_text(result => {
+    match result {
+      Ok(body) => emit(LoansLoaded(body))
+      Err(_) => emit(LoansLoadFailed)
     }
   })
 }
@@ -1485,6 +1560,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "invoices")
       } else if path == "/reports" {
         load_reports(emit)
+      } else if path == "/loans" {
+        load_loans(emit)
       } else if path == "/project-plan" || path == "/project/progress" {
         load_delivery(emit)
       } else {
@@ -2280,6 +2357,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           report_contract_rows: [],
           report_stage_rows: [],
           reports_note: "核心报表读模型不可用 · 使用已审核快照",
+        },
+      )
+    LoansLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          loans_loaded: true,
+          loan_rows: loan_rows_from_body(body),
+          loan_note: "已加载 PostgreSQL 员工借款与冲账读模型 · 导入记录保持只读",
+        },
+      )
+    LoansLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          loans_loaded: false,
+          loan_rows: [],
+          loan_note: "员工借款读模型不可用 · 使用已审核快照",
         },
       )
     CreateDeliveryProgress =>
@@ -5035,13 +5132,56 @@ fn expenses_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn loans_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn loan_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for row in model.loan_rows {
+    rows.push([
+      row.loan_id,
+      row.loan_code,
+      row.subject,
+      row.loan_amount,
+      row.balance_amount,
+      row.remain_amount,
+      row.applied_by_name,
+      row.apply_dept_name,
+      row.project_name,
+      row.apply_date,
+      row.pay_unit,
+      row.apply_state,
+      row.source_kind,
+    ])
+  }
+  table_panel(
+    "PostgreSQL 借款与冲账",
+    model.loan_note + " · 导入借款保持只读",
+    data_table(
+      [
+        "记录", "借款单号", "用途", "借款金额", "已冲账", "未核销",
+        "申请人", "部门", "项目", "日期", "收款单位", "状态", "来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "我的借款",
     "FINANCE / LOANS",
     "发起备用金和差旅借款，跟踪核销、还款以及个人可用额度。",
     [nav_button(emit, "/loans/new", "erp-primary-btn", "＋ 新建借款")],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.loans_loaded {
+            "PostgreSQL 已连接"
+          } else {
+            "员工借款读模型"
+          },
+        ),
+        span(" · " + model.loan_note),
+      ]),
       div(class="erp-stat-grid") <| [
         metric("未核销借款", "¥18,000", "2 笔", "metric-blue"),
         metric("本月可用额度", "¥30,000", "个人额度", "metric-green"),
@@ -5071,6 +5211,7 @@ fn loans_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
           ],
         ),
       ),
+      loan_runtime_table(model),
     ],
   )
 }
@@ -6751,7 +6892,7 @@ fn business_view(
       "/expenses" => expenses_view(emit)
       "/expenses/new" => expense_editor_view(emit, model, false)
       "/expenses/EXP-260712-008" => expense_editor_view(emit, model, true)
-      "/loans" => loans_view(emit)
+      "/loans" => loans_view(emit, model)
       "/loans/new" => loan_editor_view(emit, false)
       "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
       "/reports" => reports_view(emit, model)

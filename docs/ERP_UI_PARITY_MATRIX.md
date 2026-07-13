@@ -6,12 +6,12 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-delivery, and core report read verticals.
+delivery, core report read, and employee-loan read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 31, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 38}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 30, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 37}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -35,7 +35,7 @@ delivery, and core report read verticals.
 | `/contracts/:guid` | `../views/ContractDetail.vue` | `contract_detail_view` | `connected_contract_command_form` | `cost` | 7 / 13 | `connected_contract_command` | `accept_browser_contract_scenario_and_production_identity` |
 | `/payment-applies` | `../views/PaymentApplies.vue` | `payment_applies_view` | `connected_payment_application_command_form` | `cost` | 7 / 13 | `connected_payment_application_command` | `accept_browser_payment_application_scenario_and_production_identity` |
 | `/dynamic-cost` | `../views/DynamicCost.vue` | `dynamic_cost_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/loans` | `../views/LoanList.vue` | `loans_view` | `fixture_backed_read_only` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/loans` | `../views/LoanList.vue` | `loans_view` | `connected_loan_read` | `loan` | 2 / 6 | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
 | `/loans/new` | `../views/LoanCreate.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/loans/:guid` | `../views/LoanDetail.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/project-plan` | `../views/ProjectPlan.vue` | `project_plan_view` | `connected_delivery_command_form` | `plan` | 4 / 5 | `connected_delivery_command` | `accept_browser_delivery_scenario_and_production_identity` |
@@ -261,8 +261,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `invoice` | `POST` | `/out` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `invoice` | `DELETE` | `/out/:guid` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `invoice` | `GET` | `/tax-ledger` | `/invoice` | `not_connected` | `connect_authenticated_read_api` |
-| `loan` | `GET` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `connect_authenticated_read_api` |
-| `loan` | `GET` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `connect_authenticated_read_api` |
+| `loan` | `GET` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
+| `loan` | `GET` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
 | `loan` | `POST` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `loan` | `POST` | `/loans/:guid/submit-for-approval` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `loan` | `POST` | `/loans/:guid/offset` | `/loans`, `/loans/new`, `/loans/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |

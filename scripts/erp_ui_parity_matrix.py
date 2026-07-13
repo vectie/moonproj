@@ -185,6 +185,8 @@ def match_target(
             return function, "connected_invoice_read"
         if path == "/reports" and function == "reports_view":
             return function, "connected_report_read"
+        if path == "/loans" and function == "loans_view":
+            return function, "connected_loan_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -236,6 +238,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_delivery_scenario_and_production_identity"
     if target_state == "connected_report_read":
         return "accept_browser_report_scenario_and_production_identity"
+    if target_state == "connected_loan_read":
+        return "accept_browser_loan_scenario_and_production_identity"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -257,6 +261,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         }
     ):
         return "connected_report_read", "accept_browser_report_scenario_and_production_identity"
+    if (
+        handler["module"] == "loan"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/loans", "/loans/:guid"}
+    ):
+        return "connected_loan_read", "accept_browser_loan_scenario_and_production_identity"
     return (
         "not_connected",
         "connect_authenticated_read_api"
@@ -302,6 +312,8 @@ def build_matrix(
             api_state = "connected_delivery_command"
         elif target_state == "connected_report_read":
             api_state = "connected_report_read"
+        elif target_state == "connected_loan_read":
+            api_state = "connected_loan_read"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:
@@ -370,7 +382,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The connected exceptions are",
         "the fixed dashboard read-model and the local",
         "expense/contract/payment-application/tender command, supplier read,",
-        "delivery, and core report read verticals.",
+        "delivery, core report read, and employee-loan read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

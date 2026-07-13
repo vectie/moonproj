@@ -122,6 +122,15 @@ def main() -> int:
         report_cost_rows = len(payload["cost_summary"]["rows"])
         report_contract_rows = len(payload["contract_payment_ledger"])
         report_missing_tables = payload.get("missing_source_tables", [])
+        status, payload = request(args.port, "/api/company/loans", token=token)
+        if status != 200 or payload is None or not isinstance(payload.get("items"), list):
+            raise SmokeError(f"loan read failed: {status} {payload}")
+        loan_rows = len(payload["items"])
+        if loan_rows:
+            loan_id = payload["items"][0].get("loan_id", "")
+            status, detail = request(args.port, f"/api/company/loans/{loan_id}", token=token)
+            if status != 200 or detail is None or not isinstance(detail.get("offsets"), list):
+                raise SmokeError(f"loan detail failed: {status} {detail}")
         status, _ = request(args.port, "/api/health", token=None)
         if status != 401:
             raise SmokeError(f"missing bearer token was not rejected: {status}")
@@ -932,6 +941,7 @@ def main() -> int:
                     "report_cost_rows": report_cost_rows,
                     "report_contract_rows": report_contract_rows,
                     "report_missing_source_tables": report_missing_tables,
+                    "loan_rows": loan_rows,
                     "port": args.port,
                     "database": args.database,
                 },

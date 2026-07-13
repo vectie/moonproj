@@ -41,6 +41,7 @@ The bounded service exposes these endpoints:
   with source-preserving reads and idempotent local commands
 * ``/api/company/reports/{cost-summary,contract-payment-ledger,
   supplier-analysis,approval-efficiency,project-stage-matrix,overview}`` (GET)
+* ``/api/company/loans`` and ``/api/company/loans/<id>`` (GET)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -290,6 +291,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_read",
             "delivery_command",
             "report_read",
+            "loan_read",
             "audit_receipt",
         ],
         "schema_version": schema_version,
@@ -324,6 +326,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "delivery_read",
             "delivery_command",
             "report_read",
+            "loan_read",
             "audit_receipt",
         ],
         "schema_version": expected_schema_version,
@@ -3465,11 +3468,16 @@ REPORT_SOURCE_TABLES = {
 }
 
 
-def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str, Any]]:
-    """Read a fixed source table for a report without promoting its rows."""
+def _raw_source_rows(
+    pool: PsqlPool,
+    table: str,
+    max_rows: int,
+    allowed_tables: set[str],
+) -> list[dict[str, Any]]:
+    """Read a fixed source table without promoting it to company state."""
 
-    if table not in REPORT_SOURCE_TABLES:
-        raise ServiceError("unsupported report source table")
+    if table not in allowed_tables:
+        raise ServiceError("unsupported source table")
     query = f"""
     SELECT encode(convert_to(record_id, 'UTF8'), 'hex'),
            encode(convert_to(source_id, 'UTF8'), 'hex'),
@@ -3483,13 +3491,13 @@ def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str
     for line in query_lines(pool, query):
         fields = line.split("|")
         if len(fields) != 3:
-            raise ServiceError("unexpected report source row shape")
+            raise ServiceError("unexpected source row shape")
         try:
             payload = json.loads(decode_hex(fields[2]))
         except json.JSONDecodeError as error:
-            raise ServiceError("invalid report source row JSON") from error
+            raise ServiceError("invalid source row JSON") from error
         if not isinstance(payload, dict):
-            raise ServiceError("report source row payload is not an object")
+            raise ServiceError("source row payload is not an object")
         result.append(
             {
                 "record_id": decode_hex(fields[0]),
@@ -3498,6 +3506,10 @@ def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str
             }
         )
     return result
+
+
+def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str, Any]]:
+    return _raw_source_rows(pool, table, max_rows, REPORT_SOURCE_TABLES)
 
 
 def _report_float(payload: dict[str, Any], key: str, fallback: float = 0.0) -> float:
@@ -3522,6 +3534,104 @@ def _report_date(value: Any) -> date | None:
         return date.fromisoformat(value.strip()[:10])
     except ValueError:
         return None
+
+
+LOAN_SOURCE_TABLES = {
+    "vcb_loan_simple",
+    "cb_loan_offset",
+    "sys_user",
+    "mu_business_unit",
+    "ep_project",
+}
+
+
+def loans(
+    pool: PsqlPool,
+    loan_id: str | None,
+    apply_state: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if loan_id is not None and not IDENTIFIER.fullmatch(loan_id):
+        raise ValueError("invalid loan_id")
+    if apply_state is not None and len(apply_state) > 64:
+        raise ValueError("invalid apply_state")
+    loan_rows = _raw_source_rows(pool, "vcb_loan_simple", max_rows, LOAN_SOURCE_TABLES)
+    offset_rows = _raw_source_rows(pool, "cb_loan_offset", max_rows, LOAN_SOURCE_TABLES)
+    users = {
+        str(row["payload"].get("user_id", row["record_id"])): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max_rows, LOAN_SOURCE_TABLES)
+    }
+    departments = {
+        str(row["payload"].get("bu_guid", row["record_id"])): row["payload"]
+        for row in _raw_source_rows(pool, "mu_business_unit", max_rows, LOAN_SOURCE_TABLES)
+    }
+    projects = {
+        str(row["payload"].get("proj_guid", row["record_id"])): row["payload"]
+        for row in _raw_source_rows(pool, "ep_project", max_rows, LOAN_SOURCE_TABLES)
+    }
+    offsets_by_loan: dict[str, list[dict[str, Any]]] = {}
+    for row in offset_rows:
+        payload = row["payload"]
+        offset_loan_id = _report_text(payload, "loan_guid")
+        operator_id = _report_text(payload, "operator_guid")
+        offsets_by_loan.setdefault(offset_loan_id, []).append(
+            {
+                "offset_id": _report_text(payload, "offset_guid", row["record_id"]),
+                "offset_amount": _report_float(payload, "offset_amount"),
+                "offset_date": _report_text(payload, "offset_date"),
+                "related_expense_id": _report_text(payload, "related_expense_guid"),
+                "remark": _report_text(payload, "remark"),
+                "operator_name": _report_text(users.get(operator_id, {}), "emp_name", operator_id),
+                "source_kind": "imported",
+                "source_id": row["source_id"],
+            }
+        )
+    result: list[dict[str, Any]] = []
+    for row in sorted(
+        loan_rows,
+        key=lambda value: _report_text(value["payload"], "created_at"),
+        reverse=True,
+    ):
+        payload = row["payload"]
+        current_id = _report_text(payload, "loan_guid", row["record_id"])
+        state = _report_text(payload, "apply_state")
+        if loan_id is not None and current_id != loan_id:
+            continue
+        if apply_state is not None and state != apply_state:
+            continue
+        employee_id = _report_text(payload, "applied_by")
+        department_id = _report_text(payload, "apply_dept_guid")
+        project_id = _report_text(payload, "proj_guid")
+        amount = _report_float(payload, "loan_amount")
+        balance = _report_float(payload, "balance_amount")
+        remain = _report_float(payload, "remain_amount", amount - balance)
+        result.append(
+            {
+                "loan_id": current_id,
+                "loan_code": _report_text(payload, "loan_code", current_id),
+                "subject": _report_text(payload, "subject"),
+                "apply_state": state,
+                "loan_amount": amount,
+                "balance_amount": balance,
+                "remain_amount": remain,
+                "amount_display": f"¥{amount:,.2f}",
+                "remain_amount_display": f"¥{remain:,.2f}",
+                "applied_by": employee_id,
+                "applied_by_name": _report_text(users.get(employee_id, {}), "emp_name", employee_id),
+                "apply_dept_guid": department_id,
+                "apply_dept_name": _report_text(departments.get(department_id, {}), "bu_name", department_id),
+                "project_id": project_id,
+                "project_name": _report_text(projects.get(project_id, {}), "proj_name", project_id),
+                "apply_date": _report_text(payload, "apply_date"),
+                "pay_unit": _report_text(payload, "pay_unit"),
+                "process_instance_id": _report_text(payload, "process_instance_guid"),
+                "offsets": offsets_by_loan.get(current_id, []),
+                "source_kind": "imported",
+                "source_id": row["source_id"],
+                "source_table": "vcb_loan_simple",
+            }
+        )
+    return result
 
 
 def report_cost_summary(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
@@ -4660,6 +4770,23 @@ def handler_factory(
                     response(self, 200, report_approval_efficiency(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/project-stage-matrix":
                     response(self, 200, report_project_stage_matrix(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/loans":
+                    query = parse_qs(parsed.query)
+                    loan_value = query.get("loan_id", [None])[0]
+                    state_value = query.get("apply_state", [None])[0]
+                    response(
+                        self,
+                        200,
+                        {"items": loans(pool, loan_value, state_value, max_response_rows)},
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    loan_value = parsed.path.rsplit("/", 1)[-1]
+                    items = loans(pool, loan_value, None, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "loan not found"}, origin)
+                    else:
+                        response(self, 200, {"loan": items[0], "offsets": items[0].get("offsets", [])}, origin)
                 elif parsed.path == "/api/company/delivery/progress":
                     query = parse_qs(parsed.query)
                     progress_value = query.get("progress_id", [None])[0]
