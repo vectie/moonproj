@@ -315,6 +315,15 @@ those capabilities as source parity.
    (one version, 26 indices, five dimensions, and profit summary); import,
    activation, valuation, cash, accounting, and tax remain gated. See
    [`ERP_INVESTMENT_RUNTIME_AUDIT.md`](ERP_INVESTMENT_RUNTIME_AUDIT.md).
+   The source-compatible dynamic-cost read is now connected as a separate
+   cost slice: Rabbita `/dynamic-cost` loads all seven imported `cb_cost` rows,
+   preserves the source A/B/C/D/E/F/G/H formula, and reports the imported
+   summary and coverage. This does not make the broader cost dashboard
+   complete: `/cost-dashboard-v3` still needs the source
+   `investment/projects/:projGuid/profit-actual-v2` hierarchy, CBS version
+   selection, and the missing budget/expense/change tables before it can be
+   promoted beyond the designer fixture. See
+   [`ERP_DYNAMIC_COST_RUNTIME_AUDIT.md`](ERP_DYNAMIC_COST_RUNTIME_AUDIT.md).
    Admin dictionary, bounded quality, audit, health, and user-roster reads are connected
    for the available governance rows (one group, five options, twelve quality
    rules with four unavailable dependencies, five imported users, two audit
@@ -356,12 +365,16 @@ those capabilities as source parity.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records twenty-one connected browser states and 38 connected API
-handlers across MDM organization/project, budget dictionary, investment,
-admin governance, expense, contract, payment, procurement, sales, invoice,
-delivery, dashboard v1, core reports, employee-loan, and workflow-definition
-reads,
-while 28 browser views and 32 API groups remain fixture-backed or read-model-only.
+currently records 27 connected browser states, 24 fixture-backed browser
+states, three read-model-only states, and two public states. Its API matrix
+records 30 connected API groups and 26 fixture/no-source groups across MDM
+organization/project, budget dictionary, investment,
+admin governance, dynamic cost, expense, contract, payment, procurement,
+sales, invoice, delivery, dashboard v1, core reports, employee-loan, and
+workflow-definition reads; `/cost-dashboard-v3` remains in the fixture-backed
+set because its source hierarchy is not yet available in PostgreSQL. The
+remaining browser views and API groups are explicitly tracked as fixture,
+read-model-only, public, or not-connected rather than counted as parity.
 Three additional fixed read-model routes are connected. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
 rather than additional platform hardening, controls the next work.
@@ -415,14 +428,20 @@ Execute the remainder in this order:
    links separate. Synthetic rehearsals remain design evidence until real
    source rows and user acceptance are attached. See
    `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
-8. Accept the bounded dashboard gate in
+8. Accept the connected dynamic-cost slice through production identity and
+   finance-owner reconciliation, then treat `/cost-dashboard-v3` as a separate
+   dependency wave. Implement its read adapter only after the source
+   `profit-actual-v2`, CBS version, budget, expense, and change-table exports
+   are present (or explicitly dispositioned); do not fill the missing hierarchy
+   with dashboard fixtures and do not call the v3 screen parity complete.
+9. Accept the bounded dashboard gate in
    `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
    through production identity, entity scope, and operations/finance KPI
    reconciliation. Then obtain the missing sales/fund/invoice/tender/warning/
    CBS tables (or owner-approved dispositions) before implementing v2/v3.
    Do not treat `/api/company/summary`, report reads, or the offline fixture
    fallback as cockpit parity.
-9. Run named-owner acceptance and a read-only shadow period for each accepted
+10. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
    controls, not as substitutes for functional work.
