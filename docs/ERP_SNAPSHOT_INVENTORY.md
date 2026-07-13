@@ -221,7 +221,7 @@ sixth typed-cohort argument it also emits `cutover-gate.json`, which can reach
 | `cb_htfkplan` | 4 | `legacy/payment_plan` | Typed staged |
 | `cb_loan_offset` | 1 | `legacy/advance_offset` | Mapped (separate offset cohort) |
 | `ep_project` | 2 | `legacy/project` | Mapped |
-| `jd_task` | 9 | `legacy/task` | Typed evidence projection |
+| `jd_task` | 9 | `legacy/task` | Typed evidence plus quarantined task-state observation |
 | `jd_task_report` | 1 | `legacy/task_report` | Typed evidence projection |
 | `mu_business_unit` | 7 | `legacy/business_unit` | Mapped |
 | `my_biz_param_option` | 5 | `legacy/parameter` | Typed staged |
@@ -265,6 +265,11 @@ dependency-checked task-state gate. They also preserve 40 non-empty typed rows
 (including task snapshots and lifecycle-instance history) as queryable evidence projections
 without treating them as business state. The next migration
 cohort should therefore proceed in this order:
+
+The standalone `scripts/company_task_state_exception_evidence_rehearsal.sh`
+also persists one source-bound observation for the project-1 dependency
+exception with exact SQLite/PostgreSQL parity and zero-insert replay. It does
+not change the owner decision or make the source state target-authoritative.
 
 1. reconcile the quarantined task-state/progress exception with the business
    owner;

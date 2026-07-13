@@ -90,3 +90,7 @@ The target also has a reviewed [employee expense and advance-offset cohort](ERP_
 for the advance, approved expense, and bounded offset relationship. The
 available snapshot has no accepted expense rows, so this rehearsal does not
 authorize production expense migration.
+
+The target also has a [task-state observed-evidence cohort](ERP_TASK_STATE_OBSERVED_EVIDENCE.md)
+for quarantined dependency conflicts. It preserves the source observation
+without treating it as target-owned task state or as a business-owner decision.

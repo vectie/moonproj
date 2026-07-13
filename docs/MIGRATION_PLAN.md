@@ -35,6 +35,11 @@ acceptance. The current fixture also proves
 two balanced commitment links plus one employee-advance opening source-to-
 journal link, transactionally persisted and idempotently replayed; they are
 traceability receipts, not cash release or accounting-book posting.
+The quarantined project-1 task-state exception is now also translated into one
+durable `project_task_state_observation` projection on SQLite/PostgreSQL. It
+retains every observed task row and exact dependency conflict, but leaves
+`decision_required=true` and `target_state_mutated=false`; the named owner
+decision remains a later gate.
 The separate advance-offset cohort also replays one explicit `cb_loan_offset`
 against the imported advance and passes projection parity; its accounting link
 remains a separate reviewed event. An optional payment-accounting cohort now
