@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING] [BASE_ACCOUNTING_MAPPING] [NOTIFICATION_PLAN] [ACCESS_PLAN] [ACCOUNTING_POSTING_MAPPING]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING] [BASE_ACCOUNTING_MAPPING] [NOTIFICATION_PLAN] [ACCESS_PLAN] [ACCOUNTING_POSTING_MAPPING] [OPENING_CONTROL_MAPPING]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -30,6 +30,7 @@ BASE_ACCOUNTING_MAPPING=${20:-}
 NOTIFICATION_PLAN=${21:-}
 ACCESS_PLAN=${22:-}
 ACCOUNTING_POSTING_MAPPING=${23:-}
+OPENING_CONTROL_MAPPING=${24:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -251,6 +252,19 @@ if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
   python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" "$TYPED_WORK_DIR/payment-promotion.json" "$PAYMENT_ACCOUNTING_MAPPING" "$WORK_DIR/payment-accounting-plan.json"
   moon run --target native cmd/accounting_link -- "$WORK_DIR/payment-accounting-plan.json" "$WORK_DIR/payment-accounting-receipt.json"
   apply_accounting payment-accounting "$WORK_DIR/payment-accounting-receipt.json"
+fi
+
+if [ -n "$OPENING_CONTROL_MAPPING" ]; then
+  python3 "$SCRIPT_DIR/erp_opening_control_plan.py" \
+    "$OPENING_CONTROL_MAPPING" "$WORK_DIR/opening-control-plan.json"
+  moon run --target native cmd/opening_control -- \
+    "$WORK_DIR/opening-control-plan.json" "$WORK_DIR/opening-control-receipt.json"
+  apply_projection opening-control "$WORK_DIR/opening-control-receipt.json"
+  python3 "$SCRIPT_DIR/company_opening_control_parity.py" \
+    "$WORK_DIR/opening-control-receipt.json" \
+    "$WORK_DIR/opening-control-postgres-exact-parity.json" \
+    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --database "$PG_DATABASE"
 fi
 
 echo "postgres_target=$PG_DATABASE"

@@ -224,6 +224,13 @@ an `accounting_posting` projection with exact SQLite/PostgreSQL parity and
 zero-insert replay. Cash release, tax filing, opening balances, period close,
 and production ownership remain separate. See
 [ERP_ACCOUNTING_POSTING.md](ERP_ACCOUNTING_POSTING.md).
+The twenty-sixth wrapper argument can supply a separately reviewed opening
+control map. `scripts/erp_opening_control_plan.py` and `cmd/opening_control`
+compile exact value/tolerance/unit/dimension controls through native
+`migration/control`; SQLite and PostgreSQL adapters compare complete candidates
+and replay idempotently. The controls are reconciliation evidence only:
+accounting posting, cash release, tax filing, and period close remain false.
+See [ERP_OPENING_CONTROLS.md](ERP_OPENING_CONTROLS.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period

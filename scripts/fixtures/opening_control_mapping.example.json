@@ -1,0 +1,49 @@
+{
+  "format": "moonproj.erp.opening-control-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:opening-control-synthetic-001",
+  "mapping_version": "opening-control-map-v1-review-001",
+  "run_id": "opening-control-run-2026-12",
+  "controls": [
+    {
+      "metric_id": "accounting:trial-balance:co-001:CNY",
+      "domain": "accounting",
+      "dimension": "book:book-co-001-cny|period:2026-12|currency:CNY",
+      "value": 0,
+      "tolerance": 0,
+      "unit": "minor_units"
+    },
+    {
+      "metric_id": "treasury:cash:co-001:CNY",
+      "domain": "treasury",
+      "dimension": "company:co-001|currency:CNY",
+      "value": 1000000,
+      "tolerance": 0,
+      "unit": "minor_units"
+    },
+    {
+      "metric_id": "receivable:open:co-001:CNY",
+      "domain": "receivable",
+      "dimension": "company:co-001|currency:CNY",
+      "value": 250000,
+      "tolerance": 100,
+      "unit": "minor_units"
+    },
+    {
+      "metric_id": "payable:open:co-001:CNY",
+      "domain": "payable",
+      "dimension": "company:co-001|currency:CNY",
+      "value": 300000,
+      "tolerance": 100,
+      "unit": "minor_units"
+    },
+    {
+      "metric_id": "tax:open:co-001:CNY",
+      "domain": "tax",
+      "dimension": "company:co-001|currency:CNY",
+      "value": 50000,
+      "tolerance": 0,
+      "unit": "minor_units"
+    }
+  ]
+}

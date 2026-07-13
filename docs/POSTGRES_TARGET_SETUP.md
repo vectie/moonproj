@@ -109,7 +109,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/accounting_link_mapping.json \
   scripts/fixtures/notification_plan.example.json \
   scripts/fixtures/access_plan.example.json \
-  scripts/fixtures/accounting_posting_mapping.example.json
+  scripts/fixtures/accounting_posting_mapping.example.json \
+  scripts/fixtures/opening_control_mapping.example.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -146,3 +147,10 @@ period through the native accounting book, and adds two `accounting_posting`
 projections with exact parity and idempotent replay. The resulting rehearsal
 reaches 117 projections; opening balances, tax, cash, period close, and
 production ownership remain open gates.
+The twenty-fourth argument supplies the reviewed opening-control map. It runs
+the native `migration/control` shadow compilation and persists five exact
+control candidates with value/tolerance/unit/dimension parity. The resulting
+rehearsal adds five aggregate projections and one receipt (122 projections in
+the demonstrated posting-plus-opening run); identical replay remains
+idempotent. These are reconciliation controls only and do not post accounting,
+release cash, file tax, or close a period.

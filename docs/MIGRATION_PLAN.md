@@ -90,6 +90,14 @@ the native `AccountingBook.post` gate and persists two source-bound commitment
 journal projections in the current rehearsal. SQLite/PostgreSQL parity and
 zero-insert replay pass, while opening balances, broader source journals, tax,
 cash settlement, period close, and production ownership remain separate gates.
+The opening-control boundary now provides the next explicit gate: a reviewed
+map compiles through native `migration/control`, preserves five synthetic
+control candidates with exact tolerances and units, and passes SQLite and
+PostgreSQL parity plus zero-insert replay. This proves the reconciliation
+mechanism, not a production opening position. The real opening workbook,
+finance-owner approval, entity/book/currency dimensions, and any subsequent
+opening journal or subledger events remain required before accounting opening
+state can be accepted.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

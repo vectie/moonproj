@@ -31,6 +31,7 @@ WARNING_SOURCE_MAPPING=${22:-}
 NOTIFICATION_PLAN=${23:-}
 ACCESS_PLAN=${24:-}
 ACCOUNTING_POSTING_MAPPING=${25:-}
+OPENING_CONTROL_MAPPING=${26:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -185,6 +186,30 @@ if [ -n "$MAPPING_PATH" ]; then
       echo "accounting_posting_replay=$ACCOUNTING_POSTING_REPLAY"
     fi
   fi
+fi
+
+if [ -n "$OPENING_CONTROL_MAPPING" ]; then
+  OPENING_CONTROL_PLAN="$WORK_DIR/opening-control-plan.json"
+  python3 "$SCRIPT_DIR/erp_opening_control_plan.py" \
+    "$OPENING_CONTROL_MAPPING" "$OPENING_CONTROL_PLAN"
+  echo "opening_control_plan=$OPENING_CONTROL_PLAN"
+  OPENING_CONTROL_RECEIPT="$WORK_DIR/opening-control-receipt.json"
+  moon run --target native cmd/opening_control -- \
+    "$OPENING_CONTROL_PLAN" "$OPENING_CONTROL_RECEIPT"
+  echo "opening_control_receipt=$OPENING_CONTROL_RECEIPT"
+  OPENING_CONTROL_APPLY="$WORK_DIR/opening-control-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$OPENING_CONTROL_RECEIPT" "$TARGET_DB" > "$OPENING_CONTROL_APPLY"
+  echo "opening_control_apply=$OPENING_CONTROL_APPLY"
+  OPENING_CONTROL_PARITY="$WORK_DIR/opening-control-parity.json"
+  python3 "$SCRIPT_DIR/company_opening_control_parity.py" \
+    "$OPENING_CONTROL_RECEIPT" "$OPENING_CONTROL_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "opening_control_parity=$OPENING_CONTROL_PARITY"
+  OPENING_CONTROL_REPLAY="$WORK_DIR/opening-control-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$OPENING_CONTROL_RECEIPT" "$TARGET_DB" > "$OPENING_CONTROL_REPLAY"
+  echo "opening_control_replay=$OPENING_CONTROL_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -587,6 +612,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   fi
   if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 2))
+  fi
+  if [ -n "$OPENING_CONTROL_MAPPING" ]; then
+    OPENING_CONTROL_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["controls"]))' "$WORK_DIR/opening-control-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + OPENING_CONTROL_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))
