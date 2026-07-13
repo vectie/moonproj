@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -23,6 +23,7 @@ DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${13:-}
 CONSOLIDATED_REPORT_PLAN=${14:-}
 INVESTMENT_BENCHMARK_PLAN=${15:-}
 WARNING_PLAN=${16:-}
+CBS_BUDGET_PLAN=${17:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -85,6 +86,12 @@ if [ -n "$CBS_COST_MAPPING" ]; then
   python3 "$SCRIPT_DIR/erp_cbs_cost_link_plan.py" "$EXPORT_DIR" "$CBS_COST_MAPPING" "$WORK_DIR/cbs-cost-plan.json"
   moon run --target native cmd/cbs_link -- "$WORK_DIR/cbs-cost-plan.json" "$WORK_DIR/cbs-cost-receipt.json"
   apply_projection cbs-cost "$WORK_DIR/cbs-cost-receipt.json"
+fi
+
+if [ -n "$CBS_BUDGET_PLAN" ]; then
+  moon run --target native cmd/cbs_budget -- \
+    "$CBS_BUDGET_PLAN" "$WORK_DIR/cbs-budget-receipt.json"
+  apply_projection cbs-budget "$WORK_DIR/cbs-budget-receipt.json"
 fi
 
 if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then

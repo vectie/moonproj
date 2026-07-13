@@ -145,9 +145,9 @@ existing ERP remains authoritative.
 | Workflow definition/instance projections | `operations/workflow` + `persistence/store` | Approval steps, actions, current step, and decision status persist as immutable projections. |
 | ERP workflow-assignment cohort | `scripts/erp_workflow_assignment_plan.py` + `cmd/workflow_assignment` + `operations/workflow` + `foundation/access` + `persistence/store` | Six `wf_step_assignee` rows receive explicit actor identities, process scopes, and capabilities; native promotion validates typed process/step attachment evidence, projections persist configuration-only/non-authorizing markers, delegated decisions retain bounded effective-window/revocation evidence, and SLA policies retain due/overdue observation evidence without approval mutation. Exact parity/replay persists the cohort and decision-time capability checks remain mandatory. |
 | CBS subject/version | `finance/cbs` | Draft/active/frozen subject dictionary with duplicate-code and target-total controls. |
-| CBS aggregate projections | `finance/cbs` + `persistence/store` | Subject versions persist targets, hierarchy, state, and totals as immutable revisioned projections. |
-| CBS cost-subject link | `finance/cbs` + `persistence/store` | Active/frozen CBS versions accept scoped source-to-subject cost links with explicit source identity and immutable link projections; the reviewed fixture cohort is migrated, while budget consumption and broader schema/source coverage remain separate. |
-| ERP CBS cost-link cohort | `scripts/erp_cbs_cost_link_plan.py` + `cmd/cbs_link` + `persistence/store` | An eighth, independently mapped cohort translates all 7 non-empty `cb_cost` rows into explicit CBS subject links and one deduplicated `cbs_version` configuration projection, persists exact parity, and replays idempotently without budget consumption or accounting posting. |
+| CBS aggregate projections | `finance/cbs` + `persistence/store` | Subject versions persist targets, hierarchy, state, and totals as immutable revisioned projections; subject-scoped budget ledgers persist reservation/consumption state separately. |
+| CBS cost-subject link | `finance/cbs` + `persistence/store` | Active/frozen CBS versions accept scoped source-to-subject cost links with explicit source identity and immutable link projections; separate budget-ledger reservation/consumption and broader schema/source coverage remain distinct. |
+| ERP CBS cost-link cohort | `scripts/erp_cbs_cost_link_plan.py` + `cmd/cbs_link` + `cmd/cbs_budget` + `persistence/store` | An eighth, independently mapped cohort translates all 7 non-empty `cb_cost` rows into explicit CBS subject links and one deduplicated `cbs_version` configuration projection, persists exact parity, and replays idempotently without budget consumption or accounting posting; an opt-in budget plan now persists subject-scoped control evidence. |
 | Agent boundary | `intelligence/agent_port` | MoonClaw-neutral request/result contracts with authority ceiling and idempotency. |
 | Warning findings | `intelligence/warning` + `cmd/warning` + `persistence/store` | Deterministic cost-overrun finding plus scoped acknowledge/resolve/suppress lifecycle; source-bound warning evidence persists as immutable projections with explicit non-notification, non-workflow, and non-cash markers. |
 | Investment analytics seed | `investment/analytics` | Deterministic moving average and trend fixture translated from Moonfish intent. |
@@ -172,7 +172,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 241 passing MoonBit tests across the new packages. The
+The current scaffold has 242 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -337,8 +337,9 @@ promotion of the remaining typed-staged rows, or production readiness.
    non-authorizing projection evidence are implemented, as is a separately
    reviewed pending-posting delivery recognition projection (the available
    source row remains quarantined). The reviewed CBS cost-link cohort now covers the seven fixture
-   cost rows; full CBS schema/source coverage and budget consumption remain
-   open. Invoice/receivable and milestone/settlement projections now
+   cost rows, and an opt-in CBS budget ledger now covers explicit
+   reservation/consumption controls; full CBS schema/source coverage and real
+   budget allocations remain open. Invoice/receivable and milestone/settlement projections now
    retain separate identities and cross-domain source links in the same store
    boundary.
 4. Extend the reviewed accounting-link/subledger reconciliation gate from the

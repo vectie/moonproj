@@ -64,6 +64,80 @@ pub fn CbsVersion::append_projection(
 }
 
 ///|
+fn cbs_budget_state_name(state : CbsBudgetReservationState) -> String {
+  match state {
+    CbsBudgetReservationState::Reserved => "reserved"
+    CbsBudgetReservationState::Consumed => "consumed"
+    CbsBudgetReservationState::Released => "released"
+  }
+}
+
+///|
+fn cbs_budget_reservations_json(
+  reservations : Array[CbsBudgetReservation],
+) -> Json {
+  let encoded : Array[Json] = []
+  for reservation in reservations {
+    encoded.push(
+      Json::object({
+        "reservation_id": Json::string(reservation.reservation_id),
+        "source_id": Json::string(reservation.source_id),
+        "version_id": Json::string(reservation.version_id),
+        "project_scope": Json::string(reservation.project_scope),
+        "subject_code": Json::string(reservation.subject_code),
+        "principal_id": Json::string(reservation.principal_id),
+        "amount_minor": Json::number(
+          reservation.amount.minor.to_double(),
+          repr=reservation.amount.minor.to_string(),
+        ),
+        "currency": Json::string(reservation.amount.currency),
+        "state": Json::string(cbs_budget_state_name(reservation.state)),
+      }),
+    )
+  }
+  Json::array(encoded)
+}
+
+///|
+pub fn CbsBudgetLedger::append_projection(
+  self : CbsBudgetLedger,
+  projection : @store.AggregateProjection,
+) -> @store.AggregateProjection raise CbsError {
+  if projection.aggregate_type != "cbs_budget_ledger" ||
+    projection.aggregate_id != self.version_id {
+    raise CbsError::ProjectionIdentity
+  }
+  let revision = projection.revision + 1
+  let payload = Json::object({
+    "version_id": Json::string(self.version_id),
+    "project_scope": Json::string(self.project_scope),
+    "principal_id": Json::string(self.principal_id),
+    "currency": Json::string(self.currency),
+    "reserved_minor": Json::number(
+      self.reserved_minor().to_double(),
+      repr=self.reserved_minor().to_string(),
+    ),
+    "consumed_minor": Json::number(
+      self.consumed_minor().to_double(),
+      repr=self.consumed_minor().to_string(),
+    ),
+    "reservations": cbs_budget_reservations_json(self.reservations),
+    "accounting_posted": Json::boolean(false),
+    "cash_released": Json::boolean(false),
+  }).stringify()
+  projection.append(
+    expected_revision=revision,
+    payload~,
+    source_event_id="company:cbs-budget-ledger:" +
+      self.version_id +
+      ":r" +
+      revision.to_string(),
+  ) catch {
+    error => raise CbsError::Projection(error)
+  }
+}
+
+///|
 fn cost_subject_link_projection_payload(link : CostSubjectLink) -> String {
   Json::object({
     "link_id": Json::string(link.link_id),

@@ -25,6 +25,7 @@ PRODUCTION_SERVICE_MANIFEST=${16:-}
 CONSOLIDATED_REPORT_PLAN=${17:-}
 INVESTMENT_BENCHMARK_PLAN=${18:-}
 WARNING_PLAN=${19:-}
+CBS_BUDGET_PLAN=${20:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -217,6 +218,25 @@ if [ -n "$CBS_COST_MAPPING" ]; then
   CBS_COST_REPLAY="$WORK_DIR/cbs-cost-link-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$CBS_COST_RECEIPT" "$TARGET_DB" > "$CBS_COST_REPLAY"
   echo "cbs_cost_link_replay=$CBS_COST_REPLAY"
+fi
+
+if [ -n "$CBS_BUDGET_PLAN" ]; then
+  CBS_BUDGET_RECEIPT="$WORK_DIR/cbs-budget-receipt.json"
+  moon run --target native cmd/cbs_budget -- \
+    "$CBS_BUDGET_PLAN" "$CBS_BUDGET_RECEIPT"
+  echo "cbs_budget_receipt=$CBS_BUDGET_RECEIPT"
+  CBS_BUDGET_APPLY="$WORK_DIR/cbs-budget-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$CBS_BUDGET_RECEIPT" "$TARGET_DB" > "$CBS_BUDGET_APPLY"
+  echo "cbs_budget_apply=$CBS_BUDGET_APPLY"
+  CBS_BUDGET_PARITY="$WORK_DIR/cbs-budget-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$CBS_BUDGET_RECEIPT" "$TARGET_DB" "$CBS_BUDGET_PARITY"
+  echo "cbs_budget_parity=$CBS_BUDGET_PARITY"
+  CBS_BUDGET_REPLAY="$WORK_DIR/cbs-budget-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$CBS_BUDGET_RECEIPT" "$TARGET_DB" > "$CBS_BUDGET_REPLAY"
+  echo "cbs_budget_replay=$CBS_BUDGET_REPLAY"
 fi
 
 if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then
@@ -425,6 +445,9 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$WARNING_PLAN" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$CBS_BUDGET_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then

@@ -191,6 +191,10 @@ The nineteenth wrapper argument can supply a reviewed warning plan; it is
 passed through `cmd/warning` and persists source-bound warning evidence
 without notification delivery, workflow mutation, or cash effects. See
 [ERP_WARNING_BOUNDARY.md](ERP_WARNING_BOUNDARY.md).
+The twentieth wrapper argument can supply a reviewed CBS budget plan; it is
+passed through `cmd/cbs_budget` and persists reservation/consumption evidence
+without accounting posting or cash release. See
+[ERP_CBS_BUDGET.md](ERP_CBS_BUDGET.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -297,9 +301,9 @@ importer.
 | `cb_contract_milestone` | Time/progress/event obligation | `operations/contract` | Milestone trigger, eligibility, achievement, payment, overdue, and cancellation states implemented. |
 | milestone snapshots and payment events | Contract milestone persistence | `operations/contract` + `persistence/store` | Plan/actual amounts, triggers, and reached/paid state serialize as revisioned projections. |
 | `cb_htfkplan`, `cb_htfk_apply` | Payment plan and application | `operations/contract` + `operations/settlement` + `migration/erp` + `cmd/promote` | The real fixture promotes 4 planned milestones and 3 requested settlements after an explicit two-contract performed-state replay; reached milestones retain their ID on requested settlements and on separate immutable projections, approval/payment flags remain evidence, and release plus accounting-event links require separate target authority. |
-| `cb_cost`, `cb_subject_dict`, CBS versions | Dynamic/project cost | `finance/cost` + `finance/cbs` + `migration/erp` | `B = D + E + F + G` deterministic calculation and target/commitment/actual/progress forecast implemented; the reviewed fixture maps all 7 non-empty `cb_cost` rows to explicit active/frozen CBS subjects with durable projections, while broader schema coverage and budget consumption remain pending. |
+| `cb_cost`, `cb_subject_dict`, CBS versions | Dynamic/project cost | `finance/cost` + `finance/cbs` + `migration/erp` | `B = D + E + F + G` deterministic calculation and target/commitment/actual/progress forecast implemented; the reviewed fixture maps all 7 non-empty `cb_cost` rows to explicit active/frozen CBS subjects with durable projections, and an opt-in budget plan now records subject-scoped reservation/consumption evidence without posting. Broader schema coverage remains pending. |
 | dynamic-cost and forecast snapshots | Cost persistence | `finance/cost` + `persistence/store` | Component totals, progress, forecast-at-completion, and signed variance serialize as revisioned projections. |
-| CBS subject/version snapshots | Cost structure persistence | `finance/cbs` + `cmd/cbs_link` + `persistence/store` | Hierarchical subjects, targets, totals, version state, and reviewed source-to-subject link projections serialize with source identity; the mapped cohort now persists one deduplicated active `cbs_version` configuration projection, while wider CBS schema and budget-control coverage remain pending. |
+| CBS subject/version snapshots | Cost structure persistence | `finance/cbs` + `cmd/cbs_link` + `cmd/cbs_budget` + `persistence/store` | Hierarchical subjects, targets, totals, version state, reviewed source-to-subject links, and separate budget-ledger projections serialize with source identity; accounting posting and cash release remain separate. |
 | budget checks and reservations | Budget availability and consumption | `finance` + `operations/commitment` | Reservation, consumption, release, and explicit commitment link implemented. |
 | `vcb_expense`, `cb_expense_split` | Expense and multidimensional allocation | `operations/expense` | Allocation, approval, advance offsetting, durable projection, and balanced recognition journal implemented. |
 | expense snapshots and recognition events | Expense persistence/accounting | `operations/expense` + `persistence/store` + `finance/accounting` | Allocations, offsets, approval state, balanced recognition journal, and source-to-journal event adapter serialize for reconciliation. |

@@ -1,0 +1,29 @@
+{
+  "format": "moonproj.company.cbs-budget-plan.v1",
+  "source_snapshot_id": "erp-snapshot:cbs-budget-001",
+  "mapping_version": "cbs-budget-map-v1",
+  "version_id": "cbs-budget-v1",
+  "project_scope": "project:p-001",
+  "principal_id": "co-001",
+  "currency": "CNY",
+  "subjects": [
+    {
+      "subject_id": "s-budget",
+      "code": "D",
+      "name": "Direct cost",
+      "parent_code": "",
+      "target_minor": 100000
+    }
+  ],
+  "links": [
+    {
+      "link_id": "cbs-budget-link-001",
+      "source_id": "cost-budget-001",
+      "subject_code": "D",
+      "reservation_id": "cbs-reservation-001",
+      "amount_minor": 60000,
+      "currency": "CNY",
+      "consume": true
+    }
+  ]
+}

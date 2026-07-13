@@ -243,6 +243,104 @@ test "CBS cost link rejects an unknown subject" {
 }
 
 ///|
+test "CBS budget ledger reserves consumes and persists subject control" {
+  let active = CbsVersion::new(
+      version_id="cbs-budget-v1",
+      project_scope="project:p-001",
+      actor_id="alice",
+      grant=cbs_grant("cbs:create", "project:p-001"),
+    )
+    .add_subject(
+      subject={
+        subject_id: "s-budget",
+        code: "D",
+        name: "Direct cost",
+        parent_code: "",
+        target_minor: 100000,
+      },
+      actor_id="alice",
+      grant=cbs_grant("cbs:edit", "project:p-001"),
+    )
+    .activate(
+      actor_id="alice",
+      grant=cbs_grant("cbs:activate", "project:p-001"),
+    )
+  let link = active.link_cost(
+    link_id="cbs-budget-link-001",
+    source_id="cost-budget-001",
+    subject_code="D",
+    amount=@finance.Money::new(minor=60000, currency="CNY"),
+    actor_id="alice",
+    grant=cbs_grant("cbs:cost:link", "project:p-001"),
+  )
+  let ledger = CbsBudgetLedger::new(
+    active,
+    principal_id="co-001",
+    currency="CNY",
+  )
+  let (reserved, reservation) = ledger.reserve(
+    active,
+    link,
+    reservation_id="cbs-reservation-001",
+    actor_id="alice",
+    grant=cbs_grant("cbs:budget:reserve", "project:p-001"),
+  )
+  assert_true(reservation.state == CbsBudgetReservationState::Reserved)
+  assert_eq(reserved.reserved_minor(), 60000L)
+  let consumed = reserved.consume(
+    reservation_id="cbs-reservation-001",
+    actor_id="alice",
+    grant=cbs_grant("cbs:budget:consume", "project:p-001"),
+  )
+  assert_eq(consumed.reserved_minor(), 0L)
+  assert_eq(consumed.consumed_minor(), 60000L)
+  let second_link = active.link_cost(
+    link_id="cbs-budget-link-002",
+    source_id="cost-budget-002",
+    subject_code="D",
+    amount=@finance.Money::new(minor=50000, currency="CNY"),
+    actor_id="alice",
+    grant=cbs_grant("cbs:cost:link", "project:p-001"),
+  )
+  try
+    consumed.reserve(
+      active,
+      second_link,
+      reservation_id="cbs-reservation-002",
+      actor_id="alice",
+      grant=cbs_grant("cbs:budget:reserve", "project:p-001"),
+    )
+  catch {
+    CbsError::BudgetExceeded => ()
+    _ => fail("wrong CBS budget error")
+  } noraise {
+    _ => fail("expected CBS budget error")
+  }
+  let store = @store.RecordStore::new(@schema.SchemaState::initial()).migrate(
+    @schema.MigrationStep::new(
+      version=1,
+      migration_id="V1__foundation",
+      checksum="sha256:one",
+      description="Create foundation tables",
+    ),
+  )
+  let projection = @store.AggregateProjection::new(
+    store,
+    aggregate_type="cbs_budget_ledger",
+    aggregate_id="cbs-budget-v1",
+  )
+  let projection = consumed.append_projection(projection)
+  match projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("60000"))
+      assert_true(latest.payload.contains("accounting_posted"))
+      assert_true(latest.payload.contains("cash_released"))
+    }
+    None => fail("expected CBS budget projection")
+  }
+}
+
+///|
 test "CBS versions persist subjects and target totals" {
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(

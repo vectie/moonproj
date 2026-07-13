@@ -23,12 +23,49 @@ pub(all) suberror CbsError {
   DuplicateCode
   Frozen
   InvalidTransition
+  InvalidBudgetState
+  DuplicateReservation
+  UnknownReservation
+  BudgetExceeded
+  CurrencyMismatch
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
 } derive(Eq, @debug.Debug)
 
 // Types and methods
+pub(all) struct CbsBudgetLedger {
+  version_id : String
+  project_scope : String
+  principal_id : String
+  currency : String
+  reservations : Array[CbsBudgetReservation]
+} derive(Eq, @debug.Debug)
+pub fn CbsBudgetLedger::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CbsError
+pub fn CbsBudgetLedger::consume(Self, reservation_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
+pub fn CbsBudgetLedger::consumed_minor(Self) -> Int64
+pub fn CbsBudgetLedger::new(CbsVersion, principal_id~ : String, currency~ : String) -> Self raise CbsError
+pub fn CbsBudgetLedger::release(Self, reservation_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
+pub fn CbsBudgetLedger::reserve(Self, CbsVersion, CostSubjectLink, reservation_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (Self, CbsBudgetReservation) raise CbsError
+pub fn CbsBudgetLedger::reserved_minor(Self) -> Int64
+
+pub(all) struct CbsBudgetReservation {
+  reservation_id : String
+  source_id : String
+  version_id : String
+  project_scope : String
+  subject_code : String
+  principal_id : String
+  amount : @finance.Money
+  state : CbsBudgetReservationState
+} derive(Eq, @debug.Debug)
+
+pub(all) enum CbsBudgetReservationState {
+  Reserved
+  Consumed
+  Released
+} derive(Eq, @debug.Debug)
+
 pub(all) struct CbsVersion {
   version_id : String
   project_scope : String
@@ -71,4 +108,3 @@ pub fn CostSubjectLink::append_projection(Self, @store.AggregateProjection) -> @
 // Type aliases
 
 // Traits
-
