@@ -270,6 +270,28 @@ Do not seed approval, supplier, or risk state locally; obtain a complete
 redacted export (or an owner-approved empty-data disposition) before claiming
 those capabilities as source parity.
 
+**Migration-plan checkpoint (2026-07-14).** The source snapshot was re-counted
+with `scripts/erp_snapshot_inventory.sh` and still hashes to
+`4ff5dd0ad0b75c6cfc572f99047fe41c5df4b8c48d3877f707fe063aec7dea03`: 26 tables
+and 120 rows. The current empty-data boundaries are now explicit: expense
+tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
+instance/action tables contain zero rows, while supplier tables
+(`srm_provider`, `srm_category`) are absent from the snapshot. The target
+parity register currently records 56 browser routes and 338 source API
+handlers (182 mutations), with 32 connected browser states, 22
+fixture-backed states (20 read-only plus 2 forms), 2 public states, 32
+connected API groups, and 24 fixture/no-source API groups.
+
+The latest bounded target reads are now part of the execution baseline, but
+not accepted production behavior: `/profile` reads the imported user and
+initiated documents; `/expenses` reads the source `vcb_expense` list and
+reports its truthful zero-row coverage; and `/dynamic-cost` reads all seven
+`cb_cost` rows using the source formula. Local expense/loan commands and the
+designer fallback remain separate from those source reads. This changes the
+next step from “add another screen” to “accept the connected batch through the
+real identity boundary and named owners, then obtain the missing export before
+opening broad fixture-backed surfaces.”
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
@@ -396,12 +418,22 @@ Execute the remainder in this order:
    for every ERP route family. Record each route as `matched`, `intentionally
    changed`, `blocked by missing source`, or `not implemented`; do not call the
    UI complete from screenshots of only the dashboard.
-2. Obtain and validate the missing 49-table credential-safe MySQL/JSON export
+2. Replace the local session/actor adapter with the reviewed production
+   identity, token issuer, rotation, persistence, deployment, and rollback
+   boundary for the currently connected bounded reads. Accept the imported
+   profile/initiated-documents, expense-list, dynamic-cost, project/MDM,
+   investment, governance, and report reads through the real gateway session
+   with named owner reconciliation. A truthful empty source response is an
+   accepted read result only when the owner accepts the source coverage; it is
+   not permission to seed fixture rows.
+3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export
    before opening another broad surface. The export must include empty tables,
    primary-key metadata, hashes, redaction results, and an owner-approved
    disposition for any still-empty workflow or supplier tables. Do not promote
-   or fabricate approval, supplier, or risk rows from the current backup.
-3. Close the procurement acceptance gap after the source-data decision.
+   or fabricate approval, supplier, risk, or expense rows from the current
+   backup. Keep the current 26-table/120-row snapshot as the immutable
+   rehearsal baseline and compare the new export before raw staging.
+4. Close the procurement acceptance gap after the source-data decision.
    The local supplier lifecycle/risk reads, tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
    command-state checks. Remaining procurement work is the source signature-
@@ -409,7 +441,7 @@ Execute the remainder in this order:
    replacement), a redacted source export, supplier identity mapping, browser
    acceptance, award-to-commitment acceptance, and procurement-owner sign-off.
    Imported rows remain read-only and no award creates a commitment implicitly.
-4. Treat the employee-loan command boundary as a finance-owner acceptance
+5. Treat the employee-loan command boundary as a finance-owner acceptance
    slice: verify authority grants, applicant ownership, replay/conflict
    behavior, bounded offset projections, and imported-row read-only behavior.
    Do not enable workflow synchronization until source `wf_process_instance`
@@ -417,10 +449,6 @@ Execute the remainder in this order:
    available. The Rabbita loan
    editor now emits the local create/submit/update/void commands; browser
    acceptance through production identity remains open.
-5. Replace the local session/actor adapter with the reviewed production
-   identity, token issuer, rotation, persistence, deployment, and rollback
-   boundary for every connected slice. Browser acceptance must exercise the
-   real gateway session and visible durable state changes.
 6. Finish delivery/progress acceptance before opening another broad surface.
    The local PostgreSQL reads, evidence- and authority-checked
    progress/output/task-report commands, gateway forwarding, and Rabbita
@@ -438,17 +466,18 @@ Execute the remainder in this order:
    links separate. Synthetic rehearsals remain design evidence until real
    source rows and user acceptance are attached. See
    `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
-8. Accept the connected dynamic-cost slice through production identity and
-   finance-owner reconciliation, then treat `/cost-dashboard-v3` as a separate
-   dependency wave. Implement its read adapter only after the source
+8. Treat `/cost-dashboard-v3` as a separate dependency wave after the
+   connected dynamic-cost read has been accepted through production identity
+   and finance-owner reconciliation. Implement its read adapter only after the source
    `profit-actual-v2`, CBS version, budget, expense, and change-table exports
    are present (or explicitly dispositioned); do not fill the missing hierarchy
    with dashboard fixtures and do not call the v3 screen parity complete.
-9. Accept the bounded dashboard gate in
+9. Accept the bounded dashboard v1 gate in
    `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
    through production identity, entity scope, and operations/finance KPI
    reconciliation. Then obtain the missing sales/fund/invoice/tender/warning/
-   CBS tables (or owner-approved dispositions) before implementing v2/v3.
+   CBS tables (or owner-approved dispositions) before implementing dashboard
+   v2/v3 and the remaining fixture-backed route families.
    Do not treat `/api/company/summary`, report reads, or the offline fixture
    fallback as cockpit parity.
 10. Run named-owner acceptance and a read-only shadow period for each accepted
