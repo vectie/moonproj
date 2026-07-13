@@ -34,6 +34,7 @@ ACCOUNTING_POSTING_MAPPING=${25:-}
 OPENING_CONTROL_MAPPING=${26:-}
 TAX_FILING_MAPPING=${27:-}
 BANK_STATEMENT_MAPPING=${28:-}
+FINANCING_FACILITY_MAPPING=${29:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -260,6 +261,30 @@ if [ -n "$BANK_STATEMENT_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" > "$BANK_STATEMENT_REPLAY"
   echo "bank_statement_replay=$BANK_STATEMENT_REPLAY"
+fi
+
+if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
+  FINANCING_FACILITY_PLAN="$WORK_DIR/financing-facility-plan.json"
+  python3 "$SCRIPT_DIR/erp_financing_facility_plan.py" \
+    "$FINANCING_FACILITY_MAPPING" "$FINANCING_FACILITY_PLAN"
+  echo "financing_facility_plan=$FINANCING_FACILITY_PLAN"
+  FINANCING_FACILITY_RECEIPT="$WORK_DIR/financing-facility-receipt.json"
+  moon run --target native cmd/financing_facility -- \
+    "$FINANCING_FACILITY_PLAN" "$FINANCING_FACILITY_RECEIPT"
+  echo "financing_facility_receipt=$FINANCING_FACILITY_RECEIPT"
+  FINANCING_FACILITY_APPLY="$WORK_DIR/financing-facility-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" > "$FINANCING_FACILITY_APPLY"
+  echo "financing_facility_apply=$FINANCING_FACILITY_APPLY"
+  FINANCING_FACILITY_PARITY="$WORK_DIR/financing-facility-parity.json"
+  python3 "$SCRIPT_DIR/company_financing_facility_parity.py" \
+    "$FINANCING_FACILITY_RECEIPT" "$FINANCING_FACILITY_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "financing_facility_parity=$FINANCING_FACILITY_PARITY"
+  FINANCING_FACILITY_REPLAY="$WORK_DIR/financing-facility-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" > "$FINANCING_FACILITY_REPLAY"
+  echo "financing_facility_replay=$FINANCING_FACILITY_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -674,6 +699,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$BANK_STATEMENT_MAPPING" ]; then
     BANK_STATEMENT_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["statements"]))' "$WORK_DIR/bank-statement-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + BANK_STATEMENT_COUNT))
+  fi
+  if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
+    FINANCING_FACILITY_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["facilities"]))' "$WORK_DIR/financing-facility-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + FINANCING_FACILITY_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

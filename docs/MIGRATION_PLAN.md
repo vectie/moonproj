@@ -112,6 +112,14 @@ movement matching, statement-to-ledger reconciliation, cash release, bank
 provider access, and accounting posting remain separate decisions. The
 available ERP snapshot has no bank-statement rows, so production statement
 export and owner acceptance remain open.
+The reviewed financing-facility boundary now preserves one synthetic corporate
+facility through native approval, activation, draw, repayment, and interest
+accrual, with exact SQLite/PostgreSQL parity and zero-insert replay. It is
+debt evidence only: lender calls, cash disbursement or settlement, accounting
+posting, tax treatment, covenant tracking, and period close remain separate.
+The available ERP snapshot has no financing-facility rows, so a sanitized
+facility export, lender/principal identity map, finance-owner review, and
+production debt policy are still required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

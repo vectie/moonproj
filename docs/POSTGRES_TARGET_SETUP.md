@@ -168,3 +168,9 @@ projection with candidate parity and idempotent replay. The demonstrated
 posting-plus-opening-plus-tax-plus-bank run reaches 125 aggregate projections.
 Movement matching, ledger reconciliation, bank-provider calls, cash release,
 accounting posting, and period close remain separate gates.
+The twenty-seventh argument supplies the reviewed financing-facility map. It
+runs native facility lifecycle and interest validation and persists one exact
+`financing_facility` projection with candidate parity and idempotent replay.
+The demonstrated full run reaches 126 aggregate projections. Lender calls,
+cash disbursement/settlement, accounting posting, tax treatment, and period
+close remain separate gates.

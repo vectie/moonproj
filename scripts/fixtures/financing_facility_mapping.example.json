@@ -1,0 +1,24 @@
+{
+  "format": "moonproj.erp.financing-facility-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:financing-facility-synthetic-001",
+  "mapping_version": "financing-facility-map-v1-review-001",
+  "run_id": "financing-facility-run-2026-12",
+  "facilities": [
+    {
+      "source_table": "financing_facility",
+      "source_id": "facility-source-001",
+      "facility_id": "facility-001",
+      "principal_id": "co-001",
+      "project_scope": "company:co-001",
+      "lender_id": "lender-001",
+      "currency": "CNY",
+      "limit_amount_minor": 1000000,
+      "annual_rate_bps": 650,
+      "draw_amount_minor": 600000,
+      "repay_amount_minor": 150000,
+      "interest_days": 30,
+      "expected_state": "partially_repaid"
+    }
+  ]
+}

@@ -246,6 +246,14 @@ opening/closing balance arithmetic and line identity through native
 timestamps, amounts, and directions. Movement matching, ledger reconciliation,
 cash release, and accounting posting remain false. See
 [ERP_BANK_STATEMENT.md](ERP_BANK_STATEMENT.md).
+The twenty-ninth SQLite wrapper argument, or the twenty-seventh PostgreSQL
+cohort-runner argument, can supply a separately reviewed financing-facility
+map. `scripts/erp_financing_facility_plan.py` and
+`cmd/financing_facility` replay the native facility lifecycle and interest
+calculation; exact adapters preserve limit, draw, repayment, outstanding
+principal, rate, state, and interest evidence. Lender calls, cash release,
+accounting posting, tax treatment, and period close remain false. See
+[ERP_FINANCING_FACILITY.md](ERP_FINANCING_FACILITY.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -377,7 +385,7 @@ importer.
 | bank/cash and reconciliation routes | Cash position and controlled movement | `finance/treasury` + `finance/reconciliation` | Account balance, approved release, overdraw protection, expected-versus-actual journal checks, bank-statement line import/matching, and separate line-to-ledger-event traceability implemented; external bank adapters remain pending. |
 | cash account/movement/statement snapshots | Treasury persistence | `finance/treasury` + `persistence/store` | Balances, movement direction, release/reconciliation state, statement lines, balance controls, line-to-movement matches, and line-to-accounting-event matches serialize as revisioned projections. |
 | `fund_plan`, `fund_dispatch`, loan/facility routes | Treasury plan, dispatch, and corporate financing | `finance/treasury` + `finance/financing` | Cash plan confirmation/actualization, controlled project dispatch, and facility approval/draw/interest/repayment controls implemented; draw and repayment actions now emit explicit balanced source-to-journal links without posting; lender statements and covenant persistence pending. |
-| financing facility snapshots | Financing persistence | `finance/financing` + `persistence/store` | Facility limits, draw, outstanding principal, rate, and repayment state serialize as revisioned projections. |
+| financing facility snapshots | Financing persistence | `finance/financing` + `cmd/financing_facility` + `persistence/store` | Facility limits, draw, outstanding principal, rate, repayment state, lifecycle events, and reviewed interest evidence serialize as revisioned projections with exact SQLite/PostgreSQL parity and replay; lender/cash/accounting effects remain separate. |
 | chart-of-accounts, journal, period-close routes | Accounting books and close control | `finance/accounting` + `finance/reconciliation` + `cmd/accounting_post` | Account/currency validation, open/soft-close/close periods, native balanced ledger posting, reviewed source-linked posting projections, and `close_reconciled` control implemented; the period-close artifact binds reconciliations to one source snapshot with a deterministic evidence hash; opening balances, subsidiary links, statement import, tax/cash effects, and financial statements remain pending. |
 | asset/register/depreciation routes | Asset ownership and depreciation/disposal | `finance/assets` | Capitalization, activation, impairment/disposal, residual-value controls, deterministic depreciation, balanced depreciation/derecognition journals, revisioned asset-register projections, and depreciation/disposal event links implemented; period-close integration and production asset-import cohorts remain pending. |
 | operational accounting event hooks | Source-to-journal traceability | `finance/accounting` | Validated source/journal links and duplicate event/source replay protection implemented. |

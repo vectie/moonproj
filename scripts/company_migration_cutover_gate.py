@@ -595,6 +595,7 @@ def run(
         work_dir / "opening-control-replay.json",
         work_dir / "tax-filing-replay.json",
         work_dir / "bank-statement-replay.json",
+        work_dir / "financing-facility-replay.json",
     ]
     replay_paths.extend(sorted((work_dir / "typed-cohorts").glob("*-projection-replay.json")))
     replay_values: list[dict[str, Any]] = []
