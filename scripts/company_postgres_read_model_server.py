@@ -35,6 +35,7 @@ from company_postgres_service import (
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
     supplier_source_list as service_supplier_source_list,
+    supplier_source_detail as service_supplier_source_detail,
     supplier_risk as service_supplier_risk,
     supplier_risk_board as service_supplier_risk_board,
     supplier_risk_board_source as service_supplier_risk_board_source,
@@ -268,6 +269,10 @@ def suppliers(args: argparse.Namespace, supplier_id: str | None) -> list[dict[st
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
     return service_supplier_source_list(_ReadModelPool(args), 500)
+
+
+def supplier_source_detail(args: argparse.Namespace, provider_guid: str) -> dict[str, Any]:
+    return service_supplier_source_detail(_ReadModelPool(args), provider_guid, 500)
 
 
 def supplier_risk(args: argparse.Namespace, supplier_id: str) -> dict[str, Any] | None:
@@ -571,6 +576,11 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))
+                    return
+                if re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    provider_guid = parsed.path.rsplit("/", 1)[-1]
+                    detail = supplier_source_detail(args, provider_guid)
+                    response(self, 200 if detail.get("success") is True else 404, detail)
                     return
                 if parsed.path == "/api/company/supplier-risk-board":
                     response(self, 200, {"items": supplier_risk_board(args)})

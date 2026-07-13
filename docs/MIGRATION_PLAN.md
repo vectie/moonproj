@@ -278,14 +278,16 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 33 connected browser states, 21
-fixture-backed states (19 read-only plus 2 forms), 2 public states, 33
-connected API groups, and 23 fixture/no-source API groups.
+handlers (182 mutations), with 34 connected browser states, 20
+fixture-backed states (19 read-only plus 1 form), 2 public states, 34
+connected API groups, and 22 fixture/no-source API groups.
 
-The source-handler action register now also marks the ERP `GET /srm/providers`
-read as connected through the separate `/api/company/srm/providers` boundary.
-The route-level count stays 33 because `/srm/providers` is already counted as
-one connected command-form page.
+The source-handler action register now marks the ERP `GET /srm/providers` and
+`GET /srm/providers/:guid` reads as connected through separate
+`/api/company/srm/providers[/{guid}]` boundaries.
+The route-level count now includes the connected `/srm/providers/:guid`
+source-detail read; the list remains a connected command-form page with a
+separate source master read.
 
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
@@ -300,7 +302,8 @@ opening broad fixture-backed surfaces.”
 The supplier provider list is now an additional bounded source read:
 `/srm/providers` loads `/api/company/srm/providers`, which reproduces the ERP
 provider-list shape from imported `srm_provider`, `srm_provider_bu`,
-`srm_category`, and related contract envelopes. It returns source coverage,
+`srm_category`, and related contract envelopes. The detail read also returns
+linked business units and historical contract evidence. Both return source coverage,
 `authorizing=false`, and an explicit empty list when the source supplier table
 is absent; it never falls back to local supplier projections for a successful
 empty source read. The local `/api/company/suppliers` command projection
@@ -416,9 +419,9 @@ existing local supplier projection/risk endpoint remains separate.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 33 connected browser states, 21 fixture-backed browser
+currently records 34 connected browser states, 20 fixture-backed browser
 states, no browser states classified as read-model-only, and two public
-states. Its API matrix records 33 connected API groups and 23 fixture/no-source
+states. Its API matrix records 34 connected API groups and 22 fixture/no-source
 groups across MDM
 organization/project, budget dictionary, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,
@@ -455,7 +458,7 @@ Execute the remainder in this order:
    backup. Keep the current 26-table/120-row snapshot as the immutable
    rehearsal baseline and compare the new export before raw staging.
 4. Close the procurement acceptance gap after the source-data decision.
-   The local supplier lifecycle/risk reads, source-compatible provider-list and risk-board reads,
+   The local supplier lifecycle/risk reads, source-compatible provider-list/detail and risk-board reads,
    tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
    command-state checks. Remaining procurement work is the source signature-

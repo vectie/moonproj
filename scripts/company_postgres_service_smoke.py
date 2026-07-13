@@ -131,6 +131,18 @@ def main() -> int:
             or supplier_source_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source supplier list read failed: {status} {supplier_source_payload}")
+        status, supplier_detail_payload = request(
+            args.port, "/api/company/srm/providers/SUP-00018", token=token,
+        )
+        if (
+            status != 404
+            or supplier_detail_payload is None
+            or supplier_detail_payload.get("data") is not None
+            or supplier_detail_payload.get("source_coverage", {}).get("srm_provider") != 0
+            or supplier_detail_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source supplier detail read failed: {status} {supplier_detail_payload}")
+        supplier_detail_status = status
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1621,6 +1633,7 @@ def main() -> int:
                     "expense_source_vcb_expense_rows": expense_source_payload.get("source_coverage", {}).get("vcb_expense"),
                     "supplier_source_rows": len(supplier_source_data or []),
                     "supplier_source_provider_rows": supplier_source_payload.get("source_coverage", {}).get("srm_provider"),
+                    "supplier_detail_source_status": supplier_detail_status,
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,

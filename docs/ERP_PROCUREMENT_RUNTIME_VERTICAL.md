@@ -34,6 +34,10 @@ rows are production data.
   master list. It reads only imported `srm_provider`, `srm_provider_bu`,
   `srm_category`, and related contract envelopes, and returns source coverage,
   explicit empty/missing tables, and `authorizing=false`;
+- `GET /api/company/srm/providers/<guid>` for the source-compatible provider
+  detail, including linked business units and historical contract evidence;
+  a missing provider returns a source-covered 404 rather than a fabricated
+  detail row;
 - `GET /api/company/srm/risk-board` for the source-compatible ERP risk-board
   envelope. It computes the source risk formula only from imported
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
@@ -56,7 +60,9 @@ authenticated gateway;
 keeps the local supplier projection/command state separate for command
 feedback and fallback. An empty source list remains an explicit empty table;
 it does not silently become fixture suppliers. The source-shaped supplier
-detail/new screen remains alongside the local command states. `/srm/risk-board`
+detail/new screen remains alongside the local command states. The detail route
+loads the source provider, BU, and contract envelope when available and keeps
+the designer form as its transport-failure fallback. `/srm/risk-board`
 loads the source-compatible risk envelope and shows an explicit empty/missing-
 source state for the available snapshot; supplier risk is a derived read and
 does not mutate qualification.
@@ -87,7 +93,8 @@ zero high-risk rows, two imported contracts, missing `srm_provider`,
 `srm_category`, and `cb_contract_milestone` coverage, and
 `authorizing=false`. It separately verifies the source supplier list returns no
 rows for the current snapshot, two imported contract envelopes, missing
-`srm_provider`/`srm_category` coverage, and `authorizing=false`. Imported
+`srm_provider`/`srm_category` coverage, and `authorizing=false`; the source
+detail route returns a covered 404 for the missing provider. Imported
 supplier and tender mutation attempts return 409 read-only rejections.
 
 Remaining gates are the supplier/tender command slice above, a redacted source

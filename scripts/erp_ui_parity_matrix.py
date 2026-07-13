@@ -235,6 +235,8 @@ def match_target(
                     return branch, "connected_project_read"
                 if prefix == "/loans/":
                     return branch, "connected_loan_command_form"
+                if prefix == "/srm/providers/":
+                    return branch, "connected_supplier_read"
                 return branch, "read_only_public" if prefix == "/share/" else "fixture_backed_form"
     return None, "not_implemented"
 
@@ -421,7 +423,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
-        and handler["path"] == "/providers"
+        and handler["path"] in {"/providers", "/providers/:guid"}
     ):
         return "connected_supplier_read", "accept_browser_supplier_scenario_and_production_identity"
     if (

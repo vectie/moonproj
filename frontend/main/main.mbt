@@ -143,6 +143,51 @@ struct SupplierRiskRow {
 }
 
 ///|
+struct SupplierDetailBusinessUnitRow {
+  bu_guid : String
+  bu_code : String
+  bu_name : String
+}
+
+///|
+struct SupplierDetailContractRow {
+  contract_guid : String
+  contract_code : String
+  contract_name : String
+  amount : String
+  sign_date : String
+  ht_cf_state : String
+}
+
+///|
+struct SupplierDetail {
+  provider_guid : String
+  provider_code : String
+  provider_name : String
+  short_name : String
+  legal_person : String
+  business_license : String
+  register_capital : String
+  business_scope : String
+  category_code : String
+  category_name : String
+  eval_result : String
+  inspect_state : String
+  audit_state : String
+  source : String
+  contact_person : String
+  contact_phone : String
+  address : String
+  qualifications : String
+  enabled : String
+  created_by : String
+  created_at : String
+  process_instance_guid : String
+  business_units : Array[SupplierDetailBusinessUnitRow]
+  contracts : Array[SupplierDetailContractRow]
+}
+
+///|
 struct SalesRow {
   aggregate_id : String
   primary : String
@@ -469,6 +514,9 @@ struct Model {
   supplier_state : String
   supplier_evaluation : String
   supplier_note : String
+  supplier_detail_loaded : Bool
+  supplier_detail : SupplierDetail?
+  supplier_detail_note : String
   sales_loaded : Bool
   sales_family : String
   sales_rows : Array[SalesRow]
@@ -646,6 +694,8 @@ enum Msg {
   SuppliersLoadFailed
   SupplierSourceLoaded(String)
   SupplierSourceLoadFailed
+  SupplierDetailLoaded(String)
+  SupplierDetailLoadFailed
   SupplierRiskLoaded(String)
   SupplierRiskLoadFailed
   CreateSupplier
@@ -766,6 +816,9 @@ fn initial_model() -> Model {
     supplier_state: "new",
     supplier_evaluation: "unrated",
     supplier_note: "供应商读模型尚未加载",
+    supplier_detail_loaded: false,
+    supplier_detail: None,
+    supplier_detail_note: "供应商源详情尚未加载 · 使用设计快照",
     sales_loaded: false,
     sales_family: "",
     sales_rows: [],
@@ -1302,6 +1355,121 @@ fn supplier_source_rows_from_body(
     _ => ()
   }
   (rows, missing_table_count.to_string())
+}
+
+///|
+fn supplier_detail_business_units(
+  value : Json,
+) -> Array[SupplierDetailBusinessUnitRow] {
+  let rows : Array[SupplierDetailBusinessUnitRow] = []
+  match value {
+    Json::Array(values) =>
+      for value in values {
+        match value {
+          Json::Object(fields) =>
+            rows.push({
+              bu_guid: json_object_text(fields, "buGuid", ""),
+              bu_code: json_object_text(fields, "buCode", ""),
+              bu_name: json_object_text(fields, "buName", ""),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn supplier_detail_contracts(value : Json) -> Array[SupplierDetailContractRow] {
+  let rows : Array[SupplierDetailContractRow] = []
+  match value {
+    Json::Array(values) =>
+      for value in values {
+        match value {
+          Json::Object(fields) =>
+            rows.push({
+              contract_guid: json_object_text(fields, "contractGuid", ""),
+              contract_code: json_object_text(fields, "contractCode", ""),
+              contract_name: json_object_text(fields, "contractName", ""),
+              amount: json_object_text(fields, "amount", "0"),
+              sign_date: json_object_text(fields, "signDate", ""),
+              ht_cf_state: json_object_text(fields, "htCfState", ""),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn supplier_detail_from_body(body : String) -> SupplierDetail? {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          match data.get("provider") {
+            Some(Json::Object(provider)) => {
+              let category_code = match provider.get("mainCategory") {
+                Some(Json::Object(category)) =>
+                  json_object_text(category, "code", "")
+                _ => ""
+              }
+              let category_name = match provider.get("mainCategory") {
+                Some(Json::Object(category)) =>
+                  json_object_text(category, "name", "")
+                _ => ""
+              }
+              Some({
+                provider_guid: json_object_text(provider, "providerGuid", ""),
+                provider_code: json_object_text(provider, "providerCode", ""),
+                provider_name: json_object_text(provider, "providerName", ""),
+                short_name: json_object_text(provider, "shortName", ""),
+                legal_person: json_object_text(provider, "legalPerson", ""),
+                business_license: json_object_text(
+                  provider, "businessLicense", "",
+                ),
+                register_capital: json_object_text(
+                  provider, "registerCapital", "",
+                ),
+                business_scope: json_object_text(provider, "businessScope", ""),
+                category_code,
+                category_name,
+                eval_result: json_object_text(
+                  provider, "evalResult", "未定级",
+                ),
+                inspect_state: json_object_text(provider, "inspectState", ""),
+                audit_state: json_object_text(provider, "auditState", ""),
+                source: json_object_text(provider, "source", ""),
+                contact_person: json_object_text(provider, "contactPerson", ""),
+                contact_phone: json_object_text(provider, "contactPhone", ""),
+                address: json_object_text(provider, "address", ""),
+                qualifications: json_object_text(provider, "qualifications", ""),
+                enabled: json_object_text(provider, "enabled", "true"),
+                created_by: json_object_text(provider, "createdBy", ""),
+                created_at: json_object_text(provider, "createdAt", ""),
+                process_instance_guid: json_object_text(
+                  provider, "processInstanceGuid", "",
+                ),
+                business_units: match data.get("serviceBus") {
+                  Some(value) => supplier_detail_business_units(value)
+                  _ => []
+                },
+                contracts: match data.get("contracts") {
+                  Some(value) => supplier_detail_contracts(value)
+                  _ => []
+                },
+              })
+            }
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
 }
 
 ///|
@@ -2879,6 +3047,20 @@ fn load_supplier_source(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_supplier_detail(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
+  let provider_guid = match path.rev_split_once("/") {
+    Some((_, value)) => value.to_owned()
+    _ => ""
+  }
+  @http.get("/api/company/srm/providers/" + provider_guid).expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierDetailLoaded(body))
+      Err(_) => emit(SupplierDetailLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_supplier_risk(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/srm/risk-board").expect_text(result => {
     match result {
@@ -3175,6 +3357,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_tenders(emit)
       } else if path == "/srm/providers" {
         load_supplier_source(emit)
+      } else if path.has_prefix("/srm/providers/") {
+        load_supplier_detail(emit, path)
       } else if path == "/srm/risk-board" {
         load_supplier_risk(emit)
       } else if path == "/sales/customers" {
@@ -3827,6 +4011,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           supplier_source_rows: [],
           supplier_source_missing_table_count: "0",
           supplier_source_note: "供应商源表读模型不可用 · 使用已审核投影或设计快照",
+        },
+      )
+    SupplierDetailLoaded(body) =>
+      match supplier_detail_from_body(body) {
+        Some(detail) =>
+          (
+            none,
+            {
+              ..model,
+              supplier_detail_loaded: true,
+              supplier_detail: Some(detail),
+              supplier_detail_note: "已加载 PostgreSQL 供应商源详情 · 关联组织与合同只读",
+            },
+          )
+        None =>
+          (
+            none,
+            {
+              ..model,
+              supplier_detail_loaded: false,
+              supplier_detail: None,
+              supplier_detail_note: "供应商源详情为空 · 使用设计快照",
+            },
+          )
+      }
+    SupplierDetailLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_detail_loaded: false,
+          supplier_detail: None,
+          supplier_detail_note: "供应商源详情不可用 · 使用设计快照",
         },
       )
     SupplierRiskLoaded(body) => {
@@ -8977,47 +9194,227 @@ fn loan_editor_view(
 }
 
 ///|
-fn provider_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn fallback_supplier_detail() -> SupplierDetail {
+  {
+    provider_guid: "SUP-00018",
+    provider_code: "SUP-00018",
+    provider_name: "中建三局集团有限公司",
+    short_name: "中建三局",
+    legal_person: "",
+    business_license: "91110000MA00XXXXXX",
+    register_capital: "",
+    business_scope: "工程施工",
+    category_code: "construction",
+    category_name: "工程施工",
+    eval_result: "合格",
+    inspect_state: "正常",
+    audit_state: "已审核",
+    source: "设计快照",
+    contact_person: "周强",
+    contact_phone: "138****9001",
+    address: "",
+    qualifications: "",
+    enabled: "true",
+    created_by: "",
+    created_at: "",
+    process_instance_guid: "",
+    business_units: [],
+    contracts: [
+      {
+        contract_guid: "CT-SNAPSHOT-001",
+        contract_code: "HT-CD-260701",
+        contract_name: "成都和锦里总包工程",
+        amount: "86200000",
+        sign_date: "2026-07-01",
+        ht_cf_state: "履行中",
+      },
+      {
+        contract_guid: "CT-SNAPSHOT-002",
+        contract_code: "HT-TJ-260501",
+        contract_name: "天津海教园一期工程",
+        amount: "18600000",
+        sign_date: "2026-05-01",
+        ht_cf_state: "履行中",
+      },
+    ],
+  }
+}
+
+///|
+fn supplier_detail_business_unit_summary(
+  rows : Array[SupplierDetailBusinessUnitRow],
+) -> String {
+  let mut summary = ""
+  for row in rows {
+    if summary != "" {
+      summary = summary + "；"
+    }
+    let label = if row.bu_name == "" { row.bu_code } else { row.bu_name }
+    let suffix = if row.bu_guid == "" { "" } else { " (" + row.bu_guid + ")" }
+    summary = summary + label + suffix
+  }
+  if summary == "" {
+    "源表未提供"
+  } else {
+    summary
+  }
+}
+
+///|
+fn supplier_source_eval_label(value : String) -> String {
+  match value {
+    "已评审" | "reviewed" => "已评审"
+    "合格" | "qualified" => "合格"
+    "不合格" | "unqualified" => "不合格"
+    "战略" | "strategic" => "战略"
+    "黑名单" => "黑名单"
+    _ => "未定级"
+  }
+}
+
+///|
+fn supplier_detail_contract_table(detail : SupplierDetail) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if detail.contracts.length() == 0 {
+    rows.push([
+      "—", "本次 ERP 源详情没有关联合同", "—", "—", "—", "—",
+    ])
+  } else {
+    for row in detail.contracts {
+      let date_suffix = if row.sign_date == "" {
+        ""
+      } else {
+        " · " + row.sign_date
+      }
+      let contract_state = if row.ht_cf_state == "" {
+        "—"
+      } else {
+        row.ht_cf_state
+      }
+      rows.push([
+        row.contract_code + " · " + row.contract_guid,
+        row.contract_name,
+        row.amount + date_suffix,
+        "—",
+        supplier_source_eval_label(detail.eval_result),
+        contract_state,
+      ])
+    }
+  }
+  data_table(
+    [
+      "合同编号", "合同名称", "合同金额", "已付款", "最近评价",
+      "履约状态",
+    ],
+    rows,
+  )
+}
+
+///|
+fn provider_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let detail = match model.supplier_detail {
+    Some(value) => value
+    None => fallback_supplier_detail()
+  }
+  let source_note = if model.supplier_detail_loaded {
+    model.supplier_detail_note
+  } else {
+    "设计快照 · " + model.supplier_detail_note
+  }
+  let status = if detail.enabled == "true" || detail.enabled == "1" {
+    "正常"
+  } else {
+    "暂停"
+  }
   page_shell(
     "供应商详情",
     "SRM / PROVIDER DETAIL",
-    "SUP-00018 · 中建三局集团有限公司 · 工程施工",
+    detail.provider_code +
+    " / " +
+    detail.provider_guid +
+    " · " +
+    detail.provider_name +
+    (if detail.short_name == "" {
+      ""
+    } else {
+      "（" + detail.short_name + "）"
+    }) +
+    " · " +
+    (if detail.category_name == "" {
+      detail.category_code
+    } else {
+      detail.category_name
+    }),
     [detail_toolbar(emit, "/srm/providers", "保存供应商")],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong(
+          if model.supplier_detail_loaded {
+            "PostgreSQL 供应商源详情已连接"
+          } else {
+            "供应商详情设计快照"
+          },
+        ),
+        span(" · " + source_note),
+      ]),
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("供应商基本信息"),
-          span(class="erp-status-tag is-success", "正常"),
+          span(class="erp-status-tag is-success", status),
         ],
         div(class="erp-form-grid") <| [
-          form_field("供应商编码", "SUP-00018", "供应商编码"),
+          form_field("供应商编码", detail.provider_code, "供应商编码"),
+          form_field("供应商名称", detail.provider_name, "供应商名称"),
           form_field(
-            "供应商名称", "中建三局集团有限公司", "供应商名称",
+            "类别",
+            if detail.category_name == "" {
+              detail.category_code
+            } else {
+              detail.category_name
+            },
+            "供应商类别",
           ),
-          form_field("类别", "工程施工", "供应商类别"),
           form_field(
-            "统一社会信用代码", "91110000MA00XXXXXX", "统一社会信用代码",
+            "统一社会信用代码",
+            detail.business_license,
+            "统一社会信用代码",
           ),
-          form_field("联系人", "周强", "联系人"),
-          form_field("联系电话", "138****9001", "联系电话"),
+          form_field("联系人", detail.contact_person, "联系人"),
+          form_field("联系电话", detail.contact_phone, "联系电话"),
+          form_field("法人代表", detail.legal_person, "法人代表"),
+          form_field("注册资本", detail.register_capital, "注册资本"),
+          form_field(
+            "服务组织",
+            supplier_detail_business_unit_summary(detail.business_units),
+            "关联组织",
+          ),
+          form_field("服务范围", detail.business_scope, "服务范围"),
+          form_field(
+            "资格评价",
+            supplier_source_eval_label(detail.eval_result),
+            "资格评价",
+          ),
+          form_field("考察状态", detail.inspect_state, "考察状态"),
+          form_field("审核状态", detail.audit_state, "审核状态"),
+          form_field("来源", detail.source, "来源"),
+          form_field("地址", detail.address, "地址"),
+          form_field("资质", detail.qualifications, "资质"),
+          form_field("创建人", detail.created_by, "创建人"),
+          form_field("创建时间", detail.created_at, "创建时间"),
+          form_field(
+            "流程实例",
+            detail.process_instance_guid,
+            "流程实例",
+          ),
         ],
       ],
       table_panel(
         "合作与评价",
-        "最近评价 A · 低风险",
-        data_table(
-          [
-            "项目", "合同数", "合同金额", "已付款", "最近评价", "履约状态",
-          ],
-          [
-            [
-              "成都和锦里", "8", "¥86,200,000", "¥24,600,000", "A", "正常",
-            ],
-            [
-              "天津海教园一期", "3", "¥18,600,000", "¥6,280,000", "A", "正常",
-            ],
-          ],
-        ),
+        source_note +
+        " · 合同关联 " +
+        detail.contracts.length().to_string() +
+        " 笔",
+        supplier_detail_contract_table(detail),
       ),
     ],
   )
@@ -10092,7 +10489,7 @@ fn business_view(
   } else if path.has_prefix("/loans/") && path != "/loans/new" {
     loan_editor_view(emit, model, true)
   } else if path.has_prefix("/srm/providers/") {
-    provider_detail_view(emit)
+    provider_detail_view(emit, model)
   } else {
     match path {
       "/dashboard-v3" => dashboard_view(emit, initial_model())
@@ -10118,7 +10515,7 @@ fn business_view(
       "/dynamic-cost" => dynamic_cost_view(emit, model)
       "/tender" => tender_view(emit, model)
       "/srm/providers" => srm_providers_view(emit, model)
-      "/srm/providers/SUP-00018" => provider_detail_view(emit)
+      "/srm/providers/SUP-00018" => provider_detail_view(emit, model)
       "/srm/risk-board" => srm_risk_view(emit, model)
       "/cbs/dict" => cbs_view(path)
       "/cbs/versions" => cbs_view(path)
