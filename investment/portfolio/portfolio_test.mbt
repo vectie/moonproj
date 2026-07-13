@@ -218,6 +218,75 @@ test "portfolio valuation link rejects an unchanged market value" {
 }
 
 ///|
+test "portfolio attributes per-position performance and persists evidence" {
+  let portfolio = Portfolio::new(
+      portfolio_mandate(),
+      portfolio_id="portfolio-performance",
+      actor_id="alice",
+      grant=portfolio_grant("investment:portfolio:create"),
+    )
+    .add_position(
+      {
+        position_id: "position-performance-001",
+        mandate_id: "mandate-portfolio",
+        instrument: "FUND-001",
+        quantity: 100L,
+        cost_basis: @finance.Money::new(minor=300000, currency="CNY"),
+      },
+      actor_id="alice",
+      grant=portfolio_grant("investment:portfolio:add"),
+    )
+    .add_position(
+      {
+        position_id: "position-performance-002",
+        mandate_id: "mandate-portfolio",
+        instrument: "FUND-002",
+        quantity: 50L,
+        cost_basis: @finance.Money::new(minor=100000, currency="CNY"),
+      },
+      actor_id="alice",
+      grant=portfolio_grant("investment:portfolio:add"),
+    )
+  let report = portfolio.attribute_performance(period_id="2026-07", quotes=[
+    {
+      instrument: "FUND-001",
+      price: @finance.Money::new(minor=3200, currency="CNY"),
+    },
+    {
+      instrument: "FUND-002",
+      price: @finance.Money::new(minor=1800, currency="CNY"),
+    },
+  ])
+  assert_eq(report.total_cost_basis.minor, 400000L)
+  assert_eq(report.total_market_value.minor, 410000L)
+  assert_eq(report.gain_loss.minor, 10000L)
+  assert_eq(report.return_bps, 250L)
+  assert_eq(report.positions.length(), 2)
+  assert_eq(report.positions[1].gain_loss.minor, -10000L)
+  let schema = @schema.SchemaState::initial()
+  let migration = @schema.MigrationStep::new(
+    version=1,
+    migration_id="V1__foundation",
+    checksum="sha256:one",
+    description="Create foundation tables",
+  )
+  let store = @store.RecordStore::new(schema).migrate(migration)
+  let projection = @store.AggregateProjection::new(
+    store,
+    aggregate_type="investment_performance",
+    aggregate_id="portfolio-performance:2026-07",
+  )
+  let projection = report.append_projection(projection)
+  match projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("return_bps"))
+      assert_true(latest.payload.contains("-10000"))
+    }
+    None => fail("expected investment performance projection")
+  }
+}
+
+///|
 test "portfolio stress scenarios and projections preserve mandate evidence" {
   let portfolio = Portfolio::new(
     portfolio_mandate(),

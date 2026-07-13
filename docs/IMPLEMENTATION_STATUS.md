@@ -154,7 +154,7 @@ existing ERP remains authoritative.
 | Investment mandate/proposal/position projections | `investment/domain` + `persistence/store` | Mandate limits, Moonfish analysis evidence, proposal states, executed positions, validated acquisition journals, and acquisition accounting-event links persist as immutable revisioned evidence. |
 | Versioned investment model | `investment/model` + `persistence/store` | ERP version/index rows become a governed local model with duplicate/version checks, source-value preservation, explicit authority, and revisioned projections. |
 | ERP investment-model cohort promotion | `migration/erp` + `investment/model` | Version mappings isolate index rows, require explicit principal/grants, and reject duplicate versions or stray indexes before promotion. |
-| Investment portfolio and valuation | `investment/portfolio` | Mandate-bound position book, exposure limits, explicit quote valuation, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
+| Investment portfolio and valuation | `investment/portfolio` | Mandate-bound position book, exposure limits, explicit quote valuation, deterministic period-scoped per-position performance attribution, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
 | Portfolio risk scenarios and projections | `investment/portfolio` + `persistence/store` | Shock-based stress reports, loss limits, portfolio position snapshots, and mandate breach flags persist as governed evidence. |
 | Reconciliation report | `finance/reconciliation` | Expected-versus-actual lines and journal-side comparison with explicit currency and balance errors. |
 | Tax obligation | `finance/tax` | Rate-based calculation, review, filing, payment, voiding, authority-scoped events, and a reviewed-state tax-obligation recognition-event adapter that produces a balanced source-to-journal link without posting. |
@@ -170,7 +170,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 226 passing MoonBit tests across the new packages. The
+The current scaffold has 227 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -344,9 +344,10 @@ promotion of the remaining typed-staged rows, or production readiness.
    filing records, and disposal derecognition journals/accounting-event links
    are now implemented, while period-close integration still needs production
    statement and subledger evidence.
-6. Add investment formula semantics and performance attribution around the
-   persistent model, mandate, proposal, position, risk, and valuation
-   projections; acquisition and mark-to-market valuation event links are now
-   implemented, but full performance/accounting reconciliation remains open.
+6. Add richer investment formula semantics and external benchmark/performance
+   reconciliation around the persistent model, mandate, proposal, position,
+   risk, valuation, and now deterministic period-performance projections;
+   acquisition and mark-to-market valuation event links are implemented, but
+   full performance/accounting reconciliation remains open.
 7. Add sanitized ERP export fixtures, opening-balance workbooks, and
    cross-domain parity reports for each migration cohort.

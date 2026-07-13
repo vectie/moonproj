@@ -35,6 +35,19 @@ pub(all) struct MarketQuote {
   price : @finance.Money
 } derive(Eq, @debug.Debug)
 
+pub(all) struct PerformanceReport {
+  portfolio_id : String
+  period_id : String
+  currency : String
+  total_cost_basis : @finance.Money
+  total_market_value : @finance.Money
+  gain_loss : @finance.Money
+  return_bps : Int64
+  positions : Array[PositionPerformance]
+  within_mandate : Bool
+} derive(Eq, @debug.Debug)
+pub fn PerformanceReport::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+
 pub(all) struct Portfolio {
   portfolio_id : String
   mandate_id : String
@@ -47,10 +60,19 @@ pub(all) struct Portfolio {
 } derive(Eq, @debug.Debug)
 pub fn Portfolio::add_position(Self, @domain.InvestmentPosition, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PortfolioError
 pub fn Portfolio::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+pub fn Portfolio::attribute_performance(Self, period_id~ : String, quotes~ : Array[MarketQuote]) -> PerformanceReport raise PortfolioError
 pub fn Portfolio::new(@domain.InvestmentMandate, portfolio_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PortfolioError
 pub fn Portfolio::stress(Self, Array[MarketQuote], RiskScenario) -> StressReport raise PortfolioError
 pub fn Portfolio::to_valuation_event(Self, valuation_id~ : String, event_id~ : String, event_type~ : String, quotes~ : Array[MarketQuote], investment_account~ : String, gain_account~ : String, loss_account~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @accounting.AccountingEvent raise PortfolioError
 pub fn Portfolio::value(Self, Array[MarketQuote]) -> ValuationReport raise PortfolioError
+
+pub(all) struct PositionPerformance {
+  position_id : String
+  instrument : String
+  cost_basis : @finance.Money
+  market_value : @finance.Money
+  gain_loss : @finance.Money
+} derive(Eq, @debug.Debug)
 
 pub(all) struct RiskScenario {
   scenario_id : String
