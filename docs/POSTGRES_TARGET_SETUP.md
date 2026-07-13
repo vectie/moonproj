@@ -39,8 +39,8 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
 ```
 
 The local target was verified on the available redacted ERP snapshot with
-schema version `4`, `120` staged and durable raw records, `93` aggregate
-projections, `3` reviewed accounting-event links, and `13` cohort receipts.
+schema version `4`, `120` staged and durable raw records, `109` aggregate
+projections, `7` reviewed accounting-event links, and `19` cohort receipts.
 Replaying the same staging artifact and reviewed receipts inserted `0` rows
 and did not create duplicate receipts. Native aggregate
 promotion receipts can now be persisted through
@@ -59,4 +59,21 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
 
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/company_postgres_accounting_link_apply.py /path/to/accounting-link-receipt.json
+```
+
+The repeatable cohort runner accepts the reviewed optional maps after the
+core arguments. Supplying the CBS, workflow-assignment, delivery-progress,
+advance-offset, and payment-accounting maps runs those cohorts through native
+promotion, PostgreSQL parity, and replay as well:
+
+```text
+PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
+  scripts/company_postgres_cohort_rehearsal.sh \
+  /path/to/export scripts/fixtures/typed_cohort_mapping.json \
+  /path/to/raw-staging.ndjson moonproj /tmp/moonproj-pg-rehearsal \
+  scripts/fixtures/cbs_cost_link_mapping.json \
+  scripts/fixtures/workflow_assignment_mapping.json \
+  scripts/fixtures/delivery_progress_mapping.json \
+  scripts/fixtures/advance_offset_mapping.json \
+  scripts/fixtures/payment_accounting_link_mapping.json
 ```

@@ -129,7 +129,9 @@ explicit missing/extra findings.
 The PostgreSQL target now has the equivalent
 `company_postgres_projection_apply.py` and
 `company_postgres_projection_parity.py` adapters. The configured local target
-has 93 reviewed aggregate projections across the base and ten typed cohorts;
+has 109 reviewed aggregate projections across the base, ten typed cohorts, and
+the optional CBS, workflow-assignment, delivery-progress, and advance-offset
+cohorts;
 each receipt reopens as `shadow_verified` and an identical replay inserts zero
 rows. PostgreSQL receipt state is separate from cash, accounting posting, and
 business ownership.
