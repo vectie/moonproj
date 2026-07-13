@@ -78,6 +78,8 @@ fn initial_model() -> Model {
 fn title_for(path : String) -> String {
   match path {
     "/dashboard" => "集团驾驶舱"
+    "/dashboard-v3" => "集团驾驶舱"
+    "/cockpit" => "集团驾驶舱"
     "/ai-hub" => "AI 工作台"
     "/ai-stats" => "AI 工作大盘"
     "/projects" => "项目主数据"
@@ -130,7 +132,22 @@ fn title_for(path : String) -> String {
     "/webhook-config" => "Webhook 三平台"
     "/profile" => "个人中心"
     "/share" => "分享报表"
-    _ => "项目全周期管理"
+    _ =>
+      if path.has_prefix("/projects/") {
+        "项目全周期"
+      } else if path.has_prefix("/contracts/") {
+        "合同详情"
+      } else if path.has_prefix("/expenses/") {
+        "报销详情"
+      } else if path.has_prefix("/loans/") {
+        "借款详情"
+      } else if path.has_prefix("/srm/providers/") {
+        "供应商详情"
+      } else if path.has_prefix("/share/") {
+        "分享报表"
+      } else {
+        "项目全周期管理"
+      }
   }
 }
 
@@ -3208,64 +3225,75 @@ fn admin_view() -> @html.Html {
 
 ///|
 fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
-  match path {
-    "/ai-hub" => ai_hub_view()
-    "/ai-stats" => ai_stats_view()
-    "/projects" => project_view(emit)
-    "/projects/CD-HJL" => project_detail_view(emit)
-    "/project-plan" => project_plan_view()
-    "/project/progress" => progress_view()
-    "/tasks" => tasks_view()
-    "/sales/customers" => sales_customers_view()
-    "/sales/subscriptions" => sales_subscriptions_view(emit)
-    "/sales/contracts" => sales_contracts_view(emit)
-    "/sales/mortgages" => sales_mortgages_view()
-    "/sales/revenues" => sales_revenues_view(emit)
-    "/marketing" => marketing_view()
-    "/contracts" => contracts_view(emit)
-    "/contracts/HT-CD-260701" => contract_detail_view(emit)
-    "/payment-applies" => payment_applies_view()
-    "/cost-dashboard-v3" => cost_dashboard_view()
-    "/investment" => investment_view()
-    "/dynamic-cost" => dynamic_cost_view()
-    "/tender" => tender_view()
-    "/srm/providers" => srm_providers_view(emit)
-    "/srm/providers/SUP-00018" => provider_detail_view(emit)
-    "/srm/risk-board" => srm_risk_view()
-    "/cbs/dict" => cbs_view(path)
-    "/cbs/versions" => cbs_view(path)
-    "/cbs/r0-queue" => cbs_view(path)
-    "/cbs/approval-config" => cbs_view(path)
-    "/fund/plan" => fund_plan_view()
-    "/invoice" => invoice_view()
-    "/expenses" => expenses_view(emit)
-    "/expenses/new" => expense_editor_view(emit, false)
-    "/expenses/EXP-260712-008" => expense_editor_view(emit, true)
-    "/loans" => loans_view(emit)
-    "/loans/new" => loan_editor_view(emit, false)
-    "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
-    "/reports" => reports_view(emit)
-    "/report-builder" => report_builder_view()
-    "/warning" => warning_view()
-    "/warning-rules" => warning_rules_view()
-    "/cashflow" => cashflow_view()
-    "/inbox" => inbox_view()
-    "/attachments" => attachments_view()
-    "/notify-config" => notify_view()
-    "/audit-log" => audit_view()
-    "/error-log" => error_view()
-    "/system-health" => health_view()
-    "/users" => users_view()
-    "/admin" => admin_view()
-    "/ocr-config" => ocr_view()
-    "/webhook-config" => webhook_view()
-    "/profile" => profile_view()
-    _ =>
-      if path.has_prefix("/share/") {
-        share_view(path)
-      } else {
-        placeholder_view(path)
-      }
+  if path.has_prefix("/share/") {
+    share_view(path)
+  } else if path.has_prefix("/projects/") {
+    project_detail_view(emit)
+  } else if path.has_prefix("/contracts/") {
+    contract_detail_view(emit)
+  } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
+    expense_editor_view(emit, true)
+  } else if path.has_prefix("/loans/") && path != "/loans/new" {
+    loan_editor_view(emit, true)
+  } else if path.has_prefix("/srm/providers/") {
+    provider_detail_view(emit)
+  } else {
+    match path {
+      "/dashboard-v3" => dashboard_view(emit, initial_model())
+      "/cockpit" => dashboard_view(emit, initial_model())
+      "/ai-hub" => ai_hub_view()
+      "/ai-stats" => ai_stats_view()
+      "/projects" => project_view(emit)
+      "/projects/CD-HJL" => project_detail_view(emit)
+      "/project-plan" => project_plan_view()
+      "/project/progress" => progress_view()
+      "/tasks" => tasks_view()
+      "/sales/customers" => sales_customers_view()
+      "/sales/subscriptions" => sales_subscriptions_view(emit)
+      "/sales/contracts" => sales_contracts_view(emit)
+      "/sales/mortgages" => sales_mortgages_view()
+      "/sales/revenues" => sales_revenues_view(emit)
+      "/marketing" => marketing_view()
+      "/contracts" => contracts_view(emit)
+      "/contracts/HT-CD-260701" => contract_detail_view(emit)
+      "/payment-applies" => payment_applies_view()
+      "/cost-dashboard-v3" => cost_dashboard_view()
+      "/investment" => investment_view()
+      "/dynamic-cost" => dynamic_cost_view()
+      "/tender" => tender_view()
+      "/srm/providers" => srm_providers_view(emit)
+      "/srm/providers/SUP-00018" => provider_detail_view(emit)
+      "/srm/risk-board" => srm_risk_view()
+      "/cbs/dict" => cbs_view(path)
+      "/cbs/versions" => cbs_view(path)
+      "/cbs/r0-queue" => cbs_view(path)
+      "/cbs/approval-config" => cbs_view(path)
+      "/fund/plan" => fund_plan_view()
+      "/invoice" => invoice_view()
+      "/expenses" => expenses_view(emit)
+      "/expenses/new" => expense_editor_view(emit, false)
+      "/expenses/EXP-260712-008" => expense_editor_view(emit, true)
+      "/loans" => loans_view(emit)
+      "/loans/new" => loan_editor_view(emit, false)
+      "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
+      "/reports" => reports_view(emit)
+      "/report-builder" => report_builder_view()
+      "/warning" => warning_view()
+      "/warning-rules" => warning_rules_view()
+      "/cashflow" => cashflow_view()
+      "/inbox" => inbox_view()
+      "/attachments" => attachments_view()
+      "/notify-config" => notify_view()
+      "/audit-log" => audit_view()
+      "/error-log" => error_view()
+      "/system-health" => health_view()
+      "/users" => users_view()
+      "/admin" => admin_view()
+      "/ocr-config" => ocr_view()
+      "/webhook-config" => webhook_view()
+      "/profile" => profile_view()
+      _ => placeholder_view(path)
+    }
   }
 }
 
@@ -3349,7 +3377,9 @@ fn header_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  let body = if model.page == "/dashboard" {
+  let body = if model.page == "/dashboard" ||
+    model.page == "/dashboard-v3" ||
+    model.page == "/cockpit" {
     dashboard_view(emit, model)
   } else {
     business_view(model.page, emit)

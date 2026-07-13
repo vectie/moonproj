@@ -12,6 +12,10 @@ distinct source layouts instead of sharing a generic administrative table.
 The report center also opens a read-only `/share/:token`-shaped cost report
 preview with the source metadata bar, dense summary table, expiry label, and
 public-link boundary.
+Detail routes accept arbitrary source identifiers (`/projects/:id`,
+`/contracts/:id`, `/expenses/:id`, `/loans/:id`, and
+`/srm/providers/:id`) instead of being limited to the reviewed fixture IDs;
+the source dashboard redirect aliases are retained as well.
 
 The UI is deliberately fixture-backed while the HTTP/API boundary is being
 connected. It is a visual and interaction migration, not a claim that a button
