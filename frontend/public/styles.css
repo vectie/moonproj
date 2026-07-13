@@ -166,6 +166,17 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-option-card:hover, .erp-option-card.is-active { border-color: #93c5fd; color: #1d4ed8; background: #eff6ff; }
 .erp-code-card { margin-top: 12px; padding: 14px 16px; border: 1px solid #dbeafe; border-radius: 6px; background: #eff6ff; }
 .erp-code-card p { margin: 0; color: #1e40af; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; }
+.erp-detail-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.erp-detail-card { margin-top: 12px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+.erp-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
+.erp-form-field { min-width: 0; }
+.erp-field-label { display: block; margin-bottom: 5px; color: #64748b; font-size: 11px; }
+.erp-form-input { width: 100%; height: 34px; padding: 0 10px; border: 1px solid #dbe2ea; border-radius: 4px; color: #334155; background: #fff; font-size: 12px; }
+.erp-form-input:focus { border-color: #60a5fa; outline: 0; }
+.erp-status-tag { display: inline-block; padding: 3px 8px; border-radius: 3px; color: #64748b; background: #f1f5f9; font-size: 11px; white-space: nowrap; }
+.erp-status-tag.is-success { color: #15803d; background: #f0fdf4; }
+.erp-status-tag.is-pending { color: #b45309; background: #fffbeb; }
+.erp-status-tag.is-danger { color: #b91c1c; background: #fef2f2; }
 
 @keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -197,6 +208,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-stat-grid { grid-template-columns: 1fr 1fr; }
   .erp-ai-grid, .erp-report-grid { grid-template-columns: 1fr; }
   .erp-builder-options { grid-template-columns: 1fr 1fr; }
+  .erp-form-grid { grid-template-columns: 1fr 1fr; }
   .login-brand-side { max-width: 100%; text-align: center; }
   .login-brand-side h1 { font-size: 24px; }
   .login-features { display: none; }
@@ -222,6 +234,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-page-actions { width: 100%; }
   .erp-page-actions button { flex: 1; }
   .erp-builder-options { grid-template-columns: 1fr 1fr; }
+  .erp-form-grid { grid-template-columns: 1fr; }
+  .erp-detail-card { padding: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

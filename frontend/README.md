@@ -10,9 +10,10 @@ represented as read-only fixtures.
 
 The UI is deliberately fixture-backed while the HTTP/API boundary is being
 connected. It is a visual and interaction migration, not a claim that a button
-already mutates company data. Detail/new routes and reviewed PostgreSQL
-query/command wiring remain the next migration cohort. Build and preview it
-with Warren:
+already mutates company data. Representative project, contract, expense,
+loan, and supplier detail/new flows now open as source-shaped forms with
+explicit return/save/submit boundaries; reviewed PostgreSQL query/command
+wiring remains the next browser cohort. Build and preview it with Warren:
 
 ```sh
 moon install moonbit-community/warren

@@ -74,6 +74,7 @@ fn title_for(path : String) -> String {
     "/ai-hub" => "AI 工作台"
     "/ai-stats" => "AI 工作大盘"
     "/projects" => "项目主数据"
+    "/projects/CD-HJL" => "项目全周期"
     "/project-plan" => "项目计划"
     "/project/progress" => "工程进度"
     "/tasks" => "我的待办"
@@ -86,10 +87,12 @@ fn title_for(path : String) -> String {
     "/cost-dashboard-v3" => "成本驾驶舱"
     "/investment" => "投资收益"
     "/contracts" => "合同台帐"
+    "/contracts/HT-CD-260701" => "合同详情"
     "/payment-applies" => "付款申请"
     "/dynamic-cost" => "动态成本"
     "/tender" => "合约规划"
     "/srm/providers" => "供应商库"
+    "/srm/providers/SUP-00018" => "供应商详情"
     "/srm/risk-board" => "供应商风险面板"
     "/cbs/dict" => "CBS 字典"
     "/cbs/versions" => "目标版本管理"
@@ -98,7 +101,11 @@ fn title_for(path : String) -> String {
     "/fund/plan" => "资金计划"
     "/invoice" => "发票管理"
     "/expenses" => "我的报销"
+    "/expenses/new" => "新建报销"
+    "/expenses/EXP-260712-008" => "报销详情"
     "/loans" => "我的借款"
+    "/loans/new" => "新建借款"
+    "/loans/LOAN-260713-001" => "借款详情"
     "/reports" => "报表中心"
     "/report-builder" => "自定义报表"
     "/warning" => "异常预警中心"
@@ -756,6 +763,16 @@ fn filter_bar(placeholder : String) -> @html.Html {
 }
 
 ///|
+fn nav_button(
+  emit : @rabbita.Emit[Msg],
+  path : String,
+  class_name : String,
+  label : String,
+) -> @html.Html {
+  button(class=class_name, on_click=emit(Navigate(path)), label)
+}
+
+///|
 fn page_shell(
   title : String,
   eyebrow : String,
@@ -794,12 +811,16 @@ fn table_panel(
 }
 
 ///|
-fn project_view() -> @html.Html {
+fn project_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "项目主数据",
     "PROJECTS",
     "维护集团项目、所属公司与项目阶段，作为成本、合同、销售与资金业务的共同主数据。",
-    [button(class="erp-primary-btn", "＋ 新建项目")],
+    [
+      nav_button(
+        emit, "/projects/CD-HJL", "erp-primary-btn", "＋ 新建项目",
+      ),
+    ],
     div <| [
       div(class="erp-stat-grid") <| [
         metric("项目总数", "15", "在建项目", "metric-blue"),
@@ -1113,12 +1134,16 @@ fn sales_customers_view() -> @html.Html {
 }
 
 ///|
-fn sales_subscriptions_view() -> @html.Html {
+fn sales_subscriptions_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "认筹登记",
     "SALES / SUBSCRIPTIONS",
     "登记认筹客户、房号、认筹金与转签状态，支持从客户档案快速发起签约。",
-    [button(class="erp-primary-btn", "＋ 新建认筹")],
+    [
+      nav_button(
+        emit, "/sales/subscriptions", "erp-primary-btn", "＋ 新建认筹",
+      ),
+    ],
     div <| [
       div(class="erp-stat-grid") <| [
         metric("本月认筹", "86", "认筹金 ¥516 万", "metric-blue"),
@@ -1155,12 +1180,16 @@ fn sales_subscriptions_view() -> @html.Html {
 }
 
 ///|
-fn sales_contracts_view() -> @html.Html {
+fn sales_contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "签约管理",
     "SALES / CONTRACTS",
     "管理销售合同、付款方式、签约日期和回款状态，与销售回款和发票联动。",
-    [button(class="erp-primary-btn", "＋ 新建签约")],
+    [
+      nav_button(
+        emit, "/sales/contracts", "erp-primary-btn", "＋ 新建签约",
+      ),
+    ],
     div <| [
       filter_bar("签约号 / 客户 / 房号"),
       table_panel(
@@ -1234,14 +1263,16 @@ fn sales_mortgages_view() -> @html.Html {
 }
 
 ///|
-fn contracts_view() -> @html.Html {
+fn contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "合同台帐",
     "COST / CONTRACTS",
     "统一查看采购、工程、营销和咨询合同的签订、付款、发票与履约状态。",
     [
       button(class="erp-secondary-btn", "导出合同台帐"),
-      button(class="erp-primary-btn", "＋ 新建合同"),
+      nav_button(
+        emit, "/contracts/HT-CD-260701", "erp-primary-btn", "＋ 新建合同",
+      ),
     ],
     div <| [
       div(class="erp-stat-grid") <| [
@@ -1508,12 +1539,16 @@ fn tender_view() -> @html.Html {
 }
 
 ///|
-fn srm_providers_view() -> @html.Html {
+fn srm_providers_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "供应商库",
     "SRM / PROVIDERS",
     "维护供应商资质、合作项目、联系人和履约评价，服务合同与招采环节。",
-    [button(class="erp-primary-btn", "＋ 新增供应商")],
+    [
+      nav_button(
+        emit, "/srm/providers/SUP-00018", "erp-primary-btn", "＋ 新增供应商",
+      ),
+    ],
     div <| [
       filter_bar("供应商名称 / 统一社会信用代码 / 类别"),
       table_panel(
@@ -1721,12 +1756,12 @@ fn invoice_view() -> @html.Html {
 }
 
 ///|
-fn expenses_view() -> @html.Html {
+fn expenses_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "我的报销",
     "FINANCE / EXPENSES",
     "发起差旅、招待和日常费用报销，查看预算占用、审批节点与付款进度。",
-    [button(class="erp-primary-btn", "＋ 新建报销")],
+    [nav_button(emit, "/expenses/new", "erp-primary-btn", "＋ 新建报销")],
     div <| [
       div(class="erp-stat-grid") <| [
         metric("本月报销", "¥28,560", "8 笔", "metric-blue"),
@@ -1763,12 +1798,12 @@ fn expenses_view() -> @html.Html {
 }
 
 ///|
-fn loans_view() -> @html.Html {
+fn loans_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "我的借款",
     "FINANCE / LOANS",
     "发起备用金和差旅借款，跟踪核销、还款以及个人可用额度。",
-    [button(class="erp-primary-btn", "＋ 新建借款")],
+    [nav_button(emit, "/loans/new", "erp-primary-btn", "＋ 新建借款")],
     div <| [
       div(class="erp-stat-grid") <| [
         metric("未核销借款", "¥18,000", "2 笔", "metric-blue"),
@@ -2056,12 +2091,301 @@ fn cashflow_view() -> @html.Html {
 }
 
 ///|
-fn sales_revenues_view() -> @html.Html {
+fn form_field(
+  label_text : String,
+  value : String,
+  placeholder : String,
+) -> @html.Html {
+  div(class="erp-form-field") <| [
+    label(class="erp-field-label", label_text),
+    input(
+      input_type=@html.InputType::Text,
+      value~,
+      placeholder~,
+      class="erp-form-input",
+    ),
+  ]
+}
+
+///|
+fn detail_toolbar(
+  emit : @rabbita.Emit[Msg],
+  back_path : String,
+  action_label : String,
+) -> @html.Html {
+  div(class="erp-detail-toolbar") <| [
+    nav_button(emit, back_path, "erp-ghost-btn", "‹ 返回列表"),
+    nav_button(emit, back_path, "erp-primary-btn", action_label),
+  ]
+}
+
+///|
+fn project_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+  page_shell(
+    "项目全周期",
+    "PROJECT DETAIL",
+    "成都和锦里 · CD-HJL · 记录项目主数据、生命周期、计划、合同、成本与进度。",
+    [detail_toolbar(emit, "/projects", "保存项目")],
+    div <| [
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("项目基本信息"),
+          span(class="erp-status-tag is-success", "开发建设"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("项目编码", "CD-HJL", "项目编码"),
+          form_field("项目名称", "成都和锦里", "项目名称"),
+          form_field("项目简称", "和锦里", "项目简称"),
+          form_field("所属公司", "成都公司", "所属公司"),
+          form_field("开始日期", "2024-03-18", "YYYY-MM-DD"),
+          form_field("当前阶段", "开发建设", "项目阶段"),
+        ],
+      ],
+      div(class="erp-tabs") <| [
+        button(class="erp-tab is-active", "项目概览"),
+        button(class="erp-tab", "项目计划"),
+        button(class="erp-tab", "合同与成本"),
+        button(class="erp-tab", "工程进度"),
+      ],
+      table_panel(
+        "生命周期节点",
+        "变更均需保留操作人和证据",
+        data_table(
+          [
+            "阶段", "计划日期", "实际日期", "责任人", "状态", "证据",
+          ],
+          [
+            [
+              "立项", "2024-01-15", "2024-01-15", "集团投资部", "已完成",
+              "立项批复",
+            ],
+            [
+              "规划设计", "2024-06-30", "2024-07-08", "设计管理部", "已完成",
+              "设计审查",
+            ],
+            [
+              "开发建设", "2025-01-01", "2025-01-08", "工程管理部", "进行中",
+              "施工许可证",
+            ],
+            [
+              "销售去化", "2026-08-01", "", "营销管理部", "待处理", "开盘计划",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn contract_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+  page_shell(
+    "合同详情",
+    "CONTRACT DETAIL",
+    "HT-CD-260701 · 主体结构施工合同 · 成都和锦里",
+    [detail_toolbar(emit, "/contracts", "保存合同")],
+    div <| [
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("合同基本信息"),
+          span(class="erp-status-tag is-pending", "履行中"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("合同编号", "HT-CD-260701", "合同编号"),
+          form_field("合同名称", "主体结构施工合同", "合同名称"),
+          form_field("所属项目", "成都和锦里", "项目"),
+          form_field("供应商", "中建三局", "供应商"),
+          form_field("合同金额", "48600000", "金额(元)"),
+          form_field("签订日期", "2026-07-01", "YYYY-MM-DD"),
+        ],
+      ],
+      table_panel(
+        "付款节点",
+        "合同金额 ¥4,860 万 · 已付款 ¥1,280 万",
+        data_table(
+          [
+            "节点", "触发条件", "计划金额", "实际付款", "计划日期",
+            "状态",
+          ],
+          [
+            [
+              "预付款", "合同生效", "¥4,860,000", "¥4,860,000", "2026-07-05",
+              "已完成",
+            ],
+            [
+              "主体结构 30%", "工程进度确认", "¥9,720,000", "¥7,940,000",
+              "2026-08-15", "进行中",
+            ],
+            [
+              "主体封顶", "验收通过", "¥14,580,000", "¥0", "2026-11-30",
+              "待处理",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn expense_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
+  let title = if detail { "报销详情" } else { "新建报销" }
+  let action = if detail { "保存修改" } else { "提交审批" }
+  page_shell(
+    title,
+    "FINANCE / EXPENSE FORM",
+    "差旅、招待和日常费用均需关联项目、费用科目与附件证据。",
+    [detail_toolbar(emit, "/expenses", action)],
+    div <| [
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("报销信息"),
+          if detail {
+            span(class="erp-status-tag is-pending", "审批中")
+          } else {
+            span(class="erp-info-tag", "草稿")
+          },
+        ],
+        div(class="erp-form-grid") <| [
+          form_field(
+            "报销单号",
+            if detail {
+              "EXP-260712-008"
+            } else {
+              "自动生成"
+            },
+            "报销单号",
+          ),
+          form_field("费用类型", "差旅费", "费用类型"),
+          form_field("费用摘要", "成都项目现场出差", "摘要"),
+          form_field("费用金额", "8560", "金额(元)"),
+          form_field("发生日期", "2026-07-12", "YYYY-MM-DD"),
+          form_field("关联项目", "成都和锦里", "项目"),
+          form_field("费用科目", "差旅交通", "费用科目"),
+          form_field("付款方式", "个人垫付", "付款方式"),
+        ],
+      ],
+      table_panel(
+        "附件与分摊",
+        "支持发票、行程单和费用拆分",
+        data_table(
+          [
+            "附件名称", "类型", "金额", "上传人", "验真状态", "操作",
+          ],
+          [
+            [
+              "成都出差发票-01.pdf", "增值税发票", "¥3,280", "程玉哲",
+              "已验真", "预览",
+            ],
+            [
+              "高铁票-往返.zip", "行程凭证", "¥1,260", "程玉哲", "待确认",
+              "预览",
+            ],
+            [
+              "住宿发票-02.pdf", "增值税发票", "¥4,020", "程玉哲", "已验真",
+              "预览",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn loan_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
+  let title = if detail { "借款详情" } else { "新建借款" }
+  let action = if detail { "保存修改" } else { "提交审批" }
+  page_shell(
+    title,
+    "FINANCE / LOAN FORM",
+    "备用金和差旅借款需要明确用途、归还日期和可核销预算。",
+    [detail_toolbar(emit, "/loans", action)],
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("借款信息"),
+        if detail {
+          span(class="erp-status-tag is-pending", "审批中")
+        } else {
+          span(class="erp-info-tag", "草稿")
+        },
+      ],
+      div(class="erp-form-grid") <| [
+        form_field(
+          "借款单号",
+          if detail {
+            "LOAN-260713-001"
+          } else {
+            "自动生成"
+          },
+          "借款单号",
+        ),
+        form_field("借款类型", "差旅借款", "借款类型"),
+        form_field("借款用途", "沈阳项目会议", "用途"),
+        form_field("借款金额", "8000", "金额(元)"),
+        form_field("预计归还", "2026-07-30", "YYYY-MM-DD"),
+        form_field("关联项目", "沈阳和山苑", "项目"),
+        form_field("核销科目", "差旅交通", "核销科目"),
+        form_field("收款账户", "个人备用金", "账户"),
+      ],
+    ],
+  )
+}
+
+///|
+fn provider_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+  page_shell(
+    "供应商详情",
+    "SRM / PROVIDER DETAIL",
+    "SUP-00018 · 中建三局集团有限公司 · 工程施工",
+    [detail_toolbar(emit, "/srm/providers", "保存供应商")],
+    div <| [
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("供应商基本信息"),
+          span(class="erp-status-tag is-success", "正常"),
+        ],
+        div(class="erp-form-grid") <| [
+          form_field("供应商编码", "SUP-00018", "供应商编码"),
+          form_field(
+            "供应商名称", "中建三局集团有限公司", "供应商名称",
+          ),
+          form_field("类别", "工程施工", "供应商类别"),
+          form_field(
+            "统一社会信用代码", "91110000MA00XXXXXX", "统一社会信用代码",
+          ),
+          form_field("联系人", "周强", "联系人"),
+          form_field("联系电话", "138****9001", "联系电话"),
+        ],
+      ],
+      table_panel(
+        "合作与评价",
+        "最近评价 A · 低风险",
+        data_table(
+          [
+            "项目", "合同数", "合同金额", "已付款", "最近评价", "履约状态",
+          ],
+          [
+            [
+              "成都和锦里", "8", "¥86,200,000", "¥24,600,000", "A", "正常",
+            ],
+            [
+              "天津海教园一期", "3", "¥18,600,000", "¥6,280,000", "A", "正常",
+            ],
+          ],
+        ),
+      ),
+    ],
+  )
+}
+
+///|
+fn sales_revenues_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
   page_shell(
     "销售回款 (R6)",
     "SALES / REVENUES",
     "登记销售回款、到账日期、付款类型与销售合同号，保持回款与应收台帐可追溯。",
-    [button(class="erp-primary-btn", "＋ 新增回款")],
+    [nav_button(emit, "/sales/revenues", "erp-primary-btn", "＋ 新增回款")],
     div <| [
       div(class="erp-stat-grid") <| [
         metric("本月到账", "¥6,820 万", "126 笔", "metric-blue"),
@@ -2207,27 +2531,30 @@ fn system_view(path : String) -> @html.Html {
 }
 
 ///|
-fn business_view(path : String) -> @html.Html {
+fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
   match path {
     "/ai-hub" => ai_hub_view()
     "/ai-stats" => ai_stats_view()
-    "/projects" => project_view()
+    "/projects" => project_view(emit)
+    "/projects/CD-HJL" => project_detail_view(emit)
     "/project-plan" => project_plan_view()
     "/project/progress" => progress_view()
     "/tasks" => tasks_view()
     "/sales/customers" => sales_customers_view()
-    "/sales/subscriptions" => sales_subscriptions_view()
-    "/sales/contracts" => sales_contracts_view()
+    "/sales/subscriptions" => sales_subscriptions_view(emit)
+    "/sales/contracts" => sales_contracts_view(emit)
     "/sales/mortgages" => sales_mortgages_view()
-    "/sales/revenues" => sales_revenues_view()
+    "/sales/revenues" => sales_revenues_view(emit)
     "/marketing" => marketing_view()
-    "/contracts" => contracts_view()
+    "/contracts" => contracts_view(emit)
+    "/contracts/HT-CD-260701" => contract_detail_view(emit)
     "/payment-applies" => payment_applies_view()
     "/cost-dashboard-v3" => cost_dashboard_view()
     "/investment" => investment_view()
     "/dynamic-cost" => dynamic_cost_view()
     "/tender" => tender_view()
-    "/srm/providers" => srm_providers_view()
+    "/srm/providers" => srm_providers_view(emit)
+    "/srm/providers/SUP-00018" => provider_detail_view(emit)
     "/srm/risk-board" => srm_risk_view()
     "/cbs/dict" => cbs_view(path)
     "/cbs/versions" => cbs_view(path)
@@ -2235,8 +2562,12 @@ fn business_view(path : String) -> @html.Html {
     "/cbs/approval-config" => cbs_view(path)
     "/fund/plan" => fund_plan_view()
     "/invoice" => invoice_view()
-    "/expenses" => expenses_view()
-    "/loans" => loans_view()
+    "/expenses" => expenses_view(emit)
+    "/expenses/new" => expense_editor_view(emit, false)
+    "/expenses/EXP-260712-008" => expense_editor_view(emit, true)
+    "/loans" => loans_view(emit)
+    "/loans/new" => loan_editor_view(emit, false)
+    "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
     "/reports" => reports_view()
     "/report-builder" => report_builder_view()
     "/warning" => warning_view()
@@ -2336,7 +2667,7 @@ fn app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let body = if model.page == "/dashboard" {
     dashboard_view()
   } else {
-    business_view(model.page)
+    business_view(model.page, emit)
   }
   div(class="erp-layout") <| [
     if model.mobile_nav {
