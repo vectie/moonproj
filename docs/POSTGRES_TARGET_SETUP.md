@@ -256,3 +256,7 @@ binds the advance issuance and offset identities to two reviewed journals.
 It reports exact PostgreSQL identity parity and zero-insert replay through the
 accounting-link table, while leaving the accounting book, cash, expense
 recognition, and period close untouched.
+It also emits `postgres-reconciliation.json`, which checks the durable
+PostgreSQL event/source/journal/principal row against the domain candidate and
+reviewed journal amount/currency; the report remains `period_posted=false` and
+is readiness evidence only.

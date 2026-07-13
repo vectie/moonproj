@@ -40,6 +40,11 @@ python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
 python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
   "$WORK_DIR/accounting-link-receipt.json" --backend sqlite \
   --database "$SQLITE_DATABASE" > "$WORK_DIR/sqlite-parity.json"
+python3 "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+  "$WORK_DIR/expense-advance-receipt.json" \
+  "$WORK_DIR/accounting-link-plan.json" \
+  "$WORK_DIR/accounting-link-receipt.json" "$SQLITE_DATABASE" \
+  "$WORK_DIR/sqlite-reconciliation.json"
 
 if [ -n "$PG_DATABASE" ]; then
   python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
@@ -54,6 +59,12 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/accounting-link-receipt.json" --backend postgres \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database-name "$PG_DATABASE" > "$WORK_DIR/postgres-parity.json"
+  python3 "$SCRIPT_DIR/company_postgres_accounting_reconciliation.py" \
+    "$WORK_DIR/expense-advance-receipt.json" \
+    "$WORK_DIR/accounting-link-plan.json" \
+    "$WORK_DIR/accounting-link-receipt.json" \
+    "$WORK_DIR/postgres-reconciliation.json" --host "$PG_HOST" \
+    --port "$PG_PORT" --user "$PG_USER" --database-name "$PG_DATABASE"
 fi
 
 printf '%s\n' "work_dir=$WORK_DIR"

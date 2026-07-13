@@ -36,10 +36,9 @@ def run(work_dir: Path, output: Path, period_id: str) -> dict[str, Any]:
     paths = sorted(work_dir.glob("*-reconciliation.json"))
     if not paths:
         raise PeriodCloseError("no accounting reconciliation cohorts found")
-    cohorts: list[dict[str, Any]] = []
+    cohorts_by_identity: dict[tuple[str, str], dict[str, Any]] = {}
     source_snapshots: set[str] = set()
     mapping_versions: set[str] = set()
-    total_links = 0
     for path in paths:
         value = load(path)
         if value.get("format") != "moonproj.erp.accounting-reconciliation.v1":
@@ -59,18 +58,34 @@ def run(work_dir: Path, output: Path, period_id: str) -> dict[str, Any]:
         link_count = int(value.get("link_count", 0))
         if link_count <= 0:
             raise PeriodCloseError(f"empty reconciliation cohort: {path}")
-        total_links += link_count
         source_snapshots.add(source_snapshot_id)
         mapping_versions.add(mapping_version)
-        cohorts.append(
-            {
+        identity = (source_snapshot_id, mapping_version)
+        backend = value.get("backend", "sqlite")
+        if not isinstance(backend, str) or not backend.strip():
+            raise PeriodCloseError(f"reconciliation has no backend: {path}")
+        existing = cohorts_by_identity.get(identity)
+        if existing is None:
+            cohorts_by_identity[identity] = {
                 "file": str(path),
+                "files": [str(path)],
+                "backends": [backend],
                 "source_snapshot_id": source_snapshot_id,
                 "mapping_version": mapping_version,
                 "link_count": link_count,
                 "state": value.get("state"),
             }
-        )
+        else:
+            if existing["link_count"] != link_count or existing["state"] != value.get("state"):
+                raise PeriodCloseError(
+                    "duplicate backend reconciliation disagrees at "
+                    f"{source_snapshot_id}:{mapping_version}"
+                )
+            existing["files"].append(str(path))
+            if backend not in existing["backends"]:
+                existing["backends"].append(backend)
+    cohorts = list(cohorts_by_identity.values())
+    total_links = sum(int(cohort["link_count"]) for cohort in cohorts)
     if len(source_snapshots) != 1:
         raise PeriodCloseError("reconciliation cohorts come from different source snapshots")
     evidence = json.dumps(
@@ -80,6 +95,7 @@ def run(work_dir: Path, output: Path, period_id: str) -> dict[str, Any]:
                 "mapping_version": cohort["mapping_version"],
                 "link_count": cohort["link_count"],
                 "state": cohort["state"],
+                "backends": sorted(cohort["backends"]),
             }
             for cohort in cohorts
         ],

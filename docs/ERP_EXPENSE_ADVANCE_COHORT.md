@@ -59,4 +59,10 @@ offers a recognition journal, while the offset journal debits expense, so
 linking both would recognize the same expense twice. The link rehearsal
 therefore proves two source-to-journal identities with exact SQLite/PostgreSQL
 parity and zero-insert replay while keeping `cash_released=false`,
-`period_posted=false`, and the accounting book unposted.
+`period_posted=false`, and the accounting book unposted. The rehearsal also
+emits SQLite and PostgreSQL `accounting-reconciliation.v1` reports that bind
+each source row back to its durable event, journal, principal, amount, and
+currency before any close-control artifact can consume the evidence. When both
+backend reports are present, `scripts/company_period_close_control.py` counts
+the reviewed cohort once and records both backend proofs rather than doubling
+the link total.

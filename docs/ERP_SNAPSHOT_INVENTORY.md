@@ -182,6 +182,9 @@ the same advance and offset source identities to two reviewed journal links.
 It is a traceability-only PostgreSQL rehearsal with exact identity parity and
 zero-insert replay; expense recognition, cash, book posting, and period close
 remain separate gates.
+The accounting-link rehearsal additionally emits SQLite and PostgreSQL
+reconciliation reports, so source-to-journal continuity is checked on the
+selected PostgreSQL target rather than inferred from identity parity alone.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

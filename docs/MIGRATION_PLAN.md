@@ -184,6 +184,13 @@ does not link the expense claim because the offset journal already carries the
 expense debit. Two links pass native validation, exact SQLite/PostgreSQL
 identity parity, and zero-insert replay without posting the book, releasing
 cash, or closing a period.
+The same rehearsal emits backend-specific accounting reconciliation reports,
+checking source identity, principal, amount, currency, event, and journal
+continuity on both SQLite and PostgreSQL before the evidence can feed a
+period-close control.
+The close-control compiler deduplicates matching SQLite/PostgreSQL reports by
+source snapshot and mapping identity, so backend verification strengthens the
+evidence without inflating the economic link count.
 The separate invoice/procurement accounting-link boundary now binds two
 receivable openings, one payable opening, and one performed procurement
 commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL
