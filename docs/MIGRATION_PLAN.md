@@ -303,9 +303,9 @@ replacement of `erp_new`. The findings that now control sequencing are:
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records sixteen connected workflow routes across browser and API
+currently records eighteen connected workflow routes across browser and API
 surfaces (expense, contract, payment, procurement, sales, invoice, delivery,
-core reports, and employee-loan reads/commands), while 30 browser views and 37 API groups
+core reports, and employee-loan reads/commands), while 30 browser views and 35 API groups
 remain fixture-backed or read-model-only. Three additional fixed read-model routes
 are connected. That gap,
 rather than additional platform hardening, controls the next work.
@@ -330,7 +330,8 @@ Execute the remainder in this order:
    behavior, bounded offset projections, and imported-row read-only behavior.
    Do not enable workflow synchronization until `wf_process_instance` rows,
    state mapping, and a named workflow owner are available. The Rabbita loan
-   editor still needs command-form wiring.
+   editor now emits the local create/submit/update/void commands; browser
+   acceptance through production identity remains open.
 4. Replace the local session/actor adapter with the reviewed production
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for every connected slice. Browser acceptance must exercise the

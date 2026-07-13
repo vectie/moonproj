@@ -53,6 +53,10 @@ posts cash, accounting, tax, or approval state implicitly.
   temporary approved local projection also proves bounded offset persistence
   and the separate offset read shape; the temporary rows are removed after
   the rehearsal.
+- Rabbita `/loans/new` and local loan detail now expose create, submit, draft
+  update, and draft/rejected void command states. Imported detail routes are
+  rendered read-only; the approval/offset controls are not fabricated without
+  workflow approval evidence.
 
 ## Remaining gate
 

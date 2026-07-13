@@ -286,6 +286,9 @@ struct Model {
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
+  loan_id : String
+  loan_state : String
+  loan_command_note : String
 }
 
 ///|
@@ -374,6 +377,12 @@ enum Msg {
   ReportsLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
+  CreateLoan
+  SubmitLoan
+  UpdateLoan
+  VoidLoan
+  LoanCommandFinished(String)
+  LoanCommandFailed
 }
 
 ///|
@@ -442,6 +451,9 @@ fn initial_model() -> Model {
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
+    loan_id: "LOAN-RABBITA-LOCAL",
+    loan_state: "new",
+    loan_command_note: "本地借款命令需要员工范围 authority 与证据",
   }
 }
 
@@ -1208,6 +1220,45 @@ fn load_loans(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn loan_command_body(command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-loan-create-v1\",\"loan_id\":\"LOAN-RABBITA-LOCAL\",\"loan_code\":\"JK-RABBITA-LOCAL\",\"subject\":\"沈阳项目会议备用金\",\"employee_id\":\"employee-rabbita\",\"principal_id\":\"co-rabbita\",\"scope\":\"employee:employee-rabbita\",\"currency\":\"CNY\",\"amount_minor\":800000,\"apply_dept_guid\":\"bu-rabbita\",\"apply_date\":\"2026-07-13\",\"pay_unit\":\"个人备用金\",\"proj_guid\":\"proj-0001\",\"evidence_ids\":[\"rabbita:loan:purpose-001\"],\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"advance:create\",\"scope\":\"employee:employee-rabbita\",\"max_amount_minor\":800000}}"
+  } else if command_type == "update" {
+    "{\"idempotency_key\":\"rabbita-loan-update-v1\",\"subject\":\"沈阳项目会议备用金（已补充用途）\",\"pay_unit\":\"个人备用金\",\"proj_guid\":\"proj-0001\"}"
+  } else if command_type == "void" {
+    "{\"idempotency_key\":\"rabbita-loan-void-v1\",\"reason\":\"本地演示撤回借款\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-loan-submit-v1\"}"
+  }
+}
+
+///|
+fn issue_loan_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let suffix = if command_type == "submit" {
+    "submit-for-approval"
+  } else {
+    command_type
+  }
+  let path = if command_type == "create" {
+    "/api/company/loans"
+  } else {
+    "/api/company/loans/" + model.loan_id + "/" + suffix
+  }
+  @http.post(path)
+  .with_text(loan_command_body(command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(LoanCommandFinished(body))
+      Err(_) => emit(LoanCommandFailed)
+    }
+  })
+}
+
+///|
 fn delivery_command_body(command_type : String) -> String {
   if command_type == "create_progress" {
     "{\"idempotency_key\":\"rabbita-delivery-progress-create-v1\",\"progress_id\":\"PROG-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"principal_id\":\"co-rabbita\",\"project_scope\":\"project:proj-0001\",\"stage\":\"主体结构\",\"plan_pct\":70,\"completed_value_minor\":125000,\"currency\":\"CNY\",\"evidence_ids\":[\"rabbita:progress:photo-001\"],\"remark\":\"本地进度命令演示\"}"
@@ -1571,6 +1622,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some((prefix, value)) if prefix == "/contracts" => value.to_owned()
         _ => model.contract_id
       }
+      let loan_id = match path.rev_split_once("/") {
+        Some((prefix, value)) if prefix == "/loans" && value != "new" =>
+          value.to_owned()
+        _ if path == "/loans/new" => "LOAN-RABBITA-LOCAL"
+        _ => model.loan_id
+      }
+      let loan_state = if path == "/loans/new" {
+        "new"
+      } else if path.has_prefix("/loans/") && loan_id != "LOAN-RABBITA-LOCAL" {
+        "Imported"
+      } else {
+        model.loan_state
+      }
       (
         command,
         {
@@ -1579,6 +1643,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           page: path,
           mobile_nav: false,
           contract_id,
+          loan_id,
+          loan_state,
           contract_detail: if path == "/contracts" {
             None
           } else {
@@ -2377,6 +2443,99 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loans_loaded: false,
           loan_rows: [],
           loan_note: "员工借款读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateLoan =>
+      if model.loan_state == "pending" || model.loan_state == "Draft" {
+        (none, model)
+      } else {
+        (
+          issue_loan_command(emit, model, "create"),
+          {
+            ..model,
+            loan_state: "pending",
+            loan_command_note: "正在创建借款草稿并校验员工范围 authority…",
+          },
+        )
+      }
+    SubmitLoan =>
+      if model.loan_id == "" || model.loan_state != "Draft" {
+        (none, model)
+      } else {
+        (
+          issue_loan_command(emit, model, "submit"),
+          {
+            ..model,
+            loan_state: "pending",
+            loan_command_note: "正在提交借款审批…",
+          },
+        )
+      }
+    UpdateLoan =>
+      if model.loan_id == "" || model.loan_state != "Draft" {
+        (none, model)
+      } else {
+        (
+          issue_loan_command(emit, model, "update"),
+          {
+            ..model,
+            loan_state: "pending",
+            loan_command_note: "正在保存借款草稿修改…",
+          },
+        )
+      }
+    VoidLoan =>
+      if model.loan_id == "" ||
+        (model.loan_state != "Draft" && model.loan_state != "Rejected") {
+        (none, model)
+      } else {
+        (
+          issue_loan_command(emit, model, "void"),
+          {
+            ..model,
+            loan_state: "pending",
+            loan_command_note: "正在作废借款并写入审计…",
+          },
+        )
+      }
+    LoanCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"Approved\"") {
+        "Approved"
+      } else if body.contains("\"state\":\"Approving\"") {
+        "Approving"
+      } else if body.contains("\"state\":\"Voided\"") {
+        "Voided"
+      } else if body.contains("\"state\":\"Draft\"") {
+        "Draft"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (none, { ..model, loan_state: "error", loan_command_note: body })
+      } else {
+        let next_page = if body.contains("\"command_type\":\"create\"") {
+          "/loans/LOAN-RABBITA-LOCAL"
+        } else {
+          model.page
+        }
+        (
+          load_loans(emit),
+          {
+            ..model,
+            page: next_page,
+            loan_state: next_state,
+            loan_command_note: "已写入 PostgreSQL · 借款命令完成 · 审计凭证已生成",
+          },
+        )
+      }
+    }
+    LoanCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          loan_state: "error",
+          loan_command_note: "员工借款命令服务不可用或拒绝了请求",
         },
       )
     CreateDeliveryProgress =>
@@ -5181,6 +5340,7 @@ fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           },
         ),
         span(" · " + model.loan_note),
+        span(" · " + model.loan_command_note),
       ]),
       div(class="erp-stat-grid") <| [
         metric("未核销借款", "¥18,000", "2 笔", "metric-blue"),
@@ -6029,28 +6189,89 @@ fn expense_editor_view(
 }
 
 ///|
-fn loan_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
+fn loan_state_label(state : String) -> String {
+  match state {
+    "Draft" => "草稿"
+    "Approving" => "审批中"
+    "Approved" => "已批准"
+    "Rejected" => "已驳回"
+    "Voided" => "已作废"
+    _ => state
+  }
+}
+
+///|
+fn loan_editor_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  detail : Bool,
+) -> @html.Html {
   let title = if detail { "借款详情" } else { "新建借款" }
-  let action = if detail { "保存修改" } else { "提交审批" }
+  let is_local = model.loan_id == "LOAN-RABBITA-LOCAL"
+  let actions : Array[@html.Html] = [
+    nav_button(emit, "/loans", "erp-ghost-btn", "‹ 返回列表"),
+  ]
+  if !detail {
+    if model.loan_state == "new" || model.loan_state == "error" {
+      actions.push(
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateLoan),
+          "保存借款草稿",
+        ),
+      )
+    }
+  } else if is_local {
+    if model.loan_state == "Draft" {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(UpdateLoan),
+          "保存修改",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitLoan),
+          "提交审批",
+        ),
+      )
+    }
+    if model.loan_state == "Draft" || model.loan_state == "Rejected" {
+      actions.push(
+        button(class="erp-danger-btn", on_click=emit(VoidLoan), "作废借款"),
+      )
+    }
+  }
+  let status_label = if model.loan_state == "Imported" {
+    "导入只读"
+  } else if model.loan_state == "new" {
+    "草稿"
+  } else {
+    loan_state_label(model.loan_state)
+  }
+  let note = if model.loan_state == "Imported" {
+    "来源 ERP 导入 · 只读，不提供本地写入"
+  } else {
+    model.loan_command_note
+  }
   page_shell(
     title,
     "FINANCE / LOAN FORM",
     "备用金和差旅借款需要明确用途、归还日期和可核销预算。",
-    [detail_toolbar(emit, "/loans", action)],
+    actions,
     section(class="erp-detail-card") <| [
       div(class="erp-panel-heading") <| [
         h2("借款信息"),
-        if detail {
-          span(class="erp-status-tag is-pending", "审批中")
-        } else {
-          span(class="erp-info-tag", "草稿")
-        },
+        span(class="erp-status-tag is-pending", status_label),
+        span(class="erp-source-note", note),
       ],
       div(class="erp-form-grid") <| [
         form_field(
           "借款单号",
           if detail {
-            "LOAN-260713-001"
+            model.loan_id
           } else {
             "自动生成"
           },
@@ -6064,6 +6285,14 @@ fn loan_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
         form_field("核销科目", "差旅交通", "核销科目"),
         form_field("收款账户", "个人备用金", "账户"),
       ],
+      if detail && is_local && model.loan_state == "error" {
+        div(class="erp-command-receipt") <| [
+          strong("命令服务状态"),
+          span(model.loan_command_note),
+        ]
+      } else {
+        @html.nothing
+      },
     ],
   )
 }
@@ -6853,7 +7082,7 @@ fn business_view(
   } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
     expense_editor_view(emit, model, true)
   } else if path.has_prefix("/loans/") && path != "/loans/new" {
-    loan_editor_view(emit, true)
+    loan_editor_view(emit, model, true)
   } else if path.has_prefix("/srm/providers/") {
     provider_detail_view(emit)
   } else {
@@ -6893,8 +7122,8 @@ fn business_view(
       "/expenses/new" => expense_editor_view(emit, model, false)
       "/expenses/EXP-260712-008" => expense_editor_view(emit, model, true)
       "/loans" => loans_view(emit, model)
-      "/loans/new" => loan_editor_view(emit, false)
-      "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
+      "/loans/new" => loan_editor_view(emit, model, false)
+      "/loans/LOAN-260713-001" => loan_editor_view(emit, model, true)
       "/reports" => reports_view(emit, model)
       "/report-builder" => report_builder_view()
       "/warning" => warning_view()

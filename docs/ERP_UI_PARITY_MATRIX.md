@@ -10,8 +10,8 @@ delivery, core report read, and employee-loan read/command verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 5, "fixture_backed_read_only": 30, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 37}`
+- Target states: `{"connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "fixture_backed_form": 3, "fixture_backed_read_only": 30, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "read_only_fixture_no_source_api": 35}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -36,8 +36,8 @@ delivery, core report read, and employee-loan read/command verticals.
 | `/payment-applies` | `../views/PaymentApplies.vue` | `payment_applies_view` | `connected_payment_application_command_form` | `cost` | 7 / 13 | `connected_payment_application_command` | `accept_browser_payment_application_scenario_and_production_identity` |
 | `/dynamic-cost` | `../views/DynamicCost.vue` | `dynamic_cost_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/loans` | `../views/LoanList.vue` | `loans_view` | `connected_loan_read` | `loan` | 2 / 6 | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
-| `/loans/new` | `../views/LoanCreate.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
-| `/loans/:guid` | `../views/LoanDetail.vue` | `loan_editor_view` | `fixture_backed_form` | `loan` | 2 / 6 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
+| `/loans/new` | `../views/LoanCreate.vue` | `loan_editor_view` | `connected_loan_command_form` | `loan` | 2 / 6 | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
+| `/loans/:guid` | `../views/LoanDetail.vue` | `loan_editor_view` | `connected_loan_command_form` | `loan` | 2 / 6 | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
 | `/project-plan` | `../views/ProjectPlan.vue` | `project_plan_view` | `connected_delivery_command_form` | `plan` | 4 / 5 | `connected_delivery_command` | `accept_browser_delivery_scenario_and_production_identity` |
 | `/investment` | `../views/Investment.vue` | `investment_view` | `fixture_backed_read_only` | `investment` | 16 / 12 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/cost-dashboard-v3` | `../views/CostDashboardV3.vue` | `cost_dashboard_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |

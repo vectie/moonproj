@@ -14,13 +14,14 @@
     "connected_contract_read": 1,
     "connected_delivery_command_form": 2,
     "connected_invoice_read": 1,
+    "connected_loan_command_form": 2,
     "connected_loan_read": 1,
     "connected_payment_application_command_form": 1,
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
     "connected_tender_command_form": 1,
-    "fixture_backed_form": 5,
+    "fixture_backed_form": 3,
     "fixture_backed_read_only": 30,
     "public": 1,
     "read_model_only": 3,
@@ -32,13 +33,14 @@
     "connected_expense_command": 1,
     "connected_fixed_read_model": 3,
     "connected_invoice_read": 1,
+    "connected_loan_command": 2,
     "connected_loan_read": 1,
     "connected_payment_application_command": 1,
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
-    "read_only_fixture_no_source_api": 37
+    "read_only_fixture_no_source_api": 35
   },
   "routes": [
     {
@@ -299,13 +301,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "loan_editor_view",
-      "target_state": "fixture_backed_form",
+      "target_state": "connected_loan_command_form",
       "source_api_module": "loan",
       "source_api_handler_count": 8,
       "source_api_read_handler_count": 2,
       "source_api_mutation_handler_count": 6,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+      "api_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "path": "/loans/:guid",
@@ -313,13 +315,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "loan_editor_view",
-      "target_state": "fixture_backed_form",
+      "target_state": "connected_loan_command_form",
       "source_api_module": "loan",
       "source_api_handler_count": 8,
       "source_api_read_handler_count": 2,
       "source_api_mutation_handler_count": 6,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_and_command_api_and_accept_scenario"
+      "api_state": "connected_loan_command",
+      "required_next": "accept_browser_loan_command_scenario_and_finance_owner"
     },
     {
       "path": "/project-plan",

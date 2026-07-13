@@ -57,8 +57,10 @@ read-only. The authenticated company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;
 workflow synchronization stays gated until source workflow rows are available.
-The Rabbita loan editor is still source-shaped and does not yet emit those
-commands. The other route families remain fixture-backed.
+The Rabbita loan editor now emits the local create/submit/update/void commands
+and keeps imported detail routes read-only; the offset action remains available
+only after an approved workflow state is supplied. The other route families
+remain fixture-backed.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

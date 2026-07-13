@@ -185,6 +185,8 @@ def match_target(
             return function, "connected_invoice_read"
         if path == "/reports" and function == "reports_view":
             return function, "connected_report_read"
+        if path == "/loans/new" and function == "loan_editor_view":
+            return function, "connected_loan_command_form"
         if path == "/loans" and function == "loans_view":
             return function, "connected_loan_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
@@ -205,6 +207,8 @@ def match_target(
             if branch in functions:
                 if prefix == "/contracts/":
                     return branch, "connected_contract_command_form"
+                if prefix == "/loans/":
+                    return branch, "connected_loan_command_form"
                 return branch, "read_only_public" if prefix == "/share/" else "fixture_backed_form"
     return None, "not_implemented"
 
@@ -240,6 +244,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_report_scenario_and_production_identity"
     if target_state == "connected_loan_read":
         return "accept_browser_loan_scenario_and_production_identity"
+    if target_state == "connected_loan_command_form":
+        return "accept_browser_loan_command_scenario_and_finance_owner"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -328,6 +334,8 @@ def build_matrix(
             api_state = "connected_delivery_command"
         elif target_state == "connected_report_read":
             api_state = "connected_report_read"
+        elif target_state == "connected_loan_command_form":
+            api_state = "connected_loan_command"
         elif target_state == "connected_loan_read":
             api_state = "connected_loan_read"
         elif target_function is None:
