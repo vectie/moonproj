@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/investment_benchmark"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/investment/portfolio",
+}
+
+// Values
+
+// Errors
+pub(all) suberror InvestmentBenchmarkError {
+  InvalidInput
+  Io(@fs.IOError)
+  Portfolio(@portfolio.PortfolioError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

@@ -32,6 +32,100 @@ pub(all) struct BenchmarkComparison {
 } derive(Debug, Eq)
 
 ///|
+/// An externally supplied benchmark observation. The observation is treated
+/// as source evidence, not as a quote that the portfolio can execute against.
+/// Its snapshot, mapping, and evidence identities are mandatory so a later
+/// reconciliation can be replayed without guessing which feed was used.
+pub(all) struct BenchmarkObservation {
+  observation_id : String
+  benchmark_id : String
+  period_id : String
+  source_snapshot_id : String
+  mapping_version : String
+  evidence_id : String
+  return_bps : Int64
+} derive(Debug, Eq)
+
+///|
+/// Reconciles a local benchmark comparison against one source-owned external
+/// observation. This is analytics evidence only: it cannot mutate positions,
+/// post accounting, or release cash.
+pub(all) struct BenchmarkReconciliation {
+  reconciliation_id : String
+  portfolio_id : String
+  period_id : String
+  benchmark_id : String
+  observation_id : String
+  source_snapshot_id : String
+  mapping_version : String
+  evidence_id : String
+  portfolio_return_bps : Int64
+  observed_benchmark_return_bps : Int64
+  comparison_benchmark_return_bps : Int64
+  active_return_bps : Int64
+  difference_bps : Int64
+  tolerance_bps : Int64
+  reconciled : Bool
+} derive(Debug, Eq)
+
+///|
+pub fn BenchmarkObservation::new(
+  observation_id~ : String,
+  benchmark_id~ : String,
+  period_id~ : String,
+  source_snapshot_id~ : String,
+  mapping_version~ : String,
+  evidence_id~ : String,
+  return_bps~ : Int64,
+) -> BenchmarkObservation raise PortfolioError {
+  if observation_id.trim() == "" ||
+    benchmark_id.trim() == "" ||
+    period_id.trim() == "" ||
+    source_snapshot_id.trim() == "" ||
+    mapping_version.trim() == "" ||
+    evidence_id.trim() == "" {
+    raise PortfolioError::EmptyIdentifier
+  }
+  {
+    observation_id,
+    benchmark_id,
+    period_id,
+    source_snapshot_id,
+    mapping_version,
+    evidence_id,
+    return_bps,
+  }
+}
+
+///|
+/// Build a benchmark comparison from explicit return evidence. Keeping this
+/// constructor public lets migration adapters validate source-shaped values
+/// without constructing a portfolio or position book.
+pub fn BenchmarkComparison::new(
+  portfolio_id~ : String,
+  period_id~ : String,
+  benchmark_id~ : String,
+  portfolio_return_bps~ : Int64,
+  benchmark_return_bps~ : Int64,
+) -> BenchmarkComparison raise PortfolioError {
+  if portfolio_id.trim() == "" ||
+    period_id.trim() == "" ||
+    benchmark_id.trim() == "" {
+    raise PortfolioError::EmptyIdentifier
+  }
+  let active_return_bps = portfolio_return_bps - benchmark_return_bps
+  {
+    portfolio_id,
+    period_id,
+    benchmark_id,
+    portfolio_return_bps,
+    benchmark_return_bps,
+    active_return_bps,
+    outperformed: active_return_bps > 0L,
+  }
+}
+
+///|
 /// Compare a locally calculated return with an explicitly supplied benchmark
 /// result. Benchmark data is evidence-owned by the caller and is never
 /// inferred from portfolio quotes.
@@ -40,18 +134,56 @@ pub fn PerformanceReport::compare_benchmark(
   benchmark_id~ : String,
   benchmark_return_bps~ : Int64,
 ) -> BenchmarkComparison raise PortfolioError {
-  if benchmark_id.trim() == "" {
-    raise PortfolioError::EmptyIdentifier
+  BenchmarkComparison::new(
+    portfolio_id=self.portfolio_id,
+    period_id=self.period_id,
+    benchmark_id~,
+    portfolio_return_bps=self.return_bps,
+    benchmark_return_bps~,
+  )
+}
+
+///|
+pub fn BenchmarkComparison::reconcile(
+  self : BenchmarkComparison,
+  observation : BenchmarkObservation,
+  tolerance_bps~ : Int64,
+) -> BenchmarkReconciliation raise PortfolioError {
+  if tolerance_bps < 0L {
+    raise PortfolioError::InvalidAmount
   }
-  let active_return_bps = self.return_bps - benchmark_return_bps
+  if observation.benchmark_id != self.benchmark_id ||
+    observation.period_id != self.period_id {
+    raise PortfolioError::ProjectionIdentity
+  }
+  let difference_bps = self.benchmark_return_bps - observation.return_bps
+  let absolute_difference_bps = if difference_bps < 0L {
+    0L - difference_bps
+  } else {
+    difference_bps
+  }
   {
+    reconciliation_id: self.portfolio_id +
+    ":" +
+    self.period_id +
+    ":" +
+    self.benchmark_id +
+    ":" +
+    observation.observation_id,
     portfolio_id: self.portfolio_id,
     period_id: self.period_id,
-    benchmark_id,
-    portfolio_return_bps: self.return_bps,
-    benchmark_return_bps,
-    active_return_bps,
-    outperformed: active_return_bps > 0L,
+    benchmark_id: self.benchmark_id,
+    observation_id: observation.observation_id,
+    source_snapshot_id: observation.source_snapshot_id,
+    mapping_version: observation.mapping_version,
+    evidence_id: observation.evidence_id,
+    portfolio_return_bps: self.portfolio_return_bps,
+    observed_benchmark_return_bps: observation.return_bps,
+    comparison_benchmark_return_bps: self.benchmark_return_bps,
+    active_return_bps: self.portfolio_return_bps - observation.return_bps,
+    difference_bps,
+    tolerance_bps,
+    reconciled: absolute_difference_bps <= tolerance_bps,
   }
 }
 
@@ -247,6 +379,67 @@ pub fn BenchmarkComparison::append_projection(
     payload~,
     source_event_id="company:investment-benchmark:" +
       aggregate_id +
+      ":r" +
+      revision.to_string(),
+  ) catch {
+    error => raise PortfolioError::Projection(error)
+  }
+}
+
+///|
+pub fn BenchmarkReconciliation::append_projection(
+  self : BenchmarkReconciliation,
+  projection : @store.AggregateProjection,
+) -> @store.AggregateProjection raise PortfolioError {
+  if projection.aggregate_type != "investment_benchmark_reconciliation" ||
+    projection.aggregate_id != self.reconciliation_id {
+    raise PortfolioError::ProjectionIdentity
+  }
+  let revision = projection.revision + 1
+  let payload = Json::object({
+    "reconciliation_id": Json::string(self.reconciliation_id),
+    "portfolio_id": Json::string(self.portfolio_id),
+    "period_id": Json::string(self.period_id),
+    "benchmark_id": Json::string(self.benchmark_id),
+    "observation_id": Json::string(self.observation_id),
+    "source_snapshot_id": Json::string(self.source_snapshot_id),
+    "mapping_version": Json::string(self.mapping_version),
+    "evidence_id": Json::string(self.evidence_id),
+    "portfolio_return_bps": Json::number(
+      self.portfolio_return_bps.to_double(),
+      repr=self.portfolio_return_bps.to_string(),
+    ),
+    "observed_benchmark_return_bps": Json::number(
+      self.observed_benchmark_return_bps.to_double(),
+      repr=self.observed_benchmark_return_bps.to_string(),
+    ),
+    "comparison_benchmark_return_bps": Json::number(
+      self.comparison_benchmark_return_bps.to_double(),
+      repr=self.comparison_benchmark_return_bps.to_string(),
+    ),
+    "active_return_bps": Json::number(
+      self.active_return_bps.to_double(),
+      repr=self.active_return_bps.to_string(),
+    ),
+    "difference_bps": Json::number(
+      self.difference_bps.to_double(),
+      repr=self.difference_bps.to_string(),
+    ),
+    "tolerance_bps": Json::number(
+      self.tolerance_bps.to_double(),
+      repr=self.tolerance_bps.to_string(),
+    ),
+    "reconciled": Json::boolean(self.reconciled),
+    "analytics_only": Json::boolean(true),
+    "position_mutated": Json::boolean(false),
+    "accounting_posted": Json::boolean(false),
+    "cash_released": Json::boolean(false),
+  }).stringify()
+  projection.append(
+    expected_revision=revision,
+    payload~,
+    source_event_id="company:investment-benchmark-reconciliation:" +
+      self.reconciliation_id +
       ":r" +
       revision.to_string(),
   ) catch {

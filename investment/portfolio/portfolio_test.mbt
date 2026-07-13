@@ -300,6 +300,74 @@ test "portfolio attributes per-position performance and persists evidence" {
     Some(latest) => assert_true(latest.payload.contains("150"))
     None => fail("expected benchmark comparison projection")
   }
+  let observation = BenchmarkObservation::new(
+    observation_id="benchmark-observation-2026-07",
+    benchmark_id="benchmark-cn-equity-2026-07",
+    period_id="2026-07",
+    source_snapshot_id="erp-snapshot:benchmark-2026-07",
+    mapping_version="benchmark-map-v1",
+    evidence_id="feed:cn-equity:2026-07",
+    return_bps=101L,
+  )
+  let reconciliation = comparison.reconcile(observation, tolerance_bps=1L)
+  assert_eq(reconciliation.difference_bps, -1L)
+  assert_true(reconciliation.reconciled)
+  let reconciliation_projection = @store.AggregateProjection::new(
+    benchmark_projection.into_store(),
+    aggregate_type="investment_benchmark_reconciliation",
+    aggregate_id=reconciliation.reconciliation_id,
+  )
+  let reconciliation_projection = reconciliation.append_projection(
+    reconciliation_projection,
+  )
+  match reconciliation_projection.latest() {
+    Some(latest) => {
+      assert_true(latest.payload.contains("erp-snapshot:benchmark-2026-07"))
+      assert_true(latest.payload.contains("analytics_only"))
+      assert_true(latest.payload.contains("position_mutated"))
+      assert_true(latest.payload.contains("accounting_posted"))
+      assert_true(latest.payload.contains("cash_released"))
+    }
+    None => fail("expected benchmark reconciliation projection")
+  }
+}
+
+///|
+test "benchmark reconciliation quarantines mismatched source identity" {
+  let comparison = BenchmarkComparison::new(
+    portfolio_id="portfolio-benchmark",
+    period_id="2026-07",
+    benchmark_id="benchmark-cn-equity-2026-07",
+    portfolio_return_bps=250L,
+    benchmark_return_bps=100L,
+  )
+  let wrong_benchmark = BenchmarkObservation::new(
+    observation_id="benchmark-observation-wrong",
+    benchmark_id="benchmark-other",
+    period_id="2026-07",
+    source_snapshot_id="snapshot:wrong",
+    mapping_version="benchmark-map-v1",
+    evidence_id="feed:wrong",
+    return_bps=100L,
+  )
+  try comparison.reconcile(wrong_benchmark, tolerance_bps=0L) catch {
+    PortfolioError::ProjectionIdentity => ()
+    _ => fail("wrong portfolio error")
+  } noraise {
+    _ => fail("expected benchmark identity error")
+  }
+  let mismatch = BenchmarkObservation::new(
+    observation_id="benchmark-observation-mismatch",
+    benchmark_id="benchmark-cn-equity-2026-07",
+    period_id="2026-07",
+    source_snapshot_id="snapshot:mismatch",
+    mapping_version="benchmark-map-v1",
+    evidence_id="feed:mismatch",
+    return_bps=120L,
+  )
+  let reconciliation = comparison.reconcile(mismatch, tolerance_bps=5L)
+  assert_eq(reconciliation.difference_bps, -20L)
+  assert_true(!reconciliation.reconciled)
 }
 
 ///|

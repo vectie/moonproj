@@ -1,0 +1,14 @@
+{
+  "format": "moonproj.company.investment-benchmark-reconciliation-plan.v1",
+  "portfolio_id": "portfolio-performance",
+  "period_id": "2026-07",
+  "benchmark_id": "benchmark-cn-equity-2026-07",
+  "source_snapshot_id": "erp-snapshot:benchmark-2026-07",
+  "mapping_version": "benchmark-map-v1",
+  "observation_id": "benchmark-observation-2026-07",
+  "evidence_id": "feed:cn-equity:2026-07",
+  "portfolio_return_bps": 250,
+  "benchmark_return_bps": 100,
+  "observed_return_bps": 101,
+  "tolerance_bps": 1
+}

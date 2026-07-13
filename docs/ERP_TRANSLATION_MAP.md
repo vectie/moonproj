@@ -183,6 +183,10 @@ The seventeenth wrapper argument can supply a reviewed consolidated-report
 plan; it combines balanced sections under one source snapshot and persists a
 non-posting `consolidated_report` projection. See
 [ERP_CONSOLIDATED_REPORTING.md](ERP_CONSOLIDATED_REPORTING.md).
+The eighteenth wrapper argument can supply a reviewed external benchmark
+reconciliation plan; it is passed through `cmd/investment_benchmark` and the
+same projection/parity/replay adapters. See
+[ERP_INVESTMENT_BENCHMARK.md](ERP_INVESTMENT_BENCHMARK.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -321,8 +325,8 @@ importer.
 | `audit_log`, `sys_error_log`, attachments | Evidence and administrative trace | `foundation/evidence` + `migration/erp` + `cmd/promote` | The fixture promotes 2 explicitly mapped audit records with actor-scoped append grants; network fields remain redacted, while error taxonomy and durable blob storage remain pending. |
 | `my_biz_param_option`, `vys_proceeding` | Configurable parameter and expense-proceeding catalogs | `foundation` + `migration/erp` + `cmd/promote` | The fixture promotes 2 dictionaries/8 options under explicit authority: the original 5-option `cost_subject` dictionary and an explicit 3-option `expense_proceeding` catalog. Values remain opaque; manager/department/cost metadata, CBS/accounting meaning, and expense state are not inferred. |
 | `vys_proceeding` | Expense/proceeding catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Three redacted proceeding rows are preserved as typed evidence; no expense policy or accounting subject is inferred. |
-| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserving source value representations; deterministic period performance attribution and explicit benchmark active-return comparison are now local, while richer formula semantics and external benchmark-feed reconciliation remain pending; acquisition and mark-to-market valuation links are explicit local events. |
-| investment mandate/proposal/position/model snapshots | Investment persistence | `investment/model` + `investment/domain` + `investment/portfolio` + `persistence/store` | Model versions/indexes, mandate limits, deterministic Moonfish analysis, proposal state, positions, shock stress evidence, per-position period performance, acquisition links, and explicit gain/loss valuation event links serialize as revisioned evidence; full investment accounting remains pending. |
+| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `cmd/investment_benchmark` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserving source value representations; deterministic period performance attribution and explicit benchmark active-return comparison are local, and reviewed external observations can now be reconciled by source snapshot, mapping, evidence, and tolerance into analytics-only projections; richer formula semantics, source-feed acceptance, and full accounting remain pending; acquisition and mark-to-market valuation links are explicit local events. |
+| investment mandate/proposal/position/model snapshots | Investment persistence | `investment/model` + `investment/domain` + `investment/portfolio` + `persistence/store` | Model versions/indexes, mandate limits, deterministic Moonfish analysis, proposal state, positions, shock stress evidence, per-position period performance, source-bound external benchmark reconciliation, acquisition links, and explicit gain/loss valuation event links serialize as revisioned evidence; full investment accounting remains pending. |
 | Moonfish deterministic tools | Market evidence and analysis | `investment/analytics` | Moving-average/trend seed implemented; full package absorption pending. |
 
 ## Current vertical scenarios
@@ -420,7 +424,9 @@ Covered by investment-domain tests. The proposal path is deliberately local and
 does not give Moonfish or MoonClaw direct execution authority; portfolio
 valuation and shock-risk evidence are implemented locally, and explicit
 gain/loss valuation links now preserve mark-to-market accounting evidence;
-external benchmark reconciliation and full investment accounting remain future parity work.
+external benchmark observations can be reconciled as source-bound analytics
+evidence; full investment accounting and accepted production feeds remain
+future parity work.
 
 ## Legacy migration rules
 

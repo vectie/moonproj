@@ -155,7 +155,7 @@ existing ERP remains authoritative.
 | Investment mandate/proposal/position projections | `investment/domain` + `persistence/store` | Mandate limits, Moonfish analysis evidence, proposal states, executed positions, validated acquisition journals, and acquisition accounting-event links persist as immutable revisioned evidence. |
 | Versioned investment model | `investment/model` + `persistence/store` | ERP version/index rows become a governed local model with duplicate/version checks, source-value preservation, explicit authority, and revisioned projections. |
 | ERP investment-model cohort promotion | `migration/erp` + `investment/model` | Version mappings isolate index rows, require explicit principal/grants, and reject duplicate versions or stray indexes before promotion. |
-| Investment portfolio and valuation | `investment/portfolio` | Mandate-bound position book, exposure limits, explicit quote valuation, deterministic period-scoped per-position performance attribution and benchmark active-return comparison, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
+| Investment portfolio and valuation | `investment/portfolio` + `cmd/investment_benchmark` | Mandate-bound position book, exposure limits, explicit quote valuation, deterministic period-scoped per-position performance attribution and benchmark active-return comparison, source-snapshot/mapping/evidence-bound external benchmark reconciliation with tolerance and analytics-only projection markers, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
 | Portfolio risk scenarios and projections | `investment/portfolio` + `persistence/store` | Shock-based stress reports, loss limits, portfolio position snapshots, and mandate breach flags persist as governed evidence. |
 | Reconciliation report | `finance/reconciliation` | Expected-versus-actual lines and journal-side comparison with explicit currency and balance errors. |
 | Consolidated reporting evidence | `finance/reporting` + `cmd/consolidated_report` + `persistence/store` | Source-snapshot-bound balanced sections combine into a deterministic `consolidated_report` projection with control totals, mapping versions, accounting-link counts, and explicit non-posting cash/period/tax flags. |
@@ -172,7 +172,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 237 passing MoonBit tests across the new packages. The
+The current scaffold has 238 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -351,10 +351,11 @@ promotion of the remaining typed-staged rows, or production readiness.
    filing records, and disposal derecognition journals/accounting-event links
    are now implemented, while period-close integration still needs production
    statement and subledger evidence.
-6. Add richer investment formula semantics and external benchmark/performance
-   reconciliation around the persistent model, mandate, proposal, position,
-   risk, valuation, and now deterministic period-performance projections;
-   acquisition and mark-to-market valuation event links are implemented, but
-   full performance/accounting reconciliation remains open.
+6. Add richer investment formula semantics and complete a reviewed external
+   benchmark/performance cohort around the persistent model, mandate, proposal,
+   position, risk, valuation, and deterministic period-performance projections;
+   source-snapshot/mapping/evidence-bound benchmark reconciliation is now
+   implemented as analytics-only evidence, while source feed acceptance and
+   full performance/accounting reconciliation remain open.
 7. Add sanitized ERP export fixtures, opening-balance workbooks, and
    cross-domain parity reports for each migration cohort.

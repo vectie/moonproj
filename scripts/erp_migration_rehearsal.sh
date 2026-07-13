@@ -23,6 +23,7 @@ DELIVERY_RECOGNITION_MAPPING=${14:-}
 DELIVERY_RECOGNITION_ACCOUNTING_MAPPING=${15:-}
 PRODUCTION_SERVICE_MANIFEST=${16:-}
 CONSOLIDATED_REPORT_PLAN=${17:-}
+INVESTMENT_BENCHMARK_PLAN=${18:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -323,6 +324,25 @@ if [ -n "$CONSOLIDATED_REPORT_PLAN" ]; then
   echo "consolidated_report_replay=$CONSOLIDATED_REPORT_REPLAY"
 fi
 
+if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
+  INVESTMENT_BENCHMARK_RECEIPT="$WORK_DIR/investment-benchmark-receipt.json"
+  moon run --target native cmd/investment_benchmark -- \
+    "$INVESTMENT_BENCHMARK_PLAN" "$INVESTMENT_BENCHMARK_RECEIPT"
+  echo "investment_benchmark_receipt=$INVESTMENT_BENCHMARK_RECEIPT"
+  INVESTMENT_BENCHMARK_APPLY="$WORK_DIR/investment-benchmark-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$INVESTMENT_BENCHMARK_RECEIPT" "$TARGET_DB" > "$INVESTMENT_BENCHMARK_APPLY"
+  echo "investment_benchmark_apply=$INVESTMENT_BENCHMARK_APPLY"
+  INVESTMENT_BENCHMARK_PARITY="$WORK_DIR/investment-benchmark-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$INVESTMENT_BENCHMARK_RECEIPT" "$TARGET_DB" "$INVESTMENT_BENCHMARK_PARITY"
+  echo "investment_benchmark_parity=$INVESTMENT_BENCHMARK_PARITY"
+  INVESTMENT_BENCHMARK_REPLAY="$WORK_DIR/investment-benchmark-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$INVESTMENT_BENCHMARK_RECEIPT" "$TARGET_DB" > "$INVESTMENT_BENCHMARK_REPLAY"
+  echo "investment_benchmark_replay=$INVESTMENT_BENCHMARK_REPLAY"
+fi
+
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
 python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
@@ -380,6 +400,9 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then

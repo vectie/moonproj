@@ -40,6 +40,38 @@ pub(all) struct BenchmarkComparison {
   outperformed : Bool
 } derive(Eq, @debug.Debug)
 pub fn BenchmarkComparison::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
+pub fn BenchmarkComparison::new(portfolio_id~ : String, period_id~ : String, benchmark_id~ : String, portfolio_return_bps~ : Int64, benchmark_return_bps~ : Int64) -> Self raise PortfolioError
+pub fn BenchmarkComparison::reconcile(Self, BenchmarkObservation, tolerance_bps~ : Int64) -> BenchmarkReconciliation raise PortfolioError
+
+pub(all) struct BenchmarkObservation {
+  observation_id : String
+  benchmark_id : String
+  period_id : String
+  source_snapshot_id : String
+  mapping_version : String
+  evidence_id : String
+  return_bps : Int64
+} derive(Eq, @debug.Debug)
+pub fn BenchmarkObservation::new(observation_id~ : String, benchmark_id~ : String, period_id~ : String, source_snapshot_id~ : String, mapping_version~ : String, evidence_id~ : String, return_bps~ : Int64) -> Self raise PortfolioError
+
+pub(all) struct BenchmarkReconciliation {
+  reconciliation_id : String
+  portfolio_id : String
+  period_id : String
+  benchmark_id : String
+  observation_id : String
+  source_snapshot_id : String
+  mapping_version : String
+  evidence_id : String
+  portfolio_return_bps : Int64
+  observed_benchmark_return_bps : Int64
+  comparison_benchmark_return_bps : Int64
+  active_return_bps : Int64
+  difference_bps : Int64
+  tolerance_bps : Int64
+  reconciled : Bool
+} derive(Eq, @debug.Debug)
+pub fn BenchmarkReconciliation::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
 
 pub(all) struct MarketQuote {
   instrument : String
@@ -115,4 +147,3 @@ pub(all) struct ValuationReport {
 // Type aliases
 
 // Traits
-
