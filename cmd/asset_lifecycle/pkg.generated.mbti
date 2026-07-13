@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/asset_lifecycle"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/assets",
+}
+
+// Values
+
+// Errors
+pub(all) suberror AssetPromotionError {
+  InvalidInput
+  Io(@fs.IOError)
+  Money(@finance.MoneyError)
+  Asset(@assets.AssetError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

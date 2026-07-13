@@ -120,6 +120,14 @@ posting, tax treatment, covenant tracking, and period close remain separate.
 The available ERP snapshot has no financing-facility rows, so a sanitized
 facility export, lender/principal identity map, finance-owner review, and
 production debt policy are still required.
+The reviewed asset-lifecycle boundary now preserves one synthetic fixed asset
+through capitalization, activation, two depreciation periods, and disposal,
+including exact depreciation/disposal journal validation and SQLite/PostgreSQL
+parity with zero-insert replay. It is register and accounting evidence only:
+journal posting, disposal cash settlement, tax basis, period close, and owner
+acceptance remain separate. The available ERP snapshot has no asset rows, so a
+sanitized register export, legal-owner map, account policy, and finance-owner
+review are still required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

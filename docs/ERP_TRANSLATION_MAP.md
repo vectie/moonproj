@@ -254,6 +254,13 @@ calculation; exact adapters preserve limit, draw, repayment, outstanding
 principal, rate, state, and interest evidence. Lender calls, cash release,
 accounting posting, tax treatment, and period close remain false. See
 [ERP_FINANCING_FACILITY.md](ERP_FINANCING_FACILITY.md).
+The thirtieth SQLite wrapper argument, or the twenty-eighth PostgreSQL
+cohort-runner argument, can supply a separately reviewed asset-lifecycle map.
+`scripts/erp_asset_lifecycle_plan.py` and `cmd/asset_lifecycle` replay native
+capitalization, depreciation, impairment, and disposal controls; exact
+adapters preserve book values, depreciation entries, disposal basis, gain/loss,
+and lifecycle state. Journal posting, disposal cash, tax treatment, and period
+close remain false. See [ERP_ASSET_LIFECYCLE.md](ERP_ASSET_LIFECYCLE.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -387,7 +394,7 @@ importer.
 | `fund_plan`, `fund_dispatch`, loan/facility routes | Treasury plan, dispatch, and corporate financing | `finance/treasury` + `finance/financing` | Cash plan confirmation/actualization, controlled project dispatch, and facility approval/draw/interest/repayment controls implemented; draw and repayment actions now emit explicit balanced source-to-journal links without posting; lender statements and covenant persistence pending. |
 | financing facility snapshots | Financing persistence | `finance/financing` + `cmd/financing_facility` + `persistence/store` | Facility limits, draw, outstanding principal, rate, repayment state, lifecycle events, and reviewed interest evidence serialize as revisioned projections with exact SQLite/PostgreSQL parity and replay; lender/cash/accounting effects remain separate. |
 | chart-of-accounts, journal, period-close routes | Accounting books and close control | `finance/accounting` + `finance/reconciliation` + `cmd/accounting_post` | Account/currency validation, open/soft-close/close periods, native balanced ledger posting, reviewed source-linked posting projections, and `close_reconciled` control implemented; the period-close artifact binds reconciliations to one source snapshot with a deterministic evidence hash; opening balances, subsidiary links, statement import, tax/cash effects, and financial statements remain pending. |
-| asset/register/depreciation routes | Asset ownership and depreciation/disposal | `finance/assets` | Capitalization, activation, impairment/disposal, residual-value controls, deterministic depreciation, balanced depreciation/derecognition journals, revisioned asset-register projections, and depreciation/disposal event links implemented; period-close integration and production asset-import cohorts remain pending. |
+| asset/register/depreciation routes | Asset ownership and depreciation/disposal | `finance/assets` + `cmd/asset_lifecycle` | Capitalization, activation, impairment/disposal, residual-value controls, deterministic depreciation, balanced depreciation/derecognition journals, reviewed lifecycle receipts, and exact SQLite/PostgreSQL asset parity/replay are implemented; journal posting, period-close integration, and production asset-import cohorts remain pending. |
 | operational accounting event hooks | Source-to-journal traceability | `finance/accounting` | Validated source/journal links and duplicate event/source replay protection implemented. |
 | durable accounting-event links | Source-to-journal persistence | `finance/accounting` + `persistence/store` + `scripts/company_sqlite_accounting_link_apply.py` + `scripts/company_postgres_accounting_link_apply.py` | Native balanced-journal link receipts are persisted transactionally with event/source/journal uniqueness, migration receipt state `AccountingLinked`, integrity verification, and idempotent replay in both SQLite and PostgreSQL; a separate reviewed posting plan now calls `AccountingBook.post` and persists `accounting_posting` projections, while opening balances, external settlement, tax/cash effects, and period close remain separate. |
 | `audit_log`, `sys_error_log`, attachments | Evidence and administrative trace | `foundation/evidence` + `migration/erp` + `cmd/promote` | The fixture promotes 2 explicitly mapped audit records with actor-scoped append grants; network fields remain redacted, while error taxonomy and durable blob storage remain pending. |

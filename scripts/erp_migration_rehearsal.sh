@@ -35,6 +35,7 @@ OPENING_CONTROL_MAPPING=${26:-}
 TAX_FILING_MAPPING=${27:-}
 BANK_STATEMENT_MAPPING=${28:-}
 FINANCING_FACILITY_MAPPING=${29:-}
+ASSET_LIFECYCLE_MAPPING=${30:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -285,6 +286,30 @@ if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" > "$FINANCING_FACILITY_REPLAY"
   echo "financing_facility_replay=$FINANCING_FACILITY_REPLAY"
+fi
+
+if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
+  ASSET_LIFECYCLE_PLAN="$WORK_DIR/asset-lifecycle-plan.json"
+  python3 "$SCRIPT_DIR/erp_asset_lifecycle_plan.py" \
+    "$ASSET_LIFECYCLE_MAPPING" "$ASSET_LIFECYCLE_PLAN"
+  echo "asset_lifecycle_plan=$ASSET_LIFECYCLE_PLAN"
+  ASSET_LIFECYCLE_RECEIPT="$WORK_DIR/asset-lifecycle-receipt.json"
+  moon run --target native cmd/asset_lifecycle -- \
+    "$ASSET_LIFECYCLE_PLAN" "$ASSET_LIFECYCLE_RECEIPT"
+  echo "asset_lifecycle_receipt=$ASSET_LIFECYCLE_RECEIPT"
+  ASSET_LIFECYCLE_APPLY="$WORK_DIR/asset-lifecycle-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" > "$ASSET_LIFECYCLE_APPLY"
+  echo "asset_lifecycle_apply=$ASSET_LIFECYCLE_APPLY"
+  ASSET_LIFECYCLE_PARITY="$WORK_DIR/asset-lifecycle-parity.json"
+  python3 "$SCRIPT_DIR/company_asset_lifecycle_parity.py" \
+    "$ASSET_LIFECYCLE_RECEIPT" "$ASSET_LIFECYCLE_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "asset_lifecycle_parity=$ASSET_LIFECYCLE_PARITY"
+  ASSET_LIFECYCLE_REPLAY="$WORK_DIR/asset-lifecycle-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" > "$ASSET_LIFECYCLE_REPLAY"
+  echo "asset_lifecycle_replay=$ASSET_LIFECYCLE_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -703,6 +728,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
     FINANCING_FACILITY_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["facilities"]))' "$WORK_DIR/financing-facility-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + FINANCING_FACILITY_COUNT))
+  fi
+  if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
+    ASSET_LIFECYCLE_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["assets"]))' "$WORK_DIR/asset-lifecycle-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + ASSET_LIFECYCLE_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

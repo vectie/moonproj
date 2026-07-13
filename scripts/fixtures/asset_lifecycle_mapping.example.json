@@ -1,0 +1,36 @@
+{
+  "format": "moonproj.erp.asset-lifecycle-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:asset-lifecycle-synthetic-001",
+  "mapping_version": "asset-lifecycle-map-v1-review-001",
+  "run_id": "asset-lifecycle-run-2026-13",
+  "assets": [
+    {
+      "source_table": "asset_register",
+      "source_id": "asset-source-001",
+      "asset_id": "asset-001",
+      "principal_id": "co-001",
+      "project_scope": "company:co-001",
+      "description": "Production machine",
+      "currency": "CNY",
+      "acquisition_cost_minor": 1200000,
+      "residual_value_minor": 200000,
+      "useful_life_months": 12,
+      "expected_state": "disposed",
+      "impair_before_disposal": false,
+      "depreciation_periods": [
+        {"period_id": "2026-01"},
+        {"period_id": "2026-02"}
+      ],
+      "disposal_proceeds_minor": 1000000,
+      "accounts": {
+        "depreciation_expense_account": "6602",
+        "accumulated_depreciation_account": "1602",
+        "cash_or_receivable_account": "1001",
+        "asset_account": "1601",
+        "gain_account": "6301",
+        "loss_account": "6701"
+      }
+    }
+  ]
+}

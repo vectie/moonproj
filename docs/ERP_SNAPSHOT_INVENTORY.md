@@ -110,6 +110,10 @@ The optional twenty-ninth argument supplies a reviewed financing-facility map;
 it validates facility lifecycle and interest evidence only. Lender calls, cash
 disbursement/settlement, accounting posting, tax treatment, and period close
 remain separate gates.
+The optional thirtieth argument supplies a reviewed asset-lifecycle map; it
+validates capitalization, depreciation, and disposal evidence only. Journal
+posting, disposal cash settlement, tax treatment, and period close remain
+separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

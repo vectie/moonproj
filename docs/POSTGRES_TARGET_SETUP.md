@@ -174,3 +174,9 @@ runs native facility lifecycle and interest validation and persists one exact
 The demonstrated full run reaches 126 aggregate projections. Lender calls,
 cash disbursement/settlement, accounting posting, tax treatment, and period
 close remain separate gates.
+The twenty-eighth argument supplies the reviewed asset-lifecycle map. It runs
+native capitalization, depreciation, and disposal validation and persists one
+exact `asset` projection with candidate parity and idempotent replay. The
+demonstrated full run reaches 127 aggregate projections. Journal posting,
+disposal cash settlement, tax treatment, and period close remain separate
+gates.
