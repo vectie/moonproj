@@ -169,6 +169,32 @@ def main() -> int:
             or business_units_payload.get("source_coverage", {}).get("mu_business_unit") != 7
         ):
             raise SmokeError(f"business-unit tree read failed: {status} {business_units_payload}")
+        status, cost_subject_payload = request(
+            args.port,
+            "/api/company/budget/dict/cost-subjects",
+            token=token,
+        )
+        if (
+            status != 200
+            or cost_subject_payload is None
+            or len(cost_subject_payload.get("data", [])) != 5
+            or cost_subject_payload.get("data", [])[0].get("code") != "CS-DYZZF"
+            or cost_subject_payload.get("source_coverage", {}).get("my_biz_param_option") != 5
+        ):
+            raise SmokeError(f"cost-subject dictionary read failed: {status} {cost_subject_payload}")
+        status, proceedings_payload = request(
+            args.port,
+            "/api/company/budget/proceedings",
+            token=token,
+        )
+        if (
+            status != 200
+            or proceedings_payload is None
+            or len(proceedings_payload.get("data", [])) != 3
+            or proceedings_payload.get("data", [])[0].get("code") != "BGFCQYY"
+            or proceedings_payload.get("source_coverage", {}).get("vys_proceeding") != 3
+        ):
+            raise SmokeError(f"proceedings dictionary read failed: {status} {proceedings_payload}")
         status, project_payload = request(args.port, "/api/company/projects", token=token)
         if (
             status != 200
@@ -1198,6 +1224,8 @@ def main() -> int:
                     "workflow_step_count": 12,
                     "business_unit_root_count": 1,
                     "business_unit_rows": 7,
+                    "cost_subject_rows": 5,
+                    "proceeding_rows": 3,
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
                     "project_count": 2,

@@ -76,6 +76,9 @@ boundaries.
 The source MDM business-unit tree is available to company-scoped screens at
 `/api/company/business-units/tree`; imported organization rows remain read-only
 until legal-principal and role ownership are accepted.
+Expense-form dictionary reads are available at
+`/api/company/budget/dict/cost-subjects` and `/api/company/budget/proceedings`;
+dictionary and expense writes remain finance-owner gated.
 Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.

@@ -308,6 +308,9 @@ those capabilities as source parity.
    The source MDM business-unit tree is also connected as a read-only
    hierarchy (seven imported rows); legal-principal ownership and organization
    mutations remain gated. See [`ERP_MDM_RUNTIME_AUDIT.md`](ERP_MDM_RUNTIME_AUDIT.md).
+   The available budget dictionaries are now source-compatible reads as well
+   (five cost-subject options and three proceedings); expense and dictionary
+   writes remain gated. See [`ERP_BUDGET_RUNTIME_AUDIT.md`](ERP_BUDGET_RUNTIME_AUDIT.md).
 4. **Reporting is locally connected but source-incomplete and not accepted.**
    The five core report reads now run through the local PostgreSQL service,
    read-model adapter, and Rabbita `/reports` overview. Cost, contract, and
@@ -330,9 +333,9 @@ those capabilities as source parity.
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
 currently records twenty-one connected browser states and twenty-four connected API
-state entries across MDM organization/project, expense, contract, payment,
-procurement, sales, invoice, delivery, core reports, employee-loan, and
-workflow-definition reads,
+state entries across MDM organization/project, budget dictionary, expense,
+contract, payment, procurement, sales, invoice, delivery, core reports,
+employee-loan, and workflow-definition reads,
 while 28 browser views and 32 API groups remain fixture-backed or read-model-only.
 Three additional fixed read-model routes are connected. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,

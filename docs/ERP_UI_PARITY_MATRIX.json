@@ -1463,8 +1463,8 @@
         "/expenses/new",
         "/expenses/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_budget_read",
+      "required_next": "accept_browser_budget_scenario_and_production_identity"
     },
     {
       "module": "budget",
@@ -1475,8 +1475,8 @@
         "/expenses/new",
         "/expenses/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_budget_read",
+      "required_next": "accept_browser_budget_scenario_and_production_identity"
     },
     {
       "module": "budget",

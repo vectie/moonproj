@@ -6,7 +6,7 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-MDM organization/project master reads, delivery, core report read, employee-loan
+MDM organization/project master, budget dictionary reads, delivery, core report read,
 read/command, project-plan read, and non-authorizing workflow-definition
 read verticals.
 
@@ -140,8 +140,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `auth` | `GET` | `/prefs` | `/login`, `/profile` | `not_connected` | `connect_authenticated_read_api` |
 | `auth` | `PUT` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `DELETE` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `budget` | `GET` | `/dict/cost-subjects` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |
-| `budget` | `GET` | `/proceedings` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |
+| `budget` | `GET` | `/dict/cost-subjects` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
+| `budget` | `GET` | `/proceedings` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
 | `budget` | `GET` | `/users-in-bu` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |
 | `budget` | `GET` | `/expenses` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |
 | `budget` | `GET` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |

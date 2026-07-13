@@ -45,6 +45,8 @@ The bounded service exposes these endpoints:
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
 * ``/api/company/business-units/tree`` (GET, source-compatible MDM read)
+* ``/api/company/budget/dict/cost-subjects`` and
+  ``/api/company/budget/proceedings`` (GET, source-compatible budget reads)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -3724,6 +3726,62 @@ def business_units_tree(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     }
 
 
+def budget_cost_subjects(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), BUDGET_SOURCE_TABLES)
+    options = [
+        row["payload"]
+        for row in raw
+        if str(row["payload"].get("param_name") or "") == "cost_subject"
+        and bool(row["payload"].get("enabled", 0))
+    ]
+    options.sort(
+        key=lambda value: (
+            int(value.get("display_order") or 0),
+            str(value.get("param_code") or ""),
+        )
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": [
+            {
+                "code": str(option.get("param_code") or ""),
+                "name": str(option.get("param_value") or ""),
+                "sourceKind": "imported",
+            }
+            for option in options
+        ],
+        "source_kind": "imported",
+        "source_coverage": {"my_biz_param_option": len(raw)},
+    }
+
+
+def budget_proceedings(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    raw = _raw_source_rows(pool, "vys_proceeding", max(max_rows, 100), BUDGET_SOURCE_TABLES)
+    proceedings = [row["payload"] for row in raw if bool(row["payload"].get("enabled", 0))]
+    proceedings.sort(
+        key=lambda value: (
+            str(value.get("proceeding_code") or ""),
+            str(value.get("proceeding_guid") or ""),
+        )
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": [
+            {
+                "guid": str(item.get("proceeding_guid") or ""),
+                "code": str(item.get("proceeding_code") or ""),
+                "name": str(item.get("proceeding_name") or ""),
+                "sourceKind": "imported",
+            }
+            for item in proceedings
+        ],
+        "source_kind": "imported",
+        "source_coverage": {"vys_proceeding": len(raw)},
+    }
+
+
 def _shift_plan_date(value: Any, delay_days: int) -> str:
     parsed = _report_date(str(value or ""))
     if parsed is None:
@@ -3905,6 +3963,11 @@ PROJECT_SOURCE_TABLES = {
     "jd_task",
     "jd_task_report",
     "sys_user",
+}
+
+BUDGET_SOURCE_TABLES = {
+    "my_biz_param_option",
+    "vys_proceeding",
 }
 
 
@@ -6034,6 +6097,10 @@ def handler_factory(
                         response(self, 200, result["items"][0], origin)
                 elif parsed.path == "/api/company/business-units/tree":
                     response(self, 200, business_units_tree(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/budget/dict/cost-subjects":
+                    response(self, 200, budget_cost_subjects(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/budget/proceedings":
+                    response(self, 200, budget_proceedings(pool, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
                     parsed.path,
