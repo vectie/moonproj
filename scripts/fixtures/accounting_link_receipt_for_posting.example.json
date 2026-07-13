@@ -1,0 +1,33 @@
+{
+  "format": "moonproj.erp.accounting-link-receipt.v1",
+  "source_snapshot_id": "erp-snapshot:synthetic-accounting-posting-001",
+  "mapping_version": "mapped-accounting-link-synthetic-v1",
+  "state": "validated_accounting_links",
+  "accepted_items": [
+    {
+      "source_table": "cb_contract",
+      "source_id": "synthetic-contract-001",
+      "source_type": "cb_contract",
+      "principal_id": "co-001",
+      "event_id": "acct-commitment-ht-tj-001",
+      "journal_id": "journal-synthetic-commitment-001"
+    },
+    {
+      "source_table": "cb_contract",
+      "source_id": "synthetic-contract-002",
+      "source_type": "cb_contract",
+      "principal_id": "co-001",
+      "event_id": "acct-commitment-ht-tj-002",
+      "journal_id": "journal-synthetic-commitment-002"
+    }
+  ],
+  "event_ids": [
+    "acct-commitment-ht-tj-001",
+    "acct-commitment-ht-tj-002"
+  ],
+  "journal_ids": [
+    "journal-synthetic-commitment-001",
+    "journal-synthetic-commitment-002"
+  ],
+  "event_count": 2
+}

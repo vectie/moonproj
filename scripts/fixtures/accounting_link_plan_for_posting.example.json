@@ -1,0 +1,61 @@
+{
+  "format": "moonproj.erp.accounting-link-plan.v1",
+  "source_snapshot_id": "erp-snapshot:synthetic-accounting-posting-001",
+  "source_sha256": "synthetic-accounting-posting-001",
+  "mapping_version": "mapped-accounting-link-synthetic-v1",
+  "summary": {
+    "items": 2,
+    "ready": 2,
+    "quarantined": 0
+  },
+  "items": [
+    {
+      "source_table": "cb_contract",
+      "source_id": "synthetic-contract-001",
+      "target_type": "accounting_event_link",
+      "target_id": "acct-synthetic-commitment-001",
+      "disposition": "ready_for_domain_import",
+      "target_candidate": {
+        "source_target_type": "commitment",
+        "event_id": "acct-commitment-ht-tj-001",
+        "principal_id": "co-001",
+        "source_type": "cb_contract",
+        "source_id": "synthetic-contract-001",
+        "event_type": "commitment.performed",
+        "scope": "project:proj-0001",
+        "journal": {
+          "entry_id": "journal-synthetic-commitment-001",
+          "description": "Recognize synthetic performed commitment 001",
+          "debit_account": "project-cost",
+          "credit_account": "accounts-payable",
+          "amount_minor": 1800000000,
+          "currency": "CNY"
+        }
+      }
+    },
+    {
+      "source_table": "cb_contract",
+      "source_id": "synthetic-contract-002",
+      "target_type": "accounting_event_link",
+      "target_id": "acct-synthetic-commitment-002",
+      "disposition": "ready_for_domain_import",
+      "target_candidate": {
+        "source_target_type": "commitment",
+        "event_id": "acct-commitment-ht-tj-002",
+        "principal_id": "co-001",
+        "source_type": "cb_contract",
+        "source_id": "synthetic-contract-002",
+        "event_type": "commitment.performed",
+        "scope": "project:proj-0001",
+        "journal": {
+          "entry_id": "journal-synthetic-commitment-002",
+          "description": "Recognize synthetic performed commitment 002",
+          "debit_account": "project-cost",
+          "credit_account": "accounts-payable",
+          "amount_minor": 680000000,
+          "currency": "CNY"
+        }
+      }
+    }
+  ]
+}

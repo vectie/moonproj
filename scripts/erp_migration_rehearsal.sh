@@ -30,6 +30,7 @@ CBS_BUDGET_SOURCE_MAPPING=${21:-}
 WARNING_SOURCE_MAPPING=${22:-}
 NOTIFICATION_PLAN=${23:-}
 ACCESS_PLAN=${24:-}
+ACCOUNTING_POSTING_MAPPING=${25:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -39,6 +40,10 @@ TARGET_DB="$WORK_DIR/company.sqlite3"
 
 if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ] && [ -z "$TYPED_MAPPING" ]; then
   echo "payment accounting mapping requires the typed cohort mapping" >&2
+  exit 2
+fi
+if [ -n "$ACCOUNTING_POSTING_MAPPING" ] && [ -z "$ACCOUNTING_MAPPING" ]; then
+  echo "accounting posting mapping requires the base accounting mapping" >&2
   exit 2
 fi
 if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ] &&
@@ -156,6 +161,29 @@ if [ -n "$MAPPING_PATH" ]; then
     "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
       "$DOMAIN_PROMOTION" "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT" "$TARGET_DB" "$ACCOUNTING_RECONCILIATION"
     echo "accounting_reconciliation=$ACCOUNTING_RECONCILIATION"
+    if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
+      ACCOUNTING_POSTING_PLAN="$WORK_DIR/accounting-posting-plan.json"
+      python3 "$SCRIPT_DIR/erp_accounting_post_plan.py" \
+        "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT" "$ACCOUNTING_POSTING_MAPPING" \
+        "$ACCOUNTING_POSTING_PLAN"
+      echo "accounting_posting_plan=$ACCOUNTING_POSTING_PLAN"
+      ACCOUNTING_POSTING_RECEIPT="$WORK_DIR/accounting-posting-receipt.json"
+      moon run --target native cmd/accounting_post -- \
+        "$ACCOUNTING_POSTING_PLAN" "$ACCOUNTING_POSTING_RECEIPT"
+      echo "accounting_posting_receipt=$ACCOUNTING_POSTING_RECEIPT"
+      ACCOUNTING_POSTING_APPLY="$WORK_DIR/accounting-posting-apply.json"
+      "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+        "$ACCOUNTING_POSTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_POSTING_APPLY"
+      echo "accounting_posting_apply=$ACCOUNTING_POSTING_APPLY"
+      ACCOUNTING_POSTING_PARITY="$WORK_DIR/accounting-posting-parity.json"
+      "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+        "$ACCOUNTING_POSTING_RECEIPT" "$TARGET_DB" "$ACCOUNTING_POSTING_PARITY"
+      echo "accounting_posting_parity=$ACCOUNTING_POSTING_PARITY"
+      ACCOUNTING_POSTING_REPLAY="$WORK_DIR/accounting-posting-replay.json"
+      "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+        "$ACCOUNTING_POSTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_POSTING_REPLAY"
+      echo "accounting_posting_replay=$ACCOUNTING_POSTING_REPLAY"
+    fi
   fi
 fi
 
@@ -556,6 +584,9 @@ if [ -n "$TYPED_MAPPING" ]; then
   fi
   if [ -n "$ACCESS_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
+  fi
+  if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 2))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

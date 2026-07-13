@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING] [BASE_ACCOUNTING_MAPPING] [NOTIFICATION_PLAN] [ACCESS_PLAN]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING] [BASE_ACCOUNTING_MAPPING] [NOTIFICATION_PLAN] [ACCESS_PLAN] [ACCOUNTING_POSTING_MAPPING]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -29,6 +29,7 @@ WARNING_SOURCE_MAPPING=${19:-}
 BASE_ACCOUNTING_MAPPING=${20:-}
 NOTIFICATION_PLAN=${21:-}
 ACCESS_PLAN=${22:-}
+ACCOUNTING_POSTING_MAPPING=${23:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -43,6 +44,10 @@ if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ] && [ -z "$CBS_COST_MAPPING" ]; then
 fi
 if [ -n "$WARNING_PLAN" ] && [ -n "$WARNING_SOURCE_MAPPING" ]; then
   echo "choose either a reviewed warning plan or a source warning mapping" >&2
+  exit 2
+fi
+if [ -n "$ACCOUNTING_POSTING_MAPPING" ] && [ -z "$BASE_ACCOUNTING_MAPPING" ]; then
+  echo "accounting posting mapping requires the base accounting mapping" >&2
   exit 2
 fi
 
@@ -115,6 +120,16 @@ if [ -n "$BASE_ACCOUNTING_MAPPING" ]; then
     "$WORK_DIR/base-accounting-link-plan.json" \
     "$WORK_DIR/base-accounting-link-receipt.json"
   apply_accounting base-accounting "$WORK_DIR/base-accounting-link-receipt.json"
+  if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
+    python3 "$SCRIPT_DIR/erp_accounting_post_plan.py" \
+      "$WORK_DIR/base-accounting-link-plan.json" \
+      "$WORK_DIR/base-accounting-link-receipt.json" \
+      "$ACCOUNTING_POSTING_MAPPING" "$WORK_DIR/accounting-posting-plan.json"
+    moon run --target native cmd/accounting_post -- \
+      "$WORK_DIR/accounting-posting-plan.json" \
+      "$WORK_DIR/accounting-posting-receipt.json"
+    apply_projection accounting-posting "$WORK_DIR/accounting-posting-receipt.json"
+  fi
 fi
 
 for label in workflow lifecycle task-structure task-state-project2 evidence investment payment users audit parameter

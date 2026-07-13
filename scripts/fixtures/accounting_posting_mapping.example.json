@@ -1,0 +1,32 @@
+{
+  "format": "moonproj.erp.accounting-posting-map.v1",
+  "reviewed": true,
+  "mapping_version": "mapped-accounting-posting-v1-review-001",
+  "approved_event_ids": [
+    "acct-commitment-ht-tj-001",
+    "acct-commitment-ht-tj-002"
+  ],
+  "book": {
+    "book_id": "book-co-001-cny",
+    "principal_id": "co-001",
+    "scope": "project:proj-0001",
+    "period_id": "2026-12",
+    "period_label": "December 2026",
+    "accounts": [
+      {
+        "account_id": "acct-project-cost",
+        "account_code": "project-cost",
+        "name": "Project cost",
+        "kind": "expense",
+        "currency": "CNY"
+      },
+      {
+        "account_id": "acct-accounts-payable",
+        "account_code": "accounts-payable",
+        "name": "Accounts payable",
+        "kind": "liability",
+        "currency": "CNY"
+      }
+    ]
+  }
+}

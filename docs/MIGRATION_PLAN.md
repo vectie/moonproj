@@ -83,6 +83,13 @@ native authority directory and adds one `access_directory` projection,
 reaching 115 projections and 24 receipts in the complete rehearsal. It makes
 authority migration explicit while excluding passwords and super-user bits;
 real source role rows and owner approval remain later gates.
+The reviewed accounting-posting cohort now sits explicitly after the
+accounting-link receipt. A chart/period map must name the book, principal,
+scope, accounts, and exact linked event IDs; `cmd/accounting_post` then calls
+the native `AccountingBook.post` gate and persists two source-bound commitment
+journal projections in the current rehearsal. SQLite/PostgreSQL parity and
+zero-insert replay pass, while opening balances, broader source journals, tax,
+cash settlement, period close, and production ownership remain separate gates.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

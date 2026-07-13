@@ -39,8 +39,9 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
 ```
 
 The local target was verified on the available redacted ERP snapshot with
-schema version `4`, `120` staged and durable raw records, `109` aggregate
-projections, `7` reviewed accounting-event links, and `19` cohort receipts.
+schema version `4`, `120` staged and durable raw records, `115` aggregate
+projections, `7` reviewed accounting-event links, and `24` cohort receipts
+before optional posting.
 Replaying the same staging artifact and reviewed receipts inserted `0` rows
 and did not create duplicate receipts. Native aggregate
 promotion receipts can now be persisted through
@@ -50,6 +51,13 @@ lock their target table, reject event/source/journal conflicts, preserve
 immutable revisions or links, write a cohort-scoped migration receipt, and
 make an identical replay insert `0` rows. They do not infer business effects,
 release cash, or post journals.
+
+The reviewed posting boundary is separate: compile an explicit chart/period
+map with `scripts/erp_accounting_post_plan.py`, validate it through
+`cmd/accounting_post`, then pass the resulting domain receipt to
+`scripts/company_postgres_projection_apply.py`. The posting projection and its
+parity/replay evidence use the same immutable target boundary; they still do
+not release cash, file tax, close a period, or authorize ownership transfer.
 
 For local browser verification, `scripts/company_postgres_read_model_server.py`
 serves the same target through fixed read-only endpoints (`/api/health`,
@@ -95,12 +103,13 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/fixtures/delivery_progress_mapping.json \
   scripts/fixtures/advance_offset_mapping.json \
   scripts/fixtures/payment_accounting_link_mapping.json \
-  "" "" "" "" "" "" \
+  "" "" "" "" "" "" "" \
   scripts/fixtures/cbs_budget_source_mapping.json \
   scripts/fixtures/warning_source_mapping.json \
   scripts/fixtures/accounting_link_mapping.json \
   scripts/fixtures/notification_plan.example.json \
-  scripts/fixtures/access_plan.example.json
+  scripts/fixtures/access_plan.example.json \
+  scripts/fixtures/accounting_posting_mapping.example.json
 ```
 
 The seventeenth argument accepts the reviewed synthetic CBS budget plan. The
@@ -131,3 +140,9 @@ native `access_directory` projection and receipt, so the complete rehearsal
 reaches 115 projections, 7 accounting links, and 24 receipts. Role migration
 is authority-reviewed and exact-scope; passwords, super-user privilege, and
 workflow/cash/accounting effects remain excluded.
+The twenty-third argument supplies the reviewed accounting-posting map. It
+selects already-linked commitment events, validates the explicit chart and
+period through the native accounting book, and adds two `accounting_posting`
+projections with exact parity and idempotent replay. The resulting rehearsal
+reaches 117 projections; opening balances, tax, cash, period close, and
+production ownership remain open gates.
