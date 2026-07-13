@@ -29,9 +29,11 @@ local command verticals include the expense lifecycle documented in
 `docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`, the contract lifecycle documented in
 `docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`, and the payment-application lifecycle
 documented in `docs/ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The
-new-expense, contract, and `/payment-applies` Rabbita routes are wired to local
-create/submit/reject/resubmit/approve loops through the local-only development
-gateway below; the other route families remain fixture-backed. Command-gateway
+new-expense and contract routes are wired to local
+create/submit/reject/resubmit/approve loops, while `/payment-applies` also
+loads real application rows and exposes edit/void plus milestone eligibility
+controls through the local-only development gateway below; the other route
+families remain fixture-backed. Command-gateway
 production deployment, identity/token integration, and managed rollback remain
 separate gates.
 Build and preview it with Warren:

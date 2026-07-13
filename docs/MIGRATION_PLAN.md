@@ -296,15 +296,17 @@ Execute the remainder in this order:
    boundary now also drives the payment-application list/views and local
    create/submit/reject/resubmit/approve loop against the three real
    `cb_htfk_apply` rows and native `payment_application` projections; source
-   payment flags remain evidence and do not release cash. Replace that
+   payment flags remain evidence and do not release cash. The same local
+   boundary now covers source-aligned edit/void commands and native milestone
+   eligibility checks for early payment and over-payment. Replace that
    local adapter with the reviewed production identity,
    token issuer, rotation, persistence, and owner-acceptance boundary before
    accepting the slice.
 3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.
-4. Expand runtime vertical slices to the ERP parity floor: remaining
-   procurement/payment-application controls, sales/receivables, delivery, treasury/financing, tax/close,
+4. Expand runtime vertical slices to the ERP parity floor: procurement/tender,
+   sales/receivables, delivery, treasury/financing, tax/close,
    reporting/notifications, and investment. Synthetic rehearsals remain
    design evidence until real source rows and user acceptance are attached.
 5. Run named-owner acceptance and a read-only shadow period for each accepted

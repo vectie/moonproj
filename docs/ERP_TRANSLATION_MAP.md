@@ -113,7 +113,8 @@ authenticated fixed-read runtime plus the reviewed expense, contract, and
 payment-application command verticals, with bounded reusable sessions, schema
 readiness, idempotency, projection, and audit receipts. The payment-application
 read model joins the three real `cb_htfk_apply` rows to their contract,
-project, supplier, applicant, plan, and dual approval/payment state.
+project, supplier, applicant, plan, and dual approval/payment state; its local
+command boundary also covers edit/void and milestone early/over-payment checks.
 `scripts/company_postgres_dev_gateway.py` adds the local
 HttpOnly session and signed actor assertion required by the Rabbita browser;
 managed provider deployment, token issuer/audience validation, and operational

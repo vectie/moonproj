@@ -25,6 +25,7 @@ from company_postgres_service import (
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
     payment_applications as service_payment_applications,
+    payment_application_eligibility as service_payment_application_eligibility,
 )
 
 
@@ -181,6 +182,15 @@ def payment_applications(
     return service_payment_applications(pool, apply_id, view, 500)
 
 
+def payment_application_eligibility(
+    args: argparse.Namespace,
+    plan_id: str,
+    amount_minor: int,
+) -> dict[str, Any] | None:
+    pool = _ReadModelPool(args)
+    return service_payment_application_eligibility(pool, plan_id, amount_minor)
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -243,6 +253,16 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     apply_id = query.get("apply_id", [None])[0]
                     view = query.get("view", ["all"])[0]
                     response(self, 200, {"items": payment_applications(args, apply_id, view)})
+                    return
+                if parsed.path == "/api/company/payment-applies/eligibility":
+                    query = parse_qs(parsed.query)
+                    plan_id = query.get("plan_id", [""])[0]
+                    amount_minor = int(query.get("amount_minor", ["0"])[0])
+                    result = payment_application_eligibility(args, plan_id, amount_minor)
+                    if result is None:
+                        response(self, 404, {"error": "payment plan not found"})
+                    else:
+                        response(self, 200, result)
                     return
                 if re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     apply_id = parsed.path.rsplit("/", 1)[-1]

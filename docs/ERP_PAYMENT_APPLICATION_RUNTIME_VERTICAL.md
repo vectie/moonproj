@@ -23,10 +23,15 @@ than an implicit cash authorization.
 
 - `GET /api/company/payment-applies` with `all`, `approving`, `approved`, and
   `fullpaid` views;
+- `GET /api/company/payment-applies/eligibility?plan_id=<id>&amount_minor=<n>`
+  for early-payment and over-payment checks against native milestones and
+  real payment applications;
 - `GET /api/company/payment-applies/<id>` for one application;
 - `POST /api/company/payment-applies` to create a local draft;
 - `POST /api/company/payment-applies/<id>/{submit,reject,resubmit,approve}`
-  for the idempotent local approval lifecycle.
+  for the idempotent local approval lifecycle;
+- `POST /api/company/payment-applies/<id>/update` and `/void` for the
+  source-aligned edit/void controls on local command-owned applications.
 
 The read-only development adapter exposes the same GET surface. The
 loopback-only gateway allow-lists the POST family, establishes its in-memory
@@ -36,11 +41,12 @@ table, and exposes the local command buttons.
 
 ## Acceptance evidence
 
-The local service probe read all three imported rows, created a temporary
-payment application, replayed the idempotency key, ran submit/reject/resubmit/
-approve, and read the approved result back. A gateway HTTP probe created a
-second temporary application as `rabbita-user`; temporary command projections,
-records, and audit rows were removed after verification.
+The local service probe read all three imported rows, checked a real payment
+plan for early-payment and over-payment conditions, created a temporary
+payment application, replayed the idempotency key, ran submit/update/reject/
+resubmit/approve/void, and read the result back. A gateway HTTP probe created
+a second temporary application as `rabbita-user`; temporary command
+projections, records, and audit rows were removed after verification.
 
 ## Remaining gate
 

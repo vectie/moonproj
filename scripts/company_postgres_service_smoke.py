@@ -274,8 +274,38 @@ def main() -> int:
         )
         if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
             raise SmokeError(f"payment application idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/payment-applies/eligibility?plan_id=plan-tj-001-2&amount_minor=10000000",
+            token=token,
+        )
+        if status != 200 or payload is None or payload.get("early_flag") is not True or payload.get("over_pay") is not False:
+            raise SmokeError(f"payment eligibility failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/payment-applies/{apply_id}/submit",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key=f"payment-submit-{nonce}",
+        )
+        if status != 200 or payload is None or payload.get("payment_application", {}).get("state") != "submitted":
+            raise SmokeError(f"payment application submit failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/payment-applies/{apply_id}/update",
+            token=token,
+            method="POST",
+            payload={
+                "subject": "service command smoke payment application updated",
+                "amount_minor": 11000000,
+                "apply_type_code": "PURCHASE",
+            },
+            idempotency_key=f"payment-update-{nonce}",
+        )
+        if status != 200 or payload is None or payload.get("payment_application", {}).get("state") != "submitted":
+            raise SmokeError(f"payment application update failed: {status} {payload}")
         payment_transitions = [
-            ("submit", "submitted"),
             ("reject", "rejected"),
             ("resubmit", "submitted"),
             ("approve", "approved"),
@@ -298,13 +328,28 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/payment-applies/{apply_id}", token=token)
         if status != 200 or payload is None or payload.get("operation_state") != "approved":
             raise SmokeError(f"payment application detail failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/payment-applies/{apply_id}/void",
+            token=token,
+            method="POST",
+            payload={"reason": "service control smoke void"},
+            idempotency_key=f"payment-void-{nonce}",
+        )
+        if status != 200 or payload is None or payload.get("payment_application", {}).get("state") != "voided":
+            raise SmokeError(f"payment application void failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/payment-applies/{apply_id}", token=token)
+        if status != 200 or payload is None or payload.get("operation_state") != "voided":
+            raise SmokeError(f"payment application void detail failed: {status} {payload}")
         print(
             json.dumps(
                 {
                     "state": "service_verified",
                     "expense_state": "approved",
                     "contract_state": "approved",
-                    "payment_application_state": "approved",
+                    "payment_application_approval_state": "approved",
+                    "payment_application_state": "voided",
+                    "payment_eligibility": "early_payment_flagged",
                     "port": args.port,
                     "database": args.database,
                 },

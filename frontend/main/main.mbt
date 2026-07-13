@@ -108,6 +108,7 @@ struct Model {
   payment_apply_id : String
   payment_apply_state : String
   payment_apply_note : String
+  payment_apply_eligibility_note : String
 }
 
 ///|
@@ -152,8 +153,13 @@ enum Msg {
   RejectPaymentApply
   ResubmitPaymentApply
   ApprovePaymentApply
+  UpdatePaymentApply
+  VoidPaymentApply
+  CheckPaymentEligibility
   PaymentApplyCommandFinished(String)
   PaymentApplyCommandFailed
+  PaymentEligibilityLoaded(String)
+  PaymentEligibilityLoadFailed
 }
 
 ///|
@@ -184,6 +190,7 @@ fn initial_model() -> Model {
     payment_apply_id: "PAY-RABBITA-LOCAL",
     payment_apply_state: "new",
     payment_apply_note: "先保存付款申请草稿，再提交审批",
+    payment_apply_eligibility_note: "尚未校验付款节点条件",
   }
 }
 
@@ -445,6 +452,7 @@ fn payment_apply_state_label(state : String) -> String {
     "submitted" => "审批中"
     "rejected" => "已驳回"
     "approved" => "已审核"
+    "voided" => "已作废"
     "paid" => "完全支付"
     "partially_paid" => "部分支付"
     _ => state
@@ -467,9 +475,25 @@ fn payment_apply_command_body(_model : Model, command_type : String) -> String {
     "{\"idempotency_key\":\"rabbita-payment-create-v1\",\"apply_id\":\"PAY-RABBITA-LOCAL\",\"apply_code\":\"FK-RABBITA-LOCAL\",\"contract_id\":\"ht-tj-001\",\"plan_id\":\"plan-tj-001-2\",\"subject\":\"海教园1号楼总包进度款 Rabbita 演示\",\"amount_minor\":12000000,\"currency\":\"CNY\",\"apply_type_code\":\"WORK_PROGRESS\"}"
   } else if command_type == "reject" {
     "{\"idempotency_key\":\"rabbita-payment-reject-v1\",\"reason\":\"请补充付款申请附件\"}"
+  } else if command_type == "update" {
+    "{\"idempotency_key\":\"rabbita-payment-update-v1\",\"subject\":\"海教园1号楼总包进度款 Rabbita 演示（已补充说明）\",\"amount_minor\":12000000,\"apply_type_code\":\"WORK_PROGRESS\"}"
+  } else if command_type == "void" {
+    "{\"idempotency_key\":\"rabbita-payment-void-v1\",\"reason\":\"本地演示撤回付款申请\"}"
   } else {
     "{\"idempotency_key\":\"rabbita-payment-" + command_type + "-v1\"}"
   }
+}
+
+///|
+fn check_payment_eligibility(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get(
+    "/api/company/payment-applies/eligibility?plan_id=plan-tj-001-2&amount_minor=12000000",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(PaymentEligibilityLoaded(body))
+      Err(_) => emit(PaymentEligibilityLoadFailed)
+    }
+  })
 }
 
 ///|
@@ -924,6 +948,44 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    UpdatePaymentApply =>
+      if model.payment_apply_id == "" ||
+        model.payment_apply_state != "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "update"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在保存付款申请修改…",
+          },
+        )
+      }
+    VoidPaymentApply =>
+      if model.payment_apply_id == "" ||
+        model.payment_apply_state == "new" ||
+        model.payment_apply_state == "paid" ||
+        model.payment_apply_state == "voided" {
+        (none, model)
+      } else {
+        (
+          issue_payment_apply_command(emit, model, "void"),
+          {
+            ..model,
+            payment_apply_state: "pending",
+            payment_apply_note: "正在作废付款申请并写入审计…",
+          },
+        )
+      }
+    CheckPaymentEligibility =>
+      (
+        check_payment_eligibility(emit),
+        {
+          ..model,
+          payment_apply_eligibility_note: "正在校验付款节点条件…",
+        },
+      )
     PaymentApplyCommandFinished(body) => {
       let next_state = if body.contains("\"state\":\"approved\"") {
         "approved"
@@ -933,6 +995,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         "submitted"
       } else if body.contains("\"state\":\"draft\"") {
         "draft"
+      } else if body.contains("\"state\":\"voided\"") {
+        "voided"
       } else {
         "error"
       }
@@ -959,6 +1023,28 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           payment_apply_state: "error",
           payment_apply_note: "公司付款申请命令服务不可用或拒绝了请求",
+        },
+      )
+    PaymentEligibilityLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          payment_apply_eligibility_note: if body.contains("\"over_pay\":true") {
+            "节点校验：超付，申请已被拦截"
+          } else if body.contains("\"early_flag\":true") {
+            "节点校验：提前付款，需要补充原因并进入加签审批"
+          } else {
+            "节点校验：付款条件满足"
+          },
+        },
+      )
+    PaymentEligibilityLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          payment_apply_eligibility_note: "付款节点校验服务不可用",
         },
       )
     CreateExpense =>
@@ -2501,6 +2587,11 @@ fn payment_apply_actions(
       on_click=emit(CreatePaymentApply),
       "＋ 发起付款申请",
     ),
+    button(
+      class="erp-secondary-btn",
+      on_click=emit(CheckPaymentEligibility),
+      "校验付款节点",
+    ),
   ]
   match model.payment_apply_state {
     "draft" =>
@@ -2526,6 +2617,13 @@ fn payment_apply_actions(
           "审核通过",
         ),
       )
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(UpdatePaymentApply),
+          "保存修改",
+        ),
+      )
     }
     "rejected" =>
       actions.push(
@@ -2533,6 +2631,14 @@ fn payment_apply_actions(
           class="erp-secondary-btn",
           on_click=emit(ResubmitPaymentApply),
           "重新提交",
+        ),
+      )
+    "approved" =>
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(VoidPaymentApply),
+          "作废申请",
         ),
       )
     _ => ()
@@ -2581,7 +2687,7 @@ fn payment_applies_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
       filter_bar("申请编号 / 合同 / 项目"),
       table_panel(
         "付款申请单",
-        model.payment_apply_note,
+        model.payment_apply_note + " · " + model.payment_apply_eligibility_note,
         payment_apply_table(emit, rows),
       ),
     ],

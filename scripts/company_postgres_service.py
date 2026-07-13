@@ -21,8 +21,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/contracts`` (POST create draft)
 * ``/api/company/contracts/<id>/{submit,approve,reject,resubmit}`` (POST)
 * ``/api/company/payment-applies`` and ``/api/company/payment-applies/<id>`` (GET)
+* ``/api/company/payment-applies/eligibility`` (GET)
 * ``/api/company/payment-applies`` (POST create draft)
-* ``/api/company/payment-applies/<id>/{submit,approve,reject,resubmit}`` (POST)
+* ``/api/company/payment-applies/<id>/{submit,approve,reject,resubmit,update,void}`` (POST)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
@@ -944,7 +945,8 @@ def payment_applications(
            encode(convert_to(
              CASE WHEN base.source_kind = 'command' THEN
                CASE base.payload->>'state' WHEN 'draft' THEN '草稿' WHEN 'submitted' THEN '申请审批中'
-                 WHEN 'rejected' THEN '已驳回' WHEN 'approved' THEN '已审核' ELSE coalesce(base.payload->>'state', '草稿') END
+                 WHEN 'rejected' THEN '已驳回' WHEN 'approved' THEN '已审核' WHEN 'voided' THEN '已作废'
+                 ELSE coalesce(base.payload->>'state', '草稿') END
                ELSE coalesce(base.payload->'candidate'->'application'->>'apply_state', raw_apply.payload->>'apply_state', '')
              END, 'UTF8'), 'hex'),
            encode(convert_to(
@@ -989,6 +991,80 @@ def payment_applications(
     return result
 
 
+def payment_application_eligibility(
+    pool: PsqlPool,
+    plan_id: str,
+    amount_minor: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(plan_id):
+        raise ValueError("invalid payment plan id")
+    if isinstance(amount_minor, bool) or amount_minor <= 0:
+        raise ValueError("amount_minor must be a positive integer")
+    query = f"""
+    SELECT encode(convert_to(p.aggregate_id, 'UTF8'), 'hex'),
+           coalesce(p.payload->'candidate'->'milestone'->>'contract_guid', ''),
+           coalesce(p.payload->'candidate'->'milestone'->>'plan_amount_minor', '0'),
+           encode(convert_to(coalesce(p.payload->'candidate'->'milestone'->>'trigger_type', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'jhfk_date', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'plan_period', ''), 'UTF8'), 'hex'),
+           coalesce((
+             SELECT sum(round((a.payload->>'apply_amount')::numeric * 100))
+             FROM company_record a
+             WHERE a.record_type = 'legacy/raw/cb_htfk_apply'
+               AND a.payload->>'htfk_plan_guid' = p.aggregate_id
+               AND coalesce(a.payload->>'pay_state', '') IN ('完全支付', '部分支付')
+           ), 0)::bigint
+    FROM company_aggregate_projection p
+    LEFT JOIN company_record raw
+      ON raw.record_type = 'legacy/raw/cb_htfkplan'
+     AND raw.record_id = p.aggregate_id
+    WHERE p.aggregate_type = 'contract_milestone'
+      AND p.aggregate_id = {sql_literal(plan_id)}
+    ORDER BY p.revision DESC
+    LIMIT 1
+    """
+    lines = query_lines(pool, query)
+    if not lines:
+        return None
+    fields = lines[0].split("|")
+    if len(fields) != 7:
+        raise ServiceError("unexpected payment eligibility shape")
+    try:
+        contract_id = fields[1]
+        planned_minor = int(fields[2])
+        trigger_type = decode_hex(fields[3])
+        plan_date = decode_hex(fields[4])
+        plan_period = decode_hex(fields[5])
+        actual_minor = int(fields[6])
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ServiceError("invalid payment eligibility encoding") from error
+    early_flag = trigger_type == "time" and bool(plan_date) and plan_date > time.strftime("%Y-%m-%d")
+    over_pay = planned_minor > 0 and actual_minor + amount_minor > planned_minor
+    warnings: list[dict[str, str]] = []
+    if early_flag:
+        warnings.append({"level": "warn", "code": "early_time", "message": f"节点计划付款日 {plan_date}, 尚未到达"})
+    if trigger_type in {"progress", "event"}:
+        warnings.append({"level": "warn", "code": "trigger_review", "message": f"节点触发类型 {trigger_type} 需要履约证据复核"})
+    if over_pay:
+        warnings.append({"level": "error", "code": "over_pay", "message": "本次申请会超过付款节点计划金额"})
+    return {
+        "plan_id": plan_id,
+        "contract_id": contract_id,
+        "plan_period": plan_period,
+        "plan_date": plan_date,
+        "trigger_type": trigger_type,
+        "planned_amount_minor": planned_minor,
+        "planned_amount_display": f"¥{planned_minor / 100:,.2f}",
+        "actual_amount_minor": actual_minor,
+        "actual_amount_display": f"¥{actual_minor / 100:,.2f}",
+        "requested_amount_minor": amount_minor,
+        "requested_amount_display": f"¥{amount_minor / 100:,.2f}",
+        "early_flag": early_flag,
+        "over_pay": over_pay,
+        "warnings": warnings,
+    }
+
+
 def _payment_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
     value = body.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -1006,7 +1082,7 @@ def _payment_request(
     actor_id: str,
     pool: PsqlPool,
 ) -> tuple[str, dict[str, Any]]:
-    if command_type not in {"create", "submit", "approve", "reject", "resubmit"}:
+    if command_type not in {"create", "submit", "approve", "reject", "resubmit", "update", "void"}:
         raise CommandRejected("unsupported payment application command", 404)
     if command_type == "create":
         apply_id = body.get("apply_id")
@@ -1079,6 +1155,32 @@ def _payment_request(
         }
     if apply_id is None or not IDENTIFIER.fullmatch(apply_id):
         raise CommandRejected("apply_id is required", 422)
+    if command_type == "update":
+        subject = body.get("subject")
+        amount_minor = body.get("amount_minor")
+        apply_type_code = body.get("apply_type_code")
+        if subject is not None and (not isinstance(subject, str) or not subject.strip()):
+            raise CommandRejected("subject must be non-empty text", 422)
+        if amount_minor is not None and (
+            isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0
+        ):
+            raise CommandRejected("amount_minor must be a positive integer", 422)
+        if apply_type_code is not None and (not isinstance(apply_type_code, str) or not apply_type_code.strip()):
+            raise CommandRejected("apply_type_code must be non-empty text", 422)
+        if subject is None and amount_minor is None and apply_type_code is None:
+            raise CommandRejected("update requires subject, amount_minor, or apply_type_code", 422)
+        request: dict[str, Any] = {
+            "command_type": command_type,
+            "apply_id": apply_id,
+            "actor_id": actor_id,
+        }
+        if subject is not None:
+            request["subject"] = subject.strip()
+        if amount_minor is not None:
+            request["amount_minor"] = amount_minor
+        if apply_type_code is not None:
+            request["apply_type_code"] = apply_type_code.strip()
+        return apply_id, request
     reason = body.get("reason", "")
     if not isinstance(reason, str):
         raise CommandRejected("reason must be text", 422)
@@ -1116,17 +1218,32 @@ def payment_application_command(
     if command_type != "create":
         if not current:
             raise CommandRejected("payment application not found", 404)
-        expected = {
-            "submit": "draft",
-            "approve": "submitted",
-            "reject": "submitted",
-            "resubmit": "rejected",
-        }[command_type]
-        if current[0].get("operation_state") != expected:
-            raise CommandRejected(
-                f"payment application transition {command_type} requires {expected}, found {current[0].get('operation_state')}",
-                409,
-            )
+        if command_type in {"update", "void"} and current[0].get("source_kind") != "command":
+            raise CommandRejected("source payment application is read-only; create a local command draft first", 409)
+        if command_type == "update":
+            expected = "submitted"
+            if current[0].get("operation_state") != expected:
+                raise CommandRejected(
+                    f"payment application transition update requires {expected}, found {current[0].get('operation_state')}",
+                    409,
+                )
+        elif command_type == "void":
+            if current[0].get("pay_state") != "未支付":
+                raise CommandRejected("paid payment application cannot be voided", 409)
+            if current[0].get("operation_state") == "voided":
+                raise CommandRejected("payment application is already voided", 409)
+        else:
+            expected = {
+                "submit": "draft",
+                "approve": "submitted",
+                "reject": "submitted",
+                "resubmit": "rejected",
+            }[command_type]
+            if current[0].get("operation_state") != expected:
+                raise CommandRejected(
+                    f"payment application transition {command_type} requires {expected}, found {current[0].get('operation_state')}",
+                    409,
+                )
     event_id = f"payment-application:{command_type}:{idempotency_key}"
     command_source = f"moonproj:command:{idempotency_key}"
     audit_id = event_id + ":audit"
@@ -1197,15 +1314,32 @@ def payment_application_command(
         ELSIF {sql_literal(command_type)} = 'resubmit' THEN
           IF current_state <> 'rejected' THEN RAISE EXCEPTION 'invalid payment application state'; END IF;
           next_state := 'submitted';
+        ELSIF {sql_literal(command_type)} = 'update' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid payment application state'; END IF;
+          next_state := current_state;
+        ELSIF {sql_literal(command_type)} = 'void' THEN
+          IF current_state = 'voided' THEN RAISE EXCEPTION 'payment application already voided'; END IF;
+          next_state := 'voided';
         ELSE RAISE EXCEPTION 'unsupported payment application command'; END IF;
         SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
         FROM company_aggregate_projection p
         WHERE p.aggregate_type = 'payment_application_command'
           AND p.aggregate_id = {sql_literal(apply_id)};
-        next_payload := current_payload || jsonb_build_object(
-          'state', next_state, 'event_id', {sql_literal(event_id)},
-          'updated_by', {sql_literal(actor_id)},
-          'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        IF {sql_literal(command_type)} = 'update' THEN
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)},
+            'payment_application', current_payload->'payment_application' ||
+              jsonb_strip_nulls(jsonb_build_object(
+                'subject', {sql_literal(request_json)}::jsonb->>'subject',
+                'amount_minor', {sql_literal(request_json)}::jsonb->'amount_minor',
+                'apply_type_code', {sql_literal(request_json)}::jsonb->>'apply_type_code')));
+        ELSE
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)},
+            'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        END IF;
       END IF;
       INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
       VALUES ('payment_application_command', {sql_literal(apply_id)}, next_revision,
@@ -1665,6 +1799,15 @@ def handler_factory(
                         {"items": payment_applications(pool, apply_value, view, max_response_rows)},
                         origin,
                     )
+                elif parsed.path == "/api/company/payment-applies/eligibility":
+                    query = parse_qs(parsed.query)
+                    plan_value = query.get("plan_id", [""])[0]
+                    amount_value = int(query.get("amount_minor", ["0"])[0])
+                    result = payment_application_eligibility(pool, plan_value, amount_value)
+                    if result is None:
+                        response(self, 404, {"error": "payment plan not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif re.fullmatch(r"/api/company/payment-applies/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     apply_value = parsed.path.rsplit("/", 1)[-1]
                     items = payment_applications(pool, apply_value, "all", max_response_rows)
@@ -1715,7 +1858,7 @@ def handler_factory(
                         parsed.path,
                     )
                     payment_match = re.fullmatch(
-                        r"/api/company/payment-applies/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
+                        r"/api/company/payment-applies/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit|update|void)",
                         parsed.path,
                     )
                     if expense_match is not None:
