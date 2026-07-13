@@ -33,6 +33,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/suppliers`` (POST create draft)
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
 * ``/api/company/suppliers/<id>/risk`` (GET)
+* ``/api/company/srm/providers`` and ``/api/company/srm/risk-board`` (GET)
+  source-compatible, non-authorizing reads with coverage metadata
 * ``/api/company/tender-splits`` (GET/POST)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}`` (GET)
 * ``/api/company/receivables`` (GET)
@@ -324,6 +326,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "payment_application_command",
             "procurement_read",
             "supplier_read",
+            "supplier_source_read",
             "supplier_risk_read",
             "supplier_command",
             "tender_command",
@@ -363,6 +366,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "payment_application_command",
             "procurement_read",
             "supplier_read",
+            "supplier_source_read",
             "supplier_risk_read",
             "supplier_command",
             "tender_command",
@@ -978,6 +982,112 @@ SRM_RISK_SOURCE_TABLES = {
     "cb_contract",
     "cb_contract_milestone",
 }
+
+
+SRM_PROVIDER_SOURCE_TABLES = {
+    "srm_provider",
+    "srm_provider_bu",
+    "srm_category",
+    "cb_contract",
+    "mu_business_unit",
+}
+
+
+def _srm_source_bool(payload: dict[str, Any], key: str, fallback: bool = False) -> bool:
+    value = payload.get(key)
+    if value is None or value == "":
+        return fallback
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "enabled", "启用"}
+
+
+def supplier_source_list(
+    pool: PsqlPool,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read the ERP SRM provider master source without local projections.
+
+    The response follows the ERP ``GET /srm/providers`` data shape.  It is a
+    read-only imported-source boundary: missing/empty source tables remain
+    visible and no local supplier command state is promoted into this list.
+    """
+
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES))
+        for table in sorted(SRM_PROVIDER_SOURCE_TABLES)
+    }
+    providers = _raw_source_rows(pool, "srm_provider", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    provider_links = _raw_source_rows(pool, "srm_provider_bu", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    categories = _raw_source_rows(pool, "srm_category", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    contracts = _raw_source_rows(pool, "cb_contract", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    category_names = {
+        str(row["payload"].get("category_code") or ""): str(row["payload"].get("category_name") or "")
+        for row in categories
+    }
+    links_by_provider: dict[str, int] = {}
+    for row in provider_links:
+        provider_guid = str(row["payload"].get("provider_guid") or "")
+        if provider_guid:
+            links_by_provider[provider_guid] = links_by_provider.get(provider_guid, 0) + 1
+
+    result: list[dict[str, Any]] = []
+    for row in providers:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        provider_guid = str(payload.get("provider_guid") or row["record_id"])
+        provider_name = str(payload.get("provider_name") or "")
+        short_name = str(payload.get("short_name") or "")
+        contract_count = 0
+        for contract in contracts:
+            contract_payload = contract["payload"]
+            if contract_payload.get("deleted_at"):
+                continue
+            contract_name = str(contract_payload.get("yf_provider_name") or "")
+            if contract_name == provider_name or (
+                short_name and (contract_name == short_name or short_name in contract_name)
+            ):
+                contract_count += 1
+        category_code = str(payload.get("main_category_code") or "")
+        eval_result = str(payload.get("eval_result") or "未定级")
+        result.append(
+            {
+                "providerGuid": provider_guid,
+                "providerCode": str(payload.get("provider_code") or ""),
+                "providerName": provider_name,
+                "shortName": short_name,
+                "legalPerson": str(payload.get("legal_person") or ""),
+                "registerCapital": payload.get("register_capital"),
+                "businessScope": str(payload.get("business_scope") or ""),
+                "mainCategory": {
+                    "code": category_code,
+                    "name": category_names.get(category_code, ""),
+                },
+                "evalResult": eval_result,
+                "inspectState": str(payload.get("inspect_state") or ""),
+                "auditState": str(payload.get("audit_state") or ""),
+                "source": str(payload.get("source") or ""),
+                "contactPerson": str(payload.get("contact_person") or ""),
+                "contactPhone": str(payload.get("contact_phone") or ""),
+                "enabled": _srm_source_bool(payload, "enabled", True),
+                "buCount": links_by_provider.get(provider_guid, 0),
+                "contractCount": contract_count,
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: (str(item["evalResult"]), str(item["providerCode"])), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:max_rows],
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+        "authorizing": False,
+    }
 
 
 def _srm_source_number(payload: dict[str, Any], key: str) -> float:
@@ -7817,6 +7927,8 @@ def handler_factory(
                 elif parsed.path == "/api/company/suppliers":
                     value = parse_qs(parsed.query).get("supplier_id", [None])[0]
                     response(self, 200, {"items": suppliers(pool, value, max_response_rows)}, origin)
+                elif parsed.path == "/api/company/srm/providers":
+                    response(self, 200, supplier_source_list(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/supplier-risk-board":
                     response(self, 200, {"items": supplier_risk_board(pool, max_response_rows)}, origin)
                 elif parsed.path == "/api/company/srm/risk-board":

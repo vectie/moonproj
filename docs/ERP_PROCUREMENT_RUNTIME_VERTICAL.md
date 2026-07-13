@@ -30,6 +30,10 @@ rows are production data.
   for the local supplier lifecycle;
 - `GET /api/company/suppliers/<id>/risk` and
   `GET /api/company/supplier-risk-board` for derived risk reads;
+- `GET /api/company/srm/providers` for the source-compatible ERP supplier
+  master list. It reads only imported `srm_provider`, `srm_provider_bu`,
+  `srm_category`, and related contract envelopes, and returns source coverage,
+  explicit empty/missing tables, and `authorizing=false`;
 - `GET /api/company/srm/risk-board` for the source-compatible ERP risk-board
   envelope. It computes the source risk formula only from imported
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
@@ -48,11 +52,14 @@ The read-only development adapter exposes the same GET surface. Rabbita
 `/tender` loads PostgreSQL rows when available and provides local create,
 publish, bidding, award, completion, and cancellation actions through the
 authenticated gateway;
-`/srm/providers` loads the same supplier projection boundary while retaining
-the source-shaped supplier detail/new screen alongside the local command
-states. `/srm/risk-board` now loads the source-compatible risk envelope and
-shows an explicit empty/missing-source state for the available snapshot;
-supplier risk is a derived read and does not mutate qualification.
+`/srm/providers` first loads the source-compatible provider master list, then
+keeps the local supplier projection/command state separate for command
+feedback and fallback. An empty source list remains an explicit empty table;
+it does not silently become fixture suppliers. The source-shaped supplier
+detail/new screen remains alongside the local command states. `/srm/risk-board`
+loads the source-compatible risk envelope and shows an explicit empty/missing-
+source state for the available snapshot; supplier risk is a derived read and
+does not mutate qualification.
 
 The source parity audit also records the remaining differences. The source
 `srm.js` signature-check endpoint and external risk rescore job are not
@@ -78,8 +85,10 @@ baseline is restored to 120 aggregate projections, 7 accounting links, and 22
 migration receipts. It separately verifies the source risk-board response has
 zero high-risk rows, two imported contracts, missing `srm_provider`,
 `srm_category`, and `cb_contract_milestone` coverage, and
-`authorizing=false`. Imported supplier and tender mutation attempts return 409
-read-only rejections.
+`authorizing=false`. It separately verifies the source supplier list returns no
+rows for the current snapshot, two imported contract envelopes, missing
+`srm_provider`/`srm_category` coverage, and `authorizing=false`. Imported
+supplier and tender mutation attempts return 409 read-only rejections.
 
 Remaining gates are the supplier/tender command slice above, a redacted source
 procurement export, supplier identity and owner approval, award-to-commitment

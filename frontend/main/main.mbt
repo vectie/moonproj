@@ -456,6 +456,10 @@ struct Model {
   tender_note : String
   suppliers_loaded : Bool
   supplier_rows : Array[SupplierRow]
+  supplier_source_loaded : Bool
+  supplier_source_rows : Array[SupplierRow]
+  supplier_source_missing_table_count : String
+  supplier_source_note : String
   supplier_risk_loaded : Bool
   supplier_risk_rows : Array[SupplierRiskRow]
   supplier_risk_distribution_total : String
@@ -640,6 +644,8 @@ enum Msg {
   TenderCommandFailed
   SuppliersLoaded(String)
   SuppliersLoadFailed
+  SupplierSourceLoaded(String)
+  SupplierSourceLoadFailed
   SupplierRiskLoaded(String)
   SupplierRiskLoadFailed
   CreateSupplier
@@ -747,6 +753,10 @@ fn initial_model() -> Model {
     tender_note: "合约规划读模型尚未加载",
     suppliers_loaded: false,
     supplier_rows: [],
+    supplier_source_loaded: false,
+    supplier_source_rows: [],
+    supplier_source_missing_table_count: "0",
+    supplier_source_note: "供应商源表读模型尚未加载 · 使用设计快照",
     supplier_risk_loaded: false,
     supplier_risk_rows: [],
     supplier_risk_distribution_total: "0",
@@ -1220,6 +1230,78 @@ fn supplier_rows_from_body(body : String) -> Array[SupplierRow] {
     _ => ()
   }
   rows
+}
+
+///|
+fn supplier_source_category_code(fields : Map[String, Json]) -> String {
+  match fields.get("mainCategory") {
+    Some(Json::Object(category)) => json_object_text(category, "code", "")
+    _ => ""
+  }
+}
+
+///|
+fn supplier_source_evaluation(fields : Map[String, Json]) -> String {
+  match json_object_text(fields, "evalResult", "未定级") {
+    "战略" => "strategic"
+    "合格" => "qualified"
+    "不合格" => "unqualified"
+    "黑名单" => "unqualified"
+    "已评审" => "reviewed"
+    _ => "unrated"
+  }
+}
+
+///|
+fn supplier_source_from_json(value : Json) -> SupplierRow? {
+  match value {
+    Json::Object(fields) => {
+      let enabled = json_object_text(fields, "enabled", "true")
+      let eval_result = json_object_text(fields, "evalResult", "未定级")
+      let state = if eval_result == "黑名单" {
+        "blacklisted"
+      } else if enabled == "true" || enabled == "1" {
+        "active"
+      } else {
+        "suspended"
+      }
+      Some({
+        supplier_id: json_object_text(fields, "providerGuid", ""),
+        supplier_code: json_object_text(fields, "providerCode", ""),
+        name: json_object_text(fields, "providerName", ""),
+        category_code: supplier_source_category_code(fields),
+        evaluation: supplier_source_evaluation(fields),
+        state,
+        scope: json_object_text(fields, "businessScope", ""),
+        source_kind: json_object_text(fields, "sourceKind", "imported"),
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn supplier_source_rows_from_body(
+  body : String,
+) -> (Array[SupplierRow], String) {
+  let rows : Array[SupplierRow] = []
+  let mut missing_table_count = 0
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      missing_table_count = json_array_field(
+        fields, "missing_or_empty_source_tables",
+      ).length()
+      for value in json_array_field(fields, "data") {
+        match supplier_source_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  (rows, missing_table_count.to_string())
 }
 
 ///|
@@ -2787,6 +2869,16 @@ fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_supplier_source(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/srm/providers").expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierSourceLoaded(body))
+      Err(_) => emit(SupplierSourceLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_supplier_risk(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/srm/risk-board").expect_text(result => {
     match result {
@@ -3082,7 +3174,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/tender" {
         load_tenders(emit)
       } else if path == "/srm/providers" {
-        load_suppliers(emit)
+        load_supplier_source(emit)
       } else if path == "/srm/risk-board" {
         load_supplier_risk(emit)
       } else if path == "/sales/customers" {
@@ -3711,6 +3803,30 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           suppliers_loaded: false,
           supplier_note: "供应商读模型不可用 · 使用已审核快照",
+        },
+      )
+    SupplierSourceLoaded(body) => {
+      let (rows, missing_table_count) = supplier_source_rows_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          supplier_source_loaded: true,
+          supplier_source_rows: rows,
+          supplier_source_missing_table_count: missing_table_count,
+          supplier_source_note: "已加载 PostgreSQL 供应商源表 · 空表与缺失表保持可见",
+        },
+      )
+    }
+    SupplierSourceLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_source_loaded: false,
+          supplier_source_rows: [],
+          supplier_source_missing_table_count: "0",
+          supplier_source_note: "供应商源表读模型不可用 · 使用已审核投影或设计快照",
         },
       )
     SupplierRiskLoaded(body) => {
@@ -7269,19 +7385,36 @@ fn fallback_supplier_rows() -> Array[SupplierRow] {
 ///|
 fn supplier_table(rows : Array[SupplierRow]) -> @html.Html {
   let rendered : Array[@html.Html] = []
-  for row in rows {
+  if rows.length() == 0 {
     rendered.push(
       tr <| [
-        td(
-          row.supplier_code + " · " + row.supplier_id + " / " + row.source_kind,
-        ),
-        td(row.name),
-        td(row.category_code),
-        td(row.scope),
-        td(supplier_evaluation_label(row.evaluation)),
-        td(supplier_state_label(row.state)),
+        td("— / imported_or_empty"),
+        td("本次 ERP 源导出没有供应商记录"),
+        td("—"),
+        td("源表为空或尚未导出"),
+        td("—"),
+        td("—"),
       ],
     )
+  } else {
+    for row in rows {
+      rendered.push(
+        tr <| [
+          td(
+            row.supplier_code +
+            " · " +
+            row.supplier_id +
+            " / " +
+            row.source_kind,
+          ),
+          td(row.name),
+          td(row.category_code),
+          td(row.scope),
+          td(supplier_evaluation_label(row.evaluation)),
+          td(supplier_state_label(row.state)),
+        ],
+      )
+    }
   }
   table(class="erp-data-table") <| [
     thead <| [
@@ -7296,10 +7429,26 @@ fn supplier_table(rows : Array[SupplierRow]) -> @html.Html {
 
 ///|
 fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  let rows = if model.suppliers_loaded && model.supplier_rows.length() > 0 {
+  let rows = if model.supplier_source_loaded {
+    model.supplier_source_rows
+  } else if model.suppliers_loaded && model.supplier_rows.length() > 0 {
     model.supplier_rows
   } else {
     fallback_supplier_rows()
+  }
+  let source_note = if model.supplier_source_loaded {
+    model.supplier_source_note +
+    " · 缺失/空源表 " +
+    model.supplier_source_missing_table_count
+  } else {
+    model.supplier_note
+  }
+  let source_label = if model.supplier_source_loaded {
+    "ERP 源表"
+  } else if model.suppliers_loaded {
+    "PostgreSQL 投影"
+  } else {
+    "快照"
   }
   let actions : Array[@html.Html] = [
     nav_button(
@@ -7393,24 +7542,12 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           supplier_evaluation_label(model.supplier_evaluation),
           "metric-green",
         ),
-        metric(
-          "数据来源",
-          if model.suppliers_loaded {
-            "PostgreSQL"
-          } else {
-            "快照"
-          },
-          model.supplier_note,
-          "metric-blue",
-        ),
+        metric("数据来源", source_label, source_note, "metric-blue"),
       ],
       filter_bar("供应商名称 / 统一社会信用代码 / 类别"),
       table_panel(
         "供应商列表",
-        model.supplier_note +
-        " · " +
-        rows.length().to_string() +
-        " 家供应商",
+        source_note + " · " + rows.length().to_string() + " 家供应商",
         supplier_table(rows),
       ),
     ],

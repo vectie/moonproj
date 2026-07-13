@@ -34,6 +34,7 @@ from company_postgres_service import (
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
+    supplier_source_list as service_supplier_source_list,
     supplier_risk as service_supplier_risk,
     supplier_risk_board as service_supplier_risk_board,
     supplier_risk_board_source as service_supplier_risk_board_source,
@@ -263,6 +264,10 @@ def tenders(args: argparse.Namespace, tender_id: str | None) -> list[dict[str, A
 def suppliers(args: argparse.Namespace, supplier_id: str | None) -> list[dict[str, Any]]:
     pool = _ReadModelPool(args)
     return service_suppliers(pool, supplier_id, 500)
+
+
+def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
+    return service_supplier_source_list(_ReadModelPool(args), 500)
 
 
 def supplier_risk(args: argparse.Namespace, supplier_id: str) -> dict[str, Any] | None:
@@ -563,6 +568,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/suppliers":
                     supplier_id = parse_qs(parsed.query).get("supplier_id", [None])[0]
                     response(self, 200, {"items": suppliers(args, supplier_id)})
+                    return
+                if parsed.path == "/api/company/srm/providers":
+                    response(self, 200, supplier_source_list(args))
                     return
                 if parsed.path == "/api/company/supplier-risk-board":
                     response(self, 200, {"items": supplier_risk_board(args)})

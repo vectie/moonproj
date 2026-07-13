@@ -41,10 +41,12 @@ loads real application rows and exposes edit/void plus milestone eligibility
 controls through the local-only development gateway below; `/tender` now loads
 tender projections and exposes local planning/publish/bidding/cancellation
 controls, including award/complete validation against a qualified supplier.
-Imported tender rows remain read-only. `/srm/providers` now loads supplier
-qualification/scope projections and exposes local create/update/review,
-blacklist, and void command states; risk reads and contract-split reads/creates
-are available through the same boundary. The five sales pages now load
+Imported tender rows remain read-only. `/srm/providers` now loads the separate
+source-compatible ERP provider list when imported rows exist, preserves an
+explicit empty/missing-source state, and keeps supplier qualification/scope
+projections separate for local create/update/review, blacklist, and void
+command states; risk reads and contract-split reads/creates are available
+through the same boundary. The five sales pages now load
 PostgreSQL customer, reservation, agreement, mortgage, refund, revenue, and
 receivable projections through the gateway and show their source/state/amount
 metadata while preserving the source-shaped tables as an offline fallback. The

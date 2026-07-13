@@ -119,7 +119,10 @@ The tender read model exposes latest procurement projections and its local
 planning/publish/open-bidding/award/complete/cancel boundary; imported tenders
 remain read-only and awards require an active qualified supplier projection.
 The supplier read model exposes qualification/scope candidates to
-`/srm/providers`; local supplier create/update/review/blacklist/void commands,
+`/srm/providers`; the page now also reads the source-compatible ERP provider
+master list through `/api/company/srm/providers`, preserving source coverage
+and an explicit empty-source state without merging it into local command
+projections. Local supplier create/update/review/blacklist/void commands,
 derived risk reads, tender award, and contract-split commands now share the
 same idempotent PostgreSQL/audit boundary. Imported rows remain read-only and
 award-to-commitment remains a separate authority gate.

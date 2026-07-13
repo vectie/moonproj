@@ -10,7 +10,7 @@ The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the generic summary/read-model adapter
 is not dashboard parity; the bounded dashboard v1 reads are now explicitly
 identified, while the local expense/contract/payment-application/
-tender/supplier/supplier-risk/sales read verticals are explicitly identified, including the
+tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime and the non-authorizing workflow-definition
 read boundary. No workflow-instance mutation endpoint is inferred.
 """
@@ -421,6 +421,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
+        and handler["path"] == "/providers"
+    ):
+        return "connected_supplier_read", "accept_browser_supplier_scenario_and_production_identity"
+    if (
+        handler["module"] == "srm"
+        and handler["method"] == "GET"
         and handler["path"] == "/risk-board"
     ):
         return "connected_supplier_risk_read", "accept_browser_supplier_risk_scenario_and_production_identity"
@@ -583,7 +589,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "not count as connected company behavior. The generic PostgreSQL",
         "summary/read-model adapter is not dashboard parity; the three dashboard",
         "aliases now use the bounded connected v1 read. The connected exceptions are the local",
-        "expense/contract/payment-application/tender command, supplier and supplier-risk reads,",
+        "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, and non-authorizing workflow-definition",
         "read verticals.",

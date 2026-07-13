@@ -6,7 +6,7 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The generic PostgreSQL
 summary/read-model adapter is not dashboard parity; the three dashboard
 aliases now use the bounded connected v1 read. The connected exceptions are the local
-expense/contract/payment-application/tender command, supplier and supplier-risk reads,
+expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, and non-authorizing workflow-definition
 read verticals.
@@ -371,7 +371,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `srm` | `GET` | `/categories` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
 | `srm` | `GET` | `/dict/eval-results` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
 | `srm` | `GET` | `/dict/sources` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
-| `srm` | `GET` | `/providers` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
+| `srm` | `GET` | `/providers` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_read` | `accept_browser_supplier_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers/:guid` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
 | `srm` | `POST` | `/providers` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `srm` | `PATCH` | `/providers/:guid` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `implement_authenticated_command_and_audit` |

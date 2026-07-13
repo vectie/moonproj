@@ -282,6 +282,11 @@ handlers (182 mutations), with 33 connected browser states, 21
 fixture-backed states (19 read-only plus 2 forms), 2 public states, 33
 connected API groups, and 23 fixture/no-source API groups.
 
+The source-handler action register now also marks the ERP `GET /srm/providers`
+read as connected through the separate `/api/company/srm/providers` boundary.
+The route-level count stays 33 because `/srm/providers` is already counted as
+one connected command-form page.
+
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
 initiated documents; `/expenses` reads the source `vcb_expense` list and
@@ -292,7 +297,15 @@ next step from “add another screen” to “accept the connected batch through
 real identity boundary and named owners, then obtain the missing export before
 opening broad fixture-backed surfaces.”
 
-The supplier risk board is now an additional bounded source read: `/srm/risk-board`
+The supplier provider list is now an additional bounded source read:
+`/srm/providers` loads `/api/company/srm/providers`, which reproduces the ERP
+provider-list shape from imported `srm_provider`, `srm_provider_bu`,
+`srm_category`, and related contract envelopes. It returns source coverage,
+`authorizing=false`, and an explicit empty list when the source supplier table
+is absent; it never falls back to local supplier projections for a successful
+empty source read. The local `/api/company/suppliers` command projection
+remains a separate boundary for command feedback. The supplier risk board is
+now an additional bounded source read: `/srm/risk-board`
 uses the ERP risk calculation over imported `srm_provider`, `cb_contract`, and
 `cb_contract_milestone` envelopes, returns source coverage, and explicitly
 marks the response non-authorizing. With the current snapshot it returns zero
@@ -408,8 +421,8 @@ states, no browser states classified as read-model-only, and two public
 states. Its API matrix records 33 connected API groups and 23 fixture/no-source
 groups across MDM
 organization/project, budget dictionary, investment,
-admin governance, dynamic cost, expense, contract, payment, procurement and
-supplier-risk,
+admin governance, dynamic cost, expense, contract, payment, procurement,
+supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan, and
 workflow-definition reads; the three dashboard aliases now represent the
 bounded source-backed v1 read, while `/cost-dashboard-v3` remains in the
@@ -430,7 +443,7 @@ Execute the remainder in this order:
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for the currently connected bounded reads. Accept the imported
    profile/initiated-documents, expense-list, dynamic-cost, project/MDM,
-   investment, governance, report, and supplier-risk reads through the real
+   investment, governance, report, supplier-provider, and supplier-risk reads through the real
    gateway session with named owner reconciliation. A truthful empty source response is an
    accepted read result only when the owner accepts the source coverage; it is
    not permission to seed fixture rows.
@@ -442,7 +455,7 @@ Execute the remainder in this order:
    backup. Keep the current 26-table/120-row snapshot as the immutable
    rehearsal baseline and compare the new export before raw staging.
 4. Close the procurement acceptance gap after the source-data decision.
-   The local supplier lifecycle/risk reads, source-compatible risk-board read,
+   The local supplier lifecycle/risk reads, source-compatible provider-list and risk-board reads,
    tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
    command-state checks. Remaining procurement work is the source signature-
