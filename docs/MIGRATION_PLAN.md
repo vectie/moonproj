@@ -323,14 +323,16 @@ score/rating/tags and contract/overdue counts from imported rows without
 creating a qualification decision. The existing local supplier
 projection/risk endpoint remains separate.
 
-The cashflow route is now the next connected finance read: `/cashflow` loads
-`/api/company/cashflow/forecast` for a six-month project-scoped horizon. It
-reproduces the ERP monthly payment-plan/application forecast from imported
-`cb_htfkplan`, `cb_htfk_apply`, `cb_contract`, `vcb_loan_simple`, project, and
-organization envelopes, and carries expense/sales/CBS dependencies as
-explicit missing coverage. This is read-only liquidity evidence; forecast-v3,
-inflow/net/gap-alert, cash release, accounting, tax, bank settlement, and
-production identity remain separate gates.
+The cashflow route is now a connected finance read family: `/cashflow` loads
+`/api/company/cashflow/forecast` plus the source inflow summary, while the
+authenticated service/read-model adapter exposes `/forecast-v3`,
+`/forecast/detail`, `/inflow`, `/net`, and `/gap-alert` for drill-downs. The
+reads reproduce ERP payment-plan/application, expense/loan, revenue,
+milestone, and v3 CBS semantics from imported envelopes and carry explicit
+coverage; empty source tables contribute zero rather than fixture cash. This
+is read-only liquidity evidence. Cash release, accounting, tax, bank
+settlement, AI explanation, browser production identity, and owner acceptance
+remain separate gates.
 
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but

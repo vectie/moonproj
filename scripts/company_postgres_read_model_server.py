@@ -32,6 +32,11 @@ from company_postgres_service import (
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
     cashflow_source_forecast as service_cashflow_source_forecast,
+    cashflow_source_forecast_v3 as service_cashflow_source_forecast_v3,
+    cashflow_source_detail as service_cashflow_source_detail,
+    cashflow_source_inflow as service_cashflow_source_inflow,
+    cashflow_source_net as service_cashflow_source_net,
+    cashflow_source_gap_alert as service_cashflow_source_gap_alert,
     payment_applications as service_payment_applications,
     payment_application_eligibility as service_payment_application_eligibility,
     suppliers as service_suppliers,
@@ -279,6 +284,30 @@ def cashflow_source_forecast(
     return service_cashflow_source_forecast(
         _ReadModelPool(args), months, bu_guid, proj_guid, 500,
     )
+
+
+def cashflow_source_forecast_v3(args: argparse.Namespace, months: int, proj_guid: str) -> dict[str, Any]:
+    return service_cashflow_source_forecast_v3(_ReadModelPool(args), months, proj_guid, 500)
+
+
+def cashflow_source_detail(
+    args: argparse.Namespace, ym: str, bu_guid: str | None, proj_guid: str | None,
+) -> dict[str, Any]:
+    return service_cashflow_source_detail(_ReadModelPool(args), ym, bu_guid, proj_guid, 500)
+
+
+def cashflow_source_inflow(
+    args: argparse.Namespace, months: int, bu_guid: str | None, proj_guid: str | None,
+) -> dict[str, Any]:
+    return service_cashflow_source_inflow(_ReadModelPool(args), months, bu_guid, proj_guid, 500)
+
+
+def cashflow_source_net(args: argparse.Namespace, months: int) -> dict[str, Any]:
+    return service_cashflow_source_net(_ReadModelPool(args), months, 500)
+
+
+def cashflow_source_gap_alert(args: argparse.Namespace, horizon_days: int) -> dict[str, Any]:
+    return service_cashflow_source_gap_alert(_ReadModelPool(args), horizon_days, 500)
 
 
 def supplier_source_list(args: argparse.Namespace) -> dict[str, Any]:
@@ -602,6 +631,50 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     bu_guid = query.get("buGuid", [None])[0]
                     proj_guid = query.get("projGuid", [None])[0]
                     response(self, 200, cashflow_source_forecast(args, months, bu_guid, proj_guid))
+                    return
+                if parsed.path == "/api/company/cashflow/forecast-v3":
+                    query = parse_qs(parsed.query)
+                    months = int(query.get("months", ["6"])[0])
+                    proj_guid = query.get("projGuid", [None])[0]
+                    if not proj_guid:
+                        response(self, 422, {"error": "projGuid is required"})
+                    else:
+                        response(self, 200, cashflow_source_forecast_v3(args, months, proj_guid))
+                    return
+                if parsed.path == "/api/company/cashflow/forecast/detail":
+                    query = parse_qs(parsed.query)
+                    ym = query.get("ym", [None])[0]
+                    if not ym:
+                        response(self, 422, {"error": "ym is required"})
+                    else:
+                        response(
+                            self,
+                            200,
+                            cashflow_source_detail(
+                                args, ym, query.get("buGuid", [None])[0], query.get("projGuid", [None])[0],
+                            ),
+                        )
+                    return
+                if parsed.path == "/api/company/cashflow/inflow":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cashflow_source_inflow(
+                            args,
+                            int(query.get("months", ["6"])[0]),
+                            query.get("buGuid", [None])[0],
+                            query.get("projGuid", [None])[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/cashflow/net":
+                    months = int(parse_qs(parsed.query).get("months", ["6"])[0])
+                    response(self, 200, cashflow_source_net(args, months))
+                    return
+                if parsed.path == "/api/company/cashflow/gap-alert":
+                    horizon_days = int(parse_qs(parsed.query).get("horizonDays", ["90"])[0])
+                    response(self, 200, cashflow_source_gap_alert(args, horizon_days))
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

@@ -62,6 +62,11 @@ The bounded service exposes these endpoints:
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
 * ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
+* ``/api/company/cashflow/forecast-v3`` (GET, source-compatible cashflow read)
+* ``/api/company/cashflow/forecast/detail`` (GET, source-compatible drill-down)
+* ``/api/company/cashflow/inflow`` (GET, source-compatible cashflow read)
+* ``/api/company/cashflow/net`` (GET, source-compatible cashflow read)
+* ``/api/company/cashflow/gap-alert`` (GET, source-compatible cashflow read)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
@@ -6500,11 +6505,11 @@ def _cashflow_month(value: Any) -> str | None:
     return f"{match.group(1)}-{int(match.group(2)):02d}"
 
 
-def _cashflow_months(months: int) -> list[str]:
+def _cashflow_months(months: int, start_offset: int = 0) -> list[str]:
     current = date.today().replace(day=1)
     result: list[str] = []
     for offset in range(months):
-        month_index = current.month - 1 + offset
+        month_index = current.month - 1 + start_offset + offset
         year = current.year + month_index // 12
         month = month_index % 12 + 1
         result.append(f"{year:04d}-{month:02d}")
@@ -6681,6 +6686,348 @@ def cashflow_source_forecast(
             "byBu": top_rows(by_bu, "buName"),
             "byProj": top_rows(by_project, "projName"),
         },
+        **_cashflow_source_metadata(coverage),
+    }
+
+
+def _cashflow_rows_and_coverage(
+    pool: PsqlPool, max_rows: int,
+) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
+    limit = max(max_rows, 500)
+    rows = {
+        table: _raw_source_rows(pool, table, limit, CASHFLOW_SOURCE_TABLES)
+        for table in sorted(CASHFLOW_SOURCE_TABLES)
+    }
+    coverage = {table: len(values) for table, values in rows.items()}
+    return coverage, rows
+
+
+def _cashflow_contract_map(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        str(row["payload"].get("contract_guid") or row["record_id"]): row["payload"]
+        for row in rows
+        if not row["payload"].get("deleted_at")
+    }
+
+
+def cashflow_source_detail(
+    pool: PsqlPool,
+    ym: str,
+    bu_guid: str | None,
+    proj_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Return the source rows behind one forecast month for drill-down."""
+
+    match = re.fullmatch(r"(\d{4})-(\d{2})", ym)
+    if match is None or not 1 <= int(match.group(2)) <= 12:
+        raise ValueError("ym must use YYYY-MM")
+    for value, label in ((bu_guid, "bu_guid"), (proj_guid, "proj_guid")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    coverage, rows = _cashflow_rows_and_coverage(pool, max_rows)
+    contracts = _cashflow_contract_map(rows["cb_contract"])
+    plans: list[dict[str, Any]] = []
+    for row in rows["cb_htfkplan"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or _cashflow_month(payload.get("jhfk_date")) != ym:
+            continue
+        if bu_guid is not None and str(payload.get("bu_guid") or "") != bu_guid:
+            continue
+        contract = contracts.get(str(payload.get("contract_guid") or ""), {})
+        if proj_guid is not None and str(contract.get("proj_guid") or "") != proj_guid:
+            continue
+        plans.append(
+            {
+                "htfk_plan_guid": _report_text(payload, "htfk_plan_guid", row["record_id"]),
+                "plan_period": _report_text(payload, "plan_period"),
+                "jhfk_date": _report_text(payload, "jhfk_date"),
+                "jhfk_amount": _report_float(payload, "jhfk_amount"),
+                "approve_state": _report_text(payload, "approve_state"),
+                "contract_code": _report_text(contract, "contract_code"),
+                "contract_name": _report_text(contract, "contract_name"),
+                "proj_guid": _report_text(contract, "proj_guid"),
+            }
+        )
+    applies: list[dict[str, Any]] = []
+    for row in rows["cb_htfk_apply"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or _cashflow_month(payload.get("apply_date")) != ym:
+            continue
+        if bu_guid is not None and str(payload.get("bu_guid") or "") != bu_guid:
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        contract = contracts.get(str(payload.get("contract_guid") or ""), {})
+        applies.append(
+            {
+                "htfk_apply_guid": _report_text(payload, "htfk_apply_guid", row["record_id"]),
+                "apply_code": _report_text(payload, "apply_code"),
+                "apply_date": _report_text(payload, "apply_date"),
+                "apply_amount": _report_float(payload, "apply_amount"),
+                "apply_state": _report_text(payload, "apply_state"),
+                "pay_state": _report_text(payload, "pay_state"),
+                "subject": _report_text(payload, "subject"),
+                "proj_guid": _report_text(payload, "proj_guid"),
+                "contract_code": _report_text(contract, "contract_code"),
+                "contract_name": _report_text(contract, "contract_name"),
+            }
+        )
+    plans.sort(key=lambda value: value["jhfk_date"])
+    applies.sort(key=lambda value: value["apply_date"])
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"ym": ym, "plans": plans, "applies": applies},
+        **_cashflow_source_metadata(coverage),
+    }
+
+
+def cashflow_source_inflow(
+    pool: PsqlPool,
+    months: int,
+    bu_guid: str | None,
+    proj_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if months < 1 or months > 24:
+        raise ValueError("months must be between 1 and 24")
+    for value, label in ((bu_guid, "bu_guid"), (proj_guid, "proj_guid")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    coverage, rows = _cashflow_rows_and_coverage(pool, max_rows)
+    month_list = _cashflow_months(months + 3, -3)
+    month_set = set(month_list)
+    series = {
+        month: {"ym": month, "received": 0.0, "expected": 0.0, "overdue": 0.0}
+        for month in month_list
+    }
+    today = date.today().isoformat()
+    for row in rows["sale_revenue"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if bu_guid is not None and str(payload.get("bu_guid") or "") != bu_guid:
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        month = _cashflow_month(payload.get("receive_date"))
+        if month not in month_set:
+            continue
+        state = _report_text(payload, "status")
+        if state == "expected" and _report_text(payload, "receive_date")[:10] < today:
+            state = "overdue"
+        if state not in {"received", "expected", "overdue"}:
+            continue
+        series[month][state] += _report_float(payload, "amount")
+    cumulative = 0.0
+    data: list[dict[str, Any]] = []
+    for month in month_list:
+        row = series[month]
+        total = row["received"] + row["expected"] + row["overdue"]
+        cumulative += total
+        data.append({**row, "total": round(total, 2), "cumulative": round(cumulative, 2)})
+    totals = {
+        "receivedTotal": round(sum(row["received"] for row in data), 2),
+        "expectedTotal": round(sum(row["expected"] for row in data), 2),
+        "overdueTotal": round(sum(row["overdue"] for row in data), 2),
+        "totalInflow": round(sum(row["total"] for row in data), 2),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"months": month_list, "series": data, "totals": totals},
+        **_cashflow_source_metadata(coverage),
+    }
+
+
+def cashflow_source_net(pool: PsqlPool, months: int, max_rows: int) -> dict[str, Any]:
+    if months < 1 or months > 24:
+        raise ValueError("months must be between 1 and 24")
+    forecast = cashflow_source_forecast(pool, months, None, None, max_rows)
+    coverage, rows = _cashflow_rows_and_coverage(pool, max_rows)
+    month_list = _cashflow_months(months)
+    revenue_by_month = {month: 0.0 for month in month_list}
+    month_set = set(month_list)
+    for row in rows["sale_revenue"]:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        month = _cashflow_month(payload.get("receive_date"))
+        if month in month_set:
+            revenue_by_month[month] += _report_float(payload, "amount")
+    cumulative = 0.0
+    series: list[dict[str, Any]] = []
+    for row in forecast["data"]["series"]:
+        outflow = row["planned"] + row["pending"]
+        inflow = revenue_by_month[row["ym"]]
+        net = inflow - outflow
+        cumulative += net
+        series.append(
+            {
+                "ym": row["ym"],
+                "inflow": round(inflow, 2),
+                "outflow": round(outflow, 2),
+                "net": round(net, 2),
+                "cumulativeNet": round(cumulative, 2),
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"series": series},
+        **_cashflow_source_metadata(coverage),
+    }
+
+
+def cashflow_source_gap_alert(
+    pool: PsqlPool, horizon_days: int, max_rows: int,
+) -> dict[str, Any]:
+    if horizon_days < 7 or horizon_days > 365:
+        raise ValueError("horizon_days must be between 7 and 365")
+    coverage, rows = _cashflow_rows_and_coverage(pool, max_rows)
+    today = date.today()
+    end_date = today + timedelta(days=horizon_days)
+    buckets: dict[str, dict[str, Any]] = {}
+
+    def bucket(day: date) -> dict[str, Any]:
+        monday = day - timedelta(days=day.weekday())
+        key = monday.isoformat()
+        if key not in buckets:
+            buckets[key] = {"weekStart": key, "in": 0.0, "out": 0.0, "outItems": [], "inItems": []}
+        return buckets[key]
+
+    contracts = _cashflow_contract_map(rows["cb_contract"])
+    for row in rows["cb_contract_milestone"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or _report_text(payload, "trigger_type") != "time":
+            continue
+        if _report_text(payload, "state") not in {"pending", "reached"}:
+            continue
+        day = _report_date(payload.get("plan_date"))
+        if day is None or day < today or day > end_date:
+            continue
+        contract = contracts.get(str(payload.get("contract_guid") or ""), {})
+        target = bucket(day)
+        amount = _report_float(payload, "plan_amount")
+        target["out"] += amount
+        target["outItems"].append(
+            {"subject": _report_text(contract, "contract_name"), "amount": amount, "kind": "milestone"}
+        )
+    for row in rows["sale_revenue"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or _report_text(payload, "status") != "pending":
+            continue
+        day = _report_date(payload.get("receive_date"))
+        if day is None or day < today or day > end_date:
+            continue
+        target = bucket(day)
+        amount = _report_float(payload, "amount")
+        target["in"] += amount
+        target["inItems"].append({"subject": _report_text(payload, "customer_name"), "amount": amount})
+    weeks: list[dict[str, Any]] = []
+    for key in sorted(buckets):
+        row = buckets[key]
+        gap = round(row["out"] - row["in"], 2)
+        weeks.append({**row, "gap": gap, "alert": gap > 0})
+    gap_weeks = [row for row in weeks if row["alert"]]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "weeks": weeks,
+            "gapWeeks": gap_weeks,
+            "totalGap": round(sum(row["gap"] for row in gap_weeks), 2),
+            "horizonDays": horizon_days,
+        },
+        **_cashflow_source_metadata(coverage),
+    }
+
+
+def cashflow_source_forecast_v3(
+    pool: PsqlPool, months: int, proj_guid: str, max_rows: int,
+) -> dict[str, Any]:
+    if months < 1 or months > 24:
+        raise ValueError("months must be between 1 and 24")
+    if not IDENTIFIER.fullmatch(proj_guid):
+        raise ValueError("invalid proj_guid")
+    coverage, rows = _cashflow_rows_and_coverage(pool, max_rows)
+    month_list = _cashflow_months(months)
+    month_set = set(month_list)
+    versions = [
+        row["payload"] for row in rows["cb_plan_version"]
+        if not row["payload"].get("deleted_at")
+        and str(row["payload"].get("proj_guid") or "") == proj_guid
+    ]
+    active = next(
+        (row for row in versions if _srm_source_bool(row, "is_active")),
+        versions[0] if versions else {},
+    )
+    plan_version = _report_text(active, "plan_version", "baseline")
+    leaves = [
+        row["payload"] for row in rows["cb_subject_dict"]
+        if not row["payload"].get("deleted_at")
+        and str(row["payload"].get("proj_guid") or "") == proj_guid
+        and _report_text(row["payload"], "plan_version", "baseline") == plan_version
+    ]
+    contracts = [
+        row["payload"] for row in rows["cb_contract"]
+        if not row["payload"].get("deleted_at")
+        and str(row["payload"].get("proj_guid") or "") == proj_guid
+        and _report_text(row["payload"], "cb_state") in {"signed", "paid", "approving"}
+    ]
+    total_a = sum(_report_float(row, "plan_amount") for row in leaves)
+    total_d = sum(
+        (_report_float(row, "ht_amount") + _report_float(row, "sum_alter_amount")) / 10000
+        for row in contracts if _report_text(row, "cb_state") in {"signed", "paid"}
+    )
+    total_e = sum(
+        (_report_float(row, "ht_amount") + _report_float(row, "sum_alter_amount")) / 10000
+        for row in contracts if _report_text(row, "cb_state") == "approving"
+    )
+    total_fg = sum(max(0.0, _report_float(row, "plan_amount")) for row in leaves)
+    total_fg = max(0.0, total_fg - total_d - total_e) + total_d * 0.05
+    revenue: dict[str, float] = {month: 0.0 for month in month_list}
+    for row in rows["sale_revenue"]:
+        payload = row["payload"]
+        if payload.get("deleted_at") or str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if _report_text(payload, "status") != "expected":
+            continue
+        month = _cashflow_month(payload.get("receive_date"))
+        if month in month_set:
+            revenue[month] += _report_float(payload, "amount") / 10000
+    fg_monthly = total_fg / months
+    cumulative = 0.0
+    series: list[dict[str, Any]] = []
+    for index, month in enumerate(month_list):
+        inflow = revenue[month]
+        outflow = (total_e if index == 0 else 0.0) + fg_monthly
+        net = inflow - outflow
+        cumulative += net
+        series.append(
+            {
+                "ym": month,
+                "inflow": round(inflow, 2),
+                "outflow": round(outflow, 2),
+                "net": round(net, 2),
+                "cumNet": round(cumulative, 2),
+                "gap": round(max(0.0, -cumulative), 2),
+            }
+        )
+    totals = {
+        "A_total": round(total_a, 2),
+        "D_total": round(total_d, 2),
+        "E_total": round(total_e, 2),
+        "FG_total": round(total_fg, 2),
+        "inflow_total": round(sum(row["inflow"] for row in series), 2),
+        "outflow_total": round(sum(row["outflow"] for row in series), 2),
+        "gap_total": round(sum(row["gap"] for row in series), 2),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"projGuid": proj_guid, "planVersion": plan_version, "months": month_list, "series": series, "totals": totals},
         **_cashflow_source_metadata(coverage),
     }
 
@@ -8442,6 +8789,51 @@ def handler_factory(
                     proj_guid = query.get("projGuid", [None])[0]
                     result = cashflow_source_forecast(
                         pool, months, bu_guid, proj_guid, max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif parsed.path == "/api/company/cashflow/forecast-v3":
+                    query = parse_qs(parsed.query)
+                    months = int(query.get("months", ["6"])[0])
+                    proj_guid = query.get("projGuid", [None])[0]
+                    if not proj_guid:
+                        raise CommandRejected("projGuid is required", 422)
+                    result = cashflow_source_forecast_v3(
+                        pool, months, proj_guid, max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif parsed.path == "/api/company/cashflow/forecast/detail":
+                    query = parse_qs(parsed.query)
+                    ym = query.get("ym", [None])[0]
+                    if not ym:
+                        raise CommandRejected("ym is required", 422)
+                    result = cashflow_source_detail(
+                        pool,
+                        ym,
+                        query.get("buGuid", [None])[0],
+                        query.get("projGuid", [None])[0],
+                        max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif parsed.path == "/api/company/cashflow/inflow":
+                    query = parse_qs(parsed.query)
+                    result = cashflow_source_inflow(
+                        pool,
+                        int(query.get("months", ["6"])[0]),
+                        query.get("buGuid", [None])[0],
+                        query.get("projGuid", [None])[0],
+                        max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif parsed.path == "/api/company/cashflow/net":
+                    query = parse_qs(parsed.query)
+                    result = cashflow_source_net(
+                        pool, int(query.get("months", ["6"])[0]), max_response_rows,
+                    )
+                    response(self, 200, result, origin)
+                elif parsed.path == "/api/company/cashflow/gap-alert":
+                    query = parse_qs(parsed.query)
+                    result = cashflow_source_gap_alert(
+                        pool, int(query.get("horizonDays", ["90"])[0]), max_response_rows,
                     )
                     response(self, 200, result, origin)
                 elif parsed.path == "/api/company/srm/providers":

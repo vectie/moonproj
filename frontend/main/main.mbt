@@ -625,6 +625,10 @@ struct Model {
   cashflow_total_outflow : String
   cashflow_missing_table_count : String
   cashflow_note : String
+  cashflow_inflow_loaded : Bool
+  cashflow_inflow_total : String
+  cashflow_inflow_missing_table_count : String
+  cashflow_inflow_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -781,6 +785,8 @@ enum Msg {
   DynamicCostLoadFailed
   CashflowLoaded(String)
   CashflowLoadFailed
+  CashflowInflowLoaded(String)
+  CashflowInflowLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -955,6 +961,10 @@ fn initial_model() -> Model {
     cashflow_total_outflow: "0",
     cashflow_missing_table_count: "0",
     cashflow_note: "现金流预测读模型尚未加载 · 使用设计快照",
+    cashflow_inflow_loaded: false,
+    cashflow_inflow_total: "0",
+    cashflow_inflow_missing_table_count: "0",
+    cashflow_inflow_note: "回款源读模型尚未加载",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -2457,6 +2467,40 @@ fn cashflow_from_body(
 }
 
 ///|
+fn cashflow_inflow_from_body(body : String) -> (Bool, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          match data.get("totals") {
+            Some(Json::Object(totals)) =>
+              (
+                true,
+                json_object_text(totals, "totalInflow", "0"),
+                missing,
+                "已加载 PostgreSQL 回款预测 · sale_revenue 保持只读",
+              )
+            _ =>
+              (
+                false, "0", missing, "回款预测响应无效 · 使用明确空源状态",
+              )
+          }
+        _ =>
+          (
+            false, "0", missing, "回款预测响应无效 · 使用明确空源状态",
+          )
+      }
+    }
+    _ =>
+      (false, "0", "0", "回款预测响应无效 · 使用明确空源状态")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -3051,6 +3095,17 @@ fn load_cashflow(emit : @rabbita.Emit[Msg]) -> Cmd {
       match result {
         Ok(body) => emit(CashflowLoaded(body))
         Err(_) => emit(CashflowLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_cashflow_inflow(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/cashflow/inflow?months=6&projGuid=proj-0001").expect_text(result => {
+      match result {
+        Ok(body) => emit(CashflowInflowLoaded(body))
+        Err(_) => emit(CashflowInflowLoadFailed)
       }
     },
   )
@@ -4871,7 +4926,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let (rows, totals, missing_table_count) = cashflow_from_body(body)
       if totals.length() == 6 {
         (
-          none,
+          load_cashflow_inflow(emit),
           {
             ..model,
             cashflow_loaded: true,
@@ -4906,6 +4961,31 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           cashflow_loaded: false,
           cashflow_rows: [],
           cashflow_note: "现金流预测读模型不可用 · 使用设计快照",
+        },
+      )
+    CashflowInflowLoaded(body) => {
+      let (loaded, total, missing_table_count, note) = cashflow_inflow_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          cashflow_inflow_loaded: loaded,
+          cashflow_inflow_total: total,
+          cashflow_inflow_missing_table_count: missing_table_count,
+          cashflow_inflow_note: note,
+        },
+      )
+    }
+    CashflowInflowLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          cashflow_inflow_loaded: false,
+          cashflow_inflow_total: "0",
+          cashflow_inflow_note: "回款读模型不可用 · 保留空源状态",
         },
       )
     ProfileLoaded(body) => {
@@ -9030,6 +9110,13 @@ fn cashflow_view(model : Model) -> @html.Html {
   } else {
     "¥9,180 万"
   }
+  let inflow = if model.cashflow_inflow_loaded {
+    "¥" + model.cashflow_inflow_total
+  } else if model.cashflow_loaded {
+    "—"
+  } else {
+    "¥4,900 万"
+  }
   let confirmed = if model.cashflow_loaded {
     "¥" + model.cashflow_confirmed_total
   } else {
@@ -9075,6 +9162,14 @@ fn cashflow_view(model : Model) -> @html.Html {
             model.cashflow_loan_total
           } else {
             ""
+          }) +
+          (if model.cashflow_inflow_loaded {
+            " · 预计回款 " +
+            model.cashflow_inflow_total +
+            " · 空源表 " +
+            model.cashflow_inflow_missing_table_count
+          } else {
+            ""
           }),
         ),
       ]),
@@ -9087,6 +9182,16 @@ fn cashflow_view(model : Model) -> @html.Html {
         ),
         metric(
           "预测总流出", total_outflow, "计划 + 申请 + 借款", "metric-blue",
+        ),
+        metric(
+          "预计回款",
+          inflow,
+          if model.cashflow_inflow_loaded {
+            model.cashflow_inflow_note
+          } else {
+            "sale_revenue 源读模型"
+          },
+          "metric-green",
         ),
         metric("最低余额", minimum_balance, minimum_note, "metric-blue"),
       ],

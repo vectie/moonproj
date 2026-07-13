@@ -155,11 +155,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `budget` | `POST` | `/budget-check` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `POST` | `/expenses/:guid/auto-offset` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cashflow` | `GET` | `/forecast` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
-| `cashflow` | `GET` | `/forecast-v3` | `/cashflow` | `not_connected` | `connect_authenticated_read_api` |
-| `cashflow` | `GET` | `/forecast/detail` | `/cashflow` | `not_connected` | `connect_authenticated_read_api` |
-| `cashflow` | `GET` | `/inflow` | `/cashflow` | `not_connected` | `connect_authenticated_read_api` |
-| `cashflow` | `GET` | `/net` | `/cashflow` | `not_connected` | `connect_authenticated_read_api` |
-| `cashflow` | `GET` | `/gap-alert` | `/cashflow` | `not_connected` | `connect_authenticated_read_api` |
+| `cashflow` | `GET` | `/forecast-v3` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
+| `cashflow` | `GET` | `/forecast/detail` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
+| `cashflow` | `GET` | `/inflow` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
+| `cashflow` | `GET` | `/net` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
+| `cashflow` | `GET` | `/gap-alert` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
 | `cashflow` | `POST` | `/ai-explain` | `/cashflow` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cbs` | `GET` | `/r-master` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `connect_authenticated_read_api` |
 | `cbs` | `GET` | `/dict` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `connect_authenticated_read_api` |

@@ -427,7 +427,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "cashflow"
         and handler["method"] == "GET"
-        and handler["path"] == "/forecast"
+        and handler["path"] in {
+            "/forecast",
+            "/forecast-v3",
+            "/forecast/detail",
+            "/inflow",
+            "/net",
+            "/gap-alert",
+        }
     ):
         return "connected_cashflow_read", "accept_browser_cashflow_scenario_and_production_identity"
     if (

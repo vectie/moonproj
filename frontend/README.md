@@ -64,10 +64,13 @@ acceptance is still pending. `/reports` now loads the five core report reads
 through `/api/company/reports/overview` and shows source coverage; report
 templates and sharing remain separate gates. `/loans` now loads
 source-preserving employee-loan/offset reads; imported balances remain
-read-only. `/cashflow` now loads `/api/company/cashflow/forecast` for a six-month
-project-scoped source forecast, showing payment-plan, application, expense,
-and loan outflow with explicit missing sales/CBS coverage; cash release and
-accounting remain separate gates. The authenticated company service/gateway
+read-only. `/cashflow` now loads `/api/company/cashflow/forecast` and the source
+`/api/company/cashflow/inflow` read for a six-month project-scoped forecast, showing
+payment-plan, application, expense, loan, and revenue evidence with explicit
+missing-table coverage. The authenticated service/read-model adapter also
+exposes `/forecast-v3`, `/forecast/detail`, `/inflow`, `/net`, and `/gap-alert`
+for source-compatible drill-downs. Cash release, accounting, tax, bank
+settlement, and production identity remain separate gates. The authenticated company service/gateway
 also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

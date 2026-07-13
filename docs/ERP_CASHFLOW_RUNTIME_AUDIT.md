@@ -1,11 +1,22 @@
 # ERP cashflow runtime audit
 
 The Rabbita `/cashflow` page now has a source-compatible PostgreSQL read
-boundary at `/api/company/cashflow/forecast`. It reproduces the ERP forecast
-shape for the selected month horizon and project: payment-plan outflow,
-pending and approved payment applications, approved unpaid expenses, and
-approved loan balances are rolled into monthly totals, cumulative outflow, and
-top business-unit/project breakdowns.
+boundary at `/api/company/cashflow/forecast`. The authenticated service and
+read-model adapter also expose the rest of the ERP cashflow read family:
+`forecast-v3`, `forecast/detail`, `inflow`, `net`, and `gap-alert`. These are
+read-only source projections; the page uses the forecast and inflow reads for
+its live table and summary metrics, while detail/v3/net/gap-alert remain
+available for the next drill-down screens.
+
+The forecast reproduces the ERP shape for the selected month horizon and
+project: payment-plan outflow, pending and approved payment applications,
+approved unpaid expenses, and approved loan balances are rolled into monthly
+totals, cumulative outflow, and top business-unit/project breakdowns. The
+detail endpoint returns the source plan/application rows for a selected month;
+inflow classifies received, expected, and overdue `sale_revenue`; net combines
+source planned/pending outflow with revenue; gap-alert buckets time milestones
+and pending revenue by week; and forecast-v3 preserves the ERP A/D/E/F/G
+calculation when CBS and revenue rows are present.
 
 The read operates on raw imported envelopes only:
 
@@ -29,7 +40,9 @@ the August planned outflow and visibly reports the missing inflow/expense
 dependencies.
 
 The page keeps the designer snapshot as a transport-failure fallback while
-showing the live monthly table and source provenance banner when the read
-succeeds. Forecast-v3, inflow, net, gap-alert, AI explanation, cash release,
-accounting posting, tax, bank settlement, and production identity remain
-separate migration gates.
+showing the live monthly table, inflow metric, and source provenance banner
+when the reads succeed. AI explanation, cash release, accounting posting, tax,
+bank settlement, and production identity remain separate migration gates. The
+current controlled export has no `sale_revenue`, milestone, or v3 CBS rows, so
+those endpoints truthfully return empty series/coverage instead of fabricated
+cash.

@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import uuid
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -190,6 +191,81 @@ def main() -> int:
             or cashflow_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source cashflow forecast read failed: {status} {cashflow_payload}")
+        detail_month = f"{date.today().year:04d}-{date.today().month + 1:02d}"
+        if date.today().month == 12:
+            detail_month = f"{date.today().year + 1:04d}-01"
+        status, cashflow_detail_payload = request(
+            args.port,
+            f"/api/company/cashflow/forecast/detail?ym={detail_month}&projGuid=proj-0001",
+            token=token,
+        )
+        cashflow_detail_data = (cashflow_detail_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cashflow_detail_payload is None
+            or cashflow_detail_data.get("ym") != detail_month
+            or not isinstance(cashflow_detail_data.get("plans"), list)
+            or cashflow_detail_payload.get("source_coverage", {}).get("cb_htfkplan") != 4
+            or cashflow_detail_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source cashflow detail read failed: {status} {cashflow_detail_payload}")
+        status, cashflow_inflow_payload = request(
+            args.port,
+            "/api/company/cashflow/inflow?months=6&projGuid=proj-0001",
+            token=token,
+        )
+        cashflow_inflow_data = (cashflow_inflow_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cashflow_inflow_payload is None
+            or len(cashflow_inflow_data.get("series", [])) != 9
+            or cashflow_inflow_data.get("totals", {}).get("totalInflow") != 0.0
+            or cashflow_inflow_payload.get("source_coverage", {}).get("sale_revenue") != 0
+            or cashflow_inflow_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source cashflow inflow read failed: {status} {cashflow_inflow_payload}")
+        status, cashflow_net_payload = request(
+            args.port, "/api/company/cashflow/net?months=6", token=token,
+        )
+        cashflow_net_data = (cashflow_net_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cashflow_net_payload is None
+            or len(cashflow_net_data.get("series", [])) != 6
+            or cashflow_net_payload.get("source_coverage", {}).get("cb_htfkplan") != 4
+            or cashflow_net_payload.get("source_coverage", {}).get("sale_revenue") != 0
+            or cashflow_net_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source cashflow net read failed: {status} {cashflow_net_payload}")
+        status, cashflow_gap_payload = request(
+            args.port, "/api/company/cashflow/gap-alert?horizonDays=90", token=token,
+        )
+        cashflow_gap_data = (cashflow_gap_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cashflow_gap_payload is None
+            or cashflow_gap_data.get("gapWeeks") != []
+            or cashflow_gap_payload.get("source_coverage", {}).get("cb_contract_milestone") != 0
+            or cashflow_gap_payload.get("source_coverage", {}).get("sale_revenue") != 0
+            or cashflow_gap_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source cashflow gap read failed: {status} {cashflow_gap_payload}")
+        status, cashflow_v3_payload = request(
+            args.port,
+            "/api/company/cashflow/forecast-v3?months=6&projGuid=proj-0001",
+            token=token,
+        )
+        cashflow_v3_data = (cashflow_v3_payload or {}).get("data", {})
+        if (
+            status != 200
+            or cashflow_v3_payload is None
+            or len(cashflow_v3_data.get("series", [])) != 6
+            or cashflow_v3_data.get("totals", {}).get("gap_total") != 0.0
+            or cashflow_v3_payload.get("source_coverage", {}).get("cb_plan_version") != 0
+            or cashflow_v3_payload.get("source_coverage", {}).get("cb_subject_dict") != 0
+            or cashflow_v3_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"source cashflow v3 read failed: {status} {cashflow_v3_payload}")
         status, supplier_risk_payload = request(args.port, "/api/company/srm/risk-board", token=token)
         supplier_risk_data = (supplier_risk_payload or {}).get("data", {})
         if (
@@ -1687,6 +1763,11 @@ def main() -> int:
                     "cashflow_series_rows": len(cashflow_data.get("series", [])),
                     "cashflow_planned_total": cashflow_data.get("totals", {}).get("plannedTotal"),
                     "cashflow_missing_source_tables": len(cashflow_payload.get("missing_or_empty_source_tables", [])),
+                    "cashflow_detail_plan_rows": len(cashflow_detail_data.get("plans", [])),
+                    "cashflow_inflow_series_rows": len(cashflow_inflow_data.get("series", [])),
+                    "cashflow_net_series_rows": len(cashflow_net_data.get("series", [])),
+                    "cashflow_gap_week_rows": len(cashflow_gap_data.get("gapWeeks", [])),
+                    "cashflow_v3_series_rows": len(cashflow_v3_data.get("series", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,
