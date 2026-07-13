@@ -89,6 +89,9 @@ Investment read evidence is available at
 `/api/company/investment/projects/:id/profit-summary`, and
 `/api/company/investment/meta/dimensions`; import and valuation mutations remain
 separately gated.
+The `/investment` screen loads the imported current version, 26 grouped
+indices, and profit summary through the read-only adapter; its designer
+comparison table remains an offline fallback.
 Admin governance reads are available at
 `/api/company/admin/dict/groups`, `/api/company/admin/dict/options`,
 `/api/company/admin/quality/overview`,

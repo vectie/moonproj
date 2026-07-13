@@ -248,6 +248,16 @@ struct AdminDictOptionRow {
 }
 
 ///|
+struct InvestmentIndexRow {
+  dimension : String
+  index_name : String
+  full_code : String
+  index_value : String
+  unit : String
+  source_kind : String
+}
+
+///|
 struct UserRosterRow {
   user_code : String
   emp_name : String
@@ -409,6 +419,18 @@ struct Model {
   admin_dict_group_rows : Array[AdminDictGroupRow]
   admin_dict_option_rows : Array[AdminDictOptionRow]
   admin_dict_note : String
+  investment_loaded : Bool
+  investment_version_id : String
+  investment_version_name : String
+  investment_index_rows : Array[InvestmentIndexRow]
+  investment_dimension_count : String
+  investment_total : String
+  investment_revenue : String
+  investment_cost : String
+  investment_net_profit : String
+  investment_net_profit_margin : String
+  investment_irr : String
+  investment_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -527,6 +549,10 @@ enum Msg {
   AdminDictGroupsLoaded(String)
   AdminDictOptionsLoaded(String)
   AdminDictLoadFailed
+  InvestmentVersionsLoaded(String)
+  InvestmentIndicesLoaded(String)
+  InvestmentProfitLoaded(String)
+  InvestmentLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
   HealthTablesLoaded(String)
@@ -634,6 +660,18 @@ fn initial_model() -> Model {
     admin_dict_group_rows: [],
     admin_dict_option_rows: [],
     admin_dict_note: "数据字典尚未加载 · 使用设计快照",
+    investment_loaded: false,
+    investment_version_id: "",
+    investment_version_name: "",
+    investment_index_rows: [],
+    investment_dimension_count: "0",
+    investment_total: "0",
+    investment_revenue: "0",
+    investment_cost: "0",
+    investment_net_profit: "0",
+    investment_net_profit_margin: "0",
+    investment_irr: "0",
+    investment_note: "投资测算读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -1520,6 +1558,90 @@ fn admin_dict_option_rows_from_body(body : String) -> Array[AdminDictOptionRow] 
 }
 
 ///|
+fn investment_version_from_body(body : String) -> (String, String) {
+  let mut version_id = ""
+  let mut version_name = ""
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) => {
+            let current = json_object_text(row, "isCurrent", "false") == "true"
+            if version_id == "" || current {
+              version_id = json_object_text(row, "versionGuid", "")
+              version_name = json_object_text(row, "versionName", "")
+            }
+          }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  (version_id, version_name)
+}
+
+///|
+fn investment_index_rows_from_body(
+  body : String,
+) -> (Array[InvestmentIndexRow], String) {
+  let rows : Array[InvestmentIndexRow] = []
+  let mut dimension_count = 0
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(dimension) => {
+            dimension_count = dimension_count + 1
+            let dimension_name = json_object_text(dimension, "name", "")
+            for item in json_array_field(dimension, "items") {
+              match item {
+                Json::Object(row) =>
+                  rows.push({
+                    dimension: dimension_name,
+                    index_name: json_object_text(row, "indexName", ""),
+                    full_code: json_object_text(row, "fullCode", ""),
+                    index_value: json_object_text(row, "indexValue", "—"),
+                    unit: json_object_text(row, "unit", ""),
+                    source_kind: json_object_text(row, "sourceKind", "imported"),
+                  })
+                _ => ()
+              }
+            }
+          }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  (rows, dimension_count.to_string())
+}
+
+///|
+fn investment_profit_from_body(body : String) -> Array[String] {
+  let values : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          values.push(json_object_text(data, "versionName", ""))
+          values.push(json_object_text(data, "investment", "0"))
+          values.push(json_object_text(data, "revenue", "0"))
+          values.push(json_object_text(data, "cost", "0"))
+          values.push(json_object_text(data, "netProfit", "0"))
+          values.push(json_object_text(data, "netProfitMargin", "0"))
+          values.push(json_object_text(data, "irr", "0"))
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  values
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -1931,6 +2053,41 @@ fn load_admin_dict_options(emit : @rabbita.Emit[Msg]) -> Cmd {
       Err(_) => emit(AdminDictLoadFailed)
     }
   })
+}
+
+///|
+fn load_investment_versions(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/investment/projects/proj-0001/versions").expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentVersionsLoaded(body))
+      Err(_) => emit(InvestmentLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_investment_indices(
+  emit : @rabbita.Emit[Msg],
+  version_id : String,
+) -> Cmd {
+  @http.get("/api/company/investment/versions/" + version_id + "/indices").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvestmentIndicesLoaded(body))
+        Err(_) => emit(InvestmentLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_investment_profit(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/investment/projects/proj-0001/profit-summary").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvestmentProfitLoaded(body))
+        Err(_) => emit(InvestmentLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
@@ -2407,6 +2564,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_admin_quality(emit)
       } else if path == "/users" {
         load_users(emit)
+      } else if path == "/investment" {
+        load_investment_versions(emit)
       } else if path == "/system-health" {
         load_health_tables(emit)
       } else if path == "/loans" {
@@ -3334,6 +3493,82 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           admin_dict_group_rows: [],
           admin_dict_option_rows: [],
           admin_dict_note: "数据字典读模型不可用 · 使用设计快照",
+        },
+      )
+    InvestmentVersionsLoaded(body) => {
+      let (version_id, version_name) = investment_version_from_body(body)
+      if version_id == "" {
+        (
+          none,
+          {
+            ..model,
+            investment_loaded: false,
+            investment_note: "投资版本源数据为空 · 使用设计快照",
+          },
+        )
+      } else {
+        (
+          load_investment_indices(emit, version_id),
+          {
+            ..model,
+            investment_version_id: version_id,
+            investment_version_name: version_name,
+            investment_note: "已加载 PostgreSQL 投资版本 · 正在读取指标",
+          },
+        )
+      }
+    }
+    InvestmentIndicesLoaded(body) => {
+      let (rows, dimension_count) = investment_index_rows_from_body(body)
+      (
+        load_investment_profit(emit),
+        {
+          ..model,
+          investment_index_rows: rows,
+          investment_dimension_count: dimension_count,
+          investment_note: "已加载 PostgreSQL 投资指标 · 正在读取利润汇总",
+        },
+      )
+    }
+    InvestmentProfitLoaded(body) => {
+      let values = investment_profit_from_body(body)
+      if values.length() == 7 {
+        (
+          none,
+          {
+            ..model,
+            investment_loaded: true,
+            investment_version_name: values[0],
+            investment_total: values[1],
+            investment_revenue: values[2],
+            investment_cost: values[3],
+            investment_net_profit: values[4],
+            investment_net_profit_margin: values[5],
+            investment_irr: values[6],
+            investment_note: "已加载 PostgreSQL 投资测算 · 版本/指标保持只读",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            investment_loaded: false,
+            investment_note: "投资利润汇总响应无效 · 使用设计快照",
+          },
+        )
+      }
+    }
+    InvestmentLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          investment_loaded: false,
+          investment_version_id: "",
+          investment_version_name: "",
+          investment_index_rows: [],
+          investment_note: "投资测算读模型不可用 · 使用设计快照",
         },
       )
     UsersLoaded(body) =>
@@ -5800,53 +6035,125 @@ fn cost_dashboard_view() -> @html.Html {
 }
 
 ///|
-fn investment_view() -> @html.Html {
+fn investment_runtime_table(model : Model) -> @html.Html {
+  if model.investment_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.investment_index_rows {
+      rows.push([
+        row.dimension,
+        row.full_code,
+        row.index_name,
+        row.index_value,
+        row.unit,
+        row.source_kind,
+      ])
+    }
+    table_panel(
+      "投资指标（" +
+      model.investment_index_rows.length().to_string() +
+      " 项）",
+      model.investment_note +
+      " · 版本 " +
+      model.investment_version_name +
+      " (" +
+      model.investment_version_id +
+      ")",
+      data_table(
+        ["维度", "编码", "指标", "值", "单位", "来源"],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "项目投资收益",
+      "经营测算 vs 当前预测 · " + model.investment_note,
+      data_table(
+        [
+          "项目", "总投资", "销售收入", "净利润", "利润率", "IRR",
+          "状态",
+        ],
+        [
+          [
+            "成都和锦里", "¥2.36 亿", "¥3.82 亿", "¥5,420 万", "14.2%",
+            "19.8%", "正常",
+          ],
+          [
+            "重庆南山居", "¥1.84 亿", "¥2.76 亿", "¥3,180 万", "11.5%",
+            "15.6%", "关注",
+          ],
+          [
+            "沈阳和山苑", "¥1.62 亿", "¥2.28 亿", "¥2,960 万", "13.0%",
+            "17.2%", "正常",
+          ],
+          [
+            "天津海教园一期", "¥1.48 亿", "¥2.06 亿", "¥2,420 万", "11.7%",
+            "16.1%", "正常",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let stats = if model.investment_loaded {
+    div(class="erp-stat-grid") <| [
+      metric(
+        "项目总投资",
+        "¥" + model.investment_total,
+        "版本 " + model.investment_version_name,
+        "metric-blue",
+      ),
+      metric(
+        "预计销售收入",
+        "¥" + model.investment_revenue,
+        "源指标 · 只读",
+        "metric-blue",
+      ),
+      metric(
+        "预计净利润",
+        "¥" + model.investment_net_profit,
+        "成本 ¥" +
+        model.investment_cost +
+        " · 利润率 " +
+        model.investment_net_profit_margin +
+        "%",
+        "metric-green",
+      ),
+      metric(
+        "加权 IRR",
+        model.investment_irr + "%",
+        model.investment_dimension_count + " 个源维度",
+        "metric-green",
+      ),
+    ]
+  } else {
+    div(class="erp-stat-grid") <| [
+      metric(
+        "项目总投资", "¥8.42 亿", "含土地及开发", "metric-blue",
+      ),
+      metric(
+        "预计销售收入", "¥12.68 亿", "去化率 64%", "metric-blue",
+      ),
+      metric("预计净利润", "¥1.72 亿", "利润率 13.6%", "metric-green"),
+      metric("加权 IRR", "18.4%", "目标 16.0%", "metric-green"),
+    ]
+  }
   page_shell(
     "投资收益",
     "COST / INVESTMENT",
     "按项目查看投资额、销售收入、利润和 IRR，沉淀投资测算与实际经营的差异。",
-    [button(class="erp-secondary-btn", "导出测算")],
-    div <| [
-      div(class="erp-stat-grid") <| [
-        metric(
-          "项目总投资", "¥8.42 亿", "含土地及开发", "metric-blue",
-        ),
-        metric(
-          "预计销售收入", "¥12.68 亿", "去化率 64%", "metric-blue",
-        ),
-        metric(
-          "预计净利润", "¥1.72 亿", "利润率 13.6%", "metric-green",
-        ),
-        metric("加权 IRR", "18.4%", "目标 16.0%", "metric-green"),
-      ],
-      table_panel(
-        "项目投资收益",
-        "经营测算 vs 当前预测",
-        data_table(
-          [
-            "项目", "总投资", "销售收入", "净利润", "利润率", "IRR",
-            "状态",
-          ],
-          [
-            [
-              "成都和锦里", "¥2.36 亿", "¥3.82 亿", "¥5,420 万", "14.2%",
-              "19.8%", "正常",
-            ],
-            [
-              "重庆南山居", "¥1.84 亿", "¥2.76 亿", "¥3,180 万", "11.5%",
-              "15.6%", "关注",
-            ],
-            [
-              "沈阳和山苑", "¥1.62 亿", "¥2.28 亿", "¥2,960 万", "13.0%",
-              "17.2%", "正常",
-            ],
-            [
-              "天津海教园一期", "¥1.48 亿", "¥2.06 亿", "¥2,420 万",
-              "11.7%", "16.1%", "正常",
-            ],
-          ],
-        ),
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/investment")),
+        "刷新测算",
       ),
+    ],
+    div <| [
+      stats,
+      investment_runtime_table(model),
     ],
   )
 }
@@ -8577,7 +8884,7 @@ fn business_view(
       "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
       "/payment-applies" => payment_applies_view(emit, model)
       "/cost-dashboard-v3" => cost_dashboard_view()
-      "/investment" => investment_view()
+      "/investment" => investment_view(emit, model)
       "/dynamic-cost" => dynamic_cost_view()
       "/tender" => tender_view(emit, model)
       "/srm/providers" => srm_providers_view(emit, model)

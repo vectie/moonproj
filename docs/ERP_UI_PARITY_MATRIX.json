@@ -15,6 +15,7 @@
     "connected_contract_command_form": 1,
     "connected_contract_read": 1,
     "connected_delivery_command_form": 2,
+    "connected_investment_read": 1,
     "connected_invoice_read": 1,
     "connected_loan_command_form": 2,
     "connected_loan_read": 1,
@@ -26,7 +27,7 @@
     "connected_tender_command_form": 1,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 2,
-    "fixture_backed_read_only": 26,
+    "fixture_backed_read_only": 25,
     "public": 1,
     "read_model_only": 3,
     "read_only_public": 1
@@ -38,6 +39,7 @@
     "connected_delivery_command": 2,
     "connected_expense_command": 1,
     "connected_fixed_read_model": 3,
+    "connected_investment_read": 1,
     "connected_invoice_read": 1,
     "connected_loan_command": 2,
     "connected_loan_read": 1,
@@ -48,7 +50,7 @@
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 30
+    "read_only_fixture_no_source_api": 29
   },
   "routes": [
     {
@@ -351,13 +353,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "investment_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_investment_read",
       "source_api_module": "investment",
       "source_api_handler_count": 28,
       "source_api_read_handler_count": 16,
       "source_api_mutation_handler_count": 12,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_investment_read",
+      "required_next": "accept_browser_investment_scenario_and_production_identity"
     },
     {
       "path": "/cost-dashboard-v3",

@@ -24,6 +24,11 @@ Rows preserve source field names and are marked `sourceKind=imported`. No Excel
 import, version creation/activation, index update, valuation, cash movement,
 or accounting posting is enabled by this slice.
 
+The Rabbita `/investment` screen now loads the current `proj-0001` version,
+flattens the five grouped dimensions and 26 indices into the designer table,
+and renders the imported investment, revenue, cost, net-profit, margin, and IRR
+summary. The original project comparison table remains an offline fallback.
+
 ## Evidence
 
 - PostgreSQL service smoke returns one current version, 26 grouped indices,
@@ -31,6 +36,8 @@ or accounting posting is enabled by this slice.
   `netProfit=2890`, `irr=14.8`).
 - The parity matrix marks the four source investment GET handlers as
   `connected_investment_read`.
+- The parity matrix marks `/investment` as `connected_investment_read`; the
+  project-scope and production-identity scenario remains open.
 - Existing native investment valuation, performance, and benchmark boundaries
   remain separate reviewed analytics gates; they do not authorize source-row
   ownership or cash/accounting effects.

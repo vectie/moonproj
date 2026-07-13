@@ -52,6 +52,9 @@ from company_postgres_service import (
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
+    investment_versions as service_investment_versions,
+    investment_indices as service_investment_indices,
+    investment_profit_summary as service_investment_profit_summary,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
     admin_dict_groups as service_admin_dict_groups,
@@ -341,6 +344,22 @@ def dashboard_project_anomalies(args: argparse.Namespace, project_id: str) -> di
     return service_dashboard_project_anomalies(_ReadModelPool(args), project_id, 500)
 
 
+def investment_versions(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_investment_versions(_ReadModelPool(args), project_id, 500)
+
+
+def investment_indices(
+    args: argparse.Namespace,
+    version_id: str,
+    dimension: str | None,
+) -> dict[str, Any]:
+    return service_investment_indices(_ReadModelPool(args), version_id, dimension, 500)
+
+
+def investment_profit_summary(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_investment_profit_summary(_ReadModelPool(args), project_id, 500)
+
+
 def admin_quality_overview(args: argparse.Namespace) -> dict[str, Any]:
     return service_admin_quality_overview(_ReadModelPool(args), 500)
 
@@ -567,6 +586,32 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/admin/quality/overview":
                     response(self, 200, admin_quality_overview(args))
+                    return
+                investment_versions_match = re.fullmatch(
+                    r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/versions",
+                    parsed.path,
+                )
+                if investment_versions_match is not None:
+                    response(self, 200, investment_versions(args, investment_versions_match.group(1)))
+                    return
+                investment_indices_match = re.fullmatch(
+                    r"/api/company/investment/versions/([A-Za-z0-9_.:-]{1,128})/indices",
+                    parsed.path,
+                )
+                if investment_indices_match is not None:
+                    dimension = parse_qs(parsed.query).get("dimension", [None])[0]
+                    response(
+                        self,
+                        200,
+                        investment_indices(args, investment_indices_match.group(1), dimension),
+                    )
+                    return
+                investment_profit_match = re.fullmatch(
+                    r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/profit-summary",
+                    parsed.path,
+                )
+                if investment_profit_match is not None:
+                    response(self, 200, investment_profit_summary(args, investment_profit_match.group(1)))
                     return
                 if parsed.path == "/api/company/rbac/users":
                     query = parse_qs(parsed.query)
