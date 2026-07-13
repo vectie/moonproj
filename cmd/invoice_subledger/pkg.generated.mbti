@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/invoice_subledger"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/payable",
+  "vectie/moonproj/finance/receivable",
+  "vectie/moonproj/operations/invoice",
+}
+
+// Values
+
+// Errors
+pub(all) suberror InvoiceSubledgerPromotionError {
+  InvalidInput
+  Io(@fs.IOError)
+  Money(@finance.MoneyError)
+  Invoice(@invoice.InvoiceError)
+  Receivable(@receivable.ReceivableError)
+  Payable(@payable.PayableError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

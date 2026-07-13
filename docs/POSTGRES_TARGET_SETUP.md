@@ -186,3 +186,10 @@ persists two `cash_plan` plus one `fund_dispatch` projection with candidate
 parity and idempotent replay. The demonstrated full run reaches 130 aggregate
 projections. Bank movement, cash settlement, accounting/tax treatment, and
 period close remain separate gates.
+The thirtieth argument supplies the reviewed invoice/subledger map. It runs
+native invoice issue/accept, receivable opening/collection, and payable
+opening/payment validation and persists two `invoice`, two `receivable`, and
+one `payable` projection with exact parity and idempotent replay. The
+demonstrated full run reaches 135 aggregate projections. Cash release,
+revenue/expense posting, tax settlement, and period close remain separate
+gates.

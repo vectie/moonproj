@@ -1,0 +1,50 @@
+{
+  "format": "moonproj.erp.invoice-subledger-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:invoice-subledger-synthetic-001",
+  "mapping_version": "invoice-subledger-map-v1-review-001",
+  "run_id": "invoice-subledger-run-2026-15",
+  "customer_invoices": [
+    {
+      "source_table": "invoice_out",
+      "source_id": "invoice-source-001",
+      "invoice_id": "invoice-001",
+      "receivable_id": "receivable-001",
+      "principal_id": "co-001",
+      "customer_id": "customer-001",
+      "currency": "CNY",
+      "amount_minor": 800000,
+      "payment_minor": 300000,
+      "expected_invoice_state": "partially_paid",
+      "expected_receivable_state": "partially_collected"
+    },
+    {
+      "source_table": "invoice_out",
+      "source_id": "invoice-source-002",
+      "invoice_id": "invoice-002",
+      "receivable_id": "receivable-002",
+      "principal_id": "co-001",
+      "customer_id": "customer-002",
+      "currency": "CNY",
+      "amount_minor": 500000,
+      "payment_minor": 500000,
+      "expected_invoice_state": "paid",
+      "expected_receivable_state": "collected"
+    }
+  ],
+  "supplier_payables": [
+    {
+      "source_table": "invoice_in",
+      "source_id": "invoice-source-in-001",
+      "payable_id": "payable-001",
+      "principal_id": "co-001",
+      "project_scope": "project:p-001",
+      "supplier_id": "supplier-001",
+      "source_reference": "invoice-in-001",
+      "currency": "CNY",
+      "amount_minor": 700000,
+      "payment_minor": 175000,
+      "expected_state": "partially_paid"
+    }
+  ]
+}

@@ -270,6 +270,15 @@ and actual amounts, direction, project scopes, reasons, and states. Bank
 movement, cash release, accounting posting, tax treatment, and period close
 remain false. See
 [ERP_TREASURY_PLAN_DISPATCH.md](ERP_TREASURY_PLAN_DISPATCH.md).
+The thirty-second SQLite wrapper argument, or the thirtieth PostgreSQL
+cohort-runner argument, can supply a separately reviewed invoice/subledger map.
+`scripts/erp_invoice_subledger_plan.py` and `cmd/invoice_subledger` issue and
+accept customer invoices, open receivables, record bounded collections, and
+open/pay supplier obligations. Exact adapters preserve source identity,
+principal, party, project scope, amount, currency, payment, and lifecycle
+state across `invoice`, `receivable`, and `payable` projections. Cash release,
+revenue/expense posting, tax settlement, and period close remain false. See
+[ERP_INVOICE_SUBLEDGER.md](ERP_INVOICE_SUBLEDGER.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period

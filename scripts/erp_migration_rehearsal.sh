@@ -37,6 +37,7 @@ BANK_STATEMENT_MAPPING=${28:-}
 FINANCING_FACILITY_MAPPING=${29:-}
 ASSET_LIFECYCLE_MAPPING=${30:-}
 TREASURY_PLAN_DISPATCH_MAPPING=${31:-}
+INVOICE_SUBLEDGER_MAPPING=${32:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -335,6 +336,30 @@ if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" > "$TREASURY_PLAN_DISPATCH_REPLAY"
   echo "treasury_plan_dispatch_replay=$TREASURY_PLAN_DISPATCH_REPLAY"
+fi
+
+if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
+  INVOICE_SUBLEDGER_PLAN="$WORK_DIR/invoice-subledger-plan.json"
+  python3 "$SCRIPT_DIR/erp_invoice_subledger_plan.py" \
+    "$INVOICE_SUBLEDGER_MAPPING" "$INVOICE_SUBLEDGER_PLAN"
+  echo "invoice_subledger_plan=$INVOICE_SUBLEDGER_PLAN"
+  INVOICE_SUBLEDGER_RECEIPT="$WORK_DIR/invoice-subledger-receipt.json"
+  moon run --target native cmd/invoice_subledger -- \
+    "$INVOICE_SUBLEDGER_PLAN" "$INVOICE_SUBLEDGER_RECEIPT"
+  echo "invoice_subledger_receipt=$INVOICE_SUBLEDGER_RECEIPT"
+  INVOICE_SUBLEDGER_APPLY="$WORK_DIR/invoice-subledger-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" > "$INVOICE_SUBLEDGER_APPLY"
+  echo "invoice_subledger_apply=$INVOICE_SUBLEDGER_APPLY"
+  INVOICE_SUBLEDGER_PARITY="$WORK_DIR/invoice-subledger-parity.json"
+  python3 "$SCRIPT_DIR/company_invoice_subledger_parity.py" \
+    "$INVOICE_SUBLEDGER_RECEIPT" "$INVOICE_SUBLEDGER_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "invoice_subledger_parity=$INVOICE_SUBLEDGER_PARITY"
+  INVOICE_SUBLEDGER_REPLAY="$WORK_DIR/invoice-subledger-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" > "$INVOICE_SUBLEDGER_REPLAY"
+  echo "invoice_subledger_replay=$INVOICE_SUBLEDGER_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -761,6 +786,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
     TREASURY_PLAN_DISPATCH_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["cash_plans"]) + len(p["fund_dispatches"]))' "$WORK_DIR/treasury-plan-dispatch-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + TREASURY_PLAN_DISPATCH_COUNT))
+  fi
+  if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
+    INVOICE_SUBLEDGER_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["customer_invoices"]) * 2 + len(p["supplier_payables"]))' "$WORK_DIR/invoice-subledger-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + INVOICE_SUBLEDGER_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

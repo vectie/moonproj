@@ -118,6 +118,10 @@ The optional thirty-first argument supplies a reviewed treasury plan/dispatch
 map; it validates liquidity planning and dispatch approval evidence only. Bank
 movement, cash release, settlement, accounting/tax treatment, and period close
 remain separate gates.
+The optional thirty-second argument supplies a reviewed invoice/subledger map;
+it validates customer invoice/receivable collection and supplier payable
+payment evidence only. Cash release, revenue/expense posting, tax settlement,
+and period close remain separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed
