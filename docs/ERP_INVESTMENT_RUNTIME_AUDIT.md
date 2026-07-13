@@ -46,6 +46,25 @@ original project comparison table as an offline fallback.
   remain separate reviewed analytics gates; they do not authorize source-row
   ownership or cash/accounting effects.
 
+## Remaining source routes
+
+The source Excel/import and profit-cockpit routes were re-audited against the
+current export. `tzsy_excel_import`, `tzsy_excel_sheet`, `tzsy_profit_table`,
+`tzsy_plan_line`, and `tzsy_subject_mapping` are not present in the controlled
+PostgreSQL source cohort. Consequently the import list/detail, bridge plan,
+index-upsert preview, profit-table, plan-line preview/list, subject-mapping,
+and profit-cockpit reads cannot produce source rows yet. The original
+`profit-cockpit` handler returns a covered `41002` when no imported profit table
+exists, which is the correct boundary to preserve rather than filling the
+screen with the designer snapshot.
+
+The original `profit-actual` handler is also deliberately not promoted: it
+depends on absent sales, expense, split, change, CBS, and plan-version tables
+and simulates values when those tables are sparse. The already connected
+`profit-actual-v2` read remains the explicit empty-CBS observation. These
+routes stay gated on the missing 49-table export and owner-approved calculation
+semantics.
+
 ## Remaining gate
 
 1. Bind the reads to the full investment browser scenario and production

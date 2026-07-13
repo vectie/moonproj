@@ -580,6 +580,20 @@ empty, rather than falling back to approval fixtures. The hierarchy endpoint
 is source-verified directly; its full organization-screen/browser scope pass
 remains open.
 
+**Investment import/cockpit audit checkpoint (2026-07-14).** The remaining
+investment GET backlog was checked against the source route implementations,
+not just the route count. Excel import/bridge/index-preview/profit-table/
+plan-line/subject-mapping and profit-cockpit handlers depend on absent
+`tzsy_excel_import`, `tzsy_excel_sheet`, `tzsy_profit_table`,
+`tzsy_plan_line`, and `tzsy_subject_mapping` source tables. The source
+profit-cockpit itself returns `41002` when no imported profit table exists; the
+migration keeps that covered boundary rather than substituting designer values.
+The source profit-actual route additionally simulates sparse sales/expense/CBS
+inputs, so it remains gated instead of being promoted as a source read. The
+next investment wave therefore requires the missing export and owner-approved
+calculation semantics; the current 26-index/version/sensitivity read remains
+the complete evidence-backed slice.
+
 The browser pass also found an inherited source-contract inconsistency that
 must be reconciled before investment acceptance: the investment summary card
 renders the imported `CO.IRR` value of `14.8%`, while the source sensitivity
