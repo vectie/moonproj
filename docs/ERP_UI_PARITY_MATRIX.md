@@ -3,12 +3,13 @@
 Generated from `../erp/erp_new/web/src/router/index.js`, the source
 `server/src/routes` directory, and `frontend/main/main.mbt`. This is an
 acceptance register, not a completion claim: mounted fixture screens do
-not count as connected company behavior.
+not count as connected company behavior. The connected exceptions are
+the fixed dashboard read-model and the local expense command loop.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"fixture_backed_form": 7, "fixture_backed_read_only": 44, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_fixed_read_model": 3, "read_only_fixture_no_source_api": 53}`
+- Target states: `{"connected_command_form": 1, "fixture_backed_form": 6, "fixture_backed_read_only": 44, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_expense_command": 1, "connected_fixed_read_model": 3, "read_only_fixture_no_source_api": 52}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -25,7 +26,7 @@ not count as connected company behavior.
 | `/projects` | `../views/Projects.vue` | `project_view` | `fixture_backed_read_only` | `mdm` | 3 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/projects/:projGuid` | `../views/ProjectDetail.vue` | `project_detail_view` | `fixture_backed_form` | `mdm` | 3 / 3 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/expenses` | `../views/ExpenseList.vue` | `expenses_view` | `fixture_backed_read_only` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/expenses/new` | `../views/ExpenseCreate.vue` | `expense_editor_view` | `fixture_backed_form` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
+| `/expenses/new` | `../views/ExpenseCreate.vue` | `expense_editor_view` | `connected_command_form` | `budget` | 6 / 7 | `connected_expense_command` | `replace_dev_identity_and_accept_full_session_scenario` |
 | `/expenses/:guid` | `../views/ExpenseDetail.vue` | `expense_editor_view` | `fixture_backed_form` | `budget` | 6 / 7 | `read_only_fixture_no_source_api` | `connect_authenticated_read_and_command_api_and_accept_scenario` |
 | `/tasks` | `../views/Tasks.vue` | `tasks_view` | `fixture_backed_read_only` | `workflow` | 7 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/contracts` | `../views/Contracts.vue` | `contracts_view` | `fixture_backed_read_only` | `cost` | 7 / 13 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |

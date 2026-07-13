@@ -7,8 +7,9 @@ Rabbita view is mounted, whether it is a real/read-model/fixture surface, and
 which source API module still needs a connected command/read workflow.
 
 The report is intentionally evidence-oriented.  A mounted page is not marked
-functional merely because it renders: only the dashboard's fixed summary
-read-model is currently connected, and no mutation endpoint is inferred.
+functional merely because it renders: the dashboard's fixed summary read-model
+and the local expense command vertical are explicitly identified, while no
+other mutation endpoint is inferred.
 """
 
 from __future__ import annotations
@@ -159,6 +160,8 @@ def match_target(
             return function, "read_only_public"
         if function == "dashboard_view":
             return function, "read_model_only"
+        if path == "/expenses/new" and function == "expense_editor_view":
+            return function, "connected_command_form"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -188,6 +191,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_public_read_scenario"
     if target_state == "read_model_only":
         return "connect_authenticated_read_and_command_api"
+    if target_state == "connected_command_form":
+        return "replace_dev_identity_and_accept_full_session_scenario"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -210,6 +215,8 @@ def build_matrix(
         stats = api_stats.get(module, {}) if module else {}
         if target_state == "read_model_only":
             api_state = "connected_fixed_read_model"
+        elif target_state == "connected_command_form":
+            api_state = "connected_expense_command"
         elif target_function is None:
             api_state = "not_connected"
         elif stats.get("mutation_handler_count", 0) > 0:
@@ -279,7 +286,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "Generated from `../erp/erp_new/web/src/router/index.js`, the source",
         "`server/src/routes` directory, and `frontend/main/main.mbt`. This is an",
         "acceptance register, not a completion claim: mounted fixture screens do",
-        "not count as connected company behavior.",
+        "not count as connected company behavior. The connected exceptions are",
+        "the fixed dashboard read-model and the local expense command loop.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

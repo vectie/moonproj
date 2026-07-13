@@ -61,6 +61,9 @@ enum Msg {
   ApiFailed
   CreateExpense
   SubmitExpense
+  RejectExpense
+  ResubmitExpense
+  ApproveExpense
   ExpenseCommandFinished(String)
   ExpenseCommandFailed
 }
@@ -262,8 +265,88 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    RejectExpense =>
+      if model.expense_id == "" || model.expense_state != "已提交" {
+        (none, model)
+      } else {
+        (
+          @http.post("/api/company/expenses/\{model.expense_id}/reject")
+          .with_text(
+            "{\"idempotency_key\":\"rabbita-expense-reject-v1\",\"reason\":\"请补充发票与行程凭证\"}",
+          )
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "审批处理中",
+            expense_note: "正在退回并写入 PostgreSQL 投影…",
+          },
+        )
+      }
+    ResubmitExpense =>
+      if model.expense_id == "" || model.expense_state != "已驳回" {
+        (none, model)
+      } else {
+        (
+          @http.post("/api/company/expenses/\{model.expense_id}/resubmit")
+          .with_text("{\"idempotency_key\":\"rabbita-expense-resubmit-v1\"}")
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "审批处理中",
+            expense_note: "正在重新提交审批…",
+          },
+        )
+      }
+    ApproveExpense =>
+      if model.expense_id == "" || model.expense_state != "已提交" {
+        (none, model)
+      } else {
+        (
+          @http.post("/api/company/expenses/\{model.expense_id}/approve")
+          .with_text("{\"idempotency_key\":\"rabbita-expense-approve-v1\"}")
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "审批处理中",
+            expense_note: "正在批准并写入 PostgreSQL 投影…",
+          },
+        )
+      }
     ExpenseCommandFinished(body) =>
-      if body.contains("\"state\":\"submitted\"") {
+      if body.contains("\"state\":\"approved\"") {
+        (
+          none,
+          {
+            ..model,
+            expense_state: "已批准",
+            expense_note: "已写入 PostgreSQL · 审批通过 · 审计凭证已生成",
+          },
+        )
+      } else if body.contains("\"state\":\"rejected\"") {
+        (
+          none,
+          {
+            ..model,
+            expense_state: "已驳回",
+            expense_note: "已退回 · 请补充凭证后重新提交",
+          },
+        )
+      } else if body.contains("\"state\":\"submitted\"") {
         (
           none,
           {
@@ -2453,20 +2536,50 @@ fn expense_editor_view(
   if detail {
     actions.push(button(class="erp-primary-btn", action))
   } else {
-    actions.push(
-      button(
-        class="erp-secondary-btn",
-        on_click=emit(CreateExpense),
-        "保存草稿",
-      ),
-    )
-    actions.push(
-      button(
-        class="erp-primary-btn",
-        on_click=emit(SubmitExpense),
-        "提交审批",
-      ),
-    )
+    if model.expense_state == "未创建" ||
+      model.expense_state == "草稿" ||
+      model.expense_state == "命令失败" {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CreateExpense),
+          "保存草稿",
+        ),
+      )
+    }
+    if model.expense_state == "草稿" {
+      actions.push(
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitExpense),
+          "提交审批",
+        ),
+      )
+    }
+    if model.expense_state == "已提交" {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(RejectExpense),
+          "退回补充",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-primary-btn",
+          on_click=emit(ApproveExpense),
+          "批准报销",
+        ),
+      )
+    } else if model.expense_state == "已驳回" {
+      actions.push(
+        button(
+          class="erp-primary-btn",
+          on_click=emit(ResubmitExpense),
+          "重新提交",
+        ),
+      )
+    }
   }
   page_shell(
     title,

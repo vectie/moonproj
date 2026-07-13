@@ -27,9 +27,10 @@ PostgreSQL projection summary through the fixed read-only development adapter
 runtime is available separately as `scripts/company_postgres_service.py`. Its
 first local command vertical is the expense lifecycle documented in
 `docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`. The new-expense Rabbita form is wired
-to that vertical through the local-only development gateway below; the other
-route families remain fixture-backed. Command-gateway production deployment,
-identity/token integration, and managed rollback remain separate gates.
+to the complete local create/submit/reject/resubmit/approve loop through the
+local-only development gateway below; the other route families remain
+fixture-backed. Command-gateway production deployment, identity/token
+integration, and managed rollback remain separate gates.
 Build and preview it with Warren:
 
 ```sh
@@ -46,7 +47,7 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   --public-dir /path/to/warren/dist
 ```
 
-To exercise the connected expense create/submit path, keep the service token
+To exercise the connected expense create/submit/reject/resubmit/approve path, keep the service token
 on the server side and put the local gateway in front of the browser bundle:
 
 ```sh

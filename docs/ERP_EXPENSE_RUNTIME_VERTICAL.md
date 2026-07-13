@@ -44,19 +44,25 @@ rejected. The smoke also retains the missing-token and forwarded-TLS checks.
 
 ## Rabbita local path
 
-The new-expense Rabbita form now exercises the create-draft and submit commands
-through `scripts/company_postgres_dev_gateway.py`. The gateway serves the
-browser bundle and proxies same-origin `/api/` calls to the authenticated
-service, keeping `MOONPROJ_SERVICE_TOKEN` server-side and converting the
-form's JSON `idempotency_key` into the required `Idempotency-Key` header. The
-form visibly moves through `未创建 → 提交中 → 草稿 → 提交中 → 已提交` while
-the PostgreSQL projection, command receipt, and audit event are written.
+The new-expense Rabbita form now exercises the complete local command loop
+through `scripts/company_postgres_dev_gateway.py`: create draft, submit,
+reject, resubmit, and approve. The gateway serves the browser bundle and
+proxies same-origin `/api/` calls to the authenticated service, keeping
+`MOONPROJ_SERVICE_TOKEN` server-side and converting the form's JSON
+`idempotency_key` into the required `Idempotency-Key` header. The form
+visibly moves through `未创建 → 草稿 → 已提交 → 已驳回 → 已提交 → 已批准` while
+each PostgreSQL projection revision, command receipt, and audit event is
+written.
 
 This is deliberately a local adapter, not a production session model. The
 remaining Rabbita route families are fixture-backed, the demo expense ID and
 idempotency keys are fixed for a repeatable development probe, and production
-identity/session/token integration remains a separate gate.
+identity/session/token integration remains a separate gate. A browser
+acceptance run on the local gateway verified all five transitions; the final
+projection was `approved` with five command receipts and five audit events,
+and the probe rows were removed after verification.
 
-The managed production-service manifest remains intentionally read-only until
+The browser evidence is recorded in
+`docs/ERP_EXPENSE_BROWSER_ACCEPTANCE.md`. The managed production-service manifest remains intentionally read-only until
 the command gateway receives its own provider, identity, audit, rollback, and
 business-acceptance approvals.
