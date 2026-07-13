@@ -25,10 +25,11 @@ explicit return/save/submit boundaries. The dashboard now reads the
 PostgreSQL projection summary through the fixed read-only development adapter
 `scripts/company_postgres_read_model_server.py`. The authenticated bounded
 runtime is available separately as `scripts/company_postgres_service.py`. Its
-first local command vertical is the expense lifecycle documented in
-`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`. The new-expense Rabbita form is wired
-to the complete local create/submit/reject/resubmit/approve loop through the
-local-only development gateway below; the other route families remain
+local command verticals include the expense lifecycle documented in
+`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md` and the contract lifecycle documented in
+`docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`. The new-expense and contract Rabbita
+routes are wired to local create/submit/reject/resubmit/approve loops through
+the local-only development gateway below; the other route families remain
 fixture-backed. Command-gateway production deployment, identity/token
 integration, and managed rollback remain separate gates.
 Build and preview it with Warren:
@@ -69,7 +70,8 @@ the bearer token and HTTPS-forwarding marker, and signs the session actor
 assertion before forwarding it to the service. It also translates the Rabbita
 form's JSON `idempotency_key` into the command header required by the service.
 It is intentionally a local development adapter: it binds to loopback, only
-allow-lists expense POST commands, and is not the production deployment.
+allow-lists expense and contract POST commands, and is not the production
+deployment.
 
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,

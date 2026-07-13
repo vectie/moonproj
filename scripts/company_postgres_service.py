@@ -17,11 +17,14 @@ The bounded service exposes these endpoints:
 * ``/api/company/expenses`` and ``/api/company/expenses/<id>`` (GET)
 * ``/api/company/expenses`` (POST create draft)
 * ``/api/company/expenses/<id>/{submit,approve,reject,resubmit}`` (POST)
+* ``/api/company/contracts`` and ``/api/company/contracts/<id>`` (GET)
+* ``/api/company/contracts`` (POST create draft)
+* ``/api/company/contracts/<id>/{submit,approve,reject,resubmit}`` (POST)
 
 The bearer token is read from an environment variable named by
 ``--token-env``.  The token itself is never accepted as a command-line
 argument or written to logs. When ``--actor-signing-secret-env`` is supplied,
-expense commands also require a gateway-signed actor assertion.
+company commands also require a gateway-signed actor assertion.
 """
 
 from __future__ import annotations
@@ -247,7 +250,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
         "product": "moonproj-company",
         "target": "postgresql",
         "read_only": False,
-        "capabilities": ["read_model", "expense_command", "audit_receipt"],
+        "capabilities": ["read_model", "expense_command", "contract_command", "audit_receipt"],
         "schema_version": schema_version,
         "raw_records": raw,
         "aggregate_projections": projections,
@@ -262,7 +265,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
         "ok": True,
         "target": "postgresql",
         "read_only": False,
-        "capabilities": ["read_model", "expense_command", "audit_receipt"],
+        "capabilities": ["read_model", "expense_command", "contract_command", "audit_receipt"],
         "schema_version": expected_schema_version,
     }
 
@@ -398,6 +401,409 @@ def expenses(pool: PsqlPool, expense_id: str | None, max_rows: int) -> list[dict
         LIMIT {max_rows}
         """
     return [_decode_projection_line(line) for line in query_lines(pool, query)]
+
+
+def _decode_contract_fields(line: str) -> dict[str, Any]:
+    fields = line.split("|")
+    if len(fields) != 14:
+        raise ServiceError("unexpected contract projection shape")
+    try:
+        return {
+            "contract_id": decode_hex(fields[0]),
+            "contract_code": decode_hex(fields[1]),
+            "contract_name": decode_hex(fields[2]),
+            "project_id": decode_hex(fields[3]),
+            "project_name": decode_hex(fields[4]),
+            "supplier_id": decode_hex(fields[5]),
+            "supplier_name": decode_hex(fields[6]),
+            "amount_minor": int(fields[7]),
+            "currency": decode_hex(fields[8]),
+            "sign_date": decode_hex(fields[9]),
+            "state": decode_hex(fields[10]),
+            "paid_amount_minor": int(fields[11]),
+            "milestone_count": int(fields[12]),
+            "source_kind": decode_hex(fields[13]),
+        }
+    except (ValueError, UnicodeDecodeError) as error:
+        raise ServiceError("invalid contract projection encoding") from error
+
+
+def contracts(pool: PsqlPool, contract_id: str | None, max_rows: int) -> list[dict[str, Any]]:
+    if contract_id is not None and not IDENTIFIER.fullmatch(contract_id):
+        raise ValueError("invalid contract_id")
+    where = ""
+    if contract_id is not None:
+        where = f"WHERE base.contract_id = {sql_literal(contract_id)}"
+    query = f"""
+    WITH commitment_latest AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id AS contract_id, payload, 'imported' AS source_kind
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'commitment'
+      ORDER BY aggregate_id, revision DESC
+    ),
+    contract_latest AS (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id AS contract_id, payload, 'command' AS source_kind
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'contract'
+      ORDER BY aggregate_id, revision DESC
+    ),
+    base AS (
+      SELECT contract_id, payload, source_kind
+      FROM commitment_latest
+      UNION ALL
+      SELECT contract_id, payload, source_kind
+      FROM contract_latest
+    ),
+    deduped AS (
+      SELECT DISTINCT ON (contract_id) contract_id, payload, source_kind
+      FROM base
+      ORDER BY contract_id, CASE WHEN source_kind = 'command' THEN 1 ELSE 0 END DESC
+    ),
+    raw_contract AS (
+      SELECT record_id, payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/cb_contract'
+    ),
+    raw_project AS (
+      SELECT record_id, payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/ep_project'
+    ),
+    raw_payment AS (
+      SELECT payload
+      FROM company_record
+      WHERE record_type = 'legacy/raw/cb_htfk_apply'
+    ),
+    milestone_counts AS (
+      SELECT payload->'candidate'->'milestone'->>'contract_guid' AS contract_id,
+             count(*)::text AS milestone_count
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'contract_milestone'
+      GROUP BY payload->'candidate'->'milestone'->>'contract_guid'
+    ),
+    payment_totals AS (
+      SELECT payload->>'contract_guid' AS contract_id,
+             coalesce(sum(
+               CASE WHEN payload->>'pay_state' = '完全支付'
+                 THEN round((payload->>'apply_amount')::numeric * 100)::bigint
+                 ELSE 0 END
+             ), 0)::text AS paid_amount_minor
+      FROM raw_payment
+      GROUP BY payload->>'contract_guid'
+    )
+    SELECT encode(convert_to(base.contract_id, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'contract_code', base.payload->>'contract_code', base.contract_id), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'contract_name', base.payload->>'contract_name', base.contract_id), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'proj_guid', base.payload->>'project_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(project.payload->>'proj_name', base.payload->>'project_name', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->'candidate'->>'counterparty_id', base.payload->>'supplier_id', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'yf_provider_name', base.payload->>'supplier_name', base.payload->>'supplier_id', ''), 'UTF8'), 'hex'),
+           coalesce(base.payload->'candidate'->>'amount_minor', base.payload->>'amount_minor',
+                    round(coalesce((raw.payload->>'ht_amount')::numeric, 0) * 100)::bigint::text, '0'),
+           encode(convert_to(coalesce(base.payload->'candidate'->>'currency', base.payload->>'currency', 'CNY'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'sign_date', base.payload->>'sign_date', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(base.payload->>'state', 'active'), 'UTF8'), 'hex'),
+           coalesce(payment.paid_amount_minor, '0'),
+           coalesce(milestone.milestone_count, '0'),
+           encode(convert_to(base.source_kind, 'UTF8'), 'hex')
+    FROM deduped base
+    LEFT JOIN raw_contract raw ON raw.record_id = base.contract_id
+    LEFT JOIN raw_project project ON project.record_id = raw.payload->>'proj_guid'
+    LEFT JOIN milestone_counts milestone ON milestone.contract_id = base.contract_id
+    LEFT JOIN payment_totals payment ON payment.contract_id = base.contract_id
+    {where}
+    ORDER BY base.contract_id
+    LIMIT {max_rows}
+    """
+    result = [_decode_contract_fields(line) for line in query_lines(pool, query)]
+    for item in result:
+        item["amount_display"] = f"¥{item['amount_minor'] / 100:,.2f}"
+        item["paid_amount_display"] = f"¥{item['paid_amount_minor'] / 100:,.2f}"
+    return result
+
+
+def contract_milestones(pool: PsqlPool, contract_id: str, max_rows: int) -> list[dict[str, Any]]:
+    if not IDENTIFIER.fullmatch(contract_id):
+        raise ValueError("invalid contract_id")
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'node_name', ''), 'UTF8'), 'hex'),
+           coalesce(payload->'candidate'->'milestone'->>'plan_amount_minor', '0'),
+           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'plan_pct_bps', '0'), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'trigger_type', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'contract_guid', ''), 'UTF8'), 'hex')
+    FROM company_aggregate_projection
+    WHERE aggregate_type = 'contract_milestone'
+      AND payload->'candidate'->'milestone'->>'contract_guid' = {sql_literal(contract_id)}
+    ORDER BY aggregate_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 6:
+            raise ServiceError("unexpected contract milestone shape")
+        try:
+            result.append(
+                {
+                    "milestone_id": decode_hex(fields[0]),
+                    "node_name": decode_hex(fields[1]),
+                    "plan_amount_minor": int(fields[2]),
+                    "plan_amount_display": f"¥{int(fields[2]) / 100:,.2f}",
+                    "plan_pct_bps": decode_hex(fields[3]),
+                    "trigger_type": decode_hex(fields[4]),
+                    "contract_id": decode_hex(fields[5]),
+                }
+            )
+        except (ValueError, UnicodeDecodeError) as error:
+            raise ServiceError("invalid contract milestone encoding") from error
+    return result
+
+
+def _contract_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _contract_request(
+    command_type: str,
+    contract_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+) -> tuple[str, dict[str, Any]]:
+    if command_type not in {"create", "submit", "approve", "reject", "resubmit"}:
+        raise CommandRejected("unsupported contract command", 404)
+    if command_type == "create":
+        contract_id = _contract_text(body, "contract_id", identifier=True)
+        contract_code = _contract_text(body, "contract_code", identifier=True)
+        contract_name = _contract_text(body, "contract_name")
+        project_id = _contract_text(body, "project_id", identifier=True)
+        project_name = _contract_text(body, "project_name")
+        supplier_id = _contract_text(body, "supplier_id", identifier=True)
+        supplier_name = _contract_text(body, "supplier_name")
+        sign_date = _contract_text(body, "sign_date")
+        currency = _contract_text(body, "currency", identifier=True).upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency):
+            raise CommandRejected("currency must be a three-letter code", 422)
+        amount_minor = body.get("amount_minor")
+        if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+            raise CommandRejected("amount_minor must be a positive integer", 422)
+        return contract_id, {
+            "command_type": command_type,
+            "contract_id": contract_id,
+            "contract_code": contract_code,
+            "contract_name": contract_name,
+            "project_id": project_id,
+            "project_name": project_name,
+            "supplier_id": supplier_id,
+            "supplier_name": supplier_name,
+            "sign_date": sign_date,
+            "amount_minor": amount_minor,
+            "currency": currency,
+            "actor_id": actor_id,
+        }
+    if contract_id is None or not IDENTIFIER.fullmatch(contract_id):
+        raise CommandRejected("contract_id is required", 422)
+    reason = body.get("reason", "")
+    if not isinstance(reason, str):
+        raise CommandRejected("reason must be text", 422)
+    return contract_id, {
+        "command_type": command_type,
+        "contract_id": contract_id,
+        "reason": reason.strip(),
+        "actor_id": actor_id,
+    }
+
+
+def contract_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    contract_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    contract_id, request = _contract_request(command_type, contract_id, body, actor_id)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored contract command receipt has no result")
+        return {"command": existing, "contract": result, "idempotent_replay": True}
+    current = contracts(pool, contract_id, 1)
+    if command_type == "create" and current:
+        raise CommandRejected("contract already exists", 409)
+    if command_type != "create":
+        if not current:
+            raise CommandRejected("contract not found", 404)
+        current_state = str(current[0].get("state", ""))
+        expected = {
+            "submit": "draft",
+            "approve": "submitted",
+            "reject": "submitted",
+            "resubmit": "rejected",
+        }[command_type]
+        if current_state != expected:
+            raise CommandRejected(
+                f"contract transition {command_type} requires {expected}, found {current_state}",
+                409,
+            )
+    event_id = f"contract:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "contract_id": contract_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES (
+        'company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)}
+      )
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created)
+    SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN
+        RETURN;
+      END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'contract'
+        AND p.aggregate_id = {sql_literal(contract_id)}
+      ORDER BY p.revision DESC
+      LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL THEN
+          RAISE EXCEPTION 'contract already exists';
+        END IF;
+        next_revision := 1;
+        next_state := 'draft';
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', next_state, 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)}
+        );
+      ELSE
+        IF current_payload IS NULL THEN
+          RAISE EXCEPTION 'contract not found';
+        END IF;
+        current_state := current_payload->>'state';
+        IF {sql_literal(command_type)} = 'submit' THEN
+          IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid contract state'; END IF;
+          next_state := 'submitted';
+        ELSIF {sql_literal(command_type)} = 'approve' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid contract state'; END IF;
+          next_state := 'approved';
+        ELSIF {sql_literal(command_type)} = 'reject' THEN
+          IF current_state <> 'submitted' THEN RAISE EXCEPTION 'invalid contract state'; END IF;
+          next_state := 'rejected';
+        ELSIF {sql_literal(command_type)} = 'resubmit' THEN
+          IF current_state <> 'rejected' THEN RAISE EXCEPTION 'invalid contract state'; END IF;
+          next_state := 'submitted';
+        ELSE
+          RAISE EXCEPTION 'unsupported contract command';
+        END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'contract'
+          AND p.aggregate_id = {sql_literal(contract_id)};
+        next_payload := current_payload || jsonb_build_object(
+          'state', next_state, 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)},
+          'reason', {sql_literal(request_json)}::jsonb->>'reason'
+        );
+      END IF;
+      INSERT INTO company_aggregate_projection(
+        aggregate_type, aggregate_id, revision, payload, source_event_id
+      ) VALUES (
+        'contract', {sql_literal(contract_id)}, next_revision,
+        next_payload, {sql_literal(event_id)}
+      );
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES (
+        'company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)},
+          'action', 'contract.' || {sql_literal(command_type)},
+          'aggregate_type', 'contract',
+          'aggregate_id', {sql_literal(contract_id)},
+          'actor_id', {sql_literal(actor_id)},
+          'event_id', {sql_literal(event_id)},
+          'state', next_state,
+          'revision', next_revision
+        ),
+        {sql_literal('moonproj:audit:' + event_id)}
+      );
+      result := jsonb_build_object(
+        'contract_id', {sql_literal(contract_id)}, 'state', next_state,
+        'revision', next_revision, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)}
+      );
+      UPDATE company_record
+      SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+           || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record
+    WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("contract command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected contract command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid contract command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("contract command receipt has no result")
+    return {"command": receipt, "contract": result, "idempotent_replay": not created}
 
 
 def _required_text(body: dict[str, Any], key: str) -> str:
@@ -795,6 +1201,18 @@ def handler_factory(
                         response(self, 404, {"error": "expense not found"}, origin)
                     else:
                         response(self, 200, items[0], origin)
+                elif parsed.path == "/api/company/contracts":
+                    value = parse_qs(parsed.query).get("contract_id", [None])[0]
+                    response(self, 200, {"items": contracts(pool, value, max_response_rows)}, origin)
+                elif re.fullmatch(r"/api/company/contracts/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    contract_id = parsed.path.rsplit("/", 1)[-1]
+                    items = contracts(pool, contract_id, max_response_rows)
+                    if not items:
+                        response(self, 404, {"error": "contract not found"}, origin)
+                    else:
+                        detail = dict(items[0])
+                        detail["milestones"] = contract_milestones(pool, contract_id, max_response_rows)
+                        response(self, 200, detail, origin)
                 elif parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"}, origin)
                 else:
@@ -816,29 +1234,53 @@ def handler_factory(
                 idempotency_key = self.headers.get("Idempotency-Key", "").strip()
                 if not idempotency_key:
                     raise CommandRejected("Idempotency-Key is required", 400)
+                command_family = "expense"
                 if parsed.path == "/api/company/expenses":
                     command_type = "create"
-                    expense_id = None
+                    aggregate_id = None
+                elif parsed.path == "/api/company/contracts":
+                    command_family = "contract"
+                    command_type = "create"
+                    aggregate_id = None
                 else:
-                    match = re.fullmatch(
+                    expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
                         parsed.path,
                     )
-                    if match is None:
+                    contract_match = re.fullmatch(
+                        r"/api/company/contracts/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
+                        parsed.path,
+                    )
+                    if expense_match is not None:
+                        aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
+                    elif contract_match is not None:
+                        command_family = "contract"
+                        aggregate_id, command_type = contract_match.group(1), contract_match.group(2)
+                    else:
                         if parsed.path.startswith("/api/"):
                             response(self, 404, {"error": "unknown company command"}, origin)
                         else:
                             response(self, 404, {"error": "not found"}, origin)
                         return
-                    expense_id, command_type = match.group(1), match.group(2)
-                result = expense_command(
-                    pool,
-                    command_type=command_type,
-                    expense_id=expense_id,
-                    body=body,
-                    actor_id=self._request_actor_id(),
-                    idempotency_key=idempotency_key,
-                )
+                actor = self._request_actor_id()
+                if command_family == "contract":
+                    result = contract_command(
+                        pool,
+                        command_type=command_type,
+                        contract_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                else:
+                    result = expense_command(
+                        pool,
+                        command_type=command_type,
+                        expense_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 status = 201 if command_type == "create" and not result["idempotent_replay"] else 200
                 response(self, status, result, origin)
             except PoolExhausted as error:

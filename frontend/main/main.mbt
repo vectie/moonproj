@@ -29,6 +29,34 @@ using @html {
 using @rabbita {cell, new, none, type Cmd}
 
 ///|
+struct ContractRow {
+  contract_id : String
+  contract_code : String
+  contract_name : String
+  project_id : String
+  project_name : String
+  supplier_id : String
+  supplier_name : String
+  amount_minor : String
+  amount_display : String
+  currency : String
+  sign_date : String
+  state : String
+  paid_amount_display : String
+  milestone_count : String
+  source_kind : String
+}
+
+///|
+struct ContractMilestoneRow {
+  milestone_id : String
+  node_name : String
+  plan_amount_display : String
+  plan_pct_bps : String
+  trigger_type : String
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -43,6 +71,13 @@ struct Model {
   expense_id : String
   expense_state : String
   expense_note : String
+  contracts_loaded : Bool
+  contract_rows : Array[ContractRow]
+  contract_detail : ContractRow?
+  contract_milestones : Array[ContractMilestoneRow]
+  contract_id : String
+  contract_state : String
+  contract_note : String
 }
 
 ///|
@@ -69,6 +104,17 @@ enum Msg {
   ApproveExpense
   ExpenseCommandFinished(String)
   ExpenseCommandFailed
+  ContractsLoaded(String)
+  ContractsLoadFailed
+  ContractLoaded(String)
+  ContractLoadFailed
+  CreateContract
+  SubmitContract
+  RejectContract
+  ResubmitContract
+  ApproveContract
+  ContractCommandFinished(String)
+  ContractCommandFailed
 }
 
 ///|
@@ -87,6 +133,13 @@ fn initial_model() -> Model {
     expense_id: "EXP-RABBITA-LOCAL",
     expense_state: "未创建",
     expense_note: "先保存草稿，再提交审批",
+    contracts_loaded: false,
+    contract_rows: [],
+    contract_detail: None,
+    contract_milestones: [],
+    contract_id: "CT-RABBITA-LOCAL",
+    contract_state: "new",
+    contract_note: "先保存草稿，再提交审批",
   }
 }
 
@@ -112,6 +165,7 @@ fn title_for(path : String) -> String {
     "/cost-dashboard-v3" => "成本驾驶舱"
     "/investment" => "投资收益"
     "/contracts" => "合同台帐"
+    "/contracts/CT-RABBITA-LOCAL" => "新建合同"
     "/contracts/HT-CD-260701" => "合同详情"
     "/payment-applies" => "付款申请"
     "/dynamic-cost" => "动态成本"
@@ -183,6 +237,176 @@ fn refresh_api(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn json_object_text(
+  fields : Map[String, Json],
+  key : String,
+  fallback : String,
+) -> String {
+  match fields.get(key) {
+    Some(Json::String(value)) => value
+    Some(Json::Number(value, ..)) => value.to_string()
+    Some(Json::True) => "true"
+    Some(Json::False) => "false"
+    _ => fallback
+  }
+}
+
+///|
+fn contract_from_json(value : Json) -> ContractRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        contract_id: json_object_text(fields, "contract_id", ""),
+        contract_code: json_object_text(fields, "contract_code", ""),
+        contract_name: json_object_text(fields, "contract_name", ""),
+        project_id: json_object_text(fields, "project_id", ""),
+        project_name: json_object_text(fields, "project_name", ""),
+        supplier_id: json_object_text(fields, "supplier_id", ""),
+        supplier_name: json_object_text(fields, "supplier_name", ""),
+        amount_minor: json_object_text(fields, "amount_minor", "0"),
+        amount_display: json_object_text(fields, "amount_display", "—"),
+        currency: json_object_text(fields, "currency", "CNY"),
+        sign_date: json_object_text(fields, "sign_date", ""),
+        state: json_object_text(fields, "state", ""),
+        paid_amount_display: json_object_text(
+          fields, "paid_amount_display", "—",
+        ),
+        milestone_count: json_object_text(fields, "milestone_count", "0"),
+        source_kind: json_object_text(fields, "source_kind", "command"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn contract_milestones_from_json(value : Json) -> Array[ContractMilestoneRow] {
+  let rows : Array[ContractMilestoneRow] = []
+  match value {
+    Json::Array(values) =>
+      for value in values {
+        match value {
+          Json::Object(fields) =>
+            rows.push({
+              milestone_id: json_object_text(fields, "milestone_id", ""),
+              node_name: json_object_text(fields, "node_name", ""),
+              plan_amount_display: json_object_text(
+                fields, "plan_amount_display", "—",
+              ),
+              plan_pct_bps: json_object_text(fields, "plan_pct_bps", "0"),
+              trigger_type: json_object_text(fields, "trigger_type", ""),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn contract_rows_from_body(body : String) -> Array[ContractRow] {
+  let rows : Array[ContractRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("items") {
+        Some(Json::Array(values)) =>
+          for value in values {
+            match contract_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn contract_detail_from_body(
+  body : String,
+) -> (ContractRow?, Array[ContractMilestoneRow]) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      (
+        contract_from_json(parsed),
+        match fields.get("milestones") {
+          Some(value) => contract_milestones_from_json(value)
+          None => []
+        },
+      )
+    _ => (None, [])
+  }
+}
+
+///|
+fn contract_state_label(state : String) -> String {
+  match state {
+    "draft" => "草稿"
+    "submitted" => "审批中"
+    "rejected" => "已驳回"
+    "approved" => "已批准"
+    "active" => "履行中"
+    _ => state
+  }
+}
+
+///|
+fn load_contracts(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/contracts").expect_text(result => {
+    match result {
+      Ok(body) => emit(ContractsLoaded(body))
+      Err(_) => emit(ContractsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_contract(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
+  @http.get("/api/company" + path).expect_text(result => {
+    match result {
+      Ok(body) => emit(ContractLoaded(body))
+      Err(_) => emit(ContractLoadFailed)
+    }
+  })
+}
+
+///|
+fn contract_command_body(_model : Model, command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-contract-create-v1\",\"contract_id\":\"CT-RABBITA-LOCAL\",\"contract_code\":\"HT-RABBITA-LOCAL\",\"contract_name\":\"成都项目主体结构施工合同\",\"project_id\":\"CD-HJL\",\"project_name\":\"成都和锦里\",\"supplier_id\":\"supplier-rabbita\",\"supplier_name\":\"示例建设供应商\",\"sign_date\":\"2026-07-13\",\"amount_minor\":4860000000,\"currency\":\"CNY\"}"
+  } else if command_type == "reject" {
+    "{\"idempotency_key\":\"rabbita-contract-reject-v1\",\"reason\":\"请补充合同附件与付款节点\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-contract-" + command_type + "-v1\"}"
+  }
+}
+
+///|
+fn issue_contract_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/contracts"
+  } else {
+    "/api/company/contracts/\{model.contract_id}/\{command_type}"
+  }
+  @http.post(path)
+  .with_text(contract_command_body(model, command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ContractCommandFinished(body))
+      Err(_) => emit(ContractCommandFailed)
+    }
+  })
+}
+
+///|
 fn session_login_body(model : Model) -> String {
   Json::object({
     "user_code": Json::string(model.user_code),
@@ -223,8 +447,34 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, user_code, password, show_demo: false })
     InputUser(value) => (none, { ..model, user_code: value })
     InputPassword(value) => (none, { ..model, password: value })
-    Navigate(path) =>
-      (none, { ..model, authenticated: true, page: path, mobile_nav: false })
+    Navigate(path) => {
+      let command = if path == "/contracts" {
+        load_contracts(emit)
+      } else if path.has_prefix("/contracts/") {
+        load_contract(emit, path)
+      } else {
+        none
+      }
+      let contract_id = match path.rev_split_once("/") {
+        Some((prefix, value)) if prefix == "/contracts" => value.to_owned()
+        _ => model.contract_id
+      }
+      (
+        command,
+        {
+          ..model,
+          authenticated: true,
+          page: path,
+          mobile_nav: false,
+          contract_id,
+          contract_detail: if path == "/contracts" {
+            None
+          } else {
+            model.contract_detail
+          },
+        },
+      )
+    }
     ToggleSidebar => (none, { ..model, collapsed: !model.collapsed })
     ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav })
     ToggleGroup(group) => {
@@ -285,6 +535,153 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           api_status: "离线回退",
           api_note: "使用已审核快照",
+        },
+      )
+    ContractsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          contracts_loaded: true,
+          contract_rows: contract_rows_from_body(body),
+          contract_note: "已加载 PostgreSQL 合同与付款节点",
+        },
+      )
+    ContractsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          contracts_loaded: false,
+          contract_note: "合同读模型不可用 · 使用已审核快照",
+        },
+      )
+    ContractLoaded(body) => {
+      let (detail, milestones) = contract_detail_from_body(body)
+      match detail {
+        Some(row) =>
+          (
+            none,
+            {
+              ..model,
+              contract_detail: Some(row),
+              contract_milestones: milestones,
+              contract_id: row.contract_id,
+              contract_state: row.state,
+              contract_note: "已加载 PostgreSQL 合同详情与付款节点",
+            },
+          )
+        None =>
+          (none, { ..model, contract_note: "合同详情响应无法解析" })
+      }
+    }
+    ContractLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          contract_detail: None,
+          contract_milestones: [],
+          contract_note: "合同详情不可用 · 可先保存本地草稿",
+        },
+      )
+    CreateContract =>
+      if model.contract_state == "draft" || model.contract_state == "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_contract_command(emit, model, "create"),
+          {
+            ..model,
+            contract_state: "pending",
+            contract_note: "正在创建并写入 PostgreSQL 投影…",
+          },
+        )
+      }
+    SubmitContract =>
+      if model.contract_id == "" || model.contract_state != "draft" {
+        (none, model)
+      } else {
+        (
+          issue_contract_command(emit, model, "submit"),
+          {
+            ..model,
+            contract_state: "pending",
+            contract_note: "正在提交合同审批…",
+          },
+        )
+      }
+    RejectContract =>
+      if model.contract_id == "" || model.contract_state != "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_contract_command(emit, model, "reject"),
+          {
+            ..model,
+            contract_state: "pending",
+            contract_note: "正在退回合同并写入审计…",
+          },
+        )
+      }
+    ResubmitContract =>
+      if model.contract_id == "" || model.contract_state != "rejected" {
+        (none, model)
+      } else {
+        (
+          issue_contract_command(emit, model, "resubmit"),
+          {
+            ..model,
+            contract_state: "pending",
+            contract_note: "正在重新提交合同审批…",
+          },
+        )
+      }
+    ApproveContract =>
+      if model.contract_id == "" || model.contract_state != "submitted" {
+        (none, model)
+      } else {
+        (
+          issue_contract_command(emit, model, "approve"),
+          {
+            ..model,
+            contract_state: "pending",
+            contract_note: "正在批准合同并写入审计…",
+          },
+        )
+      }
+    ContractCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"approved\"") {
+        "approved"
+      } else if body.contains("\"state\":\"rejected\"") {
+        "rejected"
+      } else if body.contains("\"state\":\"submitted\"") {
+        "submitted"
+      } else if body.contains("\"state\":\"draft\"") {
+        "draft"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (none, { ..model, contract_state: "error", contract_note: body })
+      } else {
+        (
+          load_contract(emit, "/contracts/" + model.contract_id),
+          {
+            ..model,
+            contract_state: next_state,
+            contract_note: "已写入 PostgreSQL · 合同状态已更新 · 审计凭证已生成",
+          },
+        )
+      }
+    }
+    ContractCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          contract_state: "error",
+          contract_note: "公司合同命令服务不可用或拒绝了请求",
         },
       )
     CreateExpense =>
@@ -1566,7 +1963,98 @@ fn sales_mortgages_view() -> @html.Html {
 }
 
 ///|
-fn contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn fallback_contract_rows() -> Array[ContractRow] {
+  [
+    {
+      contract_id: "ht-tj-001",
+      contract_code: "HT-TJHJY-001",
+      contract_name: "海教园1号楼总包工程合同",
+      project_id: "proj-0001",
+      project_name: "天津海教园一期",
+      supplier_id: "supplier-tj-001",
+      supplier_name: "天津建工集团第三建筑工程有限公司",
+      amount_minor: "1800000000",
+      amount_display: "¥18,000,000.00",
+      currency: "CNY",
+      sign_date: "2026-03-15",
+      state: "active",
+      paid_amount_display: "¥3,600,000.00",
+      milestone_count: "3",
+      source_kind: "imported",
+    },
+    {
+      contract_id: "ht-tj-002",
+      contract_code: "HT-TJHJY-002",
+      contract_name: "海教园1号楼幕墙采购合同",
+      project_id: "proj-0001",
+      project_name: "天津海教园一期",
+      supplier_id: "supplier-tj-002",
+      supplier_name: "天津永大幕墙工程有限公司",
+      amount_minor: "680000000",
+      amount_display: "¥6,800,000.00",
+      currency: "CNY",
+      sign_date: "2026-04-08",
+      state: "active",
+      paid_amount_display: "¥2,040,000.00",
+      milestone_count: "1",
+      source_kind: "imported",
+    },
+  ]
+}
+
+///|
+fn contract_table_row(
+  emit : @rabbita.Emit[Msg],
+  row : ContractRow,
+) -> @html.Html {
+  tr <| [
+    td(row.contract_code),
+    td(row.contract_name),
+    td(row.project_name),
+    td(row.supplier_name),
+    td(row.amount_display),
+    td(row.paid_amount_display),
+    td(row.sign_date),
+    td <| [
+      span(class="erp-status-tag is-success", contract_state_label(row.state)),
+    ],
+    td <| [
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(Navigate("/contracts/" + row.contract_id)),
+        "查看详情",
+      ),
+    ],
+  ]
+}
+
+///|
+fn contract_table(
+  emit : @rabbita.Emit[Msg],
+  rows : Array[ContractRow],
+) -> @html.Html {
+  let rendered : Array[@html.Html] = []
+  for row in rows {
+    rendered.push(contract_table_row(emit, row))
+  }
+  table(class="erp-data-table") <| [
+    thead <| [
+      table_header([
+        "合同编号", "合同名称", "项目", "供应商", "合同金额", "已付款",
+        "签订日期", "状态", "操作",
+      ]),
+    ],
+    tbody <| rendered,
+  ]
+}
+
+///|
+fn contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows = if model.contracts_loaded && model.contract_rows.length() > 0 {
+    model.contract_rows
+  } else {
+    fallback_contract_rows()
+  }
   page_shell(
     "合同台帐",
     "COST / CONTRACTS",
@@ -1574,7 +2062,7 @@ fn contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
     [
       button(class="erp-secondary-btn", "导出合同台帐"),
       nav_button(
-        emit, "/contracts/HT-CD-260701", "erp-primary-btn", "＋ 新建合同",
+        emit, "/contracts/CT-RABBITA-LOCAL", "erp-primary-btn", "＋ 新建合同",
       ),
     ],
     div <| [
@@ -1586,31 +2074,8 @@ fn contracts_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
       filter_bar("合同编号 / 项目 / 供应商"),
       table_panel(
         "合同列表",
-        "按签订日期倒序",
-        data_table(
-          [
-            "合同编号", "合同名称", "项目", "供应商", "合同金额",
-            "已付款", "签订日期", "状态",
-          ],
-          [
-            [
-              "HT-CD-260701", "主体结构施工合同", "成都和锦里", "中建三局",
-              "¥48,600,000", "¥12,800,000", "2026-07-01", "履行中",
-            ],
-            [
-              "HT-CQ-260628", "营销推广服务合同", "重庆南山居", "众成广告",
-              "¥3,600,000", "¥1,200,000", "2026-06-28", "履行中",
-            ],
-            [
-              "HT-SY-260615", "园林景观工程合同", "沈阳和山苑", "绿城园林",
-              "¥8,920,000", "¥8,920,000", "2026-06-15", "已完成",
-            ],
-            [
-              "HT-TJ-260602", "电梯设备采购合同", "天津海教园一期",
-              "奥的斯", "¥5,180,000", "¥0", "2026-06-02", "待付款",
-            ],
-          ],
-        ),
+        model.contract_note,
+        contract_table(emit, rows),
       ),
     ],
   )
@@ -2538,49 +3003,182 @@ fn project_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn contract_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn contract_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let fallback = fallback_contract_rows()[0]
+  let draft_row = {
+    ..fallback,
+    contract_id: model.contract_id,
+    contract_code: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "HT-RABBITA-LOCAL"
+    } else {
+      fallback.contract_code
+    },
+    contract_name: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "成都项目主体结构施工合同"
+    } else {
+      fallback.contract_name
+    },
+    project_id: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "CD-HJL"
+    } else {
+      fallback.project_id
+    },
+    project_name: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "成都和锦里"
+    } else {
+      fallback.project_name
+    },
+    supplier_id: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "supplier-rabbita"
+    } else {
+      fallback.supplier_id
+    },
+    supplier_name: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "示例建设供应商"
+    } else {
+      fallback.supplier_name
+    },
+    amount_minor: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "4860000000"
+    } else {
+      fallback.amount_minor
+    },
+    amount_display: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "¥48,600,000.00"
+    } else {
+      fallback.amount_display
+    },
+    sign_date: if model.contract_id == "CT-RABBITA-LOCAL" {
+      "2026-07-13"
+    } else {
+      fallback.sign_date
+    },
+    state: model.contract_state,
+  }
+  let row = match model.contract_detail {
+    Some(value) => value
+    None => draft_row
+  }
+  let actions : Array[@html.Html] = [
+    nav_button(emit, "/contracts", "erp-ghost-btn", "‹ 返回列表"),
+  ]
+  if row.contract_id == "CT-RABBITA-LOCAL" && model.contract_detail is None {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateContract),
+        "保存草稿",
+      ),
+    )
+  }
+  if model.contract_state == "draft" {
+    actions.push(
+      button(
+        class="erp-primary-btn",
+        on_click=emit(SubmitContract),
+        "提交审批",
+      ),
+    )
+  } else if model.contract_state == "submitted" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RejectContract),
+        "退回补充",
+      ),
+    )
+    actions.push(
+      button(
+        class="erp-primary-btn",
+        on_click=emit(ApproveContract),
+        "批准合同",
+      ),
+    )
+  } else if model.contract_state == "rejected" {
+    actions.push(
+      button(
+        class="erp-primary-btn",
+        on_click=emit(ResubmitContract),
+        "重新提交",
+      ),
+    )
+  }
+  let milestone_rows : Array[Array[String]] = []
+  for milestone in model.contract_milestones {
+    milestone_rows.push([
+      milestone.node_name + " · " + milestone.milestone_id,
+      milestone.trigger_type,
+      milestone.plan_amount_display,
+      "—",
+      milestone.plan_pct_bps + " bps",
+      "已导入",
+    ])
+  }
+  let milestones = if milestone_rows.length() > 0 {
+    milestone_rows
+  } else {
+    [
+      [
+        "预付款", "合同生效", "¥4,860,000", "¥4,860,000", "2026-07-05",
+        "已完成",
+      ],
+      [
+        "主体结构 30%", "工程进度确认", "¥9,720,000", "¥7,940,000", "2026-08-15",
+        "进行中",
+      ],
+      [
+        "主体封顶", "验收通过", "¥14,580,000", "¥0", "2026-11-30", "待处理",
+      ],
+    ]
+  }
   page_shell(
-    "合同详情",
+    if row.contract_id == "CT-RABBITA-LOCAL" && model.contract_detail is None {
+      "新建合同"
+    } else {
+      "合同详情"
+    },
     "CONTRACT DETAIL",
-    "HT-CD-260701 · 主体结构施工合同 · 成都和锦里",
-    [detail_toolbar(emit, "/contracts", "保存合同")],
+    "{row.contract_code} · {row.contract_name} · {row.project_name}",
+    actions,
     div <| [
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("合同基本信息"),
-          span(class="erp-status-tag is-pending", "履行中"),
+          span(
+            class="erp-status-tag is-pending",
+            contract_state_label(model.contract_state),
+          ),
+          span(
+            class="erp-source-note",
+            model.contract_note +
+            " · " +
+            row.currency +
+            " · " +
+            row.source_kind +
+            " · " +
+            row.milestone_count +
+            " 个付款节点",
+          ),
         ],
         div(class="erp-form-grid") <| [
-          form_field("合同编号", "HT-CD-260701", "合同编号"),
-          form_field("合同名称", "主体结构施工合同", "合同名称"),
-          form_field("所属项目", "成都和锦里", "项目"),
-          form_field("供应商", "中建三局", "供应商"),
-          form_field("合同金额", "48600000", "金额(元)"),
-          form_field("签订日期", "2026-07-01", "YYYY-MM-DD"),
+          form_field("合同编号", row.contract_code, "合同编号"),
+          form_field("合同名称", row.contract_name, "合同名称"),
+          form_field("所属项目", row.project_name, "项目"),
+          form_field("供应商", row.supplier_name, "供应商"),
+          form_field("合同金额", row.amount_display, "金额(元)"),
+          form_field("币种", row.currency, "币种"),
+          form_field("签订日期", row.sign_date, "YYYY-MM-DD"),
         ],
       ],
       table_panel(
         "付款节点",
-        "合同金额 ¥4,860 万 · 已付款 ¥1,280 万",
+        "合同金额 {row.amount_display} · 已付款 {row.paid_amount_display}",
         data_table(
           [
             "节点", "触发条件", "计划金额", "实际付款", "计划日期",
             "状态",
           ],
-          [
-            [
-              "预付款", "合同生效", "¥4,860,000", "¥4,860,000", "2026-07-05",
-              "已完成",
-            ],
-            [
-              "主体结构 30%", "工程进度确认", "¥9,720,000", "¥7,940,000",
-              "2026-08-15", "进行中",
-            ],
-            [
-              "主体封顶", "验收通过", "¥14,580,000", "¥0", "2026-11-30",
-              "待处理",
-            ],
-          ],
+          milestones,
         ),
       ),
     ],
@@ -3541,7 +4139,7 @@ fn business_view(
   } else if path.has_prefix("/projects/") {
     project_detail_view(emit)
   } else if path.has_prefix("/contracts/") {
-    contract_detail_view(emit)
+    contract_detail_view(emit, model)
   } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
     expense_editor_view(emit, model, true)
   } else if path.has_prefix("/loans/") && path != "/loans/new" {
@@ -3565,8 +4163,8 @@ fn business_view(
       "/sales/mortgages" => sales_mortgages_view()
       "/sales/revenues" => sales_revenues_view(emit)
       "/marketing" => marketing_view()
-      "/contracts" => contracts_view(emit)
-      "/contracts/HT-CD-260701" => contract_detail_view(emit)
+      "/contracts" => contracts_view(emit, model)
+      "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
       "/payment-applies" => payment_applies_view()
       "/cost-dashboard-v3" => cost_dashboard_view()
       "/investment" => investment_view()

@@ -21,6 +21,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from company_postgres_target_apply import PostgresTargetError, run_psql, sql_literal
+from company_postgres_service import contracts as service_contracts, contract_milestones as service_contract_milestones
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -141,6 +142,32 @@ def projections(args: argparse.Namespace, aggregate_type: str | None) -> list[di
     return result
 
 
+class _ReadModelPool:
+    """Adapt the fixed psql query runner to the bounded service read helpers."""
+
+    def __init__(self, args: argparse.Namespace):
+        self.args = args
+
+    def execute(self, sql: str) -> list[str]:
+        output = run_psql(self.args, sql)
+        return [line for line in output.splitlines() if line]
+
+
+def contracts(args: argparse.Namespace, contract_id: str | None) -> list[dict[str, Any]]:
+    pool = _ReadModelPool(args)
+    return service_contracts(pool, contract_id, 500)
+
+
+def contract_detail(args: argparse.Namespace, contract_id: str) -> dict[str, Any] | None:
+    pool = _ReadModelPool(args)
+    items = service_contracts(pool, contract_id, 500)
+    if not items:
+        return None
+    result = dict(items[0])
+    result["milestones"] = service_contract_milestones(pool, contract_id, 500)
+    return result
+
+
 def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -185,6 +212,18 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/projections":
                     value = parse_qs(parsed.query).get("aggregate_type", [None])[0]
                     response(self, 200, {"items": projections(args, value)})
+                    return
+                if parsed.path == "/api/company/contracts":
+                    value = parse_qs(parsed.query).get("contract_id", [None])[0]
+                    response(self, 200, {"items": contracts(args, value)})
+                    return
+                if re.fullmatch(r"/api/company/contracts/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    contract_id = parsed.path.rsplit("/", 1)[-1]
+                    result = contract_detail(args, contract_id)
+                    if result is None:
+                        response(self, 404, {"error": "contract not found"})
+                    else:
+                        response(self, 200, result)
                     return
                 if parsed.path.startswith("/api/"):
                     response(self, 404, {"error": "unknown read-model endpoint"})

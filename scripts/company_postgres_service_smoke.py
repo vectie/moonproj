@@ -190,7 +190,71 @@ def main() -> int:
         )
         if status != 409:
             raise SmokeError(f"invalid expense transition was not rejected: {status} {payload}")
-        print(json.dumps({"state": "service_verified", "expense_state": "approved", "port": args.port, "database": args.database}, sort_keys=True))
+        contract_id = "CT-SMOKE-" + nonce
+        contract_payload = {
+            "contract_id": contract_id,
+            "contract_code": "HT-SMOKE-" + nonce,
+            "contract_name": "service command smoke contract",
+            "project_id": "CD-HJL",
+            "project_name": "成都和锦里",
+            "supplier_id": "smoke-supplier",
+            "supplier_name": "smoke supplier",
+            "sign_date": "2026-07-13",
+            "amount_minor": 1234500,
+            "currency": "CNY",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/contracts",
+            token=token,
+            method="POST",
+            payload=contract_payload,
+            idempotency_key="contract-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("contract", {}).get("state") != "draft":
+            raise SmokeError(f"contract create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/contracts",
+            token=token,
+            method="POST",
+            payload=contract_payload,
+            idempotency_key="contract-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"contract idempotency failed: {status} {payload}")
+        transitions = [
+            ("submit", "submitted"),
+            ("reject", "rejected"),
+            ("resubmit", "submitted"),
+            ("approve", "approved"),
+        ]
+        for command, expected_state in transitions:
+            status, payload = request(
+                args.port,
+                f"/api/company/contracts/{contract_id}/{command}",
+                token=token,
+                method="POST",
+                payload={},
+                idempotency_key=f"contract-{command}-{nonce}",
+            )
+            if status != 200 or payload is None or payload.get("contract", {}).get("state") != expected_state:
+                raise SmokeError(f"contract {command} failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/contracts/{contract_id}", token=token)
+        if status != 200 or payload is None or payload.get("state") != "approved":
+            raise SmokeError(f"contract detail failed: {status} {payload}")
+        print(
+            json.dumps(
+                {
+                    "state": "service_verified",
+                    "expense_state": "approved",
+                    "contract_state": "approved",
+                    "port": args.port,
+                    "database": args.database,
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     finally:
         process.terminate()

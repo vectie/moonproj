@@ -33,6 +33,7 @@ class GatewayError(RuntimeError):
 
 
 EXPENSE_PATH_PREFIX = "/api/company/expenses"
+CONTRACT_PATH_PREFIX = "/api/company/contracts"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 
@@ -301,6 +302,8 @@ def handler_factory(
             if not (
                 parsed.path == EXPENSE_PATH_PREFIX
                 or parsed.path.startswith(EXPENSE_PATH_PREFIX + "/")
+                or parsed.path == CONTRACT_PATH_PREFIX
+                or parsed.path.startswith(CONTRACT_PATH_PREFIX + "/")
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return

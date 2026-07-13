@@ -109,9 +109,9 @@ identical replay is idempotent. `scripts/company_sqlite_projection_apply.py`
 then consumes only a native, domain-validated promotion receipt and persists
 immutable aggregate revisions plus a projection receipt with idempotent replay.
 The executable `scripts/company_postgres_service.py` now provides the local
-authenticated fixed-read runtime plus the reviewed expense command vertical,
-with bounded reusable sessions, schema readiness, idempotency, projection, and
-audit receipts. `scripts/company_postgres_dev_gateway.py` adds the local
+authenticated fixed-read runtime plus the reviewed expense and contract
+command verticals, with bounded reusable sessions, schema readiness,
+idempotency, projection, and audit receipts. `scripts/company_postgres_dev_gateway.py` adds the local
 HttpOnly session and signed actor assertion required by the Rabbita browser;
 managed provider deployment, token issuer/audience validation, and operational
 backup/restore runbooks are still required. The rehearsal backup/restore parity
