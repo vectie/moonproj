@@ -89,6 +89,23 @@ fn run(
   let source_snapshot_id = required_string(root, "source_snapshot_id")
   let mapping_version = required_string(root, "mapping_version")
   let evidence_id = required_string(root, "evidence_id")
+  let source_table = match root.get("source_table") {
+    Some(String(value)) => value
+    _ => "sys_warning"
+  }
+  let source_ids = match root.get("source_ids") {
+    Some(value) => value
+    None => Json::array([])
+  }
+  let overrun_minor = match root.get("overrun_minor") {
+    Some(Number(value, ..)) =>
+      Json::number(value, repr=value.to_int().to_int64().to_string())
+    _ => Json::number(0.0, repr="0")
+  }
+  let scan_policy = match root.get("scan_policy") {
+    Some(String(value)) => value
+    _ => "legacy-warning-plan"
+  }
   let finding_severity = severity(required_string(root, "severity"))
   let finding = @warning_domain.WarningFinding::new(
     warning_id~,
@@ -133,6 +150,10 @@ fn run(
     "notification_delivered": Json::boolean(false),
     "workflow_mutated": Json::boolean(false),
     "cash_released": Json::boolean(false),
+    "source_table": Json::string(source_table),
+    "source_ids": source_ids,
+    "overrun_minor": overrun_minor,
+    "scan_policy": Json::string(scan_policy),
   })
   let receipt = Json::object({
     "format": Json::string("moonproj.erp.domain-promotion.v1"),
@@ -142,7 +163,7 @@ fn run(
     "cohort": Json::string("warning-finding-v1"),
     "accepted_items": Json::array([
       Json::object({
-        "source_table": Json::string("sys_warning"),
+        "source_table": Json::string(source_table),
         "source_id": Json::string(warning_id),
         "target_type": Json::string("warning_finding"),
         "target_id": Json::string(warning_id),

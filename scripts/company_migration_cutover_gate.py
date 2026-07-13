@@ -579,8 +579,16 @@ def run(
         work_dir / "advance-offset-accounting-link-replay.json",
         work_dir / "payment-accounting-link-replay.json",
         work_dir / "cbs-cost-link-replay.json",
+        work_dir / "cbs-budget-replay.json",
+        work_dir / "cbs-budget-source-replay.json",
         work_dir / "workflow-assignment-replay.json",
         work_dir / "delivery-progress-replay.json",
+        work_dir / "delivery-recognition-replay.json",
+        work_dir / "delivery-recognition-accounting-link-replay.json",
+        work_dir / "consolidated-report-replay.json",
+        work_dir / "investment-benchmark-replay.json",
+        work_dir / "warning-replay.json",
+        work_dir / "warning-source-replay.json",
     ]
     replay_paths.extend(sorted((work_dir / "typed-cohorts").glob("*-projection-replay.json")))
     replay_values: list[dict[str, Any]] = []

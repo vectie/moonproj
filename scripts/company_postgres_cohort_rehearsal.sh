@@ -6,7 +6,7 @@ set -eu
 # only; the PostgreSQL target is selected explicitly by its connection flags.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING]"
+USAGE="usage: company_postgres_cohort_rehearsal.sh EXPORT_DIR MAPPING RAW_STAGING [PGDATABASE] [WORK_DIR] [CBS_MAPPING] [WORKFLOW_ASSIGNMENT_MAPPING] [DELIVERY_MAPPING] [ADVANCE_OFFSET_MAPPING] [PAYMENT_ACCOUNTING_MAPPING] [OFFSET_ACCOUNTING_MAPPING] [DELIVERY_RECOGNITION_MAPPING] [DELIVERY_RECOGNITION_ACCOUNTING_MAPPING] [CONSOLIDATED_REPORT_PLAN] [INVESTMENT_BENCHMARK_PLAN] [WARNING_PLAN] [CBS_BUDGET_PLAN] [CBS_BUDGET_SOURCE_MAPPING] [WARNING_SOURCE_MAPPING]"
 EXPORT_DIR=${1:?$USAGE}
 MAPPING_PATH=${2:?$USAGE}
 STAGING_PATH=${3:?$USAGE}
@@ -25,6 +25,7 @@ INVESTMENT_BENCHMARK_PLAN=${15:-}
 WARNING_PLAN=${16:-}
 CBS_BUDGET_PLAN=${17:-}
 CBS_BUDGET_SOURCE_MAPPING=${18:-}
+WARNING_SOURCE_MAPPING=${19:-}
 PG_HOST=${PGHOST:-/tmp}
 PG_PORT=${PGPORT:-5432}
 PG_USER=${PGUSER:-moonproj}
@@ -35,6 +36,10 @@ if [ -n "$CBS_BUDGET_PLAN" ] && [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
 fi
 if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ] && [ -z "$CBS_COST_MAPPING" ]; then
   echo "source CBS budget mapping requires the CBS cost mapping" >&2
+  exit 2
+fi
+if [ -n "$WARNING_PLAN" ] && [ -n "$WARNING_SOURCE_MAPPING" ]; then
+  echo "choose either a reviewed warning plan or a source warning mapping" >&2
   exit 2
 fi
 
@@ -164,6 +169,16 @@ if [ -n "$WARNING_PLAN" ]; then
   moon run --target native cmd/warning -- \
     "$WARNING_PLAN" "$WORK_DIR/warning-receipt.json"
   apply_projection warning "$WORK_DIR/warning-receipt.json"
+fi
+
+if [ -n "$WARNING_SOURCE_MAPPING" ]; then
+  python3 "$SCRIPT_DIR/erp_warning_plan.py" \
+    "$EXPORT_DIR" "$WARNING_SOURCE_MAPPING" \
+    "$WORK_DIR/warning-source-plan.json"
+  moon run --target native cmd/warning -- \
+    "$WORK_DIR/warning-source-plan.json" \
+    "$WORK_DIR/warning-source-receipt.json"
+  apply_projection warning-source "$WORK_DIR/warning-source-receipt.json"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then

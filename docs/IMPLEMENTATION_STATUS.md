@@ -48,7 +48,7 @@ existing ERP remains authoritative.
 | Reconciled period-close control | `finance/accounting` + `finance/reconciliation` + `scripts/company_period_close_control.py` | Native `AccountingBook.close_reconciled` refuses to close without balanced reports; the rehearsal now locks all cohorts to one source snapshot, records mapping versions and a deterministic evidence hash, and emits a `ready_for_reconciled_close` artifact while keeping `close_authorized=false`, cash release false, and period posting false. |
 | Accounting/subledger reconciliation evidence | `scripts/company_sqlite_accounting_reconciliation.py` + `scripts/erp_migration_rehearsal.sh` + `ERP_SETTLEMENT_ACCOUNTING.md` | Reconciles base, advance/offset, and synthetic receivable-collection/payable-payment links back to promoted source candidates, principal, amount, currency, and durable event/source/journal rows; reports `reconciled` while explicitly keeping `cash_released=false` and `period_posted=false`. |
 | SQLite backup/restore parity gate | `scripts/company_sqlite_backup_restore.py` + `scripts/erp_migration_rehearsal.sh` | Backs up the final rehearsal database, reopens the restored file, verifies integrity and schema version, and compares logical digests and counts for raw records, aggregate projections, accounting links, receipts, and schema rows. |
-| Cutover readiness evidence gate | `scripts/company_migration_cutover_gate.py` + `scripts/erp_migration_rehearsal.sh` | Combines source staging, schema scope, target counts, all cohort parity reports, replay evidence, SQL-driver smoke, backup/restore, period-close snapshot/evidence-hash checks, and the task-state exception-review artifact into a decision artifact. The full fixture reports `ready_for_business_acceptance` with `cutover_authorized=false`; project-1 task-state, managed-production deployment, and schema-only coverage remain explicit exceptions. |
+| Cutover readiness evidence gate | `scripts/company_migration_cutover_gate.py` + `scripts/erp_migration_rehearsal.sh` | Combines source staging, schema scope, target counts, all cohort parity reports, including source CBS-budget and warning scans, replay evidence for every optional receipt, SQL-driver smoke, backup/restore, period-close snapshot/evidence-hash checks, and the task-state exception-review artifact into a decision artifact. The full fixture reports `ready_for_business_acceptance` with `cutover_authorized=false`; project-1 task-state, managed-production deployment, and schema-only coverage remain explicit exceptions. |
 | ERP schema-scope evidence gate | `scripts/erp_schema_gap_report.py` + `scripts/company_migration_cutover_gate.py` | Compares the authoritative `erp_new` initializer with the exported fixture (75 schema definitions / 26 present / 49 schema-only), assigns every table a baseline capability ID and migration action, and carries the scope gap into the cutover artifact as an explicit open exception; it never treats the fixture as full ERP coverage. |
 | Credential-free full-export contract | `scripts/erp_export_contract.py` + `docs/ERP_FULL_EXPORT_CONTRACT.md` | Verifies per-table hashes, row counts, safe paths, primary-key identity, recursive secret rejection, and 75-table coverage before staging; the current snapshot is correctly reported as `source_export_incomplete` with 49 missing tables. |
 | ERP source-export request | `scripts/erp_source_export_request.py` + `docs/ERP_SOURCE_EXPORT_REQUEST.md` | Generates an exact read-only, credential-free request for all 49 absent tables, including wave, capability, primary-key, hash, and redaction requirements; it remains `awaiting_source_export`. |
@@ -149,7 +149,7 @@ existing ERP remains authoritative.
 | CBS cost-subject link | `finance/cbs` + `persistence/store` | Active/frozen CBS versions accept scoped source-to-subject cost links with explicit source identity and immutable link projections; separate budget-ledger reservation/consumption and broader schema/source coverage remain distinct. |
 | ERP CBS cost-link cohort | `scripts/erp_cbs_cost_link_plan.py` + `cmd/cbs_link` + `cmd/cbs_budget` + `persistence/store` | An eighth, independently mapped cohort translates all 7 non-empty `cb_cost` rows into explicit CBS subject links and one deduplicated `cbs_version` configuration projection, persists exact parity, and replays idempotently without budget consumption or accounting posting; an opt-in budget plan now persists subject-scoped control evidence. |
 | Agent boundary | `intelligence/agent_port` | MoonClaw-neutral request/result contracts with authority ceiling and idempotency. |
-| Warning findings | `intelligence/warning` + `cmd/warning` + `persistence/store` | Deterministic cost-overrun finding plus scoped acknowledge/resolve/suppress lifecycle; source-bound warning evidence persists as immutable projections with explicit non-notification, non-workflow, and non-cash markers. |
+| Warning findings | `intelligence/warning` + `cmd/warning` + `scripts/erp_warning_plan.py` + `persistence/store` | Deterministic cost-overrun finding plus scoped acknowledge/resolve/suppress lifecycle; the source planner scans explicitly named `cb_cost` leaf rows and persists immutable warning evidence with non-notification, non-workflow, non-cash, and non-accounting markers. |
 | Investment analytics seed | `investment/analytics` | Deterministic moving average and trend fixture translated from Moonfish intent. |
 | Investment mandate and proposal | `investment/domain` | Local mandate limits, deterministic analysis attachment, proposal approval, controlled execution, and position creation. |
 | Investment mandate/proposal/position projections | `investment/domain` + `persistence/store` | Mandate limits, Moonfish analysis evidence, proposal states, executed positions, validated acquisition journals, and acquisition accounting-event links persist as immutable revisioned evidence. |
@@ -307,7 +307,10 @@ the native receipt records `acceptance_created=false` and
 source-bound CBS budget plan from the five positive `cb_cost.dfs_budget`
 amounts, reaching 112 projections, 7 durable accounting links, and 21
 migration receipts; the CBS budget ledger remains reservation evidence with
-accounting and cash effects false.
+accounting and cash effects false. A source-bound warning scan over the two
+explicit positive `cb_cost` component overruns adds one warning projection and
+reaches 113 projections and 22 receipts while notification, workflow, cash,
+and accounting effects remain false.
 Access tests also reject incompatible role assignments both when a new role is
 assigned and when a separation rule is added after existing assignments.
 They also prove delegation effective windows, amount ceilings, revocation, and
@@ -341,10 +344,11 @@ promotion of the remaining typed-staged rows, or production readiness.
    non-authorizing projection evidence are implemented, as is a separately
    reviewed pending-posting delivery recognition projection (the available
    source row remains quarantined). The reviewed CBS cost-link cohort now covers the seven fixture
-   cost rows, and a source-bound CBS budget planner now records five explicit
+   cost rows, a source-bound CBS budget planner now records five explicit
    `cb_cost.dfs_budget` reservations while the synthetic ledger exercises
-   consumption controls; full CBS schema/source coverage and real budget
-   ownership remain open. Invoice/receivable and milestone/settlement projections now
+   consumption controls, and a source-bound warning scan records the two
+   explicit component overruns; full CBS schema/source coverage, real budget
+   ownership, and notification routing remain open. Invoice/receivable and milestone/settlement projections now
    retain separate identities and cross-domain source links in the same store
    boundary.
 4. Extend the reviewed accounting-link/subledger reconciliation gate from the

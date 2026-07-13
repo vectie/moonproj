@@ -96,3 +96,8 @@ eighteenth argument can instead supply
 mapping argument is also required and the runner derives a source-bound budget
 plan from explicit positive `cb_cost.dfs_budget` values. These projections
 remain budget-control evidence and do not post accounting or release cash.
+The nineteenth argument can instead supply
+`scripts/fixtures/warning_source_mapping.json`; the runner then derives a
+source-bound warning from explicitly named positive `cb_cost` component
+overruns. It preserves scan evidence but does not deliver notifications,
+mutate workflows, release cash, or post accounting.

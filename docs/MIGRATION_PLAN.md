@@ -69,6 +69,9 @@ budget planner against the five positive `cb_cost.dfs_budget` values; with CBS
 cost links, workflow assignments, delivery progress, offset accounting, and
 payment accounting it reaches 112 aggregate projections, 7 durable accounting
 links, and 21 migration receipts with exact parity and idempotent replay.
+The same source-bound warning scan can add one `warning_finding` projection for
+the two explicit leaf-row component overruns, reaching 113 projections and 22
+receipts while notification routing and workflow mutation remain separate.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

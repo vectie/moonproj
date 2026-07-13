@@ -21,3 +21,12 @@ argument) accepts a reviewed warning plan and runs the usual projection,
 parity, and idempotent replay checks. The checked-in example is synthetic;
 real `sys_warning` rows and notification routing still require source and
 owner acceptance.
+
+The optional twenty-second SQLite argument (or nineteenth PostgreSQL cohort
+argument) accepts `scripts/fixtures/warning_source_mapping.json` and runs
+`scripts/erp_warning_plan.py` against the real `cb_cost` export. The mapping
+names the exact leaf rows to scan, target/component fields, and project scope;
+the planner rejects missing or extra overrun rows so parent/child costs cannot
+be double-counted. The fixture produces one `warning_finding` for the two
+positive component overruns, with source IDs and minor-unit evidence retained
+while notification, workflow, cash, and accounting effects remain false.

@@ -88,6 +88,9 @@ The twentieth argument supplies a reviewed CBS budget plan. The optional
 twenty-first argument instead supplies a source-bound CBS budget mapping; it
 requires the eighth CBS cost mapping, derives an explicit plan from positive
 `cb_cost.dfs_budget` values, and keeps each consume decision review-bound.
+The optional twenty-second argument supplies a source-bound warning mapping; it
+derives an explicit cost-overrun finding from named `cb_cost` rows and rejects
+any mismatch between the mapping and positive overruns.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

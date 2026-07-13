@@ -199,6 +199,10 @@ The twenty-first wrapper argument can supply a source-bound CBS budget mapping;
 the wrapper derives a plan from explicit positive `cb_cost.dfs_budget` values
 and requires a consume decision for every source amount. This is budget
 reservation evidence, not an inferred posting or cash event.
+The twenty-second wrapper argument can supply a source-bound warning mapping;
+the wrapper derives one `warning_finding` from explicitly named positive
+`cb_cost` overruns, preserving source IDs and scan policy without notification,
+workflow, cash, or accounting effects.
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -317,7 +321,7 @@ importer.
 | sales customer/subscription/contract routes | Sales agreement lifecycle | `operations/sales` | Reserve/sign/fulfill lifecycle implemented. |
 | `sale_customer`, `sale_subscription`, `sale_mortgage`, `sale_refund` | Customer, reservation, mortgage, and refund controls | `operations/sales` | Customer identity, reservation conversion, mortgage approval/release, and refund approval/payment implemented; fulfilled sales agreements can now open customer receivables through a separate authority boundary. |
 | `mkt_campaign`, `mkt_placement`, `mkt_channel`, `mkt_material` | Marketing planning and spend | `operations/marketing` | Campaign budget, placement lifecycle, lead capture, and spend caps implemented; channel/material catalogs pending. |
-| `sys_warning`, warning rules/scans/tickets | Warnings and exception ownership | `intelligence/warning` + `cmd/warning` + `persistence/store` | Deterministic cost-overrun finding and scoped acknowledge/resolve/suppress lifecycle are source-bound into immutable `warning_finding` projections; scheduled scans, notification delivery, and ticket persistence remain pending. |
+| `sys_warning`, warning rules/scans/tickets | Warnings and exception ownership | `intelligence/warning` + `cmd/warning` + `scripts/erp_warning_plan.py` + `persistence/store` | Deterministic cost-overrun finding and scoped acknowledge/resolve/suppress lifecycle are source-bound into immutable `warning_finding` projections; the available `cb_cost` fixture now derives one explicit leaf-row scan, while scheduled scans, notification delivery, and ticket persistence remain pending. |
 | `sale_revenue` | Customer receivable/revenue schedule | `finance/receivable` | Open/partial/collected balance, explicit opening receivable-to-revenue recognition, and separately identified cash-collection source-to-journal events are implemented; revenue policy and cash release remain pending. |
 | receivable snapshots and collection events | Customer receivable persistence | `finance/receivable` + `persistence/store` + `finance/accounting` | Revisioned snapshots serialize open/collected balances for reconciliation; reviewed collection events carry explicit cash/receivable postings without releasing cash or posting the book; revenue recognition policy remains pending. |
 | invoice routes and invoice tables | Invoice acceptance and payment | `operations/invoice` | Issue/accept/void/payment states implemented; an accepted invoice can open a customer receivable through a separate invoice-recognition grant. |

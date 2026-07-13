@@ -27,6 +27,7 @@ INVESTMENT_BENCHMARK_PLAN=${18:-}
 WARNING_PLAN=${19:-}
 CBS_BUDGET_PLAN=${20:-}
 CBS_BUDGET_SOURCE_MAPPING=${21:-}
+WARNING_SOURCE_MAPPING=${22:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -53,6 +54,10 @@ if [ -n "$CBS_BUDGET_PLAN" ] && [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
 fi
 if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ] && [ -z "$CBS_COST_MAPPING" ]; then
   echo "source CBS budget mapping requires the CBS cost mapping" >&2
+  exit 2
+fi
+if [ -n "$WARNING_PLAN" ] && [ -n "$WARNING_SOURCE_MAPPING" ]; then
+  echo "choose either a reviewed warning plan or a source warning mapping" >&2
   exit 2
 fi
 
@@ -415,6 +420,29 @@ if [ -n "$WARNING_PLAN" ]; then
   echo "warning_replay=$WARNING_REPLAY"
 fi
 
+if [ -n "$WARNING_SOURCE_MAPPING" ]; then
+  WARNING_SOURCE_PLAN="$WORK_DIR/warning-source-plan.json"
+  python3 "$SCRIPT_DIR/erp_warning_plan.py" \
+    "$EXPORT_DIR" "$WARNING_SOURCE_MAPPING" "$WARNING_SOURCE_PLAN"
+  echo "warning_source_plan=$WARNING_SOURCE_PLAN"
+  WARNING_SOURCE_RECEIPT="$WORK_DIR/warning-source-receipt.json"
+  moon run --target native cmd/warning -- \
+    "$WARNING_SOURCE_PLAN" "$WARNING_SOURCE_RECEIPT"
+  echo "warning_source_receipt=$WARNING_SOURCE_RECEIPT"
+  WARNING_SOURCE_APPLY="$WORK_DIR/warning-source-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$WARNING_SOURCE_RECEIPT" "$TARGET_DB" > "$WARNING_SOURCE_APPLY"
+  echo "warning_source_apply=$WARNING_SOURCE_APPLY"
+  WARNING_SOURCE_PARITY="$WORK_DIR/warning-source-parity.json"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+    "$WARNING_SOURCE_RECEIPT" "$TARGET_DB" "$WARNING_SOURCE_PARITY"
+  echo "warning_source_parity=$WARNING_SOURCE_PARITY"
+  WARNING_SOURCE_REPLAY="$WORK_DIR/warning-source-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$WARNING_SOURCE_RECEIPT" "$TARGET_DB" > "$WARNING_SOURCE_REPLAY"
+  echo "warning_source_replay=$WARNING_SOURCE_REPLAY"
+fi
+
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
 python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
@@ -477,7 +505,7 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
-  if [ -n "$WARNING_PLAN" ]; then
+  if [ -n "$WARNING_PLAN" ] || [ -n "$WARNING_SOURCE_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 1))
   fi
   if [ -n "$CBS_BUDGET_PLAN" ] || [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then

@@ -1,0 +1,30 @@
+{
+  "mapping_version": "mapped-cb-cost-warning-v1-review-001",
+  "project_id": "proj-0001",
+  "principal_id": "co-001",
+  "scope": "project:proj-0001",
+  "warning_id": "warning-cb-cost-proj-0001",
+  "rule_code": "COST_COMPONENT_OVERRUN",
+  "target_type": "project",
+  "target_id": "project:proj-0001",
+  "message_prefix": "Cost components exceed mapped target",
+  "severity": "warning",
+  "evidence_id": "scan:cb-cost:proj-0001",
+  "currency": "CNY",
+  "target_field": "target_cost",
+  "component_fields": [
+    "ht_alter_amount",
+    "zt_cost",
+    "dfs_budget",
+    "yg_alter"
+  ],
+  "source_ids": [
+    "cost-101-JZ",
+    "cost-102-MQ"
+  ],
+  "money_policy": {
+    "minor_units_per_unit": 100,
+    "rounding": "half_even",
+    "allow_rounding": false
+  }
+}
