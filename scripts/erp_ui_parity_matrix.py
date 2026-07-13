@@ -429,6 +429,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
+        and handler["path"] == "/providers/:guid/risk"
+    ):
+        return "connected_supplier_risk_read", "accept_browser_supplier_risk_scenario_and_production_identity"
+    if (
+        handler["module"] == "srm"
+        and handler["method"] == "GET"
         and handler["path"] == "/risk-board"
     ):
         return "connected_supplier_risk_read", "accept_browser_supplier_risk_scenario_and_production_identity"

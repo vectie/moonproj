@@ -143,6 +143,22 @@ def main() -> int:
         ):
             raise SmokeError(f"source supplier detail read failed: {status} {supplier_detail_payload}")
         supplier_detail_status = status
+        status, supplier_detail_risk_payload = request(
+            args.port, "/api/company/srm/providers/SUP-00018/risk", token=token,
+        )
+        if (
+            status != 404
+            or supplier_detail_risk_payload is None
+            or supplier_detail_risk_payload.get("data") is not None
+            or supplier_detail_risk_payload.get("source_coverage", {}).get("srm_provider") != 0
+            or supplier_detail_risk_payload.get("source_coverage", {}).get("cb_contract_milestone") != 0
+            or "cb_contract_milestone" not in supplier_detail_risk_payload.get("missing_or_empty_source_tables", [])
+            or supplier_detail_risk_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(
+                f"source supplier detail risk read failed: {status} {supplier_detail_risk_payload}"
+            )
+        supplier_detail_risk_status = status
         status, supplier_stats_payload = request(
             args.port, "/api/company/srm/stats/overview", token=token,
         )
@@ -1647,6 +1663,7 @@ def main() -> int:
                     "supplier_source_rows": len(supplier_source_data or []),
                     "supplier_source_provider_rows": supplier_source_payload.get("source_coverage", {}).get("srm_provider"),
                     "supplier_detail_source_status": supplier_detail_status,
+                    "supplier_detail_risk_source_status": supplier_detail_risk_status,
                     "supplier_stats_total": supplier_stats_data.get("total"),
                     "supplier_stats_contract_rows": supplier_stats_payload.get("source_coverage", {}).get("cb_contract"),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),

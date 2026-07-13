@@ -38,6 +38,10 @@ rows are production data.
   detail, including linked business units and historical contract evidence;
   a missing provider returns a source-covered 404 rather than a fabricated
   detail row;
+- `GET /api/company/srm/providers/<guid>/risk` for the source-compatible
+  provider risk detail. It reuses the ERP risk calculation over that provider's
+  imported contracts and milestones, returns coverage metadata, and remains a
+  derived non-authorizing read;
 - `GET /api/company/srm/stats/overview` for source-backed enabled-provider,
   rating, category/source, and top-business aggregates;
 - `GET /api/company/srm/risk-board` for the source-compatible ERP risk-board
@@ -69,7 +73,9 @@ loads the source statistics overview after the list, retaining explicit zero
 counts when source tables are empty. `/srm/risk-board`
 loads the source-compatible risk envelope and shows an explicit empty/missing-
 source state for the available snapshot; supplier risk is a derived read and
-does not mutate qualification.
+does not mutate qualification. Provider detail also loads the risk-detail read
+and shows score, rating, tags, contract count, and overdue milestones while
+keeping the designer detail layout and source provenance banner.
 
 The source parity audit also records the remaining differences. The source
 `srm.js` signature-check endpoint and external risk rescore job are not
@@ -99,7 +105,10 @@ zero high-risk rows, two imported contracts, missing `srm_provider`,
 rows for the current snapshot, two imported contract envelopes, missing
 `srm_provider`/`srm_category` coverage, and `authorizing=false`; the source
 detail route returns a covered 404 for the missing provider. Imported
-supplier and tender mutation attempts return 409 read-only rejections.
+supplier and tender mutation attempts return 409 read-only rejections. The
+source provider-risk detail also returns a covered 404 when the supplier table
+is absent; a disposable non-empty source cohort was verified to produce the
+expected contract/overdue counts and a derived rating, then removed.
 
 Remaining gates are the supplier/tender command slice above, a redacted source
 procurement export, supplier identity and owner approval, award-to-commitment

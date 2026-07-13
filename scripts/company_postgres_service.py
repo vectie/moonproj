@@ -33,7 +33,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/suppliers`` (POST create draft)
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
 * ``/api/company/suppliers/<id>/risk`` (GET)
-* ``/api/company/srm/providers[/{guid}]``, ``/api/company/srm/stats/overview``,
+* ``/api/company/srm/providers[/{guid}]``, ``/api/company/srm/providers/{guid}/risk``,
+  ``/api/company/srm/stats/overview``,
   and ``/api/company/srm/risk-board`` (GET)
   source-compatible, non-authorizing reads with coverage metadata
 * ``/api/company/tender-splits`` (GET/POST)
@@ -1319,6 +1320,59 @@ def supplier_source_stats(
         "success": True,
         "code": 0,
         "data": result,
+        **_supplier_source_metadata(coverage),
+    }
+
+
+def supplier_source_risk(
+    pool: PsqlPool,
+    provider_guid: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Calculate one ERP provider risk record without persisting source state."""
+
+    if not IDENTIFIER.fullmatch(provider_guid):
+        raise ValueError("invalid provider_guid")
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), SRM_RISK_SOURCE_TABLES))
+        for table in sorted(SRM_RISK_SOURCE_TABLES)
+    }
+    providers = _raw_source_rows(pool, "srm_provider", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    provider_row: dict[str, Any] | None = None
+    for row in providers:
+        payload = row["payload"]
+        current_guid = str(payload.get("provider_guid") or row["record_id"])
+        if current_guid == provider_guid and not payload.get("deleted_at"):
+            provider_row = row
+            break
+    if provider_row is None:
+        return {
+            "success": False,
+            "code": 43001,
+            "message": "供应商不存在",
+            "data": None,
+            **_supplier_source_metadata(coverage),
+        }
+    contracts = _raw_source_rows(pool, "cb_contract", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES)
+    milestones = _raw_source_rows(
+        pool, "cb_contract_milestone", max(max_rows, 500), SRM_RISK_SOURCE_TABLES,
+    )
+    risk = _source_supplier_risk(provider_row, contracts, milestones)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "providerGuid": provider_guid,
+            "score": risk["score"],
+            "rating": risk["rating"],
+            "tags": risk["tags"],
+            "riskTags": ",".join(risk["tags"]),
+            "contractCount": risk["contract_count"],
+            "contractTotal": risk["contract_total"],
+            "overdueCount": risk["overdue_count"],
+            "overdueAmount": risk["overdue_amount"],
+            "sourceKind": "imported",
+        },
         **_supplier_source_metadata(coverage),
     }
 
@@ -8162,6 +8216,10 @@ def handler_factory(
                     response(self, 200, {"items": suppliers(pool, value, max_response_rows)}, origin)
                 elif parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(pool, max_response_rows), origin)
+                elif re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
+                    provider_guid = parsed.path.split("/")[-2]
+                    risk = supplier_source_risk(pool, provider_guid, max_response_rows)
+                    response(self, 200 if risk.get("success") is True else 404, risk, origin)
                 elif re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}", parsed.path):
                     provider_guid = parsed.path.rsplit("/", 1)[-1]
                     detail = supplier_source_detail(pool, provider_guid, max_response_rows)

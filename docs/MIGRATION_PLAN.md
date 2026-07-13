@@ -285,7 +285,9 @@ connected API groups, and 22 fixture/no-source API groups.
 The source-handler action register now marks the ERP `GET /srm/providers` and
 `GET /srm/providers/:guid` reads as connected through separate
 `/api/company/srm/providers[/{guid}]` boundaries; the supplier statistics
-overview is connected through `/api/company/srm/stats/overview` as well.
+overview is connected through `/api/company/srm/stats/overview` as well, and
+the provider risk-detail read is connected through
+`/api/company/srm/providers/<guid>/risk`.
 The route-level count now includes the connected `/srm/providers/:guid`
 source-detail read; the list remains a connected command-form page with a
 separate source master read.
@@ -316,7 +318,10 @@ uses the ERP risk calculation over imported `srm_provider`, `cb_contract`, and
 `cb_contract_milestone` envelopes, returns source coverage, and explicitly
 marks the response non-authorizing. With the current snapshot it returns zero
 risk rows because the supplier and milestone tables are unavailable; the
-existing local supplier projection/risk endpoint remains separate.
+provider detail now has the same bounded per-provider risk read, returning
+score/rating/tags and contract/overdue counts from imported rows without
+creating a qualification decision. The existing local supplier
+projection/risk endpoint remains separate.
 
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but

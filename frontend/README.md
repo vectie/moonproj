@@ -48,8 +48,10 @@ projections separate for local create/update/review, blacklist, and void
 command states. Provider detail now reads the source provider, linked business
 units, and historical contracts when available, while transport failure keeps
 the designer detail form; the provider page also shows source-backed aggregate
-stats with truthful zero counts. Risk reads and contract-split reads/creates
-are available through the same boundary. The five sales pages now load
+stats with truthful zero counts and a per-provider source risk detail (score,
+rating, tags, contract count, and overdue milestones). Risk-board reads and
+contract-split reads/creates are available through the same boundary. The five
+sales pages now load
 PostgreSQL customer, reservation, agreement, mortgage, refund, revenue, and
 receivable projections through the gateway and show their source/state/amount
 metadata while preserving the source-shaped tables as an offline fallback. The

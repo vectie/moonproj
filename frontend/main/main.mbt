@@ -517,6 +517,13 @@ struct Model {
   supplier_detail_loaded : Bool
   supplier_detail : SupplierDetail?
   supplier_detail_note : String
+  supplier_detail_risk_loaded : Bool
+  supplier_detail_risk_score : String
+  supplier_detail_risk_rating : String
+  supplier_detail_risk_tags : String
+  supplier_detail_risk_contract_count : String
+  supplier_detail_risk_overdue_count : String
+  supplier_detail_risk_note : String
   supplier_stats_loaded : Bool
   supplier_stats_total : String
   supplier_stats_contract_rows : String
@@ -701,6 +708,8 @@ enum Msg {
   SupplierSourceLoadFailed
   SupplierDetailLoaded(String)
   SupplierDetailLoadFailed
+  SupplierDetailRiskLoaded(String)
+  SupplierDetailRiskLoadFailed
   SupplierStatsLoaded(String)
   SupplierStatsLoadFailed
   SupplierRiskLoaded(String)
@@ -826,6 +835,13 @@ fn initial_model() -> Model {
     supplier_detail_loaded: false,
     supplier_detail: None,
     supplier_detail_note: "供应商源详情尚未加载 · 使用设计快照",
+    supplier_detail_risk_loaded: false,
+    supplier_detail_risk_score: "0",
+    supplier_detail_risk_rating: "未定级",
+    supplier_detail_risk_tags: "源表未提供",
+    supplier_detail_risk_contract_count: "0",
+    supplier_detail_risk_overdue_count: "0",
+    supplier_detail_risk_note: "供应商源风险详情尚未加载 · 使用设计快照",
     supplier_stats_loaded: false,
     supplier_stats_total: "0",
     supplier_stats_contract_rows: "0",
@@ -1482,6 +1498,44 @@ fn supplier_detail_from_body(body : String) -> SupplierDetail? {
       }
     _ => None
   }
+}
+
+///|
+fn supplier_detail_risk_from_body(
+  body : String,
+) -> (String, String, String, String, String, String) {
+  let mut score = "0"
+  let mut rating = "未定级"
+  let mut tags = "源表未提供"
+  let mut contract_count = "0"
+  let mut overdue_count = "0"
+  let mut note = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables").length()
+      note = if missing == 0 {
+        "风险源表已提供"
+      } else {
+        "缺失/空源表 " + missing.to_string()
+      }
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          score = json_object_text(data, "score", "0")
+          rating = json_object_text(data, "rating", "未定级")
+          tags = json_object_text(data, "riskTags", "")
+          if tags == "" {
+            tags = "无显式风险标签"
+          }
+          contract_count = json_object_text(data, "contractCount", "0")
+          overdue_count = json_object_text(data, "overdueCount", "0")
+        }
+        _ => ()
+      }
+    }
+    _ => note = "风险源读模型不可用"
+  }
+  (score, rating, tags, contract_count, overdue_count, note)
 }
 
 ///|
@@ -3123,6 +3177,20 @@ fn load_supplier_detail(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
 }
 
 ///|
+fn load_supplier_detail_risk(
+  emit : @rabbita.Emit[Msg],
+  provider_guid : String,
+) -> Cmd {
+  @http.get("/api/company/srm/providers/" + provider_guid + "/risk").expect_text(result => {
+      match result {
+        Ok(body) => emit(SupplierDetailRiskLoaded(body))
+        Err(_) => emit(SupplierDetailRiskLoadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_supplier_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/srm/stats/overview").expect_text(result => {
     match result {
@@ -4089,7 +4157,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       match supplier_detail_from_body(body) {
         Some(detail) =>
           (
-            none,
+            load_supplier_detail_risk(emit, detail.provider_guid),
             {
               ..model,
               supplier_detail_loaded: true,
@@ -4105,6 +4173,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               supplier_detail_loaded: false,
               supplier_detail: None,
               supplier_detail_note: "供应商源详情为空 · 使用设计快照",
+              supplier_detail_risk_loaded: false,
+              supplier_detail_risk_note: "供应商源风险详情为空 · 使用设计快照",
             },
           )
       }
@@ -4116,6 +4186,41 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           supplier_detail_loaded: false,
           supplier_detail: None,
           supplier_detail_note: "供应商源详情不可用 · 使用设计快照",
+          supplier_detail_risk_loaded: false,
+          supplier_detail_risk_note: "供应商源风险详情不可用 · 使用设计快照",
+        },
+      )
+    SupplierDetailRiskLoaded(body) => {
+      let (score, rating, tags, contract_count, overdue_count, risk_note) = supplier_detail_risk_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          supplier_detail_risk_loaded: true,
+          supplier_detail_risk_score: score,
+          supplier_detail_risk_rating: rating,
+          supplier_detail_risk_tags: tags,
+          supplier_detail_risk_contract_count: contract_count,
+          supplier_detail_risk_overdue_count: overdue_count,
+          supplier_detail_risk_note: "已加载 PostgreSQL 供应商风险详情 · " +
+          risk_note,
+        },
+      )
+    }
+    SupplierDetailRiskLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_detail_risk_loaded: false,
+          supplier_detail_risk_score: "0",
+          supplier_detail_risk_rating: "未定级",
+          supplier_detail_risk_tags: "源表未提供",
+          supplier_detail_risk_contract_count: "0",
+          supplier_detail_risk_overdue_count: "0",
+          supplier_detail_risk_note: "供应商源风险详情不可用 · 使用设计快照",
         },
       )
     SupplierStatsLoaded(body) => {
@@ -9402,6 +9507,14 @@ fn supplier_source_eval_label(value : String) -> String {
 }
 
 ///|
+fn supplier_risk_rating_label(value : String) -> String {
+  match value {
+    "A" | "B" | "C" | "D" | "E" => value
+    _ => "未定级"
+  }
+}
+
+///|
 fn supplier_detail_contract_table(detail : SupplierDetail) -> @html.Html {
   let rows : Array[Array[String]] = []
   if detail.contracts.length() == 0 {
@@ -9436,6 +9549,22 @@ fn supplier_detail_contract_table(detail : SupplierDetail) -> @html.Html {
       "履约状态",
     ],
     rows,
+  )
+}
+
+///|
+fn supplier_detail_risk_table(model : Model) -> @html.Html {
+  data_table(
+    ["评级", "评分", "风险标签", "关联合同", "逾期节点"],
+    [
+      [
+        supplier_risk_rating_label(model.supplier_detail_risk_rating),
+        model.supplier_detail_risk_score,
+        model.supplier_detail_risk_tags,
+        model.supplier_detail_risk_contract_count,
+        model.supplier_detail_risk_overdue_count,
+      ],
+    ],
   )
 }
 
@@ -9537,6 +9666,16 @@ fn provider_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
           ),
         ],
       ],
+      table_panel(
+        "风险评级",
+        (if model.supplier_detail_risk_loaded {
+          model.supplier_detail_risk_note
+        } else {
+          "设计快照 · " + model.supplier_detail_risk_note
+        }) +
+        " · 风险计算仅读取 ERP 源合同与里程碑，不生成授权状态",
+        supplier_detail_risk_table(model),
+      ),
       table_panel(
         "合作与评价",
         source_note +
