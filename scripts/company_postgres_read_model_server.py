@@ -6,7 +6,8 @@ exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report and
 report-builder metadata/template,
-employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
+employee-loan, dynamic-cost, source contract/payment, budget scope/loan
+balance, workflow instance observation, investment, admin-quality, attachment metadata,
 non-secret profile, AI analytics, AI Hub observation, and webhook configuration
 reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
@@ -34,8 +35,13 @@ from company_postgres_service import (
     auth_my_initiated as service_auth_my_initiated,
     budget_expenses as service_budget_expenses,
     budget_expense_detail as service_budget_expense_detail,
+    budget_source_users_in_bu as service_budget_source_users_in_bu,
+    budget_source_my_loan_balance as service_budget_source_my_loan_balance,
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
+    cost_source_contracts as service_cost_source_contracts,
+    cost_source_contract_detail as service_cost_source_contract_detail,
+    cost_source_payment_applications as service_cost_source_payment_applications,
     cashflow_source_forecast as service_cashflow_source_forecast,
     cashflow_source_forecast_v3 as service_cashflow_source_forecast_v3,
     cashflow_source_detail as service_cashflow_source_detail,
@@ -131,6 +137,12 @@ from company_postgres_service import (
     admin_audit_actions as service_admin_audit_actions,
     admin_health_tables as service_admin_health_tables,
     admin_health_bpm_pool as service_admin_health_bpm_pool,
+    workflow_source_tasks_mine as service_workflow_source_tasks_mine,
+    workflow_source_tasks_initiated as service_workflow_source_tasks_initiated,
+    workflow_source_history as service_workflow_source_history,
+    workflow_source_instance_by_biz as service_workflow_source_instance_by_biz,
+    workflow_source_instance_detail as service_workflow_source_instance_detail,
+    _workflow_resolve_user_id as service_workflow_resolve_user_id,
     loans as service_loans,
 )
 
@@ -193,6 +205,18 @@ def budget_expense_detail(
     user_code: str | None,
 ) -> dict[str, Any] | None:
     return service_budget_expense_detail(_ReadModelPool(args), expense_id, user_code, 500)
+
+
+def budget_source_users_in_bu(args: argparse.Namespace, bu_guid: str | None) -> dict[str, Any]:
+    return service_budget_source_users_in_bu(_ReadModelPool(args), bu_guid, 500)
+
+
+def budget_source_my_loan_balance(
+    args: argparse.Namespace,
+    user_code: str | None,
+    user_id: str | None,
+) -> dict[str, Any] | None:
+    return service_budget_source_my_loan_balance(_ReadModelPool(args), user_code, user_id, 500)
 
 
 def receipts(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -305,6 +329,82 @@ def contract_detail(args: argparse.Namespace, contract_id: str) -> dict[str, Any
     result = dict(items[0])
     result["milestones"] = service_contract_milestones(pool, contract_id, 500)
     return result
+
+
+def cost_source_contracts(
+    args: argparse.Namespace,
+    contract_id: str | None,
+    bu_guid: str | None,
+    proj_guid: str | None,
+    keyword: str | None,
+) -> dict[str, Any]:
+    return service_cost_source_contracts(
+        _ReadModelPool(args), contract_id, bu_guid, proj_guid, keyword, 500,
+    )
+
+
+def cost_source_contract_detail(args: argparse.Namespace, contract_id: str) -> dict[str, Any] | None:
+    return service_cost_source_contract_detail(_ReadModelPool(args), contract_id, 500)
+
+
+def cost_source_payment_applications(
+    args: argparse.Namespace,
+    view: str,
+    bu_guid: str | None,
+    user_id: str | None,
+) -> dict[str, Any]:
+    return service_cost_source_payment_applications(_ReadModelPool(args), view, bu_guid, user_id, 500)
+
+
+def workflow_source_tasks_mine(
+    args: argparse.Namespace,
+    user_id: str | None,
+    user_code: str | None,
+) -> dict[str, Any]:
+    pool = _ReadModelPool(args)
+    return service_workflow_source_tasks_mine(
+        pool,
+        service_workflow_resolve_user_id(pool, user_id, user_code, 500),
+        500,
+    )
+
+
+def workflow_source_tasks_initiated(
+    args: argparse.Namespace,
+    user_id: str | None,
+    user_code: str | None,
+) -> dict[str, Any]:
+    pool = _ReadModelPool(args)
+    return service_workflow_source_tasks_initiated(
+        pool,
+        service_workflow_resolve_user_id(pool, user_id, user_code, 500),
+        500,
+    )
+
+
+def workflow_source_history(
+    args: argparse.Namespace,
+    user_id: str | None,
+    user_code: str | None,
+) -> dict[str, Any]:
+    pool = _ReadModelPool(args)
+    return service_workflow_source_history(
+        pool,
+        service_workflow_resolve_user_id(pool, user_id, user_code, 500),
+        500,
+    )
+
+
+def workflow_source_instance_by_biz(
+    args: argparse.Namespace,
+    biz_type: str,
+    biz_data_guid: str,
+) -> dict[str, Any]:
+    return service_workflow_source_instance_by_biz(_ReadModelPool(args), biz_type, biz_data_guid, 500)
+
+
+def workflow_source_instance_detail(args: argparse.Namespace, instance_id: str) -> dict[str, Any] | None:
+    return service_workflow_source_instance_detail(_ReadModelPool(args), instance_id, 500)
 
 
 def payment_applications(
@@ -916,6 +1016,65 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     else:
                         response(self, 200, result)
                     return
+                if parsed.path == "/api/company/source/budget/users-in-bu":
+                    query = parse_qs(parsed.query)
+                    response(self, 200, budget_source_users_in_bu(args, query.get("buGuid", query.get("bu_guid", [None]))[0]))
+                    return
+                if parsed.path == "/api/company/source/budget/my-loan-balance":
+                    query = parse_qs(parsed.query)
+                    result = budget_source_my_loan_balance(
+                        args,
+                        query.get("userCode", query.get("user_code", [None]))[0],
+                        query.get("userId", query.get("user_id", [None]))[0],
+                    )
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "用户不存在"})
+                    else:
+                        response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/source/cost/contracts":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cost_source_contracts(
+                            args,
+                            query.get("contractGuid", query.get("contract_id", [None]))[0],
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            query.get("keyword", [None])[0],
+                        ),
+                    )
+                    return
+                if re.fullmatch(r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}/milestones", parsed.path):
+                    contract_id = parsed.path.split("/")[-2]
+                    detail = cost_source_contract_detail(args, contract_id)
+                    if detail is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "合同不存在"})
+                    else:
+                        response(self, 200, {**detail, "data": detail["data"]["milestones"]})
+                    return
+                if re.fullmatch(r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    contract_id = parsed.path.rsplit("/", 1)[-1]
+                    detail = cost_source_contract_detail(args, contract_id)
+                    if detail is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "合同不存在"})
+                    else:
+                        response(self, 200, detail)
+                    return
+                if parsed.path == "/api/company/source/cost/payment-applies":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cost_source_payment_applications(
+                            args,
+                            query.get("view", ["all"])[0],
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            query.get("userId", query.get("user_id", [None]))[0],
+                        ),
+                    )
+                    return
                 if parsed.path == "/api/company/contracts":
                     value = parse_qs(parsed.query).get("contract_id", [None])[0]
                     response(self, 200, {"items": contracts(args, value)})
@@ -1357,6 +1516,62 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/notify/llm-providers":
                     response(self, 200, notification_source_llm_providers(args))
+                    return
+                if parsed.path == "/api/company/source/workflow/tasks/mine":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        workflow_source_tasks_mine(
+                            args,
+                            query.get("userId", query.get("user_id", [None]))[0],
+                            query.get("userCode", query.get("user_code", [None]))[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/source/workflow/tasks/initiated":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        workflow_source_tasks_initiated(
+                            args,
+                            query.get("userId", query.get("user_id", [None]))[0],
+                            query.get("userCode", query.get("user_code", [None]))[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/source/workflow/tasks/my-history":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        workflow_source_history(
+                            args,
+                            query.get("userId", query.get("user_id", [None]))[0],
+                            query.get("userCode", query.get("user_code", [None]))[0],
+                        ),
+                    )
+                    return
+                if parsed.path == "/api/company/source/workflow/instances/by-biz":
+                    query = parse_qs(parsed.query)
+                    biz_type = query.get("bizType", query.get("biz_type", [""]))[0]
+                    biz_guid = query.get("bizDataGuid", query.get("biz_data_guid", [""]))[0]
+                    if not biz_type or not biz_guid:
+                        response(self, 422, {"success": False, "code": 40001, "message": "bizType / bizDataGuid 必填"})
+                    else:
+                        response(self, 200, workflow_source_instance_by_biz(args, biz_type, biz_guid))
+                    return
+                workflow_instance_match = re.fullmatch(
+                    r"/api/company/source/workflow/instances/([A-Za-z0-9_.:-]{1,128})",
+                    parsed.path,
+                )
+                if workflow_instance_match is not None:
+                    result = workflow_source_instance_detail(args, workflow_instance_match.group(1))
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "流程实例不存在"})
+                    else:
+                        response(self, 200, result)
                     return
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))

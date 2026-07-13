@@ -143,7 +143,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `auth` | `DELETE` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `GET` | `/dict/cost-subjects` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
 | `budget` | `GET` | `/proceedings` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
-| `budget` | `GET` | `/users-in-bu` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |
+| `budget` | `GET` | `/users-in-bu` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_scope_read` | `accept_browser_budget_scope_scenario_and_production_identity` |
 | `budget` | `GET` | `/expenses` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_read` | `accept_browser_expense_scenario_and_production_identity` |
 | `budget` | `GET` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_detail_read` | `accept_browser_expense_detail_scenario_and_production_identity` |
 | `budget` | `POST` | `/expenses` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -151,7 +151,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `budget` | `POST` | `/expenses/:guid/sync-from-workflow` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `PUT` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `DELETE` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `budget` | `GET` | `/my-loan-balance` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `connect_authenticated_read_api` |
+| `budget` | `GET` | `/my-loan-balance` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_scope_read` | `accept_browser_budget_scope_scenario_and_production_identity` |
 | `budget` | `POST` | `/budget-check` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `POST` | `/expenses/:guid/auto-offset` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cashflow` | `GET` | `/forecast` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
@@ -191,9 +191,9 @@ are attached. The JSON output contains all 338 handler rows.
 | `cbs` | `POST` | `/approval-rules` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cbs` | `PUT` | `/approval-rules/:guid` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cbs` | `DELETE` | `/approval-rules/:guid` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cost` | `GET` | `/contracts` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
-| `cost` | `GET` | `/contracts/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
-| `cost` | `GET` | `/payment-applies` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
+| `cost` | `GET` | `/contracts` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
+| `cost` | `GET` | `/contracts/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
+| `cost` | `GET` | `/payment-applies` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `GET` | `/dynamic-cost` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
 | `cost` | `GET` | `/dynamic-cost/:guid/remarks` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
 | `cost` | `POST` | `/contracts` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -205,7 +205,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `cost` | `DELETE` | `/payment-applies/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cost` | `PUT` | `/dynamic-cost/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cost` | `DELETE` | `/dynamic-cost/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cost` | `GET` | `/contracts/:guid/milestones` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `connect_authenticated_read_api` |
+| `cost` | `GET` | `/contracts/:guid/milestones` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `POST` | `/contracts/:guid/milestones` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cost` | `PUT` | `/milestones/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cost` | `DELETE` | `/milestones/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -413,15 +413,15 @@ are attached. The JSON output contains all 338 handler rows.
 | `webhook` | `POST` | `/test/:platform` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `webhook` | `POST` | `/scan-overdue/preview` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `webhook` | `POST` | `/scan-overdue` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `workflow` | `GET` | `/tasks/mine` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
-| `workflow` | `GET` | `/tasks/initiated` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
-| `workflow` | `GET` | `/instances/by-biz` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
-| `workflow` | `GET` | `/instances/:piGuid` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
+| `workflow` | `GET` | `/tasks/mine` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
+| `workflow` | `GET` | `/tasks/initiated` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
+| `workflow` | `GET` | `/instances/by-biz` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
+| `workflow` | `GET` | `/instances/:piGuid` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `POST` | `/instances/:piGuid/approve` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `POST` | `/instances/:piGuid/reject` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `GET` | `/process-defs` | `/tasks` | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
 | `workflow` | `GET` | `/process-defs/:processKey/preview` | `/tasks` | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
-| `workflow` | `GET` | `/tasks/my-history` | `/tasks` | `not_connected` | `connect_authenticated_read_api` |
+| `workflow` | `GET` | `/tasks/my-history` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `POST` | `/instances` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `POST` | `/instances/:piGuid/cosigners` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `POST` | `/instances/:piGuid/transfer` | `/tasks` | `not_connected` | `implement_authenticated_command_and_audit` |

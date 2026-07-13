@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""Read-only smoke coverage for the evidence-ready source read batch."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+from company_postgres_service_smoke import SmokeError, request, wait_for
+
+
+def expect(condition: bool, message: str) -> None:
+    if not condition:
+        raise SmokeError(message)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--database", default="moonproj")
+    parser.add_argument("--port", type=int, default=4187)
+    parser.add_argument("--psql", default=None)
+    args = parser.parse_args()
+    token = "moonproj-source-read-smoke-token"
+    environment = os.environ.copy()
+    environment["MOONPROJ_SERVICE_TOKEN"] = token
+    command = [
+        sys.executable,
+        str(Path(__file__).with_name("company_postgres_service.py")),
+        "--port",
+        str(args.port),
+        "--database",
+        args.database,
+        "--pool-size",
+        "1",
+        "--acquire-timeout",
+        "1",
+        "--require-forwarded-tls",
+    ]
+    if args.psql:
+        command.extend(("--psql", args.psql))
+    process = subprocess.Popen(
+        command,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        wait_for(args.port, time.monotonic() + 10)
+        status, contracts = request(
+            args.port, "/api/company/source/cost/contracts", token=token,
+        )
+        expect(
+            status == 200
+            and contracts is not None
+            and len(contracts.get("data", [])) == 2
+            and contracts.get("source_coverage", {}).get("cb_contract") == 2
+            and contracts.get("authorizing") is False,
+            f"source contract list failed: {status} {contracts}",
+        )
+        status, detail = request(
+            args.port, "/api/company/source/cost/contracts/ht-tj-001", token=token,
+        )
+        detail_contract = (detail or {}).get("data", {}).get("contract", {})
+        expect(
+            status == 200
+            and detail is not None
+            and detail_contract.get("contractGuid") == "ht-tj-001"
+            and detail_contract.get("paid_amount_display") == "¥3,600,000.00"
+            and len((detail.get("data") or {}).get("plans", [])) == 3
+            and len((detail.get("data") or {}).get("applies", [])) == 2,
+            f"source contract detail failed: {status} {detail}",
+        )
+        status, milestones = request(
+            args.port,
+            "/api/company/source/cost/contracts/ht-tj-001/milestones",
+            token=token,
+        )
+        expect(
+            status == 200
+            and milestones is not None
+            and milestones.get("data") == []
+            and milestones.get("source_coverage", {}).get("cb_contract_milestone") == 0
+            and milestones.get("authorizing") is False,
+            f"source milestone empty boundary failed: {status} {milestones}",
+        )
+        status, applies = request(
+            args.port, "/api/company/source/cost/payment-applies?view=all", token=token,
+        )
+        expect(
+            status == 200
+            and applies is not None
+            and len(applies.get("data", [])) == 3
+            and applies.get("source_coverage", {}).get("cb_htfk_apply") == 3
+            and applies.get("authorizing") is False,
+            f"source payment application read failed: {status} {applies}",
+        )
+        status, scope = request(
+            args.port,
+            "/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001",
+            token=token,
+        )
+        expect(
+            status == 200
+            and scope is not None
+            and len(scope.get("data", [])) == 4
+            and scope.get("scope_applied") is True
+            and scope.get("authorizing") is False,
+            f"source budget scope read failed: {status} {scope}",
+        )
+        status, balance = request(
+            args.port,
+            "/api/company/source/budget/my-loan-balance?userCode=limingjin",
+            token=token,
+        )
+        balance_data = (balance or {}).get("data", {})
+        expect(
+            status == 200
+            and balance_data.get("total") == 3500.0
+            and len(balance_data.get("loans", [])) == 1
+            and balance.get("scope_applied") is True
+            and balance.get("authorizing") is False,
+            f"source loan balance read failed: {status} {balance}",
+        )
+        for path in (
+            "/api/company/source/workflow/tasks/mine?userCode=limingjin",
+            "/api/company/source/workflow/tasks/initiated?userCode=limingjin",
+            "/api/company/source/workflow/tasks/my-history?userCode=limingjin",
+        ):
+            status, workflow = request(args.port, path, token=token)
+            expect(
+                status == 200
+                and workflow is not None
+                and workflow.get("data") == []
+                and workflow.get("source_coverage", {}).get("wf_process_instance") == 0
+                and workflow.get("authorizing") is False,
+                f"source workflow empty boundary failed: {status} {workflow}",
+            )
+        status, by_biz = request(
+            args.port,
+            "/api/company/source/workflow/instances/by-biz?bizType=Expense&bizDataGuid=EXP-260712-008",
+            token=token,
+        )
+        expect(
+            status == 200
+            and by_biz is not None
+            and by_biz.get("data") is None
+            and by_biz.get("authorizing") is False,
+            f"source workflow by-biz empty boundary failed: {status} {by_biz}",
+        )
+        status, missing = request(
+            args.port,
+            "/api/company/source/workflow/instances/missing-instance",
+            token=token,
+        )
+        expect(
+            status == 404
+            and missing is not None
+            and missing.get("code") == 43001,
+            f"source workflow detail 404 failed: {status} {missing}",
+        )
+        print(
+            "source-read-smoke: contracts=2 payment_applies=3 budget_users=4 "
+            "loan_balance=3500 workflow_instances=0 workflow_actions=0",
+        )
+        return 0
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except SmokeError as error:
+        print(f"source-read-smoke: FAIL: {error}", file=sys.stderr)
+        raise SystemExit(1)

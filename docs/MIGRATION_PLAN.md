@@ -438,23 +438,27 @@ definitions and show an explicit empty-template state. Template execution,
 creation, deletion, exports, production identity, and report-owner acceptance
 remain separate gates.
 
-**Next-wave source audit (2026-07-14).** The route register has 56 source
-`GET`/`HEAD` handlers that are not yet marked connected, but they are not one
-uniform backlog. Four groups are now explicit:
+**Next-wave source audit (2026-07-14).** The route register initially had 56
+source `GET`/`HEAD` handlers that were not marked connected. After the
+evidence-ready batch below, 45 remain; they are not one uniform backlog. Four
+groups are now explicit:
 
 * **Evidence-ready reads:** contract/payment/milestone reads can use the
   non-empty `cb_contract`, `cb_htfk_apply`, `cb_htfkplan`, and `cb_cost` source
   envelopes; budget scope and loan-balance reads can use the imported
-  `sys_user`, `mu_business_unit`, and `vcb_loan_simple` rows. These are the next
-  bounded adapters to evaluate, with source coverage and source-compatible
-  empty/not-found semantics before changing parity state.
+  `sys_user`, `mu_business_unit`, and `vcb_loan_simple` rows. The source service,
+  read-model server, Rabbita loaders, and read-only smoke now cover this batch.
+  Responses preserve source-compatible shapes, report coverage, and keep
+  missing `cb_contract_milestone` plus empty workflow-instance/action tables
+  explicit; no read grants authority, persistence, provider execution, or cash.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
-  have defined `wf_process_instance`/`wf_step_action` tables but zero rows;
+  now have an empty-safe observation adapter over defined
+  `wf_process_instance`/`wf_step_action` tables, but still zero rows;
   attachment download has no imported `attachment` rows; invoice/tax,
   sales/receivables, progress/output, tender/award/split, and several
-  investment detail tables are absent or empty in this snapshot. These may only
-  be exposed as explicit empty-source observations after an adapter proves the
-  boundary; no fixture rows may fill the gap.
+  investment detail tables are absent or empty in this snapshot. The remaining
+  families may only be exposed as explicit empty-source observations after an
+  adapter proves the boundary; no fixture rows may fill the gap.
 * **Identity/RBAC and operational reads:** preferences, role/permission
   catalogs, full health/backup, and import-template reads require the reviewed
   identity/operations boundary or a broader source export. They are not
@@ -463,13 +467,30 @@ uniform backlog. Four groups are now explicit:
   and similar status/verification endpoints remain provider and credential
   gates. A successful metadata read does not authorize a provider call.
 
-The remaining 233 API handlers are therefore deliberately split between these
+The remaining 222 API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
 those fields apply. This audit changes the next implementation wave from a
-route-count sweep to a small evidence-ready read batch followed by production
-identity acceptance and the missing-table export gate.
+route-count sweep to production-identity acceptance for the completed batch and
+the missing-table export gate for the remaining candidates.
+
+**Evidence-ready read batch checkpoint (2026-07-14).** The following source
+handlers are now connected in the action register as bounded, non-authorizing
+reads: cost `/contracts`, `/contracts/:guid`, `/contracts/:guid/milestones`,
+and `/payment-applies` (4); budget `/users-in-bu` and `/my-loan-balance` (2);
+and workflow `/tasks/mine`, `/tasks/initiated`, `/instances/by-biz`,
+`/instances/:piGuid`, and `/tasks/my-history` (5). The PostgreSQL service and
+read-model adapter return the imported contract/payment rows (2 contracts,
+4 plans, 3 applications), the explicit empty milestone table, four scoped
+budget users, a 3,500.00 loan balance for `limingjin`, and empty workflow
+instance/action observations with a source-compatible 404 for a missing detail.
+Rabbita now loads source contracts/payment applications, renders budget scope
+and balance provenance on the expense surfaces, and chains all three workflow
+observation lists after the definition read. The dedicated
+`scripts/company_postgres_source_read_smoke.py` passes without mutations.
+These are still local evidence: production identity, browser acceptance, named
+owner reconciliation, and the missing 49-table export remain open.
 
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
@@ -600,7 +621,8 @@ Execute the remainder in this order:
 2. Replace the local session/actor adapter with the reviewed production
    identity, token issuer, rotation, persistence, deployment, and rollback
    boundary for the currently connected bounded reads. Accept the imported
-   profile/initiated-documents, expense-list, dynamic-cost, project/MDM,
+   profile/initiated-documents, expense-list, contract/payment, budget
+   scope/balance, workflow observation, dynamic-cost, project/MDM,
    investment, governance, report, supplier-provider, supplier-risk, notification,
    OCR/error metadata, AI analytics, and webhook configuration reads through
    the real gateway session with named owner reconciliation. A truthful empty
@@ -614,14 +636,15 @@ Execute the remainder in this order:
    or fabricate approval, supplier, risk, or expense rows from the current
    backup. Keep the current 26-table/120-row snapshot as the immutable
    rehearsal baseline and compare the new export before raw staging.
-3a. Implement only the next evidence-ready read batch identified by the
-    source audit: contract/payment/milestone reads, budget user/loan scope, and
-    workflow instance/task observation endpoints where the source tables are
-    defined. Each adapter must be source-compatible, bounded, non-authorizing,
-    and empty-safe; update the parity register only after service, read-model,
-    Rabbita, smoke, and owner-evidence checks pass. Do not use this batch to
-    unlock commands or to infer missing sales, invoice, supplier, tender, tax,
-    or investment detail rows.
+3a. **Completed locally (2026-07-14):** implement only the evidence-ready read
+    batch identified by the source audit: contract/payment/milestone reads,
+    budget user/loan scope, and workflow instance/task observation endpoints
+    where the source tables are defined. The service, read-model, Rabbita, and
+    dedicated read-only smoke checks pass; the parity action register now marks
+    11 source GET handlers connected. Do not use this batch to unlock commands
+    or to infer missing sales, invoice, supplier, tender, tax, or investment
+    detail rows. The remaining gate is production identity, browser acceptance,
+    owner evidence, and the missing-table export.
 4. Close the procurement acceptance gap after the source-data decision.
    The local supplier lifecycle/risk reads, source-compatible provider-list/detail and risk-board reads,
    tender planning/award/complete,

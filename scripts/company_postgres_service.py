@@ -21,6 +21,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/expenses`` (POST create draft)
 * ``/api/company/expenses/<id>/{submit,approve,reject,resubmit}`` (POST)
 * ``/api/company/contracts`` and ``/api/company/contracts/<id>`` (GET)
+* ``/api/company/source/cost/contracts[/{id}[/milestones]]`` and
+  ``/api/company/source/cost/payment-applies`` (GET, imported-source contract
+  and payment observations)
 * ``/api/company/contracts`` (POST create draft)
 * ``/api/company/contracts/<id>/{submit,approve,reject,resubmit}`` (POST)
 * ``/api/company/payment-applies`` and ``/api/company/payment-applies/<id>`` (GET)
@@ -53,10 +56,16 @@ The bounded service exposes these endpoints:
   source-backed bounded cockpit reads)
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
+* ``/api/company/source/workflow/{tasks/mine,tasks/initiated,tasks/my-history,
+  instances/by-biz,instances/<id>}`` (GET, non-authorizing workflow
+  observations)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
 * ``/api/company/business-units/tree`` (GET, source-compatible MDM read)
 * ``/api/company/budget/dict/cost-subjects`` and
   ``/api/company/budget/proceedings`` (GET, source-compatible budget reads)
+* ``/api/company/source/budget/users-in-bu`` and
+  ``/api/company/source/budget/my-loan-balance`` (GET, explicit-scope source
+  reads)
 * ``/api/company/investment/{projects,versions,meta}/...`` (GET,
   source-compatible investment reads)
 * ``/api/company/investment/projects/<id>/profit-actual-v2`` (GET,
@@ -950,6 +959,385 @@ def contract_milestones(pool: PsqlPool, contract_id: str, max_rows: int) -> list
         except (ValueError, UnicodeDecodeError) as error:
             raise ServiceError("invalid contract milestone encoding") from error
     return result
+
+
+COST_SOURCE_TABLES = {
+    "cb_contract",
+    "cb_htfk_apply",
+    "cb_htfkplan",
+    "cb_contract_milestone",
+    "ep_project",
+    "mu_business_unit",
+    "sys_user",
+    "jd_task",
+}
+
+
+def _cost_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _cost_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), COST_SOURCE_TABLES))
+        for table in sorted(COST_SOURCE_TABLES)
+    }
+
+
+def _cost_source_related_rows(
+    pool: PsqlPool,
+    max_rows: int,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
+    return (
+        _raw_source_rows(pool, "cb_contract", max(max_rows, 500), COST_SOURCE_TABLES),
+        _raw_source_rows(pool, "cb_htfk_apply", max(max_rows, 500), COST_SOURCE_TABLES),
+        _raw_source_rows(pool, "cb_htfkplan", max(max_rows, 500), COST_SOURCE_TABLES),
+        _raw_source_rows(pool, "cb_contract_milestone", max(max_rows, 500), COST_SOURCE_TABLES),
+        _raw_source_rows(pool, "ep_project", max(max_rows, 500), COST_SOURCE_TABLES),
+        _raw_source_rows(pool, "mu_business_unit", max(max_rows, 500), COST_SOURCE_TABLES),
+    )
+
+
+def _cost_source_users(pool: PsqlPool, max_rows: int) -> dict[str, dict[str, Any]]:
+    return {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), COST_SOURCE_TABLES)
+    }
+
+
+def _cost_source_contract_row(
+    row: dict[str, Any],
+    projects: dict[str, dict[str, Any]],
+    units: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    payload = row["payload"]
+    contract_id = _report_text(payload, "contract_guid", row["record_id"])
+    amount = _report_float(payload, "ht_amount")
+    alteration = _report_float(payload, "sum_alter_amount")
+    project_id = _report_text(payload, "proj_guid")
+    bu_id = _report_text(payload, "bu_guid")
+    result = {
+        "contractGuid": contract_id,
+        "contractCode": _report_text(payload, "contract_code", contract_id),
+        "contractName": _report_text(payload, "contract_name", contract_id),
+        "buGuid": bu_id,
+        "buName": _report_text(units.get(bu_id, {}), "bu_name", bu_id),
+        "projGuid": project_id,
+        "projName": _report_text(projects.get(project_id, {}), "proj_name", project_id),
+        "htTypeCode": _report_text(payload, "ht_type_code"),
+        "htClass": payload.get("ht_class", 0),
+        "yfProviderName": _report_text(payload, "yf_provider_name"),
+        "yfCorporation": _report_text(payload, "yf_corporation"),
+        "htAmount": amount,
+        "sumAlterAmount": alteration,
+        "currentAmount": amount + alteration,
+        "signDate": _report_text(payload, "sign_date"),
+        "htCfState": _report_text(payload, "ht_cf_state"),
+        "jsState": _report_text(payload, "js_state"),
+        "costCode": _report_text(payload, "cost_code"),
+        "rCode": _report_text(payload, "r_code"),
+        "l3Code": _report_text(payload, "l3_code"),
+        "cbState": _report_text(payload, "cb_state"),
+        "sourceKind": "imported",
+        "sourceId": row["source_id"],
+        # Compatibility fields used by the Rabbita table while the source
+        # shape remains available above.
+        "contract_id": contract_id,
+        "contract_code": _report_text(payload, "contract_code", contract_id),
+        "contract_name": _report_text(payload, "contract_name", contract_id),
+        "project_id": project_id,
+        "project_name": _report_text(projects.get(project_id, {}), "proj_name", project_id),
+        "supplier_id": _report_text(payload, "yf_provider_name"),
+        "supplier_name": _report_text(payload, "yf_provider_name"),
+        "amount_minor": int(round(amount * 100)),
+        "amount_display": f"¥{amount:,.2f}",
+        "currency": "CNY",
+        "sign_date": _report_text(payload, "sign_date"),
+        "state": "active" if _report_text(payload, "ht_cf_state") not in {"已终止", "作废"} else "voided",
+        "paid_amount_display": "¥0.00",
+        "milestone_count": "0",
+        "source_kind": "imported",
+    }
+    return result
+
+
+def cost_source_contracts(
+    pool: PsqlPool,
+    contract_id: str | None,
+    bu_guid: str | None,
+    proj_guid: str | None,
+    keyword: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read ERP ``GET /cost/contracts`` from imported source envelopes only."""
+
+    for value, label in ((contract_id, "contract_id"), (bu_guid, "bu_guid"), (proj_guid, "proj_guid")):
+        if value is not None and not IDENTIFIER.fullmatch(value):
+            raise ValueError(f"invalid {label}")
+    if keyword is not None and len(keyword) > 128:
+        raise ValueError("invalid keyword")
+    raw_contracts, raw_applies, raw_plans, raw_milestones, raw_projects, raw_units = _cost_source_related_rows(
+        pool, max_rows,
+    )
+    projects = {
+        _report_text(row["payload"], "proj_guid", row["record_id"]): row["payload"]
+        for row in raw_projects
+    }
+    units = {
+        _report_text(row["payload"], "bu_guid", row["record_id"]): row["payload"]
+        for row in raw_units
+    }
+    paid_by_contract: dict[str, float] = {}
+    for row in raw_applies:
+        payload = row["payload"]
+        if _report_text(payload, "pay_state") in {"完全支付", "部分支付"}:
+            key = _report_text(payload, "contract_guid")
+            paid_by_contract[key] = paid_by_contract.get(key, 0.0) + _report_float(payload, "apply_amount")
+    milestone_counts: dict[str, int] = {}
+    for row in raw_milestones:
+        key = _report_text(row["payload"], "contract_guid")
+        milestone_counts[key] = milestone_counts.get(key, 0) + 1
+    result: list[dict[str, Any]] = []
+    for row in raw_contracts:
+        payload = row["payload"]
+        current_id = _report_text(payload, "contract_guid", row["record_id"])
+        if contract_id is not None and current_id != contract_id:
+            continue
+        if bu_guid is not None and _report_text(payload, "bu_guid") != bu_guid:
+            continue
+        if proj_guid is not None and _report_text(payload, "proj_guid") != proj_guid:
+            continue
+        if keyword is not None:
+            needle = keyword.casefold()
+            haystack = " ".join(
+                _report_text(payload, key)
+                for key in ("contract_name", "contract_code", "yf_provider_name")
+            ).casefold()
+            if needle not in haystack:
+                continue
+        item = _cost_source_contract_row(row, projects, units)
+        paid = paid_by_contract.get(current_id, 0.0)
+        item["paidAmount"] = paid
+        item["paid_amount_display"] = f"¥{paid:,.2f}"
+        item["milestoneCount"] = milestone_counts.get(current_id, 0)
+        item["milestone_count"] = str(milestone_counts.get(current_id, 0))
+        result.append(item)
+    result.sort(key=lambda item: (str(item.get("signDate", "")), str(item.get("contractGuid", ""))), reverse=True)
+    coverage = _cost_source_coverage(pool, max_rows)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_cost_source_metadata(coverage)}
+
+
+def cost_source_contract_detail(
+    pool: PsqlPool,
+    contract_id: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(contract_id):
+        raise ValueError("invalid contract_id")
+    raw_contracts, raw_applies, raw_plans, raw_milestones, raw_projects, raw_units = _cost_source_related_rows(
+        pool, max_rows,
+    )
+    projects = {_report_text(row["payload"], "proj_guid", row["record_id"]): row["payload"] for row in raw_projects}
+    units = {_report_text(row["payload"], "bu_guid", row["record_id"]): row["payload"] for row in raw_units}
+    contract_row = next(
+        (row for row in raw_contracts if _report_text(row["payload"], "contract_guid", row["record_id"]) == contract_id),
+        None,
+    )
+    if contract_row is None:
+        return None
+    contract = _cost_source_contract_row(contract_row, projects, units)
+    contract_bu = _report_text(contract_row["payload"], "bu_guid")
+    users = _cost_source_users(pool, max_rows)
+    plans: list[dict[str, Any]] = []
+    for row in raw_plans:
+        payload = row["payload"]
+        if _report_text(payload, "contract_guid") != contract_id or _report_text(payload, "bu_guid") != contract_bu:
+            continue
+        jbr = _report_text(payload, "jbr_guid")
+        plans.append({
+            "htfkPlanGuid": _report_text(payload, "htfk_plan_guid", row["record_id"]),
+            "planPeriod": _report_text(payload, "plan_period"),
+            "jhfkDate": _report_text(payload, "jhfk_date"),
+            "jhfkAmount": _report_float(payload, "jhfk_amount"),
+            "approveState": _report_text(payload, "approve_state"),
+            "jbrName": _report_text(users.get(jbr, {}), "emp_name", jbr),
+        })
+    applies: list[dict[str, Any]] = []
+    for row in raw_applies:
+        payload = row["payload"]
+        if _report_text(payload, "contract_guid") != contract_id or _report_text(payload, "bu_guid") != contract_bu:
+            continue
+        state = _report_text(payload, "pay_state")
+        applies.append({
+            "htfkApplyGuid": _report_text(payload, "htfk_apply_guid", row["record_id"]),
+            "applyCode": _report_text(payload, "apply_code"),
+            "subject": _report_text(payload, "subject"),
+            "applyState": _report_text(payload, "apply_state"),
+            "payState": state,
+            "applyAmount": _report_float(payload, "apply_amount"),
+            "applyDate": _report_text(payload, "apply_date"),
+            "appliedByName": _report_text(users.get(_report_text(payload, "applied_by"), {}), "emp_name", _report_text(payload, "applied_by")),
+            "milestoneGuid": _report_text(payload, "milestone_guid"),
+            "earlyPayFlag": payload.get("early_pay_flag", 0),
+            "operationState": state if state != "未支付" else _report_text(payload, "apply_state"),
+        })
+    tasks = {
+        _report_text(row["payload"], "task_guid", row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "jd_task", max(max_rows, 500), COST_SOURCE_TABLES)
+    }
+    milestones: list[dict[str, Any]] = []
+    for row in raw_milestones:
+        payload = row["payload"]
+        if _report_text(payload, "contract_guid") != contract_id:
+            continue
+        trigger_value = _report_text(payload, "trigger_value")
+        task = tasks.get(trigger_value, {})
+        milestones.append({
+            "milestoneGuid": _report_text(payload, "milestone_guid", row["record_id"]),
+            "seq": payload.get("seq", 0),
+            "nodeName": _report_text(payload, "node_name"),
+            "triggerType": _report_text(payload, "trigger_type"),
+            "triggerValue": trigger_value,
+            "triggerTaskName": _report_text(task, "task_name"),
+            "triggerTaskStatus": _report_text(task, "status"),
+            "planDate": _report_text(payload, "plan_date"),
+            "planAmount": _report_float(payload, "plan_amount"),
+            "planPct": _report_float(payload, "plan_pct"),
+            "actualAmount": _report_float(payload, "actual_amount"),
+            "state": _report_text(payload, "state"),
+            "reachedAt": _report_text(payload, "reached_at"),
+            "notes": _report_text(payload, "notes"),
+        })
+    contract["plans"] = plans
+    contract["applies"] = applies
+    contract["milestones"] = milestones
+    paid = sum(
+        float(item.get("applyAmount") or 0)
+        for item in applies
+        if str(item.get("payState") or "") in {"完全支付", "部分支付"}
+    )
+    contract["paidAmount"] = paid
+    contract["paid_amount_display"] = f"¥{paid:,.2f}"
+    contract["milestoneCount"] = len(milestones)
+    contract["milestone_count"] = str(len(milestones))
+    coverage = _cost_source_coverage(pool, max_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"contract": contract, "plans": plans, "applies": applies, "milestones": milestones},
+        **_cost_source_metadata(coverage),
+    }
+
+
+def cost_source_payment_applications(
+    pool: PsqlPool,
+    view: str,
+    bu_guid: str | None,
+    user_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if view not in {"all", "mine", "approving", "approved", "fullpaid"}:
+        raise ValueError("unsupported payment application view")
+    if bu_guid is not None and not IDENTIFIER.fullmatch(bu_guid):
+        raise ValueError("invalid bu_guid")
+    if user_id is not None and not IDENTIFIER.fullmatch(user_id):
+        raise ValueError("invalid user_id")
+    raw_contracts, raw_applies, _plans, _milestones, raw_projects, raw_units = _cost_source_related_rows(pool, max_rows)
+    contracts = {_report_text(row["payload"], "contract_guid", row["record_id"]): row["payload"] for row in raw_contracts}
+    projects = {_report_text(row["payload"], "proj_guid", row["record_id"]): row["payload"] for row in raw_projects}
+    units = {_report_text(row["payload"], "bu_guid", row["record_id"]): row["payload"] for row in raw_units}
+    users = _cost_source_users(pool, max_rows)
+    result: list[dict[str, Any]] = []
+    for row in raw_applies:
+        payload = row["payload"]
+        contract_id = _report_text(payload, "contract_guid")
+        contract = contracts.get(contract_id)
+        if contract is None or payload.get("deleted_at"):
+            continue
+        if bu_guid is not None and _report_text(payload, "bu_guid") != bu_guid:
+            continue
+        applied_by = _report_text(payload, "applied_by")
+        if user_id is not None and applied_by != user_id:
+            continue
+        apply_state = _report_text(payload, "apply_state")
+        pay_state = _report_text(payload, "pay_state")
+        operation = pay_state if pay_state != "未支付" else apply_state
+        if view == "mine" and user_id is None:
+            continue
+        if view == "mine" and applied_by != user_id:
+            continue
+        if view == "approving" and apply_state not in {"申请审批中", "Approving", "submitted"}:
+            continue
+        if view == "approved" and apply_state not in {"已审核", "Approved", "approved"}:
+            continue
+        if view == "fullpaid" and pay_state != "完全支付":
+            continue
+        amount = _report_float(payload, "apply_amount")
+        project_id = _report_text(payload, "proj_guid")
+        apply_dept = _report_text(payload, "apply_dept_guid")
+        result.append({
+            "htfkApplyGuid": _report_text(payload, "htfk_apply_guid", row["record_id"]),
+            "applyCode": _report_text(payload, "apply_code"),
+            "contractGuid": contract_id,
+            "contractName": _report_text(contract, "contract_name", contract_id),
+            "yfProviderName": _report_text(contract, "yf_provider_name"),
+            "projGuid": project_id,
+            "projName": _report_text(projects.get(project_id, {}), "proj_name", project_id),
+            "payClass": "合同" if str(payload.get("apply_class", 0)) == "0" else "非合同",
+            "operationState": operation,
+            "applyState": apply_state,
+            "payState": pay_state,
+            "subject": _report_text(payload, "subject"),
+            "applyDeptName": _report_text(units.get(apply_dept, {}), "bu_name", apply_dept),
+            "appliedBy": applied_by,
+            "appliedByName": _report_text(users.get(applied_by, {}), "emp_name", applied_by),
+            "applyDate": _report_text(payload, "apply_date"),
+            "applyAmount": amount,
+            "applyTypeCode": _report_text(payload, "apply_type_code"),
+            "htfkPlanGuid": _report_text(payload, "htfk_plan_guid"),
+            "milestoneGuid": _report_text(payload, "milestone_guid"),
+            "sourceKind": "imported",
+            "sourceId": row["source_id"],
+            "apply_id": _report_text(payload, "htfk_apply_guid", row["record_id"]),
+            "apply_code": _report_text(payload, "apply_code"),
+            "contract_id": contract_id,
+            "contract_name": _report_text(contract, "contract_name", contract_id),
+            "project_name": _report_text(projects.get(project_id, {}), "proj_name", project_id),
+            "supplier_name": _report_text(contract, "yf_provider_name"),
+            "amount_minor": int(round(amount * 100)),
+            "amount_display": f"¥{amount:,.2f}",
+            "currency": "CNY",
+            "apply_date": _report_text(payload, "apply_date"),
+            "operation_state": operation,
+            "apply_state": apply_state,
+            "pay_state": pay_state,
+            "apply_type_code": _report_text(payload, "apply_type_code"),
+            "pay_class": "合同" if str(payload.get("apply_class", 0)) == "0" else "非合同",
+            "applied_by": applied_by,
+            "applied_by_name": _report_text(users.get(applied_by, {}), "emp_name", applied_by),
+            "source_kind": "imported",
+            "plan_id": _report_text(payload, "htfk_plan_guid"),
+            "milestone_id": _report_text(payload, "milestone_guid"),
+        })
+    result.sort(key=lambda item: (str(item.get("applyDate", "")), str(item.get("htfkApplyGuid", ""))), reverse=True)
+    coverage = _cost_source_coverage(pool, max_rows)
+    return {"success": True, "code": 0, "data": result[:max_rows], **_cost_source_metadata(coverage)}
 
 
 def _decode_tender_fields(line: str) -> dict[str, Any]:
@@ -4634,6 +5022,139 @@ def budget_proceedings(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     }
 
 
+BUDGET_SCOPE_SOURCE_TABLES = {
+    "sys_user",
+    "mu_business_unit",
+    "vcb_loan_simple",
+    "ep_project",
+}
+
+
+def _budget_scope_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _budget_scope_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), BUDGET_SCOPE_SOURCE_TABLES))
+        for table in sorted(BUDGET_SCOPE_SOURCE_TABLES)
+    }
+
+
+def budget_source_users_in_bu(
+    pool: PsqlPool,
+    bu_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read ERP ``GET /budget/users-in-bu`` without granting scope."""
+
+    if bu_guid is not None and not IDENTIFIER.fullmatch(bu_guid):
+        raise ValueError("invalid bu_guid")
+    raw_users = _raw_source_rows(pool, "sys_user", max(max_rows, 500), BUDGET_SCOPE_SOURCE_TABLES)
+    raw_units = _raw_source_rows(pool, "mu_business_unit", max(max_rows, 500), BUDGET_SCOPE_SOURCE_TABLES)
+    units = {
+        _report_text(row["payload"], "bu_guid", row["record_id"]): row["payload"]
+        for row in raw_units
+    }
+    selected = units.get(bu_guid, {}) if bu_guid else {}
+    selected_hierarchy = _report_text(selected, "hierarchy_code")
+    allowed_units: set[str] = set()
+    if bu_guid:
+        for guid, payload in units.items():
+            hierarchy = _report_text(payload, "hierarchy_code")
+            if guid == bu_guid or (
+                selected_hierarchy and hierarchy.startswith(selected_hierarchy + ".")
+            ):
+                allowed_units.add(guid)
+    result: list[dict[str, Any]] = []
+    for row in raw_users:
+        payload = row["payload"]
+        if not bool(payload.get("enabled", 0)):
+            continue
+        user_bu = _report_text(payload, "bu_guid")
+        dept = _report_text(payload, "dept_guid")
+        if bu_guid is None or user_bu in allowed_units or dept in allowed_units:
+            result.append({
+                "userId": _report_text(payload, "user_id", row["record_id"]),
+                "empName": _report_text(payload, "emp_name", _report_text(payload, "user_name")),
+                "deptGuid": dept,
+                "buGuid": user_bu,
+                "sourceKind": "imported",
+                "sourceId": row["source_id"],
+            })
+    result.sort(key=lambda value: (str(value.get("empName", "")), str(value.get("userId", ""))))
+    coverage = _budget_scope_coverage(pool, max_rows)
+    metadata = _budget_scope_metadata(coverage)
+    metadata["scope_applied"] = bool(bu_guid)
+    metadata["scope_required"] = not bool(bu_guid)
+    return {"success": True, "code": 0, "data": result[:max_rows], **metadata}
+
+
+def budget_source_my_loan_balance(
+    pool: PsqlPool,
+    user_code: str | None,
+    user_id: str | None,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read ERP ``GET /budget/my-loan-balance`` for an explicit source user."""
+
+    if user_code is not None and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    if user_id is not None and not IDENTIFIER.fullmatch(user_id):
+        raise ValueError("invalid user_id")
+    raw_users = _raw_source_rows(pool, "sys_user", max(max_rows, 500), BUDGET_SCOPE_SOURCE_TABLES)
+    selected_id = user_id
+    if user_code is not None:
+        selected = next(
+            (row for row in raw_users if _report_text(row["payload"], "user_code") == user_code),
+            None,
+        )
+        if selected is None:
+            return None
+        selected_id = _report_text(selected["payload"], "user_id", selected["record_id"])
+    raw_loans = _raw_source_rows(pool, "vcb_loan_simple", max(max_rows, 500), BUDGET_SCOPE_SOURCE_TABLES)
+    rows: list[dict[str, Any]] = []
+    for row in raw_loans:
+        payload = row["payload"]
+        if selected_id is None or _report_text(payload, "applied_by") != selected_id:
+            continue
+        if _report_text(payload, "apply_state") not in {"Approved", "已审核", "approved"}:
+            continue
+        remain = _report_float(payload, "remain_amount")
+        if remain <= 0 or payload.get("deleted_at"):
+            continue
+        rows.append({
+            "loanGuid": _report_text(payload, "loan_guid", row["record_id"]),
+            "loanCode": _report_text(payload, "loan_code"),
+            "subject": _report_text(payload, "subject"),
+            "remainAmount": remain,
+            "loanAmount": _report_float(payload, "loan_amount"),
+            "applyDate": _report_text(payload, "apply_date"),
+            "sourceKind": "imported",
+            "sourceId": row["source_id"],
+        })
+    rows.sort(key=lambda value: (str(value.get("applyDate", "")), str(value.get("loanGuid", ""))))
+    coverage = _budget_scope_coverage(pool, max_rows)
+    metadata = _budget_scope_metadata(coverage)
+    metadata["scope_applied"] = selected_id is not None
+    metadata["scope_required"] = selected_id is None
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"total": sum(float(row["remainAmount"]) for row in rows), "loans": rows},
+        **metadata,
+    }
+
+
 INVESTMENT_DIMENSIONS = [
     {"code": "key_point", "name": "项目关键节点", "icon": "📅"},
     {"code": "tax", "name": "项目税费", "icon": "💸"},
@@ -7149,6 +7670,346 @@ def workflow_process_defs(
         "instances_available": coverage["wf_process_instance"],
         "actions_available": coverage["wf_step_action"],
     }
+
+
+def _workflow_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _workflow_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(_workflow_rows(pool, table, max(max_rows, 500)))
+        for table in sorted(WORKFLOW_SOURCE_TABLES)
+    }
+
+
+def _workflow_resolve_user_id(
+    pool: PsqlPool,
+    user_id: str | None,
+    user_code: str | None,
+    max_rows: int,
+) -> str | None:
+    if user_id is not None:
+        if not IDENTIFIER.fullmatch(user_id):
+            raise ValueError("invalid user_id")
+        return user_id
+    if user_code is None:
+        return None
+    if not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    rows = _workflow_rows(pool, "sys_user", max(max_rows, 500))
+    selected = next(
+        (row for row in rows if _report_text(row["payload"], "user_code") == user_code),
+        None,
+    )
+    return _report_text(selected["payload"], "user_id", selected["record_id"]) if selected else None
+
+
+def _workflow_source_context(
+    pool: PsqlPool,
+    max_rows: int,
+) -> tuple[
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    dict[str, dict[str, Any]],
+]:
+    process_rows = _workflow_rows(pool, "wf_process_def", max_rows)
+    step_rows = _workflow_rows(pool, "wf_step_def", max(max_rows, 500))
+    assignee_rows = _workflow_rows(pool, "wf_step_assignee", max(max_rows, 500))
+    user_rows = _workflow_rows(pool, "sys_user", max(max_rows, 500))
+    instance_rows = _workflow_rows(pool, "wf_process_instance", max(max_rows, 500))
+    action_rows = _workflow_rows(pool, "wf_step_action", max(max_rows, 500))
+    users = {
+        _report_text(row["payload"], "user_id", row["record_id"]): row["payload"]
+        for row in user_rows
+    }
+    processes = {
+        _report_text(row["payload"], "process_guid", row["record_id"]): row["payload"]
+        for row in process_rows
+    }
+    steps = {
+        _report_text(row["payload"], "step_guid", row["record_id"]): row["payload"]
+        for row in step_rows
+    }
+    assignees = {
+        _report_text(row["payload"], "assignee_guid", row["record_id"]): row["payload"]
+        for row in assignee_rows
+    }
+    return processes, steps, assignees, users, instance_rows, action_rows, {
+        "process_rows": {key: value for key, value in processes.items()},
+    }
+
+
+def _workflow_instance_value(payload: dict[str, Any], key: str, fallback: str = "") -> str:
+    return _report_text(payload, key, fallback)
+
+
+def _workflow_normalized_instance(row: dict[str, Any]) -> dict[str, Any]:
+    payload = row["payload"]
+    return {
+        "processInstanceGuid": _workflow_instance_value(payload, "process_instance_guid", row["record_id"]),
+        "processGuid": _workflow_instance_value(payload, "process_guid"),
+        "processName": _workflow_instance_value(payload, "process_name"),
+        "processKey": _workflow_instance_value(payload, "process_key"),
+        "bizType": _workflow_instance_value(payload, "biz_type"),
+        "bizDataGuid": _workflow_instance_value(payload, "biz_data_guid"),
+        "status": _workflow_instance_value(payload, "status"),
+        "initiatorGuid": _workflow_instance_value(payload, "initiator_guid"),
+        "buGuid": _workflow_instance_value(payload, "bu_guid"),
+        "initiatedAt": _workflow_instance_value(payload, "initiated_at"),
+        "completedAt": _workflow_instance_value(payload, "completed_at"),
+        "currentStepOrder": payload.get("current_step_order", 0),
+        "sourceId": row["source_id"],
+    }
+
+
+def _workflow_action_rows(
+    action_rows: list[dict[str, Any]],
+    instance_id: str | None = None,
+) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for row in action_rows:
+        payload = row["payload"]
+        current_instance = _workflow_instance_value(payload, "process_instance_guid")
+        if instance_id is not None and current_instance != instance_id:
+            continue
+        result.append({
+            "actionGuid": _workflow_instance_value(payload, "action_guid", row["record_id"]),
+            "processInstanceGuid": current_instance,
+            "stepOrder": payload.get("step_order", 0),
+            "stepName": _workflow_instance_value(payload, "step_name"),
+            "assigneeGuid": _workflow_instance_value(payload, "assignee_guid", _workflow_instance_value(payload, "operator_guid")),
+            "decision": _workflow_instance_value(payload, "decision"),
+            "comment": _workflow_instance_value(payload, "comment"),
+            "actionTime": _workflow_instance_value(payload, "action_time", _workflow_instance_value(payload, "created_at")),
+            "sourceId": row["source_id"],
+        })
+    result.sort(key=lambda value: (str(value.get("actionTime", "")), str(value.get("actionGuid", ""))))
+    return result
+
+
+def _workflow_detail_data(
+    instance: dict[str, Any],
+    process: dict[str, Any],
+    steps: dict[str, dict[str, Any]],
+    assignees: dict[str, dict[str, Any]],
+    users: dict[str, dict[str, Any]],
+    actions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    process_guid = str(instance.get("processGuid") or "")
+    step_rows: list[dict[str, Any]] = []
+    for step_guid, payload in steps.items():
+        if _workflow_instance_value(payload, "process_guid") != process_guid:
+            continue
+        assigned: list[dict[str, Any]] = []
+        for assignee_guid, assignee in assignees.items():
+            if _workflow_instance_value(assignee, "step_guid") != step_guid:
+                continue
+            user_guid = _workflow_instance_value(assignee, "assignee_user_guid")
+            user = users.get(user_guid, {})
+            assigned.append({
+                "assigneeGuid": assignee_guid,
+                "userGuid": user_guid,
+                "userCode": _report_text(user, "user_code"),
+                "userName": _report_text(user, "emp_name", _report_text(user, "user_name", user_guid)),
+                "weight": assignee.get("weight", 1),
+            })
+        step_rows.append({
+            "stepGuid": step_guid,
+            "stepOrder": payload.get("step_order", 0),
+            "stepName": _workflow_instance_value(payload, "step_name"),
+            "threshold": payload.get("threshold", 1),
+            "stepKey": _workflow_instance_value(payload, "step_key"),
+            "stepStatus": _workflow_instance_value(payload, "status"),
+            "assignees": assigned,
+        })
+    step_rows.sort(key=lambda value: (int(value.get("stepOrder") or 0), str(value.get("stepGuid", ""))))
+    initiator = users.get(str(instance.get("initiatorGuid") or ""), {})
+    instance_payload = {
+        "processInstanceGuid": instance.get("processInstanceGuid", ""),
+        "bizType": instance.get("bizType", ""),
+        "bizDataGuid": instance.get("bizDataGuid", ""),
+        "status": instance.get("status", ""),
+        "initiatorGuid": instance.get("initiatorGuid", ""),
+        "initiatedAt": instance.get("initiatedAt", ""),
+        "completedAt": instance.get("completedAt", ""),
+        "currentStepOrder": instance.get("currentStepOrder", 0),
+    }
+    return {
+        "instance": instance_payload,
+        "processName": _report_text(process, "process_name", str(instance.get("processName") or instance.get("processKey") or "")),
+        "initiator": {
+            "userId": instance.get("initiatorGuid", ""),
+            "empName": _report_text(initiator, "emp_name", _report_text(initiator, "user_name", str(instance.get("initiatorGuid") or ""))),
+        },
+        "steps": step_rows,
+        "actions": [
+            {
+                **action,
+                "assigneeEmpName": _report_text(users.get(str(action.get("assigneeGuid") or ""), {}), "emp_name", str(action.get("assigneeGuid") or "")),
+            }
+            for action in actions
+        ],
+    }
+
+
+def workflow_source_tasks_mine(
+    pool: PsqlPool,
+    user_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if user_id is not None and not IDENTIFIER.fullmatch(user_id):
+        raise ValueError("invalid user_id")
+    _processes, _steps, _assignees, _users, instance_rows, action_rows, _ = _workflow_source_context(pool, max_rows)
+    instances = [_workflow_normalized_instance(row) for row in instance_rows]
+    actions_by_instance: dict[str, list[dict[str, Any]]] = {}
+    for action in _workflow_action_rows(action_rows):
+        actions_by_instance.setdefault(str(action.get("processInstanceGuid") or ""), []).append(action)
+    result: list[dict[str, Any]] = []
+    for instance in instances:
+        if str(instance.get("status", "")) not in {"Running", "Approving", "running", "submitted"}:
+            continue
+        actions = actions_by_instance.get(str(instance.get("processInstanceGuid", "")), [])
+        if user_id is not None and actions and not any(str(action.get("assigneeGuid")) == user_id for action in actions):
+            continue
+        result.append({
+            "processInstanceGuid": instance["processInstanceGuid"],
+            "processName": instance["processName"],
+            "bizType": instance["bizType"],
+            "bizDataGuid": instance["bizDataGuid"],
+            "currentStep": {"stepOrder": instance["currentStepOrder"], "stepName": ""},
+            "initiator": {"userId": instance["initiatorGuid"], "empName": ""},
+            "initiatedAt": instance["initiatedAt"],
+        })
+    coverage = _workflow_source_coverage(pool, max_rows)
+    metadata = _workflow_source_metadata(coverage)
+    metadata["scope_applied"] = user_id is not None
+    return {"success": True, "code": 0, "data": result[:max_rows], **metadata}
+
+
+def workflow_source_tasks_initiated(
+    pool: PsqlPool,
+    user_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if user_id is not None and not IDENTIFIER.fullmatch(user_id):
+        raise ValueError("invalid user_id")
+    _processes, _steps, _assignees, _users, instance_rows, _action_rows, _ = _workflow_source_context(pool, max_rows)
+    result: list[dict[str, Any]] = []
+    for row in instance_rows:
+        instance = _workflow_normalized_instance(row)
+        if user_id is not None and instance["initiatorGuid"] != user_id:
+            continue
+        result.append({
+            "processInstanceGuid": instance["processInstanceGuid"],
+            "processName": instance["processName"],
+            "bizType": instance["bizType"],
+            "bizDataGuid": instance["bizDataGuid"],
+            "status": instance["status"],
+            "initiatedAt": instance["initiatedAt"],
+            "completedAt": instance["completedAt"],
+            "currentStepOrder": instance["currentStepOrder"],
+        })
+    coverage = _workflow_source_coverage(pool, max_rows)
+    metadata = _workflow_source_metadata(coverage)
+    metadata["scope_applied"] = user_id is not None
+    return {"success": True, "code": 0, "data": result[:max_rows], **metadata}
+
+
+def workflow_source_history(
+    pool: PsqlPool,
+    user_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if user_id is not None and not IDENTIFIER.fullmatch(user_id):
+        raise ValueError("invalid user_id")
+    _processes, _steps, _assignees, users, instance_rows, action_rows, _ = _workflow_source_context(pool, max_rows)
+    instances = {_workflow_normalized_instance(row)["processInstanceGuid"]: _workflow_normalized_instance(row) for row in instance_rows}
+    result: list[dict[str, Any]] = []
+    for action in _workflow_action_rows(action_rows):
+        if user_id is not None and str(action.get("assigneeGuid") or "") != user_id:
+            continue
+        instance = instances.get(str(action.get("processInstanceGuid") or ""), {})
+        if not instance:
+            continue
+        result.append({
+            "processInstanceGuid": instance.get("processInstanceGuid", ""),
+            "processName": instance.get("processName", ""),
+            "bizType": instance.get("bizType", ""),
+            "bizDataGuid": instance.get("bizDataGuid", ""),
+            "status": instance.get("status", ""),
+            "initiatedAt": instance.get("initiatedAt", ""),
+            "completedAt": instance.get("completedAt", ""),
+            "currentStepOrder": instance.get("currentStepOrder", 0),
+            "initiator": {"empName": _report_text(users.get(str(instance.get("initiatorGuid") or ""), {}), "emp_name")},
+            "myLastActionTime": action.get("actionTime", ""),
+            "myLastDecision": action.get("decision", ""),
+        })
+    coverage = _workflow_source_coverage(pool, max_rows)
+    metadata = _workflow_source_metadata(coverage)
+    metadata["scope_applied"] = user_id is not None
+    return {"success": True, "code": 0, "data": result[:max_rows], **metadata}
+
+
+def workflow_source_instance_detail(
+    pool: PsqlPool,
+    instance_id: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(instance_id):
+        raise ValueError("invalid process_instance_id")
+    processes, steps, assignees, users, instance_rows, action_rows, _ = _workflow_source_context(pool, max_rows)
+    source_row = next(
+        (row for row in instance_rows if _workflow_instance_value(row["payload"], "process_instance_guid", row["record_id"]) == instance_id),
+        None,
+    )
+    if source_row is None:
+        return None
+    instance = _workflow_normalized_instance(source_row)
+    actions = _workflow_action_rows(action_rows, instance_id)
+    process = processes.get(str(instance.get("processGuid") or ""), {})
+    coverage = _workflow_source_coverage(pool, max_rows)
+    return {"success": True, "code": 0, "data": _workflow_detail_data(instance, process, steps, assignees, users, actions), **_workflow_source_metadata(coverage)}
+
+
+def workflow_source_instance_by_biz(
+    pool: PsqlPool,
+    biz_type: str,
+    biz_data_guid: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(biz_type) or not IDENTIFIER.fullmatch(biz_data_guid):
+        raise ValueError("invalid workflow business identity")
+    _processes, _steps, _assignees, _users, instance_rows, _actions, _ = _workflow_source_context(pool, max_rows)
+    candidates = [
+        row for row in instance_rows
+        if _workflow_instance_value(row["payload"], "biz_type") == biz_type
+        and _workflow_instance_value(row["payload"], "biz_data_guid") == biz_data_guid
+    ]
+    candidates.sort(key=lambda row: _workflow_instance_value(row["payload"], "initiated_at"), reverse=True)
+    result = None
+    if candidates:
+        result = workflow_source_instance_detail(
+            pool,
+            _workflow_instance_value(candidates[0]["payload"], "process_instance_guid", candidates[0]["record_id"]),
+            max_rows,
+        )
+        result = result.get("data") if result else None
+    coverage = _workflow_source_coverage(pool, max_rows)
+    return {"success": True, "code": 0, "data": result, **_workflow_source_metadata(coverage)}
 
 
 LOAN_SOURCE_TABLES = {
@@ -11829,6 +12690,57 @@ def handler_factory(
                         response(self, 404, {"error": "user not found"}, origin)
                     else:
                         response(self, 200, result, origin)
+                elif parsed.path == "/api/company/source/cost/contracts":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cost_source_contracts(
+                            pool,
+                            query.get("contractGuid", query.get("contract_id", [None]))[0],
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            query.get("keyword", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif re.fullmatch(r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}/milestones", parsed.path):
+                    contract_id = parsed.path.split("/")[-2]
+                    detail = cost_source_contract_detail(pool, contract_id, max_response_rows)
+                    if detail is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "合同不存在"}, origin)
+                    else:
+                        response(
+                            self,
+                            200,
+                            {
+                                **detail,
+                                "data": detail["data"]["milestones"],
+                            },
+                            origin,
+                        )
+                elif re.fullmatch(r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    contract_id = parsed.path.rsplit("/", 1)[-1]
+                    detail = cost_source_contract_detail(pool, contract_id, max_response_rows)
+                    if detail is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "合同不存在"}, origin)
+                    else:
+                        response(self, 200, detail, origin)
+                elif parsed.path == "/api/company/source/cost/payment-applies":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        cost_source_payment_applications(
+                            pool,
+                            query.get("view", ["all"])[0],
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            query.get("userId", query.get("user_id", [None]))[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif parsed.path == "/api/company/expenses":
                     value = parse_qs(parsed.query).get("expense_id", [None])[0]
                     response(self, 200, {"items": expenses(pool, value, max_response_rows)}, origin)
@@ -12611,6 +13523,98 @@ def handler_factory(
                             },
                             origin,
                         )
+                elif parsed.path == "/api/company/source/budget/users-in-bu":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        budget_source_users_in_bu(
+                            pool,
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/source/budget/my-loan-balance":
+                    query = parse_qs(parsed.query)
+                    result = budget_source_my_loan_balance(
+                        pool,
+                        query.get("userCode", query.get("user_code", [None]))[0],
+                        query.get("userId", query.get("user_id", [None]))[0],
+                        max_response_rows,
+                    )
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "用户不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif parsed.path == "/api/company/source/workflow/tasks/mine":
+                    query = parse_qs(parsed.query)
+                    user_id = _workflow_resolve_user_id(
+                        pool,
+                        query.get("userId", query.get("user_id", [None]))[0],
+                        query.get("userCode", query.get("user_code", [None]))[0],
+                        max_response_rows,
+                    )
+                    response(
+                        self,
+                        200,
+                        workflow_source_tasks_mine(
+                            pool,
+                            user_id,
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/source/workflow/tasks/initiated":
+                    query = parse_qs(parsed.query)
+                    user_id = _workflow_resolve_user_id(
+                        pool,
+                        query.get("userId", query.get("user_id", [None]))[0],
+                        query.get("userCode", query.get("user_code", [None]))[0],
+                        max_response_rows,
+                    )
+                    response(
+                        self,
+                        200,
+                        workflow_source_tasks_initiated(
+                            pool,
+                            user_id,
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/source/workflow/tasks/my-history":
+                    query = parse_qs(parsed.query)
+                    user_id = _workflow_resolve_user_id(
+                        pool,
+                        query.get("userId", query.get("user_id", [None]))[0],
+                        query.get("userCode", query.get("user_code", [None]))[0],
+                        max_response_rows,
+                    )
+                    response(
+                        self,
+                        200,
+                        workflow_source_history(
+                            pool,
+                            user_id,
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/source/workflow/instances/by-biz":
+                    query = parse_qs(parsed.query)
+                    biz_type = query.get("bizType", query.get("biz_type", [""]))[0]
+                    biz_guid = query.get("bizDataGuid", query.get("biz_data_guid", [""]))[0]
+                    if not biz_type or not biz_guid:
+                        raise CommandRejected("bizType / bizDataGuid 必填", 422)
+                    response(self, 200, workflow_source_instance_by_biz(pool, biz_type, biz_guid, max_response_rows), origin)
+                elif re.fullmatch(r"/api/company/source/workflow/instances/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    instance_id = parsed.path.rsplit("/", 1)[-1]
+                    result = workflow_source_instance_detail(pool, instance_id, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "流程实例不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/loans":
                     query = parse_qs(parsed.query)
                     loan_value = query.get("loan_id", [None])[0]

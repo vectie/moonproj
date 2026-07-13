@@ -14,7 +14,9 @@ tender/supplier/supplier-provider/supplier-risk/sales read verticals are explici
 delivery/project-progress runtime, non-authorizing workflow-definition,
  cashflow, CBS, fund-plan, observed-warning, attachment-metadata, marketing,
  notification metadata, OCR-status, error-log, AI-analytics, and AI Hub observation read boundaries. No
-workflow-instance mutation endpoint is inferred.
+ workflow-instance mutation endpoint is inferred. The source cost contract/payment,
+ budget scope/loan-balance, and workflow instance-observation reads are tracked
+ separately from their command or definition surfaces.
 """
 
 from __future__ import annotations
@@ -344,6 +346,12 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_admin_audit_scenario_and_super_user_owner"
     if target_state == "connected_cost_read":
         return "accept_browser_cost_scenario_and_production_identity"
+    if target_state == "connected_cost_source_read":
+        return "accept_browser_cost_source_scenario_and_production_identity"
+    if target_state == "connected_budget_scope_read":
+        return "accept_browser_budget_scope_scenario_and_production_identity"
+    if target_state == "connected_workflow_observation_read":
+        return "accept_browser_workflow_observation_scenario_and_production_identity"
     if target_state == "connected_cashflow_read":
         return "accept_browser_cashflow_scenario_and_production_identity"
     if target_state == "connected_cbs_read":
@@ -413,6 +421,35 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/process-defs", "/process-defs/:processKey/preview"}
     ):
         return "connected_workflow_definition_read", "accept_browser_workflow_definition_scenario_and_production_identity"
+    if (
+        handler["module"] == "workflow"
+        and handler["method"] == "GET"
+        and handler["path"] in {
+            "/tasks/mine",
+            "/tasks/initiated",
+            "/instances/by-biz",
+            "/instances/:piGuid",
+            "/tasks/my-history",
+        }
+    ):
+        return "connected_workflow_observation_read", "accept_browser_workflow_observation_scenario_and_production_identity"
+    if (
+        handler["module"] == "cost"
+        and handler["method"] == "GET"
+        and handler["path"] in {
+            "/contracts",
+            "/contracts/:guid",
+            "/contracts/:guid/milestones",
+            "/payment-applies",
+        }
+    ):
+        return "connected_cost_source_read", "accept_browser_cost_source_scenario_and_production_identity"
+    if (
+        handler["module"] == "budget"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/users-in-bu", "/my-loan-balance"}
+    ):
+        return "connected_budget_scope_read", "accept_browser_budget_scope_scenario_and_production_identity"
     if (
         handler["module"] == "mdm"
         and handler["method"] == "GET"

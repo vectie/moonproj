@@ -577,6 +577,27 @@ struct WorkflowProcessRow {
 }
 
 ///|
+struct WorkflowObservationRow {
+  process_instance_guid : String
+  process_name : String
+  biz_type : String
+  biz_data_guid : String
+  status : String
+  initiated_at : String
+  decision : String
+  source_kind : String
+}
+
+///|
+struct BudgetScopeUserRow {
+  user_id : String
+  emp_name : String
+  dept_guid : String
+  bu_guid : String
+  source_kind : String
+}
+
+///|
 struct ProjectRow {
   project_id : String
   project_code : String
@@ -861,6 +882,7 @@ struct Model {
   profile_user_code : String
   profile_user_name : String
   profile_emp_name : String
+  profile_bu_guid : String
   profile_bu_name : String
   profile_dept_name : String
   profile_super_user : String
@@ -881,12 +903,24 @@ struct Model {
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
+  budget_scope_loaded : Bool
+  budget_scope_users : Array[BudgetScopeUserRow]
+  budget_scope_note : String
+  budget_loan_balance_loaded : Bool
+  budget_loan_balance_total : String
+  budget_loan_count : String
+  budget_loan_note : String
   loan_id : String
   loan_state : String
   loan_command_note : String
   workflow_loaded : Bool
   workflow_process_rows : Array[WorkflowProcessRow]
   workflow_note : String
+  workflow_observation_loaded : Bool
+  workflow_pending_rows : Array[WorkflowObservationRow]
+  workflow_initiated_rows : Array[WorkflowObservationRow]
+  workflow_history_rows : Array[WorkflowObservationRow]
+  workflow_observation_note : String
   projects_loaded : Bool
   project_rows : Array[ProjectRow]
   project_detail : ProjectRow?
@@ -1083,6 +1117,13 @@ enum Msg {
   LoanCommandFailed
   WorkflowLoaded(String)
   WorkflowLoadFailed
+  WorkflowObservationPendingLoaded(String)
+  WorkflowObservationInitiatedLoaded(String)
+  WorkflowObservationHistoryLoaded(String)
+  WorkflowObservationLoadFailed
+  BudgetScopeLoaded(String)
+  BudgetLoanBalanceLoaded(String)
+  BudgetScopeLoadFailed
   ProjectsLoaded(String)
   ProjectsLoadFailed
   ProjectLoaded(String)
@@ -1361,6 +1402,7 @@ fn initial_model() -> Model {
     profile_user_code: "admin",
     profile_user_name: "系统管理员",
     profile_emp_name: "系统管理员",
+    profile_bu_guid: "bu-group-0001",
     profile_bu_name: "集团总部",
     profile_dept_name: "数字化中心",
     profile_super_user: "是",
@@ -1381,12 +1423,24 @@ fn initial_model() -> Model {
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
+    budget_scope_loaded: false,
+    budget_scope_users: [],
+    budget_scope_note: "预算人员范围源读模型尚未加载 · 使用设计快照",
+    budget_loan_balance_loaded: false,
+    budget_loan_balance_total: "0",
+    budget_loan_count: "0",
+    budget_loan_note: "个人借款余额源读模型尚未加载",
     loan_id: "LOAN-RABBITA-LOCAL",
     loan_state: "new",
     loan_command_note: "本地借款命令需要员工范围 authority 与证据",
     workflow_loaded: false,
     workflow_process_rows: [],
     workflow_note: "工作流定义读模型尚未加载",
+    workflow_observation_loaded: false,
+    workflow_pending_rows: [],
+    workflow_initiated_rows: [],
+    workflow_history_rows: [],
+    workflow_observation_note: "工作流实例源读模型尚未加载 · 使用设计快照",
     projects_loaded: false,
     project_rows: [],
     project_detail: None,
@@ -1515,23 +1569,69 @@ fn contract_from_json(value : Json) -> ContractRow? {
   match value {
     Json::Object(fields) =>
       Some({
-        contract_id: json_object_text(fields, "contract_id", ""),
-        contract_code: json_object_text(fields, "contract_code", ""),
-        contract_name: json_object_text(fields, "contract_name", ""),
-        project_id: json_object_text(fields, "project_id", ""),
-        project_name: json_object_text(fields, "project_name", ""),
-        supplier_id: json_object_text(fields, "supplier_id", ""),
-        supplier_name: json_object_text(fields, "supplier_name", ""),
-        amount_minor: json_object_text(fields, "amount_minor", "0"),
+        contract_id: json_object_text(
+          fields,
+          "contract_id",
+          json_object_text(fields, "contractGuid", ""),
+        ),
+        contract_code: json_object_text(
+          fields,
+          "contract_code",
+          json_object_text(fields, "contractCode", ""),
+        ),
+        contract_name: json_object_text(
+          fields,
+          "contract_name",
+          json_object_text(fields, "contractName", ""),
+        ),
+        project_id: json_object_text(
+          fields,
+          "project_id",
+          json_object_text(fields, "projGuid", ""),
+        ),
+        project_name: json_object_text(
+          fields,
+          "project_name",
+          json_object_text(fields, "projName", ""),
+        ),
+        supplier_id: json_object_text(
+          fields,
+          "supplier_id",
+          json_object_text(fields, "yfProviderName", ""),
+        ),
+        supplier_name: json_object_text(
+          fields,
+          "supplier_name",
+          json_object_text(fields, "yfProviderName", ""),
+        ),
+        amount_minor: json_object_text(
+          fields,
+          "amount_minor",
+          json_object_text(fields, "htAmount", "0"),
+        ),
         amount_display: json_object_text(fields, "amount_display", "—"),
         currency: json_object_text(fields, "currency", "CNY"),
-        sign_date: json_object_text(fields, "sign_date", ""),
+        sign_date: json_object_text(
+          fields,
+          "sign_date",
+          json_object_text(fields, "signDate", ""),
+        ),
         state: json_object_text(fields, "state", ""),
         paid_amount_display: json_object_text(
-          fields, "paid_amount_display", "—",
+          fields,
+          "paid_amount_display",
+          json_object_text(fields, "paidAmount", "—"),
         ),
-        milestone_count: json_object_text(fields, "milestone_count", "0"),
-        source_kind: json_object_text(fields, "source_kind", "command"),
+        milestone_count: json_object_text(
+          fields,
+          "milestone_count",
+          json_object_text(fields, "milestoneCount", "0"),
+        ),
+        source_kind: json_object_text(
+          fields,
+          "source_kind",
+          json_object_text(fields, "sourceKind", "command"),
+        ),
       })
     _ => None
   }
@@ -1546,13 +1646,31 @@ fn contract_milestones_from_json(value : Json) -> Array[ContractMilestoneRow] {
         match value {
           Json::Object(fields) =>
             rows.push({
-              milestone_id: json_object_text(fields, "milestone_id", ""),
-              node_name: json_object_text(fields, "node_name", ""),
-              plan_amount_display: json_object_text(
-                fields, "plan_amount_display", "—",
+              milestone_id: json_object_text(
+                fields,
+                "milestone_id",
+                json_object_text(fields, "milestoneGuid", ""),
               ),
-              plan_pct_bps: json_object_text(fields, "plan_pct_bps", "0"),
-              trigger_type: json_object_text(fields, "trigger_type", ""),
+              node_name: json_object_text(
+                fields,
+                "node_name",
+                json_object_text(fields, "nodeName", ""),
+              ),
+              plan_amount_display: json_object_text(
+                fields,
+                "plan_amount_display",
+                json_object_text(fields, "planAmount", "—"),
+              ),
+              plan_pct_bps: json_object_text(
+                fields,
+                "plan_pct_bps",
+                json_object_text(fields, "planPct", "0"),
+              ),
+              trigger_type: json_object_text(
+                fields,
+                "trigger_type",
+                json_object_text(fields, "triggerType", ""),
+              ),
             })
           _ => ()
         }
@@ -1576,7 +1694,13 @@ fn contract_rows_from_body(body : String) -> Array[ContractRow] {
               None => ()
             }
           }
-        _ => ()
+        _ =>
+          for value in json_array_field(fields, "data") {
+            match contract_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
       }
     _ => ()
   }
@@ -1590,13 +1714,27 @@ fn contract_detail_from_body(
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
     Json::Object(fields) =>
-      (
-        contract_from_json(parsed),
-        match fields.get("milestones") {
-          Some(value) => contract_milestones_from_json(value)
-          None => []
-        },
-      )
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let detail = match data.get("contract") {
+            Some(value) => contract_from_json(value)
+            None => None
+          }
+          let milestones = match data.get("milestones") {
+            Some(value) => contract_milestones_from_json(value)
+            None => []
+          }
+          (detail, milestones)
+        }
+        _ =>
+          (
+            contract_from_json(parsed),
+            match fields.get("milestones") {
+              Some(value) => contract_milestones_from_json(value)
+              None => []
+            },
+          )
+      }
     _ => (None, [])
   }
 }
@@ -1606,27 +1744,95 @@ fn payment_apply_from_json(value : Json) -> PaymentApplyRow? {
   match value {
     Json::Object(fields) =>
       Some({
-        apply_id: json_object_text(fields, "apply_id", ""),
-        apply_code: json_object_text(fields, "apply_code", ""),
-        contract_id: json_object_text(fields, "contract_id", ""),
-        contract_name: json_object_text(fields, "contract_name", ""),
-        project_name: json_object_text(fields, "project_name", ""),
-        supplier_name: json_object_text(fields, "supplier_name", ""),
+        apply_id: json_object_text(
+          fields,
+          "apply_id",
+          json_object_text(fields, "htfkApplyGuid", ""),
+        ),
+        apply_code: json_object_text(
+          fields,
+          "apply_code",
+          json_object_text(fields, "applyCode", ""),
+        ),
+        contract_id: json_object_text(
+          fields,
+          "contract_id",
+          json_object_text(fields, "contractGuid", ""),
+        ),
+        contract_name: json_object_text(
+          fields,
+          "contract_name",
+          json_object_text(fields, "contractName", ""),
+        ),
+        project_name: json_object_text(
+          fields,
+          "project_name",
+          json_object_text(fields, "projName", ""),
+        ),
+        supplier_name: json_object_text(
+          fields,
+          "supplier_name",
+          json_object_text(fields, "yfProviderName", ""),
+        ),
         subject: json_object_text(fields, "subject", ""),
-        amount_minor: json_object_text(fields, "amount_minor", "0"),
+        amount_minor: json_object_text(
+          fields,
+          "amount_minor",
+          json_object_text(fields, "applyAmount", "0"),
+        ),
         amount_display: json_object_text(fields, "amount_display", "—"),
         currency: json_object_text(fields, "currency", "CNY"),
-        apply_date: json_object_text(fields, "apply_date", ""),
-        operation_state: json_object_text(fields, "operation_state", ""),
-        apply_state: json_object_text(fields, "apply_state", ""),
-        pay_state: json_object_text(fields, "pay_state", ""),
-        apply_type_code: json_object_text(fields, "apply_type_code", ""),
+        apply_date: json_object_text(
+          fields,
+          "apply_date",
+          json_object_text(fields, "applyDate", ""),
+        ),
+        operation_state: json_object_text(
+          fields,
+          "operation_state",
+          json_object_text(fields, "operationState", ""),
+        ),
+        apply_state: json_object_text(
+          fields,
+          "apply_state",
+          json_object_text(fields, "applyState", ""),
+        ),
+        pay_state: json_object_text(
+          fields,
+          "pay_state",
+          json_object_text(fields, "payState", ""),
+        ),
+        apply_type_code: json_object_text(
+          fields,
+          "apply_type_code",
+          json_object_text(fields, "applyTypeCode", ""),
+        ),
         pay_class: json_object_text(fields, "pay_class", "合同"),
-        applied_by: json_object_text(fields, "applied_by", ""),
-        applied_by_name: json_object_text(fields, "applied_by_name", ""),
-        source_kind: json_object_text(fields, "source_kind", "imported"),
-        plan_id: json_object_text(fields, "plan_id", ""),
-        milestone_id: json_object_text(fields, "milestone_id", ""),
+        applied_by: json_object_text(
+          fields,
+          "applied_by",
+          json_object_text(fields, "appliedBy", ""),
+        ),
+        applied_by_name: json_object_text(
+          fields,
+          "applied_by_name",
+          json_object_text(fields, "appliedByName", ""),
+        ),
+        source_kind: json_object_text(
+          fields,
+          "source_kind",
+          json_object_text(fields, "sourceKind", "imported"),
+        ),
+        plan_id: json_object_text(
+          fields,
+          "plan_id",
+          json_object_text(fields, "htfkPlanGuid", ""),
+        ),
+        milestone_id: json_object_text(
+          fields,
+          "milestone_id",
+          json_object_text(fields, "milestoneGuid", ""),
+        ),
       })
     _ => None
   }
@@ -1646,7 +1852,13 @@ fn payment_apply_rows_from_body(body : String) -> Array[PaymentApplyRow] {
               None => ()
             }
           }
-        _ => ()
+        _ =>
+          for value in json_array_field(fields, "data") {
+            match payment_apply_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
       }
     _ => ()
   }
@@ -4068,6 +4280,7 @@ fn profile_from_body(body : String) -> Array[String] {
           values.push(json_object_text(data, "userCode", ""))
           values.push(json_object_text(data, "userName", ""))
           values.push(json_object_text(data, "empName", ""))
+          values.push(json_object_text(data, "buGuid", ""))
           values.push(json_object_text(data, "buName", ""))
           values.push(json_object_text(data, "deptName", ""))
           values.push(
@@ -4440,6 +4653,57 @@ fn loan_rows_from_body(body : String) -> Array[LoanRow] {
 }
 
 ///|
+fn budget_scope_user_from_json(value : Json) -> BudgetScopeUserRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        user_id: json_object_text(fields, "userId", ""),
+        emp_name: json_object_text(fields, "empName", ""),
+        dept_guid: json_object_text(fields, "deptGuid", ""),
+        bu_guid: json_object_text(fields, "buGuid", ""),
+        source_kind: json_object_text(fields, "sourceKind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn budget_scope_users_from_body(body : String) -> Array[BudgetScopeUserRow] {
+  let rows : Array[BudgetScopeUserRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match budget_scope_user_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn budget_loan_balance_from_body(body : String) -> (String, String) {
+  let mut total = "0"
+  let mut count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          total = json_object_text(data, "total", "0")
+          count = json_array_field(data, "loans").length().to_string()
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  (total, count)
+}
+
+///|
 fn workflow_step_from_json(value : Json) -> WorkflowStepRow? {
   match value {
     Json::Object(fields) => {
@@ -4520,6 +4784,49 @@ fn workflow_rows_from_body(body : String) -> Array[WorkflowProcessRow] {
     Json::Object(fields) =>
       for value in json_array_field(fields, "items") {
         match workflow_process_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn workflow_observation_from_json(value : Json) -> WorkflowObservationRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        process_instance_guid: json_object_text(
+          fields, "processInstanceGuid", "",
+        ),
+        process_name: json_object_text(fields, "processName", ""),
+        biz_type: json_object_text(fields, "bizType", ""),
+        biz_data_guid: json_object_text(fields, "bizDataGuid", ""),
+        status: json_object_text(fields, "status", ""),
+        initiated_at: json_object_text(fields, "initiatedAt", ""),
+        decision: json_object_text(
+          fields,
+          "myLastDecision",
+          json_object_text(fields, "decision", ""),
+        ),
+        source_kind: json_object_text(fields, "sourceKind", "imported_or_empty"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn workflow_observation_rows_from_body(
+  body : String,
+) -> Array[WorkflowObservationRow] {
+  let rows : Array[WorkflowObservationRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match workflow_observation_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
         }
@@ -5175,11 +5482,80 @@ fn load_loans(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_budget_scope(emit : @rabbita.Emit[Msg], bu_guid : String) -> Cmd {
+  let bu_query = if bu_guid == "" { "" } else { "?buGuid=" + bu_guid }
+  @http.get("/api/company/source/budget/users-in-bu" + bu_query).expect_text(result => {
+    match result {
+      Ok(body) => emit(BudgetScopeLoaded(body))
+      Err(_) => emit(BudgetScopeLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_budget_loan_balance(
+  emit : @rabbita.Emit[Msg],
+  user_code : String,
+) -> Cmd {
+  let query = if user_code == "" { "" } else { "?userCode=" + user_code }
+  @http.get("/api/company/source/budget/my-loan-balance" + query).expect_text(result => {
+    match result {
+      Ok(body) => emit(BudgetLoanBalanceLoaded(body))
+      Err(_) => emit(BudgetScopeLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_workflow(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/workflow/process-defs").expect_text(result => {
     match result {
       Ok(body) => emit(WorkflowLoaded(body))
       Err(_) => emit(WorkflowLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_workflow_observation_pending(
+  emit : @rabbita.Emit[Msg],
+  user_code : String,
+) -> Cmd {
+  @http.get("/api/company/source/workflow/tasks/mine?userCode=" + user_code).expect_text(result => {
+      match result {
+        Ok(body) => emit(WorkflowObservationPendingLoaded(body))
+        Err(_) => emit(WorkflowObservationLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_workflow_observation_initiated(
+  emit : @rabbita.Emit[Msg],
+  user_code : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/source/workflow/tasks/initiated?userCode=" + user_code,
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(WorkflowObservationInitiatedLoaded(body))
+      Err(_) => emit(WorkflowObservationLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_workflow_observation_history(
+  emit : @rabbita.Emit[Msg],
+  user_code : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/source/workflow/tasks/my-history?userCode=" + user_code,
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(WorkflowObservationHistoryLoaded(body))
+      Err(_) => emit(WorkflowObservationLoadFailed)
     }
   })
 }
@@ -5468,7 +5844,7 @@ fn payment_apply_state_label(state : String) -> String {
 
 ///|
 fn load_payment_applies(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/payment-applies").expect_text(result => {
+  @http.get("/api/company/source/cost/payment-applies?view=all").expect_text(result => {
     match result {
       Ok(body) => emit(PaymentAppliesLoaded(body))
       Err(_) => emit(PaymentAppliesLoadFailed)
@@ -5538,7 +5914,7 @@ fn contract_state_label(state : String) -> String {
 
 ///|
 fn load_contracts(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/contracts").expect_text(result => {
+  @http.get("/api/company/source/cost/contracts").expect_text(result => {
     match result {
       Ok(body) => emit(ContractsLoaded(body))
       Err(_) => emit(ContractsLoadFailed)
@@ -5548,7 +5924,12 @@ fn load_contracts(emit : @rabbita.Emit[Msg]) -> Cmd {
 
 ///|
 fn load_contract(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
-  @http.get("/api/company" + path).expect_text(result => {
+  let request_path = if path.contains("CT-RABBITA-LOCAL") {
+    "/api/company" + path
+  } else {
+    "/api/company/source/cost" + path
+  }
+  @http.get(request_path).expect_text(result => {
     match result {
       Ok(body) => emit(ContractLoaded(body))
       Err(_) => emit(ContractLoadFailed)
@@ -5676,6 +6057,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_report_builder_meta(emit)
       } else if path == "/expenses" {
         load_expenses(emit, model.user_code)
+      } else if path == "/expenses/new" {
+        load_budget_scope(emit, model.profile_bu_guid)
       } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
         load_expense_detail(emit, path, model.user_code)
       } else if path == "/admin" {
@@ -7931,7 +8314,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     ProfileLoaded(body) => {
       let values = profile_from_body(body)
-      if values.length() == 10 {
+      if values.length() == 11 {
         (
           load_profile_initiated(emit, values[1]),
           {
@@ -7941,12 +8324,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             profile_user_code: values[1],
             profile_user_name: values[2],
             profile_emp_name: values[3],
-            profile_bu_name: values[4],
-            profile_dept_name: values[5],
-            profile_super_user: values[6],
-            profile_enabled: values[7],
-            profile_last_login: values[8],
-            profile_source_kind: values[9],
+            profile_bu_guid: values[4],
+            profile_bu_name: values[5],
+            profile_dept_name: values[6],
+            profile_super_user: values[7],
+            profile_enabled: values[8],
+            profile_last_login: values[9],
+            profile_source_kind: values[10],
             profile_note: "已加载 PostgreSQL 个人资料 · 敏感认证字段未导入",
             profile_initiated_loaded: false,
             profile_initiated_rows: [],
@@ -8077,24 +8461,100 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loan_note: "员工借款读模型不可用 · 使用已审核快照",
         },
       )
-    WorkflowLoaded(body) =>
+    BudgetScopeLoaded(body) =>
+      (
+        load_budget_loan_balance(emit, model.user_code),
+        {
+          ..model,
+          budget_scope_loaded: true,
+          budget_scope_users: budget_scope_users_from_body(body),
+          budget_scope_note: "已加载 PostgreSQL 预算人员范围 · 仅作源观察，不授予范围权限",
+        },
+      )
+    BudgetLoanBalanceLoaded(body) => {
+      let (total, count) = budget_loan_balance_from_body(body)
       (
         none,
+        {
+          ..model,
+          budget_loan_balance_loaded: true,
+          budget_loan_balance_total: total,
+          budget_loan_count: count,
+          budget_loan_note: "已加载 PostgreSQL 个人借款余额 · 只读源观察",
+        },
+      )
+    }
+    BudgetScopeLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          budget_scope_loaded: false,
+          budget_scope_users: [],
+          budget_scope_note: "预算范围源读模型不可用 · 使用设计快照",
+          budget_loan_balance_loaded: false,
+          budget_loan_balance_total: "0",
+          budget_loan_count: "0",
+          budget_loan_note: "个人借款余额源读模型不可用 · 使用设计快照",
+        },
+      )
+    WorkflowLoaded(body) =>
+      (
+        load_workflow_observation_pending(emit, model.user_code),
         {
           ..model,
           workflow_loaded: true,
           workflow_process_rows: workflow_rows_from_body(body),
-          workflow_note: "已加载 PostgreSQL 工作流定义 · 实例与动作仍按源数据保持空白",
+          workflow_note: "已加载 PostgreSQL 工作流定义 · 正在读取实例与动作源观察",
         },
       )
     WorkflowLoadFailed =>
       (
-        none,
+        load_workflow_observation_pending(emit, model.user_code),
         {
           ..model,
           workflow_loaded: false,
           workflow_process_rows: [],
-          workflow_note: "工作流定义读模型不可用 · 使用已审核快照",
+          workflow_note: "工作流定义读模型不可用 · 仍尝试读取实例源观察",
+        },
+      )
+    WorkflowObservationPendingLoaded(body) =>
+      (
+        load_workflow_observation_initiated(emit, model.user_code),
+        {
+          ..model,
+          workflow_pending_rows: workflow_observation_rows_from_body(body),
+          workflow_observation_note: "已读取 PostgreSQL 待办实例源观察 · 不产生审批权限",
+        },
+      )
+    WorkflowObservationInitiatedLoaded(body) =>
+      (
+        load_workflow_observation_history(emit, model.user_code),
+        {
+          ..model,
+          workflow_initiated_rows: workflow_observation_rows_from_body(body),
+        },
+      )
+    WorkflowObservationHistoryLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          workflow_observation_loaded: true,
+          workflow_history_rows: workflow_observation_rows_from_body(body),
+          workflow_observation_note: "已加载 PostgreSQL 工作流实例/动作源观察 · 空源表保持为空",
+        },
+      )
+    WorkflowObservationLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          workflow_observation_loaded: false,
+          workflow_pending_rows: [],
+          workflow_initiated_rows: [],
+          workflow_history_rows: [],
+          workflow_observation_note: "工作流实例源读模型不可用 · 使用设计快照",
         },
       )
     ProjectsLoaded(body) =>
@@ -8362,7 +8822,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     ExpensesLoaded(body) =>
       (
-        none,
+        load_budget_scope(emit, model.profile_bu_guid),
         {
           ..model,
           expenses_loaded: true,
@@ -9693,6 +10153,40 @@ fn workflow_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn workflow_observation_rows(model : Model) -> Array[Array[String]] {
+  if !model.workflow_observation_loaded {
+    return [
+      [
+        "设计快照 · 成都和锦里工程款", "付款审批", "陈志强",
+        "今天 09:18", "¥1,280,000", "高", "观察",
+      ],
+      [
+        "设计快照 · 2026-07 差旅费用报销", "费用审批", "程玉哲",
+        "昨天 16:42", "¥8,560", "中", "观察",
+      ],
+    ]
+  }
+  let rows : Array[Array[String]] = []
+  for row in model.workflow_pending_rows {
+    rows.push([
+      row.process_instance_guid + " · " + row.biz_data_guid,
+      row.biz_type,
+      row.process_name,
+      row.initiated_at,
+      "—",
+      row.status + (if row.decision == "" { "" } else { " · " + row.decision }),
+      "源观察 · " + row.source_kind,
+    ])
+  }
+  if rows.length() == 0 {
+    rows.push([
+      "—", "—", "—", "—", "—", "无源实例", "source wf_process_instance=0",
+    ])
+  }
+  rows
+}
+
+///|
 fn tasks_view(model : Model) -> @html.Html {
   page_shell(
     "我的待办",
@@ -9702,13 +10196,26 @@ fn tasks_view(model : Model) -> @html.Html {
     div <| [
       div(class="erp-runtime-banner", [
         strong(
-          if model.workflow_loaded {
+          if model.workflow_observation_loaded {
+            "PostgreSQL 工作流定义与实例观察已连接"
+          } else if model.workflow_loaded {
             "PostgreSQL 工作流定义已连接"
           } else {
             "工作流读模型"
           },
         ),
-        span(" · " + model.workflow_note),
+        span(
+          " · " +
+          model.workflow_note +
+          " · " +
+          model.workflow_observation_note +
+          " · 待办 " +
+          model.workflow_pending_rows.length().to_string() +
+          " · 已发起 " +
+          model.workflow_initiated_rows.length().to_string() +
+          " · 历史 " +
+          model.workflow_history_rows.length().to_string(),
+        ),
       ]),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "待办 (8)"),
@@ -9724,24 +10231,7 @@ fn tasks_view(model : Model) -> @html.Html {
             "事项", "类型", "发起人", "提交时间", "金额", "优先级",
             "操作",
           ],
-          [
-            [
-              "成都和锦里 · 工程款付款申请", "付款审批", "陈志强",
-              "今天 09:18", "¥1,280,000", "高", "处理",
-            ],
-            [
-              "2026-07 差旅费用报销", "费用审批", "程玉哲", "昨天 16:42",
-              "¥8,560", "中", "处理",
-            ],
-            [
-              "南山居营销推广合同", "合同审批", "刘松", "2026-07-11",
-              "¥360,000", "中", "处理",
-            ],
-            [
-              "项目节点延期确认", "项目协同", "系统", "2026-07-10",
-              "—", "高", "查看",
-            ],
-          ],
+          workflow_observation_rows(model),
         ),
       ),
       workflow_runtime_table(model),
@@ -11962,6 +12452,55 @@ fn invoice_view(model : Model) -> @html.Html {
 }
 
 ///|
+fn budget_scope_banner(model : Model) -> @html.Html {
+  let scope_text = if model.budget_scope_loaded {
+    "预算人员 " + model.budget_scope_users.length().to_string() + " 人"
+  } else {
+    "预算人员范围待加载"
+  }
+  let loan_text = if model.budget_loan_balance_loaded {
+    "个人借款余额 ¥" +
+    model.budget_loan_balance_total +
+    "（" +
+    model.budget_loan_count +
+    " 笔）"
+  } else {
+    "个人借款余额待加载"
+  }
+  let scope_sample = match model.budget_scope_users.get(0) {
+    Some(user) =>
+      " · 示例 " +
+      user.emp_name +
+      " · " +
+      user.user_id +
+      " · BU " +
+      user.bu_guid +
+      " · 部门 " +
+      user.dept_guid +
+      " · " +
+      user.source_kind
+    None => ""
+  }
+  div(class="erp-runtime-banner", [
+    strong(
+      if model.budget_scope_loaded && model.budget_loan_balance_loaded {
+        "PostgreSQL 预算范围观察已连接"
+      } else {
+        "预算范围读模型"
+      },
+    ),
+    span(" · " + scope_text + " · " + loan_text),
+    span(
+      " · " +
+      model.budget_scope_note +
+      " · " +
+      model.budget_loan_note +
+      scope_sample,
+    ),
+  ])
+}
+
+///|
 fn expense_runtime_table(model : Model) -> @html.Html {
   if model.expenses_loaded {
     let rows : Array[Array[String]] = []
@@ -12033,6 +12572,7 @@ fn expenses_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "发起差旅、招待和日常费用报销，查看预算占用、审批节点与付款进度。",
     [nav_button(emit, "/expenses/new", "erp-primary-btn", "＋ 新建报销")],
     div <| [
+      budget_scope_banner(model),
       div(class="erp-stat-grid") <| [
         metric("本月报销", "¥28,560", "8 笔", "metric-blue"),
         metric("审批中", "5", "金额 ¥16,420", "metric-blue"),
@@ -13230,6 +13770,7 @@ fn expense_editor_view(
     "差旅、招待和日常费用均需关联项目、费用科目与附件证据。",
     actions,
     div <| [
+      budget_scope_banner(model),
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("报销信息"),

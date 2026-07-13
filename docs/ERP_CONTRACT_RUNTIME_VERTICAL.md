@@ -16,6 +16,21 @@ applications. The target also contains native `commitment` and
 credential-safe raw contract/project rows and exposes paid totals without
 releasing cash or posting accounting entries.
 
+The evidence-ready source boundary is now explicit and separate from the local
+command projection:
+
+- `GET /api/company/source/cost/contracts` returns the two imported contracts,
+  paid totals, source coverage, and compatibility fields used by Rabbita.
+- `GET /api/company/source/cost/contracts/<id>` returns source contract,
+  payment-plan, application, and milestone collections; the current export has
+  four plans and no `cb_contract_milestone` rows, so milestones stay empty with
+  missing-table coverage rather than a fixture fallback.
+- `GET /api/company/source/cost/contracts/<id>/milestones` exposes that same
+  explicit empty milestone boundary.
+
+These reads are bounded and non-authorizing (`authorizing=false`,
+`persisted=false`, `provider_execution=false`).
+
 ## Connected API
 
 `scripts/company_postgres_service.py` exposes:
@@ -47,8 +62,9 @@ were deleted after verification.
 
 This is a local vertical, not full ERP API parity. The source cost module still
 has additional contract, payment-application, milestone, and mutation handlers
-that are not connected here; the payment-application slice is documented
-separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The fixed demo contract payload and idempotency
+that are not connected here; the source read batch is now connected, while the
+local command slice remains separate. The payment-application slice is
+documented separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The fixed demo contract payload and idempotency
 keys remain local evidence only. Production identity/token issuance, persistent
 session and actor claims, role-based approval, accounting/tax/cash effects,
 managed deployment, browser click-through/screenshot acceptance, and named-owner

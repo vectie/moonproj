@@ -17,6 +17,17 @@ supplier, applicant, payment plan, amount, currency, and dual source/payment
 state. The native promotion remains a requested settlement boundary rather
 than an implicit cash authorization.
 
+The source-compatible read boundary is now explicit and separate from the
+local command projection:
+
+- `GET /api/company/source/cost/payment-applies?view=all` returns all three
+  imported applications with source contract/project/supplier/applicant,
+  payment-plan, amount, approval, and payment fields.
+- The source response reports `cb_htfk_apply=3`, preserves the source shape,
+  and marks the read `authorizing=false`, `persisted=false`, and
+  `provider_execution=false`. Rabbita `/payment-applies` consumes this source
+  read; local create/approval/void commands remain isolated.
+
 ## Connected API
 
 `scripts/company_postgres_service.py` exposes:
@@ -52,6 +63,7 @@ projections, records, and audit rows were removed after verification.
 
 Source cost handlers still include edit/void, milestone checks, early-payment
 rules, attachments, workflow assignment, and payment execution surfaces that
-are not yet connected to Rabbita. Production identity, role-based approval,
+are not yet connected to Rabbita. The source read batch is connected, but
+production identity, role-based approval,
 persistent sessions, cash/accounting/tax effects, managed deployment, browser
 click-through/screenshot acceptance, and named-owner acceptance remain open.
