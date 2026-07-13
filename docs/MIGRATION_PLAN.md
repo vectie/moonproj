@@ -554,6 +554,16 @@ read-model server and rechecked in the browser: the PostgreSQL table now shows
 the two imported projects (`proj-0001` and `proj-0002`) with lifecycle and task
 counts, rather than silently relying on the design snapshot.
 
+A second navigation pass exercised the sales/customer, cost-dashboard v3,
+fund-plan, invoice, expense, and employee-loan states. Each observed source
+request returned successfully after the project-route fix; source-empty
+families remained visibly empty (`sales`, CBS, fund, invoice, and expense),
+while the existing designer rows stayed labeled as design/fixture data. The
+loan view also kept imported loan evidence separate from local command rows.
+This is stronger than a static render check, but it still does not authorize
+mutations, reconcile fixture totals to production, or replace the required
+page-by-page route and named-owner acceptance.
+
 The browser pass also found an inherited source-contract inconsistency that
 must be reconciled before investment acceptance: the investment summary card
 renders the imported `CO.IRR` value of `14.8%`, while the source sensitivity
