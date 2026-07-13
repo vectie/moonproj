@@ -136,6 +136,7 @@ from company_postgres_service import (
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
+    business_units_tree as service_business_units_tree,
     projects as service_projects,
     dynamic_cost as service_dynamic_cost,
     investment_versions as service_investment_versions,
@@ -158,6 +159,7 @@ from company_postgres_service import (
     workflow_source_history as service_workflow_source_history,
     workflow_source_instance_by_biz as service_workflow_source_instance_by_biz,
     workflow_source_instance_detail as service_workflow_source_instance_detail,
+    workflow_process_defs as service_workflow_process_defs,
     _workflow_resolve_user_id as service_workflow_resolve_user_id,
     loans as service_loans,
 )
@@ -330,6 +332,17 @@ class _ReadModelPool:
 
     def execute_read(self, sql: str) -> list[str]:
         return self.execute(sql)
+
+
+def business_units_tree(args: argparse.Namespace) -> dict[str, Any]:
+    return service_business_units_tree(_ReadModelPool(args), 500)
+
+
+def workflow_process_defs(
+    args: argparse.Namespace,
+    process_key: str | None,
+) -> dict[str, Any]:
+    return service_workflow_process_defs(_ReadModelPool(args), process_key, 500)
 
 
 def contracts(args: argparse.Namespace, contract_id: str | None) -> list[dict[str, Any]]:
@@ -1657,6 +1670,10 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/notify/llm-providers":
                     response(self, 200, notification_source_llm_providers(args))
                     return
+                if parsed.path == "/api/company/workflow/process-defs":
+                    process_key = parse_qs(parsed.query).get("process_key", [None])[0]
+                    response(self, 200, workflow_process_defs(args, process_key))
+                    return
                 if parsed.path == "/api/company/source/workflow/tasks/mine":
                     query = parse_qs(parsed.query)
                     response(
@@ -1977,6 +1994,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                             500,
                         ),
                     )
+                    return
+                if parsed.path == "/api/company/business-units/tree":
+                    response(self, 200, business_units_tree(args))
                     return
                 project_match = re.fullmatch(
                     r"/api/company/projects/([A-Za-z0-9_.:-]{1,128})",

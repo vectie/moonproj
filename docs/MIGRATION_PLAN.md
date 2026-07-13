@@ -564,6 +564,20 @@ This is stronger than a static render check, but it still does not authorize
 mutations, reconcile fixture totals to production, or replace the required
 page-by-page route and named-owner acceptance.
 
+**Frontend/read-model contract audit checkpoint (2026-07-14).** A fixed-path
+read audit of the Rabbita loaders found two runtime gaps that the earlier
+screen sample did not exercise: `/api/company/workflow/process-defs` and
+`/api/company/business-units/tree` were missing from the development
+read-model server even though their service adapters and frontend loaders were
+present. Both routes are now connected as fixed PostgreSQL reads. The workflow
+endpoint returns the two imported definitions, twelve steps, six assignee
+links, and explicit zero instance/action coverage; the business-unit endpoint
+returns one root and seven imported nodes. The browser `/tasks` state now shows
+those definitions and keeps pending/initiated/history source observations
+empty, rather than falling back to approval fixtures. The hierarchy endpoint
+is source-verified directly; its full organization-screen/browser scope pass
+remains open.
+
 The browser pass also found an inherited source-contract inconsistency that
 must be reconciled before investment acceptance: the investment summary card
 renders the imported `CO.IRR` value of `14.8%`, while the source sensitivity

@@ -27,6 +27,9 @@ ownership mutation is enabled by this slice.
   seven total business-unit rows.
 - The hierarchy is built from `parent_guid`; missing parents become explicit
   roots rather than silently dropping imported rows.
+- The local PostgreSQL read-model endpoint `/api/company/business-units/tree`
+  returns the same one-root/seven-node hierarchy used by the service adapter;
+  the direct contract check returned HTTP 200 with imported provenance.
 - The parity matrix marks the source MDM `GET /business-units/tree` handler as
   `connected_mdm_read`; browser identity and scope acceptance remain pending.
 

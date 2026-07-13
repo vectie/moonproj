@@ -39,6 +39,10 @@ workflow instances from this slice.
   current export those lists are empty and the page says
   `wf_process_instance=0` instead of presenting the designer cards as source
   approval work.
+- The PostgreSQL read-model server now serves the same definition endpoint as
+  the authenticated service; a browser recheck rendered both imported
+  definitions, twelve steps, six assignee links, and zero instance/action
+  rows without a 404 or fixture substitution.
 - `scripts/company_postgres_source_read_smoke.py` verifies the three empty list
   reads, a null by-business lookup, and the source-compatible 43001 detail 404.
 - The parity matrix marks the two definition GET handlers as
