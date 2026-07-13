@@ -152,10 +152,10 @@ def main() -> int:
                 reasons.append("domain_candidate_missing_currency")
             if mapping.get("currency") != expected_currency:
                 reasons.append("accounting_currency_mismatch")
-            if target_type == "investment_valuation":
-                # The valuation command has already constructed and validated
-                # the native event.  Keep the separately reviewed accounting
-                # map bound to that exact event/journal identity instead of
+            if target_type in {"investment_valuation", "tax_obligation", "financing_facility"}:
+                # The native command has already constructed and validated the
+                # source event. Keep the separately reviewed accounting map
+                # bound to that exact event/journal identity instead of
                 # allowing a second event or account shape to be substituted.
                 for field in (
                     "event_id",
@@ -166,7 +166,7 @@ def main() -> int:
                     "scope",
                 ):
                     if mapping.get(field) != candidate.get(field):
-                        reasons.append(f"investment_valuation_{field}_mismatch")
+                        reasons.append(f"{target_type}_{field}_mismatch")
             source_type = SUPPORTED_TARGET_SOURCE_TYPES[target_type] or source_table
             target_candidate = {
                 "source_target_type": target_type,

@@ -219,3 +219,10 @@ commitment link to the same PostgreSQL accounting-link table. Each receipt
 reports exact identity parity and zero-insert replay; these links are outside
 the aggregate projection count and do not release cash, post journals, settle
 tax, or close a period.
+The separate `scripts/company_tax_financing_accounting_rehearsal.sh` applies
+two tax-recognition links and two financing draw/repayment links to the same
+traceability table. Each native receipt reports exact PostgreSQL identity
+parity and zero-insert replay; these links do not file/pay tax, call a lender,
+release cash, post journals, or close a period. Run it with the four reviewed
+source/accounting maps and the normal `PGHOST`, `PGPORT`, `PGUSER`, and
+`PGPASSWORD` environment contract.

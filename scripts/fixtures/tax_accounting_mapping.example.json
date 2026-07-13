@@ -1,0 +1,37 @@
+{
+  "format": "moonproj.erp.tax-accounting-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:tax-filing-synthetic-001",
+  "mapping_version": "tax-accounting-map-v1-review-001",
+  "run_id": "tax-accounting-run-2026-q1",
+  "accounting_by_source": {
+    "tax_obligation:tax-001": {
+      "event_id": "tax-recognition-event-001",
+      "event_type": "tax.obligation.recognized",
+      "journal_id": "tax/tax-001/recognition",
+      "description": "Recognize tax obligation tax-001",
+      "tax_expense_account": "tax-expense",
+      "tax_payable_account": "tax-payable",
+      "debit_account": "tax-expense",
+      "credit_account": "tax-payable",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "amount_minor": 13000,
+      "currency": "CNY"
+    },
+    "tax_obligation:tax-002": {
+      "event_id": "tax-recognition-event-002",
+      "event_type": "tax.obligation.recognized",
+      "journal_id": "tax/tax-002/recognition",
+      "description": "Recognize tax obligation tax-002",
+      "tax_expense_account": "tax-expense",
+      "tax_payable_account": "tax-payable",
+      "debit_account": "tax-expense",
+      "credit_account": "tax-payable",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "amount_minor": 15000,
+      "currency": "CNY"
+    }
+  }
+}

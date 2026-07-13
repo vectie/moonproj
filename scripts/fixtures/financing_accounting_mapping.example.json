@@ -1,0 +1,35 @@
+{
+  "format": "moonproj.erp.financing-accounting-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:financing-facility-synthetic-001",
+  "mapping_version": "financing-accounting-map-v1-review-001",
+  "run_id": "financing-accounting-run-2026-12",
+  "accounting_by_source": {
+    "financing_facility:facility-001/draw": {
+      "action": "draw",
+      "event_id": "financing-draw-event-001",
+      "event_type": "financing.facility.drawn",
+      "journal_id": "financing/facility-001/draw/draw",
+      "description": "Draw financing facility facility-001",
+      "debit_account": "cash",
+      "credit_account": "financing-liability",
+      "principal_id": "co-001",
+      "scope": "company:co-001",
+      "amount_minor": 600000,
+      "currency": "CNY"
+    },
+    "financing_facility:facility-001/repayment": {
+      "action": "repayment",
+      "event_id": "financing-repayment-event-001",
+      "event_type": "financing.facility.repaid",
+      "journal_id": "financing/facility-001/repayment/repayment",
+      "description": "Repay financing facility facility-001",
+      "debit_account": "financing-liability",
+      "credit_account": "cash",
+      "principal_id": "co-001",
+      "scope": "company:co-001",
+      "amount_minor": 150000,
+      "currency": "CNY"
+    }
+  }
+}

@@ -157,6 +157,13 @@ identity parity and zero-insert replay pass for all four links. It remains
 traceability evidence only: collection/payment cash, accounting-book posting,
 tax settlement, period close, and owner acceptance remain separate. Production
 invoice, payable, receivable, supplier, and tender exports are still required.
+The separate reviewed tax/financing accounting-link boundary now binds two
+tax-obligation recognition events plus one financing draw and one repayment
+event through native event builders and explicit source-to-journal maps. Exact
+SQLite/PostgreSQL identity parity and zero-insert replay pass for all four
+links. Tax filing/payment, lender calls, cash release, accounting-book posting,
+period close, and owner acceptance remain separate; the available ERP snapshot
+has no accepted tax-obligation or financing-facility rows.
 The reviewed investment-performance boundary now preserves one bounded
 portfolio with two positions, explicit quote valuation, period return, and an
 external benchmark observation through native mandate and analytics checks.

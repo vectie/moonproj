@@ -140,6 +140,13 @@ invoice and procurement maps plus a target-specific accounting map; it checks
 three invoice/subledger links and one performed commitment link with exact
 SQLite/PostgreSQL identity parity and idempotent replay. It never releases
 cash, posts the accounting book, or closes a period.
+The standalone tax/financing accounting rehearsal uses separate reviewed
+tax-filing and financing-facility maps plus explicit accounting maps; it
+validates two tax recognitions and one financing draw/repayment pair through
+native event builders, exact SQLite/PostgreSQL identity parity, and idempotent
+replay. It never files or pays tax, calls a lender, releases cash, posts the
+book, or closes a period. The available snapshot has no accepted source rows
+for either boundary.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

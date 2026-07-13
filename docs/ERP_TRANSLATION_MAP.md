@@ -314,6 +314,15 @@ adapters preserve one `investment_valuation` source-to-journal link with exact
 identity parity and zero-insert replay. Position mutation, cash release,
 accounting-book posting, and period close remain false. See
 [ERP_INVESTMENT_VALUATION.md](ERP_INVESTMENT_VALUATION.md).
+The standalone `scripts/company_tax_financing_accounting_rehearsal.sh` adds
+the same explicit boundary for finance obligations. Separate reviewed maps
+compile two tax-obligation recognition events and one financing draw plus one
+repayment event; `cmd/tax_accounting_link` and
+`cmd/financing_accounting_link` call the native event builders before
+`cmd/accounting_link` validates the final source-to-journal identities. Exact
+SQLite/PostgreSQL parity and zero-insert replay pass for all four links.
+Tax filing/payment, lender calls, cash release, book posting, and period close
+remain separate. See [ERP_TAX_FINANCING_ACCOUNTING.md](ERP_TAX_FINANCING_ACCOUNTING.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
