@@ -114,6 +114,7 @@ def main() -> int:
             or payload.get("target") != "postgresql"
             or "ai_analytics_read" not in payload.get("capabilities", [])
             or "webhook_config_read" not in payload.get("capabilities", [])
+            or "report_template_read" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, payload = request(args.port, "/api/company/projections?aggregate_type=notification_outbox", token=token)
@@ -743,6 +744,36 @@ def main() -> int:
         report_cost_rows = len(payload["cost_summary"]["rows"])
         report_contract_rows = len(payload["contract_payment_ledger"])
         report_missing_tables = payload.get("missing_source_tables", [])
+        status, report_meta_payload = request(
+            args.port,
+            "/api/company/reports/templates/meta",
+            token=token,
+        )
+        report_meta_data = (report_meta_payload or {}).get("data", {})
+        if (
+            status != 200
+            or report_meta_payload is None
+            or len(report_meta_data.get("tables", [])) != 10
+            or report_meta_data.get("operators") != ["=", "!=", ">", ">=", "<", "<=", "like", "in"]
+            or report_meta_payload.get("source_kind") != "definition"
+            or report_meta_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"report template metadata read failed: {status} {report_meta_payload}")
+        status, report_templates_payload = request(
+            args.port,
+            "/api/company/reports/templates",
+            token=token,
+        )
+        if (
+            status != 200
+            or report_templates_payload is None
+            or report_templates_payload.get("data") != []
+            or report_templates_payload.get("source_coverage", {}).get("sys_report_template") != 0
+            or report_templates_payload.get("persisted") is not False
+            or report_templates_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"report template list read failed: {status} {report_templates_payload}")
+        report_template_rows = len(report_templates_payload.get("data", []))
         status, dashboard_overview = request(
             args.port,
             "/api/company/dashboard/group/overview",
@@ -2171,6 +2202,8 @@ def main() -> int:
                     "delivery_task_report_state": "observed",
                     "report_cost_rows": report_cost_rows,
                     "report_contract_rows": report_contract_rows,
+                    "report_template_meta_tables": len(report_meta_data.get("tables", [])),
+                    "report_template_rows": report_template_rows,
                     "report_missing_source_tables": report_missing_tables,
                     "dashboard_project_count": dashboard_overview_rows.get("projectCount"),
                     "dashboard_funnel_rows": len(dashboard_funnel_rows),

@@ -757,6 +757,11 @@ struct Model {
   webhook_rows : Array[Array[String]]
   webhook_missing_table_count : String
   webhook_note : String
+  report_builder_loaded : Bool
+  report_builder_table_rows : Array[Array[String]]
+  report_builder_template_rows : Array[Array[String]]
+  report_builder_missing_table_count : String
+  report_builder_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -955,6 +960,9 @@ enum Msg {
   AiStatsLoadFailed
   WebhookLoaded(String)
   WebhookLoadFailed
+  ReportBuilderMetaLoaded(String)
+  ReportBuilderTemplatesLoaded(String)
+  ReportBuilderLoadFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1214,6 +1222,11 @@ fn initial_model() -> Model {
     webhook_rows: [],
     webhook_missing_table_count: "0",
     webhook_note: "Webhook 配置源读模型尚未加载 · 使用设计快照",
+    report_builder_loaded: false,
+    report_builder_table_rows: [],
+    report_builder_template_rows: [],
+    report_builder_missing_table_count: "0",
+    report_builder_note: "自定义报表源读模型尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -3556,6 +3569,80 @@ fn webhook_config_from_body(
 }
 
 ///|
+fn report_builder_meta_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String, String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "tables") {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "label", "—"),
+                  json_object_text(row, "name", "—"),
+                  json_array_field(row, "columns").length().to_string(),
+                  "白名单",
+                  "definition",
+                ])
+              _ => ()
+            }
+          }
+          (
+            true, rows, missing, "字段元数据来自 ERP 白名单定义 · 不执行 SQL",
+          )
+        }
+        _ => (false, rows, missing, "报表元数据响应无效")
+      }
+    }
+    _ => (false, rows, "0", "报表元数据响应无效")
+  }
+}
+
+///|
+fn report_builder_templates_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "templateName", "—"),
+                  json_object_text(row, "baseTable", "—"),
+                  json_array_field(row, "columns").length().to_string(),
+                  json_array_field(row, "filters").length().to_string(),
+                  json_object_text(row, "createdBy", "—"),
+                  json_object_text(row, "createdAt", "—"),
+                  json_object_text(row, "sourceKind", "imported"),
+                ])
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -4377,6 +4464,26 @@ fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_report_builder_meta(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/reports/templates/meta").expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportBuilderMetaLoaded(body))
+      Err(_) => emit(ReportBuilderLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_report_builder_templates(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/reports/templates").expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportBuilderTemplatesLoaded(body))
+      Err(_) => emit(ReportBuilderLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_profile(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
   let code = if user_code == "" { "admin" } else { user_code }
   @http.get("/api/company/auth/me?userCode=" + code).expect_text(result => {
@@ -4945,6 +5052,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_webhook_config(emit)
       } else if path == "/reports" {
         load_reports(emit)
+      } else if path == "/report-builder" {
+        load_report_builder_meta(emit)
       } else if path == "/expenses" {
         load_expenses(emit, model.user_code)
       } else if path == "/admin" {
@@ -6960,6 +7069,54 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           webhook_loaded: false,
           webhook_rows: [],
           webhook_note: "Webhook 配置读模型不可用 · 使用设计快照",
+        },
+      )
+    ReportBuilderMetaLoaded(body) => {
+      let (loaded, rows, missing, note) = report_builder_meta_from_body(body)
+      (
+        if loaded {
+          load_report_builder_templates(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          report_builder_loaded: loaded,
+          report_builder_table_rows: rows,
+          report_builder_missing_table_count: missing,
+          report_builder_note: if loaded {
+            note
+          } else {
+            "报表元数据响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    ReportBuilderTemplatesLoaded(body) => {
+      let (loaded, rows, missing) = report_builder_templates_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          report_builder_template_rows: rows,
+          report_builder_missing_table_count: missing,
+          report_builder_note: if loaded {
+            model.report_builder_note + " · 模板源表空记录 " + missing
+          } else {
+            "模板列表响应无效 · 使用设计快照"
+          },
+        },
+      )
+    }
+    ReportBuilderLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          report_builder_loaded: false,
+          report_builder_table_rows: [],
+          report_builder_template_rows: [],
+          report_builder_note: "自定义报表读模型不可用 · 使用设计快照",
         },
       )
     ProfileLoaded(body) => {
@@ -11093,7 +11250,42 @@ fn share_view(path : String) -> @html.Html {
 }
 
 ///|
-fn report_builder_view() -> @html.Html {
+fn report_builder_view(model : Model) -> @html.Html {
+  let meta_rows = if model.report_builder_loaded {
+    if model.report_builder_table_rows.length() == 0 {
+      [["—", "—", "0", "—", "无元数据"]]
+    } else {
+      model.report_builder_table_rows
+    }
+  } else {
+    [
+      ["项目", "ep_project", "5", "白名单", "设计快照"],
+      ["合同", "cb_contract", "10", "白名单", "设计快照"],
+      ["付款申请", "cb_htfk_apply", "6", "白名单", "设计快照"],
+      ["报销", "vcb_expense", "5", "白名单", "设计快照"],
+    ]
+  }
+  let template_rows = if model.report_builder_loaded {
+    if model.report_builder_template_rows.length() == 0 {
+      [["—", "—", "0", "0", "—", "—", "无源记录"]]
+    } else {
+      model.report_builder_template_rows
+    }
+  } else {
+    [
+      [
+        "项目成本月度变化", "ep_project", "5", "1", "李明金", "今天 08:10",
+        "设计快照",
+      ],
+      [
+        "合同付款执行率", "cb_contract", "6", "2", "系统", "昨天 19:42",
+        "设计快照",
+      ],
+      [
+        "销售去化漏斗", "sale_revenue", "4", "0", "刘松", "2026-07-11", "设计快照",
+      ],
+    ]
+  }
   page_shell(
     "自定义报表",
     "ANALYSIS / BUILDER",
@@ -11112,27 +11304,35 @@ fn report_builder_view() -> @html.Html {
         filter_bar("搜索字段，例如：项目名称、动态成本"),
       ],
       table_panel(
+        "可用数据源",
+        if model.report_builder_loaded {
+          model.report_builder_note +
+          " · 表 " +
+          model.report_builder_table_rows.length().to_string()
+        } else {
+          "字段白名单 · 设计快照"
+        },
+        data_table(
+          ["数据集", "表名", "字段数", "约束", "来源"],
+          meta_rows,
+        ),
+      ),
+      table_panel(
         "已保存报表",
-        "共 12 个",
+        if model.report_builder_loaded {
+          "源模板 " +
+          model.report_builder_template_rows.length().to_string() +
+          " · 模板创建/执行仍需授权 · 空源表 " +
+          model.report_builder_missing_table_count
+        } else {
+          "共 12 个"
+        },
         data_table(
           [
-            "报表名称", "数据集", "共享范围", "最近运行", "创建人",
-            "状态",
+            "报表名称", "数据集", "字段数", "过滤数", "创建人", "最近运行",
+            "来源",
           ],
-          [
-            [
-              "项目成本月度变化", "项目与成本", "成本团队", "今天 08:10",
-              "李明金", "正常",
-            ],
-            [
-              "合同付款执行率", "合同与付款", "全集团", "昨天 19:42",
-              "系统", "正常",
-            ],
-            [
-              "销售去化漏斗", "销售与回款", "销售团队", "2026-07-11",
-              "刘松", "正常",
-            ],
-          ],
+          template_rows,
         ),
       ),
     ],
@@ -13833,7 +14033,7 @@ fn business_view(
       "/loans/new" => loan_editor_view(emit, model, false)
       "/loans/LOAN-260713-001" => loan_editor_view(emit, model, true)
       "/reports" => reports_view(emit, model)
-      "/report-builder" => report_builder_view()
+      "/report-builder" => report_builder_view(model)
       "/warning" => warning_view(model)
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)

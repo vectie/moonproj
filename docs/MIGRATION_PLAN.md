@@ -278,12 +278,12 @@ tables (`vcb_expense`, `cb_expense_detail`, `cb_expense_split`) and workflow
 instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
-handlers (182 mutations), with 50 connected browser states, 4
-fixture-backed states (3 read-only plus 1 form), 2 public states, 50
-connected API groups, and 6 fixture/no-source API groups. The newly connected
-AI analytics and webhook configuration read families are included in those
-counts; their source tables are currently empty and are not treated as
-provider, draft, or notification authority.
+handlers (182 mutations), with 51 connected browser states, 3
+fixture-backed states (2 read-only plus 1 form), 2 public states, 51
+connected API groups, and 5 fixture/no-source API groups. The newly connected
+AI analytics, webhook configuration, and report-builder read families are
+included in those counts; their source tables are currently empty and are not
+treated as provider, draft, notification, or report-template authority.
 
 The source-handler action register now marks the ERP `GET /srm/providers` and
 `GET /srm/providers/:guid` reads as connected through separate
@@ -416,6 +416,15 @@ preserving `authorizing=false`, `persisted=false`, and
 credential ownership, production identity, and notification-owner acceptance
 remain separate gates.
 
+The report builder is now a bounded reporting read family. `/report-builder`
+loads the source table/column/operator whitelist and saved-template list through
+`/api/company/reports/templates/meta` and `/api/company/reports/templates`. The
+export has no
+`sys_report_template` rows, so successful reads preserve the ten source
+definitions and show an explicit empty-template state. Template execution,
+creation, deletion, exports, production identity, and report-owner acceptance
+remain separate gates.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
@@ -520,9 +529,9 @@ remain separate gates.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 50 connected browser states, 4 fixture-backed browser
-states (3 read-only and 1 form), and two public states. Its API matrix records
-50 connected API groups and 6 fixture/no-source groups across MDM
+currently records 51 connected browser states, 3 fixture-backed browser
+states (2 read-only and 1 form), and two public states. Its API matrix records
+51 connected API groups and 5 fixture/no-source groups across MDM
 organization/project, budget dictionary, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,

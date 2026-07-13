@@ -115,6 +115,13 @@ URL and secret values are redacted, and the current export has no `sys_param`
 rows, so successful reads show explicit empty-source metadata. Configuration
 writes, test delivery, overdue scans, provider credentials, and
 notification-owner acceptance remain gated.
+The authenticated `/report-builder` screen now reads the ERP table/column
+whitelist and saved-template metadata through
+`/api/company/reports/templates/meta` and `/api/company/reports/templates`.
+The export contains no `sys_report_template` rows, so successful reads show an
+explicit empty-template state while retaining the designer builder layout.
+Template execution, creation, deletion, exports, and report-owner acceptance
+remain gated.
 The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;

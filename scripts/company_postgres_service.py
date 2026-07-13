@@ -68,6 +68,9 @@ The bounded service exposes these endpoints:
   AI analytics reads; LLM/OCR execution and draft mutation remain gated)
 * ``/api/company/webhook/config`` (GET, source-compatible redacted webhook
   configuration read; provider delivery, writes, and overdue scans remain gated)
+* ``/api/company/reports/templates/meta`` and ``/api/company/reports/templates``
+  (GET, source-compatible report-builder metadata/template reads; execution and
+  template mutation remain gated)
 * ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast-v3`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast/detail`` (GET, source-compatible drill-down)
@@ -369,6 +372,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "error_log_metadata_read",
             "ai_analytics_read",
             "webhook_config_read",
+            "report_template_read",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -5368,6 +5372,216 @@ REPORT_SOURCE_TABLES = {
 }
 
 
+REPORT_TEMPLATE_SOURCE_TABLES = {
+    "sys_report_template",
+}
+
+
+REPORT_TEMPLATE_TABLE_META = [
+    {
+        "name": "ep_project",
+        "label": "项目",
+        "columns": [
+            {"field": "proj_code", "label": "项目编码"},
+            {"field": "proj_name", "label": "项目名称"},
+            {"field": "bu_guid", "label": "公司ID"},
+            {"field": "proj_status", "label": "阶段"},
+            {"field": "begin_date", "label": "开始日期"},
+        ],
+        "filterableTypes": {
+            "proj_code": "text",
+            "proj_name": "text",
+            "proj_status": "enum:initiation/acquisition/planning/development/sales/delivery/settlement",
+            "begin_date": "date",
+        },
+    },
+    {
+        "name": "cb_contract",
+        "label": "合同",
+        "columns": [
+            {"field": "contract_code", "label": "合同号"},
+            {"field": "contract_name", "label": "合同名"},
+            {"field": "yf_provider_name", "label": "乙方"},
+            {"field": "ht_amount", "label": "合同金额"},
+            {"field": "sum_alter_amount", "label": "累计变更"},
+            {"field": "sign_date", "label": "签订日"},
+            {"field": "js_state", "label": "结算状态"},
+            {"field": "r_code", "label": "R 编码"},
+            {"field": "l3_code", "label": "CBS 三级"},
+            {"field": "cb_state", "label": "CB 状态"},
+        ],
+        "filterableTypes": {
+            "contract_code": "text",
+            "contract_name": "text",
+            "yf_provider_name": "text",
+            "ht_amount": "number",
+            "sign_date": "date",
+            "r_code": "text",
+            "l3_code": "text",
+            "cb_state": "enum:draft/approving/signed/paid",
+        },
+    },
+    {
+        "name": "cb_htfk_apply",
+        "label": "付款申请",
+        "columns": [
+            {"field": "apply_code", "label": "申请号"},
+            {"field": "subject", "label": "事由"},
+            {"field": "apply_amount", "label": "申请金额"},
+            {"field": "apply_state", "label": "申请状态"},
+            {"field": "pay_state", "label": "支付状态"},
+            {"field": "apply_date", "label": "申请日"},
+        ],
+        "filterableTypes": {
+            "apply_code": "text",
+            "subject": "text",
+            "apply_amount": "number",
+            "apply_state": "text",
+            "pay_state": "text",
+            "apply_date": "date",
+        },
+    },
+    {
+        "name": "vcb_expense",
+        "label": "报销",
+        "columns": [
+            {"field": "expense_code", "label": "报销号"},
+            {"field": "subject", "label": "主题"},
+            {"field": "pay_amount", "label": "应付金额"},
+            {"field": "apply_state", "label": "状态"},
+            {"field": "apply_date", "label": "申请日"},
+        ],
+        "filterableTypes": {
+            "expense_code": "text",
+            "subject": "text",
+            "pay_amount": "number",
+            "apply_state": "text",
+            "apply_date": "date",
+        },
+    },
+    {
+        "name": "vcb_loan_simple",
+        "label": "借款",
+        "columns": [
+            {"field": "loan_code", "label": "借款号"},
+            {"field": "subject", "label": "主题"},
+            {"field": "loan_amount", "label": "借款金额"},
+            {"field": "remain_amount", "label": "剩余"},
+            {"field": "apply_state", "label": "状态"},
+            {"field": "apply_date", "label": "申请日"},
+        ],
+        "filterableTypes": {
+            "loan_code": "text",
+            "subject": "text",
+            "loan_amount": "number",
+            "apply_state": "text",
+            "apply_date": "date",
+        },
+    },
+    {
+        "name": "srm_provider",
+        "label": "供应商",
+        "columns": [
+            {"field": "provider_code", "label": "编码"},
+            {"field": "provider_name", "label": "供应商"},
+            {"field": "short_name", "label": "简称"},
+            {"field": "main_category_code", "label": "类别"},
+            {"field": "eval_result", "label": "评级"},
+            {"field": "contact_person", "label": "联系人"},
+        ],
+        "filterableTypes": {
+            "provider_code": "text",
+            "provider_name": "text",
+            "main_category_code": "text",
+            "eval_result": "text",
+        },
+    },
+    {
+        "name": "jd_task",
+        "label": "任务",
+        "columns": [
+            {"field": "task_code", "label": "编码"},
+            {"field": "task_name", "label": "任务"},
+            {"field": "task_type", "label": "类型"},
+            {"field": "plan_end_date", "label": "计划完成"},
+            {"field": "progress_pct", "label": "进度"},
+            {"field": "status", "label": "状态"},
+        ],
+        "filterableTypes": {
+            "task_name": "text",
+            "task_type": "text",
+            "plan_end_date": "date",
+            "status": "text",
+        },
+    },
+    {
+        "name": "sale_revenue",
+        "label": "销售回款",
+        "columns": [
+            {"field": "revenue_code", "label": "编码"},
+            {"field": "customer_name", "label": "客户"},
+            {"field": "amount", "label": "金额"},
+            {"field": "receive_date", "label": "到账日"},
+            {"field": "status", "label": "状态"},
+            {"field": "payment_type", "label": "付款类型"},
+        ],
+        "filterableTypes": {
+            "customer_name": "text",
+            "amount": "number",
+            "receive_date": "date",
+            "status": "text",
+        },
+    },
+    {
+        "name": "cb_subject_dict",
+        "label": "CBS 字典(v3)",
+        "columns": [
+            {"field": "l3_code", "label": "CBS 三级"},
+            {"field": "r_code", "label": "R 编码"},
+            {"field": "l2_name", "label": "大类"},
+            {"field": "subject", "label": "子项"},
+            {"field": "plan_amount", "label": "计划金额(万)"},
+            {"field": "plan_version", "label": "版本"},
+            {"field": "src", "label": "来源"},
+        ],
+        "filterableTypes": {
+            "l3_code": "text",
+            "r_code": "text",
+            "l2_name": "text",
+            "subject": "text",
+            "plan_amount": "number",
+            "plan_version": "text",
+            "src": "enum:seed/manual/cloned",
+        },
+    },
+    {
+        "name": "cb_change_apply",
+        "label": "合同变更(v3)",
+        "columns": [
+            {"field": "change_code", "label": "变更号"},
+            {"field": "reason", "label": "原因"},
+            {"field": "change_amount", "label": "金额"},
+            {"field": "state", "label": "状态"},
+            {"field": "r_code", "label": "R 编码"},
+            {"field": "l3_code", "label": "CBS"},
+            {"field": "apply_date", "label": "申请日"},
+        ],
+        "filterableTypes": {
+            "change_code": "text",
+            "reason": "text",
+            "change_amount": "number",
+            "state": "enum:estimated/approving/confirmed",
+            "r_code": "text",
+            "l3_code": "text",
+            "apply_date": "date",
+        },
+    },
+]
+
+
+REPORT_TEMPLATE_OPERATORS = ["=", "!=", ">", ">=", "<", "<=", "like", "in"]
+
+
 def _raw_source_rows(
     pool: PsqlPool,
     table: str,
@@ -5410,6 +5624,70 @@ def _raw_source_rows(
 
 def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str, Any]]:
     return _raw_source_rows(pool, table, max_rows, REPORT_SOURCE_TABLES)
+
+
+def report_template_metadata() -> dict[str, Any]:
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "tables": REPORT_TEMPLATE_TABLE_META,
+            "operators": REPORT_TEMPLATE_OPERATORS,
+        },
+        "source_kind": "definition",
+        "source_coverage": {},
+        "missing_or_empty_source_tables": [],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def report_template_rows(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), REPORT_TEMPLATE_SOURCE_TABLES))
+        for table in sorted(REPORT_TEMPLATE_SOURCE_TABLES)
+    }
+    result: list[dict[str, Any]] = []
+    for source in _raw_source_rows(
+        pool, "sys_report_template", max(max_rows, 500), REPORT_TEMPLATE_SOURCE_TABLES,
+    ):
+        payload = source["payload"]
+        def json_array(key: str, alternate: str) -> list[Any]:
+            value = payload.get(key, payload.get(alternate, []))
+            if isinstance(value, list):
+                return value
+            if isinstance(value, str):
+                try:
+                    decoded = json.loads(value)
+                except json.JSONDecodeError:
+                    decoded = []
+                return decoded if isinstance(decoded, list) else []
+            return []
+
+        result.append(
+            {
+                "templateId": _report_text(payload, "template_id", source["record_id"]),
+                "templateName": _report_text(payload, "template_name"),
+                "description": _report_text(payload, "description"),
+                "baseTable": _report_text(payload, "base_table", ""),
+                "columns": json_array("columns", "columns_json"),
+                "filters": json_array("filters", "filters_json"),
+                "orderBy": _report_text(payload, "order_by", "orderBy"),
+                "createdBy": _report_text(payload, "created_by", "createdBy"),
+                "createdAt": _report_text(payload, "created_at", "createdAt"),
+                "isShared": _notification_bool(payload, "is_shared", "isShared"),
+                "isMine": False,
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda row: (str(row["createdAt"]), str(row["templateId"])), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:max_rows],
+        **_notification_source_metadata(coverage),
+    }
 
 
 def _report_float(payload: dict[str, Any], key: str, fallback: float = 0.0) -> float:
@@ -11019,6 +11297,10 @@ def handler_factory(
                         response(self, 200, {"items": items}, origin)
                 elif parsed.path == "/api/company/reports/overview":
                     response(self, 200, reports_overview(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/reports/templates/meta":
+                    response(self, 200, report_template_metadata(), origin)
+                elif parsed.path == "/api/company/reports/templates":
+                    response(self, 200, report_template_rows(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/cost-summary":
                     response(self, 200, report_cost_summary(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/reports/contract-payment-ledger":

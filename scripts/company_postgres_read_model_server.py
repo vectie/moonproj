@@ -4,7 +4,8 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
-reviewed invoice, delivery/project-progress, dashboard v1, core-report,
+reviewed invoice, delivery/project-progress, dashboard v1, core-report and
+report-builder metadata/template,
 employee-loan, dynamic-cost, investment, admin-quality, attachment metadata,
 non-secret profile, AI analytics, and webhook configuration reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
@@ -101,6 +102,8 @@ from company_postgres_service import (
     report_supplier_analysis as service_report_supplier_analysis,
     report_approval_efficiency as service_report_approval_efficiency,
     report_project_stage_matrix as service_report_project_stage_matrix,
+    report_template_metadata as service_report_template_metadata,
+    report_template_rows as service_report_template_rows,
     reports_overview as service_reports_overview,
     dashboard_group_overview as service_dashboard_group_overview,
     dashboard_group_funnel as service_dashboard_group_funnel,
@@ -659,6 +662,14 @@ def report_approval_efficiency(args: argparse.Namespace) -> dict[str, Any]:
 
 def report_project_stage_matrix(args: argparse.Namespace) -> dict[str, Any]:
     return service_report_project_stage_matrix(_ReadModelPool(args), 500)
+
+
+def report_template_metadata(args: argparse.Namespace) -> dict[str, Any]:
+    return service_report_template_metadata()
+
+
+def report_template_rows(args: argparse.Namespace) -> dict[str, Any]:
+    return service_report_template_rows(_ReadModelPool(args), 500)
 
 
 def reports_overview(args: argparse.Namespace) -> dict[str, Any]:
@@ -1320,6 +1331,12 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/reports/overview":
                     response(self, 200, reports_overview(args))
+                    return
+                if parsed.path == "/api/company/reports/templates/meta":
+                    response(self, 200, report_template_metadata(args))
+                    return
+                if parsed.path == "/api/company/reports/templates":
+                    response(self, 200, report_template_rows(args))
                     return
                 if parsed.path == "/api/company/reports/cost-summary":
                     response(self, 200, report_cost_summary(args))
