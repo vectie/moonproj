@@ -243,6 +243,14 @@ struct UserRosterRow {
 }
 
 ///|
+struct HealthTableRow {
+  table : String
+  row_count : String
+  source_status : String
+  source_kind : String
+}
+
+///|
 struct LoanRow {
   loan_id : String
   loan_code : String
@@ -382,6 +390,13 @@ struct Model {
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
+  health_loaded : Bool
+  health_table_rows : Array[HealthTableRow]
+  health_source_table_count : String
+  health_missing_table_count : String
+  health_bpm_instance_count : String
+  health_bpm_action_count : String
+  health_note : String
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
@@ -489,6 +504,9 @@ enum Msg {
   AdminQualityLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
+  HealthTablesLoaded(String)
+  HealthBpmLoaded(String)
+  HealthLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
   CreateLoan
@@ -590,6 +608,13 @@ fn initial_model() -> Model {
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
+    health_loaded: false,
+    health_table_rows: [],
+    health_source_table_count: "0",
+    health_missing_table_count: "0",
+    health_bpm_instance_count: "0",
+    health_bpm_action_count: "0",
+    health_note: "系统健康读模型尚未加载 · 使用设计快照",
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
@@ -711,6 +736,14 @@ fn json_object_text(
     Some(Json::True) => "true"
     Some(Json::False) => "false"
     _ => fallback
+  }
+}
+
+///|
+fn json_object_int(fields : Map[String, Json], key : String) -> Int {
+  match fields.get(key) {
+    Some(Json::Number(value, ..)) => value.to_int()
+    _ => 0
   }
 }
 
@@ -1449,6 +1482,74 @@ fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
 }
 
 ///|
+fn health_table_rows_from_body(body : String) -> Array[HealthTableRow] {
+  let rows : Array[HealthTableRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              table: json_object_text(row, "table", ""),
+              row_count: json_object_text(row, "rowCount", "—"),
+              source_status: json_object_text(row, "sourceStatus", "unknown"),
+              source_kind: json_object_text(
+                row, "sourceKind", "imported_or_empty",
+              ),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn health_table_counts_from_body(body : String) -> (String, String) {
+  let rows = health_table_rows_from_body(body)
+  let mut empty_count = 0
+  for row in rows {
+    if row.source_status != "rows_imported" {
+      empty_count = empty_count + 1
+    }
+  }
+  (rows.length().to_string(), empty_count.to_string())
+}
+
+///|
+fn health_bpm_counts_from_body(body : String) -> (String, String) {
+  let mut instance_count = "0"
+  let mut action_count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let mut total = 0
+          for value in json_array_field(data, "byStatus") {
+            match value {
+              Json::Object(row) => total = total + json_object_int(row, "count")
+              _ => ()
+            }
+          }
+          instance_count = total.to_string()
+        }
+        _ => ()
+      }
+      match fields.get("source_coverage") {
+        Some(Json::Object(coverage)) =>
+          action_count = json_object_text(coverage, "wf_step_action", "0")
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (instance_count, action_count)
+}
+
+///|
 fn loan_from_json(value : Json) -> LoanRow? {
   match value {
     Json::Object(fields) =>
@@ -1737,6 +1838,26 @@ fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(UsersLoaded(body))
       Err(_) => emit(UsersLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_health_tables(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/health/tables").expect_text(result => {
+    match result {
+      Ok(body) => emit(HealthTablesLoaded(body))
+      Err(_) => emit(HealthLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_health_bpm(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/health/bpm-pool").expect_text(result => {
+    match result {
+      Ok(body) => emit(HealthBpmLoaded(body))
+      Err(_) => emit(HealthLoadFailed)
     }
   })
 }
@@ -2185,6 +2306,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_admin_quality(emit)
       } else if path == "/users" {
         load_users(emit)
+      } else if path == "/system-health" {
+        load_health_tables(emit)
       } else if path == "/loans" {
         load_loans(emit)
       } else if path == "/tasks" {
@@ -3100,6 +3223,44 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           users_loaded: false,
           user_roster_rows: [],
           users_note: "身份读模型不可用 · 使用已审核快照",
+        },
+      )
+    HealthTablesLoaded(body) => {
+      let (source_table_count, missing_table_count) = health_table_counts_from_body(
+        body,
+      )
+      (
+        load_health_bpm(emit),
+        {
+          ..model,
+          health_table_rows: health_table_rows_from_body(body),
+          health_source_table_count: source_table_count,
+          health_missing_table_count: missing_table_count,
+          health_note: "已加载 PostgreSQL 源覆盖 · 正在读取 BPM 池状态",
+        },
+      )
+    }
+    HealthBpmLoaded(body) => {
+      let (instance_count, action_count) = health_bpm_counts_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          health_loaded: true,
+          health_bpm_instance_count: instance_count,
+          health_bpm_action_count: action_count,
+          health_note: "已加载 PostgreSQL 健康覆盖 · BPM 实例/动作保持源数据状态",
+        },
+      )
+    }
+    HealthLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          health_loaded: false,
+          health_table_rows: [],
+          health_note: "系统健康读模型不可用 · 使用设计快照",
         },
       )
     LoansLoaded(body) =>
@@ -7525,63 +7686,165 @@ fn attachments_view() -> @html.Html {
 }
 
 ///|
-fn health_view() -> @html.Html {
+fn health_table_status(status : String) -> String {
+  if status == "rows_imported" {
+    "已导入"
+  } else if status == "no_rows_in_export" {
+    "空/缺失"
+  } else {
+    status
+  }
+}
+
+///|
+fn health_table_panel(model : Model) -> @html.Html {
+  if model.health_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.health_table_rows {
+      rows.push([
+        row.table,
+        row.row_count,
+        "PostgreSQL 控制导出 · " + row.source_kind,
+        health_table_status(row.source_status),
+      ])
+    }
+    table_panel(
+      "表行数（源覆盖 " + model.health_source_table_count + " 张）",
+      model.health_note,
+      data_table(["表名", "行数", "来源", "状态"], rows),
+    )
+  } else {
+    table_panel(
+      "表行数(主要 21 张)",
+      "最近探测 2026-07-13 09:40 · " + model.health_note,
+      data_table(["表名", "行数", "说明", "状态"], [
+        ["company_record", "120", "原始 ERP 证据 envelope", "正常"],
+        [
+          "company_aggregate_projection", "109", "公司域聚合投影", "正常",
+        ],
+        [
+          "company_accounting_event_link", "7", "来源到会计事件链接", "正常",
+        ],
+        [
+          "company_migration_receipt", "19", "迁移批次与回放凭证", "正常",
+        ],
+      ]),
+    )
+  }
+}
+
+///|
+fn health_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let health_status_class = if model.health_loaded {
+    "erp-status-tag is-success"
+  } else {
+    "erp-status-tag is-warning"
+  }
+  let health_status_label = if model.health_loaded {
+    "源覆盖已读取"
+  } else {
+    "设计快照"
+  }
+  let stats = if model.health_loaded {
+    div(class="erp-stat-grid") <| [
+      metric(
+        "源覆盖表",
+        model.health_source_table_count,
+        "空/缺表 " + model.health_missing_table_count,
+        "metric-blue",
+      ),
+      metric(
+        "BPM 实例",
+        model.health_bpm_instance_count,
+        "源数据计数 · 只读",
+        "metric-green",
+      ),
+      metric(
+        "BPM 动作",
+        model.health_bpm_action_count,
+        "授权状态：非授权",
+        "metric-blue",
+      ),
+    ]
+  } else {
+    div(class="erp-stat-grid") <| [
+      metric("启动时长", "18d 06h", "最近重启 06-25", "metric-blue"),
+      metric("内存 RSS", "486 MB", "上限 2 GB", "metric-green"),
+      metric("数据库大小", "1.82 GB", "增长 +4.6%", "metric-blue"),
+    ]
+  }
+  let status_items = if model.health_loaded {
+    [
+      div(class="erp-health-item") <| [
+        span("PostgreSQL 源覆盖"),
+        strong("已读取"),
+        span(
+          model.health_source_table_count +
+          " 张表 · 空/缺 " +
+          model.health_missing_table_count,
+        ),
+      ],
+      div(class="erp-health-item") <| [
+        span("读模型 API"),
+        strong("正常"),
+        span("健康覆盖响应已返回"),
+      ],
+      div(class="erp-health-item") <| [
+        span("BPM 实例池"),
+        strong(model.health_bpm_instance_count + " 条"),
+        span("源数据只读快照"),
+      ],
+      div(class="erp-health-item") <| [
+        span("BPM 动作授权"),
+        strong("非授权"),
+        span(model.health_bpm_action_count + " 条源动作"),
+      ],
+    ]
+  } else {
+    [
+      div(class="erp-health-item") <| [
+        span("PostgreSQL 主库"),
+        strong("快照"),
+        span("等待源覆盖读模型"),
+      ],
+      div(class="erp-health-item") <| [
+        span("读模型 API"),
+        strong("未加载"),
+        span("当前显示设计快照"),
+      ],
+      div(class="erp-health-item") <| [
+        span("附件存储"),
+        strong("快照"),
+        span("未接入源探针"),
+      ],
+      div(class="erp-health-item") <| [
+        span("通知队列"),
+        strong("快照"),
+        span("未接入源探针"),
+      ],
+    ]
+  }
   page_shell(
     "系统健康",
     "SYSTEM / HEALTH",
     "查看服务、数据库、存储和消息队列的当前状态，所有指标来自只读运维探针。",
-    [button(class="erp-secondary-btn", "刷新探针")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/system-health")),
+        "刷新探针",
+      ),
+    ],
     div <| [
-      div(class="erp-stat-grid") <| [
-        metric("启动时长", "18d 06h", "最近重启 06-25", "metric-blue"),
-        metric("内存 RSS", "486 MB", "上限 2 GB", "metric-green"),
-        metric("数据库大小", "1.82 GB", "增长 +4.6%", "metric-blue"),
-      ],
+      stats,
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("服务状态"),
-          span(class="erp-status-tag is-success", "全部正常"),
+          span(class=health_status_class, health_status_label),
         ],
-        div(class="erp-health-grid") <| [
-          div(class="erp-health-item") <| [
-            span("PostgreSQL 主库"),
-            strong("正常"),
-            span("延迟 4 ms"),
-          ],
-          div(class="erp-health-item") <| [
-            span("读模型 API"),
-            strong("正常"),
-            span("请求 1,842 / 日"),
-          ],
-          div(class="erp-health-item") <| [
-            span("附件存储"),
-            strong("正常"),
-            span("可用 86%"),
-          ],
-          div(class="erp-health-item") <| [
-            span("通知队列"),
-            strong("正常"),
-            span("积压 0"),
-          ],
-        ],
+        div(class="erp-health-grid") <| status_items,
       ],
-      table_panel(
-        "表行数(主要 21 张)",
-        "最近探测 2026-07-13 09:40",
-        data_table(["表名", "行数", "说明", "状态"], [
-          ["company_record", "120", "原始 ERP 证据 envelope", "正常"],
-          [
-            "company_aggregate_projection", "109", "公司域聚合投影", "正常",
-          ],
-          [
-            "company_accounting_event_link", "7", "来源到会计事件链接",
-            "正常",
-          ],
-          [
-            "company_migration_receipt", "19", "迁移批次与回放凭证", "正常",
-          ],
-        ]),
-      ),
+      health_table_panel(model),
     ],
   )
 }
@@ -8163,7 +8426,7 @@ fn business_view(
       "/notify-config" => notify_view()
       "/audit-log" => audit_view()
       "/error-log" => error_view()
-      "/system-health" => health_view()
+      "/system-health" => health_view(emit, model)
       "/users" => users_view(model)
       "/admin" => admin_view(model)
       "/ocr-config" => ocr_view()

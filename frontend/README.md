@@ -96,6 +96,9 @@ Admin governance reads are available at
 `/api/company/admin/health/tables`, and `/api/company/admin/health/bpm-pool`;
 the quality response keeps four unavailable source dependencies explicit, and
 the source super-user boundary and all admin writes remain gated.
+The `/system-health` screen consumes both health reads through the read-only
+adapter and keeps its original uptime, memory, storage, and queue cards as
+offline design fallback only.
 `/api/company/rbac/users` also loads the five imported user identities and
 organization labels on `/users`; role and permission tables remain explicit
 source gaps, and no role is inferred from `isSuperUser`.

@@ -9,6 +9,7 @@
   "target_exact_route_count": 53,
   "target_dynamic_prefix_count": 6,
   "target_state_counts": {
+    "connected_admin_health_read": 1,
     "connected_command_form": 1,
     "connected_contract_command_form": 1,
     "connected_contract_read": 1,
@@ -24,12 +25,13 @@
     "connected_tender_command_form": 1,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 2,
-    "fixture_backed_read_only": 28,
+    "fixture_backed_read_only": 27,
     "public": 1,
     "read_model_only": 3,
     "read_only_public": 1
   },
   "api_state_counts": {
+    "connected_admin_health_read": 1,
     "connected_contract_command": 2,
     "connected_delivery_command": 2,
     "connected_expense_command": 1,
@@ -44,7 +46,7 @@
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 32
+    "read_only_fixture_no_source_api": 31
   },
   "routes": [
     {
@@ -739,13 +741,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "health_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_admin_health_read",
       "source_api_module": "admin",
       "source_api_handler_count": 18,
       "source_api_read_handler_count": 13,
       "source_api_mutation_handler_count": 5,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_admin_health_read",
+      "required_next": "accept_browser_admin_health_scenario_and_super_user_owner"
     },
     {
       "path": "/users",

@@ -26,6 +26,13 @@ The target now exposes source-compatible read boundaries:
 | Health table coverage | `/api/company/admin/health/tables` | source-coverage read |
 | BPM pool snapshot | `/api/company/admin/health/bpm-pool` | source-coverage read |
 
+The Rabbita `/system-health` screen now calls both health endpoints through the
+read-only PostgreSQL adapter. When the responses arrive it shows the 29-table
+source coverage, empty/missing-table count, BPM instance/action counts, and the
+explicit non-authorizing state. Its original uptime, memory, storage, and
+queue values remain only as an offline design snapshot; they are not presented
+as live evidence.
+
 Rows preserve source field names and are marked `sourceKind=imported`. The
 quality response marks unavailable rules as `NO_SOURCE_ROWS` and includes
 per-table coverage; it does not turn missing source data into passing checks.
@@ -51,6 +58,10 @@ super-user elevation.
   `connected_admin_read`.
 - The parity matrix marks the source `GET /rbac/users` roster as
   `connected_rbac_user_read`; role and permission endpoints remain gated.
+- The parity matrix marks `/system-health` as
+  `connected_admin_health_read`; the production identity and super-user owner
+  scenario remain required before treating the screen as an accepted admin
+  control surface.
 
 ## Remaining gate
 

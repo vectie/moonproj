@@ -54,6 +54,8 @@ from company_postgres_service import (
     dashboard_project_anomalies as service_dashboard_project_anomalies,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
+    admin_health_tables as service_admin_health_tables,
+    admin_health_bpm_pool as service_admin_health_bpm_pool,
     loans as service_loans,
 )
 
@@ -349,6 +351,14 @@ def admin_rbac_users(
     return service_admin_rbac_users(_ReadModelPool(args), keyword, enabled, 500)
 
 
+def admin_health_tables(args: argparse.Namespace) -> dict[str, Any]:
+    return service_admin_health_tables(_ReadModelPool(args), 500)
+
+
+def admin_health_bpm_pool(args: argparse.Namespace) -> dict[str, Any]:
+    return service_admin_health_bpm_pool(_ReadModelPool(args), 500)
+
+
 def loans(
     args: argparse.Namespace,
     loan_id: str | None,
@@ -559,6 +569,12 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                             query.get("enabled", [None])[0],
                         ),
                     )
+                    return
+                if parsed.path == "/api/company/admin/health/tables":
+                    response(self, 200, admin_health_tables(args))
+                    return
+                if parsed.path == "/api/company/admin/health/bpm-pool":
+                    response(self, 200, admin_health_bpm_pool(args))
                     return
                 if parsed.path == "/api/company/dashboard/group/overview":
                     response(self, 200, dashboard_group_overview(args))
