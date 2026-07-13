@@ -4282,8 +4282,8 @@
       "browser_route_paths": [
         "/tender"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_tender_source_read",
+      "required_next": "accept_browser_tender_source_scenario_and_production_identity"
     },
     {
       "module": "tender",
@@ -4322,8 +4322,8 @@
       "browser_route_paths": [
         "/tender"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_tender_source_read",
+      "required_next": "accept_browser_tender_source_scenario_and_production_identity"
     },
     {
       "module": "tender",
@@ -4342,8 +4342,8 @@
       "browser_route_paths": [
         "/tender"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_tender_source_read",
+      "required_next": "accept_browser_tender_source_scenario_and_production_identity"
     },
     {
       "module": "tender",

@@ -59,7 +59,8 @@ the award-to-commitment grant remains a separate native boundary and no cash,
 accounting, tax, or settlement effect is inferred.
 
 The read-only development adapter exposes the same GET surface. Rabbita
-`/tender` loads PostgreSQL rows when available and provides local create,
+`/tender` first loads source-compatible tender-plan, award, and split
+observations, then provides local create,
 publish, bidding, award, completion, and cancellation actions through the
 authenticated gateway;
 `/srm/providers` first loads the source-compatible provider master list, then
@@ -82,6 +83,18 @@ The source parity audit also records the remaining differences. The source
 connected; the source-compatible risk board remains read-only and
 non-authorizing while the snapshot has no supplier rows. All target mutations
 above are separate idempotent company commands, not proxied legacy writes.
+
+The source tender boundary is:
+
+- `GET /api/company/source/tender/tenders` over `tender_plan`;
+- `GET /api/company/source/tender/awards` over `tender_award`;
+- `GET /api/company/source/tender/splits` over `contract_split`.
+
+These responses preserve source fields, add normalized identity and display
+fields for Rabbita, report all three table counts, and mark the read as
+non-authorizing and non-persisting. The available export has zero rows in all
+three tables, so the tender page renders an explicit empty source state rather
+than promoting its reviewed snapshot rows.
 
 ## Evidence
 

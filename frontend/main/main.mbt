@@ -650,6 +650,10 @@ struct Model {
   tender_id : String
   tender_state : String
   tender_note : String
+  tender_source_loaded : Bool
+  tender_source_award_count : String
+  tender_source_split_count : String
+  tender_source_note : String
   suppliers_loaded : Bool
   supplier_rows : Array[SupplierRow]
   supplier_source_loaded : Bool
@@ -989,8 +993,10 @@ enum Msg {
   PaymentApplyCommandFailed
   PaymentEligibilityLoaded(String)
   PaymentEligibilityLoadFailed
-  TendersLoaded(String)
-  TendersLoadFailed
+  TenderSourceTendersLoaded(String)
+  TenderSourceAwardsLoaded(String)
+  TenderSourceSplitsLoaded(String)
+  TenderSourceLoadFailed
   CreateTender
   PublishTender
   OpenTenderBidding
@@ -1186,6 +1192,10 @@ fn initial_model() -> Model {
     tender_id: "TD-RABBITA-LOCAL",
     tender_state: "new",
     tender_note: "合约规划读模型尚未加载",
+    tender_source_loaded: false,
+    tender_source_award_count: "0",
+    tender_source_split_count: "0",
+    tender_source_note: "源招标/定标/分判观察尚未加载 · 使用设计快照",
     suppliers_loaded: false,
     supplier_rows: [],
     supplier_source_loaded: false,
@@ -1929,17 +1939,18 @@ fn tender_rows_from_body(body : String) -> Array[TenderRow] {
   let rows : Array[TenderRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
-    Json::Object(fields) =>
-      match fields.get("items") {
-        Some(Json::Array(values)) =>
-          for value in values {
-            match tender_from_json(value) {
-              Some(row) => rows.push(row)
-              None => ()
-            }
-          }
-        _ => ()
+    Json::Object(fields) => {
+      let values = match fields.get("items") {
+        Some(Json::Array(values)) => values
+        _ => json_array_field(fields, "data")
       }
+      for value in values {
+        match tender_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
     _ => ()
   }
   rows
@@ -5903,10 +5914,31 @@ fn tender_state_label(state : String) -> String {
 
 ///|
 fn load_tenders(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/tenders").expect_text(result => {
+  @http.get("/api/company/source/tender/tenders?projGuid=proj-0001").expect_text(result => {
+      match result {
+        Ok(body) => emit(TenderSourceTendersLoaded(body))
+        Err(_) => emit(TenderSourceLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_tender_source_awards(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/tender/awards").expect_text(result => {
     match result {
-      Ok(body) => emit(TendersLoaded(body))
-      Err(_) => emit(TendersLoadFailed)
+      Ok(body) => emit(TenderSourceAwardsLoaded(body))
+      Err(_) => emit(TenderSourceLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_tender_source_splits(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/tender/splits").expect_text(result => {
+    match result {
+      Ok(body) => emit(TenderSourceSplitsLoaded(body))
+      Err(_) => emit(TenderSourceLoadFailed)
     }
   })
 }
@@ -6681,23 +6713,56 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           payment_apply_eligibility_note: "付款节点校验服务不可用",
         },
       )
-    TendersLoaded(body) =>
+    TenderSourceTendersLoaded(body) =>
       (
-        none,
+        load_tender_source_awards(emit),
         {
           ..model,
           tenders_loaded: true,
           tender_rows: tender_rows_from_body(body),
-          tender_note: "已加载 PostgreSQL 合约规划与招采状态",
+          tender_source_loaded: false,
+          tender_source_award_count: "0",
+          tender_source_split_count: "0",
+          tender_note: "已加载 PostgreSQL 招标源读模型 · 正在读取定标与分判",
+          tender_source_note: "招标源已连接 · 继续读取定标/分判",
         },
       )
-    TendersLoadFailed =>
+    TenderSourceAwardsLoaded(body) =>
+      (
+        load_tender_source_splits(emit),
+        {
+          ..model,
+          tender_source_award_count: source_data_row_count(body).to_string(),
+          tender_source_note: "招标源已连接 · 定标 " +
+          source_data_row_count(body).to_string() +
+          " 行 · 正在读取分判",
+        },
+      )
+    TenderSourceSplitsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          tender_source_loaded: true,
+          tender_source_split_count: source_data_row_count(body).to_string(),
+          tender_note: "已加载 PostgreSQL 招采源观察 · 空表保持可见",
+          tender_source_note: "定标 " +
+          model.tender_source_award_count +
+          " 行 · 分判 " +
+          source_data_row_count(body).to_string() +
+          " 行 · 源记录只读",
+        },
+      )
+    TenderSourceLoadFailed =>
       (
         none,
         {
           ..model,
           tenders_loaded: false,
-          tender_note: "合约规划读模型不可用 · 使用已审核快照",
+          tender_rows: [],
+          tender_source_loaded: false,
+          tender_source_note: "招采源读模型不可用 · 使用已审核快照",
+          tender_note: "合约规划源读模型不可用 · 使用已审核快照",
         },
       )
     CreateTender =>
@@ -11980,7 +12045,7 @@ fn tender_actions(
 
 ///|
 fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  let rows = if model.tenders_loaded && model.tender_rows.length() > 0 {
+  let rows = if model.tenders_loaded {
     model.tender_rows
   } else {
     fallback_tender_rows()
@@ -12006,12 +12071,18 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
         metric(
           "数据来源",
-          if model.tenders_loaded {
-            "PostgreSQL"
+          if model.tender_source_loaded {
+            "PostgreSQL 源"
+          } else if model.tenders_loaded {
+            "PostgreSQL 读取中"
           } else {
             "快照"
           },
-          model.tender_note,
+          model.tender_note +
+          " · 定标/分判 " +
+          model.tender_source_award_count +
+          "/" +
+          model.tender_source_split_count,
           "metric-blue",
         ),
       ],
@@ -12019,6 +12090,8 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       table_panel(
         "合约规划包",
         model.tender_note +
+        " · " +
+        model.tender_source_note +
         " · award 需通过供应商资格与投标匹配校验",
         tender_table(rows),
       ),

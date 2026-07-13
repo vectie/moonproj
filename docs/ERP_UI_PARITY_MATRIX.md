@@ -382,13 +382,13 @@ are attached. The JSON output contains all 338 handler rows.
 | `srm` | `POST` | `/providers/rescore-all` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `srm` | `GET` | `/risk-board` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers/:guid/check-sign` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `not_connected` | `connect_authenticated_read_api` |
-| `tender` | `GET` | `/tenders` | `/tender` | `not_connected` | `connect_authenticated_read_api` |
+| `tender` | `GET` | `/tenders` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
 | `tender` | `POST` | `/tenders` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `tender` | `PUT` | `/tenders/:guid/state` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `tender` | `DELETE` | `/tenders/:guid` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `tender` | `GET` | `/awards` | `/tender` | `not_connected` | `connect_authenticated_read_api` |
+| `tender` | `GET` | `/awards` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
 | `tender` | `POST` | `/awards` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `tender` | `GET` | `/splits` | `/tender` | `not_connected` | `connect_authenticated_read_api` |
+| `tender` | `GET` | `/splits` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
 | `tender` | `POST` | `/splits` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `GET` | `/badge` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `GET` | `/` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |

@@ -45,6 +45,8 @@ The bounded service exposes these endpoints:
   and ``/api/company/srm/risk-board`` (GET)
   source-compatible, non-authorizing reads with coverage metadata
 * ``/api/company/tender-splits`` (GET/POST)
+* ``/api/company/source/tender/{tenders,awards,splits}`` (GET, source ERP
+  procurement observations; empty source tables stay explicit)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}`` (GET)
 * ``/api/company/receivables`` (GET)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds}`` (POST)
@@ -1424,6 +1426,155 @@ def tenders(
             else "—"
         )
     return result
+
+
+TENDER_SOURCE_TABLES = {
+    "tender_plan",
+    "tender_award",
+    "contract_split",
+}
+
+
+def _tender_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _tender_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
+    return {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), TENDER_SOURCE_TABLES))
+        for table in sorted(TENDER_SOURCE_TABLES)
+    }
+
+
+def _tender_source_number(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _tender_source_row(row: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(row["payload"])
+    tender_id = str(payload.get("tender_guid") or row["record_id"])
+    amount = _tender_source_number(payload.get("estimated_amount"))
+    payload.setdefault("tender_guid", tender_id)
+    payload.setdefault("tender_id", tender_id)
+    payload.setdefault("name", payload.get("tender_name", tender_id))
+    payload.setdefault("project_scope", "project:" + str(payload.get("proj_guid") or ""))
+    payload.setdefault("estimated_amount_minor", int(round(amount * 100)))
+    payload.setdefault("estimated_amount_display", f"¥{amount:,.2f}" if amount else "—")
+    payload.setdefault("currency", "CNY")
+    payload.setdefault("state", "planning")
+    payload.setdefault("bids", [])
+    payload.setdefault("source_kind", "imported")
+    payload["aggregate_type"] = "tender"
+    payload["aggregate_id"] = tender_id
+    payload["source_id"] = row["source_id"]
+    payload["source_table"] = "tender_plan"
+    return payload
+
+
+def _tender_source_award_row(row: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(row["payload"])
+    award_id = str(payload.get("award_guid") or row["record_id"])
+    amount = _tender_source_number(payload.get("award_amount"))
+    payload.setdefault("award_guid", award_id)
+    payload.setdefault("award_id", award_id)
+    payload.setdefault("award_amount_display", f"¥{amount:,.2f}" if amount else "—")
+    payload.setdefault("state", "awarded")
+    payload.setdefault("source_kind", "imported")
+    payload["aggregate_type"] = "tender_award"
+    payload["aggregate_id"] = award_id
+    payload["source_id"] = row["source_id"]
+    payload["source_table"] = "tender_award"
+    return payload
+
+
+def _tender_source_split_row(row: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(row["payload"])
+    split_id = str(payload.get("split_guid") or row["record_id"])
+    amount = _tender_source_number(payload.get("split_amount"))
+    payload.setdefault("split_guid", split_id)
+    payload.setdefault("split_id", split_id)
+    payload.setdefault("split_amount_display", f"¥{amount:,.2f}" if amount else "—")
+    payload.setdefault("state", "planned")
+    payload.setdefault("source_kind", "imported")
+    payload["aggregate_type"] = "contract_split"
+    payload["aggregate_id"] = split_id
+    payload["source_id"] = row["source_id"]
+    payload["source_table"] = "contract_split"
+    return payload
+
+
+def tender_source_rows(
+    pool: PsqlPool,
+    family: str,
+    proj_guid: str | None,
+    state: str | None,
+    tender_guid: str | None,
+    parent_contract_guid: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read one ERP procurement table without promoting local commands."""
+
+    if family not in {"tenders", "awards", "splits"}:
+        raise ValueError("unsupported tender source family")
+    for value, name in (
+        (proj_guid, "proj_guid"),
+        (state, "state"),
+        (tender_guid, "tender_guid"),
+        (parent_contract_guid, "parent_contract_guid"),
+    ):
+        if value is not None and len(value) > 128:
+            raise ValueError(f"invalid {name}")
+    table = {
+        "tenders": "tender_plan",
+        "awards": "tender_award",
+        "splits": "contract_split",
+    }[family]
+    coverage = _tender_source_coverage(pool, max_rows)
+    raw = _raw_source_rows(pool, table, max(max_rows, 500), TENDER_SOURCE_TABLES)
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        payload = row["payload"]
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        if state is not None and str(payload.get("state") or "") != state:
+            continue
+        if tender_guid is not None and str(payload.get("tender_guid") or "") != tender_guid:
+            continue
+        if parent_contract_guid is not None and str(
+            payload.get("parent_contract_guid") or ""
+        ) != parent_contract_guid:
+            continue
+        if family == "tenders":
+            rows.append(_tender_source_row(row))
+        elif family == "awards":
+            rows.append(_tender_source_award_row(row))
+        else:
+            rows.append(_tender_source_split_row(row))
+    rows.sort(
+        key=lambda value: (
+            str(value.get("plan_publish_date") or value.get("award_date") or value.get("created_at") or ""),
+            str(value.get("aggregate_id") or ""),
+        ),
+        reverse=True,
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows[:max_rows],
+        **_tender_source_metadata(coverage),
+    }
 
 
 def _decode_supplier_fields(line: str) -> dict[str, Any]:
@@ -13220,6 +13371,29 @@ def handler_factory(
                         response(self, 404, {"error": "payment plan not found"}, origin)
                     else:
                         response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/source/tender/(tenders|awards|splits)",
+                    parsed.path,
+                ):
+                    family = parsed.path.rsplit("/", 1)[-1]
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        tender_source_rows(
+                            pool,
+                            family,
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            query.get("state", [None])[0],
+                            query.get("tenderGuid", query.get("tender_guid", [None]))[0],
+                            query.get(
+                                "parentContractGuid",
+                                query.get("parent_contract_guid", [None]),
+                            )[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif parsed.path == "/api/company/tenders":
                     value = parse_qs(parsed.query).get("tender_id", [None])[0]
                     response(self, 200, {"items": tenders(pool, value, max_response_rows)}, origin)

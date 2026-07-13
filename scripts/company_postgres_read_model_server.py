@@ -5,6 +5,7 @@ This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 source sales/receivables,
+source tender observations,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report and
 report-builder metadata/template,
 employee-loan, dynamic-cost, source contract/payment, invoice/tax-ledger,
@@ -107,6 +108,7 @@ from company_postgres_service import (
     supplier_risk_board as service_supplier_risk_board,
     supplier_risk_board_source as service_supplier_risk_board_source,
     tenders as service_tenders,
+    tender_source_rows as service_tender_source_rows,
     contract_splits as service_contract_splits,
     sales_rows as service_sales_rows,
     sales_source_rows as service_sales_source_rows,
@@ -435,6 +437,25 @@ def payment_application_eligibility(
 def tenders(args: argparse.Namespace, tender_id: str | None) -> list[dict[str, Any]]:
     pool = _ReadModelPool(args)
     return service_tenders(pool, tender_id, 500)
+
+
+def tender_source_rows(
+    args: argparse.Namespace,
+    family: str,
+    proj_guid: str | None,
+    state: str | None,
+    tender_guid: str | None,
+    parent_contract_guid: str | None,
+) -> dict[str, Any]:
+    return service_tender_source_rows(
+        _ReadModelPool(args),
+        family,
+        proj_guid,
+        state,
+        tender_guid,
+        parent_contract_guid,
+        500,
+    )
 
 
 def suppliers(args: argparse.Namespace, supplier_id: str | None) -> list[dict[str, Any]]:
@@ -1212,6 +1233,28 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                             int(query.get("months", ["6"])[0]),
                             query.get("buGuid", [None])[0],
                             query.get("projGuid", [None])[0],
+                        ),
+                    )
+                    return
+                if re.fullmatch(
+                    r"/api/company/source/tender/(tenders|awards|splits)",
+                    parsed.path,
+                ):
+                    family = parsed.path.rsplit("/", 1)[-1]
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        tender_source_rows(
+                            args,
+                            family,
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            query.get("state", [None])[0],
+                            query.get("tenderGuid", query.get("tender_guid", [None]))[0],
+                            query.get(
+                                "parentContractGuid",
+                                query.get("parent_contract_guid", [None]),
+                            )[0],
                         ),
                     )
                     return

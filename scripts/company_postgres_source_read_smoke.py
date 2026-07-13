@@ -216,6 +216,25 @@ def main() -> int:
                 and sales_source.get("persisted") is False,
                 f"source sales {family} empty boundary failed: {status} {sales_source}",
             )
+        for family, table in (
+            ("tenders", "tender_plan"),
+            ("awards", "tender_award"),
+            ("splits", "contract_split"),
+        ):
+            status, tender_source = request(
+                args.port,
+                f"/api/company/source/tender/{family}?projGuid=proj-0001",
+                token=token,
+            )
+            expect(
+                status == 200
+                and tender_source is not None
+                and tender_source.get("data") == []
+                and tender_source.get("source_coverage", {}).get(table) == 0
+                and tender_source.get("authorizing") is False
+                and tender_source.get("persisted") is False,
+                f"source tender {family} empty boundary failed: {status} {tender_source}",
+            )
         status, scope = request(
             args.port,
             "/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001",
@@ -284,7 +303,7 @@ def main() -> int:
             "source-read-smoke: contracts=2 payment_applies=3 dynamic_cost=7 "
             "attachments=0 invoices=0 budget_users=4 loan_balance=3500 "
             "workflow_instances=0 workflow_actions=0 progress=0 outputs=0 "
-            "sales_customers=0 sales_revenues=0",
+            "sales_customers=0 sales_revenues=0 tender_plans=0 tender_awards=0",
         )
         return 0
     finally:
