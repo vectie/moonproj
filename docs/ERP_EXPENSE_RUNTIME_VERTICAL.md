@@ -12,6 +12,7 @@ bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
 | Operation | Endpoint | Result |
 |---|---|---|
 | List latest claims | `GET /api/company/expenses` | Latest projection for each expense |
+| List imported source claims | `GET /api/company/budget/expenses?userCode=...` | Source-compatible `vcb_expense` rows plus coverage; empty source stays empty |
 | Read one claim | `GET /api/company/expenses/:id` | 404 when absent |
 | Create draft | `POST /api/company/expenses` | `draft` |
 | Submit | `POST /api/company/expenses/:id/submit` | `draft → submitted` |

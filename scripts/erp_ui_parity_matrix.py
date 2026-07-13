@@ -209,6 +209,8 @@ def match_target(
             return function, "connected_cost_read"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
+        if path == "/expenses" and function == "expenses_view":
+            return function, "connected_expense_read"
         if function in {"project_detail_view", "contract_detail_view", "expense_editor_view", "loan_editor_view", "provider_detail_view"}:
             return function, "fixture_backed_form"
         return function, "fixture_backed_read_only"
@@ -250,6 +252,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_dashboard_scenario_and_production_identity"
     if target_state == "connected_profile_read":
         return "accept_browser_profile_scenario_and_production_identity"
+    if target_state == "connected_expense_read":
+        return "accept_browser_expense_scenario_and_production_identity"
     if target_state == "connected_command_form":
         return "accept_production_identity_and_full_session_scenario"
     if target_state in {"connected_contract_read", "connected_contract_command_form"}:
@@ -405,6 +409,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_profile_read", "accept_browser_profile_scenario_and_production_identity"
     if (
+        handler["module"] == "budget"
+        and handler["method"] == "GET"
+        and handler["path"] == "/expenses"
+    ):
+        return "connected_expense_read", "accept_browser_expense_scenario_and_production_identity"
+    if (
         handler["module"] == "plan"
         and handler["method"] == "GET"
         and handler["path"]
@@ -451,6 +461,8 @@ def build_matrix(
             api_state = "connected_dashboard_read"
         elif target_state == "connected_profile_read":
             api_state = "connected_profile_read"
+        elif target_state == "connected_expense_read":
+            api_state = "connected_expense_read"
         elif target_state == "connected_command_form":
             api_state = "connected_expense_command"
         elif target_state in {"connected_contract_read", "connected_contract_command_form"}:

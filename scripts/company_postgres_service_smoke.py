@@ -454,6 +454,20 @@ def main() -> int:
             or initiated_payload.get("source_coverage", {}).get("cb_htfk_apply") != 3
         ):
             raise SmokeError(f"auth initiated read failed: {status} {initiated_payload}")
+        status, expense_source_payload = request(
+            args.port,
+            "/api/company/budget/expenses?userCode=admin",
+            token=token,
+        )
+        expense_source_data = (expense_source_payload or {}).get("data", [])
+        if (
+            status != 200
+            or expense_source_payload is None
+            or len(expense_source_data) != 0
+            or expense_source_payload.get("source_coverage", {}).get("vcb_expense") != 0
+            or "vcb_expense" not in expense_source_payload.get("missing_or_empty_source_tables", [])
+        ):
+            raise SmokeError(f"source expense read failed: {status} {expense_source_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -1576,6 +1590,8 @@ def main() -> int:
                     "profile_initiated_expenses": len(initiated_data.get("expenses", [])),
                     "profile_initiated_loans": len(initiated_data.get("loans", [])),
                     "profile_initiated_applies": len(initiated_data.get("applies", [])),
+                    "expense_source_rows": len(expense_source_data),
+                    "expense_source_vcb_expense_rows": expense_source_payload.get("source_coverage", {}).get("vcb_expense"),
                     "admin_audit_rows": 2,
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,

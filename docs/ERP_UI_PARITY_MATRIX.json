@@ -18,6 +18,7 @@
     "connected_cost_read": 1,
     "connected_dashboard_read": 3,
     "connected_delivery_command_form": 2,
+    "connected_expense_read": 1,
     "connected_investment_read": 1,
     "connected_invoice_read": 1,
     "connected_loan_command_form": 2,
@@ -32,7 +33,7 @@
     "connected_tender_command_form": 1,
     "connected_workflow_definition_read": 1,
     "fixture_backed_form": 2,
-    "fixture_backed_read_only": 21,
+    "fixture_backed_read_only": 20,
     "public": 1,
     "read_only_public": 1
   },
@@ -45,6 +46,7 @@
     "connected_dashboard_read": 3,
     "connected_delivery_command": 2,
     "connected_expense_command": 1,
+    "connected_expense_read": 1,
     "connected_investment_read": 1,
     "connected_invoice_read": 1,
     "connected_loan_command": 2,
@@ -58,7 +60,7 @@
     "connected_supplier_command": 1,
     "connected_tender_command": 1,
     "connected_workflow_definition_read": 1,
-    "read_only_fixture_no_source_api": 25
+    "read_only_fixture_no_source_api": 24
   },
   "routes": [
     {
@@ -193,13 +195,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "expenses_view",
-      "target_state": "fixture_backed_read_only",
+      "target_state": "connected_expense_read",
       "source_api_module": "budget",
       "source_api_handler_count": 13,
       "source_api_read_handler_count": 6,
       "source_api_mutation_handler_count": 7,
-      "api_state": "read_only_fixture_no_source_api",
-      "required_next": "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
+      "api_state": "connected_expense_read",
+      "required_next": "accept_browser_expense_scenario_and_production_identity"
     },
     {
       "path": "/expenses/new",
@@ -1513,8 +1515,8 @@
         "/expenses/new",
         "/expenses/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_expense_read",
+      "required_next": "accept_browser_expense_scenario_and_production_identity"
     },
     {
       "module": "budget",

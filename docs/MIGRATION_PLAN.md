@@ -335,6 +335,11 @@ those capabilities as source parity.
    scope, writes, role tables, retention, source completeness, and
    security-owner acceptance remain gated. See
    [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).
+   The expense list now has a separate source-compatible read over
+   `vcb_expense`; the current export returns zero rows and reports the empty
+   table, while local expense commands remain isolated projections. Expense
+   detail and approval synchronization still require source rows and workflow
+   data. See [`ERP_EXPENSE_RUNTIME_VERTICAL.md`](ERP_EXPENSE_RUNTIME_VERTICAL.md).
 4. **Reporting is locally connected but source-incomplete and not accepted.**
    The five core report reads now run through the local PostgreSQL service,
    read-model adapter, and Rabbita `/reports` overview. Cost, contract, and
@@ -369,9 +374,9 @@ those capabilities as source parity.
 
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
-currently records 31 connected browser states, 23 fixture-backed browser
+currently records 32 connected browser states, 22 fixture-backed browser
 states, no browser states classified as read-model-only, and two public
-states. Its API matrix records 31 connected API groups and 25 fixture/no-source
+states. Its API matrix records 32 connected API groups and 24 fixture/no-source
 groups across MDM
 organization/project, budget dictionary, investment,
 admin governance, dynamic cost, expense, contract, payment, procurement,

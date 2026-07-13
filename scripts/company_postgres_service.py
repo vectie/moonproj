@@ -16,6 +16,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/receipts``
 * ``/api/company/projections?aggregate_type=<optional>``
 * ``/api/company/expenses`` and ``/api/company/expenses/<id>`` (GET)
+* ``/api/company/budget/expenses`` (GET, source-compatible imported list)
 * ``/api/company/expenses`` (POST create draft)
 * ``/api/company/expenses/<id>/{submit,approve,reject,resubmit}`` (POST)
 * ``/api/company/contracts`` and ``/api/company/contracts/<id>`` (GET)
@@ -512,6 +513,105 @@ def expenses(pool: PsqlPool, expense_id: str | None, max_rows: int) -> list[dict
         LIMIT {max_rows}
         """
     return [_decode_projection_line(line) for line in query_lines(pool, query)]
+
+
+def budget_expenses(
+    pool: PsqlPool,
+    expense_id: str | None,
+    user_code: str | None,
+    apply_state: str | None,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read source reimbursement rows for the ERP budget list.
+
+    This is intentionally separate from ``expenses()``, which reads local
+    command projections.  Imported rows and locally-created command rows have
+    different ownership and provenance and must not be silently merged.
+    """
+
+    if expense_id is not None and not IDENTIFIER.fullmatch(expense_id):
+        raise ValueError("invalid expense_id")
+    if user_code is not None and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    users = _raw_source_rows(pool, "sys_user", max(max_rows, 100), EXPENSE_SOURCE_TABLES)
+    units = {
+        str(row["payload"].get("bu_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "mu_business_unit", max(max_rows, 100), EXPENSE_SOURCE_TABLES)
+    }
+    user_id = None
+    if user_code is not None:
+        selected = next(
+            (
+                row
+                for row in users
+                if str(row["payload"].get("user_code") or "") == user_code
+            ),
+            None,
+        )
+        if selected is None:
+            return None
+        user_id = str(selected["payload"].get("user_id") or selected["record_id"])
+
+    raw = _raw_source_rows(pool, "vcb_expense", max(max_rows, 500), EXPENSE_SOURCE_TABLES)
+    filtered = []
+    for row in raw:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if expense_id is not None and str(payload.get("expense_guid") or row["record_id"]) != expense_id:
+            continue
+        if user_id is not None and str(payload.get("applied_by") or "") != user_id:
+            continue
+        if apply_state is not None and str(payload.get("apply_state") or "") != apply_state:
+            continue
+        filtered.append(row)
+    filtered.sort(
+        key=lambda row: (
+            str(row["payload"].get("created_at") or row["payload"].get("apply_date") or ""),
+            str(row["payload"].get("expense_guid") or row["record_id"]),
+        ),
+        reverse=True,
+    )
+    result: list[dict[str, Any]] = []
+    for row in filtered[:max_rows]:
+        payload = row["payload"]
+        applied_by = str(payload.get("applied_by") or "")
+        apply_dept = str(payload.get("apply_dept_guid") or payload.get("dept_guid") or "")
+        user_payload = next(
+            (user["payload"] for user in users if str(user["payload"].get("user_id") or "") == applied_by),
+            {},
+        )
+        result.append(
+            {
+                "expenseGuid": str(payload.get("expense_guid") or row["record_id"]),
+                "expenseCode": str(payload.get("expense_code") or ""),
+                "subject": str(payload.get("subject") or ""),
+                "applyState": str(payload.get("apply_state") or ""),
+                "payState": str(payload.get("pay_state") or ""),
+                "expenseAmount": _report_float(payload, "expense_amount"),
+                "offsetAmount": _report_float(payload, "offset_amount"),
+                "payAmount": _report_float(payload, "pay_amount"),
+                "appliedByName": str(user_payload.get("emp_name") or user_payload.get("user_name") or applied_by),
+                "applyDeptName": str(units.get(apply_dept, {}).get("bu_name") or apply_dept),
+                "applyDate": str(payload.get("apply_date") or ""),
+                "payUnit": str(payload.get("pay_unit") or ""),
+                "processInstanceGuid": str(payload.get("process_instance_guid") or ""),
+                "createdAt": str(payload.get("created_at") or ""),
+                "sourceKind": "imported",
+            }
+        )
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), EXPENSE_SOURCE_TABLES))
+        for table in sorted(EXPENSE_SOURCE_TABLES)
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": result,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+    }
 
 
 def _decode_contract_fields(line: str) -> dict[str, Any]:
@@ -5442,6 +5542,14 @@ AUTH_SOURCE_TABLES = {
     "cb_htfk_apply",
 }
 
+EXPENSE_SOURCE_TABLES = {
+    "vcb_expense",
+    "cb_expense_detail",
+    "cb_expense_split",
+    "sys_user",
+    "mu_business_unit",
+}
+
 ADMIN_QUALITY_SOURCE_TABLES = {
     "ep_project",
     "cb_contract",
@@ -7486,6 +7594,19 @@ def handler_factory(
                 elif parsed.path == "/api/company/projections":
                     value = parse_qs(parsed.query).get("aggregate_type", [None])[0]
                     response(self, 200, {"items": projections(pool, value, max_response_rows)}, origin)
+                elif parsed.path == "/api/company/budget/expenses":
+                    query = parse_qs(parsed.query)
+                    result = budget_expenses(
+                        pool,
+                        query.get("expenseGuid", [None])[0],
+                        query.get("userCode", [None])[0],
+                        query.get("applyState", [None])[0],
+                        max_response_rows,
+                    )
+                    if result is None:
+                        response(self, 404, {"error": "user not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/expenses":
                     value = parse_qs(parsed.query).get("expense_id", [None])[0]
                     response(self, 200, {"items": expenses(pool, value, max_response_rows)}, origin)

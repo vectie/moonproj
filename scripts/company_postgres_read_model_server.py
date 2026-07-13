@@ -28,6 +28,7 @@ from company_postgres_target_apply import PostgresTargetError, run_psql, sql_lit
 from company_postgres_service import (
     auth_current_user as service_auth_current_user,
     auth_my_initiated as service_auth_my_initiated,
+    budget_expenses as service_budget_expenses,
     contracts as service_contracts,
     contract_milestones as service_contract_milestones,
     payment_applications as service_payment_applications,
@@ -112,6 +113,15 @@ def auth_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any
 
 def auth_my_initiated(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
     return service_auth_my_initiated(_ReadModelPool(args), user_code, 500)
+
+
+def budget_expenses(
+    args: argparse.Namespace,
+    expense_id: str | None,
+    user_code: str | None,
+    apply_state: str | None,
+) -> dict[str, Any] | None:
+    return service_budget_expenses(_ReadModelPool(args), expense_id, user_code, apply_state, 500)
 
 
 def receipts(args: argparse.Namespace) -> list[dict[str, Any]]:
@@ -491,6 +501,19 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/projections":
                     value = parse_qs(parsed.query).get("aggregate_type", [None])[0]
                     response(self, 200, {"items": projections(args, value)})
+                    return
+                if parsed.path == "/api/company/budget/expenses":
+                    query = parse_qs(parsed.query)
+                    result = budget_expenses(
+                        args,
+                        query.get("expenseGuid", [None])[0],
+                        query.get("userCode", [None])[0],
+                        query.get("applyState", [None])[0],
+                    )
+                    if result is None:
+                        response(self, 404, {"error": "user not found"})
+                    else:
+                        response(self, 200, result)
                     return
                 if parsed.path == "/api/company/contracts":
                     value = parse_qs(parsed.query).get("contract_id", [None])[0]

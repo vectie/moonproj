@@ -29,6 +29,20 @@ using @html {
 using @rabbita {cell, new, none, type Cmd}
 
 ///|
+struct ExpenseRow {
+  expense_id : String
+  expense_code : String
+  subject : String
+  expense_amount : String
+  apply_date : String
+  apply_state : String
+  pay_state : String
+  applied_by_name : String
+  apply_dept_name : String
+  source_kind : String
+}
+
+///|
 struct ContractRow {
   contract_id : String
   contract_code : String
@@ -396,6 +410,9 @@ struct Model {
   show_demo : Bool
   user_code : String
   password : String
+  expenses_loaded : Bool
+  expense_rows : Array[ExpenseRow]
+  expenses_note : String
   api_status : String
   api_note : String
   expense_id : String
@@ -554,6 +571,8 @@ enum Msg {
   SessionAuthenticated
   SessionAdapterFallback
   SessionLoginRejected(String)
+  ExpensesLoaded(String)
+  ExpensesLoadFailed
   CreateExpense
   SubmitExpense
   RejectExpense
@@ -675,6 +694,9 @@ fn initial_model() -> Model {
     show_demo: false,
     user_code: "",
     password: "",
+    expenses_loaded: false,
+    expense_rows: [],
+    expenses_note: "报销读模型尚未加载 · 使用设计快照",
     api_status: "未连接",
     api_note: "使用已审核快照",
     expense_id: "EXP-RABBITA-LOCAL",
@@ -1964,6 +1986,35 @@ fn initiated_rows_from_body(body : String) -> Array[InitiatedRow] {
 }
 
 ///|
+fn expense_rows_from_body(body : String) -> Array[ExpenseRow] {
+  let rows : Array[ExpenseRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              expense_id: json_object_text(row, "expenseGuid", ""),
+              expense_code: json_object_text(row, "expenseCode", ""),
+              subject: json_object_text(row, "subject", ""),
+              expense_amount: json_object_text(row, "expenseAmount", "0"),
+              apply_date: json_object_text(row, "applyDate", ""),
+              apply_state: json_object_text(row, "applyState", ""),
+              pay_state: json_object_text(row, "payState", ""),
+              applied_by_name: json_object_text(row, "appliedByName", ""),
+              apply_dept_name: json_object_text(row, "applyDeptName", ""),
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -2465,6 +2516,17 @@ fn load_profile_initiated(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd 
 }
 
 ///|
+fn load_expenses(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd {
+  let code = if user_code == "" { "admin" } else { user_code }
+  @http.get("/api/company/budget/expenses?userCode=" + code).expect_text(result => {
+    match result {
+      Ok(body) => emit(ExpensesLoaded(body))
+      Err(_) => emit(ExpensesLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/users").expect_text(result => {
     match result {
@@ -2934,6 +2996,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_sales(emit, "invoices")
       } else if path == "/reports" {
         load_reports(emit)
+      } else if path == "/expenses" {
+        load_expenses(emit, model.user_code)
       } else if path == "/admin" {
         load_admin_quality(emit)
       } else if path == "/users" {
@@ -4454,6 +4518,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_progress_state: "error",
           delivery_output_state: "error",
           delivery_command_note: "公司工程进度命令服务不可用或拒绝了请求",
+        },
+      )
+    ExpensesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          expenses_loaded: true,
+          expense_rows: expense_rows_from_body(body),
+          expenses_note: "已加载 PostgreSQL 报销源表 · 空表与缺失字段保持可见",
+        },
+      )
+    ExpensesLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          expenses_loaded: false,
+          expense_rows: [],
+          expenses_note: "报销源读模型不可用 · 使用设计快照",
         },
       )
     CreateExpense =>
@@ -7377,7 +7461,71 @@ fn invoice_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn expenses_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn expense_runtime_table(model : Model) -> @html.Html {
+  if model.expenses_loaded {
+    let rows : Array[Array[String]] = []
+    if model.expense_rows.length() == 0 {
+      rows.push([
+        "—", "—", "本次导出没有报销源记录", "—", "—", "—", "—",
+        "imported_or_empty",
+      ])
+    } else {
+      for row in model.expense_rows {
+        rows.push([
+          row.expense_code,
+          "报销",
+          row.subject,
+          "¥" + row.expense_amount,
+          row.apply_date,
+          row.applied_by_name + " · " + row.apply_dept_name,
+          row.apply_state + " / " + row.pay_state,
+          row.source_kind + " · " + row.expense_id,
+        ])
+      }
+    }
+    table_panel(
+      "PostgreSQL 报销记录 (" +
+      model.expense_rows.length().to_string() +
+      ")",
+      model.expenses_note,
+      data_table(
+        [
+          "报销单号", "费用类型", "摘要", "金额", "申请日期", "申请人",
+          "状态", "来源",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "报销记录",
+      "我的申请",
+      data_table(
+        [
+          "报销单号", "费用类型", "摘要", "金额", "申请日期", "当前节点",
+          "状态",
+        ],
+        [
+          [
+            "EXP-260712-008", "差旅费", "成都项目现场出差", "¥8,560",
+            "2026-07-12", "部门负责人", "审批中",
+          ],
+          [
+            "EXP-260705-003", "业务招待费", "供应商沟通会", "¥3,280",
+            "2026-07-05", "财务复核", "审批中",
+          ],
+          [
+            "EXP-260628-011", "办公费", "项目打印及耗材", "¥1,860", "2026-06-28",
+            "—", "已完成",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn expenses_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "我的报销",
     "FINANCE / EXPENSES",
@@ -7390,30 +7538,7 @@ fn expenses_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
         metric("已付款", "¥62,180", "本年度", "metric-green"),
       ],
       filter_bar("报销单号 / 摘要 / 申请日期"),
-      table_panel(
-        "报销记录",
-        "我的申请",
-        data_table(
-          [
-            "报销单号", "费用类型", "摘要", "金额", "申请日期", "当前节点",
-            "状态",
-          ],
-          [
-            [
-              "EXP-260712-008", "差旅费", "成都项目现场出差", "¥8,560",
-              "2026-07-12", "部门负责人", "审批中",
-            ],
-            [
-              "EXP-260705-003", "业务招待费", "供应商沟通会", "¥3,280",
-              "2026-07-05", "财务复核", "审批中",
-            ],
-            [
-              "EXP-260628-011", "办公费", "项目打印及耗材", "¥1,860",
-              "2026-06-28", "—", "已完成",
-            ],
-          ],
-        ),
-      ),
+      expense_runtime_table(model),
     ],
   )
 }
@@ -9617,7 +9742,7 @@ fn business_view(
       "/cbs/approval-config" => cbs_view(path)
       "/fund/plan" => fund_plan_view()
       "/invoice" => invoice_view(model)
-      "/expenses" => expenses_view(emit)
+      "/expenses" => expenses_view(emit, model)
       "/expenses/new" => expense_editor_view(emit, model, false)
       "/expenses/EXP-260712-008" => expense_editor_view(emit, model, true)
       "/loans" => loans_view(emit, model)
