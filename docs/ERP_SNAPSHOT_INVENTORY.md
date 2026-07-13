@@ -122,6 +122,10 @@ The optional thirty-second argument supplies a reviewed invoice/subledger map;
 it validates customer invoice/receivable collection and supplier payable
 payment evidence only. Cash release, revenue/expense posting, tax settlement,
 and period close remain separate gates.
+The optional thirty-third argument supplies a reviewed procurement cohort; it
+validates supplier qualification, tender award, and commitment evidence only.
+Cash release, accounting posting, settlement, tax treatment, and period close
+remain separate gates.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

@@ -38,6 +38,7 @@ FINANCING_FACILITY_MAPPING=${29:-}
 ASSET_LIFECYCLE_MAPPING=${30:-}
 TREASURY_PLAN_DISPATCH_MAPPING=${31:-}
 INVOICE_SUBLEDGER_MAPPING=${32:-}
+PROCUREMENT_COHORT_MAPPING=${33:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -360,6 +361,30 @@ if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" > "$INVOICE_SUBLEDGER_REPLAY"
   echo "invoice_subledger_replay=$INVOICE_SUBLEDGER_REPLAY"
+fi
+
+if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
+  PROCUREMENT_COHORT_PLAN="$WORK_DIR/procurement-cohort-plan.json"
+  python3 "$SCRIPT_DIR/erp_procurement_cohort_plan.py" \
+    "$PROCUREMENT_COHORT_MAPPING" "$PROCUREMENT_COHORT_PLAN"
+  echo "procurement_cohort_plan=$PROCUREMENT_COHORT_PLAN"
+  PROCUREMENT_COHORT_RECEIPT="$WORK_DIR/procurement-cohort-receipt.json"
+  moon run --target native cmd/procurement_cohort -- \
+    "$PROCUREMENT_COHORT_PLAN" "$PROCUREMENT_COHORT_RECEIPT"
+  echo "procurement_cohort_receipt=$PROCUREMENT_COHORT_RECEIPT"
+  PROCUREMENT_COHORT_APPLY="$WORK_DIR/procurement-cohort-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" > "$PROCUREMENT_COHORT_APPLY"
+  echo "procurement_cohort_apply=$PROCUREMENT_COHORT_APPLY"
+  PROCUREMENT_COHORT_PARITY="$WORK_DIR/procurement-cohort-parity.json"
+  python3 "$SCRIPT_DIR/company_procurement_cohort_parity.py" \
+    "$PROCUREMENT_COHORT_RECEIPT" "$PROCUREMENT_COHORT_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "procurement_cohort_parity=$PROCUREMENT_COHORT_PARITY"
+  PROCUREMENT_COHORT_REPLAY="$WORK_DIR/procurement-cohort-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" > "$PROCUREMENT_COHORT_REPLAY"
+  echo "procurement_cohort_replay=$PROCUREMENT_COHORT_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -790,6 +815,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
     INVOICE_SUBLEDGER_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["customer_invoices"]) * 2 + len(p["supplier_payables"]))' "$WORK_DIR/invoice-subledger-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + INVOICE_SUBLEDGER_COUNT))
+  fi
+  if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
+    PROCUREMENT_COHORT_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["suppliers"]) + len(p["tenders"]) * 2)' "$WORK_DIR/procurement-cohort-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + PROCUREMENT_COHORT_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))

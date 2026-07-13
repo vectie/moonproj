@@ -1,0 +1,65 @@
+{
+  "format": "moonproj.erp.procurement-cohort-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:procurement-synthetic-001",
+  "mapping_version": "procurement-map-v1-review-001",
+  "run_id": "procurement-run-2026-15",
+  "suppliers": [
+    {
+      "source_table": "srm_provider",
+      "source_id": "supplier-001",
+      "supplier_id": "supplier-001",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "supplier_code": "SUP-001",
+      "name": "North Harbor Works",
+      "category_code": "construction",
+      "expected_evaluation": "qualified",
+      "expected_state": "active"
+    },
+    {
+      "source_table": "srm_provider",
+      "source_id": "supplier-002",
+      "supplier_id": "supplier-002",
+      "principal_id": "co-001",
+      "scope": "project:p-001",
+      "supplier_code": "SUP-002",
+      "name": "East Ridge Supply",
+      "category_code": "construction",
+      "expected_evaluation": "strategic",
+      "expected_state": "active"
+    }
+  ],
+  "tenders": [
+    {
+      "source_table": "tender_plan",
+      "source_id": "tender-001",
+      "tender_id": "tender-001",
+      "principal_id": "co-001",
+      "project_scope": "project:p-001",
+      "name": "Project p-001 civil works",
+      "category": "construction",
+      "currency": "CNY",
+      "estimated_amount_minor": 1200000,
+      "bids": [
+        {
+          "supplier_id": "supplier-001",
+          "bid_id": "bid-001",
+          "amount_minor": 1100000,
+          "currency": "CNY"
+        },
+        {
+          "supplier_id": "supplier-002",
+          "bid_id": "bid-002",
+          "amount_minor": 1050000,
+          "currency": "CNY"
+        }
+      ],
+      "awarded_supplier_id": "supplier-002",
+      "awarded_amount_minor": 1050000,
+      "commitment_id": "commitment-procurement-001",
+      "expected_tender_state": "awarded",
+      "expected_commitment_state": "performed"
+    }
+  ]
+}

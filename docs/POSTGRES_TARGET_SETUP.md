@@ -193,3 +193,10 @@ one `payable` projection with exact parity and idempotent replay. The
 demonstrated full run reaches 135 aggregate projections. Cash release,
 revenue/expense posting, tax settlement, and period close remain separate
 gates.
+The thirty-first argument supplies the reviewed procurement cohort. It runs
+supplier qualification, tender bidding/award, and separate commitment creation
+and performance validation and persists two `supplier`, one `tender`, and one
+`commitment` projection with exact parity and idempotent replay. The
+demonstrated full run reaches 139 aggregate projections. Cash release,
+accounting posting, settlement, tax treatment, and period close remain separate
+gates.

@@ -143,6 +143,13 @@ zero-insert replay pass for five projections. It is subledger evidence only:
 cash release, revenue/expense posting, tax settlement, period close, and owner
 acceptance remain separate. The available snapshot has no accepted invoice
 rows, so a redacted invoice map and finance-owner review are still required.
+The reviewed procurement boundary now preserves two synthetic qualified
+suppliers, one two-bid tender, and its performed commitment through separate
+native authority checks. Exact SQLite/PostgreSQL parity and zero-insert replay
+pass for four projections. It is obligation evidence only: cash release,
+accounting posting, settlement, tax, period close, and owner acceptance remain
+separate. The available snapshot has no supplier or tender rows, so a redacted
+procurement export and business-owner review are still required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

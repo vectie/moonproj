@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/procurement_cohort"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/procurement",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ProcurementCohortError {
+  InvalidInput
+  Io(@fs.IOError)
+  Money(@finance.MoneyError)
+  Supplier(@procurement.SupplierError)
+  Tender(@procurement.TenderError)
+  Commitment(@commitment.CommitmentError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

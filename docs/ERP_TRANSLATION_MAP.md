@@ -279,6 +279,15 @@ principal, party, project scope, amount, currency, payment, and lifecycle
 state across `invoice`, `receivable`, and `payable` projections. Cash release,
 revenue/expense posting, tax settlement, and period close remain false. See
 [ERP_INVOICE_SUBLEDGER.md](ERP_INVOICE_SUBLEDGER.md).
+The thirty-third SQLite wrapper argument, or the thirty-first PostgreSQL
+cohort-runner argument, can supply a separately reviewed procurement cohort.
+`scripts/erp_procurement_cohort_plan.py` and `cmd/procurement_cohort` validate
+supplier qualification, tender bids/award, and the separate award-to-commitment
+boundary. Exact adapters preserve supplier identity, project scope, bids,
+award amount, counterparty, and commitment state across `supplier`, `tender`,
+and `commitment` projections. Cash release, accounting posting, settlement,
+tax, and period close remain false. See
+[ERP_PROCUREMENT_COHORT.md](ERP_PROCUREMENT_COHORT.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -379,8 +388,8 @@ importer.
 | `wf_step_assignee` | Workflow assignment configuration | `operations/workflow` + `foundation/access` + `scripts/erp_workflow_assignment_plan.py` + `cmd/workflow_assignment` + `persistence/store` | Six assignee rows now migrate through explicit user/process/scope/capability mappings into immutable `workflow_assignment` projections; native promotion validates typed `attach_assignment` process/step evidence, while assignments remain separate from authority and approval. Delegated decisions retain effective-window/revocation and delegation-ID evidence, and SLA policies retain due/overdue observation evidence, through the workflow boundary. |
 | `cb_contract` | Commercial commitment | `operations/commitment` + `migration/erp` | Commitment state machine implemented; promotion requires explicit principal, project-scope, counterparty, and amount-bounded authority mappings. A separate reviewed accounting-link plan can persist source-to-journal identity without posting cash. |
 | commitment snapshots and transition events | `operations/commitment` + `persistence/store` | Revisioned JSON aggregate projections with source-event anchors implemented; recognition-event adapter is implemented, while wider aggregate persistence remains pending. |
-| `srm_provider`, `srm_provider_bu` | Supplier master, qualification, blacklist | `operations/procurement` | Supplier identity, review, qualification, suspension, and blacklist controls implemented. |
-| `tender_plan`, `tender_award` | Tender planning, bidding, and award | `operations/procurement` | Planning → publishing → bidding → award → completion flow with qualified-supplier and duplicate-bid guards. |
+| `srm_provider`, `srm_provider_bu` | Supplier master, qualification, blacklist | `operations/procurement` | Supplier identity, review, qualification, suspension, and blacklist controls implemented; the reviewed procurement cohort now persists qualified supplier projections with exact parity/replay, while real supplier rows remain absent from the export. |
+| `tender_plan`, `tender_award` | Tender planning, bidding, and award | `operations/procurement` | Planning → publishing → bidding → award → completion flow with qualified-supplier and duplicate-bid guards; the reviewed procurement cohort persists bid/award evidence and a separate performed commitment without settlement. |
 | supplier/tender snapshots and bid events | Procurement persistence | `operations/procurement` + `persistence/store` | Qualification and award snapshots serialize supplier/evaluation/bid evidence for reconciliation; an awarded tender now crosses into a draft commitment only through separate procurement and commitment authority grants. |
 | `cb_contract_milestone` | Time/progress/event obligation | `operations/contract` | Milestone trigger, eligibility, achievement, payment, overdue, and cancellation states implemented. |
 | milestone snapshots and payment events | Contract milestone persistence | `operations/contract` + `persistence/store` | Plan/actual amounts, triggers, and reached/paid state serialize as revisioned projections. |
