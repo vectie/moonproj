@@ -92,6 +92,15 @@ render explicit empty-source/definition states after successful reads.
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.
 
+**Browser evidence (2026-07-14).** A local PostgreSQL read-model session
+opened `/audit-log`, `/error-log`, `/system-health`, `/users`, `/admin`, and
+`/ocr-config`, then the Webhook configuration view. All observed reads returned
+HTTP 200. The browser showed the two imported audit rows, five imported users,
+29-table health coverage, twelve quality rules, five dictionary options, and
+redacted OCR/Webhook metadata. It also visibly kept the health metrics and
+role/permission panels as offline design snapshots where the source routes or
+tables are unavailable. No write, OCR call, or Webhook delivery was attempted.
+
 ## Remaining gate
 
 1. Bind admin screens to production identity and enforce the source super-user

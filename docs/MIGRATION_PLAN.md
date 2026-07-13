@@ -607,6 +607,36 @@ canonical label/metric mapping, then the source, adapter, UI, and smoke test
 must agree before that route can move from `connected_investment_read` to
 accepted behavior.
 
+**Broader browser acceptance checkpoint (2026-07-14).** The same local
+PostgreSQL read-model session, using the documented `admin` fixture only,
+exercised the remaining visible operational and governance surfaces: AI
+workspace and analytics, supplier library and risk board, report center and
+report builder, warning center, inbox, attachment center, notification
+configuration, audit log, error log, system health, users/roles, data backend,
+OCR configuration, and the three-platform Webhook configuration. Every
+observed GET in this pass returned HTTP 200; the stopped server log is retained
+as the route evidence. The pages consistently exposed source provenance and
+truthful empty/missing-table states: AI pages showed zero source activity with
+provider execution disabled; supplier pages showed no imported providers but
+did show the six evaluation and four source dictionary definitions; reports
+showed an empty core source read while designer templates remained visibly
+fixture/design data; warning center showed one imported `W005` observation and
+twelve rules; inbox, attachments, notification queues, and delivery logs were
+empty; audit showed the two imported login rows; and OCR/Webhook screens showed
+redacted metadata only. No mutation or provider call was made.
+
+Two important non-parity states were made explicit by this pass. The health
+screen's table/BPM coverage is source-backed, but its uptime, memory, storage,
+and queue figures are still an offline design snapshot because
+`/admin/health/full` remains operational and not connected. The users/roles
+screen has the five imported identities, while role/permission tables are
+absent and therefore remain an offline design snapshot rather than an
+authorization source. Attachment binaries, notification delivery, OCR
+recognition, Webhook delivery, and all configuration writes remain gated by
+identity/provider/operational authorization. This is browser evidence for the
+bounded read wave, not production acceptance or a claim that the remaining
+operational handlers are implemented.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,
