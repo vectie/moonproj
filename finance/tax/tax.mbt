@@ -76,6 +76,7 @@ pub(all) suberror TaxError {
   CurrencyMismatch
   InvalidTransition
   InvalidFilingState
+  AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)

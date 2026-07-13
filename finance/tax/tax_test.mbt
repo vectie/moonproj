@@ -36,6 +36,14 @@ test "tax obligation calculates, files, and pays" {
     actor_id="alice",
     grant=tax_grant("tax:review"),
   )
+  let event = reviewed.to_accounting_event(
+    event_id="tax-event-001",
+    event_type="tax.reviewed",
+    tax_expense_account="tax-expense",
+    tax_payable_account="tax-payable",
+  )
+  assert_eq(event.source_type, "tax_obligation")
+  assert_eq(event.journal.postings[0].amount.minor, 13000L)
   let filed = reviewed.transition(
     TaxObligationState::Filed,
     actor_id="alice",
@@ -48,6 +56,72 @@ test "tax obligation calculates, files, and pays" {
   )
   assert_true(paid.state == TaxObligationState::Paid)
   assert_eq(paid.events.length(), 4)
+}
+
+///|
+test "tax accounting link requires reviewed positive tax" {
+  let calculated = TaxObligation::new(
+    tax_id="tax-event-gate",
+    principal_id="co-001",
+    project_scope="project:p-001",
+    source_reference="invoice/inv-event-gate",
+    jurisdiction="CN-SH",
+    category="VAT",
+    base_amount=@finance.Money::new(minor=100000, currency="CNY"),
+    tax_rate_bps=1300L,
+    withholding_rate_bps=0L,
+    actor_id="alice",
+    grant=tax_grant("tax:create"),
+  ).calculate(actor_id="alice", grant=tax_grant("tax:calculate"))
+  try
+    calculated.to_accounting_event(
+      event_id="tax-event-gate-001",
+      event_type="tax.calculated",
+      tax_expense_account="tax-expense",
+      tax_payable_account="tax-payable",
+    )
+  catch {
+    TaxError::InvalidTransition => ()
+    _ => fail("wrong tax accounting gate")
+  } noraise {
+    _ => fail("expected tax accounting gate")
+  }
+}
+
+///|
+test "tax accounting link rejects a zero calculated amount" {
+  let reviewed = TaxObligation::new(
+      tax_id="tax-event-zero",
+      principal_id="co-001",
+      project_scope="project:p-001",
+      source_reference="invoice/inv-event-zero",
+      jurisdiction="CN-SH",
+      category="VAT",
+      base_amount=@finance.Money::new(minor=100000, currency="CNY"),
+      tax_rate_bps=0L,
+      withholding_rate_bps=0L,
+      actor_id="alice",
+      grant=tax_grant("tax:create"),
+    )
+    .calculate(actor_id="alice", grant=tax_grant("tax:calculate"))
+    .transition(
+      TaxObligationState::Reviewed,
+      actor_id="alice",
+      grant=tax_grant("tax:review"),
+    )
+  try
+    reviewed.to_accounting_event(
+      event_id="tax-event-zero-001",
+      event_type="tax.reviewed",
+      tax_expense_account="tax-expense",
+      tax_payable_account="tax-payable",
+    )
+  catch {
+    TaxError::InvalidAmount => ()
+    _ => fail("wrong zero-tax accounting error")
+  } noraise {
+    _ => fail("expected zero-tax accounting error")
+  }
 }
 
 ///|

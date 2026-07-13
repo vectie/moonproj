@@ -161,7 +161,9 @@ task-state mutation remain separate gates.
 The finance boundary now also has explicit asset-disposal derecognition
 journals and source links, a separate reviewed tax-filing lifecycle, and bank
 statement import, cash-movement reconciliation, and non-posting
-statement-to-ledger evidence. A credential-free production deployment
+statement-to-ledger evidence. Reviewed tax obligations can now emit a balanced
+tax-expense/tax-payable source-to-journal link, while filing, payment, and
+period posting remain separate. A credential-free production deployment
 contract validates managed SQL, backup/restore, encryption, observability, and
 named finance/operations/security approvals; it remains owner-review evidence,
 not authorization to cut over.

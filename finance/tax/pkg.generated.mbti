@@ -4,6 +4,7 @@ package "vectie/moonproj/finance/tax"
 import {
   "moonbitlang/core/debug",
   "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
   "vectie/moonproj/foundation",
   "vectie/moonproj/persistence/store",
 }
@@ -22,6 +23,7 @@ pub(all) suberror TaxError {
   CurrencyMismatch
   InvalidTransition
   InvalidFilingState
+  AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
@@ -85,6 +87,7 @@ pub fn TaxObligation::append_projection(Self, @store.AggregateProjection) -> @st
 pub fn TaxObligation::calculate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
 pub fn TaxObligation::new(tax_id~ : String, principal_id~ : String, project_scope~ : String, source_reference~ : String, jurisdiction~ : String, category~ : String, base_amount~ : @finance.Money, tax_rate_bps~ : Int64, withholding_rate_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
 pub fn TaxObligation::prepare_filing(Self, filing_id~ : String, filing_period~ : String, authority_reference~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> TaxFiling raise TaxError
+pub fn TaxObligation::to_accounting_event(Self, event_id~ : String, event_type~ : String, tax_expense_account~ : String, tax_payable_account~ : String) -> @accounting.AccountingEvent raise TaxError
 pub fn TaxObligation::transition(Self, TaxObligationState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
 
 pub(all) enum TaxObligationState {
