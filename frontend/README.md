@@ -99,6 +99,9 @@ the source super-user boundary and all admin writes remain gated.
 The `/system-health` screen consumes both health reads through the read-only
 adapter and keeps its original uptime, memory, storage, and queue cards as
 offline design fallback only.
+The `/admin` screen consumes dictionary group/options after the quality read;
+the five imported options and twelve quality rules remain read-only evidence,
+with the designer dictionary table retained as offline fallback.
 `/api/company/rbac/users` also loads the five imported user identities and
 organization labels on `/users`; role and permission tables remain explicit
 source gaps, and no role is inferred from `isSuperUser`.

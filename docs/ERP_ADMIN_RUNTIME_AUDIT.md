@@ -33,6 +33,13 @@ explicit non-authorizing state. Its original uptime, memory, storage, and
 queue values remain only as an offline design snapshot; they are not presented
 as live evidence.
 
+The Rabbita `/admin` screen now calls the dictionary group/options reads after
+the quality overview succeeds. Its data-dictionary table shows the five
+imported `cost_subject` options and source provenance; the quality table keeps
+the twelve-rule result, including unavailable source dependencies. The
+dictionary fixture remains an offline fallback, and no dictionary write is
+enabled.
+
 Rows preserve source field names and are marked `sourceKind=imported`. The
 quality response marks unavailable rules as `NO_SOURCE_ROWS` and includes
 per-table coverage; it does not turn missing source data into passing checks.
@@ -62,6 +69,8 @@ super-user elevation.
   `connected_admin_health_read`; the production identity and super-user owner
   scenario remain required before treating the screen as an accepted admin
   control surface.
+- The parity matrix marks `/admin` as `connected_admin_read`; source
+  super-user scope and owner acceptance remain required.
 
 ## Remaining gate
 

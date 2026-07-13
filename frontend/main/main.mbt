@@ -230,6 +230,24 @@ struct AdminQualityRow {
 }
 
 ///|
+struct AdminDictGroupRow {
+  group_name : String
+  total : String
+  enabled : String
+  source_kind : String
+}
+
+///|
+struct AdminDictOptionRow {
+  group_name : String
+  code : String
+  value : String
+  display_order : String
+  enabled : String
+  source_kind : String
+}
+
+///|
 struct UserRosterRow {
   user_code : String
   emp_name : String
@@ -387,6 +405,10 @@ struct Model {
   admin_quality_loaded : Bool
   admin_quality_rows : Array[AdminQualityRow]
   admin_quality_note : String
+  admin_dict_loaded : Bool
+  admin_dict_group_rows : Array[AdminDictGroupRow]
+  admin_dict_option_rows : Array[AdminDictOptionRow]
+  admin_dict_note : String
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -502,6 +524,9 @@ enum Msg {
   DashboardLoadFailed
   AdminQualityLoaded(String)
   AdminQualityLoadFailed
+  AdminDictGroupsLoaded(String)
+  AdminDictOptionsLoaded(String)
+  AdminDictLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
   HealthTablesLoaded(String)
@@ -605,6 +630,10 @@ fn initial_model() -> Model {
     admin_quality_loaded: false,
     admin_quality_rows: [],
     admin_quality_note: "质量规则尚未加载 · 使用设计快照",
+    admin_dict_loaded: false,
+    admin_dict_group_rows: [],
+    admin_dict_option_rows: [],
+    admin_dict_note: "数据字典尚未加载 · 使用设计快照",
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -1439,6 +1468,58 @@ fn admin_quality_rows_from_body(body : String) -> Array[AdminQualityRow] {
 }
 
 ///|
+fn admin_dict_group_rows_from_body(body : String) -> Array[AdminDictGroupRow] {
+  let rows : Array[AdminDictGroupRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              group_name: json_object_text(row, "groupName", ""),
+              total: json_object_text(row, "total", "0"),
+              enabled: json_object_text(row, "enabled", "0"),
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn admin_dict_option_rows_from_body(body : String) -> Array[AdminDictOptionRow] {
+  let rows : Array[AdminDictOptionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              group_name: json_object_text(row, "groupName", ""),
+              code: json_object_text(row, "code", ""),
+              value: json_object_text(row, "value", ""),
+              display_order: json_object_text(row, "displayOrder", "0"),
+              enabled: if json_object_text(row, "enabled", "false") == "true" {
+                "启用"
+              } else {
+                "禁用"
+              },
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
   let rows : Array[UserRosterRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -1828,6 +1909,26 @@ fn load_admin_quality(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(AdminQualityLoaded(body))
       Err(_) => emit(AdminQualityLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_admin_dict_groups(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/dict/groups").expect_text(result => {
+    match result {
+      Ok(body) => emit(AdminDictGroupsLoaded(body))
+      Err(_) => emit(AdminDictLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_admin_dict_options(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/dict/options").expect_text(result => {
+    match result {
+      Ok(body) => emit(AdminDictOptionsLoaded(body))
+      Err(_) => emit(AdminDictLoadFailed)
     }
   })
 }
@@ -3187,7 +3288,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     AdminQualityLoaded(body) =>
       (
-        none,
+        load_admin_dict_groups(emit),
         {
           ..model,
           admin_quality_loaded: true,
@@ -3203,6 +3304,36 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           admin_quality_loaded: false,
           admin_quality_rows: [],
           admin_quality_note: "数据质量读模型不可用 · 使用已审核快照",
+        },
+      )
+    AdminDictGroupsLoaded(body) =>
+      (
+        load_admin_dict_options(emit),
+        {
+          ..model,
+          admin_dict_group_rows: admin_dict_group_rows_from_body(body),
+          admin_dict_note: "已加载 PostgreSQL 数据字典分组 · 正在读取选项",
+        },
+      )
+    AdminDictOptionsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          admin_dict_loaded: true,
+          admin_dict_option_rows: admin_dict_option_rows_from_body(body),
+          admin_dict_note: "已加载 PostgreSQL 数据字典选项 · 写入仍受管理员授权约束",
+        },
+      )
+    AdminDictLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          admin_dict_loaded: false,
+          admin_dict_group_rows: [],
+          admin_dict_option_rows: [],
+          admin_dict_note: "数据字典读模型不可用 · 使用设计快照",
         },
       )
     UsersLoaded(body) =>
@@ -8292,6 +8423,60 @@ fn error_view() -> @html.Html {
 }
 
 ///|
+fn admin_dict_table(model : Model) -> @html.Html {
+  if model.admin_dict_loaded {
+    let rows : Array[Array[String]] = []
+    for row in model.admin_dict_option_rows {
+      rows.push([
+        row.group_name,
+        row.code,
+        row.value,
+        row.display_order,
+        row.enabled,
+        "只读 · " + row.source_kind,
+      ])
+    }
+    let group_note = if model.admin_dict_group_rows.length() == 0 {
+      model.admin_dict_note
+    } else {
+      let group = model.admin_dict_group_rows[0]
+      "分组 " +
+      group.group_name +
+      " · " +
+      group.enabled +
+      "/" +
+      group.total +
+      " 启用 · " +
+      group.source_kind +
+      " · " +
+      model.admin_dict_note
+    }
+    table_panel(
+      "数据字典",
+      group_note,
+      data_table(
+        ["分组", "编码", "值", "排序", "状态", "来源"],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "数据字典",
+      "系统参数和业务枚举 · " + model.admin_dict_note,
+      data_table(["分组", "编码", "值", "排序", "状态", "操作"], [
+        ["cost_subject", "CB-101", "建安工程", "1", "启用", "查看"],
+        ["cost_subject", "CB-101-JZ", "主体建安", "2", "启用", "查看"],
+        ["expense_proceeding", "travel", "差旅费", "1", "启用", "查看"],
+        [
+          "expense_proceeding", "entertainment", "业务招待费", "2", "启用",
+          "查看",
+        ],
+      ]),
+    )
+  }
+}
+
+///|
 fn admin_quality_table(model : Model) -> @html.Html {
   if model.admin_quality_loaded {
     let rows : Array[Array[String]] = []
@@ -8327,12 +8512,18 @@ fn admin_quality_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn admin_view(model : Model) -> @html.Html {
+fn admin_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "数据后台",
     "SYSTEM / ADMIN",
     "为管理员提供数据字典、质量看板、流程运行和 RBAC 只读审查入口。",
-    [button(class="erp-secondary-btn", "刷新数据")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(Navigate("/admin")),
+        "刷新数据",
+      ),
+    ],
     div <| [
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "数据字典"),
@@ -8341,19 +8532,7 @@ fn admin_view(model : Model) -> @html.Html {
         button(class="erp-tab", "系统健康"),
         button(class="erp-tab", "角色权限"),
       ],
-      table_panel(
-        "数据字典",
-        "系统参数和业务枚举",
-        data_table(["分组", "编码", "值", "排序", "状态", "操作"], [
-          ["cost_subject", "CB-101", "建安工程", "1", "启用", "查看"],
-          ["cost_subject", "CB-101-JZ", "主体建安", "2", "启用", "查看"],
-          ["expense_proceeding", "travel", "差旅费", "1", "启用", "查看"],
-          [
-            "expense_proceeding", "entertainment", "业务招待费", "2", "启用",
-            "查看",
-          ],
-        ]),
-      ),
+      admin_dict_table(model),
       admin_quality_table(model),
     ],
   )
@@ -8428,7 +8607,7 @@ fn business_view(
       "/error-log" => error_view()
       "/system-health" => health_view(emit, model)
       "/users" => users_view(model)
-      "/admin" => admin_view(model)
+      "/admin" => admin_view(emit, model)
       "/ocr-config" => ocr_view()
       "/webhook-config" => webhook_view()
       "/profile" => profile_view()

@@ -54,6 +54,8 @@ from company_postgres_service import (
     dashboard_project_anomalies as service_dashboard_project_anomalies,
     admin_quality_overview as service_admin_quality_overview,
     admin_rbac_users as service_admin_rbac_users,
+    admin_dict_groups as service_admin_dict_groups,
+    admin_dict_options as service_admin_dict_options,
     admin_health_tables as service_admin_health_tables,
     admin_health_bpm_pool as service_admin_health_bpm_pool,
     loans as service_loans,
@@ -351,6 +353,14 @@ def admin_rbac_users(
     return service_admin_rbac_users(_ReadModelPool(args), keyword, enabled, 500)
 
 
+def admin_dict_groups(args: argparse.Namespace) -> dict[str, Any]:
+    return service_admin_dict_groups(_ReadModelPool(args), 500)
+
+
+def admin_dict_options(args: argparse.Namespace, group_name: str | None) -> dict[str, Any]:
+    return service_admin_dict_options(_ReadModelPool(args), group_name, 500)
+
+
 def admin_health_tables(args: argparse.Namespace) -> dict[str, Any]:
     return service_admin_health_tables(_ReadModelPool(args), 500)
 
@@ -568,6 +578,17 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                             query.get("keyword", [None])[0],
                             query.get("enabled", [None])[0],
                         ),
+                    )
+                    return
+                if parsed.path == "/api/company/admin/dict/groups":
+                    response(self, 200, admin_dict_groups(args))
+                    return
+                if parsed.path == "/api/company/admin/dict/options":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        admin_dict_options(args, query.get("groupName", [None])[0]),
                     )
                     return
                 if parsed.path == "/api/company/admin/health/tables":

@@ -13,8 +13,8 @@ read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
-- Target states: `{"connected_admin_health_read": 1, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_project_read": 2, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 27, "public": 1, "read_model_only": 3, "read_only_public": 1}`
-- API states: `{"connected_admin_health_read": 1, "connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_project_read": 2, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 31}`
+- Target states: `{"connected_admin_health_read": 1, "connected_admin_read": 1, "connected_command_form": 1, "connected_contract_command_form": 1, "connected_contract_read": 1, "connected_delivery_command_form": 2, "connected_invoice_read": 1, "connected_loan_command_form": 2, "connected_loan_read": 1, "connected_payment_application_command_form": 1, "connected_project_read": 2, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command_form": 1, "connected_tender_command_form": 1, "connected_workflow_definition_read": 1, "fixture_backed_form": 2, "fixture_backed_read_only": 26, "public": 1, "read_model_only": 3, "read_only_public": 1}`
+- API states: `{"connected_admin_health_read": 1, "connected_admin_read": 1, "connected_contract_command": 2, "connected_delivery_command": 2, "connected_expense_command": 1, "connected_fixed_read_model": 3, "connected_invoice_read": 1, "connected_loan_command": 2, "connected_loan_read": 1, "connected_payment_application_command": 1, "connected_project_read": 2, "connected_report_read": 1, "connected_sales_read": 5, "connected_supplier_command": 1, "connected_tender_command": 1, "connected_workflow_definition_read": 1, "read_only_fixture_no_source_api": 30}`
 - Matrix state: **functional_parity_incomplete**
 
 ## Browser routes
@@ -76,7 +76,7 @@ read verticals.
 | `/inbox` | `../views/Inbox.vue` | `inbox_view` | `fixture_backed_read_only` | `notify` | 8 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/notify-config` | `../views/NotifyConfig.vue` | `notify_view` | `fixture_backed_read_only` | `notify` | 8 / 11 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
 | `/webhook-config` | `../views/WebhookConfig.vue` | `webhook_view` | `fixture_backed_read_only` | `webhook` | 1 / 4 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
-| `/admin` | `../views/Admin.vue` | `admin_view` | `fixture_backed_read_only` | `admin` | 13 / 5 | `read_only_fixture_no_source_api` | `connect_authenticated_read_api_and_accept_screenshot_and_scenario` |
+| `/admin` | `../views/Admin.vue` | `admin_view` | `connected_admin_read` | `admin` | 13 / 5 | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 
 ## API actions
 
