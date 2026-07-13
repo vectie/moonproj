@@ -315,6 +315,10 @@ those capabilities as source parity.
    (one version, 26 indices, five dimensions, and profit summary); import,
    activation, valuation, cash, accounting, and tax remain gated. See
    [`ERP_INVESTMENT_RUNTIME_AUDIT.md`](ERP_INVESTMENT_RUNTIME_AUDIT.md).
+   Admin dictionary and audit reads are connected for the available governance
+   rows (one group, five options, two audit events); super-user scope, writes,
+   retention, and security-owner acceptance remain gated. See
+   [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).
 4. **Reporting is locally connected but source-incomplete and not accepted.**
    The five core report reads now run through the local PostgreSQL service,
    read-model adapter, and Rabbita `/reports` overview. Cost, contract, and
@@ -338,8 +342,8 @@ The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
 currently records twenty-one connected browser states and twenty-four connected API
 state entries across MDM organization/project, budget dictionary, investment,
-expense, contract, payment, procurement, sales, invoice, delivery, core
-reports, employee-loan, and workflow-definition reads,
+admin governance, expense, contract, payment, procurement, sales, invoice,
+delivery, core reports, employee-loan, and workflow-definition reads,
 while 28 browser views and 32 API groups remain fixture-backed or read-model-only.
 Three additional fixed read-model routes are connected. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,

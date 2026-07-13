@@ -6,7 +6,7 @@ acceptance register, not a completion claim: mounted fixture screens do
 not count as connected company behavior. The connected exceptions are
 the fixed dashboard read-model and the local
 expense/contract/payment-application/tender command, supplier read,
-MDM organization/project master, budget dictionary, investment reads, delivery, core report read,
+MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 read/command, project-plan read, and non-authorizing workflow-definition
 read verticals.
 
@@ -86,13 +86,13 @@ are attached. The JSON output contains all 338 handler rows.
 
 | Module | Method | Source path | Browser routes | Current state | Required next |
 |---|---|---|---|---|---|
-| `admin` | `GET` | `/dict/groups` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
-| `admin` | `GET` | `/dict/options` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
+| `admin` | `GET` | `/dict/groups` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
+| `admin` | `GET` | `/dict/options` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `POST` | `/dict/options` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `admin` | `PATCH` | `/dict/options/:guid` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `admin` | `GET` | `/quality/overview` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
-| `admin` | `GET` | `/audit/logs` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
-| `admin` | `GET` | `/audit/actions` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
+| `admin` | `GET` | `/audit/logs` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
+| `admin` | `GET` | `/audit/actions` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/health/tables` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
 | `admin` | `GET` | `/health/bpm-pool` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
 | `admin` | `GET` | `/backup/db` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |

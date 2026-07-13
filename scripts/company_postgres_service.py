@@ -49,6 +49,7 @@ The bounded service exposes these endpoints:
   ``/api/company/budget/proceedings`` (GET, source-compatible budget reads)
 * ``/api/company/investment/{projects,versions,meta}/...`` (GET,
   source-compatible investment reads)
+* ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -3934,6 +3935,147 @@ def investment_profit_summary(
     }
 
 
+def admin_dict_groups(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
+    groups: dict[str, dict[str, int]] = {}
+    for row in raw:
+        name = str(row["payload"].get("param_name") or "")
+        if not name:
+            continue
+        group = groups.setdefault(name, {"total": 0, "enabled": 0})
+        group["total"] += 1
+        if bool(row["payload"].get("enabled", 0)):
+            group["enabled"] += 1
+    return {
+        "success": True,
+        "code": 0,
+        "data": [
+            {"groupName": name, "total": value["total"], "enabled": value["enabled"], "sourceKind": "imported"}
+            for name, value in sorted(groups.items())
+        ],
+        "source_kind": "imported",
+        "source_coverage": {"my_biz_param_option": len(raw)},
+    }
+
+
+def admin_dict_options(
+    pool: PsqlPool,
+    group_name: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    if group_name is not None and len(group_name) > 128:
+        raise ValueError("invalid groupName")
+    raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
+    rows = [
+        row
+        for row in raw
+        if group_name is None or str(row["payload"].get("param_name") or "") == group_name
+    ]
+    rows.sort(
+        key=lambda row: (
+            str(row["payload"].get("param_name") or ""),
+            int(row["payload"].get("display_order") or 0),
+            str(row["payload"].get("param_code") or ""),
+        )
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": [
+            {
+                "paramGuid": str(row["payload"].get("param_guid") or row["record_id"]),
+                "groupName": str(row["payload"].get("param_name") or ""),
+                "code": str(row["payload"].get("param_code") or ""),
+                "value": str(row["payload"].get("param_value") or ""),
+                "displayOrder": int(row["payload"].get("display_order") or 0),
+                "enabled": bool(row["payload"].get("enabled", 0)),
+                "sourceKind": "imported",
+            }
+            for row in rows
+        ],
+        "source_kind": "imported",
+        "source_coverage": {"my_biz_param_option": len(raw)},
+    }
+
+
+def admin_audit_logs(
+    pool: PsqlPool,
+    action: str | None,
+    user_id: str | None,
+    target_type: str | None,
+    limit: int,
+    offset: int,
+    max_rows: int,
+) -> dict[str, Any]:
+    if limit < 1 or limit > 500 or offset < 0:
+        raise ValueError("invalid audit pagination")
+    raw = _raw_source_rows(pool, "audit_log", max(max_rows, 500), ADMIN_SOURCE_TABLES)
+    users = {
+        str(row["payload"].get("user_id", row["record_id"])): str(
+            row["payload"].get("emp_name") or row["payload"].get("user_name") or ""
+        )
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 100), ADMIN_SOURCE_TABLES)
+    }
+    filtered = []
+    for row in raw:
+        payload = row["payload"]
+        if action is not None and action.casefold() not in str(payload.get("action") or "").casefold():
+            continue
+        if user_id is not None and str(payload.get("user_id") or "") != user_id:
+            continue
+        if target_type is not None and str(payload.get("target_type") or "") != target_type:
+            continue
+        filtered.append(row)
+    filtered.sort(
+        key=lambda row: (
+            int(row["payload"].get("log_id") or 0),
+            str(row["record_id"]),
+        ),
+        reverse=True,
+    )
+    page = filtered[offset : offset + limit]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "rows": [
+                {
+                    "logId": int(row["payload"].get("log_id") or 0),
+                    "userId": str(row["payload"].get("user_id") or ""),
+                    "empName": users.get(str(row["payload"].get("user_id") or ""), ""),
+                    "action": str(row["payload"].get("action") or ""),
+                    "targetType": str(row["payload"].get("target_type") or ""),
+                    "targetId": str(row["payload"].get("target_id") or ""),
+                    "ip": str(row["payload"].get("ip") or ""),
+                    "createdAt": str(row["payload"].get("created_at") or ""),
+                    "sourceKind": "imported",
+                }
+                for row in page
+            ],
+            "total": len(filtered),
+        },
+        "source_kind": "imported",
+        "source_coverage": {"audit_log": len(raw)},
+    }
+
+
+def admin_audit_actions(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    raw = _raw_source_rows(pool, "audit_log", max(max_rows, 500), ADMIN_SOURCE_TABLES)
+    counts: dict[str, int] = {}
+    for row in raw:
+        action = str(row["payload"].get("action") or "")
+        if action:
+            counts[action] = counts.get(action, 0) + 1
+    actions = sorted(counts.items(), key=lambda value: (-value[1], value[0]))[:30]
+    return {
+        "success": True,
+        "code": 0,
+        "data": [{"action": action, "count": count, "sourceKind": "imported"} for action, count in actions],
+        "source_kind": "imported",
+        "source_coverage": {"audit_log": len(raw)},
+    }
+
+
 def _shift_plan_date(value: Any, delay_days: int) -> str:
     parsed = _report_date(str(value or ""))
     if parsed is None:
@@ -4128,6 +4270,12 @@ INVESTMENT_SOURCE_TABLES = {
     "sys_user",
     "tzsy_version",
     "tzsy_plan_index",
+}
+
+ADMIN_SOURCE_TABLES = {
+    "audit_log",
+    "my_biz_param_option",
+    "sys_user",
 }
 
 
@@ -6292,6 +6440,34 @@ def handler_factory(
                 ):
                     project_value = parsed.path.split("/")[-2]
                     response(self, 200, investment_profit_summary(pool, project_value, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/dict/groups":
+                    response(self, 200, admin_dict_groups(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/dict/options":
+                    group_name = parse_qs(parsed.query).get("groupName", [None])[0]
+                    response(self, 200, admin_dict_options(pool, group_name, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/audit/logs":
+                    query = parse_qs(parsed.query)
+                    try:
+                        limit = int(query.get("limit", ["100"])[0])
+                        offset = int(query.get("offset", ["0"])[0])
+                    except (TypeError, ValueError) as error:
+                        raise ValueError("invalid audit pagination") from error
+                    response(
+                        self,
+                        200,
+                        admin_audit_logs(
+                            pool,
+                            query.get("action", [None])[0],
+                            query.get("userId", [None])[0],
+                            query.get("targetType", [None])[0],
+                            limit,
+                            offset,
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif parsed.path == "/api/company/admin/audit/actions":
+                    response(self, 200, admin_audit_actions(pool, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
                     parsed.path,

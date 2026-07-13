@@ -246,6 +246,57 @@ def main() -> int:
             or investment_dimensions_payload.get("data", [])[0].get("code") != "key_point"
         ):
             raise SmokeError(f"investment dimension read failed: {status} {investment_dimensions_payload}")
+        status, admin_groups_payload = request(
+            args.port,
+            "/api/company/admin/dict/groups",
+            token=token,
+        )
+        if (
+            status != 200
+            or admin_groups_payload is None
+            or len(admin_groups_payload.get("data", [])) != 1
+            or admin_groups_payload.get("data", [])[0].get("groupName") != "cost_subject"
+            or admin_groups_payload.get("data", [])[0].get("enabled") != 5
+        ):
+            raise SmokeError(f"admin dictionary groups read failed: {status} {admin_groups_payload}")
+        status, admin_options_payload = request(
+            args.port,
+            "/api/company/admin/dict/options?groupName=cost_subject",
+            token=token,
+        )
+        if (
+            status != 200
+            or admin_options_payload is None
+            or len(admin_options_payload.get("data", [])) != 5
+            or admin_options_payload.get("data", [])[0].get("paramGuid") != "1"
+        ):
+            raise SmokeError(f"admin dictionary options read failed: {status} {admin_options_payload}")
+        status, audit_logs_payload = request(
+            args.port,
+            "/api/company/admin/audit/logs?limit=10",
+            token=token,
+        )
+        if (
+            status != 200
+            or audit_logs_payload is None
+            or audit_logs_payload.get("data", {}).get("total") != 2
+            or len(audit_logs_payload.get("data", {}).get("rows", [])) != 2
+            or audit_logs_payload.get("data", {}).get("rows", [])[0].get("logId") != 2
+        ):
+            raise SmokeError(f"admin audit log read failed: {status} {audit_logs_payload}")
+        status, audit_actions_payload = request(
+            args.port,
+            "/api/company/admin/audit/actions",
+            token=token,
+        )
+        if (
+            status != 200
+            or audit_actions_payload is None
+            or not audit_actions_payload.get("data")
+            or audit_actions_payload.get("data", [])[0].get("action") != "login"
+            or audit_actions_payload.get("data", [])[0].get("count") != 2
+        ):
+            raise SmokeError(f"admin audit actions read failed: {status} {audit_actions_payload}")
         status, project_payload = request(args.port, "/api/company/projects", token=token)
         if (
             status != 200
@@ -1281,6 +1332,10 @@ def main() -> int:
                     "investment_index_rows": 26,
                     "investment_dimension_rows": 5,
                     "investment_profit_revenue": 18500.0,
+                    "admin_dictionary_group_rows": 1,
+                    "admin_dictionary_option_rows": 5,
+                    "admin_audit_rows": 2,
+                    "admin_audit_action_rows": 1,
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
                     "project_count": 2,
