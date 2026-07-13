@@ -40,6 +40,9 @@ struct Model {
   password : String
   api_status : String
   api_note : String
+  expense_id : String
+  expense_state : String
+  expense_note : String
 }
 
 ///|
@@ -56,6 +59,10 @@ enum Msg {
   RefreshApi
   ApiLoaded
   ApiFailed
+  CreateExpense
+  SubmitExpense
+  ExpenseCommandFinished(String)
+  ExpenseCommandFailed
 }
 
 ///|
@@ -71,6 +78,9 @@ fn initial_model() -> Model {
     password: "",
     api_status: "未连接",
     api_note: "使用已审核快照",
+    expense_id: "EXP-RABBITA-LOCAL",
+    expense_state: "未创建",
+    expense_note: "先保存草稿，再提交审批",
   }
 }
 
@@ -156,7 +166,10 @@ fn refresh_api(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/summary").expect_text(result => {
     match result {
       Ok(body) if body.contains("\"target\":\"postgresql\"") &&
-        body.contains("\"read_only\":true") => emit(ApiLoaded)
+        (
+          body.contains("\"read_only\":true") ||
+          body.contains("\"expense_command\"")
+        ) => emit(ApiLoaded)
       Ok(_) => emit(ApiFailed)
       Err(_) => emit(ApiFailed)
     }
@@ -204,6 +217,82 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           api_status: "离线回退",
           api_note: "使用已审核快照",
+        },
+      )
+    CreateExpense =>
+      if model.expense_state == "提交中" ||
+        model.expense_state == "已提交" {
+        (none, model)
+      } else {
+        (
+          @http.post("/api/company/expenses")
+          .with_text(
+            "{\"idempotency_key\":\"rabbita-expense-create-v1\",\"expense_id\":\"EXP-RABBITA-LOCAL\",\"employee_id\":\"rabbita-user\",\"summary\":\"成都项目现场出差\",\"amount_minor\":8560,\"currency\":\"CNY\",\"project_id\":\"CD-HJL\",\"cost_subject\":\"travel\"}",
+          )
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "提交中",
+            expense_note: "正在创建并写入 PostgreSQL 投影…",
+          },
+        )
+      }
+    SubmitExpense =>
+      if model.expense_id == "" || model.expense_state != "草稿" {
+        (none, model)
+      } else {
+        (
+          @http.post("/api/company/expenses/\{model.expense_id}/submit")
+          .with_text("{\"idempotency_key\":\"rabbita-expense-submit-v1\"}")
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "提交中",
+            expense_note: "正在提交审批…",
+          },
+        )
+      }
+    ExpenseCommandFinished(body) =>
+      if body.contains("\"state\":\"submitted\"") {
+        (
+          none,
+          {
+            ..model,
+            expense_state: "已提交",
+            expense_note: "已写入 PostgreSQL · 等待审批 · 审计凭证已生成",
+          },
+        )
+      } else if body.contains("\"state\":\"draft\"") {
+        (
+          none,
+          {
+            ..model,
+            expense_state: "草稿",
+            expense_note: "已写入 PostgreSQL 草稿投影 · 可提交审批",
+          },
+        )
+      } else if body.contains("\"error\"") {
+        (none, { ..model, expense_state: "命令失败", expense_note: body })
+      } else {
+        (none, { ..model, expense_state: "命令完成", expense_note: body })
+      }
+    ExpenseCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          expense_state: "命令失败",
+          expense_note: "公司命令服务不可用或拒绝了请求",
         },
       )
   }
@@ -2351,14 +2440,39 @@ fn contract_detail_view(emit : @rabbita.Emit[Msg]) -> @html.Html {
 }
 
 ///|
-fn expense_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
+fn expense_editor_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  detail : Bool,
+) -> @html.Html {
   let title = if detail { "报销详情" } else { "新建报销" }
   let action = if detail { "保存修改" } else { "提交审批" }
+  let actions : Array[@html.Html] = [
+    nav_button(emit, "/expenses", "erp-ghost-btn", "‹ 返回列表"),
+  ]
+  if detail {
+    actions.push(button(class="erp-primary-btn", action))
+  } else {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateExpense),
+        "保存草稿",
+      ),
+    )
+    actions.push(
+      button(
+        class="erp-primary-btn",
+        on_click=emit(SubmitExpense),
+        "提交审批",
+      ),
+    )
+  }
   page_shell(
     title,
     "FINANCE / EXPENSE FORM",
     "差旅、招待和日常费用均需关联项目、费用科目与附件证据。",
-    [detail_toolbar(emit, "/expenses", action)],
+    actions,
     div <| [
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
@@ -2366,7 +2480,12 @@ fn expense_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
           if detail {
             span(class="erp-status-tag is-pending", "审批中")
           } else {
-            span(class="erp-info-tag", "草稿")
+            span(class="erp-info-tag", model.expense_state)
+          },
+          if detail {
+            @html.nothing
+          } else {
+            span(class="erp-source-note", model.expense_note)
           },
         ],
         div(class="erp-form-grid") <| [
@@ -2375,7 +2494,7 @@ fn expense_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
             if detail {
               "EXP-260712-008"
             } else {
-              "自动生成"
+              model.expense_id
             },
             "报销单号",
           ),
@@ -2388,6 +2507,16 @@ fn expense_editor_view(emit : @rabbita.Emit[Msg], detail : Bool) -> @html.Html {
           form_field("付款方式", "个人垫付", "付款方式"),
         ],
       ],
+      if detail ||
+        model.expense_state == "草稿" ||
+        model.expense_state == "未创建" {
+        @html.nothing
+      } else {
+        div(class="erp-command-receipt") <| [
+          strong("命令服务状态"),
+          span(model.expense_note),
+        ]
+      },
       table_panel(
         "附件与分摊",
         "支持发票、行程单和费用拆分",
@@ -3224,7 +3353,11 @@ fn admin_view() -> @html.Html {
 }
 
 ///|
-fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
+fn business_view(
+  path : String,
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
   if path.has_prefix("/share/") {
     share_view(path)
   } else if path.has_prefix("/projects/") {
@@ -3232,7 +3365,7 @@ fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
   } else if path.has_prefix("/contracts/") {
     contract_detail_view(emit)
   } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
-    expense_editor_view(emit, true)
+    expense_editor_view(emit, model, true)
   } else if path.has_prefix("/loans/") && path != "/loans/new" {
     loan_editor_view(emit, true)
   } else if path.has_prefix("/srm/providers/") {
@@ -3271,8 +3404,8 @@ fn business_view(path : String, emit : @rabbita.Emit[Msg]) -> @html.Html {
       "/fund/plan" => fund_plan_view()
       "/invoice" => invoice_view()
       "/expenses" => expenses_view(emit)
-      "/expenses/new" => expense_editor_view(emit, false)
-      "/expenses/EXP-260712-008" => expense_editor_view(emit, true)
+      "/expenses/new" => expense_editor_view(emit, model, false)
+      "/expenses/EXP-260712-008" => expense_editor_view(emit, model, true)
       "/loans" => loans_view(emit)
       "/loans/new" => loan_editor_view(emit, false)
       "/loans/LOAN-260713-001" => loan_editor_view(emit, true)
@@ -3382,7 +3515,7 @@ fn app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     model.page == "/cockpit" {
     dashboard_view(emit, model)
   } else {
-    business_view(model.page, emit)
+    business_view(model.page, emit, model)
   }
   div(class="erp-layout") <| [
     if model.mobile_nav {

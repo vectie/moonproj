@@ -287,8 +287,10 @@ Execute the remainder in this order:
    rejection, resubmission, and audit behavior against PostgreSQL before
    expanding to the next vertical. The local PostgreSQL service now proves
    the expense create/submit/reject/resubmit/approve command and audit
-   lifecycle; the remaining work in this step is same-origin session/token
-   wiring and visible Rabbita state changes.
+   lifecycle, and the local-only gateway visibly drives the Rabbita
+   create/submit form. Finish browser controls for rejection/resubmission/
+   approval, then replace the fixed development identity with a reviewed
+   session/token boundary before accepting the slice.
 3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export.
    Translate each schema wave into row-level plans only after hashes,
    relationships, redaction, identity maps, and owner decisions are present.

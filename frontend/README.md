@@ -26,9 +26,10 @@ PostgreSQL projection summary through the fixed read-only development adapter
 `scripts/company_postgres_read_model_server.py`. The authenticated bounded
 runtime is available separately as `scripts/company_postgres_service.py`. Its
 first local command vertical is the expense lifecycle documented in
-`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`; the Rabbita form is not wired to it
-yet. Command-gateway production deployment, identity/token integration, and
-managed rollback remain separate gates.
+`docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`. The new-expense Rabbita form is wired
+to that vertical through the local-only development gateway below; the other
+route families remain fixture-backed. Command-gateway production deployment,
+identity/token integration, and managed rollback remain separate gates.
 Build and preview it with Warren:
 
 ```sh
@@ -44,6 +45,24 @@ PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   python3 scripts/company_postgres_read_model_server.py \
   --public-dir /path/to/warren/dist
 ```
+
+To exercise the connected expense create/submit path, keep the service token
+on the server side and put the local gateway in front of the browser bundle:
+
+```sh
+export MOONPROJ_SERVICE_TOKEN=choose-a-local-token
+export PGPASSWORD=your-local-password
+python3 scripts/company_postgres_service.py --database moonproj \
+  --port 4174 --require-forwarded-tls
+python3 scripts/company_postgres_dev_gateway.py \
+  --public-dir /path/to/warren/dist --port 4173 --service-port 4174
+```
+
+Open `http://127.0.0.1:4173`. The gateway forwards `/api/` requests with the
+bearer token and HTTPS-forwarding marker, and translates the Rabbita form's
+JSON `idempotency_key` into the command header required by the service. It is
+intentionally a local development adapter: it binds to loopback, only
+allow-lists expense POST commands, and is not the production deployment.
 
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,

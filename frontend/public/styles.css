@@ -171,6 +171,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-code-card p { margin: 0; color: #1e40af; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; }
 .erp-detail-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
 .erp-detail-card { margin-top: 12px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+.erp-command-receipt { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 5px; background: #eff6ff; color: #1e3a8a; font-size: 12px; }
 .erp-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
 .erp-form-field { min-width: 0; }
 .erp-field-label { display: block; margin-bottom: 5px; color: #64748b; font-size: 11px; }
