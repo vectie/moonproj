@@ -4,6 +4,7 @@
 This is a deliberately small adapter for the Rabbita browser surface.  It
 exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
+source sales/receivables,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report and
 report-builder metadata/template,
 employee-loan, dynamic-cost, source contract/payment, invoice/tax-ledger,
@@ -108,6 +109,7 @@ from company_postgres_service import (
     tenders as service_tenders,
     contract_splits as service_contract_splits,
     sales_rows as service_sales_rows,
+    sales_source_rows as service_sales_source_rows,
     delivery_progress as service_delivery_progress,
     delivery_outputs as service_delivery_outputs,
     source_delivery_progress as service_source_delivery_progress,
@@ -760,6 +762,18 @@ def contract_splits(
 
 def sales_rows(args: argparse.Namespace, family: str, aggregate_id: str | None) -> list[dict[str, Any]]:
     return service_sales_rows(_ReadModelPool(args), family, aggregate_id, 500)
+
+
+def sales_source_rows(
+    args: argparse.Namespace,
+    family: str,
+    proj_guid: str | None,
+    state: str | None,
+    keyword: str | None,
+) -> dict[str, Any]:
+    return service_sales_source_rows(
+        _ReadModelPool(args), family, proj_guid, state, keyword, 500
+    )
 
 
 def invoice_source_rows(
@@ -1788,6 +1802,24 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         self,
                         200,
                         investment_indices(args, investment_indices_match.group(1), dimension),
+                    )
+                    return
+                if re.fullmatch(
+                    r"/api/company/source/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)",
+                    parsed.path,
+                ):
+                    family = parsed.path.rsplit("/", 1)[-1]
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        sales_source_rows(
+                            args,
+                            family,
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            query.get("state", query.get("status", [None]))[0],
+                            query.get("keyword", [None])[0],
+                        ),
                     )
                     return
                 investment_profit_match = re.fullmatch(

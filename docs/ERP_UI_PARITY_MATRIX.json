@@ -3838,8 +3838,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_sales_source_read",
+      "required_next": "accept_browser_sales_source_scenario_and_production_identity"
     },
     {
       "module": "sales",
@@ -3908,8 +3908,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_sales_source_read",
+      "required_next": "accept_browser_sales_source_scenario_and_production_identity"
     },
     {
       "module": "sales",
@@ -3964,8 +3964,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_sales_source_read",
+      "required_next": "accept_browser_sales_source_scenario_and_production_identity"
     },
     {
       "module": "sales",
@@ -4006,8 +4006,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_sales_source_read",
+      "required_next": "accept_browser_sales_source_scenario_and_production_identity"
     },
     {
       "module": "sales",
@@ -4020,8 +4020,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_sales_source_read",
+      "required_next": "accept_browser_sales_source_scenario_and_production_identity"
     },
     {
       "module": "sales",
@@ -4076,8 +4076,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_sales_source_read",
+      "required_next": "accept_browser_sales_source_scenario_and_production_identity"
     },
     {
       "module": "sales",

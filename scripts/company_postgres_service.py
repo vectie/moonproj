@@ -49,6 +49,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/receivables`` (GET)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds}`` (POST)
   with idempotent lifecycle commands
+* ``/api/company/source/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}``
+  (GET, source ERP sales observations; empty source tables stay explicit)
 * ``/api/company/delivery/{progress,outputs,tasks,task-reports,plan-summary}`` (GET)
 * ``/api/company/delivery/{progress,outputs,tasks}/...`` (POST)
   with source-preserving reads and idempotent local commands
@@ -2398,6 +2400,165 @@ def sales_rows(
         _sales_row(row)
         for row in _latest_sales_projection_rows(pool, aggregate_type, aggregate_id, max_rows)
     ]
+
+
+SALES_SOURCE_TABLES = {
+    "sale_customer",
+    "sale_subscription",
+    "sale_contract",
+    "sale_mortgage",
+    "sale_refund",
+    "sale_revenue",
+}
+
+SALES_SOURCE_FAMILIES = {
+    "customers": ("sale_customer", "customer", "customer_guid"),
+    "subscriptions": ("sale_subscription", "subscription", "sub_guid"),
+    "contracts": ("sale_contract", "sales_agreement", "scontract_guid"),
+    "mortgages": ("sale_mortgage", "mortgage", "mortgage_guid"),
+    "refunds": ("sale_refund", "refund", "refund_guid"),
+    "revenues": ("sale_revenue", "sale_revenue", "revenue_guid"),
+}
+
+
+def _sales_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _sales_source_amount_display(value: Any) -> str:
+    if value is None or value == "":
+        return "—"
+    try:
+        return f"¥{Decimal(str(value)):,.2f}"
+    except (InvalidOperation, TypeError, ValueError):
+        return "—"
+
+
+def _sales_source_row(
+    row: dict[str, Any],
+    family: str,
+) -> dict[str, Any]:
+    table, aggregate_type, identity_field = SALES_SOURCE_FAMILIES[family]
+    payload = dict(row["payload"])
+    identity = str(
+        payload.get(identity_field)
+        or payload.get("subscription_guid" if family == "subscriptions" else "")
+        or payload.get("contract_guid" if family == "contracts" else "")
+        or row["record_id"]
+    )
+    payload.setdefault(identity_field, identity)
+    payload.setdefault("source_id", row["source_id"])
+    payload.setdefault("source_kind", "imported")
+    payload.setdefault("source_table", table)
+    payload["aggregate_type"] = aggregate_type
+    payload["aggregate_id"] = identity
+    payload["source_id"] = row["source_id"]
+    payload["source_table"] = table
+    if family == "customers":
+        payload.setdefault("customer_id", identity)
+        payload.setdefault("name", payload.get("customer_name", identity))
+        payload.setdefault("contact_reference", payload.get("phone", ""))
+        payload.setdefault("state", "active")
+    elif family == "subscriptions":
+        payload.setdefault("subscription_id", identity)
+        payload.setdefault(
+            "unit_reference",
+            "-".join(
+                value
+                for value in (
+                    str(payload.get("building_no") or ""),
+                    str(payload.get("unit_no") or ""),
+                )
+                if value
+            ),
+        )
+        payload.setdefault("state", "reserved")
+    elif family == "contracts":
+        payload.setdefault("agreement_id", identity)
+        payload.setdefault("state", "draft")
+    elif family == "mortgages":
+        payload.setdefault("mortgage_id", identity)
+        payload.setdefault("bank_reference", payload.get("bank_name", ""))
+        payload.setdefault("state", "applying")
+    elif family == "refunds":
+        payload.setdefault("refund_id", identity)
+        payload.setdefault("state", "requested")
+    else:
+        payload.setdefault("revenue_id", identity)
+        payload.setdefault("status", "expected")
+        payload.setdefault("state", payload.get("status", "expected"))
+    amount_value = payload.get("amount")
+    if family in {"subscriptions", "contracts"}:
+        amount_value = payload.get("total_price", amount_value)
+    elif family == "mortgages":
+        amount_value = payload.get("loan_amount", amount_value)
+    elif family == "refunds":
+        amount_value = payload.get("refund_amount", amount_value)
+    payload.setdefault("amount_display", _sales_source_amount_display(amount_value))
+    return payload
+
+
+def sales_source_rows(
+    pool: PsqlPool,
+    family: str,
+    proj_guid: str | None,
+    state: str | None,
+    keyword: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Read one ERP sales table without promoting rows to company projections."""
+
+    if family not in SALES_SOURCE_FAMILIES:
+        raise ValueError("unsupported sales source family")
+    for value, name in ((proj_guid, "proj_guid"), (state, "state")):
+        if value is not None and len(value) > 128:
+            raise ValueError(f"invalid {name}")
+    if keyword is not None and len(keyword) > 128:
+        raise ValueError("invalid keyword")
+    table = SALES_SOURCE_FAMILIES[family][0]
+    coverage = {
+        name: len(_raw_source_rows(pool, name, max(max_rows, 500), SALES_SOURCE_TABLES))
+        for name in sorted(SALES_SOURCE_TABLES)
+    }
+    raw = _raw_source_rows(pool, table, max(max_rows, 500), SALES_SOURCE_TABLES)
+    rows: list[dict[str, Any]] = []
+    for row in raw:
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
+            continue
+        row_state_value = payload.get("status") if family == "revenues" else payload.get("state")
+        row_state = str(row_state_value or "")
+        if state is not None and row_state != state:
+            continue
+        if keyword is not None:
+            haystack = " ".join(str(value) for value in payload.values())
+            if keyword.lower() not in haystack.lower():
+                continue
+        rows.append(_sales_source_row(row, family))
+    rows.sort(
+        key=lambda value: (
+            str(value.get("created_at") or value.get("receive_date") or value.get("signed_date") or ""),
+            str(value.get("aggregate_id") or ""),
+        ),
+        reverse=True,
+    )
+    return {
+        "success": True,
+        "code": 0,
+        "data": rows[:max_rows],
+        **_sales_source_metadata(coverage),
+    }
 
 
 INVOICE_SOURCE_TABLES = {
@@ -13197,6 +13358,25 @@ def handler_factory(
                             response(self, 200, items[0], origin)
                     else:
                         response(self, 200, {"items": items}, origin)
+                elif re.fullmatch(
+                    r"/api/company/source/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)",
+                    parsed.path,
+                ):
+                    family = parsed.path.rsplit("/", 1)[-1]
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        sales_source_rows(
+                            pool,
+                            family,
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            query.get("state", query.get("status", [None]))[0],
+                            query.get("keyword", [None])[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif re.fullmatch(r"/api/company/receivables(/[A-Za-z0-9_.:-]{1,128})?", parsed.path):
                     receivable_id = parsed.path.rsplit("/", 1)[-1] if parsed.path.count("/") > 3 else None
                     items = sales_rows(pool, "receivables", receivable_id, max_response_rows)

@@ -39,9 +39,24 @@ only through an explicit command; collections, refund cash, revenue
 recognition, tax, journal posting, and period close remain separate effects.
 
 The read-only development adapter exposes the same reads. Rabbita loads each
-sales page through the gateway and shows the current projection count, source
+sales page through the gateway and shows the current source-observation count, source
 kind, state, and amount while retaining the designer-provided source-shaped
 tables as the fallback when PostgreSQL is unavailable.
+
+The source-observation boundary is separate from those target projections:
+
+- `GET /api/company/source/sales/customers` reads `sale_customer`;
+- `GET /api/company/source/sales/subscriptions` reads `sale_subscription`;
+- `GET /api/company/source/sales/contracts` reads `sale_contract`;
+- `GET /api/company/source/sales/mortgages` reads `sale_mortgage`;
+- `GET /api/company/source/sales/refunds` reads `sale_refund`;
+- `GET /api/company/source/sales/revenues` reads `sale_revenue`.
+
+Each response preserves the source row fields, adds normalized aggregate
+identity for the Rabbita table, reports coverage for all six sales tables, and
+marks the observation non-authorizing and non-persisting. The current export
+has zero rows in every table, so these reads do not seed or expose the
+synthetic command cohort.
 
 ## Evidence
 

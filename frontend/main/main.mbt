@@ -4983,7 +4983,7 @@ fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
   } else {
-    "/api/company/sales/" + family
+    "/api/company/source/sales/" + family + "?projGuid=proj-0001"
   }
   @http.get(path).expect_text(result => {
     match result {
@@ -7135,7 +7135,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_loaded: true,
           sales_family: family,
           sales_rows: sales_rows_from_body(body),
-          sales_note: "已加载 PostgreSQL 销售/应收读模型 · 导入记录保持只读",
+          sales_note: "已加载 PostgreSQL 销售源读模型 · 空表保持可见 · 导入记录保持只读",
         },
       )
     SalesLoadFailed(family) =>
@@ -10820,7 +10820,7 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
 ///|
 fn sales_projection_table(model : Model, family : String) -> @html.Html {
   if !model.sales_loaded || model.sales_family != family {
-    div(class="erp-runtime-empty", "等待 PostgreSQL 销售投影")
+    div(class="erp-runtime-empty", "等待 PostgreSQL 销售源观察")
   } else {
     let rows : Array[Array[String]] = []
     for row in model.sales_rows {
@@ -10834,7 +10834,7 @@ fn sales_projection_table(model : Model, family : String) -> @html.Html {
       ])
     }
     table_panel(
-      "当前 PostgreSQL 投影",
+      "当前 PostgreSQL 销售源观察",
       "源记录只读 · 本地命令保留审计凭证",
       data_table(
         ["记录", "主要信息", "关联客户", "金额", "状态", "来源"],

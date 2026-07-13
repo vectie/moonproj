@@ -318,6 +318,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_supplier_scenario_and_production_identity"
     if target_state == "connected_sales_read":
         return "accept_browser_sales_scenario_and_production_identity"
+    if target_state == "connected_sales_source_read":
+        return "accept_browser_sales_source_scenario_and_production_identity"
     if target_state == "connected_invoice_read":
         return "accept_browser_invoice_scenario_and_production_identity"
     if target_state == "connected_delivery_command_form":
@@ -465,6 +467,19 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/in", "/out", "/tax-ledger"}
     ):
         return "connected_invoice_source_read", "accept_browser_invoice_source_scenario_and_production_identity"
+    if (
+        handler["module"] == "sales"
+        and handler["method"] == "GET"
+        and handler["path"] in {
+            "/revenues",
+            "/customers",
+            "/subscriptions",
+            "/contracts",
+            "/mortgages",
+            "/refunds",
+        }
+    ):
+        return "connected_sales_source_read", "accept_browser_sales_source_scenario_and_production_identity"
     if (
         handler["module"] == "budget"
         and handler["method"] == "GET"
