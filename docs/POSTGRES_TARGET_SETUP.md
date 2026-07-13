@@ -180,3 +180,9 @@ exact `asset` projection with candidate parity and idempotent replay. The
 demonstrated full run reaches 127 aggregate projections. Journal posting,
 disposal cash settlement, tax treatment, and period close remain separate
 gates.
+The twenty-ninth argument supplies the reviewed treasury plan/dispatch map. It
+runs native cash-plan and inter-project dispatch lifecycle validation and
+persists two `cash_plan` plus one `fund_dispatch` projection with candidate
+parity and idempotent replay. The demonstrated full run reaches 130 aggregate
+projections. Bank movement, cash settlement, accounting/tax treatment, and
+period close remain separate gates.

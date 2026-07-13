@@ -1,0 +1,51 @@
+{
+  "format": "moonproj.erp.treasury-plan-dispatch-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:treasury-plan-synthetic-001",
+  "mapping_version": "treasury-plan-dispatch-map-v1-review-001",
+  "run_id": "treasury-plan-dispatch-run-2026-14",
+  "cash_plans": [
+    {
+      "source_table": "fund_plan",
+      "source_id": "plan-source-001",
+      "plan_id": "plan-001",
+      "principal_id": "co-001",
+      "project_scope": "project:p-001",
+      "period": "2026-07",
+      "category": "construction",
+      "direction": "outflow",
+      "currency": "CNY",
+      "planned_amount_minor": 1000000,
+      "actual_amount_minor": 950000,
+      "expected_state": "actualized"
+    },
+    {
+      "source_table": "fund_plan",
+      "source_id": "plan-source-002",
+      "plan_id": "plan-002",
+      "principal_id": "co-001",
+      "project_scope": "project:p-002",
+      "period": "2026-07",
+      "category": "sales_collection",
+      "direction": "inflow",
+      "currency": "CNY",
+      "planned_amount_minor": 500000,
+      "actual_amount_minor": 0,
+      "expected_state": "confirmed"
+    }
+  ],
+  "fund_dispatches": [
+    {
+      "source_table": "fund_dispatch",
+      "source_id": "dispatch-source-001",
+      "dispatch_id": "dispatch-001",
+      "principal_id": "co-001",
+      "from_project": "project:p-001",
+      "to_project": "project:p-002",
+      "amount_minor": 300000,
+      "currency": "CNY",
+      "reason": "Liquidity balancing",
+      "expected_state": "executed"
+    }
+  ]
+}

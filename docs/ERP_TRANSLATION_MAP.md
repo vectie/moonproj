@@ -261,6 +261,15 @@ capitalization, depreciation, impairment, and disposal controls; exact
 adapters preserve book values, depreciation entries, disposal basis, gain/loss,
 and lifecycle state. Journal posting, disposal cash, tax treatment, and period
 close remain false. See [ERP_ASSET_LIFECYCLE.md](ERP_ASSET_LIFECYCLE.md).
+The thirty-first SQLite wrapper argument, or the twenty-ninth PostgreSQL
+cohort-runner argument, can supply a separately reviewed treasury plan and
+dispatch map. `scripts/erp_treasury_plan_dispatch_plan.py` and
+`cmd/treasury_plan_dispatch` replay native cash-plan confirmation/actualization
+and inter-project dispatch approval/execution; exact adapters preserve planned
+and actual amounts, direction, project scopes, reasons, and states. Bank
+movement, cash release, accounting posting, tax treatment, and period close
+remain false. See
+[ERP_TREASURY_PLAN_DISPATCH.md](ERP_TREASURY_PLAN_DISPATCH.md).
 When accounting mappings are supplied, the wrapper also emits
 `period-close-control.json`; it aggregates every reconciled link cohort and
 requires the native `AccountingBook.close_reconciled` gate before a real period
@@ -391,7 +400,7 @@ importer.
 | tax obligation/filing snapshots | Tax persistence | `finance/tax` + `cmd/tax_filing` + `persistence/store` | Jurisdiction, category, rates, calculated/withheld amounts, obligation state, separate tax-filing state, period, and authority reference serialize as reviewed `tax_filing` projections with exact parity/replay; payment and ledger posting remain separate. |
 | bank/cash and reconciliation routes | Cash position and controlled movement | `finance/treasury` + `finance/reconciliation` | Account balance, approved release, overdraw protection, expected-versus-actual journal checks, bank-statement line import/matching, and separate line-to-ledger-event traceability implemented; external bank adapters remain pending. |
 | cash account/movement/statement snapshots | Treasury persistence | `finance/treasury` + `persistence/store` | Balances, movement direction, release/reconciliation state, statement lines, balance controls, line-to-movement matches, and line-to-accounting-event matches serialize as revisioned projections. |
-| `fund_plan`, `fund_dispatch`, loan/facility routes | Treasury plan, dispatch, and corporate financing | `finance/treasury` + `finance/financing` | Cash plan confirmation/actualization, controlled project dispatch, and facility approval/draw/interest/repayment controls implemented; draw and repayment actions now emit explicit balanced source-to-journal links without posting; lender statements and covenant persistence pending. |
+| `fund_plan`, `fund_dispatch`, loan/facility routes | Treasury plan, dispatch, and corporate financing | `finance/treasury` + `finance/financing` + `cmd/treasury_plan_dispatch` | Cash plan confirmation/actualization, controlled project dispatch, and facility approval/draw/interest/repayment controls implemented; reviewed treasury plan/dispatch receipts now pass exact SQLite/PostgreSQL parity and replay, while draw/repayment actions emit explicit balanced source-to-journal links without posting; lender statements and covenant persistence pending. |
 | financing facility snapshots | Financing persistence | `finance/financing` + `cmd/financing_facility` + `persistence/store` | Facility limits, draw, outstanding principal, rate, repayment state, lifecycle events, and reviewed interest evidence serialize as revisioned projections with exact SQLite/PostgreSQL parity and replay; lender/cash/accounting effects remain separate. |
 | chart-of-accounts, journal, period-close routes | Accounting books and close control | `finance/accounting` + `finance/reconciliation` + `cmd/accounting_post` | Account/currency validation, open/soft-close/close periods, native balanced ledger posting, reviewed source-linked posting projections, and `close_reconciled` control implemented; the period-close artifact binds reconciliations to one source snapshot with a deterministic evidence hash; opening balances, subsidiary links, statement import, tax/cash effects, and financial statements remain pending. |
 | asset/register/depreciation routes | Asset ownership and depreciation/disposal | `finance/assets` + `cmd/asset_lifecycle` | Capitalization, activation, impairment/disposal, residual-value controls, deterministic depreciation, balanced depreciation/derecognition journals, reviewed lifecycle receipts, and exact SQLite/PostgreSQL asset parity/replay are implemented; journal posting, period-close integration, and production asset-import cohorts remain pending. |

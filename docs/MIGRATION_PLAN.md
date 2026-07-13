@@ -128,6 +128,14 @@ journal posting, disposal cash settlement, tax basis, period close, and owner
 acceptance remain separate. The available ERP snapshot has no asset rows, so a
 sanitized register export, legal-owner map, account policy, and finance-owner
 review are still required.
+The reviewed treasury-plan boundary now preserves two synthetic cash plans and
+one inter-project dispatch through native confirmation, actualization,
+approval, and execution, with exact SQLite/PostgreSQL parity and zero-insert
+replay. It is liquidity-intent evidence only: bank movement, cash release,
+settlement, accounting/tax treatment, period close, and owner acceptance remain
+separate. The available ERP snapshot has no `fund_plan` or `fund_dispatch` rows,
+so a sanitized treasury export, project-scope map, and finance-owner review are
+still required.
 The optional fourteenth cohort maps only separately reviewed accepted delivery
 evidence through `cmd/delivery_recognition`; it requires a positive measured
 value and explicit acceptance evidence, and produces a pending-posting

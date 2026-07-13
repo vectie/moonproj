@@ -36,6 +36,7 @@ TAX_FILING_MAPPING=${27:-}
 BANK_STATEMENT_MAPPING=${28:-}
 FINANCING_FACILITY_MAPPING=${29:-}
 ASSET_LIFECYCLE_MAPPING=${30:-}
+TREASURY_PLAN_DISPATCH_MAPPING=${31:-}
 SCHEMA_PATH=${ERP_SCHEMA_PATH:-../erp/erp_new/server/src/db/index.js}
 ROUTES_DIR=${ERP_ROUTES_DIR:-../erp/erp_new/server/src/routes}
 
@@ -310,6 +311,30 @@ if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
     "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" > "$ASSET_LIFECYCLE_REPLAY"
   echo "asset_lifecycle_replay=$ASSET_LIFECYCLE_REPLAY"
+fi
+
+if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
+  TREASURY_PLAN_DISPATCH_PLAN="$WORK_DIR/treasury-plan-dispatch-plan.json"
+  python3 "$SCRIPT_DIR/erp_treasury_plan_dispatch_plan.py" \
+    "$TREASURY_PLAN_DISPATCH_MAPPING" "$TREASURY_PLAN_DISPATCH_PLAN"
+  echo "treasury_plan_dispatch_plan=$TREASURY_PLAN_DISPATCH_PLAN"
+  TREASURY_PLAN_DISPATCH_RECEIPT="$WORK_DIR/treasury-plan-dispatch-receipt.json"
+  moon run --target native cmd/treasury_plan_dispatch -- \
+    "$TREASURY_PLAN_DISPATCH_PLAN" "$TREASURY_PLAN_DISPATCH_RECEIPT"
+  echo "treasury_plan_dispatch_receipt=$TREASURY_PLAN_DISPATCH_RECEIPT"
+  TREASURY_PLAN_DISPATCH_APPLY="$WORK_DIR/treasury-plan-dispatch-apply.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" > "$TREASURY_PLAN_DISPATCH_APPLY"
+  echo "treasury_plan_dispatch_apply=$TREASURY_PLAN_DISPATCH_APPLY"
+  TREASURY_PLAN_DISPATCH_PARITY="$WORK_DIR/treasury-plan-dispatch-parity.json"
+  python3 "$SCRIPT_DIR/company_treasury_plan_dispatch_parity.py" \
+    "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TREASURY_PLAN_DISPATCH_PARITY" \
+    --backend sqlite --database "$TARGET_DB"
+  echo "treasury_plan_dispatch_parity=$TREASURY_PLAN_DISPATCH_PARITY"
+  TREASURY_PLAN_DISPATCH_REPLAY="$WORK_DIR/treasury-plan-dispatch-replay.json"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+    "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" > "$TREASURY_PLAN_DISPATCH_REPLAY"
+  echo "treasury_plan_dispatch_replay=$TREASURY_PLAN_DISPATCH_REPLAY"
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
@@ -732,6 +757,10 @@ if [ -n "$TYPED_MAPPING" ]; then
   if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
     ASSET_LIFECYCLE_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["assets"]))' "$WORK_DIR/asset-lifecycle-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + ASSET_LIFECYCLE_COUNT))
+  fi
+  if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
+    TREASURY_PLAN_DISPATCH_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["cash_plans"]) + len(p["fund_dispatches"]))' "$WORK_DIR/treasury-plan-dispatch-plan.json")
+    EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + TREASURY_PLAN_DISPATCH_COUNT))
   fi
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))
