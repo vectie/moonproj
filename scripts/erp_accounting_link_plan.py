@@ -35,6 +35,7 @@ SUPPORTED_TARGET_SOURCE_TYPES = {
     "tax_filing": "tax_filing",
     "financing_facility": "financing_facility",
     "investment_position": "investment_position",
+    "investment_valuation": "investment_valuation",
     "asset_disposal": "asset_disposal",
     "cash_movement": "cash_movement",
     "bank_statement": "bank_statement",

@@ -1,5 +1,6 @@
 import {
   "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
   "vectie/moonproj/foundation",
   "vectie/moonproj/investment/domain",
   "vectie/moonproj/persistence/store",

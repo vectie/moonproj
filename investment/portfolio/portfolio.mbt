@@ -53,6 +53,7 @@ pub(all) suberror PortfolioError {
   ExposureExceeded
   MissingQuote
   InvalidScenario
+  AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)

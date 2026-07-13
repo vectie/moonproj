@@ -42,7 +42,7 @@ existing ERP remains authoritative.
 | Durable native-promotion projections | `scripts/company_sqlite_projection_apply.py` + `scripts/erp_migration_rehearsal.sh` | Persists validated native promotion candidates as immutable aggregate revisions in the same SQLite transaction boundary, records a projection receipt, verifies integrity, and makes an identical replay insert zero rows. A production connection pool/service remains pending. |
 | Native projection parity gate | `scripts/company_sqlite_projection_parity.py` + `scripts/erp_migration_rehearsal.sh` | Reopened SQLite projections compare exactly with the native receipt by source identity and target type; the mapped cohort reports `shadow_verified` with 19/19 items and fails with explicit missing/extra findings for a mismatched cohort. |
 | Cohort-scoped receipt replay | `scripts/company_sqlite_projection_apply.py` + `scripts/company_sqlite_accounting_link_apply.py` | Projection and accounting receipt hashes are scoped to their source snapshot/mapping cohort, so a later offset cohort may append rows without invalidating an earlier receipt; rerunning the complete multi-cohort wrapper inserts zero projections/links and preserves all receipts. |
-| Native accounting-link receipt and durable apply | `scripts/erp_accounting_link_plan.py` + `cmd/accounting_link` + `scripts/company_sqlite_accounting_link_apply.py` | The allow-listed source-to-journal boundary now covers commitment, advance/offset, settlement, expense, delivery, receivable, payable, tax, financing, investment, asset, cash, and bank-statement source types. It still requires explicit candidate/mapping principal, amount, and currency equality; the existing commitment/advance receipt persists three links transactionally as `AccountingLinked`, while synthetic receivable, delivery, tax, and financing smokes prove native receipt generation and missing-amount quarantine. It does not post cash or infer accounting policy. |
+| Native accounting-link receipt and durable apply | `scripts/erp_accounting_link_plan.py` + `cmd/accounting_link` + `scripts/company_sqlite_accounting_link_apply.py` | The allow-listed source-to-journal boundary now covers commitment, advance/offset, settlement, expense, delivery, receivable, payable, tax, financing, investment acquisition/valuation, asset, cash, and bank-statement source types. It still requires explicit candidate/mapping principal, amount, and currency equality; the existing commitment/advance receipt persists three links transactionally as `AccountingLinked`, while synthetic receivable, delivery, tax, financing, and investment-valuation smokes prove native receipt generation and missing-amount quarantine. It does not post cash or infer accounting policy. |
 | PostgreSQL accounting-link cohort rehearsal | `scripts/company_postgres_accounting_cohort_rehearsal.sh` + `scripts/company_postgres_accounting_link_apply.py` | Runs any reviewed domain receipt through the allow-listed planner, native validator, PostgreSQL traceability apply, and idempotent replay. The synthetic receivable smoke inserted one link then replayed zero and was cleaned up; the production target remains at 7 reviewed links and 19 receipts. |
 | Settlement-request accounting-link cohort | `scripts/fixtures/payment_accounting_link_mapping.json` + `scripts/erp_accounting_link_plan.py` + `scripts/erp_migration_rehearsal.sh` | A separately scoped seventh-argument map validates 3 requested-settlement/payment-application journals against the typed payment receipt, persists 3 additional links transactionally (7 total in the extended run), reconciles source/principal/amount/currency, and keeps cash release and period posting false. |
 | Reconciled period-close control | `finance/accounting` + `finance/reconciliation` + `scripts/company_period_close_control.py` | Native `AccountingBook.close_reconciled` refuses to close without balanced reports; the rehearsal combines all supplied accounting reconciliation cohorts into a `ready_for_reconciled_close` artifact while keeping `close_authorized=false`, cash release false, and period posting false. |
@@ -154,7 +154,7 @@ existing ERP remains authoritative.
 | Investment mandate/proposal/position projections | `investment/domain` + `persistence/store` | Mandate limits, Moonfish analysis evidence, proposal states, executed positions, validated acquisition journals, and acquisition accounting-event links persist as immutable revisioned evidence. |
 | Versioned investment model | `investment/model` + `persistence/store` | ERP version/index rows become a governed local model with duplicate/version checks, source-value preservation, explicit authority, and revisioned projections. |
 | ERP investment-model cohort promotion | `migration/erp` + `investment/model` | Version mappings isolate index rows, require explicit principal/grants, and reject duplicate versions or stray indexes before promotion. |
-| Investment portfolio and valuation | `investment/portfolio` | Mandate-bound position book, exposure limits, explicit quote valuation, and missing-evidence guards. |
+| Investment portfolio and valuation | `investment/portfolio` | Mandate-bound position book, exposure limits, explicit quote valuation, missing-evidence guards, and gain/loss mark-to-market source-to-journal adapters with explicit valuation authority; cash and accounting-book posting remain separate. |
 | Portfolio risk scenarios and projections | `investment/portfolio` + `persistence/store` | Shock-based stress reports, loss limits, portfolio position snapshots, and mandate breach flags persist as governed evidence. |
 | Reconciliation report | `finance/reconciliation` | Expected-versus-actual lines and journal-side comparison with explicit currency and balance errors. |
 | Tax obligation | `finance/tax` | Rate-based calculation, review, filing, payment, voiding, authority-scoped events, and a reviewed-state tax-obligation recognition-event adapter that produces a balanced source-to-journal link without posting. |
@@ -170,7 +170,7 @@ existing ERP remains authoritative.
 
 ## Current verification
 
-The current scaffold has 224 passing MoonBit tests across the new packages. The
+The current scaffold has 226 passing MoonBit tests across the new packages. The
 CLI demonstrates an authorized commitment through settlement and journal
 validation, followed by a manifest-to-store migration apply and derived shadow
 parity certification; it also reports the sanitized backup inventory as 26
@@ -344,8 +344,9 @@ promotion of the remaining typed-staged rows, or production readiness.
    filing records, and disposal derecognition journals/accounting-event links
    are now implemented, while period-close integration still needs production
    statement and subledger evidence.
-6. Add investment formula semantics, performance attribution, and accounting
-   events around the persistent model, mandate, proposal, position, and risk
-   projections.
+6. Add investment formula semantics and performance attribution around the
+   persistent model, mandate, proposal, position, risk, and valuation
+   projections; acquisition and mark-to-market valuation event links are now
+   implemented, but full performance/accounting reconciliation remains open.
 7. Add sanitized ERP export fixtures, opening-balance workbooks, and
    cross-domain parity reports for each migration cohort.

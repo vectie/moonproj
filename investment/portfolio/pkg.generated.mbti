@@ -4,6 +4,7 @@ package "vectie/moonproj/investment/portfolio"
 import {
   "moonbitlang/core/debug",
   "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
   "vectie/moonproj/foundation",
   "vectie/moonproj/investment/domain",
   "vectie/moonproj/persistence/store",
@@ -21,6 +22,7 @@ pub(all) suberror PortfolioError {
   ExposureExceeded
   MissingQuote
   InvalidScenario
+  AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
@@ -47,6 +49,7 @@ pub fn Portfolio::add_position(Self, @domain.InvestmentPosition, actor_id~ : Str
 pub fn Portfolio::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise PortfolioError
 pub fn Portfolio::new(@domain.InvestmentMandate, portfolio_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise PortfolioError
 pub fn Portfolio::stress(Self, Array[MarketQuote], RiskScenario) -> StressReport raise PortfolioError
+pub fn Portfolio::to_valuation_event(Self, valuation_id~ : String, event_id~ : String, event_type~ : String, quotes~ : Array[MarketQuote], investment_account~ : String, gain_account~ : String, loss_account~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @accounting.AccountingEvent raise PortfolioError
 pub fn Portfolio::value(Self, Array[MarketQuote]) -> ValuationReport raise PortfolioError
 
 pub(all) struct RiskScenario {

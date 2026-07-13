@@ -118,6 +118,106 @@ test "portfolio rejects a missing market quote" {
 }
 
 ///|
+test "portfolio valuation emits gain and loss accounting links" {
+  let portfolio = Portfolio::new(
+    portfolio_mandate(),
+    portfolio_id="portfolio-valuation-events",
+    actor_id="alice",
+    grant=portfolio_grant("investment:portfolio:create"),
+  ).add_position(
+    {
+      position_id: "position-valuation-events",
+      mandate_id: "mandate-portfolio",
+      instrument: "FUND-001",
+      quantity: 100L,
+      cost_basis: @finance.Money::new(minor=300000, currency="CNY"),
+    },
+    actor_id="alice",
+    grant=portfolio_grant("investment:portfolio:add"),
+  )
+  let gain = portfolio.to_valuation_event(
+    valuation_id="valuation-gain-001",
+    event_id="investment-valuation-event-001",
+    event_type="investment.valuation.gain",
+    quotes=[
+      {
+        instrument: "FUND-001",
+        price: @finance.Money::new(minor=3200, currency="CNY"),
+      },
+    ],
+    investment_account="investment-asset",
+    gain_account="unrealized-gain",
+    loss_account="unrealized-loss",
+    actor_id="alice",
+    grant=portfolio_grant("investment:valuation:record"),
+  )
+  let loss = portfolio.to_valuation_event(
+    valuation_id="valuation-loss-001",
+    event_id="investment-valuation-event-002",
+    event_type="investment.valuation.loss",
+    quotes=[
+      {
+        instrument: "FUND-001",
+        price: @finance.Money::new(minor=2800, currency="CNY"),
+      },
+    ],
+    investment_account="investment-asset",
+    gain_account="unrealized-gain",
+    loss_account="unrealized-loss",
+    actor_id="alice",
+    grant=portfolio_grant("investment:valuation:record"),
+  )
+  assert_eq(gain.source_type, "investment_valuation")
+  assert_eq(gain.journal.postings[0].amount.minor, 20000L)
+  assert_true(gain.journal.postings[0].side == @finance.PostingSide::Debit)
+  assert_eq(loss.journal.postings[0].amount.minor, 20000L)
+  assert_true(loss.journal.postings[0].side == @finance.PostingSide::Debit)
+}
+
+///|
+test "portfolio valuation link rejects an unchanged market value" {
+  let portfolio = Portfolio::new(
+    portfolio_mandate(),
+    portfolio_id="portfolio-valuation-gate",
+    actor_id="alice",
+    grant=portfolio_grant("investment:portfolio:create"),
+  ).add_position(
+    {
+      position_id: "position-valuation-gate",
+      mandate_id: "mandate-portfolio",
+      instrument: "FUND-001",
+      quantity: 100L,
+      cost_basis: @finance.Money::new(minor=300000, currency="CNY"),
+    },
+    actor_id="alice",
+    grant=portfolio_grant("investment:portfolio:add"),
+  )
+  try
+    portfolio.to_valuation_event(
+      valuation_id="valuation-unchanged-001",
+      event_id="investment-valuation-gate",
+      event_type="investment.valuation.noop",
+      quotes=[
+        {
+          instrument: "FUND-001",
+          price: @finance.Money::new(minor=3000, currency="CNY"),
+        },
+      ],
+      investment_account="investment-asset",
+      gain_account="unrealized-gain",
+      loss_account="unrealized-loss",
+      actor_id="alice",
+      grant=portfolio_grant("investment:valuation:record"),
+    )
+  catch {
+    PortfolioError::InvalidAmount => ()
+    _ => fail("wrong valuation accounting error")
+  } noraise {
+    _ => fail("expected valuation accounting error")
+  }
+}
+
+///|
 test "portfolio stress scenarios and projections preserve mandate evidence" {
   let portfolio = Portfolio::new(
     portfolio_mandate(),

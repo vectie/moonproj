@@ -137,8 +137,8 @@ rows. PostgreSQL receipt state is separate from cash, accounting posting, and
 business ownership.
 `scripts/erp_accounting_link_plan.py` then requires an explicit reviewed
 source-to-journal map for an allow-listed set of commitment, advance/offset,
-settlement, expense, delivery, receivable, payable, tax, financing, investment,
-asset, cash, and bank source types. The native `cmd/accounting_link` command validates balanced
+settlement, expense, delivery, receivable, payable, tax, financing, investment
+acquisition/valuation, asset, cash, and bank source types. The native `cmd/accounting_link` command validates balanced
 journals, principal/scope authority, and duplicate event/source protection
 before emitting a receipt. The standalone
 `scripts/company_postgres_accounting_cohort_rehearsal.sh` runs any reviewed
@@ -307,8 +307,8 @@ importer.
 | `audit_log`, `sys_error_log`, attachments | Evidence and administrative trace | `foundation/evidence` + `migration/erp` + `cmd/promote` | The fixture promotes 2 explicitly mapped audit records with actor-scoped append grants; network fields remain redacted, while error taxonomy and durable blob storage remain pending. |
 | `my_biz_param_option`, `vys_proceeding` | Configurable parameter and expense-proceeding catalogs | `foundation` + `migration/erp` + `cmd/promote` | The fixture promotes 2 dictionaries/8 options under explicit authority: the original 5-option `cost_subject` dictionary and an explicit 3-option `expense_proceeding` catalog. Values remain opaque; manager/department/cost metadata, CBS/accounting meaning, and expense state are not inferred. |
 | `vys_proceeding` | Expense/proceeding catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Three redacted proceeding rows are preserved as typed evidence; no expense policy or accounting subject is inferred. |
-| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserving source value representations; formula semantics, performance attribution, and accounting remain pending. |
-| investment mandate/proposal/position/model snapshots | Investment persistence | `investment/model` + `investment/domain` + `investment/portfolio` + `persistence/store` | Model versions/indexes, mandate limits, deterministic Moonfish analysis, proposal state, positions, shock stress evidence, and acquisition event links serialize as revisioned projections; performance attribution and full accounting remain pending. |
+| `tzsy_*` investment model | Investment assumptions and scenarios | `investment/model` + `investment/domain` + `investment/analytics` + `investment/portfolio` + `migration/erp` + `cmd/promote` | The real fixture promotes 1 version/26 indexes under explicit authority, preserving source value representations; formula semantics and performance attribution remain pending, while acquisition and mark-to-market valuation links are now explicit local events. |
+| investment mandate/proposal/position/model snapshots | Investment persistence | `investment/model` + `investment/domain` + `investment/portfolio` + `persistence/store` | Model versions/indexes, mandate limits, deterministic Moonfish analysis, proposal state, positions, shock stress evidence, acquisition links, and explicit gain/loss valuation event links serialize as revisioned evidence; performance attribution and full investment accounting remain pending. |
 | Moonfish deterministic tools | Market evidence and analysis | `investment/analytics` | Moving-average/trend seed implemented; full package absorption pending. |
 
 ## Current vertical scenarios
@@ -404,8 +404,9 @@ market closes
 
 Covered by investment-domain tests. The proposal path is deliberately local and
 does not give Moonfish or MoonClaw direct execution authority; portfolio
-valuation and shock-risk evidence are implemented locally; investment accounting
-events and performance attribution remain future parity work.
+valuation and shock-risk evidence are implemented locally, and explicit
+gain/loss valuation links now preserve mark-to-market accounting evidence;
+performance attribution and full investment accounting remain future parity work.
 
 ## Legacy migration rules
 
