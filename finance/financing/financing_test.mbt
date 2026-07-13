@@ -46,6 +46,84 @@ test "financing facility controls draw, interest, and repayment" {
 }
 
 ///|
+test "financing draw and repayment emit separate source events" {
+  let facility = FinancingFacility::new(
+      facility_id="facility-events",
+      principal_id="co-001",
+      project_scope="project:p-001",
+      lender_id="lender-001",
+      limit_amount=@finance.Money::new(minor=1000000, currency="CNY"),
+      annual_rate_bps=600L,
+      actor_id="alice",
+      grant=financing_grant("financing:create"),
+    )
+    .approve(actor_id="alice", grant=financing_grant("financing:approve"))
+    .activate(actor_id="alice", grant=financing_grant("financing:activate"))
+  let drawn = facility.draw(
+    amount=@finance.Money::new(minor=500000, currency="CNY"),
+    actor_id="alice",
+    grant=financing_grant("financing:draw"),
+  )
+  let draw_event = drawn.to_draw_event(
+    draw_id="draw-events-001",
+    event_id="financing-event-draw-001",
+    event_type="financing.drawn",
+    amount=@finance.Money::new(minor=500000, currency="CNY"),
+    cash_account="cash",
+    liability_account="financing-liability",
+  )
+  let repayment_event = drawn.to_repayment_event(
+    repayment_id="repayment-events-001",
+    event_id="financing-event-repayment-001",
+    event_type="financing.repayment",
+    amount=@finance.Money::new(minor=100000, currency="CNY"),
+    liability_account="financing-liability",
+    cash_account="cash",
+  )
+  assert_eq(draw_event.source_type, "financing_facility")
+  assert_eq(draw_event.source_id, "draw-events-001")
+  assert_eq(repayment_event.source_id, "repayment-events-001")
+  assert_eq(draw_event.journal.postings[0].amount.minor, 500000L)
+  assert_eq(repayment_event.journal.postings[0].amount.minor, 100000L)
+}
+
+///|
+test "financing accounting link rejects repayment above outstanding balance" {
+  let facility = FinancingFacility::new(
+      facility_id="facility-event-gate",
+      principal_id="co-001",
+      project_scope="project:p-001",
+      lender_id="lender-001",
+      limit_amount=@finance.Money::new(minor=1000000, currency="CNY"),
+      annual_rate_bps=600L,
+      actor_id="alice",
+      grant=financing_grant("financing:create"),
+    )
+    .approve(actor_id="alice", grant=financing_grant("financing:approve"))
+    .activate(actor_id="alice", grant=financing_grant("financing:activate"))
+    .draw(
+      amount=@finance.Money::new(minor=100000, currency="CNY"),
+      actor_id="alice",
+      grant=financing_grant("financing:draw"),
+    )
+  try
+    facility.to_repayment_event(
+      repayment_id="repayment-event-gate",
+      event_id="financing-event-gate",
+      event_type="financing.repayment",
+      amount=@finance.Money::new(minor=100001, currency="CNY"),
+      liability_account="financing-liability",
+      cash_account="cash",
+    )
+  catch {
+    FinancingError::OverRepayment => ()
+    _ => fail("wrong financing accounting error")
+  } noraise {
+    _ => fail("expected financing accounting error")
+  }
+}
+
+///|
 test "financing facility blocks a draw above its limit" {
   let facility = FinancingFacility::new(
       facility_id="facility-002",

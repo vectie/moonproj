@@ -4,6 +4,7 @@ package "vectie/moonproj/finance/financing"
 import {
   "moonbitlang/core/debug",
   "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
   "vectie/moonproj/foundation",
   "vectie/moonproj/persistence/store",
 }
@@ -19,6 +20,7 @@ pub(all) suberror FinancingError {
   InvalidState
   LimitExceeded
   OverRepayment
+  AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
@@ -64,6 +66,8 @@ pub fn FinancingFacility::default(Self, actor_id~ : String, grant~ : @foundation
 pub fn FinancingFacility::draw(Self, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
 pub fn FinancingFacility::new(facility_id~ : String, principal_id~ : String, project_scope~ : String, lender_id~ : String, limit_amount~ : @finance.Money, annual_rate_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
 pub fn FinancingFacility::repay(Self, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
+pub fn FinancingFacility::to_draw_event(Self, draw_id~ : String, event_id~ : String, event_type~ : String, amount~ : @finance.Money, cash_account~ : String, liability_account~ : String) -> @accounting.AccountingEvent raise FinancingError
+pub fn FinancingFacility::to_repayment_event(Self, repayment_id~ : String, event_id~ : String, event_type~ : String, amount~ : @finance.Money, liability_account~ : String, cash_account~ : String) -> @accounting.AccountingEvent raise FinancingError
 
 // Type aliases
 

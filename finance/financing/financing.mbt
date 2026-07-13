@@ -40,6 +40,7 @@ pub(all) suberror FinancingError {
   InvalidState
   LimitExceeded
   OverRepayment
+  AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)

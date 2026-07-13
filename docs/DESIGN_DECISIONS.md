@@ -89,7 +89,7 @@ depreciation, explicit opening receivable/payable source-to-journal links,
 separate sales-to-receivable and invoice-to-receivable recognition boundaries,
 acceptance-gated delivery recognition links, and accepted-progress cost
 forecast linkage.
-It also has 220 passing MoonBit tests, executable opening control-total checks,
+It also has 224 passing MoonBit tests, executable opening control-total checks,
 a credential-safe deterministic ERP row-export boundary, an idempotent durable
 SQLite migration rehearsal, a repeatable end-to-end rehearsal wrapper, a
 fail-closed mapped-cohort promotion planner, and a native domain-promotion
@@ -163,7 +163,8 @@ journals and source links, a separate reviewed tax-filing lifecycle, and bank
 statement import, cash-movement reconciliation, and non-posting
 statement-to-ledger evidence. Reviewed tax obligations can now emit a balanced
 tax-expense/tax-payable source-to-journal link, while filing, payment, and
-period posting remain separate. A credential-free production deployment
+period posting remain separate. Financing draw and repayment actions likewise
+emit stable source-to-journal links without posting. A credential-free production deployment
 contract validates managed SQL, backup/restore, encryption, observability, and
 named finance/operations/security approvals; it remains owner-review evidence,
 not authorization to cut over.
