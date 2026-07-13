@@ -25,3 +25,7 @@ uses the same source-table boundary to prove a performed commitment, a
 reached progress milestone, and a milestone-linked requested settlement. It
 does not turn a payment application into an approval, release, cash movement,
 or accounting posting.
+
+Employee expense and advance-offset behavior is documented separately in
+[ERP_EXPENSE_ADVANCE_COHORT.md](ERP_EXPENSE_ADVANCE_COHORT.md); it is not
+implicitly created by a contract award or payment application.

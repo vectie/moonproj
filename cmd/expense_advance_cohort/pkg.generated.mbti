@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/expense_advance_cohort"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/employee_finance",
+  "vectie/moonproj/operations/expense",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ExpenseAdvanceCohortError {
+  InvalidInput
+  Io(@fs.IOError)
+  Money(@finance.MoneyError)
+  Advance(@employee_finance.AdvanceError)
+  Expense(@expense.ExpenseError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

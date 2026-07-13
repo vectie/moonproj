@@ -138,6 +138,12 @@ wrapper to run the `cb_loan_offset` cohort end to end. It emits its own native
 promotion, projection-parity, accounting-link, and replay receipts so the
 offset cannot be mistaken for the opening advance or for cash settlement.
 
+The separate `scripts/erp_expense_advance_cohort_plan.py` boundary is the
+reviewed employee-finance lifecycle check. It keeps an approved allocated
+expense separate from the advance and applies one explicit offset through the
+native expense/advance grants. The available snapshot has no accepted expense
+rows, so the example remains source-shaped and non-posting.
+
 Pass `scripts/fixtures/payment_accounting_link_mapping.json` as the seventh
 wrapper argument to validate the three `cb_htfk_apply` requested-settlement
 links against the typed payment receipt. The map is explicitly restricted to

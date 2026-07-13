@@ -171,6 +171,12 @@ projection parity and zero-insert replay pass for three projections. Settlement
 approval/release, cash movement, accounting posting, tax, period close, and
 owner acceptance remain separate; the available source export is not complete
 enough to claim production settlement rows.
+The reviewed employee expense/advance-offset cohort now keeps an employee
+advance, an approved allocated expense, and a separate bounded offset as three
+identities. Exact SQLite/PostgreSQL projection parity and zero-insert replay
+pass; the offset changes only the advance balance, while expense recognition,
+cash settlement, accounting posting, tax, period close, and owner acceptance
+remain separate. The available snapshot has no accepted expense rows.
 The separate invoice/procurement accounting-link boundary now binds two
 receivable openings, one payable opening, and one performed procurement
 commitment through target-specific reviewed keys. Exact SQLite/PostgreSQL

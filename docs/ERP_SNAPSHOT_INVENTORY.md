@@ -134,6 +134,10 @@ The next optional argument supplies a reviewed contract-milestone map; it
 drives one performed commitment through an eligible/reached progress milestone
 and creates one milestone-linked requested settlement. Approval, release, cash,
 accounting, tax, and period close remain separate gates.
+The following optional argument supplies a reviewed employee expense/advance
+map; it drives one approved allocated expense through a bounded advance offset.
+Expense recognition, cash settlement, accounting posting, tax, and period close
+remain separate gates.
 The standalone investment-valuation accounting rehearsal reuses that reviewed
 portfolio with a separate valuation map and accounting map; it validates one
 explicit mark-to-market event and source-to-journal link with exact SQLite and
@@ -168,6 +172,11 @@ exercise a performed commitment, reached milestone, and requested settlement
 with the milestone identity retained. It persists three projections with exact
 SQLite/PostgreSQL parity and idempotent replay; approval, release, cash,
 accounting, and period close remain separate.
+The standalone employee expense/advance cohort uses a reviewed source-shaped
+map to exercise one employee advance, one approved allocated expense, and one
+offset. It persists three projections with exact SQLite/PostgreSQL parity and
+idempotent replay; the available snapshot has no accepted expense rows, and
+recognition, cash, accounting, and period close remain separate.
 Every rehearsal also emits `schema-cohort-plan.json`, which orders all 49
 schema-only tables into seven future migration waves. Every rehearsal also emits
 `relationship-audit.json`, which checks the reviewed

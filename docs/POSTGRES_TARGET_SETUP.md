@@ -245,3 +245,9 @@ requested `settlement` with exact PostgreSQL parity and zero-insert replay.
 Approval, release, cash movement, accounting posting, tax, and period close
 remain separate; the reviewed example is synthetic because the source export
 is incomplete.
+The following optional cohort argument and standalone
+`scripts/company_expense_advance_cohort_rehearsal.sh` persist one partially
+repaid `employee_advance`, one approved `expense_claim`, and one
+`employee_advance_offset` with exact PostgreSQL parity and zero-insert replay.
+The offset does not release cash or post accounting; the reviewed expense is
+source-shaped because the available snapshot has no accepted expense rows.

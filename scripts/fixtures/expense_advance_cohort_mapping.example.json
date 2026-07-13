@@ -1,0 +1,45 @@
+{
+  "format": "moonproj.erp.expense-advance-cohort-map.v1",
+  "reviewed": true,
+  "source_snapshot_id": "erp-snapshot:expense-advance-review-001",
+  "mapping_version": "expense-advance-map-v1",
+  "run_id": "expense-advance-review-001",
+  "advance": {
+    "source_table": "vcb_loan_simple",
+    "source_id": "loan-001",
+    "advance_id": "loan-001",
+    "principal_id": "entity:moonproj",
+    "employee_id": "employee:alice",
+    "amount_minor": 500000,
+    "expected_repaid_minor": 150000,
+    "currency": "CNY",
+    "expected_state": "partially_repaid"
+  },
+  "expense": {
+    "source_table": "vcb_expense",
+    "source_id": "expense-001",
+    "expense_id": "expense-001",
+    "principal_id": "entity:moonproj",
+    "employee_id": "employee:alice",
+    "amount_minor": 300000,
+    "currency": "CNY",
+    "expected_state": "approved",
+    "allocations": [
+      {
+        "project_scope": "project:moonproj-demo",
+        "cost_subject": "travel",
+        "amount_minor": 300000,
+        "currency": "CNY"
+      }
+    ]
+  },
+  "offset": {
+    "source_table": "cb_loan_offset",
+    "source_id": "off-001",
+    "offset_id": "off-001",
+    "advance_id": "loan-001",
+    "expense_id": "expense-001",
+    "amount_minor": 150000,
+    "currency": "CNY"
+  }
+}

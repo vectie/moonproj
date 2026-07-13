@@ -85,3 +85,8 @@ The target also has a reviewed [contract milestone and settlement cohort](ERP_CO
 for the performed-commitment, reached-milestone, and requested-settlement
 state boundary. It is an executable lifecycle rehearsal, not a claim that the
 incomplete source snapshot contains accepted production settlement rows.
+
+The target also has a reviewed [employee expense and advance-offset cohort](ERP_EXPENSE_ADVANCE_COHORT.md)
+for the advance, approved expense, and bounded offset relationship. The
+available snapshot has no accepted expense rows, so this rehearsal does not
+authorize production expense migration.
