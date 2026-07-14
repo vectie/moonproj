@@ -28,4 +28,6 @@ description = ""
 import {
   "moonbitlang/x@0.4.46",
   "moonbit-community/rabbita@0.12.4",
+  "vectie/moonlib@0.1.15",
+  "moonbitlang/async@0.16.6",
 }

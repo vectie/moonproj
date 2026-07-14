@@ -1,0 +1,14 @@
+import {
+  "moonbitlang/core/encoding/utf8" @encoding/utf8,
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/async",
+  "vectie/moonlib/spawn",
+  "moonbitlang/x/sys",
+}
+
+supported_targets = "native"
+
+options(
+  "is-main": true,
+)

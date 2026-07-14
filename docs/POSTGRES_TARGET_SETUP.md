@@ -70,6 +70,14 @@ serves the same target through fixed read-only endpoints (`/api/health`,
 `/api/company/projections`). It is a development adapter only; production
 authentication, pooling, TLS, observability, and command endpoints remain
 deployment gates.
+
+The first native runtime slice is available without Python through
+`scripts/company_postgres_read_model.sh summary|receipts|projections
+[aggregate_type]`. The MoonBit command runs only fixed allow-listed queries via
+`psql`, inherits PostgreSQL connection settings (`PGHOST`, `PGPORT`, `PGUSER`,
+`PGDATABASE`, and `PGPASSWORD`), and has been shadow-compared against the
+development HTTP adapter. It is intentionally read-only and bounded; it does
+not replace the authenticated HTTP service or gateway yet.
 The authenticated bounded runtime is `scripts/company_postgres_service.py`.
 It keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a
 bearer token from an environment variable and forwarded TLS, exposes the four

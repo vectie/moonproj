@@ -1243,7 +1243,14 @@ fixture all replacement outputs are byte-for-byte equivalent: 26 exported
 tables, 120 verified rows, 49 missing schema tables, and
 `source_export_incomplete` with promotion and cutover both false. The
 remaining Python service, gateway, and rehearsal adapters stay frozen as
-bridge evidence until their MoonBit equivalents are shadow-compared.
+bridge evidence until their MoonBit equivalents are shadow-compared. The first
+native PostgreSQL runtime slice is now also available as
+`cmd/postgres_read_model`, invoked through
+`scripts/company_postgres_read_model.sh`: fixed `summary`, `receipts`, and
+`projections` reads execute through the inherited PostgreSQL environment and
+match the Python read-model responses, including aggregate-type filtering, on
+the live target. This is a bounded CLI adapter, not yet the authenticated HTTP
+service or gateway.
 
 Execute the remainder in this order:
 
@@ -1280,6 +1287,11 @@ Execute the remainder in this order:
     operational commands. Run the Python bridge and MoonBit implementation in
     shadow, compare canonical response/receipt hashes and replay counts, then
     delete or archive the Python entry points before managed deployment.
+    The bounded native `cmd/postgres_read_model` slice now covers the first
+    three fixed read contracts and has exact response parity with the Python
+    development adapter; continue the port with the remaining HTTP routes,
+    authenticated service, gateway, and shadow/replay checks before treating
+    this convergence step as complete.
 3b. **Completed locally (2026-07-14):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
