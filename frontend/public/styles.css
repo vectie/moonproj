@@ -157,6 +157,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-tab { min-height: 34px; padding: 0 14px; border-bottom: 2px solid transparent; color: #64748b; background: transparent; cursor: pointer; font-size: 12px; }
 .erp-tab:hover, .erp-tab.is-active { border-bottom-color: #2563eb; color: #1d4ed8; }
 .erp-dashboard-grid .erp-table-panel { margin-top: 0; }
+.erp-dashboard-v2-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.erp-dashboard-v2-grid .erp-table-panel { margin-top: 0; }
+.dashboard-v2-empty { margin-top: 12px; }
 .erp-cost-bars { display: flex; flex-direction: column; gap: 18px; padding: 8px 0; }
 .erp-cost-bars .phase-bar { background: linear-gradient(90deg, #2563eb, #60a5fa); }
 .erp-ai-grid, .erp-report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
@@ -208,6 +211,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 
 @media (max-width: 1100px) {
   .erp-dashboard-grid { grid-template-columns: 1fr; }
+  .erp-dashboard-v2-grid { grid-template-columns: 1fr; }
   .risk-panel { min-width: 0; }
   .erp-ai-grid { grid-template-columns: 1fr 1fr; }
   .erp-report-grid { grid-template-columns: 1fr 1fr; }

@@ -928,10 +928,10 @@ v2/v3 values, the attachment download boundary, and all three diagnostic
 responses; health runtime metrics are explicitly unavailable and no provider
 ping is performed. The parity matrix now has explicit boundaries for every
 source GET/HEAD handler, including the PostgreSQL backup-export boundary and
-supplier signature-check boundary. Rabbita does not mount v2 or v3 yet; the v3
-API observation reports the
-16 absent cross-domain tables explicitly, and production identity, browser
-scope acceptance, and owner reconciliation remain open.
+supplier signature-check boundary. Rabbita now mounts the v2 response as a
+read-only KPI/trend/stage/warning panel; v3 remains unmounted and its API
+observation reports the 16 absent cross-domain tables explicitly. Production
+identity, browser scope acceptance, and owner reconciliation remain open.
 
 **Investment Excel observation checkpoint (2026-07-14).** The service now
 preserves the source boundary for import detail, bridge-plan, index-upsert
@@ -1160,8 +1160,8 @@ supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan,
 workflow-definition, AI analytics, AI Hub observation, webhook metadata,
    report-builder metadata, cost-dashboard v3, and dashboard-v2/v3 reads; the
-   three dashboard aliases still represent the bounded source-backed v1 read
-   while v2/v3 are API-connected but not mounted. The remaining browser views
+   three dashboard aliases still represent the bounded source-backed v1 read;
+   Rabbita also mounts the scoped v2 observation while v3 remains API-only. The remaining browser views
 and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
@@ -1255,9 +1255,9 @@ Execute the remainder in this order:
 9. Accept the bounded dashboard v1 and v2 gates in
    `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
    through production identity, entity scope, and operations/finance KPI
-   reconciliation. The v2 service read is already connected but is not yet
-   mounted in Rabbita; the v3 service observation is connected but remains
-   gated as a management surface. Obtain the missing
+   reconciliation. The v2 service read is mounted as a read-only observation;
+   the v3 service observation is connected but remains gated as a management
+   surface. Obtain the missing
    sales/fund/invoice/tender/warning/CBS tables (or owner-approved
    dispositions) before accepting v3 or expanding the remaining fixture-backed
    route families. Do not treat `/api/company/summary`, report reads, or the

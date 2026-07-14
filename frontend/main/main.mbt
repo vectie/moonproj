@@ -317,6 +317,26 @@ struct DashboardAnomalyRow {
 }
 
 ///|
+struct DashboardV2TrendRow {
+  month : String
+  plan : String
+  actual : String
+}
+
+///|
+struct DashboardV2StageRow {
+  stage : String
+  count : String
+}
+
+///|
+struct DashboardV2WarningRow {
+  title : String
+  severity : String
+  source_kind : String
+}
+
+///|
 struct AdminQualityRow {
   rule : String
   count : String
@@ -751,6 +771,18 @@ struct Model {
   dashboard_funnel_rows : Array[DashboardFunnelRow]
   dashboard_anomaly_rows : Array[DashboardAnomalyRow]
   dashboard_note : String
+  dashboard_v2_loaded : Bool
+  dashboard_v2_project_count : String
+  dashboard_v2_in_progress : String
+  dashboard_v2_contract_amount : String
+  dashboard_v2_unpaid_amount : String
+  dashboard_v2_open_warnings : String
+  dashboard_v2_running_processes : String
+  dashboard_v2_trend_rows : Array[DashboardV2TrendRow]
+  dashboard_v2_stage_rows : Array[DashboardV2StageRow]
+  dashboard_v2_warning_rows : Array[DashboardV2WarningRow]
+  dashboard_v2_missing_table_count : String
+  dashboard_v2_note : String
   admin_quality_loaded : Bool
   admin_quality_rows : Array[AdminQualityRow]
   admin_quality_note : String
@@ -1110,6 +1142,8 @@ enum Msg {
   DashboardFunnelLoaded(String)
   DashboardAnomaliesLoaded(String)
   DashboardLoadFailed
+  DashboardV2Loaded(String)
+  DashboardV2LoadFailed
   AdminQualityLoaded(String)
   AdminQualityLoadFailed
   AdminDictGroupsLoaded(String)
@@ -1359,6 +1393,18 @@ fn initial_model() -> Model {
     dashboard_funnel_rows: [],
     dashboard_anomaly_rows: [],
     dashboard_note: "驾驶舱读模型尚未加载 · 使用设计快照",
+    dashboard_v2_loaded: false,
+    dashboard_v2_project_count: "0",
+    dashboard_v2_in_progress: "0",
+    dashboard_v2_contract_amount: "0",
+    dashboard_v2_unpaid_amount: "0",
+    dashboard_v2_open_warnings: "0",
+    dashboard_v2_running_processes: "0",
+    dashboard_v2_trend_rows: [],
+    dashboard_v2_stage_rows: [],
+    dashboard_v2_warning_rows: [],
+    dashboard_v2_missing_table_count: "0",
+    dashboard_v2_note: "驾驶舱 v2 源观察尚未加载 · 不使用合成管理指标",
     admin_quality_loaded: false,
     admin_quality_rows: [],
     admin_quality_note: "质量规则尚未加载 · 使用设计快照",
@@ -2901,6 +2947,95 @@ fn dashboard_anomaly_rows_from_body(
     _ => ()
   }
   rows
+}
+
+///|
+fn dashboard_v2_from_body(
+  body : String,
+) -> (
+  Bool,
+  Array[String],
+  Array[DashboardV2TrendRow],
+  Array[DashboardV2StageRow],
+  Array[DashboardV2WarningRow],
+  String,
+) {
+  let values : Array[String] = []
+  let trend_rows : Array[DashboardV2TrendRow] = []
+  let stage_rows : Array[DashboardV2StageRow] = []
+  let warning_rows : Array[DashboardV2WarningRow] = []
+  let mut missing_table_count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      missing_table_count = json_array_field(
+          fields, "missing_or_empty_source_tables",
+        )
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          match data.get("kpi") {
+            Some(Json::Object(kpi)) => {
+              values.push(json_object_text(kpi, "projectCount", "0"))
+              values.push(json_object_text(kpi, "inProgressProjects", "0"))
+              values.push(
+                json_object_text(kpi, "contractInProgressAmount", "0"),
+              )
+              values.push(json_object_text(kpi, "unpaidAmount", "0"))
+              values.push(json_object_text(kpi, "openWarnings", "0"))
+              values.push(json_object_text(kpi, "runningProcesses", "0"))
+            }
+            _ => ()
+          }
+          for value in json_array_field(data, "paymentTrend") {
+            match value {
+              Json::Object(row) =>
+                trend_rows.push({
+                  month: json_object_text(row, "ym", ""),
+                  plan: json_object_text(row, "plan", "0"),
+                  actual: json_object_text(row, "actual", "0"),
+                })
+              _ => ()
+            }
+          }
+          for value in json_array_field(data, "stageDistribution") {
+            match value {
+              Json::Object(row) =>
+                stage_rows.push({
+                  stage: json_object_text(row, "stage", ""),
+                  count: json_object_text(row, "count", "0"),
+                })
+              _ => ()
+            }
+          }
+          for value in json_array_field(data, "latestWarnings") {
+            match value {
+              Json::Object(row) =>
+                warning_rows.push({
+                  title: json_object_text(row, "title", ""),
+                  severity: json_object_text(row, "severity", "info"),
+                  source_kind: json_object_text(
+                    fields, "source_kind", "imported_or_empty",
+                  ),
+                })
+              _ => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (
+    values.length() == 6,
+    values,
+    trend_rows,
+    stage_rows,
+    warning_rows,
+    missing_table_count,
+  )
 }
 
 ///|
@@ -5333,6 +5468,16 @@ fn load_dashboard_anomalies(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(DashboardAnomaliesLoaded(body))
       Err(_) => emit(DashboardLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_dashboard_v2(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/dashboard/v2/group").expect_text(result => {
+    match result {
+      Ok(body) => emit(DashboardV2Loaded(body))
+      Err(_) => emit(DashboardV2LoadFailed)
     }
   })
 }
@@ -8020,7 +8165,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     DashboardAnomaliesLoaded(body) =>
       (
-        none,
+        load_dashboard_v2(emit),
         {
           ..model,
           dashboard_anomaly_rows: dashboard_anomaly_rows_from_body(body),
@@ -8035,6 +8180,60 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dashboard_funnel_rows: [],
           dashboard_anomaly_rows: [],
           dashboard_note: "驾驶舱读模型不可用 · 使用已审核快照",
+        },
+      )
+    DashboardV2Loaded(body) => {
+      let (
+        loaded,
+        values,
+        trend_rows,
+        stage_rows,
+        warning_rows,
+        missing_table_count,
+      ) = dashboard_v2_from_body(body)
+      if loaded {
+        (
+          none,
+          {
+            ..model,
+            dashboard_v2_loaded: true,
+            dashboard_v2_project_count: values[0],
+            dashboard_v2_in_progress: values[1],
+            dashboard_v2_contract_amount: values[2],
+            dashboard_v2_unpaid_amount: values[3],
+            dashboard_v2_open_warnings: values[4],
+            dashboard_v2_running_processes: values[5],
+            dashboard_v2_trend_rows: trend_rows,
+            dashboard_v2_stage_rows: stage_rows,
+            dashboard_v2_warning_rows: warning_rows,
+            dashboard_v2_missing_table_count: missing_table_count,
+            dashboard_v2_note: "已加载 PostgreSQL 驾驶舱 v2 源观察 · 仅读 · 缺失源表保持可见",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            dashboard_v2_loaded: false,
+            dashboard_v2_trend_rows: [],
+            dashboard_v2_stage_rows: [],
+            dashboard_v2_warning_rows: [],
+            dashboard_v2_note: "驾驶舱 v2 响应无效 · 不显示合成管理指标",
+          },
+        )
+      }
+    }
+    DashboardV2LoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          dashboard_v2_loaded: false,
+          dashboard_v2_trend_rows: [],
+          dashboard_v2_stage_rows: [],
+          dashboard_v2_warning_rows: [],
+          dashboard_v2_note: "驾驶舱 v2 源观察不可用 · 保留源缺口状态",
         },
       )
     AdminQualityLoaded(body) =>
@@ -10845,6 +11044,92 @@ fn dashboard_risk_rows(model : Model) -> Array[@html.Html] {
 }
 
 ///|
+fn dashboard_v2_trend_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.dashboard_v2_trend_rows.length() == 0 {
+    rows.push(["—", "0", "0"])
+  } else {
+    for row in model.dashboard_v2_trend_rows {
+      rows.push([row.month, row.plan, row.actual])
+    }
+  }
+  data_table(["月份", "计划付款", "实际付款"], rows)
+}
+
+///|
+fn dashboard_v2_stage_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.dashboard_v2_stage_rows.length() == 0 {
+    rows.push(["—", "0"])
+  } else {
+    for row in model.dashboard_v2_stage_rows {
+      rows.push([row.stage, row.count])
+    }
+  }
+  data_table(["阶段", "项目数"], rows)
+}
+
+///|
+fn dashboard_v2_warning_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.dashboard_v2_warning_rows.length() == 0 {
+    rows.push(["—", "0", "源表为空"])
+  } else {
+    for row in model.dashboard_v2_warning_rows {
+      rows.push([row.title, row.severity, row.source_kind])
+    }
+  }
+  data_table(["预警", "级别", "来源"], rows)
+}
+
+///|
+fn dashboard_v2_panel(model : Model) -> @html.Html {
+  if model.dashboard_v2_loaded {
+    div(class="erp-dashboard-v2-grid") <| [
+      table_panel(
+        "驾驶舱 v2 · 经营指标",
+        model.dashboard_v2_note +
+        " · 缺失/空源表 " +
+        model.dashboard_v2_missing_table_count,
+        data_table(
+          [
+            "项目数", "在建项目", "进行中合同额", "未付金额", "开放预警",
+            "运行流程",
+          ],
+          [
+            [
+              model.dashboard_v2_project_count,
+              model.dashboard_v2_in_progress,
+              model.dashboard_v2_contract_amount,
+              model.dashboard_v2_unpaid_amount,
+              model.dashboard_v2_open_warnings,
+              model.dashboard_v2_running_processes,
+            ],
+          ],
+        ),
+      ),
+      table_panel(
+        "付款趋势",
+        "源计划与已审核付款 · 仅读观察",
+        dashboard_v2_trend_table(model),
+      ),
+      table_panel(
+        "阶段分布",
+        "按当前项目状态分组",
+        dashboard_v2_stage_table(model),
+      ),
+      table_panel(
+        "最新预警",
+        "源预警行为空时保持空状态",
+        dashboard_v2_warning_table(model),
+      ),
+    ]
+  } else {
+    div(class="erp-runtime-empty dashboard-v2-empty", model.dashboard_v2_note)
+  }
+}
+
+///|
 fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let company_projects = if model.dashboard_loaded {
     model.dashboard_company_count + " / " + model.dashboard_project_count
@@ -10938,6 +11223,7 @@ fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ],
       ],
     ],
+    dashboard_v2_panel(model),
     p(
       class="erp-dashboard-note",
       model.dashboard_note +

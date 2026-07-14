@@ -41,21 +41,24 @@ manufacture revenue, cash, health, warning, or risk values.
 
 - `frontend/main/main.mbt` renders the source-shaped KPI/funnel/risk layout,
   calls `/api/company/summary` for adapter status, then loads the bounded
-  dashboard reads for live KPI, funnel, and anomaly values.
+  dashboard reads for live KPI, funnel, anomaly, and scoped v2 values.
 - `scripts/company_postgres_service.py` exposes the five bounded v1 routes and
   `/api/company/dashboard/v2/group` plus `/api/company/dashboard/v3/group`,
   with source coverage and missing-table metadata on every response. The v3
   aggregate route now preserves the source
   response shape over imported rows, returns explicit missing/empty-table
   coverage, and remains non-authorizing; the development read-model server
-  exposes fixed v1/v2/v3 reads, while Rabbita still mounts only the v1 reads.
-- Rabbita now loads the group overview, stage funnel, and top-anomaly reads
-  sequentially and replaces the designer KPI/funnel/risk fixtures when the
-  responses are valid. The v2 source read is service-connected for API parity
-  but is not yet mounted in Rabbita; production identity, browser acceptance,
-  and owner reconciliation remain pending. The v3 aggregate is API-connected
-  as an observation only; it is not mounted in Rabbita and is not accepted as
-  full cockpit parity while its cross-domain source tables are absent.
+  exposes fixed v1/v2/v3 reads, while Rabbita mounts the v1 and v2 reads and
+  keeps v3 API-only.
+- Rabbita now loads the group overview, stage funnel, top-anomaly, and v2
+  reads sequentially. Valid v1 responses replace the designer
+  KPI/funnel/risk fixtures, while valid v2 responses render a separate
+  read-only KPI/payment-trend/stage/warning panel. A failed or empty v2 read
+  shows an explicit source-gap state and never falls back to management
+  fixtures. Production identity, browser acceptance, and owner reconciliation
+  remain pending. The v3 aggregate is API-connected as an observation only; it
+  is not mounted in Rabbita and is not accepted as full cockpit parity while
+  its cross-domain source tables are absent.
 - Core report reads are not dashboard parity. A report overview can provide
   reconciled tables, but it does not reproduce the source cockpit's scoped
   KPIs, month trend, stage distribution, anomaly ranking, or health breakdown.
