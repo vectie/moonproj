@@ -1020,6 +1020,15 @@ strengthens the handoff without changing the current disposition: the
 available SQLite artifact still verifies 120 rows but remains
 `source_export_incomplete` until the 49 missing tables arrive.
 
+The source handoff now also has a machine-checkable empty-table disposition
+contract in `erp_empty_disposition.py` and
+`ERP_EMPTY_TABLE_DISPOSITION.md`. It generates all 49 schema-only entries and
+accepts an `owner_approved_empty` entry only with zero-row evidence, the exact
+empty-table hash, a source snapshot hash, a named owner, a UTC approval time,
+and rationale/evidence reference. A validated artifact can report
+`owner_dispositions_complete`, but it always keeps promotion and cutover
+authorization false; the owner-filled artifact is still required.
+
 | Priority | Scope | Decision / exit evidence | Keep gated until |
 | --- | --- | --- | --- |
 | P0 | Production identity and shadow operation for connected reads | Managed issuer/audience, token rotation, persistent session/rollback, named owner acceptance, and a read-only shadow comparison | Security/operations owner approval and a complete credential-safe source export |
