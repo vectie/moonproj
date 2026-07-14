@@ -481,8 +481,9 @@ groups are now explicit:
   boundaries. The current export has zero `tzsy_excel_import`, sheet, profit,
   plan-line, and mapping rows, so these routes return explicit empty data or
   source-style 404s with coverage rather than showing designer workbooks. The
-  profit-actual calculation remains gated because it would apply simulation
-  semantics to sparse source evidence.
+  profit-actual now has a source-compatible missing-plan boundary; the actual
+  calculation remains gated because it would apply simulation semantics to
+  sparse source evidence.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
@@ -615,10 +616,12 @@ plan-line/subject-mapping and profit-cockpit handlers depend on absent
 profit-cockpit itself returns `41002` when no imported profit table exists; the
 migration keeps that covered boundary rather than substituting designer values.
 The source profit-actual route additionally simulates sparse sales/expense/CBS
-inputs, so it remains gated instead of being promoted as a source read. The
-next investment wave therefore requires the missing export and owner-approved
-calculation semantics; the current 26-index/version/sensitivity plus empty
-import-history observations are the complete evidence-backed slice.
+inputs. Its target boundary now returns source-style `41002` when no imported
+profit plan exists and an explicit approval gate if one does, rather than
+running that simulation. The next investment wave therefore requires the
+missing export and owner-approved calculation semantics; the current
+26-index/version/sensitivity plus empty import-history/actual-plan observations
+are the complete evidence-backed slice.
 
 The browser pass also found an inherited source-contract inconsistency that
 must be reconciled before investment acceptance: the investment summary card
@@ -708,9 +711,9 @@ LLM-status, and AI-diagnostic reads. The service smoke verifies project-scoped
 v2/v3 values, the attachment download boundary, and all three diagnostic
 responses; health runtime metrics are explicitly unavailable and no provider
 ping is performed. The parity matrix now
-leaves only three unconnected source GET/HEAD handlers: backup binary,
-investment profit-actual, and supplier provider signature check. Rabbita does
-not mount v2 or v3 yet; the v3 API observation reports the
+leaves only two unconnected source GET/HEAD handlers: backup binary and
+supplier provider signature check. Rabbita does not mount v2 or v3 yet; the v3
+API observation reports the
 16 absent cross-domain tables explicitly, and production identity, browser
 scope acceptance, and owner reconciliation remain open.
 
@@ -723,10 +726,10 @@ source-style missing-record boundary, while plan-line and mapping reads return
 empty data with coverage metadata. Smoke evidence covers all of these paths
 without upload, write, provider execution, or designer fixture substitution.
 Profit-actual remains gated because the source route simulates sparse actuals;
-the three remaining unconnected GET/HEAD handlers are backup binary,
-profit-actual, and provider signature check; dashboard v3 is now a bounded API
-observation and attachment download has a source-compatible missing-binary
-boundary, but neither is a mounted or accepted production capability.
+the two remaining unconnected GET/HEAD handlers are backup binary and provider
+signature check; dashboard v3 and investment profit-actual are now bounded API
+observations, while attachment download has a source-compatible missing-binary
+boundary. None is a mounted or accepted production capability.
 
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
@@ -780,7 +783,7 @@ than raw route count:
 | --- | --- | --- | --- |
 | P0 | Production identity and shadow operation for connected reads | Managed issuer/audience, token rotation, persistent session/rollback, named owner acceptance, and a read-only shadow comparison | Security/operations owner approval and a complete credential-safe source export |
 | P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
-| P2 | Dashboard v3 acceptance and investment profit-actual | The v3 observation is implemented over imported rows; reconcile it against the missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then preserve source calculation semantics for profit-actual | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
+| P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature check | Bind provider credentials, signature algorithm, timeout/retry, and audit trail | Procurement/security owner approval and a real provider test contract |
 | P5 | Mutations and external effects | Implement commands only per capability, with authority, idempotency, audit, accounting/tax/cash boundaries, and replay evidence | Named business owner acceptance; bounded reads alone do not unlock writes |
@@ -947,9 +950,9 @@ Execute the remainder in this order:
     The service, read-model, Rabbita, and
     dedicated read-only smoke checks pass; at that checkpoint the parity action
     register marked 35 source GET handlers connected. Subsequent identity/RBAC,
-    dashboard/admin, investment Excel, dashboard v3, and attachment-boundary
-    waves have expanded the connected read set; the current matrix leaves
-    three GET/HEAD handlers unconnected. Do
+    dashboard/admin, investment Excel, dashboard v3, attachment-boundary, and
+    investment-actual boundary waves have expanded the connected read set; the
+    current matrix leaves two GET/HEAD handlers unconnected. Do
     not use any bounded read wave to unlock commands or to infer missing sales,
     invoice, supplier, tender, tax, or investment detail rows. The remaining
     gate is production identity, browser acceptance, owner evidence, and the

@@ -137,6 +137,7 @@ from company_postgres_service import (
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
     dashboard_v2_group as service_dashboard_v2_group,
     dashboard_v3_group as service_dashboard_v3_group,
+    investment_profit_actual_boundary as service_investment_profit_actual_boundary,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
     business_units_tree as service_business_units_tree,
@@ -999,6 +1000,13 @@ def dashboard_v3_group(
     return service_dashboard_v3_group(
         _ReadModelPool(args), business_unit_id, project_id, 500,
     )
+
+
+def investment_profit_actual_boundary(
+    args: argparse.Namespace,
+    project_id: str,
+) -> tuple[int, dict[str, Any]]:
+    return service_investment_profit_actual_boundary(_ReadModelPool(args), project_id, 500)
 
 
 def dashboard_project_kpi(args: argparse.Namespace, project_id: str) -> dict[str, Any] | None:
@@ -2098,6 +2106,16 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 )
                 if investment_sensitivity_match is not None:
                     response(self, 200, investment_sensitivity(args, investment_sensitivity_match.group(1)))
+                    return
+                investment_actual_match = re.fullmatch(
+                    r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/profit-actual",
+                    parsed.path,
+                )
+                if investment_actual_match is not None:
+                    status, result = investment_profit_actual_boundary(
+                        args, investment_actual_match.group(1),
+                    )
+                    response(self, status, result)
                     return
                 cost_dashboard_match = re.fullmatch(
                     r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/profit-actual-v2",

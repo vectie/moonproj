@@ -543,6 +543,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "investment"
         and handler["method"] == "GET"
+        and handler["path"] == "/projects/:projGuid/profit-actual"
+    ):
+        return "connected_investment_boundary", "accept_investment_actual_gate_and_finance_owner"
+    if (
+        handler["module"] == "investment"
+        and handler["method"] == "GET"
         and handler["path"] in {
             "/projects/:projGuid/versions",
             "/versions/:versionGuid/indices",

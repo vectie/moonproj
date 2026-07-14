@@ -1239,6 +1239,23 @@ def main() -> int:
             or investment_profit_payload.get("data", {}).get("irr") != 14.8
         ):
             raise SmokeError(f"investment profit summary read failed: {status} {investment_profit_payload}")
+        status, investment_profit_actual_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/profit-actual",
+            token=token,
+        )
+        if (
+            status != 404
+            or investment_profit_actual_payload is None
+            or investment_profit_actual_payload.get("code") != 41002
+            or investment_profit_actual_payload.get("source_coverage", {}).get("tzsy_excel_import") != 0
+            or investment_profit_actual_payload.get("source_coverage", {}).get("tzsy_profit_table") != 0
+            or investment_profit_actual_payload.get("simulation") is not False
+            or investment_profit_actual_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(
+                f"investment profit-actual boundary failed: {status} {investment_profit_actual_payload}"
+            )
         status, investment_dimensions_payload = request(
             args.port,
             "/api/company/investment/meta/dimensions",
@@ -2648,6 +2665,7 @@ def main() -> int:
                     "investment_index_rows": 26,
                     "investment_dimension_rows": 5,
                     "investment_profit_revenue": 18500.0,
+                    "investment_profit_actual_status": investment_profit_actual_payload.get("code"),
                     "dynamic_cost_rows": len(dynamic_cost_data.get("items", [])),
                     "dynamic_cost_end_rows": dynamic_cost_summary.get("endCount"),
                     "dynamic_cost_target": dynamic_cost_summary.get("A_targetCost"),

@@ -63,12 +63,14 @@ and mapping reads return explicit empty data with coverage, and the cockpit
 returns the covered `41002` when no imported profit table exists. No designer
 workbook rows are substituted.
 
-The original `profit-actual` handler is still deliberately not promoted: it
-depends on absent sales, expense, split, change, CBS, and plan-version tables
-and simulates values when those tables are sparse. The already connected
-`profit-actual-v2` read remains the explicit empty-CBS observation. These
-routes stay gated on the missing 49-table export and owner-approved calculation
-semantics.
+The original `profit-actual` handler now has a source-compatible boundary: the
+current project returns `41002` because no imported `tzsy_profit_table` plan
+exists, with coverage and `simulation=false` metadata. If a future export
+contains a plan, the adapter returns an explicit approval gate instead of
+running the source's sparse sales/expense/CBS simulation. The already
+connected `profit-actual-v2` read remains the explicit empty-CBS observation.
+These routes stay gated on the missing 49-table export and owner-approved
+calculation semantics.
 
 ## Remaining gate
 

@@ -2853,8 +2853,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_investment_boundary",
+      "required_next": "accept_investment_actual_gate_and_finance_owner"
     },
     {
       "module": "investment",

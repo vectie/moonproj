@@ -98,6 +98,8 @@ The bounded service exposes these endpoints:
   workbook rows stay explicit)
 * ``/api/company/investment/projects/<id>/profit-actual-v2`` (GET,
   source-compatible cost-dashboard v3 read)
+* ``/api/company/investment/projects/<id>/profit-actual`` (GET,
+  source-compatible missing-plan boundary; sparse simulation remains gated)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool,full}`` (GET, source-coverage
@@ -6525,6 +6527,78 @@ def investment_profit_cockpit(pool: PsqlPool, project_id: str, max_rows: int) ->
         coverage,
         missing,
     )
+
+
+def investment_profit_actual_boundary(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> tuple[int, dict[str, Any]]:
+    """Preserve the source profit-actual gate without running sparse simulation."""
+
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    coverage, missing = _investment_excel_metadata(pool, max_rows)
+    projects = _raw_source_rows(pool, "ep_project", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+    project = next(
+        (
+            row["payload"]
+            for row in projects
+            if str(row["payload"].get("proj_guid") or row["record_id"]) == project_id
+            and not row["payload"].get("deleted_at")
+        ),
+        None,
+    )
+    metadata = {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": missing,
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "simulation": False,
+    }
+    if project is None:
+        return 404, {
+            "success": False,
+            "code": 41001,
+            "message": "项目不存在",
+            **metadata,
+        }
+    imports = [
+        row["payload"]
+        for row in _raw_source_rows(pool, "tzsy_excel_import", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+        if str(row["payload"].get("proj_guid") or "") == project_id
+        and str(row["payload"].get("status") or "success") == "success"
+        and not row["payload"].get("deleted_at")
+    ]
+    import_ids = {
+        str(payload.get("import_guid") or "")
+        for payload in imports
+        if payload.get("import_guid")
+    }
+    profit_rows = [
+        row["payload"]
+        for row in _raw_source_rows(pool, "tzsy_profit_table", max(max_rows, 5000), INVESTMENT_EXCEL_SOURCE_TABLES)
+        if str(row["payload"].get("import_guid") or "") in import_ids
+        and not row["payload"].get("deleted_at")
+    ]
+    if not profit_rows:
+        return 404, {
+            "success": False,
+            "code": 41002,
+            "message": "该项目暂无测算数据,无法对比",
+            "projectId": project_id,
+            **metadata,
+        }
+    return 409, {
+        "success": False,
+        "code": 41003,
+        "message": "利润实际模拟仍需审批",
+        "projectId": project_id,
+        "calculation": "sparse_actual_simulation",
+        **{**metadata, "simulation": True},
+    }
 
 
 def investment_indices(
@@ -16439,6 +16513,15 @@ def handler_factory(
                         response(self, 404, {"success": False, "code": 41002, "message": "该项目暂无利润测算总表数据"}, origin)
                     else:
                         response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/profit-actual",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    status, result = investment_profit_actual_boundary(
+                        pool, project_value, max_response_rows,
+                    )
+                    response(self, status, result, origin)
                 elif re.fullmatch(
                     r"/api/company/investment/versions/[A-Za-z0-9_.:-]{1,128}/indices",
                     parsed.path,

@@ -255,7 +255,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `GET` | `/projects/:projGuid/subject-mappings` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `PUT` | `/projects/:projGuid/subject-mappings` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `GET` | `/projects/:projGuid/profit-cockpit` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
-| `investment` | `GET` | `/projects/:projGuid/profit-actual` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/projects/:projGuid/profit-actual` | `/investment` | `connected_investment_boundary` | `accept_investment_actual_gate_and_finance_owner` |
 | `investment` | `GET` | `/projects/:projGuid/profit-actual-v2` | `/investment` | `connected_cost_dashboard_read` | `accept_browser_cost_dashboard_scenario_and_production_identity` |
 | `invoice` | `GET` | `/in` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
 | `invoice` | `POST` | `/in` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
