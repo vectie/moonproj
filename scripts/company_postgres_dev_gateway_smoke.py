@@ -778,22 +778,24 @@ def main() -> int:
             raise SmokeError(f"trusted delivery progress delete failed: {status}")
         source_contract_id = "CT-GW-SOURCE-SMOKE-" + smoke_suffix
         source_contract_payload = {
-            "contract_id": source_contract_id,
-            "contract_code": "HT-GW-SOURCE-SMOKE-" + smoke_suffix,
-            "contract_name": "gateway source contract alias smoke",
-            "project_id": "CD-HJL",
-            "project_name": "成都和锦里",
-            "supplier_id": "gateway-source-supplier",
-            "supplier_name": "gateway source supplier",
-            "sign_date": "2026-07-14",
-            "amount_minor": 4567800,
-            "currency": "CNY",
+            "contractGuid": source_contract_id,
+            "contractCode": "HT-GW-SOURCE-SMOKE-" + smoke_suffix,
+            "contractName": "gateway source contract alias smoke",
+            "buGuid": "bu-tjgs-0001",
+            "buName": "成都和锦里事业部",
+            "projGuid": "CD-HJL",
+            "projName": "成都和锦里",
+            "yfProviderName": "gateway source supplier",
+            "htAmount": "45678.00",
+            "rCode": "R-GW-SOURCE",
+            "l3Code": "L3-GW-SOURCE",
+            "signDate": "2026-07-14",
             "idempotency_key": "source-contract-gateway-create-" + smoke_suffix,
         }
         status, _headers, source_contract_create_payload = request(
             args.gateway_port,
             "POST",
-            "/api/company/contracts",
+            "/api/company/source/cost/contracts",
             headers={"Cookie": cookie},
             payload=source_contract_payload,
         )
@@ -801,6 +803,8 @@ def main() -> int:
             status != 201
             or not isinstance(source_contract_create_payload, dict)
             or source_contract_create_payload.get("contract", {}).get("state") != "draft"
+            or source_contract_create_payload.get("contract", {}).get("sourceKind") != "command"
+            or source_contract_create_payload.get("contract", {}).get("buGuid") != "bu-tjgs-0001"
         ):
             raise SmokeError(f"trusted source contract setup failed: {status}")
         status, _headers, source_contract_update_payload = request(

@@ -2942,21 +2942,50 @@ def main() -> int:
             raise SmokeError(f"contract detail failed: {status} {payload}")
         void_contract_id = "CT-SOURCE-VOID-SMOKE-" + nonce
         void_contract_payload = {
-            **contract_payload,
-            "contract_id": void_contract_id,
-            "contract_code": "HT-SOURCE-VOID-SMOKE-" + nonce,
-            "contract_name": "source contract alias void smoke",
+            "contractGuid": void_contract_id,
+            "contractCode": "HT-SOURCE-VOID-SMOKE-" + nonce,
+            "contractName": "source contract alias void smoke",
+            "buGuid": "bu-tjgs-0001",
+            "buName": "成都和锦里事业部",
+            "projGuid": "CD-HJL",
+            "projName": "成都和锦里",
+            "yfProviderName": "source alias supplier",
+            "yfCorporation": "source alias corporation",
+            "htTypeCode": "construction",
+            "htClass": 0,
+            "htAmount": "23456.78",
+            "rCode": "R-SOURCE",
+            "l3Code": "L3-SOURCE",
+            "signDate": "2026-07-14",
         }
         status, payload = request(
             args.port,
-            "/api/company/contracts",
+            "/api/company/source/cost/contracts",
             token=token,
             method="POST",
             payload=void_contract_payload,
             idempotency_key="source-contract-void-create-" + nonce,
         )
-        if status != 201 or payload is None or payload.get("contract", {}).get("state") != "draft":
+        if (
+            status != 201
+            or payload is None
+            or payload.get("contract", {}).get("state") != "draft"
+            or payload.get("contract", {}).get("sourceKind") != "command"
+            or payload.get("contract", {}).get("buGuid") != "bu-tjgs-0001"
+            or payload.get("contract", {}).get("rCode") != "R-SOURCE"
+            or payload.get("cash_effect") is not False
+        ):
             raise SmokeError(f"source contract alias void setup failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/contracts",
+            token=token,
+            method="POST",
+            payload=void_contract_payload,
+            idempotency_key="source-contract-void-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source contract alias create replay failed: {status} {payload}")
         status, payload = request(
             args.port,
             f"/api/company/source/cost/contracts/{void_contract_id}",

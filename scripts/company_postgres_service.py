@@ -35,6 +35,9 @@ The bounded service exposes these endpoints:
   and payment observations)
 * ``/api/company/source/cost/contracts/<id>`` (PUT/DELETE local-command
   aliases; imported contracts remain read-only)
+* ``/api/company/source/cost/contracts`` (POST source-field create alias;
+  command-owned contracts are source-shaped readback only and do not perform
+  budget/CBS reservation, accounting, cash, tax, or signature effects)
 * ``/api/company/source/cost/contracts/<id>/milestones`` (POST single or
   batch milestone command) and ``/api/company/source/cost/milestones/<id>``
   (PUT/DELETE milestone command), plus ``/trigger-event`` (POST); imported
@@ -1048,7 +1051,7 @@ def budget_expense_detail(
 
 def _decode_contract_fields(line: str) -> dict[str, Any]:
     fields = line.split("|")
-    if len(fields) != 14:
+    if len(fields) != 24:
         raise ServiceError("unexpected contract projection shape")
     try:
         return {
@@ -1066,6 +1069,16 @@ def _decode_contract_fields(line: str) -> dict[str, Any]:
             "paid_amount_minor": int(fields[11]),
             "milestone_count": int(fields[12]),
             "source_kind": decode_hex(fields[13]),
+            "bu_guid": decode_hex(fields[14]),
+            "bu_name": decode_hex(fields[15]),
+            "ht_type_code": decode_hex(fields[16]),
+            "ht_class": int(fields[17]),
+            "supplier_corporation": decode_hex(fields[18]),
+            "ht_cf_state": decode_hex(fields[19]),
+            "js_state": decode_hex(fields[20]),
+            "cost_code": decode_hex(fields[21]),
+            "r_code": decode_hex(fields[22]),
+            "l3_code": decode_hex(fields[23]),
         }
     except (ValueError, UnicodeDecodeError) as error:
         raise ServiceError("invalid contract projection encoding") from error
@@ -1167,7 +1180,17 @@ def contracts(pool: PsqlPool, contract_id: str | None, max_rows: int) -> list[di
            encode(convert_to(coalesce(base.payload->>'state', 'active'), 'UTF8'), 'hex'),
            coalesce(payment.paid_amount_minor, '0'),
            coalesce(milestone.milestone_count, '0'),
-           encode(convert_to(base.source_kind, 'UTF8'), 'hex')
+           encode(convert_to(base.source_kind, 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'bu_guid', base.payload->>'bu_guid', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'bu_name', base.payload->>'bu_name', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'ht_type_code', base.payload->>'ht_type_code', ''), 'UTF8'), 'hex'),
+           coalesce(raw.payload->>'ht_class', base.payload->>'ht_class', '0'),
+           encode(convert_to(coalesce(raw.payload->>'yf_corporation', base.payload->>'supplier_corporation', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'ht_cf_state', base.payload->>'ht_cf_state', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'js_state', base.payload->>'js_state', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'cost_code', base.payload->>'cost_code', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'r_code', base.payload->>'r_code', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(raw.payload->>'l3_code', base.payload->>'l3_code', ''), 'UTF8'), 'hex')
     FROM deduped base
     LEFT JOIN raw_contract raw ON raw.record_id = base.contract_id
     LEFT JOIN raw_project project ON project.record_id = raw.payload->>'proj_guid'
@@ -1462,8 +1485,8 @@ def _cost_source_contract_command_row(
         "contractGuid": contract_id,
         "contractCode": contract_code,
         "contractName": contract_name,
-        "buGuid": "",
-        "buName": "",
+        "buGuid": str(item.get("bu_guid") or ""),
+        "buName": str(item.get("bu_name") or ""),
         "projGuid": project_id,
         "projName": project_name,
         "htTypeCode": str(item.get("ht_type_code") or ""),
@@ -5846,7 +5869,7 @@ def _contract_request(
         raise CommandRejected("unsupported contract command", 404)
     if command_type == "create":
         contract_id = _contract_text(body, "contract_id", identifier=True)
-        contract_code = _contract_text(body, "contract_code", identifier=True)
+        contract_code = _contract_text(body, "contract_code")
         contract_name = _contract_text(body, "contract_name")
         project_id = _contract_text(body, "project_id", identifier=True)
         project_name = _contract_text(body, "project_name")
@@ -5859,7 +5882,7 @@ def _contract_request(
         amount_minor = body.get("amount_minor")
         if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
             raise CommandRejected("amount_minor must be a positive integer", 422)
-        return contract_id, {
+        request: dict[str, Any] = {
             "command_type": command_type,
             "contract_id": contract_id,
             "contract_code": contract_code,
@@ -5873,6 +5896,29 @@ def _contract_request(
             "currency": currency,
             "actor_id": actor_id,
         }
+        for key in (
+            "bu_guid",
+            "bu_name",
+            "ht_type_code",
+            "supplier_corporation",
+            "ht_cf_state",
+            "js_state",
+            "cost_code",
+            "r_code",
+            "l3_code",
+        ):
+            value = body.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or not value.strip():
+                raise CommandRejected(f"{key} must be non-empty text", 422)
+            request[key] = value.strip()
+        if "ht_class" in body and body["ht_class"] is not None:
+            value = body["ht_class"]
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise CommandRejected("ht_class must be a non-negative integer", 422)
+            request["ht_class"] = value
+        return contract_id, request
     if contract_id is None or not IDENTIFIER.fullmatch(contract_id):
         raise CommandRejected("contract_id is required", 422)
     if command_type == "update":
@@ -7170,6 +7216,102 @@ def _source_payment_alias_result(
     }
 
 
+def _source_contract_create_body(
+    body: dict[str, Any],
+    *,
+    idempotency_key: str,
+    actor_id: str,
+) -> dict[str, Any]:
+    contract_id = body.get("contractGuid", body.get("contract_guid", body.get("contract_id")))
+    if contract_id is None or not str(contract_id).strip():
+        contract_id = "CT-SRC-" + idempotency_key
+    if not isinstance(contract_id, str) or not IDENTIFIER.fullmatch(contract_id.strip()):
+        raise CommandRejected("contractGuid contains unsupported characters", 422)
+    contract_code = body.get("contractCode", body.get("contract_code"))
+    if not isinstance(contract_code, str) or not contract_code.strip() or len(contract_code.strip()) > 128:
+        raise CommandRejected("contractCode is required", 422)
+    contract_name = body.get("contractName", body.get("contract_name"))
+    if not isinstance(contract_name, str) or not contract_name.strip():
+        raise CommandRejected("contractName is required", 422)
+    bu_guid = body.get("buGuid", body.get("bu_guid"))
+    if not isinstance(bu_guid, str) or not IDENTIFIER.fullmatch(bu_guid.strip()):
+        raise CommandRejected("buGuid is required", 422)
+    proj_guid = body.get("projGuid", body.get("proj_guid", body.get("project_id")))
+    if not isinstance(proj_guid, str) or not IDENTIFIER.fullmatch(proj_guid.strip()):
+        raise CommandRejected("projGuid is required", 422)
+    provider_guid = body.get("providerGuid", body.get("provider_guid", body.get("supplier_id")))
+    if provider_guid is None or not str(provider_guid).strip():
+        provider_guid = "source-supplier-" + idempotency_key
+    if not isinstance(provider_guid, str) or not IDENTIFIER.fullmatch(provider_guid.strip()):
+        raise CommandRejected("providerGuid contains unsupported characters", 422)
+    provider_name = body.get("yfProviderName", body.get("supplier_name", body.get("providerName")))
+    if provider_name is None or not str(provider_name).strip():
+        provider_name = provider_guid
+    if not isinstance(provider_name, str) or not provider_name.strip():
+        raise CommandRejected("yfProviderName must be text", 422)
+    project_name = body.get("projName", body.get("project_name", proj_guid))
+    if not isinstance(project_name, str) or not project_name.strip():
+        raise CommandRejected("projName must be text", 422)
+    sign_date = body.get("signDate", body.get("sign_date", time.strftime("%Y-%m-%d")))
+    if not isinstance(sign_date, str) or not sign_date.strip():
+        raise CommandRejected("signDate must be text", 422)
+    amount_minor = (
+        _source_decimal_minor(body, "htAmount", minimum=1)
+        if "htAmount" in body
+        else body.get("amount_minor")
+    )
+    if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+        raise CommandRejected("htAmount must be a positive decimal number", 422)
+    r_code = body.get("rCode", body.get("r_code"))
+    l3_code = body.get("l3Code", body.get("l3_code"))
+    if not isinstance(r_code, str) or not r_code.strip() or r_code.strip() == "R0":
+        raise CommandRejected("rCode is required and R0 is not allowed", 422)
+    if not isinstance(l3_code, str) or not l3_code.strip():
+        raise CommandRejected("l3Code is required", 422)
+    currency = body.get("currency", "CNY")
+    if not isinstance(currency, str) or not re.fullmatch(r"[A-Za-z]{3}", currency.strip()):
+        raise CommandRejected("currency must be a three-letter code", 422)
+    result: dict[str, Any] = {
+        "contract_id": contract_id.strip(),
+        "contract_code": contract_code.strip(),
+        "contract_name": contract_name.strip(),
+        "bu_guid": bu_guid.strip(),
+        "bu_name": str(body.get("buName", body.get("bu_name", bu_guid))).strip(),
+        "project_id": proj_guid.strip(),
+        "project_name": project_name.strip(),
+        "supplier_id": provider_guid.strip(),
+        "supplier_name": provider_name.strip(),
+        "sign_date": sign_date.strip(),
+        "amount_minor": amount_minor,
+        "currency": currency.strip().upper(),
+        "r_code": r_code.strip(),
+        "l3_code": l3_code.strip(),
+        "_source_alias": True,
+        "actor_id": actor_id,
+    }
+    mapping = {
+        "htTypeCode": "ht_type_code",
+        "htClass": "ht_class",
+        "yfCorporation": "supplier_corporation",
+        "costCode": "cost_code",
+        "htCfState": "ht_cf_state",
+        "jsState": "js_state",
+    }
+    for source_key, target_key in mapping.items():
+        if source_key in body:
+            result[target_key] = body[source_key]
+    if "ht_class" in result:
+        value = result["ht_class"]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise CommandRejected("htClass must be a non-negative integer", 422)
+    for key in ("ht_type_code", "supplier_corporation", "cost_code", "ht_cf_state", "js_state"):
+        if key in result and (not isinstance(result[key], str) or not result[key].strip()):
+            raise CommandRejected(f"{key} must be text", 422)
+        if isinstance(result.get(key), str):
+            result[key] = result[key].strip()
+    return result
+
+
 def _source_contract_update_body(body: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     source_text_fields = {
@@ -7229,6 +7371,7 @@ def _source_contract_update_body(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def _source_contract_alias_result(
+    pool: PsqlPool,
     result: dict[str, Any],
     *,
     contract_code: str | None = None,
@@ -7240,11 +7383,16 @@ def _source_contract_alias_result(
     command = result.get("command")
     request = command.get("request", {}) if isinstance(command, dict) else {}
     resolved_code = str(contract_code or request.get("contract_code") or contract_id)
+    source_contract: dict[str, Any] | None = None
+    rows = contracts(pool, contract_id, 1)
+    if rows and rows[0].get("source_kind") == "command":
+        source_contract = _cost_source_contract_command_row(rows[0])
+        source_contract.update(contract)
     return {
         "success": True,
         "code": 0,
         "data": {"contractGuid": contract_id, "contractCode": resolved_code},
-        "contract": contract,
+        "contract": source_contract or contract,
         "command": command,
         "idempotent_replay": result.get("idempotent_replay") is True,
         "source_kind": "command",
@@ -22024,6 +22172,10 @@ def handler_factory(
                     command_family = "tender_source_alias"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/source/cost/contracts":
+                    command_family = "contract_source_alias"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/source/srm/providers":
                     command_family = "supplier_source_alias"
                     command_type = "create"
@@ -22298,6 +22450,21 @@ def handler_factory(
                         idempotency_key=idempotency_key,
                     )
                     result = _source_tender_alias_result(result)
+                elif command_family == "contract_source_alias":
+                    body = _source_contract_create_body(
+                        body,
+                        idempotency_key=idempotency_key,
+                        actor_id=actor,
+                    )
+                    result = contract_command(
+                        pool,
+                        command_type="create",
+                        contract_id=None,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_contract_alias_result(pool, result)
                 elif command_family == "supplier_source_alias":
                     body = _source_supplier_create_body(
                         body,
@@ -22555,7 +22722,7 @@ def handler_factory(
                 response(
                     self,
                     200,
-                    _source_contract_alias_result(result, contract_code=contract_code),
+                    _source_contract_alias_result(pool, result, contract_code=contract_code),
                     origin,
                 )
             except PoolExhausted as error:

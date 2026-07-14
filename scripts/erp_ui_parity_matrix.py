@@ -505,6 +505,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         return "connected_cost_payment_source_command", "accept_browser_cost_payment_source_command_scenario_and_finance_owner"
     if (
         handler["module"] == "cost"
+        and handler["method"] == "POST"
+        and handler["path"] == "/contracts"
+    ):
+        return "connected_cost_contract_source_command", "accept_browser_cost_contract_source_command_scenario_and_operations_owner"
+    if (
+        handler["module"] == "cost"
         and handler["method"] in {"PUT", "DELETE"}
         and handler["path"] == "/contracts/:guid"
     ):

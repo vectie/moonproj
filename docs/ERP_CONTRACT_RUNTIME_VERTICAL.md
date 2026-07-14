@@ -45,6 +45,11 @@ These reads are bounded and non-authorizing (`authorizing=false`,
 - `GET /api/company/contracts/<id>` — one contract plus its imported payment
   milestones;
 - `POST /api/company/contracts` — create a draft contract;
+- `POST /api/company/source/cost/contracts` — translate the ERP
+  `contractCode`/`contractName`/BU/project/provider/amount/CBS field family into
+  a command-owned draft contract. The alias preserves `rCode`/`l3Code` and
+  source-shaped readback, but does not execute the ERP budget/CBS check or any
+  accounting, cash, tax, provider, or signature effect;
 - `POST /api/company/contracts/<id>/{submit,reject,resubmit,approve}` — the
   idempotent approval lifecycle, each with an immutable command receipt and
   audit event.
@@ -68,8 +73,8 @@ approve.
 
 ## Acceptance evidence
 
-The service smoke now exercises contract create, idempotent replay, source
-update/replay/readback, all four state transitions, source milestone
+The service smoke now exercises native and source-field contract create with
+idempotent replay, source update/replay/readback, all four state transitions, source milestone
 single-create/replay/update/trigger/check/void, imported-row guards, and a
 separate source contract void alias with tombstone readback. A gateway HTTP
 probe repeats the source contract and milestone flow and verifies that the
@@ -77,8 +82,8 @@ stored command and audit payloads carry `actor_id: rabbita-user`.
 
 ## Remaining gate
 
-This is a local vertical, not full ERP API parity. Legacy source contract
-creation through the original field family, CBS/budget enforcement, payment
+This is a local vertical, not full ERP API parity. Source contract creation now
+has a bounded command projection, but CBS/budget enforcement, payment
 execution, and external effects remain separate. The payment-application slice
 is documented separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The
 fixed demo contract payload and idempotency keys remain local evidence only.

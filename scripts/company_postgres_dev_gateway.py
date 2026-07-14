@@ -534,6 +534,7 @@ def handler_factory(
                 or parsed.path.startswith(INVOICE_PATH_PREFIX + "/")
                 or parsed.path == SOURCE_COST_PAYMENT_PATH_PREFIX
                 or parsed.path == SOURCE_COST_DYNAMIC_PATH_PREFIX
+                or parsed.path == SOURCE_COST_MILESTONE_CONTRACT_PATH_PREFIX
                 or re.fullmatch(
                     r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}/milestones",
                     parsed.path,
