@@ -1,11 +1,14 @@
 # Managed Production Deployment Gate
 
-Recorded: 2026-07-13  
+Recorded: 2026-07-15
 Status: contract implemented; owner approval and real deployment remain open
 
 The repository's SQLite driver is a local production-shaped rehearsal. It is
 not the managed production database. Before any ownership transfer, the target
 deployment must provide a concrete, reviewed manifest for the selected service.
+The supported target runtime is pure MoonBit plus shell orchestration; the
+current Python adapters are transitional bridge evidence and cannot be the
+managed production service.
 
 ## Required controls
 
@@ -68,7 +71,7 @@ the service while the database deployment gate lacks named approvals. The
 local command-capable expense service is a separate runtime rehearsal; it is
 not silently treated as an approved production command gateway.
 
-The executable local runtime is:
+The current bridge runtime (temporary migration evidence) is:
 
 ```text
 MOONCOMPANY_SERVICE_TOKEN=<secret-from-the-gateway> \
@@ -84,6 +87,8 @@ healthy, and exposes the four fixed reads plus the locally rehearsed expense
 command lifecycle. The local `company_postgres_service_smoke.py` proves the
 positive read/command path, idempotency, audit receipt, missing-token, and
 missing-TLS behavior. This runtime is an executable contract and rehearsal;
-the managed deployment must still provide a real gateway, issuer/audience
-verification, TLS certificates, observability, and approved capacity/restore
-controls before commands are enabled in production.
+the managed deployment must still provide a MoonBit runtime and real gateway,
+issuer/audience verification, TLS certificates, observability, and approved
+capacity/restore controls before commands are enabled in production. Porting
+the bridge to MoonBit and deleting Python from the supported build/deployment
+path is a mandatory production gate.

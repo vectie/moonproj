@@ -1,7 +1,7 @@
 # ERP-to-Company-Product Migration Plan
 
 Status: active strangler-migration plan; no cutover authorized  
-Recorded: 2026-07-14
+Recorded: 2026-07-15
 Source: working site ERP in `../erp/erp_new`  
 Target: standalone company product in this repository
 
@@ -14,6 +14,23 @@ accounting, treasury, financing, tax, and investment models.
 The program must protect the working site. The current ERP remains authoritative
 until an explicitly named capability passes specification, parity, migration,
 shadow, operational, user-acceptance, and rollback gates.
+
+## 1a. Runtime language constraint (2026-07-15)
+
+The company product target is pure MoonBit plus shell orchestration. MoonBit
+owns the domain packages, PostgreSQL adapter, authenticated HTTP service,
+gateway/session boundary, migration commands, and Rabbita frontend. Shell
+scripts may compose compiled MoonBit commands, set environment/credentials,
+start local processes, and run external PostgreSQL operational tools; they must
+not contain business rules or replace the product runtime.
+
+Python is not part of the target architecture. The existing Python migration
+rehearsals, PostgreSQL service, gateway, source probes, and smoke tests are
+temporary bridge evidence only. Freeze them to maintenance status, implement
+MoonBit equivalents behind the same contracts, run both implementations in
+shadow until receipts, response envelopes, authorization, and replay behavior
+match, then remove Python from the supported build, test, and deployment path.
+No new Python runtime surface may be added.
 
 Current execution baseline: the repository has translated the institutional,
 finance, operational, investment, evidence, warning, and migration foundations;
@@ -472,7 +489,7 @@ delete boundary is now verified end to end. The service smoke creates a local
 progress projection, deletes it with an idempotency key, replays the same
 request, and confirms the tombstone is absent from the progress readback; the
 trusted gateway smoke repeats the same boundary through the Rabbita-facing
-gateway. Python compilation, `moon test` (246 tests), source-read smoke, and
+gateway. Bridge syntax checks, `moon test` (246 tests), source-read smoke, and
 the route-parity regeneration all pass. This closes only local progress
 projection deletion: imported ERP progress remains immutable, and delivery
 recognition, workflow, cash, accounting, tax, production identity, browser
@@ -1235,7 +1252,17 @@ Execute the remainder in this order:
    or fabricate approval, supplier, risk, or expense rows from the current
    backup. Keep the current 26-table/120-row snapshot as the immutable
    rehearsal baseline and compare the new export before raw staging.
-3a. **Completed locally (2026-07-14):** implement only the evidence-ready read
+3a. **Runtime-language convergence (required before production identity).**
+    Port `company_postgres_read_model_server.py`,
+    `company_postgres_service.py`, and `company_postgres_dev_gateway.py` to
+    MoonBit packages with the same fixed routes, PostgreSQL-only boundary,
+    signed actor/session semantics, command receipts, and fail-closed error
+    behavior. Port the source/export/rehearsal and smoke logic to MoonBit CLI
+    commands; retain shell only for process orchestration and PostgreSQL
+    operational commands. Run the Python bridge and MoonBit implementation in
+    shadow, compare canonical response/receipt hashes and replay counts, then
+    delete or archive the Python entry points before managed deployment.
+3b. **Completed locally (2026-07-14):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
     instance/task observation endpoints where the source tables are defined,

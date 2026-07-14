@@ -30,3 +30,10 @@ Those actions still require the complete source export, named business,
 finance, operations, and security decisions, and the gates described in
 `BUSINESS_ACCEPTANCE_PACKET.md`, `SHADOW_PERIOD_CONTRACT.md`, and
 `PRODUCTION_DEPLOYMENT_GATE.md`.
+
+## Plan amendment (2026-07-15)
+
+The implementation-language boundary is now explicit: the company product
+must use pure MoonBit plus shell orchestration. Existing Python migration and
+PostgreSQL bridge scripts are transitional evidence only; they must be ported
+to MoonBit, shadow-compared, and removed from supported build/deployment paths.

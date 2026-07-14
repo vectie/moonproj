@@ -1,10 +1,15 @@
 # PostgreSQL Target Setup
 
-Recorded: 2026-07-13  
+Recorded: 2026-07-15
 Target: local PostgreSQL 18 for Moonproj
 
 Moonproj now uses PostgreSQL as its only production target. The ERP's MySQL
 database is source-only and is never used as a Moonproj target.
+
+The target runtime is pure MoonBit plus shell orchestration. The current Python
+PostgreSQL adapters and migration scripts are temporary bridge evidence; they
+are not the supported production runtime and must be replaced by MoonBit
+commands/services before deployment.
 
 The local PostgreSQL service is running on `/tmp:5432`. A dedicated local role
 and database were created:

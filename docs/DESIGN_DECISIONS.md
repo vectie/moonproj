@@ -213,3 +213,16 @@ development read-model adapter, while command/mutation wiring follows the same
 authority boundary as the domain and PostgreSQL adapters. Detail/new routes and
 data-bound behavior are migrated incrementally rather than being silently
 replaced by generic screens.
+
+## 10. Use pure MoonBit plus shell orchestration
+
+Decision: the company product has one implementation language—MoonBit. Shell
+scripts are permitted only to compose compiled MoonBit commands, configure
+environment/credentials, start processes, and invoke PostgreSQL operational
+utilities. They are not a second business-runtime language.
+
+The current Python PostgreSQL service, gateway, migration adapters, source
+probes, and smoke tests are transitional bridge evidence. They must be ported
+to MoonBit behind the existing route, receipt, authorization, and replay
+contracts, run in shadow against PostgreSQL, and then removed from supported
+build/deployment paths. No new Python surface is approved.

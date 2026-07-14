@@ -1,6 +1,6 @@
 # Implementation Status
 
-Recorded: 2026-07-14
+Recorded: 2026-07-15
 Reference plan: [MIGRATION_PLAN.md](MIGRATION_PLAN.md)
 
 Source translation: [ERP_TRANSLATION_MAP.md](ERP_TRANSLATION_MAP.md)
@@ -12,6 +12,7 @@ existing ERP remains authoritative.
 
 | Slice | Package | Evidence |
 |---|---|---|
+| Runtime language boundary | `docs/MIGRATION_PLAN.md` + `docs/DESIGN_DECISIONS.md` | The approved target is pure MoonBit plus shell orchestration. Existing Python PostgreSQL services, gateways, migration adapters, source probes, and smokes are frozen transitional bridge evidence; no new Python surface is allowed. MoonBit replacements must preserve PostgreSQL-only routing, authorization, response envelopes, receipts, and replay behavior before the Python bridge is removed from supported build/deployment paths. |
 | Legal-entity validation | `foundation` | Entity ID, name, and currency validation tests. |
 | Local RBAC and delegated authority directory | `foundation/access` | Versioned roles, exact-scope permissions, principal/actor assignments, assignment caps, revocation, effective-dated delegation, bounded `AuthorityGrant` issuance, and exact-scope separation-of-duties rules are implemented and tested; the reviewed native access importer now exercises this boundary while real source role rows remain absent. |
 | Organization hierarchy | `foundation/organization` | Business-unit/company hierarchy, parent validation, duplicate protection, and scoped activation. |
