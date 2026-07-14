@@ -948,7 +948,8 @@ empty data with coverage metadata. Smoke evidence covers all of these paths
 without upload, write, provider execution, or designer fixture substitution.
 Profit-actual remains gated because the source route simulates sparse actuals;
 dashboard v3 and investment profit-actual are now bounded observations, with
-the v3 aggregate mounted as a read-only panel; attachment download,
+the v3 aggregate and investment actual-profit boundary mounted as read-only
+panels; attachment download,
 PostgreSQL backup export, and supplier signature checking have explicit
 boundaries. None is an accepted production capability.
 

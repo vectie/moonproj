@@ -885,6 +885,12 @@ struct Model {
   investment_sensitivity_loaded : Bool
   investment_sensitivity_cases : Array[InvestmentSensitivityCase]
   investment_sensitivity_note : String
+  investment_actual_loaded : Bool
+  investment_actual_code : String
+  investment_actual_message : String
+  investment_actual_simulation : String
+  investment_actual_missing_table_count : String
+  investment_actual_note : String
   investment_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
@@ -1236,6 +1242,7 @@ enum Msg {
   InvestmentIndicesLoaded(String)
   InvestmentProfitLoaded(String)
   InvestmentSensitivityLoaded(String)
+  InvestmentProfitActualLoaded(String)
   InvestmentLoadFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
@@ -1512,6 +1519,12 @@ fn initial_model() -> Model {
     investment_sensitivity_loaded: false,
     investment_sensitivity_cases: [],
     investment_sensitivity_note: "投资敏感性读模型尚未加载 · 使用设计快照",
+    investment_actual_loaded: false,
+    investment_actual_code: "",
+    investment_actual_message: "",
+    investment_actual_simulation: "false",
+    investment_actual_missing_table_count: "0",
+    investment_actual_note: "实际利润对比尚未加载 · 保持审批边界",
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
     audit_loaded: false,
     audit_rows: [],
@@ -3492,6 +3505,31 @@ fn investment_sensitivity_from_body(
     _ => ()
   }
   (rows.length() > 0, rows, base_irr)
+}
+
+///|
+fn investment_profit_actual_from_body(
+  body : String,
+) -> (Bool, String, String, String, String) {
+  let mut code = ""
+  let mut message = ""
+  let mut simulation = "false"
+  let mut missing_table_count = "0"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      code = json_object_text(fields, "code", "")
+      message = json_object_text(fields, "message", "")
+      simulation = json_object_text(fields, "simulation", "false")
+      missing_table_count = json_array_field(
+          fields, "missing_or_empty_source_tables",
+        )
+        .length()
+        .to_string()
+    }
+    _ => ()
+  }
+  (code != "", code, message, simulation, missing_table_count)
 }
 
 ///|
@@ -5819,6 +5857,17 @@ fn load_investment_sensitivity(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/investment/projects/proj-0001/sensitivity").expect_text(result => {
       match result {
         Ok(body) => emit(InvestmentSensitivityLoaded(body))
+        Err(_) => emit(InvestmentLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_investment_profit_actual(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/investment/projects/proj-0001/profit-actual").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvestmentProfitActualLoaded(body))
         Err(_) => emit(InvestmentLoadFailed)
       }
     },
@@ -8660,7 +8709,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InvestmentSensitivityLoaded(body) => {
       let (loaded, cases, base_irr) = investment_sensitivity_from_body(body)
       (
-        none,
+        load_investment_profit_actual(emit),
         {
           ..model,
           investment_sensitivity_loaded: loaded,
@@ -8671,6 +8720,29 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             "% · 只读观察"
           } else {
             "投资敏感性响应为空 · 使用设计快照"
+          },
+        },
+      )
+    }
+    InvestmentProfitActualLoaded(body) => {
+      let (loaded, code, message, simulation, missing_table_count) = investment_profit_actual_from_body(
+        body,
+      )
+      (
+        none,
+        {
+          ..model,
+          investment_actual_loaded: loaded,
+          investment_actual_code: code,
+          investment_actual_message: message,
+          investment_actual_simulation: simulation,
+          investment_actual_missing_table_count: missing_table_count,
+          investment_actual_note: if code == "41002" {
+            "当前项目没有测算利润表 · 源接口明确禁止模拟"
+          } else if code == "41003" {
+            "实际利润模拟需要审批 · 当前仅保留边界"
+          } else {
+            "实际利润对比源边界 · 仅读观察"
           },
         },
       )
@@ -8687,6 +8759,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_sensitivity_loaded: false,
           investment_sensitivity_cases: [],
           investment_sensitivity_note: "投资敏感性读模型不可用 · 使用设计快照",
+          investment_actual_loaded: false,
+          investment_actual_code: "",
+          investment_actual_message: "实际利润边界不可用",
+          investment_actual_simulation: "false",
+          investment_actual_missing_table_count: "0",
+          investment_actual_note: "实际利润源边界不可用 · 保持审批边界",
           investment_note: "投资测算读模型不可用 · 使用设计快照",
         },
       )
@@ -13466,6 +13544,32 @@ fn investment_sensitivity_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn investment_profit_actual_panel(model : Model) -> @html.Html {
+  if model.investment_actual_loaded {
+    table_panel(
+      "实际利润对比边界",
+      model.investment_actual_note +
+      " · 空/缺源表 " +
+      model.investment_actual_missing_table_count,
+      data_table(["源代码", "响应", "模拟", "授权状态"], [
+        [
+          model.investment_actual_code,
+          if model.investment_actual_message == "" {
+            "边界响应已读取"
+          } else {
+            model.investment_actual_message
+          },
+          model.investment_actual_simulation,
+          "不授权 · 不持久化 · 不调用外部服务",
+        ],
+      ]),
+    )
+  } else {
+    div(class="erp-runtime-empty", model.investment_actual_note)
+  }
+}
+
+///|
 fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let stats = if model.investment_loaded {
     div(class="erp-stat-grid") <| [
@@ -13525,6 +13629,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       stats,
       investment_runtime_table(model),
       investment_sensitivity_table(model),
+      investment_profit_actual_panel(model),
     ],
   )
 }

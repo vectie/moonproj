@@ -32,8 +32,10 @@ or accounting posting is enabled by this slice.
 The Rabbita `/investment` screen now loads the current `proj-0001` version,
 flattens the five grouped dimensions and 26 indices into the designer table,
 and renders the imported investment, revenue, cost, net-profit, margin, and IRR
-summary. It also loads six deterministic sensitivity scenarios and keeps the
-original project comparison table as an offline fallback.
+summary. It also loads six deterministic sensitivity scenarios and mounts the
+source-compatible `profit-actual` response as an explicit non-authorizing
+boundary panel; the original project comparison table remains an offline
+fallback.
 
 ## Evidence
 
