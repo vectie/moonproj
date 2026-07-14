@@ -320,12 +320,12 @@ are attached. The JSON output contains all 338 handler rows.
 | `plan` | `POST` | `/ai-suggest-plan` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `plan` | `GET` | `/tasks/:guid/delay-impact` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
 | `progress` | `GET` | `/progress` | `/project/progress` | `connected_delivery_source_read` | `accept_browser_delivery_source_scenario_and_production_identity` |
-| `progress` | `POST` | `/progress` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `progress` | `PUT` | `/progress/:guid/report` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `progress` | `POST` | `/progress` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
+| `progress` | `PUT` | `/progress/:guid/report` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
 | `progress` | `DELETE` | `/progress/:guid` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `progress` | `GET` | `/outputs` | `/project/progress` | `connected_delivery_source_read` | `accept_browser_delivery_source_scenario_and_production_identity` |
-| `progress` | `POST` | `/outputs` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `progress` | `POST` | `/outputs/:guid/confirm` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `progress` | `POST` | `/outputs` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
+| `progress` | `POST` | `/outputs/:guid/confirm` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
 | `rbac` | `GET` | `/me` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `GET` | `/roles` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `GET` | `/roles/:code` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |

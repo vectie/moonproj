@@ -346,6 +346,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_loan_scenario_and_production_identity"
     if target_state == "connected_loan_command_form":
         return "accept_browser_loan_command_scenario_and_finance_owner"
+    if target_state == "connected_delivery_command":
+        return "accept_browser_delivery_command_scenario_and_operations_owner"
     if target_state == "connected_admin_health_read":
         return "accept_browser_admin_health_scenario_and_super_user_owner"
     if target_state == "connected_admin_read":
@@ -489,6 +491,15 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/progress", "/outputs"}
     ):
         return "connected_delivery_source_read", "accept_browser_delivery_source_scenario_and_production_identity"
+    if (
+        handler["module"] == "progress"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/progress", "/outputs"})
+            or (handler["method"] == "PUT" and handler["path"] == "/progress/:guid/report")
+            or (handler["method"] == "POST" and handler["path"] == "/outputs/:guid/confirm")
+        )
+    ):
+        return "connected_delivery_command", "accept_browser_delivery_command_scenario_and_operations_owner"
     if (
         handler["module"] == "attachment"
         and handler["method"] == "GET"

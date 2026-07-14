@@ -72,12 +72,15 @@ delivery parity until their source joins and calculations are reproduced.
   explicit evidence, scope, currency/value, and idempotency keys; each command
   persists an immutable projection revision and audit receipt.
 - The parity matrix marks the two browser pages and their command groups as
-  `connected_delivery_command_form` / `connected_delivery_command`, and marks
-  source GET `/progress` and `/outputs` as
-  `connected_delivery_source_read`. The source export still contains no
-  `proj_progress` or `proj_output` rows, so the new source reads return an
-  explicit empty observation; current progress/output examples remain local
-  command evidence rather than a source-row import.
+  `connected_delivery_command_form` / `connected_delivery_command`, and now
+  maps source POST `/progress`, PUT `/progress/:guid/report`, POST
+  `/outputs`, and POST `/outputs/:guid/confirm` to that evidence-gated command
+  boundary. Source DELETE `/progress/:guid` remains intentionally unconnected:
+  the target has no progress tombstone command, and imported rows stay
+  read-only. The source export still contains no `proj_progress` or
+  `proj_output` rows, so the new source reads return an explicit empty
+  observation; current progress/output examples remain local command evidence
+  rather than a source-row import.
 - `scripts/erp_delivery_progress_plan.py` promotes only `jd_task_report` to a
   `Draft` `ProgressReport`; it requires explicit project/principal/scope,
   evidence, currency, and measured-value mapping and never mutates task state.
