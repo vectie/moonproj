@@ -105,11 +105,12 @@ field names. Source-compatible create and split aliases now translate those
 field names at `/api/company/source/tender/tenders` and
 `/api/company/source/tender/splits`; their command projections are visible in
 source-shaped reads with explicit provenance, and service/gateway replay smoke
-passes. The parity matrix keeps source state overwrite, imported deletion, and
-standalone award insertion as policy gates; imported tender rows remain
-read-only, and no award or deletion behavior is promoted without a named
-procurement owner. Browser and procurement-owner acceptance of the aliases is
-still open.
+passes. `DELETE /api/company/source/tender/tenders/:guid` and the native
+`/api/company/tenders/:guid` now use an idempotent tombstone for command-owned
+tenders only; imported tender rows remain read-only and are never deleted.
+The parity matrix keeps arbitrary source state overwrite and standalone award
+insertion as policy gates. Browser and procurement-owner acceptance of the
+aliases is still open.
 
 The source tender boundary is:
 
@@ -117,13 +118,17 @@ The source tender boundary is:
 - `GET /api/company/source/tender/awards` over `tender_award`;
 - `GET /api/company/source/tender/splits` over `contract_split`.
 - `POST /api/company/source/tender/tenders` as a source-field create alias;
+- `DELETE /api/company/source/tender/tenders/:guid` as a command-owned
+  tombstone alias;
 - `POST /api/company/source/tender/splits` as a source-field split alias.
 
-These responses preserve source fields, add normalized identity and display
+The GET responses preserve source fields, add normalized identity and display
 fields for Rabbita, report all three table counts, and mark the read as
-non-authorizing and non-persisting. The available export has zero rows in all
-three tables, so the tender page renders an explicit empty source state rather
-than promoting its reviewed snapshot rows.
+non-authorizing and non-persisting. The POST/DELETE aliases instead return
+persisted command receipts with explicit command provenance and no
+cash/accounting/tax effect. The available export has zero rows in all three
+tables, so the tender page renders an explicit empty source state rather than
+promoting its reviewed snapshot rows.
 
 The supplier dictionary boundary is:
 

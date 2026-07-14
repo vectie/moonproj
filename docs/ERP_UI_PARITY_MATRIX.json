@@ -4312,8 +4312,8 @@
       "browser_route_paths": [
         "/tender"
       ],
-      "action_state": "not_connected",
-      "required_next": "preserve_imported_tenders_and_decide_local_tombstone_policy"
+      "action_state": "connected_tender_source_command",
+      "required_next": "accept_browser_tender_source_command_scenario_and_procurement_owner"
     },
     {
       "module": "tender",

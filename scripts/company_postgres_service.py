@@ -56,12 +56,14 @@ The bounded service exposes these endpoints:
 * ``/api/company/payment-applies/eligibility`` (GET)
 * ``/api/company/payment-applies`` (POST create draft)
 * ``/api/company/payment-applies/<id>/{submit,approve,reject,resubmit,update,void}`` (POST)
-* ``/api/company/tenders`` and ``/api/company/tenders/<id>`` (GET)
+* ``/api/company/tenders`` and ``/api/company/tenders/<id>`` (GET; DELETE is
+  an idempotent command-owned tombstone and imported tenders remain read-only)
 * ``/api/company/tenders`` (POST create planning draft)
 * ``/api/company/tenders/<id>/{publish,open_bidding,award,complete,cancel}`` (POST)
 * ``/api/company/source/tender/tenders`` and ``/api/company/source/tender/splits``
-  (POST, source-field aliases over local command projections; imported rows
-  remain read-only and cash/accounting/tax effects remain separate)
+  (POST, source-field aliases over local command projections; DELETE on
+  ``/tenders/<id>`` is a command-owned tombstone; imported rows remain
+  read-only and cash/accounting/tax effects remain separate)
 * ``/api/company/suppliers`` and ``/api/company/suppliers/<id>`` (GET)
 * ``/api/company/suppliers`` (POST create draft)
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
@@ -1953,9 +1955,10 @@ def tenders(
 ) -> list[dict[str, Any]]:
     if tender_id is not None and not IDENTIFIER.fullmatch(tender_id):
         raise ValueError("invalid tender_id")
-    where = ""
+    where_clauses = ["coalesce(latest.payload->>'state', '') <> 'deleted'"]
     if tender_id is not None:
-        where = f"WHERE latest.aggregate_id = {sql_literal(tender_id)}"
+        where_clauses.append(f"latest.aggregate_id = {sql_literal(tender_id)}")
+    where = "WHERE " + " AND ".join(where_clauses)
     query = f"""
     WITH latest AS (
       SELECT DISTINCT ON (aggregate_id)
@@ -5058,7 +5061,7 @@ def _tender_request(
     body: dict[str, Any],
     actor_id: str,
 ) -> tuple[str, dict[str, Any]]:
-    allowed = {"create", "publish", "open_bidding", "award", "complete", "cancel"}
+    allowed = {"create", "publish", "open_bidding", "award", "complete", "cancel", "delete"}
     if command_type not in allowed:
         raise CommandRejected("unsupported tender command", 404)
     if command_type == "create":
@@ -5184,7 +5187,10 @@ def tender_command(
             "award": "bidding",
             "complete": "awarded",
         }.get(command_type)
-        if command_type == "cancel":
+        if command_type == "delete":
+            if current_state == "deleted":
+                raise CommandRejected("tender is already deleted", 409)
+        elif command_type == "cancel":
             if current_state not in {"planning", "publishing", "bidding"}:
                 raise CommandRejected(f"tender cancellation requires an active planning state, found {current_state}", 409)
         elif current_state != expected:
@@ -5290,6 +5296,9 @@ def tender_command(
         ELSIF {sql_literal(command_type)} = 'cancel' THEN
           IF current_state NOT IN ('planning', 'publishing', 'bidding') THEN RAISE EXCEPTION 'invalid tender state'; END IF;
           next_state := 'cancelled';
+        ELSIF {sql_literal(command_type)} = 'delete' THEN
+          IF current_state = 'deleted' THEN RAISE EXCEPTION 'tender is already deleted'; END IF;
+          next_state := 'deleted';
         ELSE RAISE EXCEPTION 'unsupported tender command'; END IF;
         SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
         FROM company_aggregate_projection p
@@ -5297,6 +5306,9 @@ def tender_command(
         next_payload := current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb) || jsonb_build_object(
           'state', next_state, 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
           'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        IF {sql_literal(command_type)} = 'delete' THEN
+          next_payload := next_payload || jsonb_build_object('deleted_at', {sql_literal(event_id)});
+        END IF;
         IF {sql_literal(command_type)} = 'award' THEN
           next_payload := next_payload || jsonb_build_object(
             'awarded_supplier_id', {sql_literal(request_json)}::jsonb->>'awarded_supplier_id',
@@ -22616,6 +22628,49 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _tender_method_alias(self, method: str) -> bool:
+            if method != "DELETE":
+                return False
+            parsed = urlparse(self.path)
+            target_match = re.fullmatch(
+                r"/api/company/tenders/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            source_match = re.fullmatch(
+                r"/api/company/source/tender/tenders/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            match = target_match or source_match
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = tender_command(
+                    pool,
+                    command_type="delete",
+                    tender_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                if source_match is not None:
+                    result = _source_tender_alias_result(result)
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
             if self._source_dynamic_cost_method_alias("PUT"):
                 return
@@ -22636,6 +22691,8 @@ def handler_factory(
             self._marketing_method_alias("PUT") or self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if self._tender_method_alias("DELETE"):
+                return
             if self._delivery_progress_method_alias("DELETE"):
                 return
             if self._source_dynamic_cost_method_alias("DELETE"):

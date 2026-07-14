@@ -362,6 +362,19 @@ def handler_factory(
                     r"/api/company/delivery/progress/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,
                 )
+                or (
+                    method == "DELETE"
+                    and (
+                        re.fullmatch(
+                            r"/api/company/tenders/[A-Za-z0-9_.:-]{1,128}",
+                            parsed.path,
+                        )
+                        or re.fullmatch(
+                            r"/api/company/source/tender/tenders/[A-Za-z0-9_.:-]{1,128}",
+                            parsed.path,
+                        )
+                    )
+                )
                 or re.fullmatch(
                     r"/api/company/source/cost/payment-applies/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,

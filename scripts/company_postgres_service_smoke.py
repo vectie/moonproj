@@ -3565,6 +3565,29 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/tenders/{tender_id}", token=token)
         if status != 200 or payload is None or payload.get("state") != "completed":
             raise SmokeError(f"tender completed detail failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/tenders/{tender_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "service tender tombstone smoke"},
+            idempotency_key="tender-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("tender", {}).get("state") != "deleted":
+            raise SmokeError(f"tender delete failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/tenders/{tender_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "service tender tombstone smoke"},
+            idempotency_key="tender-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"tender delete replay failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/tenders/{tender_id}", token=token)
+        if status != 404:
+            raise SmokeError(f"deleted tender still visible: {status} {payload}")
         split_id = "SPLIT-SMOKE-" + nonce
         split_payload = {
             "split_id": split_id,
@@ -3659,6 +3682,41 @@ def main() -> int:
             or payload.get("cash_effect") is not False
         ):
             raise SmokeError(f"source tender command readback failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/tender/tenders/{source_tender_guid}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source tender tombstone smoke"},
+            idempotency_key="source-tender-delete-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("tender", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"source tender delete alias failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/tender/tenders/{source_tender_guid}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source tender tombstone smoke"},
+            idempotency_key="source-tender-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source tender delete alias replay failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/tenders?projGuid=CD-HJL",
+            token=token,
+        )
+        if status != 200 or any(
+            isinstance(row, dict) and row.get("tender_guid") == source_tender_guid
+            for row in (payload or {}).get("data", [])
+        ):
+            raise SmokeError(f"source tender delete alias readback failed: {status} {payload}")
         source_split_payload = {
             "parentContractGuid": contract_id,
             "splitName": "source-compatible split smoke",
@@ -4111,6 +4169,8 @@ def main() -> int:
                     "receivable_state": "open",
                     "mortgage_state": "released",
                     "refund_state": "paid",
+                    "tender_delete_state": "deleted",
+                    "source_tender_delete_state": "deleted",
                     "delivery_progress_state": "accepted",
                     "delivery_progress_delete_state": "deleted",
                     "delivery_output_state": "confirmed",

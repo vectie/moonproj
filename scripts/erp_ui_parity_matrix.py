@@ -616,7 +616,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if handler["module"] == "tender" and handler["method"] == "PUT" and handler["path"] == "/tenders/:guid/state":
         return "not_connected", "preserve_tender_state_machine_and_decide_source_overwrite_policy"
     if handler["module"] == "tender" and handler["method"] == "DELETE" and handler["path"] == "/tenders/:guid":
-        return "not_connected", "preserve_imported_tenders_and_decide_local_tombstone_policy"
+        return "connected_tender_source_command", "accept_browser_tender_source_command_scenario_and_procurement_owner"
     if (
         handler["module"] == "budget"
         and handler["method"] == "GET"

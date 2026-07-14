@@ -1012,6 +1012,39 @@ def main() -> int:
             )
         ):
             raise SmokeError(f"trusted source tender alias readback failed: {status}")
+        status, _headers, source_tender_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/tender/tenders/{source_tender_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source tender tombstone smoke",
+                "idempotency_key": "source-tender-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_tender_delete_payload, dict)
+            or source_tender_delete_payload.get("success") is not True
+            or source_tender_delete_payload.get("tender", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted source tender delete alias failed: {status}")
+        status, _headers, source_tender_read_after_delete_payload = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/source/tender/tenders?projGuid=CD-HJL",
+            headers={"Cookie": cookie},
+        )
+        if (
+            status != 200
+            or not isinstance(source_tender_read_after_delete_payload, dict)
+            or any(
+                isinstance(row, dict)
+                and row.get("tender_guid") == source_tender_guid
+                for row in source_tender_read_after_delete_payload.get("data", [])
+            )
+        ):
+            raise SmokeError(f"trusted source tender delete alias readback failed: {status}")
         source_split_payload = {
             "parentContractGuid": "ht-tj-001",
             "splitName": "gateway source split alias smoke",

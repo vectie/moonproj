@@ -385,7 +385,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `tender` | `GET` | `/tenders` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
 | `tender` | `POST` | `/tenders` | `/tender` | `connected_tender_source_command` | `accept_browser_tender_source_command_scenario_and_procurement_owner` |
 | `tender` | `PUT` | `/tenders/:guid/state` | `/tender` | `not_connected` | `preserve_tender_state_machine_and_decide_source_overwrite_policy` |
-| `tender` | `DELETE` | `/tenders/:guid` | `/tender` | `not_connected` | `preserve_imported_tenders_and_decide_local_tombstone_policy` |
+| `tender` | `DELETE` | `/tenders/:guid` | `/tender` | `connected_tender_source_command` | `accept_browser_tender_source_command_scenario_and_procurement_owner` |
 | `tender` | `GET` | `/awards` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
 | `tender` | `POST` | `/awards` | `/tender` | `not_connected` | `reconcile_tender_award_evidence_and_owner_acceptance` |
 | `tender` | `GET` | `/splits` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
