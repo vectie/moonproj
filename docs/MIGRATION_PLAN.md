@@ -450,7 +450,8 @@ remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
-evidence-ready batch below, 24 remain; they are not one uniform backlog. Four
+evidence-ready batch and the identity/RBAC observation wave, 19 remain; they
+are not one uniform backlog. Four
 groups are now explicit:
 
 * **Evidence-ready reads:** contract/payment/milestone reads can use the
@@ -478,10 +479,13 @@ groups are now explicit:
   missing source rows still block promotion where applicable. The remaining
   families may only be exposed as explicit empty-source observations after an
   adapter proves the boundary; no fixture rows may fill the gap.
-* **Identity/RBAC and operational reads:** preferences, role/permission
-  catalogs, full health/backup, and import-template reads require the reviewed
-  identity/operations boundary or a broader source export. They are not
-  promoted merely because a local target endpoint exists.
+* **Identity/RBAC and operational reads:** preferences and role/permission
+  catalogs now have fixed, non-authorizing observation adapters; the current
+  export reports an empty preference table and empty role-assignment tables
+  while preserving the source permission definitions. Full health/backup and
+  import-template reads still require the reviewed identity/operations boundary
+  or a broader source export. None of these observations grants authority just
+  because a local target endpoint exists.
 * **Provider/external reads:** LLM/OCR diagnostics, provider signature checks,
   and similar status/verification endpoints remain provider and credential
   gates. A successful metadata read does not authorize a provider call.
@@ -629,9 +633,10 @@ Two important non-parity states were made explicit by this pass. The health
 screen's table/BPM coverage is source-backed, but its uptime, memory, storage,
 and queue figures are still an offline design snapshot because
 `/admin/health/full` remains operational and not connected. The users/roles
-screen has the five imported identities, while role/permission tables are
-absent and therefore remain an offline design snapshot rather than an
-authorization source. Attachment binaries, notification delivery, OCR
+screen has the five imported identities, an explicit `NO_SOURCE_ROWS` role
+state, and the source-defined 11-module permission catalog; these are
+observation metadata, not an authorization source. Attachment binaries,
+notification delivery, OCR
 recognition, Webhook delivery, and all configuration writes remain gated by
 identity/provider/operational authorization. This is browser evidence for the
 bounded read wave, not production acceptance or a claim that the remaining
@@ -647,6 +652,18 @@ imported identity with empty roles/permissions and `NO_SOURCE_ROWS` for
 and production authorization remain gated. The parity matrix and service
 smoke now cover these routes, making the missing role/preference export a
 measurable source gate rather than an unimplemented HTTP hole.
+
+**Role/catalog observation checkpoint (2026-07-14).** The same bounded read
+wave now covers source `GET /rbac/roles`, `GET /rbac/roles/:code`, and
+`GET /rbac/permission-catalog`. The current export has five imported users but
+zero `sys_role`/`sys_user_role` rows, so the Users/Roles screen displays an
+explicit `NO_SOURCE_ROWS` role state rather than inventing the former design
+roles. The permission catalog preserves the source-defined 11 modules and
+their permission counts as definition metadata only; it does not grant local
+authority. The browser pass and service smoke both observe HTTP 200 for the
+list/catalog routes and 404 for an unknown role detail. Role writes, assignments,
+production identity/token binding, owner reconciliation, and the complete
+credential-safe export remain open gates.
 
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but

@@ -350,6 +350,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_investment_scenario_and_production_identity"
     if target_state == "connected_rbac_user_read":
         return "accept_browser_user_roster_scenario_and_super_user_owner"
+    if target_state == "connected_rbac_observation_read":
+        return "accept_browser_user_roster_scenario_and_super_user_owner"
     if target_state == "connected_admin_audit_read":
         return "accept_browser_admin_audit_scenario_and_super_user_owner"
     if target_state == "connected_cost_read":
@@ -553,6 +555,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         handler["module"] == "rbac"
         and handler["method"] == "GET"
         and handler["path"] == "/me"
+    ):
+        return "connected_rbac_observation_read", "accept_browser_user_roster_scenario_and_super_user_owner"
+    if (
+        handler["module"] == "rbac"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/roles", "/roles/:code", "/permission-catalog"}
     ):
         return "connected_rbac_observation_read", "accept_browser_user_roster_scenario_and_super_user_owner"
     if (
@@ -861,6 +869,8 @@ def build_matrix(
             api_state = "connected_investment_read"
         elif target_state == "connected_rbac_user_read":
             api_state = "connected_rbac_user_read"
+        elif target_state == "connected_rbac_observation_read":
+            api_state = "connected_rbac_observation_read"
         elif target_state == "connected_admin_audit_read":
             api_state = "connected_admin_audit_read"
         elif target_state == "connected_cost_read":

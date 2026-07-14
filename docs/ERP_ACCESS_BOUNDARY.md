@@ -48,3 +48,11 @@ permissions from the imported `is_super_user` flag. `/api/company/auth/prefs`
 similarly reports imported preference values when available and an explicit
 empty source state otherwise. Neither endpoint replaces the production token,
 role directory, or reviewed access-plan import.
+
+The companion `/api/company/rbac/roles`, `/api/company/rbac/roles/:code`, and
+`/api/company/rbac/permission-catalog` endpoints are likewise metadata-only
+observations. They preserve the empty role tables and the source-defined
+permission catalog, return `authorizing=false`, and do not create roles,
+assignments, grants, or capabilities. A reviewed export and owner-approved
+access plan are still required before any role data can enter the local
+authority directory.

@@ -905,6 +905,12 @@ struct Model {
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
+  rbac_roles_loaded : Bool
+  rbac_role_rows : Array[Array[String]]
+  rbac_roles_note : String
+  rbac_catalog_loaded : Bool
+  rbac_catalog_rows : Array[Array[String]]
+  rbac_catalog_note : String
   profile_loaded : Bool
   profile_user_id : String
   profile_user_code : String
@@ -1146,6 +1152,10 @@ enum Msg {
   ProfileInitiatedLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
+  RbacRolesLoaded(String)
+  RbacRolesLoadFailed
+  RbacCatalogLoaded(String)
+  RbacCatalogLoadFailed
   HealthTablesLoaded(String)
   HealthBpmLoaded(String)
   HealthLoadFailed
@@ -1460,6 +1470,12 @@ fn initial_model() -> Model {
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
+    rbac_roles_loaded: false,
+    rbac_role_rows: [],
+    rbac_roles_note: "角色读模型尚未加载 · 使用设计快照",
+    rbac_catalog_loaded: false,
+    rbac_catalog_rows: [],
+    rbac_catalog_note: "权限目录读模型尚未加载 · 使用设计快照",
     profile_loaded: false,
     profile_user_id: "user-admin-0001",
     profile_user_code: "admin",
@@ -4681,6 +4697,54 @@ fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
 }
 
 ///|
+fn rbac_role_rows_from_body(body : String) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push([
+              json_object_text(row, "roleCode", ""),
+              json_object_text(row, "roleName", ""),
+              json_object_text(row, "description", "—"),
+              json_object_text(row, "dataScope", "self"),
+              json_array_field(row, "permissions").length().to_string(),
+              json_object_text(row, "userCount", "0"),
+              "只读 · " + json_object_text(row, "sourceKind", "imported"),
+            ])
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn rbac_catalog_rows_from_body(body : String) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push([
+              json_object_text(row, "module", ""),
+              json_array_field(row, "perms").length().to_string(),
+              "定义 · 不授予权限",
+            ])
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn health_table_rows_from_body(body : String) -> Array[HealthTableRow] {
   let rows : Array[HealthTableRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -5647,6 +5711,26 @@ fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(UsersLoaded(body))
       Err(_) => emit(UsersLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/rbac/roles").expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacRolesLoaded(body))
+      Err(_) => emit(RbacRolesLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_rbac_catalog(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/rbac/permission-catalog").expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacCatalogLoaded(body))
+      Err(_) => emit(RbacCatalogLoadFailed)
     }
   })
 }
@@ -8835,7 +8919,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     UsersLoaded(body) =>
       (
-        none,
+        load_rbac_roles(emit),
         {
           ..model,
           users_loaded: true,
@@ -8845,12 +8929,52 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     UsersLoadFailed =>
       (
-        none,
+        load_rbac_roles(emit),
         {
           ..model,
           users_loaded: false,
           user_roster_rows: [],
           users_note: "身份读模型不可用 · 使用已审核快照",
+        },
+      )
+    RbacRolesLoaded(body) =>
+      (
+        load_rbac_catalog(emit),
+        {
+          ..model,
+          rbac_roles_loaded: true,
+          rbac_role_rows: rbac_role_rows_from_body(body),
+          rbac_roles_note: "已加载 PostgreSQL 角色源读模型 · 空源表保持可见",
+        },
+      )
+    RbacRolesLoadFailed =>
+      (
+        load_rbac_catalog(emit),
+        {
+          ..model,
+          rbac_roles_loaded: false,
+          rbac_role_rows: [],
+          rbac_roles_note: "角色读模型不可用 · 使用设计快照",
+        },
+      )
+    RbacCatalogLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          rbac_catalog_loaded: true,
+          rbac_catalog_rows: rbac_catalog_rows_from_body(body),
+          rbac_catalog_note: "已加载 PostgreSQL 权限定义 · 不授予目标权限",
+        },
+      )
+    RbacCatalogLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          rbac_catalog_loaded: false,
+          rbac_catalog_rows: [],
+          rbac_catalog_note: "权限目录读模型不可用 · 使用设计快照",
         },
       )
     HealthTablesLoaded(body) => {
@@ -15465,6 +15589,81 @@ fn user_roster_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn rbac_role_table(model : Model) -> @html.Html {
+  if model.rbac_roles_loaded {
+    let rows = if model.rbac_role_rows.length() == 0 {
+      [["—", "源表无记录", "NO_SOURCE_ROWS", "—", "0", "0", "只读"]]
+    } else {
+      model.rbac_role_rows
+    }
+    table_panel(
+      "角色管理",
+      model.rbac_roles_note,
+      data_table(
+        [
+          "编码", "名称", "描述", "数据范围", "权限数", "用户数",
+          "状态",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    table_panel(
+      "角色管理",
+      "角色源读模型尚未加载 · 设计快照不用于授权",
+      data_table(
+        [
+          "编码", "名称", "描述", "数据范围", "权限数", "用户数",
+          "状态",
+        ],
+        [
+          [
+            "super_admin", "超级管理员", "平台配置与运维", "全集团",
+            "86", "1", "离线设计快照",
+          ],
+          [
+            "expense_user", "费用使用人", "发起报销和借款", "所属组织",
+            "12", "2", "离线设计快照",
+          ],
+          [
+            "department_owner", "部门负责人", "部门预算与审批", "所属部门",
+            "18", "1", "离线设计快照",
+          ],
+          [
+            "general_manager", "综管负责人", "业务流程复核", "集团 / 项目",
+            "24", "1", "离线设计快照",
+          ],
+        ],
+      ),
+    )
+  }
+}
+
+///|
+fn rbac_permission_catalog_table(model : Model) -> @html.Html {
+  if model.rbac_catalog_loaded {
+    let rows = if model.rbac_catalog_rows.length() == 0 {
+      [["—", "0", "定义不可用"]]
+    } else {
+      model.rbac_catalog_rows
+    }
+    table_panel(
+      "权限目录",
+      model.rbac_catalog_note,
+      data_table(["模块", "权限点数", "状态"], rows),
+    )
+  } else {
+    table_panel(
+      "权限目录",
+      "权限目录读模型尚未加载 · 设计快照不用于授权",
+      data_table(["模块", "权限点数", "状态"], [
+        ["驾驶舱 / 项目 / 合同 / 付款", "—", "离线设计快照"],
+      ]),
+    )
+  }
+}
+
+///|
 fn users_view(model : Model) -> @html.Html {
   page_shell(
     "用户/角色管理",
@@ -15478,38 +15677,8 @@ fn users_view(model : Model) -> @html.Html {
         button(class="erp-tab", "权限目录"),
       ],
       user_roster_table(model),
-      table_panel(
-        "角色管理",
-        if model.users_loaded {
-          "角色源表未随导出 · 仅显示离线设计快照，不用于授权"
-        } else {
-          "按范围分配能力，不直接授予会计或付款权限"
-        },
-        data_table(
-          [
-            "编码", "名称", "描述", "数据范围", "权限数", "用户数",
-            "状态",
-          ],
-          [
-            [
-              "super_admin", "超级管理员", "平台配置与运维", "全集团",
-              "86", "1", "正常",
-            ],
-            [
-              "expense_user", "费用使用人", "发起报销和借款", "所属组织",
-              "12", "2", "正常",
-            ],
-            [
-              "department_owner", "部门负责人", "部门预算与审批", "所属部门",
-              "18", "1", "正常",
-            ],
-            [
-              "general_manager", "综管负责人", "业务流程复核", "集团 / 项目",
-              "24", "1", "正常",
-            ],
-          ],
-        ),
-      ),
+      rbac_role_table(model),
+      rbac_permission_catalog_table(model),
     ],
   )
 }

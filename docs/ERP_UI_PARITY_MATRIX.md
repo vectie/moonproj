@@ -327,15 +327,15 @@ are attached. The JSON output contains all 338 handler rows.
 | `progress` | `POST` | `/outputs` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `progress` | `POST` | `/outputs/:guid/confirm` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `GET` | `/me` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
-| `rbac` | `GET` | `/roles` | `/users` | `not_connected` | `connect_authenticated_read_api` |
-| `rbac` | `GET` | `/roles/:code` | `/users` | `not_connected` | `connect_authenticated_read_api` |
+| `rbac` | `GET` | `/roles` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
+| `rbac` | `GET` | `/roles/:code` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `GET` | `/users` | `/users` | `connected_rbac_user_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `POST` | `/users` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `PUT` | `/users/:userId` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `POST` | `/users/:userId/toggle` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `POST` | `/users/:userId/reset-password` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `POST` | `/users/:userId/roles` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `rbac` | `GET` | `/permission-catalog` | `/users` | `not_connected` | `connect_authenticated_read_api` |
+| `rbac` | `GET` | `/permission-catalog` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `POST` | `/roles` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `rbac` | `DELETE` | `/roles/:code` | `/users` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `reports` | `GET` | `/cost-summary` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |

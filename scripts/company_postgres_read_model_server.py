@@ -156,6 +156,9 @@ from company_postgres_service import (
     admin_health_bpm_pool as service_admin_health_bpm_pool,
     auth_preferences as service_auth_preferences,
     rbac_current_user as service_rbac_current_user,
+    rbac_permission_catalog as service_rbac_permission_catalog,
+    rbac_role_detail as service_rbac_role_detail,
+    rbac_roles as service_rbac_roles,
     workflow_source_tasks_mine as service_workflow_source_tasks_mine,
     workflow_source_tasks_initiated as service_workflow_source_tasks_initiated,
     workflow_source_history as service_workflow_source_history,
@@ -212,6 +215,18 @@ def auth_preferences(args: argparse.Namespace, user_code: str) -> dict[str, Any]
 
 def rbac_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
     return service_rbac_current_user(_ReadModelPool(args), user_code, 500)
+
+
+def rbac_roles(args: argparse.Namespace) -> dict[str, Any]:
+    return service_rbac_roles(_ReadModelPool(args), 500)
+
+
+def rbac_role_detail(args: argparse.Namespace, role_code: str) -> dict[str, Any] | None:
+    return service_rbac_role_detail(_ReadModelPool(args), role_code, 500)
+
+
+def rbac_permission_catalog(args: argparse.Namespace) -> dict[str, Any]:
+    return service_rbac_permission_catalog()
 
 
 def auth_my_initiated(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
@@ -2072,6 +2087,22 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                         response(self, 404, {"error": "user not found"})
                     else:
                         response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/rbac/roles":
+                    response(self, 200, rbac_roles(args))
+                    return
+                role_detail_match = re.fullmatch(
+                    r"/api/company/rbac/roles/[A-Za-z0-9_.:-]{1,128}", parsed.path,
+                )
+                if role_detail_match is not None:
+                    result = rbac_role_detail(args, parsed.path.rsplit("/", 1)[-1])
+                    if result is None:
+                        response(self, 404, {"error": "role not found"})
+                    else:
+                        response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/rbac/permission-catalog":
+                    response(self, 200, rbac_permission_catalog(args))
                     return
                 if parsed.path == "/api/company/admin/dict/groups":
                     response(self, 200, admin_dict_groups(args))

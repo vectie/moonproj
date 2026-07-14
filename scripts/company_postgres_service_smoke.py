@@ -1211,6 +1211,45 @@ def main() -> int:
             or rbac_me_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"RBAC current-user read failed: {status} {rbac_me_payload}")
+        status, rbac_roles_payload = request(
+            args.port,
+            "/api/company/rbac/roles",
+            token=token,
+        )
+        if (
+            status != 200
+            or rbac_roles_payload is None
+            or rbac_roles_payload.get("data") != []
+            or rbac_roles_payload.get("source_coverage", {}).get("sys_role") != 0
+            or rbac_roles_payload.get("source_coverage", {}).get("sys_user_role") != 0
+            or rbac_roles_payload.get("source_coverage", {}).get("sys_user") != 5
+            or "sys_role" not in rbac_roles_payload.get("missing_or_empty_source_tables", [])
+            or rbac_roles_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"RBAC role list read failed: {status} {rbac_roles_payload}")
+        status, missing_role_payload = request(
+            args.port,
+            "/api/company/rbac/roles/missing-role",
+            token=token,
+        )
+        if status != 404 or missing_role_payload is None or missing_role_payload.get("error") != "role not found":
+            raise SmokeError(f"missing RBAC role should be 404: {status} {missing_role_payload}")
+        status, permission_catalog_payload = request(
+            args.port,
+            "/api/company/rbac/permission-catalog",
+            token=token,
+        )
+        permission_catalog = (permission_catalog_payload or {}).get("data", [])
+        if (
+            status != 200
+            or permission_catalog_payload is None
+            or len(permission_catalog) != 11
+            or permission_catalog[0].get("module") != "驾驶舱"
+            or permission_catalog_payload.get("source_kind") != "definition"
+            or permission_catalog_payload.get("authorizing") is not False
+            or permission_catalog_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"RBAC permission catalog read failed: {status} {permission_catalog_payload}")
         status, missing_profile_payload = request(
             args.port,
             "/api/company/auth/me?userCode=missing-user",
@@ -2394,6 +2433,8 @@ def main() -> int:
                     "profile_preference_rows": len((prefs_payload or {}).get("data", {})),
                     "rbac_me_roles": len(rbac_me_data.get("roles", [])),
                     "rbac_me_role_source_status": rbac_me_data.get("rolesSourceStatus"),
+                    "rbac_role_rows": len((rbac_roles_payload or {}).get("data", [])),
+                    "rbac_permission_module_rows": len(permission_catalog),
                     "profile_initiated_expenses": len(initiated_data.get("expenses", [])),
                     "profile_initiated_loans": len(initiated_data.get("loans", [])),
                     "profile_initiated_applies": len(initiated_data.get("applies", [])),

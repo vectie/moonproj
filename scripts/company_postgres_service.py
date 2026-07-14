@@ -115,6 +115,10 @@ The bounded service exposes these endpoints:
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/rbac/me`` (GET, source identity/role observation; never an
   authority decision)
+* ``/api/company/rbac/roles`` and ``/api/company/rbac/roles/<code>`` (GET,
+  source role observation; absent role tables remain explicit)
+* ``/api/company/rbac/permission-catalog`` (GET, source-defined metadata;
+  never an authority grant)
 * ``/api/company/auth/prefs`` (GET, source preference observation; preference
   writes remain gated)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
@@ -6614,6 +6618,216 @@ def auth_my_initiated(
             "vcb_loan_simple": len(loans),
             "cb_htfk_apply": len(applies),
         },
+    }
+
+
+def rbac_roles(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    """Read source ``GET /rbac/roles`` without applying role authority."""
+
+    raw_roles = _raw_source_rows(pool, "sys_role", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES)
+    assignments = _raw_source_rows(
+        pool, "sys_user_role", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES,
+    )
+    users_by_id = {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES)
+    }
+    user_counts: dict[str, int] = {}
+    for assignment in assignments:
+        role_code = str(assignment["payload"].get("role_code") or "")
+        user_id = str(assignment["payload"].get("user_id") or "")
+        if role_code and user_id in users_by_id:
+            user_counts[role_code] = user_counts.get(role_code, 0) + 1
+    result: list[dict[str, Any]] = []
+    for row in raw_roles:
+        payload = row["payload"]
+        role_code = str(payload.get("role_code") or row["record_id"])
+        permissions = payload.get("permissions", [])
+        if isinstance(permissions, str):
+            try:
+                permissions = json.loads(permissions)
+            except json.JSONDecodeError:
+                permissions = []
+        if not isinstance(permissions, list):
+            permissions = []
+        result.append(
+            {
+                "roleCode": role_code,
+                "roleName": str(payload.get("role_name") or ""),
+                "description": str(payload.get("description") or ""),
+                "dataScope": str(payload.get("data_scope") or "self"),
+                "permissions": [str(permission) for permission in permissions],
+                "isSystem": bool(payload.get("is_system", 0)),
+                "userCount": user_counts.get(role_code, 0),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda value: str(value.get("roleCode", "")))
+    coverage = {
+        "sys_role": len(raw_roles),
+        "sys_user_role": len(assignments),
+        "sys_user": len(users_by_id),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:max_rows],
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def rbac_role_detail(
+    pool: PsqlPool,
+    role_code: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read source ``GET /rbac/roles/:code`` with no mutation or grants."""
+
+    if not IDENTIFIER.fullmatch(role_code):
+        raise ValueError("invalid role code")
+    roles = rbac_roles(pool, max_rows)
+    role = next(
+        (item for item in roles["data"] if item.get("roleCode") == role_code),
+        None,
+    )
+    if role is None:
+        return None
+    assignments = _raw_source_rows(
+        pool, "sys_user_role", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES,
+    )
+    users = {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES)
+    }
+    assigned_users: list[dict[str, Any]] = []
+    for assignment in assignments:
+        payload = assignment["payload"]
+        if str(payload.get("role_code") or "") != role_code:
+            continue
+        user_id = str(payload.get("user_id") or "")
+        user = users.get(user_id)
+        if user is None:
+            continue
+        assigned_users.append(
+            {
+                "userId": user_id,
+                "userCode": str(user.get("user_code") or ""),
+                "empName": str(user.get("emp_name") or user.get("user_name") or ""),
+                "grantedAt": str(payload.get("granted_at") or ""),
+            }
+        )
+    assigned_users.sort(key=lambda value: str(value.get("userCode", "")))
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "role": role,
+            "users": assigned_users[:max_rows],
+        },
+        "source_kind": roles["source_kind"],
+        "source_coverage": roles["source_coverage"],
+        "missing_or_empty_source_tables": roles["missing_or_empty_source_tables"],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+RBAC_PERMISSION_CATALOG = [
+    {"module": "驾驶舱", "perms": [{"code": "dashboard:read", "name": "查看驾驶舱"}]},
+    {
+        "module": "项目",
+        "perms": [
+            {"code": "project:read", "name": "查看项目"},
+            {"code": "project:create", "name": "新建项目"},
+            {"code": "project:update", "name": "修改项目"},
+        ],
+    },
+    {
+        "module": "合同",
+        "perms": [
+            {"code": "contract:read", "name": "查看合同"},
+            {"code": "contract:create", "name": "新建合同"},
+            {"code": "contract:approve", "name": "审批合同"},
+        ],
+    },
+    {
+        "module": "付款",
+        "perms": [
+            {"code": "payment:read", "name": "查看付款"},
+            {"code": "payment:create", "name": "发起付款"},
+            {"code": "payment:approve", "name": "审批付款"},
+            {"code": "payment:pay", "name": "出纳支付"},
+        ],
+    },
+    {
+        "module": "成本",
+        "perms": [
+            {"code": "cost:read", "name": "查看动态成本"},
+            {"code": "cost:update", "name": "调整动态成本"},
+        ],
+    },
+    {
+        "module": "报销",
+        "perms": [
+            {"code": "expense:read", "name": "查看报销"},
+            {"code": "expense:create", "name": "发起报销"},
+            {"code": "expense:approve", "name": "审批报销"},
+        ],
+    },
+    {
+        "module": "借款",
+        "perms": [
+            {"code": "loan:read", "name": "查看借款"},
+            {"code": "loan:create", "name": "发起借款"},
+            {"code": "loan:approve", "name": "审批借款"},
+        ],
+    },
+    {
+        "module": "计划",
+        "perms": [
+            {"code": "plan:read", "name": "查看计划"},
+            {"code": "plan:create", "name": "编排任务"},
+        ],
+    },
+    {
+        "module": "投资",
+        "perms": [
+            {"code": "investment:read", "name": "查看投资"},
+            {"code": "investment:update", "name": "调整测算"},
+        ],
+    },
+    {"module": "报表", "perms": [{"code": "report:read", "name": "查看报表"}]},
+    {
+        "module": "SRM",
+        "perms": [
+            {"code": "srm:read", "name": "查看供应商"},
+            {"code": "srm:create", "name": "新增供应商"},
+            {"code": "srm:approve", "name": "供应商入库"},
+        ],
+    },
+]
+
+
+def rbac_permission_catalog() -> dict[str, Any]:
+    """Return the source-defined permission catalog as non-authorizing metadata."""
+
+    return {
+        "success": True,
+        "code": 0,
+        "data": json.loads(json.dumps(RBAC_PERMISSION_CATALOG, ensure_ascii=False)),
+        "source_kind": "definition",
+        "source_coverage": {},
+        "missing_or_empty_source_tables": [],
+        "authorizing": False,
+        "persisted": False,
     }
 
 
@@ -14584,6 +14798,18 @@ def handler_factory(
                         response(self, 404, {"error": "user not found"}, origin)
                     else:
                         response(self, 200, result, origin)
+                elif parsed.path == "/api/company/rbac/roles":
+                    response(self, 200, rbac_roles(pool, max_response_rows), origin)
+                elif re.fullmatch(r"/api/company/rbac/roles/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+                    result = rbac_role_detail(
+                        pool, parsed.path.rsplit("/", 1)[-1], max_response_rows,
+                    )
+                    if result is None:
+                        response(self, 404, {"error": "role not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif parsed.path == "/api/company/rbac/permission-catalog":
+                    response(self, 200, rbac_permission_catalog(), origin)
                 elif parsed.path == "/api/company/admin/dict/options":
                     group_name = parse_qs(parsed.query).get("groupName", [None])[0]
                     response(self, 200, admin_dict_options(pool, group_name, max_response_rows), origin)

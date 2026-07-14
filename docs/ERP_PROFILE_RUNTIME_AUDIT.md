@@ -30,6 +30,11 @@ organization.
   identity, empty roles/permissions, `dataScope=self`, and `NO_SOURCE_ROWS`
   for the absent `sys_role`/`sys_user_role` tables. The response is marked
   `authorizing=false` and cannot be used as a production grant.
+- `GET /api/company/rbac/roles`, `GET /api/company/rbac/roles/:code`, and
+  `GET /api/company/rbac/permission-catalog` now expose role/detail/catalog
+  observations. The current export returns zero role rows with explicit
+  `NO_SOURCE_ROWS`, preserves the source-defined 11-module catalog, and marks
+  every response non-authorizing; an unknown role detail returns 404.
 - The response intentionally excludes password hashes, login-failure fields,
   network data, and other authentication secrets.
 - Rabbita `/profile` loads the read model for the active user code while
@@ -39,8 +44,9 @@ organization.
   exist.
 - The service smoke covers the imported `admin` record, organization joins,
   super-user flag, coverage counts, the empty preference observation, the
-  non-authorizing RBAC observation, a missing-user 404 path, and the
-  `limingjin` initiated-document counts and identities.
+  non-authorizing RBAC current-user/role/catalog observations, the missing-user
+  and missing-role 404 paths, and the `limingjin` initiated-document counts and
+  identities.
 
 ## Remaining gates
 
