@@ -337,6 +337,84 @@ struct DashboardV2WarningRow {
 }
 
 ///|
+struct DashboardV3PairRow {
+  label : String
+  value : String
+}
+
+///|
+struct DashboardV3CityRow {
+  name : String
+  expense : String
+  revenue : String
+}
+
+///|
+struct DashboardV3ContractRow {
+  code : String
+  name : String
+  amount : String
+}
+
+///|
+struct DashboardV3Snapshot {
+  scope : String
+  health_score : String
+  total_revenue : String
+  total_expense : String
+  net_profit : String
+  net_profit_rate : String
+  cashflow_months : String
+  customer_count : String
+  signed_count : String
+  mortgage_count : String
+  progress_active : String
+  progress_done : String
+  tender_active_count : String
+  open_warnings : String
+  running_processes : String
+  missing_table_count : String
+  health_rows : Array[DashboardV3PairRow]
+  expense_rows : Array[DashboardV3PairRow]
+  city_rows : Array[DashboardV3CityRow]
+  funnel_rows : Array[DashboardV3PairRow]
+  top_unpaid_rows : Array[DashboardV3ContractRow]
+  top_approving_rows : Array[DashboardV3ContractRow]
+  top_overbudget_rows : Array[DashboardV3PairRow]
+  top_gap_rows : Array[DashboardV3PairRow]
+}
+
+///|
+fn empty_dashboard_v3() -> DashboardV3Snapshot {
+  {
+    scope: "",
+    health_score: "0",
+    total_revenue: "0",
+    total_expense: "0",
+    net_profit: "0",
+    net_profit_rate: "0",
+    cashflow_months: "0",
+    customer_count: "0",
+    signed_count: "0",
+    mortgage_count: "0",
+    progress_active: "0",
+    progress_done: "0",
+    tender_active_count: "0",
+    open_warnings: "0",
+    running_processes: "0",
+    missing_table_count: "0",
+    health_rows: [],
+    expense_rows: [],
+    city_rows: [],
+    funnel_rows: [],
+    top_unpaid_rows: [],
+    top_approving_rows: [],
+    top_overbudget_rows: [],
+    top_gap_rows: [],
+  }
+}
+
+///|
 struct AdminQualityRow {
   rule : String
   count : String
@@ -783,6 +861,9 @@ struct Model {
   dashboard_v2_warning_rows : Array[DashboardV2WarningRow]
   dashboard_v2_missing_table_count : String
   dashboard_v2_note : String
+  dashboard_v3_loaded : Bool
+  dashboard_v3 : DashboardV3Snapshot
+  dashboard_v3_note : String
   admin_quality_loaded : Bool
   admin_quality_rows : Array[AdminQualityRow]
   admin_quality_note : String
@@ -1144,6 +1225,8 @@ enum Msg {
   DashboardLoadFailed
   DashboardV2Loaded(String)
   DashboardV2LoadFailed
+  DashboardV3Loaded(String)
+  DashboardV3LoadFailed
   AdminQualityLoaded(String)
   AdminQualityLoadFailed
   AdminDictGroupsLoaded(String)
@@ -1405,6 +1488,9 @@ fn initial_model() -> Model {
     dashboard_v2_warning_rows: [],
     dashboard_v2_missing_table_count: "0",
     dashboard_v2_note: "驾驶舱 v2 源观察尚未加载 · 不使用合成管理指标",
+    dashboard_v3_loaded: false,
+    dashboard_v3: empty_dashboard_v3(),
+    dashboard_v3_note: "驾驶舱 v3 源观察尚未加载 · 不使用合成管理指标",
     admin_quality_loaded: false,
     admin_quality_rows: [],
     admin_quality_note: "质量规则尚未加载 · 使用设计快照",
@@ -3036,6 +3122,177 @@ fn dashboard_v2_from_body(
     warning_rows,
     missing_table_count,
   )
+}
+
+///|
+fn dashboard_v3_pair_rows(
+  data : Map[String, Json],
+  key : String,
+  label_key : String,
+  value_key : String,
+) -> Array[DashboardV3PairRow] {
+  let rows : Array[DashboardV3PairRow] = []
+  for value in json_array_field(data, key) {
+    match value {
+      Json::Object(row) =>
+        rows.push({
+          label: json_object_text(row, label_key, "—"),
+          value: json_object_text(row, value_key, "0"),
+        })
+      _ => ()
+    }
+  }
+  rows
+}
+
+///|
+fn dashboard_v3_health_rows(
+  data : Map[String, Json],
+) -> Array[DashboardV3PairRow] {
+  let rows : Array[DashboardV3PairRow] = []
+  for key in ["profit", "recover", "budget", "warning"] {
+    match data.get(key) {
+      Some(Json::Object(row)) =>
+        rows.push({
+          label: json_object_text(row, "label", key),
+          value: json_object_text(row, "score", "0") +
+          " / " +
+          json_object_text(row, "weight", "0"),
+        })
+      _ => ()
+    }
+  }
+  rows
+}
+
+///|
+fn dashboard_v3_city_rows(
+  data : Map[String, Json],
+) -> Array[DashboardV3CityRow] {
+  let rows : Array[DashboardV3CityRow] = []
+  for value in json_array_field(data, "expenseByCity") {
+    match value {
+      Json::Object(row) =>
+        rows.push({
+          name: json_object_text(row, "name", "—"),
+          expense: json_object_text(row, "expense", "0"),
+          revenue: json_object_text(row, "revenue", "0"),
+        })
+      _ => ()
+    }
+  }
+  rows
+}
+
+///|
+fn dashboard_v3_contract_rows(
+  data : Map[String, Json],
+  key : String,
+) -> Array[DashboardV3ContractRow] {
+  let rows : Array[DashboardV3ContractRow] = []
+  for value in json_array_field(data, key) {
+    match value {
+      Json::Object(row) =>
+        rows.push({
+          code: json_object_text(row, "contractCode", "—"),
+          name: json_object_text(row, "contractName", "—"),
+          amount: json_object_text(row, "htAmount", "0"),
+        })
+      _ => ()
+    }
+  }
+  rows
+}
+
+///|
+fn dashboard_v3_from_body(body : String) -> (Bool, DashboardV3Snapshot) {
+  let mut snapshot = empty_dashboard_v3()
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      snapshot = {
+        ..snapshot,
+        missing_table_count: json_array_field(
+          fields, "missing_or_empty_source_tables",
+        )
+        .length()
+        .to_string(),
+      }
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          match data.get("scope") {
+            Some(Json::Object(scope)) => {
+              let level = json_object_text(scope, "level", "group")
+              let project = json_object_text(scope, "projGuid", "")
+              let business_unit = json_object_text(scope, "buGuid", "")
+              snapshot = {
+                ..snapshot,
+                scope: if project != "" {
+                  level + " · 项目 " + project
+                } else if business_unit != "" {
+                  level + " · 公司 " + business_unit
+                } else {
+                  level
+                },
+              }
+            }
+            _ => ()
+          }
+          match data.get("kpi") {
+            Some(Json::Object(kpi)) =>
+              snapshot = {
+                ..snapshot,
+                health_score: json_object_text(kpi, "healthScore", "0"),
+                total_revenue: json_object_text(kpi, "totalRevenue", "0"),
+                total_expense: json_object_text(kpi, "totalExpense", "0"),
+                net_profit: json_object_text(kpi, "netProfit", "0"),
+                net_profit_rate: json_object_text(kpi, "netProfitRate", "0"),
+                cashflow_months: json_object_text(kpi, "cashflowMonths", "0"),
+                customer_count: json_object_text(kpi, "customerCount", "0"),
+                signed_count: json_object_text(kpi, "signedCount", "0"),
+                mortgage_count: json_object_text(kpi, "mortgageCount", "0"),
+                progress_active: json_object_text(kpi, "progressActive", "0"),
+                progress_done: json_object_text(kpi, "progressDone", "0"),
+                tender_active_count: json_object_text(
+                  kpi, "tenderActiveCount", "0",
+                ),
+                open_warnings: json_object_text(kpi, "openWarnings", "0"),
+                running_processes: json_object_text(
+                  kpi, "runningProcesses", "0",
+                ),
+              }
+            _ => ()
+          }
+          let health_rows = match data.get("healthBreakdown") {
+            Some(Json::Object(health)) => dashboard_v3_health_rows(health)
+            _ => []
+          }
+          snapshot = {
+            ..snapshot,
+            health_rows,
+            expense_rows: dashboard_v3_pair_rows(
+              data, "expenseByCategory", "rName", "amount",
+            ),
+            city_rows: dashboard_v3_city_rows(data),
+            funnel_rows: dashboard_v3_pair_rows(
+              data, "funnel", "stage", "value",
+            ),
+            top_unpaid_rows: dashboard_v3_contract_rows(data, "topUnpaid"),
+            top_approving_rows: dashboard_v3_contract_rows(data, "topApproving"),
+            top_overbudget_rows: dashboard_v3_pair_rows(
+              data, "topOverbudget", "subject", "used",
+            ),
+            top_gap_rows: dashboard_v3_pair_rows(
+              data, "topGap", "planPeriod", "net",
+            ),
+          }
+        }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
+  (snapshot.health_rows.length() > 0 || snapshot.scope != "", snapshot)
 }
 
 ///|
@@ -5478,6 +5735,16 @@ fn load_dashboard_v2(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(DashboardV2Loaded(body))
       Err(_) => emit(DashboardV2LoadFailed)
+    }
+  })
+}
+
+///|
+fn load_dashboard_v3(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/dashboard/v3/group").expect_text(result => {
+    match result {
+      Ok(body) => emit(DashboardV3Loaded(body))
+      Err(_) => emit(DashboardV3LoadFailed)
     }
   })
 }
@@ -8163,14 +8430,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dashboard_funnel_rows: dashboard_funnel_rows_from_body(body),
         },
       )
-    DashboardAnomaliesLoaded(body) =>
+    DashboardAnomaliesLoaded(body) => {
+      let command = if model.page == "/dashboard-v3" {
+        load_dashboard_v3(emit)
+      } else {
+        load_dashboard_v2(emit)
+      }
       (
-        load_dashboard_v2(emit),
+        command,
         {
           ..model,
           dashboard_anomaly_rows: dashboard_anomaly_rows_from_body(body),
         },
       )
+    }
     DashboardLoadFailed =>
       (
         none,
@@ -8234,6 +8507,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dashboard_v2_stage_rows: [],
           dashboard_v2_warning_rows: [],
           dashboard_v2_note: "驾驶舱 v2 源观察不可用 · 保留源缺口状态",
+        },
+      )
+    DashboardV3Loaded(body) => {
+      let (loaded, snapshot) = dashboard_v3_from_body(body)
+      if loaded {
+        (
+          none,
+          {
+            ..model,
+            dashboard_v3_loaded: true,
+            dashboard_v3: snapshot,
+            dashboard_v3_note: "已加载 PostgreSQL 驾驶舱 v3 源观察 · 仅读 · 金额按万元展示",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            dashboard_v3_loaded: false,
+            dashboard_v3: empty_dashboard_v3(),
+            dashboard_v3_note: "驾驶舱 v3 响应无效 · 不显示合成管理指标",
+          },
+        )
+      }
+    }
+    DashboardV3LoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          dashboard_v3_loaded: false,
+          dashboard_v3: empty_dashboard_v3(),
+          dashboard_v3_note: "驾驶舱 v3 源观察不可用 · 保留源缺口状态",
         },
       )
     AdminQualityLoaded(body) =>
@@ -11130,6 +11437,127 @@ fn dashboard_v2_panel(model : Model) -> @html.Html {
 }
 
 ///|
+fn dashboard_v3_pair_table(
+  headers : Array[String],
+  rows : Array[DashboardV3PairRow],
+) -> @html.Html {
+  let rendered : Array[Array[String]] = []
+  if rows.length() == 0 {
+    rendered.push(["—", "源表为空"])
+  } else {
+    for row in rows {
+      rendered.push([row.label, row.value])
+    }
+  }
+  data_table(headers, rendered)
+}
+
+///|
+fn dashboard_v3_panel(model : Model) -> @html.Html {
+  if model.dashboard_v3_loaded {
+    let snapshot = model.dashboard_v3
+    let city_rows : Array[Array[String]] = []
+    if snapshot.city_rows.length() == 0 {
+      city_rows.push(["—", "0", "0"])
+    } else {
+      for row in snapshot.city_rows {
+        city_rows.push([row.name, row.expense, row.revenue])
+      }
+    }
+    let contract_rows : Array[Array[String]] = []
+    for row in snapshot.top_unpaid_rows {
+      contract_rows.push(["已签/付款", row.code, row.name, row.amount])
+    }
+    for row in snapshot.top_approving_rows {
+      contract_rows.push(["审批中", row.code, row.name, row.amount])
+    }
+    if contract_rows.length() == 0 {
+      contract_rows.push(["—", "—", "源表为空", "0"])
+    }
+    div(class="erp-dashboard-v2-grid") <| [
+      table_panel(
+        "驾驶舱 v3 · 综合指标",
+        model.dashboard_v3_note +
+        " · " +
+        snapshot.scope +
+        " · 缺失/空源表 " +
+        snapshot.missing_table_count,
+        data_table(
+          [
+            "健康评分", "收入", "支出", "净利润", "利润率", "现金月数",
+            "客户", "签约", "放款", "进行中进度", "进行中招标", "开放预警",
+            "运行流程",
+          ],
+          [
+            [
+              snapshot.health_score,
+              snapshot.total_revenue,
+              snapshot.total_expense,
+              snapshot.net_profit,
+              snapshot.net_profit_rate,
+              snapshot.cashflow_months,
+              snapshot.customer_count,
+              snapshot.signed_count,
+              snapshot.mortgage_count,
+              snapshot.progress_active + "/" + snapshot.progress_done,
+              snapshot.tender_active_count,
+              snapshot.open_warnings,
+              snapshot.running_processes,
+            ],
+          ],
+        ),
+      ),
+      table_panel(
+        "健康评分拆解",
+        "评分 / 权重 · 源观察",
+        dashboard_v3_pair_table(
+          ["维度", "评分 / 权重"],
+          snapshot.health_rows,
+        ),
+      ),
+      table_panel(
+        "费用按科目",
+        "金额单位：万元 · 缺失科目保持空状态",
+        dashboard_v3_pair_table(["科目", "金额"], snapshot.expense_rows),
+      ),
+      table_panel(
+        "公司费用与收入",
+        "公司级源行 · 金额单位：万元",
+        data_table(["公司", "费用", "收入"], city_rows),
+      ),
+      table_panel(
+        "销售漏斗",
+        "客户、认筹、签约、放款、退房",
+        dashboard_v3_pair_table(["阶段", "数量"], snapshot.funnel_rows),
+      ),
+      table_panel(
+        "合同重点",
+        "已签/付款与审批中合同 · 金额按源接口展示",
+        data_table(
+          ["状态", "合同号", "合同名称", "金额"],
+          contract_rows,
+        ),
+      ),
+      table_panel(
+        "预算与资金缺口",
+        "超预算与负向资金计划均为源观察",
+        dashboard_v3_pair_table(
+          ["项目", "数值"],
+          snapshot.top_overbudget_rows,
+        ),
+      ),
+      table_panel(
+        "资金缺口周期",
+        "计划净额 < 0 的周期",
+        dashboard_v3_pair_table(["周期", "净额"], snapshot.top_gap_rows),
+      ),
+    ]
+  } else {
+    div(class="erp-runtime-empty dashboard-v2-empty", model.dashboard_v3_note)
+  }
+}
+
+///|
 fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let company_projects = if model.dashboard_loaded {
     model.dashboard_company_count + " / " + model.dashboard_project_count
@@ -11223,7 +11651,11 @@ fn dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ],
       ],
     ],
-    dashboard_v2_panel(model),
+    if model.page == "/dashboard-v3" {
+      dashboard_v3_panel(model)
+    } else {
+      dashboard_v2_panel(model)
+    },
     p(
       class="erp-dashboard-note",
       model.dashboard_note +

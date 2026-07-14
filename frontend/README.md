@@ -27,10 +27,11 @@ PostgreSQL projection summary through the fixed read-only development adapter
 runtime is available separately as `scripts/company_postgres_service.py`. The
 dashboard group overview, stage funnel, and top-anomaly panels now load the
 bounded source-backed cockpit reads in sequence, followed by a separate
-read-only v2 KPI/payment-trend/stage/warning panel; project KPI/anomaly
-deep-link reads are available through the same service. Missing source tables
-remain visible, and the v3 cockpit aggregate stays gated rather than being
-shown as management truth. Its
+read-only v2 KPI/payment-trend/stage/warning panel; `/dashboard-v3` also
+mounts the source-shaped v3 health/KPI/expense/city/funnel/contract/gap
+observations. Project KPI/anomaly deep-link reads are available through the
+same service. Missing source tables remain visible, and the v3 panel is
+explicitly an observation surface rather than management truth. Its
 local command verticals include the expense lifecycle documented in
 `docs/ERP_EXPENSE_RUNTIME_VERTICAL.md`, the contract lifecycle documented in
 `docs/ERP_CONTRACT_RUNTIME_VERTICAL.md`, and the payment-application lifecycle

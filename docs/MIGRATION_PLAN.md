@@ -933,9 +933,10 @@ responses; health runtime metrics are explicitly unavailable and no provider
 ping is performed. The parity matrix now has explicit boundaries for every
 source GET/HEAD handler, including the PostgreSQL backup-export boundary and
 supplier signature-check boundary. Rabbita now mounts the v2 response as a
-read-only KPI/trend/stage/warning panel; v3 remains unmounted and its API
-observation reports the 16 absent cross-domain tables explicitly. Production
-identity, browser scope acceptance, and owner reconciliation remain open.
+read-only KPI/trend/stage/warning panel and mounts the v3 aggregate sections
+on `/dashboard-v3`; the v3 observation still reports the 16 absent
+cross-domain tables explicitly. Production identity, browser scope
+acceptance, and owner reconciliation remain open.
 
 **Investment Excel observation checkpoint (2026-07-14).** The service now
 preserves the source boundary for import detail, bridge-plan, index-upsert
@@ -946,10 +947,10 @@ source-style missing-record boundary, while plan-line and mapping reads return
 empty data with coverage metadata. Smoke evidence covers all of these paths
 without upload, write, provider execution, or designer fixture substitution.
 Profit-actual remains gated because the source route simulates sparse actuals;
-dashboard v3 and investment profit-actual are now bounded API observations,
-while attachment download, PostgreSQL backup export, and supplier signature
-checking have explicit boundaries. None is a mounted or accepted production
-capability.
+dashboard v3 and investment profit-actual are now bounded observations, with
+the v3 aggregate mounted as a read-only panel; attachment download,
+PostgreSQL backup export, and supplier signature checking have explicit
+boundaries. None is an accepted production capability.
 
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
@@ -1165,7 +1166,8 @@ sales, invoice, delivery, dashboard v1, core reports, employee-loan,
 workflow-definition, AI analytics, AI Hub observation, webhook metadata,
    report-builder metadata, cost-dashboard v3, and dashboard-v2/v3 reads; the
    three dashboard aliases still represent the bounded source-backed v1 read;
-   Rabbita also mounts the scoped v2 observation while v3 remains API-only. The remaining browser views
+   Rabbita also mounts the scoped v2 observation and the `/dashboard-v3`
+   aggregate panel. The remaining browser views
 and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
