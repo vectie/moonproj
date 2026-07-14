@@ -73,7 +73,7 @@ metadata-only 26-table/120-row inventory. Mapped, typed-staged, planned, and emp
 tables are all represented in the shadow plan, so the current small fixture is
 not mistaken for complete ERP coverage.
 
-`scripts/erp_schema_gap_report.py` makes that boundary executable: it parses
+MoonBit `cmd/schema_gap`, invoked through `scripts/erp_schema_gap_report.sh`, makes that boundary executable: it parses
 the authoritative `erp_new/server/src/db/index.js` initializer, compares its
 75 table definitions with the export manifest, assigns each table to a
 baseline capability ID (for example `SAL-01`, `SRM-04`, `WF-03`, or `FIN-09`),

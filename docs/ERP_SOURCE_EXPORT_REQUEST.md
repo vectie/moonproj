@@ -4,7 +4,8 @@ Recorded: 2026-07-13
 Status: generated handoff; source export pending
 
 The available artifact is a 26-table snapshot, while the authoritative ERP
-schema defines 75 tables. `scripts/erp_source_export_request.py` generates a
+schema defines 75 tables. `cmd/source_export_request`, invoked through
+`scripts/erp_source_export_request.sh`, generates a
 machine-readable request for exactly the 49 missing tables, using the seven
 ordered schema waves and their capability IDs.
 
