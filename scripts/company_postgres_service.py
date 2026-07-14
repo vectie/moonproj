@@ -35,6 +35,10 @@ The bounded service exposes these endpoints:
   and payment observations)
 * ``/api/company/source/cost/contracts/<id>`` (PUT/DELETE local-command
   aliases; imported contracts remain read-only)
+* ``/api/company/source/cost/contracts/<id>/milestones`` (POST single or
+  batch milestone command) and ``/api/company/source/cost/milestones/<id>``
+  (PUT/DELETE milestone command), plus ``/trigger-event`` (POST); imported
+  milestones remain read-only and no cash/accounting/tax effect is emitted
 * ``/api/company/source/cost/payment-applies`` (POST create alias) and
   ``/api/company/source/cost/payment-applies/<id>`` (PUT/DELETE local-command
   aliases; imported applications remain read-only)
@@ -472,6 +476,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "expense_detail_read",
             "contract_command",
             "contract_source_command_alias",
+            "contract_milestone_source_command_alias",
             "dynamic_cost_source_command_alias",
             "payment_application_read",
             "payment_application_command",
@@ -541,6 +546,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "expense_detail_read",
             "contract_command",
             "contract_source_command_alias",
+            "contract_milestone_source_command_alias",
             "dynamic_cost_source_command_alias",
             "payment_application_read",
             "payment_application_command",
@@ -1109,11 +1115,24 @@ def contracts(pool: PsqlPool, contract_id: str | None, max_rows: int) -> list[di
       WHERE record_type = 'legacy/raw/cb_htfk_apply'
     ),
     milestone_counts AS (
-      SELECT payload->'candidate'->'milestone'->>'contract_guid' AS contract_id,
-             count(*)::text AS milestone_count
-      FROM company_aggregate_projection
-      WHERE aggregate_type = 'contract_milestone'
-      GROUP BY payload->'candidate'->'milestone'->>'contract_guid'
+      SELECT contract_id, count(*)::text AS milestone_count
+      FROM (
+        SELECT payload->'candidate'->'milestone'->>'contract_guid' AS contract_id,
+               payload->>'state' AS state
+        FROM company_aggregate_projection
+        WHERE aggregate_type = 'contract_milestone'
+        UNION ALL
+        SELECT payload->>'contract_id' AS contract_id,
+               payload->>'state' AS state
+        FROM (
+          SELECT DISTINCT ON (aggregate_id) payload
+          FROM company_aggregate_projection
+          WHERE aggregate_type = 'contract_milestone_command'
+          ORDER BY aggregate_id, revision DESC
+        ) latest_command
+      ) milestones
+      WHERE coalesce(state, '') <> 'deleted'
+      GROUP BY contract_id
     ),
     payment_totals AS (
       SELECT payload->>'contract_guid' AS contract_id,
@@ -1156,42 +1175,140 @@ def contracts(pool: PsqlPool, contract_id: str | None, max_rows: int) -> list[di
     return result
 
 
-def contract_milestones(pool: PsqlPool, contract_id: str, max_rows: int) -> list[dict[str, Any]]:
-    if not IDENTIFIER.fullmatch(contract_id):
+def _milestone_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _latest_contract_milestone_rows(
+    pool: PsqlPool,
+    contract_id: str | None,
+    max_rows: int,
+    *,
+    include_deleted: bool = False,
+) -> list[dict[str, Any]]:
+    """Normalize imported and local milestone projections into one read shape."""
+
+    if contract_id is not None and not IDENTIFIER.fullmatch(contract_id):
         raise ValueError("invalid contract_id")
     query = f"""
-    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
-           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'node_name', ''), 'UTF8'), 'hex'),
-           coalesce(payload->'candidate'->'milestone'->>'plan_amount_minor', '0'),
-           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'plan_pct_bps', '0'), 'UTF8'), 'hex'),
-           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'trigger_type', ''), 'UTF8'), 'hex'),
-           encode(convert_to(coalesce(payload->'candidate'->'milestone'->>'contract_guid', ''), 'UTF8'), 'hex')
-    FROM company_aggregate_projection
-    WHERE aggregate_type = 'contract_milestone'
-      AND payload->'candidate'->'milestone'->>'contract_guid' = {sql_literal(contract_id)}
+    SELECT aggregate_type, aggregate_id,
+           encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_type, aggregate_id)
+             aggregate_type, aggregate_id, payload
+      FROM company_aggregate_projection
+      WHERE aggregate_type IN ('contract_milestone', 'contract_milestone_command')
+      ORDER BY aggregate_type, aggregate_id, revision DESC
+    ) latest
+    {"" if include_deleted else "WHERE coalesce(payload->>'state', '') <> 'deleted'"}
     ORDER BY aggregate_id
-    LIMIT {max_rows}
+    LIMIT {max(max_rows, 500)}
     """
     result: list[dict[str, Any]] = []
     for line in query_lines(pool, query):
-        fields = line.split("|")
-        if len(fields) != 6:
-            raise ServiceError("unexpected contract milestone shape")
+        fields = line.split("|", 2)
+        if len(fields) != 3:
+            raise ServiceError("unexpected contract milestone projection shape")
+        aggregate_type, aggregate_id = fields[0], fields[1]
         try:
-            result.append(
-                {
-                    "milestone_id": decode_hex(fields[0]),
-                    "node_name": decode_hex(fields[1]),
-                    "plan_amount_minor": int(fields[2]),
-                    "plan_amount_display": f"¥{int(fields[2]) / 100:,.2f}",
-                    "plan_pct_bps": decode_hex(fields[3]),
-                    "trigger_type": decode_hex(fields[4]),
-                    "contract_id": decode_hex(fields[5]),
-                }
-            )
-        except (ValueError, UnicodeDecodeError) as error:
-            raise ServiceError("invalid contract milestone encoding") from error
+            payload = json.loads(decode_hex(fields[2]))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ServiceError("invalid contract milestone projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("contract milestone projection is not an object")
+        if aggregate_type == "contract_milestone_command":
+            source = payload
+            source_kind = "command"
+            source_id = "moonproj:command:contract_milestone:" + aggregate_id
+        else:
+            candidate = payload.get("candidate", {})
+            source = candidate.get("milestone", {}) if isinstance(candidate, dict) else {}
+            if not isinstance(source, dict):
+                source = {}
+            source_kind = "imported"
+            source_id = str(payload.get("source_id") or aggregate_id)
+        normalized = {
+            "milestone_id": str(source.get("milestone_id") or source.get("milestone_guid") or aggregate_id),
+            "contract_id": str(source.get("contract_id") or source.get("contract_guid") or ""),
+            "sequence": _milestone_int(source.get("sequence", source.get("seq", 0))),
+            "node_name": str(source.get("node_name") or ""),
+            "trigger_type": str(source.get("trigger_type") or ""),
+            "trigger_value": str(source.get("trigger_value") or ""),
+            "plan_date": str(source.get("plan_date") or ""),
+            "plan_amount_minor": _milestone_int(source.get("plan_amount_minor")),
+            "plan_pct_bps": _milestone_int(source.get("plan_pct_bps")),
+            "actual_amount_minor": _milestone_int(source.get("actual_amount_minor")),
+            "state": str(payload.get("state") or source.get("state") or "pending"),
+            "reached_at": str(payload.get("reached_at") or source.get("reached_at") or ""),
+            "notes": str(source.get("notes") or payload.get("notes") or ""),
+            "source_kind": source_kind,
+            "source_id": source_id,
+            "command_projection": source_kind == "command",
+            "persisted": source_kind == "command",
+            "provider_execution": False,
+            "cash_effect": False,
+            "accounting_effect": False,
+            "tax_effect": False,
+        }
+        if contract_id is not None and normalized["contract_id"] != contract_id:
+            continue
+        result.append(normalized)
     return result
+
+
+def _milestone_source_row(
+    item: dict[str, Any],
+    tasks: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    tasks = tasks or {}
+    task = tasks.get(str(item.get("trigger_value") or ""), {})
+    plan_minor = int(item.get("plan_amount_minor") or 0)
+    actual_minor = int(item.get("actual_amount_minor") or 0)
+    pct_bps = int(item.get("plan_pct_bps") or 0)
+    result = {
+        "milestoneGuid": str(item.get("milestone_id") or ""),
+        "seq": int(item.get("sequence") or 0),
+        "nodeName": str(item.get("node_name") or ""),
+        "triggerType": str(item.get("trigger_type") or ""),
+        "triggerValue": str(item.get("trigger_value") or ""),
+        "triggerTaskName": str(task.get("task_name") or ""),
+        "triggerTaskStatus": str(task.get("status") or ""),
+        "planDate": str(item.get("plan_date") or ""),
+        "planAmount": plan_minor / 100,
+        "planPct": pct_bps / 100,
+        "actualAmount": actual_minor / 100,
+        "state": str(item.get("state") or "pending"),
+        "reachedAt": str(item.get("reached_at") or ""),
+        "notes": str(item.get("notes") or ""),
+        "sourceKind": str(item.get("source_kind") or "imported"),
+        "sourceId": str(item.get("source_id") or ""),
+        "command_projection": item.get("command_projection") is True,
+        "authorizing": False,
+        "persisted": item.get("persisted") is True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+        # Compatibility fields used by the native contract detail read.
+        "milestone_id": str(item.get("milestone_id") or ""),
+        "node_name": str(item.get("node_name") or ""),
+        "plan_amount_minor": plan_minor,
+        "plan_amount_display": f"¥{plan_minor / 100:,.2f}",
+        "plan_pct_bps": str(pct_bps),
+        "trigger_type": str(item.get("trigger_type") or ""),
+        "contract_id": str(item.get("contract_id") or ""),
+    }
+    return result
+
+
+def contract_milestones(pool: PsqlPool, contract_id: str, max_rows: int) -> list[dict[str, Any]]:
+    return [
+        _milestone_source_row(item)
+        for item in _latest_contract_milestone_rows(pool, contract_id, max_rows)
+    ]
 
 
 COST_SOURCE_TABLES = {
@@ -1318,7 +1435,11 @@ def _cost_source_contract_row(
     return result
 
 
-def _cost_source_contract_command_row(item: dict[str, Any]) -> dict[str, Any]:
+def _cost_source_contract_command_row(
+    item: dict[str, Any],
+    *,
+    milestone_count: int = 0,
+) -> dict[str, Any]:
     contract_id = str(item.get("contract_id") or "")
     amount_minor = int(item.get("amount_minor") or 0)
     state = str(item.get("state") or "draft")
@@ -1365,7 +1486,8 @@ def _cost_source_contract_command_row(item: dict[str, Any]) -> dict[str, Any]:
         "sign_date": str(item.get("sign_date") or ""),
         "state": state,
         "paid_amount_display": "¥0.00",
-        "milestone_count": "0",
+        "milestoneCount": milestone_count,
+        "milestone_count": str(milestone_count),
         "source_kind": "command",
         "command_projection": True,
         "authorizing": False,
@@ -1456,7 +1578,13 @@ def cost_source_contracts(
             ).casefold()
             if needle not in haystack:
                 continue
-        result.append(_cost_source_contract_command_row(item))
+        command_milestone_count = len(_latest_contract_milestone_rows(pool, current_id, max_rows))
+        result.append(
+            _cost_source_contract_command_row(
+                item,
+                milestone_count=command_milestone_count,
+            )
+        )
     result.sort(key=lambda item: (str(item.get("signDate", "")), str(item.get("contractGuid", ""))), reverse=True)
     coverage = _cost_source_coverage(pool, max_rows)
     return {
@@ -1562,6 +1690,15 @@ def cost_source_contract_detail(
             "reachedAt": _report_text(payload, "reached_at"),
             "notes": _report_text(payload, "notes"),
         })
+    command_milestones = _latest_contract_milestone_rows(pool, contract_id, max_rows)
+    task_rows = {
+        _report_text(row["payload"], "task_guid", row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "jd_task", max(max_rows, 500), COST_SOURCE_TABLES)
+    }
+    for item in command_milestones:
+        if item.get("source_kind") == "command":
+            milestones.append(_milestone_source_row(item, task_rows))
+    milestones.sort(key=lambda item: (int(item.get("seq") or 0), str(item.get("milestoneGuid") or "")))
     contract["plans"] = plans
     contract["applies"] = applies
     contract["milestones"] = milestones
@@ -5723,6 +5860,528 @@ def contract_command(
     if not isinstance(result, dict):
         raise ServiceError("contract command receipt has no result")
     return {"command": receipt, "contract": result, "idempotent_replay": not created}
+
+
+def _milestone_body_value(body: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in body:
+            return body[key]
+    return None
+
+
+def _milestone_text_value(
+    body: dict[str, Any],
+    *keys: str,
+    required: bool = False,
+    identifier: bool = False,
+) -> str:
+    value = _milestone_body_value(body, *keys)
+    if value is None:
+        if required:
+            raise CommandRejected(f"{keys[0]} is required", 422)
+        return ""
+    if not isinstance(value, str) or not value.strip():
+        if required:
+            raise CommandRejected(f"{keys[0]} is required", 422)
+        raise CommandRejected(f"{keys[0]} must be text", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _milestone_plan_pct_bps(body: dict[str, Any], *, default: int = 0) -> int:
+    value = _milestone_body_value(body, "planPct", "plan_pct", "plan_pct_bps")
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        raise CommandRejected("planPct must be a decimal number", 422)
+    if "plan_pct_bps" in body and "planPct" not in body and "plan_pct" not in body:
+        if not isinstance(value, int) or value < 0 or value > 10000:
+            raise CommandRejected("plan_pct_bps must be between 0 and 10000", 422)
+        return value
+    return _source_decimal_minor({"planPct": value}, "planPct", scale=100, minimum=0, maximum=10000)
+
+
+def _milestone_plan_amount_minor(body: dict[str, Any], *, default: int = 0) -> int:
+    value = _milestone_body_value(body, "planAmount", "plan_amount", "plan_amount_minor")
+    if value is None:
+        return default
+    if "plan_amount_minor" in body and "planAmount" not in body and "plan_amount" not in body:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise CommandRejected("plan_amount_minor must be a non-negative integer", 422)
+        return value
+    return _source_decimal_minor({"planAmount": value}, "planAmount", minimum=0)
+
+
+def _milestone_parent_contract(
+    pool: PsqlPool,
+    contract_id: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(contract_id):
+        raise CommandRejected("contractGuid contains unsupported characters", 422)
+    rows = contracts(pool, contract_id, 1)
+    if not rows:
+        raise CommandRejected("合同不存在", 404)
+    contract = rows[0]
+    if contract.get("source_kind") != "command":
+        raise CommandRejected("imported contract is read-only; create a local command contract first", 409)
+    if str(contract.get("state") or "") == "deleted":
+        raise CommandRejected("contract is voided", 409)
+    return contract
+
+
+def _milestone_create_items(
+    body: dict[str, Any],
+    *,
+    contract_id: str,
+    contract_amount_minor: int,
+    first_sequence: int,
+    idempotency_key: str,
+) -> list[dict[str, Any]]:
+    raw_list = body.get("milestones")
+    if raw_list is None:
+        raw_list = [body] if _milestone_body_value(body, "nodeName", "node_name") is not None else []
+    if not isinstance(raw_list, list) or not raw_list:
+        raise CommandRejected("至少传 1 个节点", 400)
+    if len(raw_list) > 100 or any(not isinstance(item, dict) for item in raw_list):
+        raise CommandRejected("milestones must contain at most 100 objects", 422)
+    result: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_list):
+        milestone_id = _milestone_text_value(
+            raw,
+            "milestoneGuid",
+            "milestone_guid",
+            "milestone_id",
+            identifier=True,
+        )
+        if not milestone_id:
+            milestone_id = f"MS-SRC-{idempotency_key}-{index + 1}"
+        node_name = _milestone_text_value(raw, "nodeName", "node_name", required=True)
+        trigger_type = _milestone_text_value(raw, "triggerType", "trigger_type", required=True).lower()
+        if trigger_type not in {"time", "progress", "event"}:
+            raise CommandRejected("triggerType 非法", 400)
+        trigger_value = _milestone_text_value(raw, "triggerValue", "trigger_value")
+        plan_date = _milestone_text_value(raw, "planDate", "plan_date")
+        notes = _milestone_text_value(raw, "notes")
+        plan_pct_bps = _milestone_plan_pct_bps(raw)
+        plan_amount_minor = _milestone_plan_amount_minor(raw)
+        if plan_amount_minor == 0 and plan_pct_bps > 0 and contract_amount_minor > 0:
+            plan_amount_minor = round(contract_amount_minor * plan_pct_bps / 10000)
+        sequence_value = _milestone_body_value(raw, "seq", "sequence")
+        if sequence_value is None:
+            sequence = first_sequence + index
+        elif isinstance(sequence_value, bool) or not isinstance(sequence_value, int) or sequence_value <= 0:
+            raise CommandRejected("seq must be a positive integer", 422)
+        else:
+            sequence = sequence_value
+        result.append(
+            {
+                "milestone_id": milestone_id,
+                "contract_id": contract_id,
+                "sequence": sequence,
+                "node_name": node_name,
+                "trigger_type": trigger_type,
+                "trigger_value": trigger_value,
+                "plan_date": plan_date,
+                "plan_amount_minor": plan_amount_minor,
+                "plan_pct_bps": plan_pct_bps,
+                "actual_amount_minor": 0,
+                "state": "pending",
+                "reached_at": "",
+                "notes": notes,
+            }
+        )
+    return result
+
+
+def _milestone_update_request(
+    milestone_id: str,
+    body: dict[str, Any],
+    actor_id: str,
+) -> dict[str, Any]:
+    request: dict[str, Any] = {
+        "command_type": "update",
+        "milestone_id": milestone_id,
+        "actor_id": actor_id,
+    }
+    text_fields = {
+        "nodeName": "node_name",
+        "node_name": "node_name",
+        "triggerValue": "trigger_value",
+        "trigger_value": "trigger_value",
+        "planDate": "plan_date",
+        "plan_date": "plan_date",
+        "notes": "notes",
+    }
+    for source_key, target_key in text_fields.items():
+        if source_key in body:
+            value = body[source_key]
+            if not isinstance(value, str):
+                raise CommandRejected(f"{source_key} must be text", 422)
+            request[target_key] = value.strip()
+    if "triggerType" in body or "trigger_type" in body:
+        value = _milestone_text_value(body, "triggerType", "trigger_type", required=True).lower()
+        if value not in {"time", "progress", "event"}:
+            raise CommandRejected("triggerType 非法", 400)
+        request["trigger_type"] = value
+    if any(key in body for key in ("planAmount", "plan_amount", "plan_amount_minor")):
+        request["plan_amount_minor"] = _milestone_plan_amount_minor(body)
+    if any(key in body for key in ("planPct", "plan_pct", "plan_pct_bps")):
+        request["plan_pct_bps"] = _milestone_plan_pct_bps(body)
+    if "state" in body:
+        state = body["state"]
+        if not isinstance(state, str) or state not in {"pending", "reached", "paid", "overdue", "over_paid"}:
+            raise CommandRejected("state 非法", 400)
+        request["state"] = state
+    if len(request) == 3:
+        raise CommandRejected("milestone update requires a mutable field", 422)
+    return request
+
+
+def _milestone_command_request(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    contract_id: str | None,
+    milestone_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> tuple[str | None, dict[str, Any], dict[str, Any] | None]:
+    if command_type not in {"create", "update", "delete", "trigger_event"}:
+        raise CommandRejected("unsupported contract milestone command", 404)
+    if command_type == "create":
+        if contract_id is None or not IDENTIFIER.fullmatch(contract_id):
+            raise CommandRejected("contractGuid is required", 422)
+        parent = _milestone_parent_contract(pool, contract_id)
+        existing = _latest_contract_milestone_rows(pool, contract_id, 500, include_deleted=True)
+        max_sequence = max(
+            [int(item.get("sequence") or 0) for item in existing if item.get("source_kind") == "command"]
+            or [0]
+        )
+        raw_source = _raw_source_rows(pool, "cb_contract_milestone", 500, COST_SOURCE_TABLES)
+        max_sequence = max(
+            max_sequence,
+            max(
+                [
+                    _milestone_int(row["payload"].get("seq"))
+                    for row in raw_source
+                    if str(row["payload"].get("contract_guid") or "") == contract_id
+                ]
+                or [0],
+            ),
+        )
+        items = _milestone_create_items(
+            body,
+            contract_id=contract_id,
+            contract_amount_minor=int(parent.get("amount_minor") or 0),
+            first_sequence=max_sequence + 1,
+            idempotency_key=idempotency_key,
+        )
+        return None, {
+            "command_type": command_type,
+            "contract_id": contract_id,
+            "milestones": items,
+            "actor_id": actor_id,
+        }, parent
+    if milestone_id is None or not IDENTIFIER.fullmatch(milestone_id):
+        raise CommandRejected("milestoneGuid is required", 422)
+    current_rows = _latest_contract_milestone_rows(pool, None, 500, include_deleted=True)
+    current = next((item for item in current_rows if item.get("milestone_id") == milestone_id), None)
+    if current is None:
+        raise CommandRejected("节点不存在", 404)
+    if current.get("source_kind") != "command":
+        raise CommandRejected("imported milestone is read-only; create a local milestone first", 409)
+    if contract_id is not None and str(current.get("contract_id") or "") != contract_id:
+        raise CommandRejected("milestone does not belong to contract", 409)
+    if command_type == "update":
+        if current.get("state") == "deleted":
+            raise CommandRejected("节点已作废", 409)
+        return milestone_id, _milestone_update_request(milestone_id, body, actor_id), current
+    if command_type == "delete":
+        if current.get("state") == "deleted":
+            raise CommandRejected("节点已作废", 409)
+        if int(current.get("actual_amount_minor") or 0) > 0:
+            raise CommandRejected("该节点已有付款,不可删除", 400)
+        reason = body.get("reason", "")
+        if not isinstance(reason, str):
+            raise CommandRejected("reason must be text", 422)
+        return milestone_id, {
+            "command_type": command_type,
+            "milestone_id": milestone_id,
+            "reason": reason.strip(),
+            "actor_id": actor_id,
+        }, current
+    if current.get("state") != "pending" or current.get("trigger_type") != "event":
+        raise CommandRejected("仅 pending event 类节点支持手工打点", 400)
+    return milestone_id, {
+        "command_type": command_type,
+        "milestone_id": milestone_id,
+        "reached_at": date.today().isoformat(),
+        "actor_id": actor_id,
+    }, current
+
+
+def contract_milestone_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    contract_id: str | None,
+    milestone_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    existing = _existing_command(pool, idempotency_key)
+    request_body = body
+    if existing is not None and command_type == "create":
+        stored_request = existing.get("request")
+        stored_items = stored_request.get("milestones", []) if isinstance(stored_request, dict) else []
+        if isinstance(stored_items, list):
+            request_body = dict(body)
+            if isinstance(body.get("milestones"), list):
+                request_body["milestones"] = [
+                    dict(item) if isinstance(item, dict) else item
+                    for item in body["milestones"]
+                ]
+                for index, item in enumerate(request_body["milestones"]):
+                    if isinstance(item, dict) and index < len(stored_items) and isinstance(stored_items[index], dict):
+                        item.setdefault("seq", stored_items[index].get("sequence"))
+            elif stored_items and isinstance(stored_items[0], dict):
+                request_body["seq"] = stored_items[0].get("sequence")
+    milestone_id, request, _current = _milestone_command_request(
+        pool,
+        command_type=command_type,
+        contract_id=contract_id,
+        milestone_id=milestone_id,
+        body=request_body,
+        actor_id=actor_id,
+        idempotency_key=idempotency_key,
+    )
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored contract milestone command receipt has no result")
+        return {"command": existing, "milestone": result, "idempotent_replay": True}
+    if command_type == "create":
+        current_rows = _latest_contract_milestone_rows(
+            pool, str(request.get("contract_id") or ""), 500, include_deleted=True,
+        )
+        active_ids = {
+            str(item.get("milestone_id") or "")
+            for item in current_rows
+            if str(item.get("state") or "") != "deleted"
+        }
+        raw_source = _raw_source_rows(pool, "cb_contract_milestone", 500, COST_SOURCE_TABLES)
+        seen: set[str] = set()
+        for item in request.get("milestones", []):
+            current_id = str(item.get("milestone_id") or "")
+            if current_id in seen or current_id in active_ids:
+                raise CommandRejected("milestone already exists", 409)
+            if any(
+                str(row["payload"].get("milestone_guid") or row["record_id"]) == current_id
+                for row in raw_source
+            ):
+                raise CommandRejected("imported milestone is read-only; use a new local milestone id", 409)
+            seen.add(current_id)
+    event_id = f"contract-milestone:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "contract_id": request.get("contract_id") or (_current or {}).get("contract_id", ""),
+            "milestone_id": milestone_id or "",
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    request_literal = sql_literal(request_json)
+    if command_type == "create":
+        result_expression = (
+            "jsonb_build_object('contract_id', request_payload->>'contract_id', "
+            "'created', created_ids, 'state', 'pending', 'event_id', "
+            f"{sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)}, "
+            "'actor_id', request_payload->>'actor_id')"
+        )
+    else:
+        result_expression = (
+            "jsonb_build_object('milestone_id', milestone_id, 'state', next_state, "
+            "'revision', next_revision, 'event_id', "
+            f"{sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)}, "
+            "'actor_id', request_payload->>'actor_id')"
+        )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      request_payload jsonb;
+      item jsonb;
+      current_payload jsonb;
+      next_payload jsonb;
+      created_ids jsonb := '[]'::jsonb;
+      milestone_id text;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      request_payload := {request_literal}::jsonb;
+      IF {sql_literal(command_type)} <> 'create' THEN
+        milestone_id := {sql_literal(milestone_id or '')};
+      END IF;
+      IF {sql_literal(command_type)} = 'create' THEN
+        FOR item IN SELECT value FROM jsonb_array_elements(request_payload->'milestones') LOOP
+          milestone_id := item->>'milestone_id';
+          SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+          FROM company_aggregate_projection p
+          WHERE p.aggregate_type = 'contract_milestone_command'
+            AND p.aggregate_id = milestone_id;
+          next_payload := item || jsonb_build_object(
+            'command_type', 'create', 'source_kind', 'command', 'state', 'pending',
+            'event_id', {sql_literal(event_id)}, 'updated_by', request_payload->>'actor_id');
+          INSERT INTO company_aggregate_projection(
+            aggregate_type, aggregate_id, revision, payload, source_event_id
+          ) VALUES ('contract_milestone_command', milestone_id, next_revision,
+            next_payload, {sql_literal(event_id)} || ':' || milestone_id);
+          INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+          VALUES ('company_audit_event', {sql_literal(audit_id)} || ':' || milestone_id, 4,
+            jsonb_build_object('audit_id', {sql_literal(audit_id)} || ':' || milestone_id,
+              'action', 'contract_milestone.create', 'aggregate_type', 'contract_milestone',
+              'aggregate_id', milestone_id, 'contract_id', request_payload->>'contract_id',
+              'actor_id', request_payload->>'actor_id', 'event_id', {sql_literal(event_id)},
+              'state', 'pending', 'revision', next_revision),
+            {sql_literal('moonproj:audit:' + event_id)} || ':' || milestone_id);
+          created_ids := created_ids || jsonb_build_array(milestone_id);
+        END LOOP;
+        result := {result_expression};
+      ELSE
+        SELECT p.payload INTO current_payload
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'contract_milestone_command'
+          AND p.aggregate_id = {sql_literal(milestone_id or '')}
+        ORDER BY p.revision DESC LIMIT 1;
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'contract milestone not found'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'contract_milestone_command'
+          AND p.aggregate_id = {sql_literal(milestone_id or '')};
+        IF {sql_literal(command_type)} = 'update' THEN
+          next_state := coalesce(request_payload->>'state', current_payload->>'state', 'pending');
+          next_payload := current_payload || jsonb_strip_nulls(jsonb_build_object(
+            'node_name', request_payload->'node_name',
+            'trigger_type', request_payload->'trigger_type',
+            'trigger_value', request_payload->'trigger_value',
+            'plan_date', request_payload->'plan_date',
+            'plan_amount_minor', request_payload->'plan_amount_minor',
+            'plan_pct_bps', request_payload->'plan_pct_bps',
+            'notes', request_payload->'notes', 'state', next_state,
+            'event_id', {sql_literal(event_id)}, 'updated_by', request_payload->>'actor_id'));
+        ELSIF {sql_literal(command_type)} = 'delete' THEN
+          next_state := 'deleted';
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'deleted_at', {sql_literal(event_id)},
+            'event_id', {sql_literal(event_id)}, 'updated_by', request_payload->>'actor_id',
+            'reason', request_payload->>'reason');
+        ELSIF {sql_literal(command_type)} = 'trigger_event' THEN
+          next_state := 'reached';
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'reached_at', request_payload->>'reached_at',
+            'event_id', {sql_literal(event_id)}, 'updated_by', request_payload->>'actor_id');
+        ELSE
+          RAISE EXCEPTION 'unsupported contract milestone command';
+        END IF;
+        INSERT INTO company_aggregate_projection(
+          aggregate_type, aggregate_id, revision, payload, source_event_id
+        ) VALUES ('contract_milestone_command', {sql_literal(milestone_id or '')}, next_revision,
+          next_payload, {sql_literal(event_id)});
+        INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+        VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+          jsonb_build_object('audit_id', {sql_literal(audit_id)},
+            'action', 'contract_milestone.' || {sql_literal(command_type)},
+            'aggregate_type', 'contract_milestone', 'aggregate_id', {sql_literal(milestone_id or '')},
+            'actor_id', request_payload->>'actor_id', 'event_id', {sql_literal(event_id)},
+            'state', next_state, 'revision', next_revision),
+          {sql_literal('moonproj:audit:' + event_id)});
+        result := {result_expression};
+      END IF;
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("contract milestone command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected contract milestone command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid contract milestone command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("contract milestone command receipt has no result")
+    return {"command": receipt, "milestone": result, "idempotent_replay": not created}
+
+
+def _source_milestone_alias_result(result: dict[str, Any]) -> dict[str, Any]:
+    milestone = result.get("milestone")
+    if not isinstance(milestone, dict):
+        raise ServiceError("contract milestone command result is missing milestone data")
+    command = result.get("command")
+    created = milestone.get("created")
+    data: dict[str, Any] = {}
+    if isinstance(created, list):
+        data["created"] = created
+        if len(created) == 1:
+            data["milestoneGuid"] = created[0]
+    else:
+        data["milestoneGuid"] = str(milestone.get("milestone_id") or "")
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "milestone": milestone,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
 
 
 def _decode_payment_application_fields(line: str) -> dict[str, Any]:
@@ -11440,7 +12099,7 @@ def cost_milestone_check(
         raise ValueError("invalid milestone_id")
     milestones = _raw_source_rows(pool, "cb_contract_milestone", max(max_rows, 500), COST_SOURCE_TABLES)
     tasks = _raw_source_rows(pool, "jd_task", max(max_rows, 500), COST_SOURCE_TABLES)
-    row = next(
+    raw_row = next(
         (
             item["payload"]
             for item in milestones
@@ -11449,14 +12108,39 @@ def cost_milestone_check(
         ),
         None,
     )
-    if row is None:
+    command_row = next(
+        (
+            item
+            for item in _latest_contract_milestone_rows(pool, None, max_rows)
+            if item.get("source_kind") == "command" and item.get("milestone_id") == milestone_id
+        ),
+        None,
+    )
+    if raw_row is None and command_row is None:
         return None
     today = date.today()
     warnings: list[dict[str, Any]] = []
     early_flag = False
     over_pay = False
-    trigger_type = str(row.get("trigger_type") or "")
-    plan_date = _report_date(row.get("plan_date"))
+    if command_row is not None:
+        trigger_type = str(command_row.get("trigger_type") or "")
+        plan_date = _report_date(command_row.get("plan_date"))
+        trigger_value = str(command_row.get("trigger_value") or "")
+        plan_amount = int(command_row.get("plan_amount_minor") or 0) / 100
+        actual_amount = int(command_row.get("actual_amount_minor") or 0) / 100
+        node_name = str(command_row.get("node_name") or "")
+        state = str(command_row.get("state") or "")
+        reached_at = str(command_row.get("reached_at") or "")
+    else:
+        row = raw_row or {}
+        trigger_type = str(row.get("trigger_type") or "")
+        plan_date = _report_date(row.get("plan_date"))
+        trigger_value = str(row.get("trigger_value") or "")
+        plan_amount = _report_float(row, "plan_amount")
+        actual_amount = _report_float(row, "actual_amount")
+        node_name = str(row.get("node_name") or "")
+        state = str(row.get("state") or "")
+        reached_at = str(row.get("reached_at") or "")
     if trigger_type == "time" and plan_date is not None and plan_date > today:
         early_flag = True
         warnings.append(
@@ -11466,12 +12150,12 @@ def cost_milestone_check(
                 "message": f"节点计划付款日 {plan_date.isoformat()}, 比今天早 {(plan_date - today).days} 天",
             }
         )
-    if trigger_type == "progress" and row.get("trigger_value"):
+    if trigger_type == "progress" and trigger_value:
         task = next(
             (
                 item["payload"]
                 for item in tasks
-                if str(item["payload"].get("task_guid") or item["record_id"]) == str(row["trigger_value"])
+                if str(item["payload"].get("task_guid") or item["record_id"]) == trigger_value
             ),
             None,
         )
@@ -11484,13 +12168,11 @@ def cost_milestone_check(
                     "message": f"关联任务「{task.get('task_name') or ''}」状态 {task.get('status') or ''},未完成",
                 }
             )
-    if trigger_type == "event" and not row.get("reached_at"):
+    if trigger_type == "event" and not reached_at:
         early_flag = True
         warnings.append(
             {"level": "warn", "code": "early_event", "message": "事件未打点(reached_at 为空)"}
         )
-    plan_amount = _report_float(row, "plan_amount")
-    actual_amount = _report_float(row, "actual_amount")
     if plan_amount > 0 and actual_amount + apply_amount > plan_amount + 0.01:
         over_pay = True
         exceeded = actual_amount + apply_amount - plan_amount
@@ -11510,10 +12192,10 @@ def cost_milestone_check(
             "overPay": over_pay,
             "warnings": warnings,
             "milestone": {
-                "nodeName": str(row.get("node_name") or ""),
+                "nodeName": node_name,
                 "planAmount": plan_amount,
                 "actualAmount": actual_amount,
-                "state": str(row.get("state") or ""),
+                "state": state,
             },
         },
         **_cost_source_metadata(coverage),
@@ -21106,6 +21788,14 @@ def handler_factory(
                     aggregate_id = None
                     body["_marketing_resource"] = "material"
                 else:
+                    source_milestone_contract_match = re.fullmatch(
+                        r"/api/company/source/cost/contracts/([A-Za-z0-9_.:-]{1,128})/milestones",
+                        parsed.path,
+                    )
+                    source_milestone_trigger_match = re.fullmatch(
+                        r"/api/company/source/cost/milestones/([A-Za-z0-9_.:-]{1,128})/trigger-event",
+                        parsed.path,
+                    )
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|submit-for-approval|approve|reject|resubmit|void)",
                         parsed.path,
@@ -21162,7 +21852,15 @@ def handler_factory(
                         r"/api/company/delivery/tasks/([A-Za-z0-9_.:-]{1,128})/report",
                         parsed.path,
                     )
-                    if expense_match is not None:
+                    if source_milestone_contract_match is not None:
+                        command_family = "milestone_source_alias"
+                        command_type = "create"
+                        aggregate_id = source_milestone_contract_match.group(1)
+                    elif source_milestone_trigger_match is not None:
+                        command_family = "milestone_source_alias"
+                        command_type = "trigger_event"
+                        aggregate_id = source_milestone_trigger_match.group(1)
+                    elif expense_match is not None:
                         aggregate_id = expense_match.group(1)
                         command_type = {
                             "submit-for-approval": "submit",
@@ -21262,6 +21960,17 @@ def handler_factory(
                         idempotency_key=idempotency_key,
                     )
                     result = _source_dynamic_cost_alias_result(result)
+                elif command_family == "milestone_source_alias":
+                    result = contract_milestone_command(
+                        pool,
+                        command_type=command_type,
+                        contract_id=aggregate_id if command_type == "create" else None,
+                        milestone_id=aggregate_id if command_type != "create" else None,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_milestone_alias_result(result)
                 elif command_family == "tender_source_alias":
                     body = _source_tender_command_body(body, idempotency_key=idempotency_key)
                     result = tender_command(
@@ -21518,6 +22227,44 @@ def handler_factory(
                     _source_contract_alias_result(result, contract_code=contract_code),
                     origin,
                 )
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
+        def _source_cost_milestone_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/cost/milestones/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                command_type = "update" if method == "PUT" else "delete"
+                result = contract_milestone_command(
+                    pool,
+                    command_type=command_type,
+                    contract_id=None,
+                    milestone_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, _source_milestone_alias_result(result), origin)
             except PoolExhausted as error:
                 response(self, 503, {"error": str(error)}, origin)
             except CommandRejected as error:
@@ -21821,6 +22568,8 @@ def handler_factory(
         def do_PUT(self) -> None:  # noqa: N802
             if self._source_dynamic_cost_method_alias("PUT"):
                 return
+            if self._source_cost_milestone_method_alias("PUT"):
+                return
             if self._source_cost_contract_method_alias("PUT"):
                 return
             if self._source_cost_payment_method_alias("PUT"):
@@ -21837,6 +22586,8 @@ def handler_factory(
 
         def do_DELETE(self) -> None:  # noqa: N802
             if self._source_dynamic_cost_method_alias("DELETE"):
+                return
+            if self._source_cost_milestone_method_alias("DELETE"):
                 return
             if self._source_cost_contract_method_alias("DELETE"):
                 return

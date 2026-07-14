@@ -512,8 +512,8 @@ idempotent and limited to command-owned draft/submitted contracts; imported
 ERP contracts remain read-only. Delete is a local tombstone, and source-shaped
 contract list/readback merges command rows with explicit provenance and
 no-cash/accounting/tax markers. Legacy source contract creation, dynamic-cost
-and milestone writes, CBS/budget enforcement, browser acceptance, production
-identity, and operations-owner approval remain separate gates.
+CBS/budget enforcement, browser acceptance, production identity, and
+operations-owner approval remain separate gates.
 
 **Dynamic-cost mutation checkpoint (2026-07-14).** The source cost
 `POST /api/company/cost/dynamic-cost` handler now translates cost hierarchy and
@@ -521,9 +521,22 @@ amount fields into an idempotent local `dynamic_cost_command` projection.
 `PUT`/`DELETE /api/company/source/cost/dynamic-cost/:guid` update or tombstone
 only command-owned rows; imported `cb_cost` rows remain read-only. The dynamic
 cost read merges command rows with `sourceKind=command` and explicit
-no-cash/accounting/tax markers. Remarks writes, milestone state/trigger,
-CBS/budget ownership, browser acceptance, production identity, and
-operations-owner approval remain separate gates.
+no-cash/accounting/tax markers. Remarks writes, CBS/budget ownership, browser
+acceptance, production identity, and operations-owner approval remain separate
+gates.
+
+**Contract-milestone mutation checkpoint (2026-07-14).** The source cost
+milestone family now has a bounded PostgreSQL command projection. `POST
+/api/company/source/cost/contracts/:guid/milestones` translates one milestone
+or a batch into immutable local projections with deterministic idempotency;
+`PUT`/`DELETE /api/company/source/cost/milestones/:guid` update or tombstone
+only command-owned rows; and `POST .../:guid/trigger-event` reaches pending
+event milestones. Source-shaped contract detail/readback merges command
+milestones with `sourceKind=command`, the early-payment check reads them, and
+service/gateway smokes cover replay, imported-row guards, trigger, check, and
+void. These commands remain explicitly cash/accounting/tax-neutral; payment
+release, budget/CBS enforcement, workflow-driven progress, browser acceptance,
+production identity, and operations-owner approval remain separate gates.
 
 **Payment-application mutation checkpoint (2026-07-14).** The source cost
 payment-application create/update/delete family now has a bounded alias over
@@ -533,10 +546,10 @@ creates an idempotent local draft, and submits it into the expected approval
 state; `PUT` and `DELETE` aliases update or void only command-owned rows.
 Source-shaped list readback merges those projections with imported applications
 and carries command provenance plus explicit `cash_effect=false`,
-`accounting_effect=false`, and `tax_effect=false` markers. Milestone/early-pay
-validation execution, contract/dynamic-cost/milestone mutations, imported-row
-edits, payment release, browser acceptance, production identity, and
-finance-owner approval remain separate gates.
+`accounting_effect=false`, and `tax_effect=false` markers. Payment release,
+imported-row edits, browser acceptance, production identity, and finance-owner
+approval remain separate gates; milestone create/update/trigger/void now has
+its own cash/accounting/tax-neutral checkpoint above.
 
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
@@ -931,7 +944,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Tender planning/lifecycle commands and contract-split commands are locally verified, and source tender create/split aliases now return source-shaped readback with command provenance; source state overwrite, imported deletion, and standalone award semantics remain policy gates. Payment-application source create/update/void aliases now reuse the native command projection, translate source fields, enter the submitted approval state, and preserve no-cash/accounting/tax markers. Contract source update/void aliases now reuse the native command projection with imported-row protection and tombstone readback. Dynamic-cost source create/update/void aliases now use the same command projection pattern with imported-row protection. Legacy contract creation, milestone writes, payment execution, and external effects remain gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
+| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Tender planning/lifecycle commands and contract-split commands are locally verified, and source tender create/split aliases now return source-shaped readback with command provenance; source state overwrite, imported deletion, and standalone award semantics remain policy gates. Payment-application source create/update/void aliases now reuse the native command projection, translate source fields, enter the submitted approval state, and preserve no-cash/accounting/tax markers. Contract source update/void aliases now reuse the native command projection with imported-row protection and tombstone readback. Dynamic-cost source create/update/void aliases and contract-milestone create/update/trigger/void aliases now use the same command projection pattern with imported-row protection and source-shaped readback. Legacy contract creation through the original source field family, payment execution, and external effects remain gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the

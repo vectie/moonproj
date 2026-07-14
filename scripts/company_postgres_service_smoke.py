@@ -2980,6 +2980,107 @@ def main() -> int:
             for row in (payload or {}).get("data", [])
         ):
             raise SmokeError(f"source contract alias delete readback failed: {status} {payload}")
+        source_milestone_payload = {
+            "nodeName": "service source milestone smoke",
+            "triggerType": "event",
+            "triggerValue": "manual-smoke",
+            "planPct": "20.00",
+            "notes": "source milestone alias smoke",
+        }
+        source_milestone_key = "source-milestone-create-" + nonce
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/{contract_id}/milestones",
+            token=token,
+            method="POST",
+            payload=source_milestone_payload,
+            idempotency_key=source_milestone_key,
+        )
+        if (
+            status != 201
+            or payload is None
+            or payload.get("success") is not True
+            or not payload.get("data", {}).get("milestoneGuid")
+            or payload.get("source_kind") != "command"
+            or payload.get("cash_effect") is not False
+        ):
+            raise SmokeError(f"source milestone alias create failed: {status} {payload}")
+        source_milestone_id = payload["data"]["milestoneGuid"]
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/{contract_id}/milestones",
+            token=token,
+            method="POST",
+            payload=source_milestone_payload,
+            idempotency_key=source_milestone_key,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source milestone alias replay failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/{contract_id}",
+            token=token,
+        )
+        source_milestone_rows = (payload or {}).get("data", {}).get("milestones", []) if isinstance(payload, dict) else []
+        source_milestone_row = next(
+            (row for row in source_milestone_rows if row.get("milestoneGuid") == source_milestone_id),
+            None,
+        )
+        if (
+            status != 200
+            or source_milestone_row is None
+            or source_milestone_row.get("sourceKind") != "command"
+            or source_milestone_row.get("planPct") != 20.0
+            or source_milestone_row.get("state") != "pending"
+        ):
+            raise SmokeError(f"source milestone alias readback failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/milestones/{source_milestone_id}",
+            token=token,
+            method="PUT",
+            payload={"nodeName": "service source milestone updated"},
+            idempotency_key="source-milestone-update-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("data", {}).get("milestoneGuid") != source_milestone_id:
+            raise SmokeError(f"source milestone alias update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/milestones/{source_milestone_id}/trigger-event",
+            token=token,
+            method="POST",
+            payload={},
+            idempotency_key="source-milestone-trigger-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("milestone", {}).get("state") != "reached":
+            raise SmokeError(f"source milestone trigger failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/milestones/{source_milestone_id}/check?applyAmount=1.00",
+            token=token,
+        )
+        if status != 200 or payload is None or payload.get("data", {}).get("earlyFlag") is not False:
+            raise SmokeError(f"source milestone check failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/milestones/{source_milestone_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source milestone alias smoke void"},
+            idempotency_key="source-milestone-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("milestone", {}).get("state") != "deleted":
+            raise SmokeError(f"source milestone alias delete failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/ht-tj-001/milestones",
+            token=token,
+            method="POST",
+            payload=source_milestone_payload,
+            idempotency_key="source-milestone-imported-" + nonce,
+        )
+        if status != 409 or payload is None:
+            raise SmokeError(f"source milestone imported guard failed: {status} {payload}")
         supplier_id = "SUP-SMOKE-" + nonce
         supplier_payload = {
             "supplier_id": supplier_id,

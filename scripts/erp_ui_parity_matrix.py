@@ -523,6 +523,18 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         return "connected_cost_dynamic_source_command", "accept_browser_cost_dynamic_source_command_scenario_and_operations_owner"
     if (
         handler["module"] == "cost"
+        and handler["method"] == "POST"
+        and handler["path"] in {"/contracts/:guid/milestones", "/milestones/:guid/trigger-event"}
+    ):
+        return "connected_cost_milestone_source_command", "accept_browser_cost_milestone_source_command_scenario_and_operations_owner"
+    if (
+        handler["module"] == "cost"
+        and handler["method"] in {"PUT", "DELETE"}
+        and handler["path"] == "/milestones/:guid"
+    ):
+        return "connected_cost_milestone_source_command", "accept_browser_cost_milestone_source_command_scenario_and_operations_owner"
+    if (
+        handler["module"] == "cost"
         and handler["method"] in {"PUT", "DELETE"}
         and handler["path"] == "/payment-applies/:guid"
     ):

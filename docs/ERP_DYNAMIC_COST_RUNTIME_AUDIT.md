@@ -49,12 +49,16 @@ no-cash/accounting/tax markers.
   milestone rather than inventing a payment warning or milestone row.
 - Service and trusted-gateway smokes create, replay, update, read back, and
   void a source-shaped dynamic-cost command row.
+- Service and trusted-gateway smokes also create, replay, update, trigger,
+  check, and tombstone command-owned contract milestones; imported milestone
+  rows remain read-only.
 
 ## Remaining gate
 
 1. Accept project scope and production identity for cost reads.
 2. Obtain owner-approved CBS/version semantics before treating imported cost
    rows as target-owned.
-3. Keep remarks writes, milestone state/trigger writes, budget consumption,
-   accounting, cash, tax, and period-close effects separately authorized;
-   imported dynamic-cost rows remain read-only.
+3. Keep remarks writes, budget/CBS consumption, accounting, cash, tax, and
+   period-close effects separately authorized; milestone command projections
+   are currently cash/accounting/tax-neutral and imported dynamic-cost rows
+   remain read-only.

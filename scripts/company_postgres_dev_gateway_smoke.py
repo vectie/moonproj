@@ -787,6 +787,70 @@ def main() -> int:
             or source_contract_update_payload.get("data", {}).get("contractGuid") != source_contract_id
         ):
             raise SmokeError(f"trusted source contract alias update failed: {status}")
+        status, _headers, source_milestone_create_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/source/cost/contracts/{source_contract_id}/milestones",
+            headers={"Cookie": cookie},
+            payload={
+                "nodeName": "gateway source milestone alias smoke",
+                "triggerType": "event",
+                "planPct": "10.00",
+                "idempotency_key": "source-milestone-gateway-create-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 201
+            or not isinstance(source_milestone_create_payload, dict)
+            or not source_milestone_create_payload.get("data", {}).get("milestoneGuid")
+        ):
+            raise SmokeError(f"trusted source milestone alias create failed: {status}")
+        source_milestone_guid = source_milestone_create_payload["data"]["milestoneGuid"]
+        status, _headers, source_milestone_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/cost/milestones/{source_milestone_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "nodeName": "gateway source milestone alias updated",
+                "idempotency_key": "source-milestone-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_milestone_update_payload, dict)
+            or source_milestone_update_payload.get("data", {}).get("milestoneGuid") != source_milestone_guid
+        ):
+            raise SmokeError(f"trusted source milestone alias update failed: {status}")
+        status, _headers, source_milestone_trigger_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/source/cost/milestones/{source_milestone_guid}/trigger-event",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "source-milestone-gateway-trigger-" + smoke_suffix},
+        )
+        if (
+            status != 200
+            or not isinstance(source_milestone_trigger_payload, dict)
+            or source_milestone_trigger_payload.get("milestone", {}).get("state") != "reached"
+        ):
+            raise SmokeError(f"trusted source milestone trigger failed: {status}")
+        status, _headers, source_milestone_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/cost/milestones/{source_milestone_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source milestone alias smoke void",
+                "idempotency_key": "source-milestone-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_milestone_delete_payload, dict)
+            or source_milestone_delete_payload.get("milestone", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted source milestone alias delete failed: {status}")
         status, _headers, source_contract_delete_payload = request(
             args.gateway_port,
             "DELETE",

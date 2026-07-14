@@ -28,6 +28,11 @@ command projection:
 - `GET /api/company/source/cost/contracts/<id>/milestones` exposes that same
   explicit empty milestone boundary.
 
+Local command-owned contracts can additionally carry milestone projections.
+Those are merged into the same source-shaped detail response with
+`sourceKind=command`; the empty `cb_contract_milestone` coverage above still
+describes imported source evidence and is not replaced by a fixture.
+
 These reads are bounded and non-authorizing (`authorizing=false`,
 `persisted=false`, `provider_execution=false`).
 
@@ -47,6 +52,12 @@ These reads are bounded and non-authorizing (`authorizing=false`,
   source-shaped update/void aliases for command-owned contracts. Imported
   ERP contracts remain read-only; local updates are bounded to draft or
   submitted state and deletion is a local tombstone.
+- `POST /api/company/source/cost/contracts/<id>/milestones` — create one or a
+  bounded batch of local milestones with source field translation;
+- `PUT`/`DELETE /api/company/source/cost/milestones/<id>` — update or tombstone
+  command-owned milestones; imported milestone projections remain read-only;
+- `POST /api/company/source/cost/milestones/<id>/trigger-event` — reach a
+  pending event milestone without emitting cash, accounting, or tax effects.
 
 The loop is forwarded by the loopback-only development gateway. The gateway
 requires its in-memory HttpOnly session and signs `rabbita-user` before the
@@ -58,20 +69,20 @@ approve.
 ## Acceptance evidence
 
 The service smoke now exercises contract create, idempotent replay, source
-update/replay/readback, all four state transitions, and a separate source void
-alias with tombstone readback. A gateway HTTP probe repeats the source
-update/void flow and verifies that the stored command and audit payloads carry
-`actor_id: rabbita-user`.
+update/replay/readback, all four state transitions, source milestone
+single-create/replay/update/trigger/check/void, imported-row guards, and a
+separate source contract void alias with tombstone readback. A gateway HTTP
+probe repeats the source contract and milestone flow and verifies that the
+stored command and audit payloads carry `actor_id: rabbita-user`.
 
 ## Remaining gate
 
-This is a local vertical, not full ERP API parity. The source cost module still
-has contract creation, dynamic-cost, milestone, and payment-execution handlers
-that are not connected here; the source read batch and command-owned contract
-update/void aliases are connected, while imported rows remain separate. The
-payment-application slice is
-documented separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The fixed demo contract payload and idempotency
-keys remain local evidence only. Production identity/token issuance, persistent
-session and actor claims, role-based approval, accounting/tax/cash effects,
-managed deployment, browser click-through/screenshot acceptance, and named-owner
-acceptance remain required.
+This is a local vertical, not full ERP API parity. Legacy source contract
+creation through the original field family, CBS/budget enforcement, payment
+execution, and external effects remain separate. The payment-application slice
+is documented separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The
+fixed demo contract payload and idempotency keys remain local evidence only.
+Production identity/token issuance, persistent session and actor claims,
+role-based approval, accounting/tax/cash effects, managed deployment, browser
+click-through/screenshot acceptance, and named-owner acceptance remain
+required.
