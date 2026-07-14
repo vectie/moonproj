@@ -33,9 +33,14 @@ The bounded service exposes these endpoints:
 * ``/api/company/source/cost/contracts[/{id}[/milestones]]`` and
   ``/api/company/source/cost/payment-applies`` (GET, imported-source contract
   and payment observations)
+* ``/api/company/source/cost/contracts/<id>`` (PUT/DELETE local-command
+  aliases; imported contracts remain read-only)
 * ``/api/company/source/cost/payment-applies`` (POST create alias) and
   ``/api/company/source/cost/payment-applies/<id>`` (PUT/DELETE local-command
   aliases; imported applications remain read-only)
+* ``/api/company/cost/dynamic-cost`` (POST create alias) and
+  ``/api/company/source/cost/dynamic-cost/<id>`` (PUT/DELETE local-command
+  aliases; imported cost rows remain read-only)
 * ``/api/company/source/invoice/{in,out}`` and
   ``/api/company/source/invoice/tax-ledger`` (GET, imported-source invoice
   and tax-ledger observations)
@@ -466,6 +471,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "expense_command",
             "expense_detail_read",
             "contract_command",
+            "contract_source_command_alias",
+            "dynamic_cost_source_command_alias",
             "payment_application_read",
             "payment_application_command",
             "payment_application_source_command_alias",
@@ -533,6 +540,8 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "expense_command",
             "expense_detail_read",
             "contract_command",
+            "contract_source_command_alias",
+            "dynamic_cost_source_command_alias",
             "payment_application_read",
             "payment_application_command",
             "payment_application_source_command_alias",
@@ -1062,11 +1071,15 @@ def contracts(pool: PsqlPool, contract_id: str | None, max_rows: int) -> list[di
       ORDER BY aggregate_id, revision DESC
     ),
     contract_latest AS (
-      SELECT DISTINCT ON (aggregate_id)
-             aggregate_id AS contract_id, payload, 'command' AS source_kind
-      FROM company_aggregate_projection
-      WHERE aggregate_type = 'contract'
-      ORDER BY aggregate_id, revision DESC
+      SELECT contract_id, payload, source_kind
+      FROM (
+        SELECT DISTINCT ON (aggregate_id)
+               aggregate_id AS contract_id, payload, 'command' AS source_kind
+        FROM company_aggregate_projection
+        WHERE aggregate_type = 'contract'
+        ORDER BY aggregate_id, revision DESC
+      ) latest
+      WHERE coalesce(payload->>'state', '') <> 'deleted'
     ),
     base AS (
       SELECT contract_id, payload, source_kind
@@ -1305,6 +1318,65 @@ def _cost_source_contract_row(
     return result
 
 
+def _cost_source_contract_command_row(item: dict[str, Any]) -> dict[str, Any]:
+    contract_id = str(item.get("contract_id") or "")
+    amount_minor = int(item.get("amount_minor") or 0)
+    state = str(item.get("state") or "draft")
+    project_id = str(item.get("project_id") or "")
+    supplier_id = str(item.get("supplier_id") or "")
+    contract_code = str(item.get("contract_code") or contract_id)
+    contract_name = str(item.get("contract_name") or contract_id)
+    supplier_name = str(item.get("supplier_name") or supplier_id)
+    project_name = str(item.get("project_name") or project_id)
+    return {
+        "contractGuid": contract_id,
+        "contractCode": contract_code,
+        "contractName": contract_name,
+        "buGuid": "",
+        "buName": "",
+        "projGuid": project_id,
+        "projName": project_name,
+        "htTypeCode": str(item.get("ht_type_code") or ""),
+        "htClass": int(item.get("ht_class") or 0),
+        "yfProviderName": supplier_name,
+        "yfCorporation": str(item.get("supplier_corporation") or ""),
+        "htAmount": amount_minor / 100,
+        "sumAlterAmount": int(item.get("sum_alter_amount_minor") or 0) / 100,
+        "currentAmount": amount_minor / 100 + int(item.get("sum_alter_amount_minor") or 0) / 100,
+        "signDate": str(item.get("sign_date") or ""),
+        "htCfState": str(item.get("ht_cf_state") or ""),
+        "jsState": str(item.get("js_state") or ""),
+        "costCode": str(item.get("cost_code") or ""),
+        "rCode": str(item.get("r_code") or ""),
+        "l3Code": str(item.get("l3_code") or ""),
+        "cbState": state,
+        "sourceKind": "command",
+        "sourceId": "moonproj:command:contract:" + contract_id,
+        "contract_id": contract_id,
+        "contract_code": contract_code,
+        "contract_name": contract_name,
+        "project_id": project_id,
+        "project_name": project_name,
+        "supplier_id": supplier_id,
+        "supplier_name": supplier_name,
+        "amount_minor": amount_minor,
+        "amount_display": f"¥{amount_minor / 100:,.2f}",
+        "currency": str(item.get("currency") or "CNY"),
+        "sign_date": str(item.get("sign_date") or ""),
+        "state": state,
+        "paid_amount_display": "¥0.00",
+        "milestone_count": "0",
+        "source_kind": "command",
+        "command_projection": True,
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
 def cost_source_contracts(
     pool: PsqlPool,
     contract_id: str | None,
@@ -1366,9 +1438,33 @@ def cost_source_contracts(
         item["milestoneCount"] = milestone_counts.get(current_id, 0)
         item["milestone_count"] = str(milestone_counts.get(current_id, 0))
         result.append(item)
+    command_rows = contracts(pool, None, max(max_rows, 500))
+    for item in command_rows:
+        if item.get("source_kind") != "command":
+            continue
+        current_id = str(item.get("contract_id") or "")
+        if contract_id is not None and current_id != contract_id:
+            continue
+        if proj_guid is not None and str(item.get("project_id") or "") != proj_guid:
+            continue
+        if bu_guid is not None:
+            continue
+        if keyword is not None:
+            needle = keyword.casefold()
+            haystack = " ".join(
+                str(item.get(key) or "") for key in ("contract_name", "contract_code", "supplier_name")
+            ).casefold()
+            if needle not in haystack:
+                continue
+        result.append(_cost_source_contract_command_row(item))
     result.sort(key=lambda item: (str(item.get("signDate", "")), str(item.get("contractGuid", ""))), reverse=True)
     coverage = _cost_source_coverage(pool, max_rows)
-    return {"success": True, "code": 0, "data": result[:max_rows], **_cost_source_metadata(coverage)}
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:max_rows],
+        **_cost_source_metadata(coverage, command_projection=any(item.get("sourceKind") == "command" for item in result)),
+    }
 
 
 def cost_source_contract_detail(
@@ -1387,10 +1483,24 @@ def cost_source_contract_detail(
         (row for row in raw_contracts if _report_text(row["payload"], "contract_guid", row["record_id"]) == contract_id),
         None,
     )
-    if contract_row is None:
+    command_contract = next(
+        (
+            item
+            for item in contracts(pool, contract_id, max_rows)
+            if item.get("source_kind") == "command"
+        ),
+        None,
+    )
+    if contract_row is None and command_contract is None:
         return None
-    contract = _cost_source_contract_row(contract_row, projects, units)
-    contract_bu = _report_text(contract_row["payload"], "bu_guid")
+    if contract_row is not None:
+        contract = _cost_source_contract_row(contract_row, projects, units)
+        contract_bu = _report_text(contract_row["payload"], "bu_guid")
+        command_projection = False
+    else:
+        contract = _cost_source_contract_command_row(command_contract or {})
+        contract_bu = ""
+        command_projection = True
     users = _cost_source_users(pool, max_rows)
     plans: list[dict[str, Any]] = []
     for row in raw_plans:
@@ -1469,7 +1579,7 @@ def cost_source_contract_detail(
         "success": True,
         "code": 0,
         "data": {"contract": contract, "plans": plans, "applies": applies, "milestones": milestones},
-        **_cost_source_metadata(coverage),
+        **_cost_source_metadata(coverage, command_projection=command_projection),
     }
 
 
@@ -5297,7 +5407,7 @@ def _contract_request(
     body: dict[str, Any],
     actor_id: str,
 ) -> tuple[str, dict[str, Any]]:
-    if command_type not in {"create", "submit", "approve", "reject", "resubmit"}:
+    if command_type not in {"create", "submit", "approve", "reject", "resubmit", "update", "void"}:
         raise CommandRejected("unsupported contract command", 404)
     if command_type == "create":
         contract_id = _contract_text(body, "contract_id", identifier=True)
@@ -5330,6 +5440,47 @@ def _contract_request(
         }
     if contract_id is None or not IDENTIFIER.fullmatch(contract_id):
         raise CommandRejected("contract_id is required", 422)
+    if command_type == "update":
+        request: dict[str, Any] = {
+            "command_type": command_type,
+            "contract_id": contract_id,
+            "actor_id": actor_id,
+        }
+        text_fields = (
+            "contract_name",
+            "project_name",
+            "supplier_id",
+            "supplier_name",
+            "sign_date",
+            "currency",
+            "ht_type_code",
+            "supplier_corporation",
+            "ht_cf_state",
+            "js_state",
+            "cost_code",
+        )
+        for key in text_fields:
+            value = body.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or not value.strip():
+                raise CommandRejected(f"{key} must be non-empty text", 422)
+            value = value.strip()
+            if key == "currency":
+                value = value.upper()
+                if not re.fullmatch(r"[A-Z]{3}", value):
+                    raise CommandRejected("currency must be a three-letter code", 422)
+            request[key] = value
+        for key in ("amount_minor", "sum_alter_amount_minor", "ht_class"):
+            value = body.get(key)
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise CommandRejected(f"{key} must be a non-negative integer", 422)
+            request[key] = value
+        if not any(key not in {"command_type", "contract_id", "actor_id"} for key in request):
+            raise CommandRejected("update requires a mutable contract field", 422)
+        return contract_id, request
     reason = body.get("reason", "")
     if not isinstance(reason, str):
         raise CommandRejected("reason must be text", 422)
@@ -5368,17 +5519,31 @@ def contract_command(
         if not current:
             raise CommandRejected("contract not found", 404)
         current_state = str(current[0].get("state", ""))
-        expected = {
-            "submit": "draft",
-            "approve": "submitted",
-            "reject": "submitted",
-            "resubmit": "rejected",
-        }[command_type]
-        if current_state != expected:
-            raise CommandRejected(
-                f"contract transition {command_type} requires {expected}, found {current_state}",
-                409,
-            )
+        if command_type in {"update", "void"}:
+            if current[0].get("source_kind") != "command":
+                raise CommandRejected(
+                    "source contract is read-only; create a local command contract first",
+                    409,
+                )
+            if command_type == "update" and current_state not in {"draft", "submitted"}:
+                raise CommandRejected(
+                    f"contract update requires draft or submitted, found {current_state}",
+                    409,
+                )
+            if command_type == "void" and current_state == "deleted":
+                raise CommandRejected("contract is already voided", 409)
+        else:
+            expected = {
+                "submit": "draft",
+                "approve": "submitted",
+                "reject": "submitted",
+                "resubmit": "rejected",
+            }[command_type]
+            if current_state != expected:
+                raise CommandRejected(
+                    f"contract transition {command_type} requires {expected}, found {current_state}",
+                    409,
+                )
     event_id = f"contract:{command_type}:{idempotency_key}"
     command_source = f"moonproj:command:{idempotency_key}"
     audit_id = event_id + ":audit"
@@ -5445,7 +5610,40 @@ def contract_command(
           RAISE EXCEPTION 'contract not found';
         END IF;
         current_state := current_payload->>'state';
-        IF {sql_literal(command_type)} = 'submit' THEN
+        IF {sql_literal(command_type)} = 'update' THEN
+          IF current_state NOT IN ('draft', 'submitted') THEN
+            RAISE EXCEPTION 'invalid contract state';
+          END IF;
+          next_state := current_state;
+          next_payload := current_payload || jsonb_strip_nulls(jsonb_build_object(
+            'contract_name', {sql_literal(request_json)}::jsonb->>'contract_name',
+            'project_name', {sql_literal(request_json)}::jsonb->>'project_name',
+            'supplier_id', {sql_literal(request_json)}::jsonb->>'supplier_id',
+            'supplier_name', {sql_literal(request_json)}::jsonb->>'supplier_name',
+            'sign_date', {sql_literal(request_json)}::jsonb->>'sign_date',
+            'currency', {sql_literal(request_json)}::jsonb->>'currency',
+            'ht_type_code', {sql_literal(request_json)}::jsonb->>'ht_type_code',
+            'supplier_corporation', {sql_literal(request_json)}::jsonb->>'supplier_corporation',
+            'ht_cf_state', {sql_literal(request_json)}::jsonb->>'ht_cf_state',
+            'js_state', {sql_literal(request_json)}::jsonb->>'js_state',
+            'cost_code', {sql_literal(request_json)}::jsonb->>'cost_code',
+            'amount_minor', {sql_literal(request_json)}::jsonb->'amount_minor',
+            'sum_alter_amount_minor', {sql_literal(request_json)}::jsonb->'sum_alter_amount_minor',
+            'ht_class', {sql_literal(request_json)}::jsonb->'ht_class',
+            'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)}
+          ));
+        ELSIF {sql_literal(command_type)} = 'void' THEN
+          IF current_state = 'deleted' THEN
+            RAISE EXCEPTION 'contract already voided';
+          END IF;
+          next_state := 'deleted';
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'deleted_at', {sql_literal(event_id)},
+            'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)},
+            'reason', {sql_literal(request_json)}::jsonb->>'reason'
+          );
+        ELSIF {sql_literal(command_type)} = 'submit' THEN
           IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid contract state'; END IF;
           next_state := 'submitted';
         ELSIF {sql_literal(command_type)} = 'approve' THEN
@@ -5462,13 +5660,15 @@ def contract_command(
         END IF;
         SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
         FROM company_aggregate_projection p
-        WHERE p.aggregate_type = 'contract'
+          WHERE p.aggregate_type = 'contract'
           AND p.aggregate_id = {sql_literal(contract_id)};
-        next_payload := current_payload || jsonb_build_object(
-          'state', next_state, 'event_id', {sql_literal(event_id)},
-          'updated_by', {sql_literal(actor_id)},
-          'reason', {sql_literal(request_json)}::jsonb->>'reason'
-        );
+        IF {sql_literal(command_type)} NOT IN ('update', 'void') THEN
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)},
+            'reason', {sql_literal(request_json)}::jsonb->>'reason'
+          );
+        END IF;
       END IF;
       INSERT INTO company_aggregate_projection(
         aggregate_type, aggregate_id, revision, payload, source_event_id
@@ -6001,6 +6201,93 @@ def _source_payment_alias_result(
         "code": 0,
         "data": {"htfkApplyGuid": apply_id, "applyCode": resolved_apply_code},
         "payment_application": payment,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
+def _source_contract_update_body(body: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    source_text_fields = {
+        "contractName": "contract_name",
+        "htTypeCode": "ht_type_code",
+        "yfProviderName": "supplier_name",
+        "yfCorporation": "supplier_corporation",
+        "signDate": "sign_date",
+        "htCfState": "ht_cf_state",
+        "jsState": "js_state",
+        "costCode": "cost_code",
+    }
+    for source_key, target_key in source_text_fields.items():
+        value = body.get(source_key, body.get(target_key))
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise CommandRejected(f"{source_key} must be non-empty text", 422)
+        result[target_key] = value.strip()
+    ht_class = body.get("htClass", body.get("ht_class"))
+    if ht_class is not None:
+        if isinstance(ht_class, bool) or not isinstance(ht_class, int) or ht_class < 0:
+            raise CommandRejected("htClass must be a non-negative integer", 422)
+        result["ht_class"] = ht_class
+    if "htAmount" in body or "amount_minor" in body:
+        if "htAmount" in body:
+            result["amount_minor"] = _source_decimal_minor(body, "htAmount", minimum=0)
+        else:
+            amount_minor = body.get("amount_minor")
+            if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor < 0:
+                raise CommandRejected("amount_minor must be a non-negative integer", 422)
+            result["amount_minor"] = amount_minor
+    if "sumAlterAmount" in body or "sum_alter_amount_minor" in body:
+        if "sumAlterAmount" in body:
+            result["sum_alter_amount_minor"] = _source_decimal_minor(
+                body,
+                "sumAlterAmount",
+                minimum=0,
+            )
+        else:
+            alteration_minor = body.get("sum_alter_amount_minor")
+            if (
+                isinstance(alteration_minor, bool)
+                or not isinstance(alteration_minor, int)
+                or alteration_minor < 0
+            ):
+                raise CommandRejected("sum_alter_amount_minor must be a non-negative integer", 422)
+            result["sum_alter_amount_minor"] = alteration_minor
+    currency = body.get("currency")
+    if currency is not None:
+        if not isinstance(currency, str) or not re.fullmatch(r"[A-Za-z]{3}", currency.strip()):
+            raise CommandRejected("currency must be a three-letter code", 422)
+        result["currency"] = currency.strip().upper()
+    if not result:
+        raise CommandRejected("contract update requires a mutable field", 422)
+    return result
+
+
+def _source_contract_alias_result(
+    result: dict[str, Any],
+    *,
+    contract_code: str | None = None,
+) -> dict[str, Any]:
+    contract = result.get("contract")
+    if not isinstance(contract, dict):
+        raise ServiceError("contract command result is missing contract data")
+    contract_id = str(contract.get("contract_id") or "")
+    command = result.get("command")
+    request = command.get("request", {}) if isinstance(command, dict) else {}
+    resolved_code = str(contract_code or request.get("contract_code") or contract_id)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"contractGuid": contract_id, "contractCode": resolved_code},
+        "contract": contract,
         "command": command,
         "idempotent_replay": result.get("idempotent_replay") is True,
         "source_kind": "command",
@@ -10513,6 +10800,435 @@ def _dashboard_flag(value: Any) -> bool:
     return value in {True, 1, "1", "true", "True", "TRUE"}
 
 
+def _dynamic_cost_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    identifier: bool = False,
+) -> str:
+    value = body.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _dynamic_cost_amount_minor(body: dict[str, Any], key: str, *, default: int = 0) -> int:
+    value = body.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise CommandRejected(f"{key} must be a non-negative integer", 422)
+    return value
+
+
+def _dynamic_cost_request(
+    command_type: str,
+    cost_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    pool: PsqlPool,
+) -> tuple[str, dict[str, Any]]:
+    if command_type not in {"create", "update", "void"}:
+        raise CommandRejected("unsupported dynamic-cost command", 404)
+    if command_type == "create":
+        cost_id = _dynamic_cost_text(body, "cost_id", identifier=True)
+        project_id = _dynamic_cost_text(body, "project_id", identifier=True)
+        project_rows = _raw_source_rows(pool, "ep_project", 500, DASHBOARD_SOURCE_TABLES)
+        if not any(str(row["payload"].get("proj_guid") or row["record_id"]) == project_id for row in project_rows):
+            raise CommandRejected("project not found", 404)
+        cost_code = _dynamic_cost_text(body, "cost_code", identifier=True)
+        cost_name = _dynamic_cost_text(body, "cost_name")
+        cost_level = body.get("cost_level", 2)
+        if isinstance(cost_level, bool) or not isinstance(cost_level, int) or cost_level < 0:
+            raise CommandRejected("cost_level must be a non-negative integer", 422)
+        parent_cost_id = body.get("parent_cost_id", "")
+        if not isinstance(parent_cost_id, str):
+            raise CommandRejected("parent_cost_id must be text", 422)
+        is_end_cost = body.get("is_end_cost", True)
+        if not isinstance(is_end_cost, bool):
+            raise CommandRejected("is_end_cost must be boolean", 422)
+        request = {
+            "command_type": command_type,
+            "cost_id": cost_id,
+            "project_id": project_id,
+            "cost_code": cost_code,
+            "cost_name": cost_name,
+            "cost_level": cost_level,
+            "parent_cost_id": parent_cost_id.strip(),
+            "is_end_cost": is_end_cost,
+            "target_cost_minor": _dynamic_cost_amount_minor(body, "target_cost_minor"),
+            "ht_alter_amount_minor": _dynamic_cost_amount_minor(body, "ht_alter_amount_minor"),
+            "zt_cost_minor": _dynamic_cost_amount_minor(body, "zt_cost_minor"),
+            "dfs_budget_minor": _dynamic_cost_amount_minor(body, "dfs_budget_minor"),
+            "yg_alter_minor": _dynamic_cost_amount_minor(body, "yg_alter_minor"),
+            "remarks": str(body.get("remarks") or ""),
+            "actor_id": actor_id,
+        }
+        return cost_id, request
+    if cost_id is None or not IDENTIFIER.fullmatch(cost_id):
+        raise CommandRejected("cost_id is required", 422)
+    if command_type == "update":
+        request = {"command_type": command_type, "cost_id": cost_id, "actor_id": actor_id}
+        text_fields = {"cost_name", "parent_cost_id", "remarks"}
+        for key in text_fields:
+            if key in body:
+                value = body[key]
+                if not isinstance(value, str):
+                    raise CommandRejected(f"{key} must be text", 422)
+                request[key] = value.strip()
+        if "cost_level" in body:
+            value = body["cost_level"]
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise CommandRejected("cost_level must be a non-negative integer", 422)
+            request["cost_level"] = value
+        if "is_end_cost" in body:
+            if not isinstance(body["is_end_cost"], bool):
+                raise CommandRejected("is_end_cost must be boolean", 422)
+            request["is_end_cost"] = body["is_end_cost"]
+        for key in (
+            "target_cost_minor",
+            "ht_alter_amount_minor",
+            "zt_cost_minor",
+            "dfs_budget_minor",
+            "yg_alter_minor",
+        ):
+            if key in body:
+                request[key] = _dynamic_cost_amount_minor(body, key)
+        if len(request) == 3:
+            raise CommandRejected("dynamic-cost update requires a mutable field", 422)
+        return cost_id, request
+    reason = body.get("reason", "")
+    if not isinstance(reason, str):
+        raise CommandRejected("reason must be text", 422)
+    return cost_id, {
+        "command_type": command_type,
+        "cost_id": cost_id,
+        "reason": reason.strip(),
+        "actor_id": actor_id,
+    }
+
+
+def dynamic_cost_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    cost_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    cost_id, request = _dynamic_cost_request(command_type, cost_id, body, actor_id, pool)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored dynamic-cost command receipt has no result")
+        return {"command": existing, "dynamic_cost": result, "idempotent_replay": True}
+    current_rows = query_lines(
+        pool,
+        f"""
+        SELECT payload::text
+        FROM company_aggregate_projection
+        WHERE aggregate_type = 'dynamic_cost_command'
+          AND aggregate_id = {sql_literal(cost_id)}
+        ORDER BY revision DESC LIMIT 1
+        """,
+    )
+    current: dict[str, Any] | None = None
+    if current_rows:
+        try:
+            current = json.loads(current_rows[0])
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid dynamic-cost projection JSON") from error
+    raw_cost_exists = any(
+        str(row["payload"].get("cost_guid") or row["record_id"]) == cost_id
+        for row in _raw_source_rows(pool, "cb_cost", 500, DASHBOARD_SOURCE_TABLES)
+    )
+    if raw_cost_exists and command_type == "create":
+        raise CommandRejected("source dynamic-cost row is read-only; create a new local cost id", 409)
+    if raw_cost_exists and command_type != "create" and current is None:
+        raise CommandRejected("source dynamic-cost row is read-only; create a local command row first", 409)
+    if command_type == "create" and current is not None and current.get("state") != "deleted":
+        raise CommandRejected("dynamic-cost already exists", 409)
+    if command_type != "create":
+        if current is None:
+            raise CommandRejected("dynamic-cost not found", 404)
+        if current.get("source_kind") != "command":
+            raise CommandRejected("source dynamic-cost row is read-only; create a local command row first", 409)
+        if current.get("state") == "deleted":
+            raise CommandRejected("dynamic-cost is already voided", 409)
+    event_id = f"dynamic-cost:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "cost_id": cost_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'dynamic_cost_command'
+        AND p.aggregate_id = {sql_literal(cost_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {sql_literal(command_type)} = 'create' THEN
+        IF current_payload IS NOT NULL AND current_payload->>'state' <> 'deleted' THEN
+          RAISE EXCEPTION 'dynamic-cost already exists';
+        END IF;
+        next_revision := coalesce((SELECT max(p.revision) + 1 FROM company_aggregate_projection p
+          WHERE p.aggregate_type = 'dynamic_cost_command' AND p.aggregate_id = {sql_literal(cost_id)}), 1);
+        next_state := 'active';
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', next_state, 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'dynamic-cost not found'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'dynamic_cost_command'
+          AND p.aggregate_id = {sql_literal(cost_id)};
+        IF {sql_literal(command_type)} = 'update' THEN
+          next_state := current_payload->>'state';
+          next_payload := current_payload || jsonb_strip_nulls(jsonb_build_object(
+            'cost_name', {sql_literal(request_json)}::jsonb->>'cost_name',
+            'parent_cost_id', {sql_literal(request_json)}::jsonb->>'parent_cost_id',
+            'remarks', {sql_literal(request_json)}::jsonb->>'remarks',
+            'cost_level', {sql_literal(request_json)}::jsonb->'cost_level',
+            'is_end_cost', {sql_literal(request_json)}::jsonb->'is_end_cost',
+            'target_cost_minor', {sql_literal(request_json)}::jsonb->'target_cost_minor',
+            'ht_alter_amount_minor', {sql_literal(request_json)}::jsonb->'ht_alter_amount_minor',
+            'zt_cost_minor', {sql_literal(request_json)}::jsonb->'zt_cost_minor',
+            'dfs_budget_minor', {sql_literal(request_json)}::jsonb->'dfs_budget_minor',
+            'yg_alter_minor', {sql_literal(request_json)}::jsonb->'yg_alter_minor',
+            'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)}));
+        ELSIF {sql_literal(command_type)} = 'void' THEN
+          next_state := 'deleted';
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'deleted_at', {sql_literal(event_id)},
+            'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)},
+            'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        ELSE
+          RAISE EXCEPTION 'unsupported dynamic-cost command';
+        END IF;
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('dynamic_cost_command', {sql_literal(cost_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)},
+          'action', 'dynamic_cost.' || {sql_literal(command_type)},
+          'aggregate_type', 'dynamic_cost', 'aggregate_id', {sql_literal(cost_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', next_state, 'revision', next_revision),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('cost_id', {sql_literal(cost_id)},
+        'cost_code', coalesce({sql_literal(request_json)}::jsonb->>'cost_code', current_payload->>'cost_code', ''),
+        'state', next_state,
+        'revision', next_revision, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("dynamic-cost command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected dynamic-cost command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid dynamic-cost command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("dynamic-cost command receipt has no result")
+    return {"command": receipt, "dynamic_cost": result, "idempotent_replay": not created}
+
+
+def _source_dynamic_cost_create_body(body: dict[str, Any], *, idempotency_key: str) -> dict[str, Any]:
+    cost_id = body.get("costGuid", body.get("cost_guid"))
+    if cost_id is None or not str(cost_id).strip():
+        cost_id = "COST-SRC-" + idempotency_key
+    if not isinstance(cost_id, str) or not IDENTIFIER.fullmatch(cost_id.strip()):
+        raise CommandRejected("costGuid contains unsupported characters", 422)
+    project_id = body.get("projGuid", body.get("proj_guid"))
+    if not isinstance(project_id, str) or not IDENTIFIER.fullmatch(project_id.strip()):
+        raise CommandRejected("projGuid is required", 422)
+    cost_code = body.get("costCode", body.get("cost_code"))
+    cost_name = body.get("costName", body.get("cost_name"))
+    if not isinstance(cost_code, str) or not IDENTIFIER.fullmatch(cost_code.strip()):
+        raise CommandRejected("costCode is required", 422)
+    if not isinstance(cost_name, str) or not cost_name.strip():
+        raise CommandRejected("costName is required", 422)
+    result: dict[str, Any] = {
+        "cost_id": cost_id.strip(),
+        "project_id": project_id.strip(),
+        "cost_code": cost_code.strip(),
+        "cost_name": cost_name.strip(),
+        "cost_level": body.get("costLevel", body.get("cost_level", 2)),
+        "parent_cost_id": str(body.get("parentCostGuid", body.get("parent_cost_id", "")) or ""),
+        "is_end_cost": body.get("isEndCost", body.get("is_end_cost", True)),
+        "target_cost_minor": _source_decimal_minor(body, "targetCost", default=0),
+        "ht_alter_amount_minor": _source_decimal_minor(body, "htAlterAmount", default=0),
+        "zt_cost_minor": _source_decimal_minor(body, "ztCost", default=0),
+        "dfs_budget_minor": _source_decimal_minor(body, "dfsBudget", default=0),
+        "yg_alter_minor": _source_decimal_minor(body, "ygAlter", default=0),
+        "remarks": str(body.get("remarks") or ""),
+    }
+    return result
+
+
+def _source_dynamic_cost_update_body(body: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    mapping = {
+        "costName": "cost_name",
+        "cost_name": "cost_name",
+        "parentCostGuid": "parent_cost_id",
+        "parent_cost_id": "parent_cost_id",
+        "remarks": "remarks",
+    }
+    for source_key, target_key in mapping.items():
+        if source_key in body:
+            value = body[source_key]
+            if not isinstance(value, str):
+                raise CommandRejected(f"{source_key} must be text", 422)
+            result[target_key] = value.strip()
+    for source_key, target_key in {
+        "costLevel": "cost_level",
+        "cost_level": "cost_level",
+    }.items():
+        if source_key in body:
+            value = body[source_key]
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise CommandRejected("costLevel must be a non-negative integer", 422)
+            result[target_key] = value
+    if "isEndCost" in body or "is_end_cost" in body:
+        value = body.get("isEndCost", body.get("is_end_cost"))
+        if not isinstance(value, bool):
+            raise CommandRejected("isEndCost must be boolean", 422)
+        result["is_end_cost"] = value
+    for source_key, target_key in {
+        "targetCost": "target_cost_minor",
+        "htAlterAmount": "ht_alter_amount_minor",
+        "ztCost": "zt_cost_minor",
+        "dfsBudget": "dfs_budget_minor",
+        "ygAlter": "yg_alter_minor",
+    }.items():
+        if source_key in body:
+            result[target_key] = _source_decimal_minor(body, source_key, minimum=0)
+    if not result:
+        raise CommandRejected("dynamic-cost update requires a mutable field", 422)
+    return result
+
+
+def _source_dynamic_cost_alias_result(result: dict[str, Any]) -> dict[str, Any]:
+    dynamic = result.get("dynamic_cost")
+    if not isinstance(dynamic, dict):
+        raise ServiceError("dynamic-cost command result is missing dynamic-cost data")
+    cost_id = str(dynamic.get("cost_id") or "")
+    command = result.get("command")
+    request = command.get("request", {}) if isinstance(command, dict) else {}
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "costGuid": cost_id,
+            "costCode": str(dynamic.get("cost_code") or request.get("cost_code") or cost_id),
+        },
+        "dynamic_cost": dynamic,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
+def _dynamic_cost_command_item(payload: dict[str, Any], project_name: str) -> dict[str, Any]:
+    target = int(payload.get("target_cost_minor") or 0) / 100
+    alteration = int(payload.get("ht_alter_amount_minor") or 0) / 100
+    committed = int(payload.get("zt_cost_minor") or 0) / 100
+    budget = int(payload.get("dfs_budget_minor") or 0) / 100
+    change = int(payload.get("yg_alter_minor") or 0) / 100
+    dynamic = alteration + committed + budget + change
+    cost_id = str(payload.get("cost_id") or "")
+    cost_code = str(payload.get("cost_code") or cost_id)
+    return {
+        "costGuid": cost_id,
+        "costCode": cost_code,
+        "costName": str(payload.get("cost_name") or cost_id),
+        "costLevel": int(payload.get("cost_level") or 0),
+        "parentCostGuid": str(payload.get("parent_cost_id") or ""),
+        "isEndCost": bool(payload.get("is_end_cost", True)),
+        "A_targetCost": target,
+        "B_dtCost": round(dynamic, 2),
+        "C_deviationPct": round((target - dynamic) / target * 100, 4) if target > 0 else None,
+        "D_htAlterAmount": alteration,
+        "E_ztCost": committed,
+        "F_dfsBudget": budget,
+        "G_ygAlter": change,
+        "H_layoutSpare": round(target - dynamic, 2),
+        "remarks": str(payload.get("remarks") or ""),
+        "projectName": project_name,
+        "sourceKind": "command",
+        "sourceId": "moonproj:command:dynamic_cost:" + cost_id,
+        "command_projection": True,
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
 def dynamic_cost(
     pool: PsqlPool,
     project_id: str,
@@ -10572,6 +11288,36 @@ def dynamic_cost(
                 "sourceKind": "imported",
             }
         )
+    command_lines = query_lines(
+        pool,
+        f"""
+        SELECT aggregate_id, encode(convert_to(payload::text, 'UTF8'), 'hex')
+        FROM (
+          SELECT DISTINCT ON (aggregate_id) aggregate_id, payload
+          FROM company_aggregate_projection
+          WHERE aggregate_type = 'dynamic_cost_command'
+          ORDER BY aggregate_id, revision DESC
+        ) latest
+        WHERE coalesce(payload->>'state', '') <> 'deleted'
+          AND payload->>'project_id' = {sql_literal(project_id)}
+        ORDER BY aggregate_id
+        LIMIT {max(max_rows, 500)}
+        """,
+    )
+    command_items: list[dict[str, Any]] = []
+    for line in command_lines:
+        fields = line.split("|", 1)
+        if len(fields) != 2:
+            raise ServiceError("unexpected dynamic-cost command projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[1]))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ServiceError("invalid dynamic-cost command projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("dynamic-cost command projection is not an object")
+        command_items.append(_dynamic_cost_command_item(payload, project_name))
+    items.extend(command_items)
+    items.sort(key=lambda item: (str(item.get("costCode") or ""), str(item.get("costGuid") or "")))
     end_rows = [item for item in items if item["isEndCost"]]
     target_total = sum(float(item["A_targetCost"]) for item in end_rows)
     dynamic_total = sum(float(item["B_dtCost"]) for item in end_rows)
@@ -10591,8 +11337,18 @@ def dynamic_cost(
                 "projectName": project_name,
             },
         },
-        "source_kind": "imported",
+        "source_kind": "imported_or_command",
         "source_coverage": {"cb_cost": len(raw_costs), "ep_project": len(projects)},
+        "missing_or_empty_source_tables": [
+            table for table, count in {"cb_cost": len(raw_costs), "ep_project": len(projects)}.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "command_projection": bool(command_items),
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
 
 
@@ -10616,9 +11372,32 @@ def dynamic_cost_remarks(
         ),
         None,
     )
+    command_payload: dict[str, Any] | None = None
     if row is None:
+        command_lines = query_lines(
+            pool,
+            f"""
+            SELECT encode(convert_to(payload::text, 'UTF8'), 'hex')
+            FROM company_aggregate_projection
+            WHERE aggregate_type = 'dynamic_cost_command'
+              AND aggregate_id = {sql_literal(cost_id)}
+            ORDER BY revision DESC LIMIT 1
+            """,
+        )
+        if command_lines:
+            try:
+                command_payload = json.loads(decode_hex(command_lines[0]))
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ServiceError("invalid dynamic-cost command projection JSON") from error
+            if not isinstance(command_payload, dict) or command_payload.get("state") == "deleted":
+                return None
+    if row is None and command_payload is None:
         return None
-    project_id = str(row.get("proj_guid") or "")
+    project_id = str(
+        (command_payload or {}).get("project_id")
+        if command_payload is not None
+        else row.get("proj_guid") or ""
+    )
     project_name = next(
         (
             str(item["payload"].get("proj_name") or "")
@@ -10631,17 +11410,21 @@ def dynamic_cost_remarks(
         "success": True,
         "code": 0,
         "data": {
-            "costCode": str(row.get("cost_code") or ""),
-            "costName": str(row.get("cost_name") or ""),
-            "remarks": str(row.get("remarks") or ""),
+            "costCode": str((command_payload or row).get("cost_code") or ""),
+            "costName": str((command_payload or row).get("cost_name") or ""),
+            "remarks": str((command_payload or row).get("remarks") or ""),
             "projectName": project_name,
-            "sourceKind": "imported",
+            "sourceKind": "command" if command_payload is not None else "imported",
         },
-        "source_kind": "imported",
+        "source_kind": "command" if command_payload is not None else "imported",
         "source_coverage": {"cb_cost": len(raw_costs), "ep_project": len(projects)},
         "authorizing": False,
-        "persisted": False,
+        "persisted": command_payload is not None,
+        "command_projection": command_payload is not None,
         "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
 
 
@@ -20235,6 +21018,10 @@ def handler_factory(
                     command_family = "payment_source_alias"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/cost/dynamic-cost":
+                    command_family = "dynamic_cost_source_alias"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/tenders":
                     command_family = "tender"
                     command_type = "create"
@@ -20464,6 +21251,17 @@ def handler_factory(
                         idempotency_key=idempotency_key,
                     )
                     result = _source_payment_alias_result(result)
+                elif command_family == "dynamic_cost_source_alias":
+                    normalized = _source_dynamic_cost_create_body(body, idempotency_key=idempotency_key)
+                    result = dynamic_cost_command(
+                        pool,
+                        command_type="create",
+                        cost_id=normalized["cost_id"],
+                        body=normalized,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_dynamic_cost_alias_result(result)
                 elif command_family == "tender_source_alias":
                     body = _source_tender_command_body(body, idempotency_key=idempotency_key)
                     result = tender_command(
@@ -20640,6 +21438,93 @@ def handler_factory(
                 response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
+
+        def _source_dynamic_cost_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/cost/dynamic-cost/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                command_type = "update" if method == "PUT" else "void"
+                command_body = _source_dynamic_cost_update_body(body) if method == "PUT" else {
+                    "reason": body.get("reason", "") if isinstance(body, dict) else "",
+                }
+                result = dynamic_cost_command(
+                    pool,
+                    command_type=command_type,
+                    cost_id=match.group(1),
+                    body=command_body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, _source_dynamic_cost_alias_result(result), origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
+        def _source_cost_contract_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/cost/contracts/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                command_type = "update" if method == "PUT" else "void"
+                command_body = _source_contract_update_body(body) if method == "PUT" else {
+                    "reason": body.get("reason", "") if isinstance(body, dict) else "",
+                }
+                current = contracts(pool, match.group(1), 1)
+                contract_code = str(current[0].get("contract_code") or "") if current else None
+                result = contract_command(
+                    pool,
+                    command_type=command_type,
+                    contract_id=match.group(1),
+                    body=command_body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(
+                    self,
+                    200,
+                    _source_contract_alias_result(result, contract_code=contract_code),
+                    origin,
+                )
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
 
         def _source_cost_payment_method_alias(self, method: str) -> bool:
             if method not in {"PUT", "DELETE"}:
@@ -20934,6 +21819,10 @@ def handler_factory(
             return True
 
         def do_PUT(self) -> None:  # noqa: N802
+            if self._source_dynamic_cost_method_alias("PUT"):
+                return
+            if self._source_cost_contract_method_alias("PUT"):
+                return
             if self._source_cost_payment_method_alias("PUT"):
                 return
             if self._plan_task_method_alias("PUT"):
@@ -20947,6 +21836,10 @@ def handler_factory(
             self._marketing_method_alias("PUT") or self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if self._source_dynamic_cost_method_alias("DELETE"):
+                return
+            if self._source_cost_contract_method_alias("DELETE"):
+                return
             if self._source_cost_payment_method_alias("DELETE"):
                 return
             if self._plan_task_method_alias("DELETE"):

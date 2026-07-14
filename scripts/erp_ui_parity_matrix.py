@@ -370,6 +370,10 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_cost_source_scenario_and_production_identity"
     if target_state == "connected_cost_payment_source_command":
         return "accept_browser_cost_payment_source_command_scenario_and_finance_owner"
+    if target_state == "connected_cost_contract_source_command":
+        return "accept_browser_cost_contract_source_command_scenario_and_operations_owner"
+    if target_state == "connected_cost_dynamic_source_command":
+        return "accept_browser_cost_dynamic_source_command_scenario_and_operations_owner"
     if target_state == "connected_budget_scope_read":
         return "accept_browser_budget_scope_scenario_and_production_identity"
     if target_state == "connected_workflow_observation_read":
@@ -499,6 +503,24 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] == "/payment-applies"
     ):
         return "connected_cost_payment_source_command", "accept_browser_cost_payment_source_command_scenario_and_finance_owner"
+    if (
+        handler["module"] == "cost"
+        and handler["method"] in {"PUT", "DELETE"}
+        and handler["path"] == "/contracts/:guid"
+    ):
+        return "connected_cost_contract_source_command", "accept_browser_cost_contract_source_command_scenario_and_operations_owner"
+    if (
+        handler["module"] == "cost"
+        and handler["method"] == "POST"
+        and handler["path"] == "/dynamic-cost"
+    ):
+        return "connected_cost_dynamic_source_command", "accept_browser_cost_dynamic_source_command_scenario_and_operations_owner"
+    if (
+        handler["module"] == "cost"
+        and handler["method"] in {"PUT", "DELETE"}
+        and handler["path"] == "/dynamic-cost/:guid"
+    ):
+        return "connected_cost_dynamic_source_command", "accept_browser_cost_dynamic_source_command_scenario_and_operations_owner"
     if (
         handler["module"] == "cost"
         and handler["method"] in {"PUT", "DELETE"}

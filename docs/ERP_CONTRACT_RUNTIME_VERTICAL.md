@@ -43,6 +43,10 @@ These reads are bounded and non-authorizing (`authorizing=false`,
 - `POST /api/company/contracts/<id>/{submit,reject,resubmit,approve}` — the
   idempotent approval lifecycle, each with an immutable command receipt and
   audit event.
+- `PUT /api/company/source/cost/contracts/<id>` and `DELETE .../<id>` —
+  source-shaped update/void aliases for command-owned contracts. Imported
+  ERP contracts remain read-only; local updates are bounded to draft or
+  submitted state and deletion is a local tombstone.
 
 The loop is forwarded by the loopback-only development gateway. The gateway
 requires its in-memory HttpOnly session and signs `rabbita-user` before the
@@ -53,17 +57,19 @@ approve.
 
 ## Acceptance evidence
 
-The service smoke now exercises contract create, idempotent replay, all four
-state transitions, and detail readback. A gateway HTTP probe also verified that
-the stored command and audit payloads carry `actor_id: rabbita-user`; probe rows
-were deleted after verification.
+The service smoke now exercises contract create, idempotent replay, source
+update/replay/readback, all four state transitions, and a separate source void
+alias with tombstone readback. A gateway HTTP probe repeats the source
+update/void flow and verifies that the stored command and audit payloads carry
+`actor_id: rabbita-user`.
 
 ## Remaining gate
 
 This is a local vertical, not full ERP API parity. The source cost module still
-has additional contract, payment-application, milestone, and mutation handlers
-that are not connected here; the source read batch is now connected, while the
-local command slice remains separate. The payment-application slice is
+has contract creation, dynamic-cost, milestone, and payment-execution handlers
+that are not connected here; the source read batch and command-owned contract
+update/void aliases are connected, while imported rows remain separate. The
+payment-application slice is
 documented separately in `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. The fixed demo contract payload and idempotency
 keys remain local evidence only. Production identity/token issuance, persistent
 session and actor claims, role-based approval, accounting/tax/cash effects,

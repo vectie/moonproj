@@ -742,6 +742,127 @@ def main() -> int:
         )
         if status != 200 or not isinstance(plan_task_delete_payload, dict) or plan_task_delete_payload.get("task", {}).get("state") != "deleted":
             raise SmokeError(f"trusted project-plan task delete failed: {status}")
+        source_contract_id = "CT-GW-SOURCE-SMOKE-" + smoke_suffix
+        source_contract_payload = {
+            "contract_id": source_contract_id,
+            "contract_code": "HT-GW-SOURCE-SMOKE-" + smoke_suffix,
+            "contract_name": "gateway source contract alias smoke",
+            "project_id": "CD-HJL",
+            "project_name": "成都和锦里",
+            "supplier_id": "gateway-source-supplier",
+            "supplier_name": "gateway source supplier",
+            "sign_date": "2026-07-14",
+            "amount_minor": 4567800,
+            "currency": "CNY",
+            "idempotency_key": "source-contract-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, source_contract_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/contracts",
+            headers={"Cookie": cookie},
+            payload=source_contract_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(source_contract_create_payload, dict)
+            or source_contract_create_payload.get("contract", {}).get("state") != "draft"
+        ):
+            raise SmokeError(f"trusted source contract setup failed: {status}")
+        status, _headers, source_contract_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/cost/contracts/{source_contract_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "contractName": "gateway source contract alias updated",
+                "htAmount": "45678.00",
+                "idempotency_key": "source-contract-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_contract_update_payload, dict)
+            or source_contract_update_payload.get("contract", {}).get("state") != "draft"
+            or source_contract_update_payload.get("data", {}).get("contractGuid") != source_contract_id
+        ):
+            raise SmokeError(f"trusted source contract alias update failed: {status}")
+        status, _headers, source_contract_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/cost/contracts/{source_contract_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source contract alias smoke void",
+                "idempotency_key": "source-contract-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_contract_delete_payload, dict)
+            or source_contract_delete_payload.get("contract", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted source contract alias delete failed: {status}")
+        source_cost_code = "SRC-GW-COST-" + smoke_suffix
+        source_cost_payload = {
+            "projGuid": "proj-0001",
+            "costCode": source_cost_code,
+            "costName": "gateway source dynamic-cost alias smoke",
+            "targetCost": "2000.00",
+            "htAlterAmount": "200.00",
+            "ztCost": "10.00",
+            "remarks": "gateway source dynamic-cost alias",
+            "idempotency_key": "source-dynamic-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, source_cost_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/cost/dynamic-cost",
+            headers={"Cookie": cookie},
+            payload=source_cost_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(source_cost_create_payload, dict)
+            or source_cost_create_payload.get("data", {}).get("costCode") != source_cost_code
+        ):
+            raise SmokeError(f"trusted source dynamic-cost alias create failed: {status}")
+        source_cost_guid = source_cost_create_payload.get("data", {}).get("costGuid")
+        if not isinstance(source_cost_guid, str) or not source_cost_guid:
+            raise SmokeError("trusted source dynamic-cost alias id missing")
+        status, _headers, source_cost_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/cost/dynamic-cost/{source_cost_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "costName": "gateway source dynamic-cost alias updated",
+                "targetCost": "2100.00",
+                "idempotency_key": "source-dynamic-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_cost_update_payload, dict)
+            or source_cost_update_payload.get("dynamic_cost", {}).get("state") != "active"
+        ):
+            raise SmokeError(f"trusted source dynamic-cost alias update failed: {status}")
+        status, _headers, source_cost_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/cost/dynamic-cost/{source_cost_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source dynamic-cost alias smoke void",
+                "idempotency_key": "source-dynamic-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_cost_delete_payload, dict)
+            or source_cost_delete_payload.get("dynamic_cost", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted source dynamic-cost alias delete failed: {status}")
         source_tender_payload = {
             "projGuid": "CD-HJL",
             "tenderName": "gateway source tender alias smoke",

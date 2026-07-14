@@ -54,10 +54,13 @@ def main() -> int:
         status, contracts = request(
             args.port, "/api/company/source/cost/contracts", token=token,
         )
+        contract_rows = contracts.get("data", []) if isinstance(contracts, dict) else []
+        imported_contract_rows = [row for row in contract_rows if row.get("sourceKind") == "imported"]
         expect(
             status == 200
             and contracts is not None
-            and len(contracts.get("data", [])) == 2
+            and len(imported_contract_rows) == 2
+            and len(contract_rows) >= len(imported_contract_rows)
             and contracts.get("source_coverage", {}).get("cb_contract") == 2
             and contracts.get("authorizing") is False,
             f"source contract list failed: {status} {contracts}",
@@ -120,13 +123,17 @@ def main() -> int:
         )
         dynamic_data = (dynamic or {}).get("data", {})
         dynamic_summary = dynamic_data.get("summary", {})
+        dynamic_rows = dynamic_data.get("items", []) if isinstance(dynamic_data, dict) else []
+        imported_dynamic_rows = [row for row in dynamic_rows if row.get("sourceKind") == "imported"]
+        imported_dynamic_ends = [row for row in imported_dynamic_rows if row.get("isEndCost") is True]
         expect(
             status == 200
             and dynamic is not None
-            and len(dynamic_data.get("items", [])) == 7
-            and dynamic_summary.get("endCount") == 6
-            and dynamic_summary.get("A_targetCost") == 35900000.0
-            and dynamic_summary.get("B_dtCost") == 36350000.0
+            and len(imported_dynamic_rows) == 7
+            and len(imported_dynamic_ends) == 6
+            and sum(float(row.get("A_targetCost") or 0) for row in imported_dynamic_ends) == 35900000.0
+            and sum(float(row.get("B_dtCost") or 0) for row in imported_dynamic_ends) == 36350000.0
+            and dynamic_summary.get("endCount", 0) >= 6
             and dynamic.get("source_coverage", {}).get("cb_cost") == 7,
             f"source dynamic-cost read failed: {status} {dynamic}",
         )

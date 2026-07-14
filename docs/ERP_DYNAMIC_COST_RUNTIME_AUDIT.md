@@ -25,6 +25,14 @@ source-compatible `/api/company/source/cost/milestones/:id/check` read also
 preserves the early-payment warning contract and returns a covered 404 when
 the available export has no `cb_contract_milestone` row.
 
+The source mutation family now has a bounded command projection as well:
+`POST /api/company/cost/dynamic-cost` translates source fields into an
+idempotent local cost row, while `PUT` and `DELETE`
+`/api/company/source/cost/dynamic-cost/:id` update or tombstone only
+command-owned rows. Imported `cb_cost` rows remain read-only; command rows are
+merged into the dynamic-cost read with `sourceKind=command` and explicit
+no-cash/accounting/tax markers.
+
 ## Evidence
 
 - PostgreSQL source read: seven rows, six end-cost rows, target
@@ -39,11 +47,14 @@ the available export has no `cb_contract_milestone` row.
   non-authorizing/non-persisting metadata.
 - The milestone-check probe returns source-compatible `43001` for a missing
   milestone rather than inventing a payment warning or milestone row.
+- Service and trusted-gateway smokes create, replay, update, read back, and
+  void a source-shaped dynamic-cost command row.
 
 ## Remaining gate
 
 1. Accept project scope and production identity for cost reads.
 2. Obtain owner-approved CBS/version semantics before treating imported cost
    rows as target-owned.
-3. Keep dynamic-cost create/update/delete, remarks writes, budget consumption,
-   accounting, cash, tax, and period-close effects separately authorized.
+3. Keep remarks writes, milestone state/trigger writes, budget consumption,
+   accounting, cash, tax, and period-close effects separately authorized;
+   imported dynamic-cost rows remain read-only.

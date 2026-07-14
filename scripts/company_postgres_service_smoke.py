@@ -157,6 +157,8 @@ def main() -> int:
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
+            or "contract_source_command_alias" not in payload.get("capabilities", [])
+            or "dynamic_cost_source_command_alias" not in payload.get("capabilities", [])
             or "payment_application_source_command_alias" not in payload.get("capabilities", [])
             or "fund_command" not in payload.get("capabilities", [])
             or "project_plan_command" not in payload.get("capabilities", [])
@@ -2855,6 +2857,67 @@ def main() -> int:
         )
         if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
             raise SmokeError(f"contract idempotency failed: {status} {payload}")
+        source_contract_update_payload = {
+            "contractName": "service source contract alias updated",
+            "yfProviderName": "source alias supplier",
+            "htAmount": "12346.00",
+            "signDate": "2026-07-14",
+        }
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/{contract_id}",
+            token=token,
+            method="PUT",
+            payload=source_contract_update_payload,
+            idempotency_key="source-contract-update-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("data", {}).get("contractGuid") != contract_id
+            or payload.get("contract", {}).get("state") != "draft"
+            or payload.get("cash_effect") is not False
+        ):
+            raise SmokeError(f"source contract alias update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/{contract_id}",
+            token=token,
+            method="PUT",
+            payload=source_contract_update_payload,
+            idempotency_key="source-contract-update-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source contract alias replay failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/contracts/ht-tj-001",
+            token=token,
+            method="PUT",
+            payload={"contractName": "must remain imported read-only"},
+            idempotency_key="source-contract-imported-update-" + nonce,
+        )
+        if status != 409 or payload is None:
+            raise SmokeError(f"source contract imported update guard failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/contracts?projGuid=CD-HJL",
+            token=token,
+        )
+        source_contract_rows = (payload or {}).get("data", []) if isinstance(payload, dict) else []
+        source_contract_row = next(
+            (row for row in source_contract_rows if row.get("contractGuid") == contract_id),
+            None,
+        )
+        if (
+            status != 200
+            or source_contract_row is None
+            or source_contract_row.get("sourceKind") != "command"
+            or source_contract_row.get("contractName") != "service source contract alias updated"
+            or source_contract_row.get("htAmount") != 12346.0
+        ):
+            raise SmokeError(f"source contract alias readback failed: {status} {payload}")
         transitions = [
             ("submit", "submitted"),
             ("reject", "rejected"),
@@ -2875,6 +2938,48 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/contracts/{contract_id}", token=token)
         if status != 200 or payload is None or payload.get("state") != "approved":
             raise SmokeError(f"contract detail failed: {status} {payload}")
+        void_contract_id = "CT-SOURCE-VOID-SMOKE-" + nonce
+        void_contract_payload = {
+            **contract_payload,
+            "contract_id": void_contract_id,
+            "contract_code": "HT-SOURCE-VOID-SMOKE-" + nonce,
+            "contract_name": "source contract alias void smoke",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/contracts",
+            token=token,
+            method="POST",
+            payload=void_contract_payload,
+            idempotency_key="source-contract-void-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("contract", {}).get("state") != "draft":
+            raise SmokeError(f"source contract alias void setup failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/contracts/{void_contract_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source contract alias smoke void"},
+            idempotency_key="source-contract-delete-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("contract", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"source contract alias delete failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/contracts?projGuid=CD-HJL",
+            token=token,
+        )
+        if status != 200 or any(
+            isinstance(row, dict) and row.get("contractGuid") == void_contract_id
+            for row in (payload or {}).get("data", [])
+        ):
+            raise SmokeError(f"source contract alias delete readback failed: {status} {payload}")
         supplier_id = "SUP-SMOKE-" + nonce
         supplier_payload = {
             "supplier_id": supplier_id,
@@ -3177,6 +3282,111 @@ def main() -> int:
             or source_payment_row.get("cash_effect") is not False
         ):
             raise SmokeError(f"source payment application alias readback failed: {status} {payload}")
+        source_cost_code = "SRC-COST-" + nonce
+        source_cost_payload = {
+            "projGuid": "proj-0001",
+            "costCode": source_cost_code,
+            "costName": "source dynamic-cost alias smoke",
+            "costLevel": 2,
+            "targetCost": "1000.00",
+            "htAlterAmount": "100.00",
+            "ztCost": "20.00",
+            "dfsBudget": "30.00",
+            "ygAlter": "5.00",
+            "remarks": "source dynamic-cost alias",
+        }
+        source_cost_key = "source-dynamic-create-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/dynamic-cost/cost-001",
+            token=token,
+            method="PUT",
+            payload={"costName": "must remain imported read-only"},
+            idempotency_key="source-dynamic-imported-update-" + nonce,
+        )
+        if status != 409 or payload is None:
+            raise SmokeError(f"source dynamic-cost imported update guard failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/cost/dynamic-cost",
+            token=token,
+            method="POST",
+            payload=source_cost_payload,
+            idempotency_key=source_cost_key,
+        )
+        if (
+            status != 201
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("data", {}).get("costCode") != source_cost_code
+            or payload.get("cash_effect") is not False
+        ):
+            raise SmokeError(f"source dynamic-cost alias create failed: {status} {payload}")
+        source_cost_id = payload.get("data", {}).get("costGuid")
+        if not isinstance(source_cost_id, str) or not source_cost_id:
+            raise SmokeError(f"source dynamic-cost alias id missing: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/cost/dynamic-cost",
+            token=token,
+            method="POST",
+            payload=source_cost_payload,
+            idempotency_key=source_cost_key,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source dynamic-cost alias replay failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/dynamic-cost/{source_cost_id}",
+            token=token,
+            method="PUT",
+            payload={"costName": "source dynamic-cost alias updated", "targetCost": "1100.00"},
+            idempotency_key="source-dynamic-update-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("dynamic_cost", {}).get("state") != "active"
+        ):
+            raise SmokeError(f"source dynamic-cost alias update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/cost/dynamic-cost?projGuid=proj-0001",
+            token=token,
+        )
+        dynamic_rows = (payload or {}).get("data", {}).get("items", []) if isinstance(payload, dict) else []
+        dynamic_row = next(
+            (row for row in dynamic_rows if row.get("costGuid") == source_cost_id),
+            None,
+        )
+        if (
+            status != 200
+            or dynamic_row is None
+            or dynamic_row.get("sourceKind") != "command"
+            or dynamic_row.get("costName") != "source dynamic-cost alias updated"
+            or dynamic_row.get("A_targetCost") != 1100.0
+        ):
+            raise SmokeError(f"source dynamic-cost alias readback failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/dynamic-cost/{source_cost_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source dynamic-cost alias smoke void"},
+            idempotency_key="source-dynamic-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("dynamic_cost", {}).get("state") != "deleted":
+            raise SmokeError(f"source dynamic-cost alias delete failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/cost/dynamic-cost?projGuid=proj-0001",
+            token=token,
+        )
+        if status != 200 or any(
+            isinstance(row, dict) and row.get("costGuid") == source_cost_id
+            for row in (payload or {}).get("data", {}).get("items", [])
+        ):
+            raise SmokeError(f"source dynamic-cost alias delete readback failed: {status} {payload}")
         tender_id = "TD-SMOKE-" + nonce
         tender_payload = {
             "tender_id": tender_id,
