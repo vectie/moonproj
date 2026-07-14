@@ -28,11 +28,15 @@ These are promotion rehearsals, not a production
 cutover. The task-state planner has a clean project-2 replay and quarantines
 two project-1 dependency conflicts. The source schema report also records 75
 authoritative ERP table definitions, 26 present in this fixture, and 49
-schema-only tables requiring later cohorts. The next hard gates are a
-page-by-page UI parity, runtime API/command wiring, and source-backed golden
-workflows. The existing technical gates will be reused and extended only when
-they protect one of those functional slices; additional standalone hardening
-is not the current priority. The current fixture also proves
+schema-only tables requiring later cohorts. The 2026-07-14 audit has now
+completed the bounded page-by-page sidebar/read wave, connected the
+evidence-ready PostgreSQL service/read-model paths, and verified local command
+runtimes through contract milestones. The next hard gates are managed
+production identity, the complete credential-safe source export, source-backed
+golden workflows, and named-owner acceptance of the remaining external effects.
+The existing technical gates will be reused and extended only when they
+protect one of those functional slices; additional standalone hardening is not
+the current priority. The current fixture also proves
 two balanced commitment links plus one employee-advance opening source-to-
 journal link, transactionally persisted and idempotently replayed; they are
 traceability receipts, not cash release or accounting-book posting.
@@ -936,6 +940,25 @@ session store is local and in-memory, the managed issuer/audience/rotation and
 deployment boundary is not accepted, and the current source export covers only
 26 of 75 tables. The next work is therefore ordered by decision value rather
 than raw route count:
+
+**Source-export revalidation checkpoint (2026-07-14).** The controlled ERP
+artifact was re-exported from
+`../erp/erp_new/backup/erp-v0.1.0-snapshot.db` with
+`scripts/erp_snapshot_export.sh`. The result is unchanged and hash-bound:
+26 tables, 120 rows, and source SHA-256
+`4ff5dd0ad0b75c6cfc572f99047fe41c5df4b8c48d3877f707fe063aec7dea03`.
+Re-running `erp_schema_gap_report.py`, `erp_schema_cohort_plan.py`, and
+`erp_source_export_request.py` against that manifest produces 75 schema
+definitions, 26 present tables, 49 `schema_only` tables, seven ordered waves,
+and an explicit 49-table request with state `awaiting_source_export`.
+The request remains read-only and credential-free: empty tables, primary-key
+metadata, per-table/source hashes, and recursive secret redaction are required;
+no rows are promoted and no cutover is authorized. This confirms that the
+remaining gap is missing source evidence, not an untracked implementation
+backlog. The next source action is to obtain that redacted export (or an
+owner-approved disposition for each absent table), validate it with
+`erp_export_contract.py`, then compare it against the immutable fixture before
+any broader staging or workflow promotion.
 
 | Priority | Scope | Decision / exit evidence | Keep gated until |
 | --- | --- | --- | --- |
