@@ -187,7 +187,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/rbac/permission-catalog`` (GET, source-defined metadata;
   never an authority grant)
 * ``/api/company/auth/prefs`` (GET, source preference observation; preference
-  writes remain gated)
+  writes plus command-owned preference projections)
+* ``/api/company/source/auth/prefs/<key>`` (PUT/DELETE, signed-user scoped
+  preference commands; no authority, provider, accounting, cash, or tax effect)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -523,6 +525,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "loan_command",
             "profile_observation_read",
             "preference_observation_read",
+            "preference_command",
             "rbac_observation_read",
             "audit_receipt",
             "attachment_metadata_read",
@@ -595,6 +598,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "loan_command",
             "profile_observation_read",
             "preference_observation_read",
+            "preference_command",
             "rbac_observation_read",
             "audit_receipt",
             "ai_hub_read",
@@ -10497,7 +10501,7 @@ def auth_preferences(
     user_code: str,
     max_rows: int,
 ) -> dict[str, Any] | None:
-    """Read source ``GET /auth/prefs`` without enabling preference writes."""
+    """Read source ``GET /auth/prefs`` plus local command-owned preferences."""
 
     if not IDENTIFIER.fullmatch(user_code):
         raise ValueError("invalid user_code")
@@ -10534,6 +10538,13 @@ def auth_preferences(
             except json.JSONDecodeError:
                 pass
         values[key] = value
+    command_rows = _latest_preference_command_rows(pool, user_code, max(max_rows, 100))
+    for row in command_rows:
+        payload = row["payload"]
+        key = str(payload.get("pref_key") or "")
+        if not key or str(payload.get("state") or "") == "deleted":
+            continue
+        values[key] = payload.get("value")
     coverage = {
         "sys_user": len(users),
         "sys_user_pref": len(raw_preferences),
@@ -10542,14 +10553,240 @@ def auth_preferences(
         "success": True,
         "code": 0,
         "data": values,
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command" if command_rows else "imported_or_empty",
+        "command_projection": bool(command_rows),
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
-        "persisted": False,
+        "persisted": bool(command_rows),
     }
+
+
+def _latest_preference_command_rows(
+    pool: PsqlPool,
+    user_code: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'user_preference'
+        AND payload->>'user_code' = {sql_literal(user_code)}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected preference command projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid preference command projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("preference command projection payload is not an object")
+        result.append(
+            {
+                "preference_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[3]),
+            }
+        )
+    return result
+
+
+def _preference_command_result(result: dict[str, Any]) -> dict[str, Any]:
+    preference = result.get("preference")
+    if not isinstance(preference, dict):
+        raise ServiceError("preference command result is missing preference data")
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "prefKey": str(preference.get("pref_key") or ""),
+            "value": preference.get("value"),
+        },
+        "preference": preference,
+        "command": result.get("command"),
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
+def preference_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    user_code: str,
+    pref_key: str,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if command_type not in {"set", "delete"}:
+        raise CommandRejected("unsupported preference command", 404)
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    if not IDENTIFIER.fullmatch(user_code) or actor_id != user_code:
+        raise CommandRejected("preference writes must be scoped to the signed user", 403)
+    if not IDENTIFIER.fullmatch(pref_key):
+        raise CommandRejected("preference key contains unsupported characters", 422)
+    profile = auth_current_user(pool, user_code, 100)
+    if profile is None or profile.get("data", {}).get("enabled") is not True:
+        raise CommandRejected("user not found or disabled", 403)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored preference command receipt has no result")
+        return {"command": existing, "preference": result, "idempotent_replay": True}
+    request: dict[str, Any] = {
+        "command_type": command_type,
+        "user_code": user_code,
+        "pref_key": pref_key,
+        "actor_id": actor_id,
+    }
+    if command_type == "set":
+        value = body.get("value") if "value" in body else None
+        try:
+            encoded_value = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError) as error:
+            raise CommandRejected("preference value must be JSON serializable", 422) from error
+        if len(encoded_value.encode("utf-8")) > 64 * 1024:
+            raise CommandRejected("preference value is too large", 422)
+        request["value"] = value
+    event_id = f"preference:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    aggregate_id = user_code + ":" + pref_key
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "preference",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "user_preference",
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    if command_type == "set":
+        next_payload_expr = (
+            f"{sql_literal(request_json)}::jsonb || jsonb_build_object('state', 'active', 'source_kind', 'command', "
+            f"'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'active'"
+    else:
+        next_payload_expr = (
+            f"current_payload || jsonb_build_object('state', 'deleted', 'source_kind', 'command', "
+            f"'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'deleted'"
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal('user_preference:' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      next_revision integer;
+      next_state text;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'user_preference' AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {sql_literal(command_type)} = 'set' THEN
+        next_revision := coalesce((SELECT max(p.revision) + 1 FROM company_aggregate_projection p
+          WHERE p.aggregate_type = 'user_preference' AND p.aggregate_id = {sql_literal(aggregate_id)}), 1);
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'preference not found'; END IF;
+        next_revision := coalesce((SELECT max(p.revision) + 1 FROM company_aggregate_projection p
+          WHERE p.aggregate_type = 'user_preference' AND p.aggregate_id = {sql_literal(aggregate_id)}), 1);
+      END IF;
+      next_payload := {next_payload_expr};
+      next_state := {next_state_expr};
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('user_preference', {sql_literal(aggregate_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', 'preference.' || {sql_literal(command_type)},
+          'aggregate_type', 'user_preference', 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', next_state, 'revision', next_revision,
+          'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object(
+        'user_code', {sql_literal(user_code)}, 'pref_key', {sql_literal(pref_key)},
+        'value', next_payload->'value', 'state', next_state, 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)}, 'source_kind', 'command',
+        'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+      );
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("preference command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected preference command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid preference command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("preference command receipt has no result")
+    return {"command": receipt, "preference": result, "idempotent_replay": not created}
 
 
 def auth_my_initiated(
@@ -23719,7 +23956,46 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _auth_preference_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/auth/prefs/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = preference_command(
+                    pool,
+                    command_type="set" if method == "PUT" else "delete",
+                    user_code=actor,
+                    pref_key=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, _preference_command_result(result), origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
+            if self._auth_preference_method_alias("PUT"):
+                return
             if self._source_project_method_alias("PUT"):
                 return
             if self._supplier_method_alias("PUT"):
@@ -23748,6 +24024,8 @@ def handler_factory(
             response(self, 404, {"error": "unsupported company patch"}, self._origin())
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if self._auth_preference_method_alias("DELETE"):
+                return
             if self._source_project_method_alias("DELETE"):
                 return
             if self._tender_method_alias("DELETE"):

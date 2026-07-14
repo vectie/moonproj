@@ -1488,8 +1488,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_preference_command",
+      "required_next": "accept_browser_preference_command_scenario_and_security_owner"
     },
     {
       "module": "auth",
@@ -1499,8 +1499,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_preference_command",
+      "required_next": "accept_browser_preference_command_scenario_and_security_owner"
     },
     {
       "module": "budget",

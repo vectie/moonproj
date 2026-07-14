@@ -139,8 +139,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `auth` | `PUT` | `/profile` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `GET` | `/my-initiated` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `auth` | `GET` | `/prefs` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
-| `auth` | `PUT` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `auth` | `DELETE` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `auth` | `PUT` | `/prefs/:key` | `/login`, `/profile` | `connected_preference_command` | `accept_browser_preference_command_scenario_and_security_owner` |
+| `auth` | `DELETE` | `/prefs/:key` | `/login`, `/profile` | `connected_preference_command` | `accept_browser_preference_command_scenario_and_security_owner` |
 | `budget` | `GET` | `/dict/cost-subjects` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
 | `budget` | `GET` | `/proceedings` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
 | `budget` | `GET` | `/users-in-bu` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_scope_read` | `accept_browser_budget_scope_scenario_and_production_identity` |

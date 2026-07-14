@@ -1765,6 +1765,7 @@ def main() -> int:
             "/api/company/auth/prefs?userCode=admin",
             token=token,
         )
+        prefs_have_command_projection = bool((prefs_payload or {}).get("command_projection"))
         if (
             status != 200
             or prefs_payload is None
@@ -1773,7 +1774,20 @@ def main() -> int:
             or prefs_payload.get("source_coverage", {}).get("sys_user_pref") != 0
             or "sys_user_pref" not in prefs_payload.get("missing_or_empty_source_tables", [])
             or prefs_payload.get("authorizing") is not False
-            or prefs_payload.get("persisted") is not False
+            or (
+                not prefs_have_command_projection
+                and (
+                    prefs_payload.get("source_kind") != "imported_or_empty"
+                    or prefs_payload.get("persisted") is not False
+                )
+            )
+            or (
+                prefs_have_command_projection
+                and (
+                    prefs_payload.get("source_kind") != "imported_or_command"
+                    or prefs_payload.get("persisted") is not True
+                )
+            )
         ):
             raise SmokeError(f"auth preference read failed: {status} {prefs_payload}")
         status, rbac_me_payload = request(

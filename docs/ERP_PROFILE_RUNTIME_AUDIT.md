@@ -21,10 +21,15 @@ organization.
   user's ID. The current export yields zero expenses, one loan, and three
   payment applications for `limingjin`; the empty expense table is reported
   as source coverage rather than replaced with a fixture.
-- `GET /api/company/auth/prefs?userCode=...` now exposes the source preference
-  shape as a read-only observation. The current export has no
-  `sys_user_pref` rows, so `admin` receives `{}` with explicit zero coverage;
-  the endpoint never persists or authorizes a preference change.
+- `GET /api/company/auth/prefs?userCode=...` exposes the source preference
+  shape and merges any active local command projection. The current export has
+  no `sys_user_pref` rows, so `admin` receives `{}` with explicit zero source
+  coverage until a signed local command is issued. `PUT`/`DELETE`
+  `/api/company/source/auth/prefs/:key` translate the source self-scoped
+  preference mutations into durable, idempotent `user_preference` projections
+  and audit receipts. They are command provenance only: they do not grant
+  authority or trigger provider, accounting, cash, or tax effects; imported
+  `sys_user_pref` rows remain read-only.
 - `GET /api/company/rbac/me?userCode=...` now exposes the source current-user
   RBAC shape while keeping authority separate. It returns the imported
   identity, empty roles/permissions, `dataScope=self`, and `NO_SOURCE_ROWS`
@@ -42,8 +47,9 @@ organization.
   initiated-document table. A source/provenance note makes the read-only
   boundary visible, and imported rows replace the sample documents when they
   exist.
-- The service smoke covers the imported `admin` record, organization joins,
+- The service and trusted-gateway smokes cover the imported `admin` record,
   super-user flag, coverage counts, the empty preference observation, the
+  preference set/replay/read/delete command path,
   non-authorizing RBAC current-user/role/catalog observations, the missing-user
   and missing-role 404 paths, and the `limingjin` initiated-document counts and
   identities.
@@ -56,9 +62,11 @@ organization.
 
 ## Remaining gates
 
-Profile updates, password changes, preference writes, role administration,
-managed issuer/audience validation, session-store durability, token rotation,
-browser acceptance, and security-owner approval remain separate gates. The
-trusted-upstream mode is an identity-bound rehearsal seam; it is evidence of
-source translation and gateway binding, not authorization to mutate identity
-data or approve workflows.
+Profile updates, password changes, role administration, managed
+issuer/audience validation, session-store durability, token rotation, browser
+acceptance, and security-owner approval remain separate gates. Preference
+commands are limited to the signed user's local projection and are not an
+authorization or identity mutation. The trusted-upstream mode is an
+identity-bound rehearsal seam; it is evidence of source translation and
+gateway binding, not authorization to mutate identity data or approve
+workflows.

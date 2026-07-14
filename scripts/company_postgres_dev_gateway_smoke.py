@@ -173,6 +173,67 @@ def main() -> int:
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
         smoke_suffix = str(int(time.time()))
+        preference_key = "dashboard_view"
+        preference_value = {"projGuid": "proj-0001", "density": "compact"}
+        status, _headers, preference_set_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/auth/prefs/{preference_key}",
+            headers={"Cookie": cookie},
+            payload={
+                "value": preference_value,
+                "idempotency_key": "preference-gateway-set-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(preference_set_payload, dict)
+            or preference_set_payload.get("source_kind") != "command"
+            or preference_set_payload.get("data", {}).get("value") != preference_value
+        ):
+            raise SmokeError(f"trusted preference command set failed: {status}")
+        status, _headers, preference_replay_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/auth/prefs/{preference_key}",
+            headers={"Cookie": cookie},
+            payload={
+                "value": preference_value,
+                "idempotency_key": "preference-gateway-set-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(preference_replay_payload, dict) or preference_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"trusted preference command replay failed: {status}")
+        status, _headers, preference_read_payload = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/auth/prefs?userCode=admin",
+            headers={"Cookie": cookie},
+        )
+        if (
+            status != 200
+            or not isinstance(preference_read_payload, dict)
+            or preference_read_payload.get("data", {}).get(preference_key) != preference_value
+            or preference_read_payload.get("command_projection") is not True
+        ):
+            raise SmokeError(f"trusted preference command readback failed: {status}")
+        status, _headers, preference_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/auth/prefs/{preference_key}",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "preference-gateway-delete-" + smoke_suffix},
+        )
+        if status != 200 or not isinstance(preference_delete_payload, dict) or preference_delete_payload.get("data", {}).get("prefKey") != preference_key:
+            raise SmokeError(f"trusted preference command delete failed: {status}")
+        status, _headers, preference_deleted_read = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/auth/prefs?userCode=admin",
+            headers={"Cookie": cookie},
+        )
+        if status != 200 or not isinstance(preference_deleted_read, dict) or preference_key in preference_deleted_read.get("data", {}):
+            raise SmokeError(f"trusted preference tombstone readback failed: {status}")
         status, _headers, budget_check_payload = request(
             args.gateway_port,
             "POST",

@@ -753,6 +753,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_profile_read", "accept_browser_profile_scenario_and_production_identity"
     if (
+        handler["module"] == "auth"
+        and handler["method"] in {"PUT", "DELETE"}
+        and handler["path"] == "/prefs/:key"
+    ):
+        return "connected_preference_command", "accept_browser_preference_command_scenario_and_security_owner"
+    if (
         handler["module"] == "budget"
         and handler["method"] == "GET"
         and handler["path"] == "/expenses"
