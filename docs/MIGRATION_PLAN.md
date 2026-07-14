@@ -665,10 +665,50 @@ list/catalog routes and 404 for an unknown role detail. Role writes, assignments
 production identity/token binding, owner reconciliation, and the complete
 credential-safe export remain open gates.
 
+**Page-by-page browser acceptance checkpoint (2026-07-14).** After the
+representative checks above, the same logged-in local session exercised every
+visible Rabbita navigation group through sidebar actions (not direct URL
+loads). The results are now recorded as bounded UI/read-model evidence:
+
+* AI: `AI 驾驶舱`, `AI 工作台`, and `AI 工作大盘` rendered their funnel,
+  workspace, usage, and activity states with provider execution still disabled.
+* Project: `项目主数据`, `项目计划`, `工程进度`, and `我的待办` rendered;
+  project/plan/progress/task-definition reads stayed source-backed or
+  explicitly empty where the export has no progress/output/task rows.
+* Sales: all six pages (`客户档案`, `认筹登记`, `签约管理`, `按揭办理`,
+  `销售回款 (R6)`, `营销管理`) rendered the PostgreSQL sales observation
+  headings and their customer, reservation, agreement, mortgage, receivable,
+  revenue, campaign, placement, channel, and material sections.
+* Cost/procurement: `成本驾驶舱`, `投资收益`, `合同台帐`, `付款申请`,
+  `动态成本`, `合约规划`, `供应商库`, and `风险面板` rendered; the CBS
+  dictionary/version/R0/approval family also rendered with the truthful
+  `PostgreSQL CBS 字典 (0)` state. Imported dynamic-cost, investment,
+  supplier-dictionary, and risk observations remained read-only.
+* Finance: `资金计划`, `发票管理`, `我的报销`, and `我的借款` rendered;
+  fund-plan and reimbursement source tables remain empty, while invoice,
+  loan, and sales-source observations retain their provenance labels.
+* Analysis: `报表中心`, `自定义报表`, and `异常预警` rendered their report,
+  dataset/template, warning-list, and rule sections. Empty core report data
+  and designer templates remain visibly distinct.
+* System: `站内信`, `附件中心`, `通知配置`, `审计日志`, `错误日志`,
+  `系统健康`, `用户/角色`, `数据后台`, `OCR 配置`, and `Webhook 三平台`
+  all rendered; source metadata, empty queues, redacted provider state, and
+  the 11-module permission catalog remained explicit.
+
+Every sidebar navigation action in this pass reached a rendered page and the
+server log recorded HTTP 200 for the observed read requests. This is now
+page-by-page route/render acceptance for the bounded local read wave; it is
+not screenshot-level visual parity, mutation acceptance, production identity
+approval, provider authorization, or named-owner sign-off. Directly entering
+`/projects` on the static development server still returns its expected
+server-level 404 because the server has no SPA fallback; this does not affect
+the sidebar-driven app routes and is kept as a deployment/cutover check.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
-   many views are fixture-backed/read-only and no page-by-page screenshot,
-   interaction, or route-action comparison has been accepted.
+   many views are fixture-backed/read-only. The bounded local read wave now
+   has page-by-page sidebar/render evidence, but screenshot-level visual,
+   interaction, and route-action comparison remains open.
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise bounded expense,
    contract, payment-application, procurement, sales/receivables, invoice,
