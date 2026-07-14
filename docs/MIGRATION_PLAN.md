@@ -315,7 +315,9 @@ The source reconciliation inventory is now observable at
 raw-envelope counts, and explicit `source_export_incomplete`,
 `promotion_authorized=false`, and `cutover_authorized=false` state. This makes
 the remaining export gap measurable from the PostgreSQL service without
-fabricating empty rows or treating the rehearsal snapshot as complete.
+fabricating empty rows or treating the rehearsal snapshot as complete. The
+Rabbita System Health page now renders the same scope evidence, so operators
+can see the migration boundary without leaving the company product.
 
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and

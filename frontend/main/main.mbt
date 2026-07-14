@@ -934,6 +934,13 @@ struct Model {
   health_bpm_instance_count : String
   health_bpm_action_count : String
   health_note : String
+  health_inventory_loaded : Bool
+  health_inventory_schema_count : String
+  health_inventory_snapshot_count : String
+  health_inventory_schema_only_count : String
+  health_inventory_export_state : String
+  health_inventory_snapshot_id : String
+  health_inventory_note : String
   loans_loaded : Bool
   loan_rows : Array[LoanRow]
   loan_note : String
@@ -1158,6 +1165,8 @@ enum Msg {
   RbacCatalogLoadFailed
   HealthTablesLoaded(String)
   HealthBpmLoaded(String)
+  HealthInventoryLoaded(String)
+  HealthInventoryLoadFailed
   HealthLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
@@ -1499,6 +1508,13 @@ fn initial_model() -> Model {
     health_bpm_instance_count: "0",
     health_bpm_action_count: "0",
     health_note: "系统健康读模型尚未加载 · 使用设计快照",
+    health_inventory_loaded: false,
+    health_inventory_schema_count: "0",
+    health_inventory_snapshot_count: "0",
+    health_inventory_schema_only_count: "0",
+    health_inventory_export_state: "待读取",
+    health_inventory_snapshot_id: "",
+    health_inventory_note: "迁移源范围尚未加载 · 使用设计快照",
     loans_loaded: false,
     loan_rows: [],
     loan_note: "员工借款读模型尚未加载",
@@ -4813,6 +4829,46 @@ fn health_bpm_counts_from_body(body : String) -> (String, String) {
 }
 
 ///|
+fn health_inventory_from_body(
+  body : String,
+) -> (Bool, String, String, String, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let schema_count = json_object_text(data, "schemaTableCount", "0")
+          let snapshot_count = json_object_text(data, "snapshotTableCount", "0")
+          let schema_only_count = json_object_text(
+            data, "schemaOnlyTableCount", "0",
+          )
+          let export_state = json_object_text(
+            fields, "source_export_state", "source_export_incomplete",
+          )
+          let snapshot_id = json_object_text(fields, "source_snapshot_id", "")
+          (
+            schema_count != "0" && snapshot_count != "0",
+            schema_count,
+            snapshot_count,
+            schema_only_count,
+            export_state,
+            snapshot_id,
+            "迁移范围来自 hash-bound PostgreSQL 源清单 · promotion/cutover 均未授权",
+          )
+        }
+        _ =>
+          (
+            false, "0", "0", "0", "响应无迁移范围数据", "", "迁移源范围响应无效",
+          )
+      }
+    _ =>
+      (
+        false, "0", "0", "0", "响应无迁移范围数据", "", "迁移源范围响应无效",
+      )
+  }
+}
+
+///|
 fn loan_from_json(value : Json) -> LoanRow? {
   match value {
     Json::Object(fields) =>
@@ -5751,6 +5807,16 @@ fn load_health_bpm(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(HealthBpmLoaded(body))
       Err(_) => emit(HealthLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_health_inventory(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/migration/schema-coverage").expect_text(result => {
+    match result {
+      Ok(body) => emit(HealthInventoryLoaded(body))
+      Err(_) => emit(HealthInventoryLoadFailed)
     }
   })
 }
@@ -8995,16 +9061,50 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     HealthBpmLoaded(body) => {
       let (instance_count, action_count) = health_bpm_counts_from_body(body)
       (
-        none,
+        load_health_inventory(emit),
         {
           ..model,
-          health_loaded: true,
           health_bpm_instance_count: instance_count,
           health_bpm_action_count: action_count,
           health_note: "已加载 PostgreSQL 健康覆盖 · BPM 实例/动作保持源数据状态",
         },
       )
     }
+    HealthInventoryLoaded(body) => {
+      let (
+        loaded,
+        schema_count,
+        snapshot_count,
+        schema_only_count,
+        export_state,
+        snapshot_id,
+        note,
+      ) = health_inventory_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          health_loaded: true,
+          health_inventory_loaded: loaded,
+          health_inventory_schema_count: schema_count,
+          health_inventory_snapshot_count: snapshot_count,
+          health_inventory_schema_only_count: schema_only_count,
+          health_inventory_export_state: export_state,
+          health_inventory_snapshot_id: snapshot_id,
+          health_inventory_note: note,
+        },
+      )
+    }
+    HealthInventoryLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          health_loaded: true,
+          health_inventory_loaded: false,
+          health_inventory_note: "迁移源范围不可用 · 健康探针其余读数仍保持只读",
+        },
+      )
     HealthLoadFailed =>
       (
         none,
@@ -9012,6 +9112,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           health_loaded: false,
           health_table_rows: [],
+          health_inventory_loaded: false,
           health_note: "系统健康读模型不可用 · 使用设计快照",
         },
       )
@@ -15402,6 +15503,49 @@ fn health_table_panel(model : Model) -> @html.Html {
 }
 
 ///|
+fn health_inventory_panel(model : Model) -> @html.Html {
+  if model.health_inventory_loaded {
+    let snapshot_id = if model.health_inventory_snapshot_id == "" {
+      "—"
+    } else {
+      model.health_inventory_snapshot_id
+    }
+    table_panel(
+      "迁移源范围",
+      model.health_inventory_note + " · " + model.health_inventory_export_state,
+      data_table(["范围", "数量", "状态", "来源"], [
+        [
+          "ERP schema tables",
+          model.health_inventory_schema_count,
+          "权威 schema",
+          "erp_new initializer",
+        ],
+        [
+          "Rehearsal snapshot tables",
+          model.health_inventory_snapshot_count,
+          "已导入 envelope",
+          snapshot_id,
+        ],
+        [
+          "Schema-only tables",
+          model.health_inventory_schema_only_count,
+          "缺少源 payload · 保持 gated",
+          model.health_inventory_export_state,
+        ],
+      ]),
+    )
+  } else {
+    table_panel(
+      "迁移源范围",
+      model.health_inventory_note,
+      data_table(["范围", "数量", "状态", "来源"], [
+        ["—", "—", "等待源清单", "只读"],
+      ]),
+    )
+  }
+}
+
+///|
 fn health_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let health_status_class = if model.health_loaded {
     "erp-status-tag is-success"
@@ -15513,6 +15657,7 @@ fn health_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         div(class="erp-health-grid") <| status_items,
       ],
       health_table_panel(model),
+      health_inventory_panel(model),
     ],
   )
 }
