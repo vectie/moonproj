@@ -33,6 +33,8 @@ boundary:
 - fulfilled-agreement receivable opening;
 - mortgage create/approve/release;
 - refund create/approve/pay/reject.
+- revenue create/update/confirm-received/delete through a separate
+  authority-checked local command boundary.
 
 Imported projections are read-only. A fulfilled agreement opens a receivable
 only through an explicit command; collections, refund cash, revenue
@@ -54,16 +56,20 @@ The source-observation boundary is separate from those target projections:
 
 Each response preserves the source row fields, adds normalized aggregate
 identity for the Rabbita table, reports coverage for all six sales tables, and
-marks the observation non-authorizing and non-persisting. The current export
-has zero rows in every table, so these reads do not seed or expose the
-synthetic command cohort.
+marks the observation non-authorizing and non-persisting. Revenue source reads
+also merge local command projections as `source_kind=command` while keeping
+raw-table coverage separate; deleted local projections are filtered out. The
+current export has zero rows in every table, so these reads do not seed or
+promote source rows.
 
 ## Evidence
 
 The authenticated service smoke covers a disposable customer → reservation →
-fulfilled agreement → receivable workflow plus mortgage approval/release and
-refund approval/payment. It checks idempotent customer creation and restores
-the PostgreSQL baseline after the run.
+fulfilled agreement → receivable workflow plus mortgage approval/release,
+refund approval/payment, and an authority-checked revenue
+create/replay/update/confirm/delete workflow with source-shaped readback. The
+trusted gateway smoke covers the same revenue command family through the
+session boundary.
 
 The reviewed synthetic sales cohort contains one customer, converted
 subscription, fulfilled agreement, opened receivable, released mortgage, paid
@@ -80,12 +86,11 @@ identity/session deployment remain required.
 ## Source action reconciliation
 
 The parity matrix now maps the source-equivalent customer create/update,
-subscription create/convert, mortgage create/approve/release, and refund
-create/approve actions to the existing local command runtime. The source
-customer delete action remains gated because the target deliberately exposes
-archive rather than destructive deletion. All four source revenue mutations
-(create/update/delete/confirm-received) remain gated because the target has
-only a source-compatible revenue read; no local command may silently turn a
-revenue observation into cash or accounting. These command mappings are
-local evidence only: the gateway actor/session, source identity mapping,
-browser acceptance, and sales/finance owner approval remain open.
+subscription create/convert, mortgage create/approve/release, refund
+create/approve, and revenue create/update/delete/confirm-received actions to
+the local command runtime. Revenue commands require authority, idempotency,
+and actor/scope matching; they only create local projections and never release
+cash or post accounting. The source customer delete action remains gated
+because the target deliberately exposes archive rather than destructive
+deletion. These command mappings are local evidence only: source identity
+mapping, browser acceptance, and sales/finance owner approval remain open.

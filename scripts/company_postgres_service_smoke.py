@@ -2167,6 +2167,126 @@ def main() -> int:
             "out": invoice_out_delete_payload.get("invoice", {}).get("state"),
             "tax_period": "2026-07",
         }
+        sales_revenue_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
+        sales_revenue_principal = "co-sales-revenue-smoke"
+        sales_revenue_scope = "project:proj-0001"
+        sales_revenue_id = "REV-SMOKE-" + nonce
+
+        def sales_revenue_authority(command_type: str, max_amount_minor: int = 0) -> dict[str, Any]:
+            return {
+                "active": True,
+                "principal_id": sales_revenue_principal,
+                "actor_id": sales_revenue_actor,
+                "capability": "sales:revenue:" + command_type,
+                "scope": sales_revenue_scope,
+                "max_amount_minor": max_amount_minor,
+            }
+
+        sales_revenue_payload = {
+            "revenue_id": sales_revenue_id,
+            "revenue_code": "SR-SMOKE-" + nonce,
+            "proj_guid": "proj-0001",
+            "customer_name": "sales revenue smoke customer",
+            "amount_minor": 456700,
+            "receive_date": "2026-07-14",
+            "status": "expected",
+            "payment_type": "bank",
+            "contract_no": "SCT-SMOKE-" + nonce,
+            "remark": "source-shaped revenue command smoke",
+            "principal_id": sales_revenue_principal,
+            "scope": sales_revenue_scope,
+            "authority": sales_revenue_authority("create", 500000),
+        }
+        status, sales_revenue_create_payload = request(
+            args.port,
+            "/api/company/sales/revenues",
+            token=token,
+            method="POST",
+            payload=sales_revenue_payload,
+            idempotency_key="sales-revenue-create-" + nonce,
+        )
+        if (
+            status != 201
+            or sales_revenue_create_payload is None
+            or sales_revenue_create_payload.get("revenue", {}).get("state") != "expected"
+        ):
+            raise SmokeError(f"sales revenue create failed: {status} {sales_revenue_create_payload}")
+        status, sales_revenue_replay_payload = request(
+            args.port,
+            "/api/company/sales/revenues",
+            token=token,
+            method="POST",
+            payload=sales_revenue_payload,
+            idempotency_key="sales-revenue-create-" + nonce,
+        )
+        if status != 200 or sales_revenue_replay_payload is None or sales_revenue_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"sales revenue idempotency failed: {status} {sales_revenue_replay_payload}")
+        status, sales_revenue_update_payload = request(
+            args.port,
+            f"/api/company/sales/revenues/{sales_revenue_id}",
+            token=token,
+            method="PUT",
+            payload={
+                "customer_name": "sales revenue smoke customer updated",
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("update"),
+            },
+            idempotency_key="sales-revenue-update-" + nonce,
+        )
+        if status != 200 or sales_revenue_update_payload is None or sales_revenue_update_payload.get("revenue", {}).get("state") != "expected":
+            raise SmokeError(f"sales revenue update failed: {status} {sales_revenue_update_payload}")
+        status, sales_revenue_confirm_payload = request(
+            args.port,
+            f"/api/company/sales/revenues/{sales_revenue_id}/confirm-received",
+            token=token,
+            method="POST",
+            payload={
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("confirm_received"),
+            },
+            idempotency_key="sales-revenue-confirm-" + nonce,
+        )
+        if status != 200 or sales_revenue_confirm_payload is None or sales_revenue_confirm_payload.get("revenue", {}).get("state") != "received":
+            raise SmokeError(f"sales revenue confirmation failed: {status} {sales_revenue_confirm_payload}")
+        status, sales_revenue_readback_payload = request(
+            args.port,
+            "/api/company/source/sales/revenues?projGuid=proj-0001",
+            token=token,
+        )
+        sales_revenue_rows = (sales_revenue_readback_payload or {}).get("data", [])
+        if (
+            status != 200
+            or sales_revenue_readback_payload is None
+            or not any(
+                isinstance(row, dict)
+                and row.get("revenue_guid") == sales_revenue_id
+                and row.get("source_kind") == "command"
+                and row.get("status") == "received"
+                for row in sales_revenue_rows
+            )
+        ):
+            raise SmokeError(f"sales revenue source-shaped readback failed: {status} {sales_revenue_readback_payload}")
+        status, sales_revenue_delete_payload = request(
+            args.port,
+            f"/api/company/sales/revenues/{sales_revenue_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("delete"),
+            },
+            idempotency_key="sales-revenue-delete-" + nonce,
+        )
+        if status != 200 or sales_revenue_delete_payload is None or sales_revenue_delete_payload.get("revenue", {}).get("state") != "deleted":
+            raise SmokeError(f"sales revenue delete failed: {status} {sales_revenue_delete_payload}")
+        sales_revenue_command_states = {
+            "create": sales_revenue_create_payload.get("revenue", {}).get("state"),
+            "confirm": sales_revenue_confirm_payload.get("revenue", {}).get("state"),
+            "delete": sales_revenue_delete_payload.get("revenue", {}).get("state"),
+        }
         loan_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
         loan_id = "LOAN-SMOKE-" + nonce
         loan_payload = {
@@ -3175,6 +3295,7 @@ def main() -> int:
                     "marketing_material_rows": len(marketing_payloads["/api/company/marketing/materials?projGuid=proj-0001"].get("data", [])),
                     "marketing_command_states": marketing_command_states,
                     "invoice_command_states": invoice_command_states,
+                    "sales_revenue_command_states": sales_revenue_command_states,
                     "ai_intake_rows": ai_kpi.get("intakeTotal"),
                     "ai_query_rows": ai_kpi.get("queryTotal"),
                     "ai_skip_rows": ai_kpi.get("skipTotal"),

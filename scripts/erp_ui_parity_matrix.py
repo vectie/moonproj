@@ -762,11 +762,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "sales"
         and (
-            (handler["method"] == "POST" and handler["path"] in {"/customers", "/subscriptions", "/mortgages", "/refunds"})
+            (handler["method"] == "POST" and handler["path"] in {"/customers", "/subscriptions", "/mortgages", "/refunds", "/revenues"})
             or (handler["method"] == "PUT" and handler["path"] == "/customers/:guid")
+            or (handler["method"] == "PUT" and handler["path"] == "/revenues/:guid")
             or (handler["method"] == "POST" and handler["path"] == "/subscriptions/:guid/convert-to-contract")
             or (handler["method"] == "POST" and handler["path"] in {"/mortgages/:guid/approve", "/mortgages/:guid/release"})
             or (handler["method"] == "POST" and handler["path"] == "/refunds/:guid/approve")
+            or (handler["method"] == "DELETE" and handler["path"] == "/revenues/:guid")
+            or (handler["method"] == "POST" and handler["path"] == "/revenues/:guid/confirm-received")
         )
     ):
         return "connected_sales_command", "accept_browser_sales_command_scenario_and_sales_finance_owner"

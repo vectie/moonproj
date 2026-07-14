@@ -250,6 +250,100 @@ def main() -> int:
             or sales_archive_payload.get("customer", {}).get("state") != "archived"
         ):
             raise SmokeError(f"trusted sales command archive failed: {status}")
+        sales_revenue_id = "REV-GW-SMOKE-" + smoke_suffix
+        sales_revenue_principal = "co-gateway-sales-revenue"
+        sales_revenue_scope = "project:proj-0001"
+
+        def sales_revenue_authority(command_type: str, max_amount_minor: int = 0) -> dict[str, Any]:
+            return {
+                "active": True,
+                "principal_id": sales_revenue_principal,
+                "actor_id": user_code,
+                "capability": "sales:revenue:" + command_type,
+                "scope": sales_revenue_scope,
+                "max_amount_minor": max_amount_minor,
+            }
+
+        status, _headers, sales_revenue_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/sales/revenues",
+            headers={"Cookie": cookie},
+            payload={
+                "revenue_id": sales_revenue_id,
+                "revenue_code": "SR-GW-SMOKE-" + smoke_suffix,
+                "proj_guid": "proj-0001",
+                "customer_name": "gateway sales revenue smoke",
+                "amount_minor": 123450,
+                "receive_date": "2026-07-14",
+                "status": "expected",
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("create", 150000),
+                "idempotency_key": "sales-revenue-gateway-create-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 201
+            or not isinstance(sales_revenue_payload, dict)
+            or sales_revenue_payload.get("revenue", {}).get("state") != "expected"
+        ):
+            raise SmokeError(f"trusted sales revenue create failed: {status}")
+        status, _headers, sales_revenue_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/sales/revenues/{sales_revenue_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "customer_name": "gateway sales revenue smoke updated",
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("update"),
+                "idempotency_key": "sales-revenue-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(sales_revenue_update_payload, dict)
+            or sales_revenue_update_payload.get("revenue", {}).get("state") != "expected"
+        ):
+            raise SmokeError(f"trusted sales revenue update failed: {status}")
+        status, _headers, sales_revenue_confirm_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/sales/revenues/{sales_revenue_id}/confirm-received",
+            headers={"Cookie": cookie},
+            payload={
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("confirm_received"),
+                "idempotency_key": "sales-revenue-gateway-confirm-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(sales_revenue_confirm_payload, dict)
+            or sales_revenue_confirm_payload.get("revenue", {}).get("state") != "received"
+        ):
+            raise SmokeError(f"trusted sales revenue confirm failed: {status}")
+        status, _headers, sales_revenue_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/sales/revenues/{sales_revenue_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "principal_id": sales_revenue_principal,
+                "scope": sales_revenue_scope,
+                "authority": sales_revenue_authority("delete"),
+                "idempotency_key": "sales-revenue-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(sales_revenue_delete_payload, dict)
+            or sales_revenue_delete_payload.get("revenue", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted sales revenue delete failed: {status}")
         marketing_id = "MKT-GW-SMOKE-" + smoke_suffix
         marketing_key = "marketing-gateway-create-" + smoke_suffix
         marketing_body = {

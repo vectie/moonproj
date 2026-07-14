@@ -442,14 +442,14 @@ command has been approved. Source-row coverage, browser acceptance, and
 operations-owner approval remain open.
 
 The sales action register now maps source-equivalent customer create/update,
-subscription create/convert, mortgage create/approve/release, and refund
-create/approve actions to the existing PostgreSQL command runtime. Customer
-destructive deletion remains gated in favor of an explicit archive command,
-and all revenue create/update/delete/confirm actions remain gated because the
-target currently preserves revenue as a source-compatible read only. The
-trusted gateway smoke now covers sales customer create/replay/update/archive;
-source identity mapping, browser acceptance, and sales/finance-owner approval
-remain open.
+subscription create/convert, mortgage create/approve/release, refund
+create/approve, and revenue create/update/confirm/delete actions to PostgreSQL
+command runtimes. Revenue commands require an explicit authority grant,
+idempotency key, and actor/scope match; their source-shaped readback is marked
+`source_kind=command`, and deletion only tombstones local projections. Customer
+destructive deletion remains gated in favor of an explicit archive command.
+Cash release, accounting/tax effects, source identity mapping, browser
+acceptance, and sales/finance-owner approval remain open.
 
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
@@ -844,7 +844,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions now map to the existing local command runtime, while revenue mutation and destructive customer deletion remain gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
+| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, while destructive customer deletion remains gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the

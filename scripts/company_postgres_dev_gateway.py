@@ -335,6 +335,10 @@ def handler_factory(
                     r"/api/company/source/invoice/(in|out)/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,
                 )
+                or re.fullmatch(
+                    r"/api/company/sales/revenues/[A-Za-z0-9_.:-]{1,128}",
+                    parsed.path,
+                )
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return

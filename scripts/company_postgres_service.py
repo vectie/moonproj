@@ -62,8 +62,10 @@ The bounded service exposes these endpoints:
   procurement observations; empty source tables stay explicit)
 * ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}`` (GET)
 * ``/api/company/receivables`` (GET)
-* ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds}`` (POST)
-  with idempotent lifecycle commands
+* ``/api/company/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}``
+  (POST) with idempotent lifecycle commands; revenue update/confirm/delete
+  remain local, authority-checked commands with no implicit cash/accounting
+  effect
 * ``/api/company/source/sales/{customers,subscriptions,contracts,mortgages,refunds,revenues}``
   (GET, source ERP sales observations; empty source tables stay explicit)
 * ``/api/company/delivery/{progress,outputs,tasks,task-reports,plan-summary}`` (GET)
@@ -2807,13 +2809,14 @@ SALES_SOURCE_FAMILIES = {
 
 def _sales_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
         "persisted": False,
+        "command_projection": True,
         "provider_execution": False,
     }
 
@@ -2914,10 +2917,12 @@ def sales_source_rows(
         for name in sorted(SALES_SOURCE_TABLES)
     }
     raw = _raw_source_rows(pool, table, max(max_rows, 500), SALES_SOURCE_TABLES)
+    if family == "revenues":
+        raw.extend(_sales_revenue_command_projection_rows(pool, max_rows))
     rows: list[dict[str, Any]] = []
     for row in raw:
         payload = row["payload"]
-        if payload.get("deleted_at"):
+        if payload.get("deleted_at") or payload.get("state") == "deleted" or payload.get("status") == "deleted":
             continue
         if proj_guid is not None and str(payload.get("proj_guid") or "") != proj_guid:
             continue
@@ -2943,6 +2948,60 @@ def sales_source_rows(
         "data": rows[:max_rows],
         **_sales_source_metadata(coverage),
     }
+
+
+def _sales_revenue_command_projection_rows(
+    pool: PsqlPool,
+    max_rows: int,
+    revenue_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Read latest local revenue commands for source-shaped sales readback."""
+
+    if revenue_id is not None and not IDENTIFIER.fullmatch(revenue_id):
+        raise ValueError("invalid revenue_id")
+    where = (
+        "AND aggregate_id = " + sql_literal(revenue_id)
+        if revenue_id is not None
+        else ""
+    )
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'sale_revenue'
+        AND payload->>'source_kind' = 'command'
+        {where}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max(1, max_rows)}
+    """
+    rows: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected sales revenue projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid sales revenue projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("sales revenue projection payload is not an object")
+        rows.append(
+            {
+                "record_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_id": decode_hex(fields[3]),
+                "source_kind": "command",
+            }
+        )
+    return rows
 
 
 INVOICE_SOURCE_TABLES = {
@@ -3522,6 +3581,77 @@ def _sales_amount(body: dict[str, Any], key: str = "amount_minor", positive: boo
     return value
 
 
+def _sales_revenue_amount_minor(body: dict[str, Any]) -> int:
+    value = body.get("amount_minor")
+    if value is not None:
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise CommandRejected("amount_minor must be a positive integer", 422)
+        return value
+    value = body.get("amount")
+    if value is None:
+        raise CommandRejected("amount is required", 422)
+    try:
+        amount = Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as error:
+        raise CommandRejected("amount must be a decimal number", 422) from error
+    if not amount.is_finite() or amount <= 0:
+        raise CommandRejected("amount must be a positive decimal number", 422)
+    return int(amount * 100)
+
+
+def _sales_revenue_text(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+    allow_empty: bool = False,
+) -> str:
+    value = next((body.get(key) for key in keys if body.get(key) is not None), None)
+    if value is None and allow_empty:
+        return ""
+    if not isinstance(value, str) or (not allow_empty and not value.strip()):
+        raise CommandRejected(f"{keys[0]} is required", 422)
+    value = value.strip()
+    if identifier and value and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _sales_revenue_authority(
+    body: dict[str, Any],
+    *,
+    actor_id: str,
+    principal_id: str,
+    scope: str,
+    capability: str,
+    amount_minor: int,
+) -> dict[str, Any]:
+    grant = body.get("authority")
+    if not isinstance(grant, dict) or grant.get("active") is not True:
+        raise CommandRejected("active sales revenue authority grant is required", 403)
+    if grant.get("principal_id") != principal_id:
+        raise CommandRejected("sales revenue authority principal does not match", 403)
+    if grant.get("actor_id") != actor_id:
+        raise CommandRejected("sales revenue authority actor does not match signed actor", 403)
+    if grant.get("scope") != scope:
+        raise CommandRejected("sales revenue authority scope does not match", 403)
+    if grant.get("capability") != capability:
+        raise CommandRejected(f"sales revenue authority must allow {capability}", 403)
+    try:
+        max_amount_minor = int(grant.get("max_amount_minor"))
+    except (TypeError, ValueError) as error:
+        raise CommandRejected("sales revenue authority max_amount_minor is required", 403) from error
+    if max_amount_minor < amount_minor:
+        raise CommandRejected("sales revenue authority amount is exceeded", 403)
+    return {
+        "active": True,
+        "principal_id": principal_id,
+        "actor_id": actor_id,
+        "scope": scope,
+        "capability": capability,
+        "max_amount_minor": max_amount_minor,
+    }
+
+
 def _sales_request(
     family: str,
     command_type: str,
@@ -3535,6 +3665,7 @@ def _sales_request(
         "contracts": {"create", "fulfill", "cancel", "open_receivable"},
         "mortgages": {"create", "approve", "release"},
         "refunds": {"create", "approve", "pay", "reject"},
+        "revenues": {"create", "update", "delete", "confirm_received"},
     }
     if family not in allowed or command_type not in allowed[family]:
         raise CommandRejected("unsupported sales command", 404)
@@ -3545,6 +3676,7 @@ def _sales_request(
         "contracts": "agreement_id",
         "mortgages": "mortgage_id",
         "refunds": "refund_id",
+        "revenues": "revenue_id",
     }[family]
     if command_type == "create":
         identifier = _sales_command_text(body, id_key, identifier=True)
@@ -3594,6 +3726,51 @@ def _sales_request(
             if not re.fullmatch(r"[A-Z]{3}", request["currency"]):
                 raise CommandRejected("currency must be a three-letter code", 422)
             request["state"] = "requested"
+        elif family == "revenues":
+            principal_id = _sales_revenue_text(body, "principal_id", identifier=True)
+            scope = _sales_revenue_text(body, "scope", identifier=True)
+            amount_minor = _sales_revenue_amount_minor(body)
+            authority = _sales_revenue_authority(
+                body,
+                actor_id=actor_id,
+                principal_id=principal_id,
+                scope=scope,
+                capability="sales:revenue:create",
+                amount_minor=amount_minor,
+            )
+            revenue_code = _sales_revenue_text(
+                body, "revenue_code", "revenueCode", allow_empty=True,
+            ) or ("SR-" + identifier)[:128]
+            if not IDENTIFIER.fullmatch(revenue_code):
+                raise CommandRejected("revenue_code contains unsupported characters", 422)
+            request.update(
+                {
+                    "revenue_guid": identifier,
+                    "revenue_code": revenue_code,
+                    "proj_guid": _sales_revenue_text(body, "proj_guid", "projGuid", identifier=True),
+                    "bu_guid": _sales_revenue_text(body, "bu_guid", "buGuid", identifier=True, allow_empty=True),
+                    "customer_name": _sales_revenue_text(body, "customer_name", "customerName"),
+                    "amount_minor": amount_minor,
+                    "amount": str(Decimal(amount_minor) / Decimal(100)),
+                    "receive_date": _sales_revenue_text(
+                        body, "receive_date", "receiveDate", allow_empty=True,
+                    ) or str(date.today()),
+                    "status": _sales_revenue_text(body, "status", allow_empty=True) or "expected",
+                    "payment_type": _sales_revenue_text(
+                        body, "payment_type", "paymentType", allow_empty=True,
+                    ),
+                    "contract_no": _sales_revenue_text(
+                        body, "contract_no", "contractNo", allow_empty=True,
+                    ),
+                    "remark": _sales_revenue_text(body, "remark", allow_empty=True),
+                    "principal_id": principal_id,
+                    "scope": scope,
+                    "authority": authority,
+                    "state": "received" if str(body.get("status", "expected")) == "received" else "expected",
+                }
+            )
+            if request["status"] not in {"expected", "received"}:
+                raise CommandRejected("status must be expected or received", 422)
         return identifier, aggregate_type, request, None
     if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
         raise CommandRejected(f"{id_key} is required", 422)
@@ -3616,6 +3793,48 @@ def _sales_request(
         if not changes:
             raise CommandRejected("update requires at least one mutable field", 422)
         request["changes"] = changes
+    if family == "revenues":
+        principal_id = _sales_revenue_text(body, "principal_id", identifier=True)
+        scope = _sales_revenue_text(body, "scope", identifier=True)
+        amount_minor = 0
+        if command_type == "update" and ("amount_minor" in body or "amount" in body):
+            amount_minor = _sales_revenue_amount_minor(body)
+        capability = f"sales:revenue:{command_type}"
+        authority = _sales_revenue_authority(
+            body,
+            actor_id=actor_id,
+            principal_id=principal_id,
+            scope=scope,
+            capability=capability,
+            amount_minor=amount_minor,
+        )
+        request.update(
+            {
+                "principal_id": principal_id,
+                "scope": scope,
+                "authority": authority,
+            }
+        )
+        if command_type == "update":
+            changes: dict[str, Any] = {}
+            fields = (
+                ("customer_name", "customerName"),
+                ("receive_date", "receiveDate"),
+                ("payment_type", "paymentType"),
+                ("contract_no", "contractNo"),
+                ("remark", "remark"),
+            )
+            for target_key, source_key in fields:
+                if source_key in body or target_key in body:
+                    changes[target_key] = _sales_revenue_text(
+                        body, target_key, source_key, allow_empty=True,
+                    )
+            if amount_minor:
+                changes["amount_minor"] = amount_minor
+                changes["amount"] = str(Decimal(amount_minor) / Decimal(100))
+            if not changes:
+                raise CommandRejected("update requires at least one mutable revenue field", 422)
+            request["changes"] = changes
     if command_type == "open_receivable":
         request["receivable_id"] = _sales_command_text(body, "receivable_id", identifier=True)
         request["amount_minor"] = _sales_amount(body)
@@ -3630,6 +3849,10 @@ def _sales_request(
         "contracts": {"fulfill": ("signed", "fulfilled"), "cancel": (("signed", "fulfilled"), "cancelled")},
         "mortgages": {"approve": ("applying", "approved"), "release": ("approved", "released")},
         "refunds": {"approve": ("requested", "approved"), "pay": ("approved", "paid"), "reject": (("requested", "approved"), "rejected")},
+        "revenues": {
+            "confirm_received": ("expected", "received"),
+            "delete": (("expected", "received"), "deleted"),
+        },
     }[family].get(command_type)
 
 
@@ -3667,7 +3890,7 @@ def _lifecycle_command(
         current_row = _sales_row(current[0])
         if current_row.get("source_kind") != "command":
             raise CommandRejected(f"imported {family[:-1]} is read-only; create a local record first", 409)
-        current_state = str(current_row.get("state", ""))
+        current_state = str(current_row.get("status") or current_row.get("state") or "")
         if transition is None:
             raise CommandRejected("sales transition is not configured", 409)
         expected, next_state = transition
@@ -3681,7 +3904,19 @@ def _lifecycle_command(
     event_id = f"{aggregate_type}:{command_type}:{idempotency_key}"
     command_source = f"moonproj:command:{idempotency_key}"
     audit_id = event_id + ":audit"
-    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    projection_request = dict(request)
+    projection_request.pop("authority", None)
+    changes = projection_request.pop("changes", None)
+    if isinstance(changes, dict):
+        projection_request.update(changes)
+    projection_json = json.dumps(
+        projection_request, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    revenue_status_field = (
+        ", 'status', " + sql_literal(next_state)
+        if family == "revenues"
+        else ""
+    )
     command_json = json.dumps(
         {
             "kind": "company_command",
@@ -3727,8 +3962,8 @@ def _lifecycle_command(
       IF {sql_literal(command_type)} = 'create' THEN
         IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'sales record already exists'; END IF;
         next_revision := 1;
-        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
-          'state', {sql_literal(str(request.get('state', next_state)))},
+        next_payload := {sql_literal(projection_json)}::jsonb || jsonb_build_object(
+          'state', {sql_literal(str(request.get('state', next_state)))}{revenue_status_field},
           'source_kind', 'command', 'event_id', {sql_literal(event_id)},
           'updated_by', {sql_literal(str(request['actor_id']))});
       ELSE
@@ -3736,8 +3971,8 @@ def _lifecycle_command(
         IF current_payload ? 'candidate' THEN RAISE EXCEPTION 'imported sales record is read-only'; END IF;
         current_state := current_payload->>'state';
         next_revision := {next_revision};
-        next_payload := current_payload || jsonb_build_object(
-          'state', {sql_literal(next_state)}, 'source_kind', 'command',
+        next_payload := current_payload || {sql_literal(projection_json)}::jsonb || jsonb_build_object(
+          'state', {sql_literal(next_state)}{revenue_status_field}, 'source_kind', 'command',
           'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(str(request['actor_id']))},
           'reason', {sql_literal(str(request.get('reason', '')))});
       END IF;
@@ -3795,6 +4030,35 @@ def sales_command(
     aggregate_id, aggregate_type, request, transition = _sales_request(
         family, command_type, aggregate_id, body, actor_id
     )
+    if family == "revenues":
+        imported = any(
+            _report_text(row["payload"], "revenue_guid", row["record_id"]) == aggregate_id
+            for row in _raw_source_rows(pool, "sale_revenue", 500, SALES_SOURCE_TABLES)
+        )
+        current = _latest_sales_projection_rows(pool, aggregate_type, aggregate_id, 1)
+        if command_type == "create":
+            if imported:
+                raise CommandRejected("imported revenue is read-only; use a new local revenue id", 409)
+        elif not current and imported:
+            raise CommandRejected("imported revenue is read-only; create a local revenue first", 409)
+        elif not current:
+            raise CommandRejected("revenue not found", 404)
+        elif command_type == "update":
+            current_sales_row = _sales_row(current[0])
+            current_state = str(current_sales_row.get("status") or current_sales_row.get("state") or "")
+            if current_state not in {"expected", "received"}:
+                raise CommandRejected(f"revenue update is not allowed from {current_state}", 409)
+            transition = (current_state, current_state)
+        return _lifecycle_command(
+            pool,
+            family=family,
+            command_type=command_type,
+            aggregate_id=aggregate_id,
+            aggregate_type=aggregate_type,
+            request=request,
+            transition=transition,
+            idempotency_key=idempotency_key,
+        )
     if command_type == "open_receivable":
         contract_rows = sales_rows(pool, "contracts", aggregate_id, 1)
         if not contract_rows or contract_rows[0]["source_kind"] != "command":
@@ -18307,7 +18571,7 @@ def handler_factory(
                     command_type = "create"
                     aggregate_id = None
                 elif re.fullmatch(
-                    r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds)",
+                    r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)",
                     parsed.path,
                 ):
                     command_family = "sales"
@@ -18369,7 +18633,7 @@ def handler_factory(
                         parsed.path,
                     )
                     sales_match = re.fullmatch(
-                        r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject)",
+                        r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject|delete|confirm-received)",
                         parsed.path,
                     )
                     delivery_progress_match = re.fullmatch(
@@ -18408,7 +18672,9 @@ def handler_factory(
                     elif sales_match is not None:
                         command_family = "sales"
                         aggregate_id = sales_match.group(2)
-                        command_type = sales_match.group(3)
+                        command_type = {
+                            "confirm-received": "confirm_received",
+                        }.get(sales_match.group(3), sales_match.group(3))
                         body["_sales_family"] = sales_match.group(1)
                     elif delivery_progress_match is not None:
                         command_family = "delivery"
@@ -18602,6 +18868,44 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _sales_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/sales/revenues/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            command_type = "update" if method == "PUT" else "delete"
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = sales_command(
+                    pool,
+                    family="revenues",
+                    command_type=command_type,
+                    aggregate_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def _marketing_method_alias(self, method: str) -> bool:
             parsed = urlparse(self.path)
             resource: str | None = None
@@ -18663,13 +18967,15 @@ def handler_factory(
             return True
 
         def do_PUT(self) -> None:  # noqa: N802
-            if not self._marketing_method_alias("PUT"):
-                self._loan_method_alias("PUT")
+            if not self._sales_method_alias("PUT"):
+                if not self._marketing_method_alias("PUT"):
+                    self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
             if not self._invoice_method_alias("DELETE"):
                 if not self._marketing_method_alias("DELETE"):
-                    self._loan_method_alias("DELETE")
+                    if not self._sales_method_alias("DELETE"):
+                        self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

@@ -700,6 +700,9 @@ struct Model {
   sales_family : String
   sales_rows : Array[SalesRow]
   sales_note : String
+  sales_revenue_id : String
+  sales_revenue_state : String
+  sales_revenue_command_note : String
   invoice_source_loaded : Bool
   invoice_source_in_count : String
   invoice_source_out_count : String
@@ -1059,6 +1062,12 @@ enum Msg {
   SupplierCommandFailed
   SalesLoaded(String, String)
   SalesLoadFailed(String)
+  CreateSalesRevenue
+  UpdateSalesRevenue
+  ConfirmSalesRevenue
+  DeleteSalesRevenue
+  SalesRevenueCommandFinished(String)
+  SalesRevenueCommandFailed
   InvoiceSourceInLoaded(String)
   InvoiceSourceOutLoaded(String)
   InvoiceSourceTaxLoaded(String)
@@ -1274,6 +1283,9 @@ fn initial_model() -> Model {
     sales_family: "",
     sales_rows: [],
     sales_note: "销售/应收读模型尚未加载",
+    sales_revenue_id: "REV-RABBITA-LOCAL",
+    sales_revenue_state: "new",
+    sales_revenue_command_note: "本地回款登记需要销售/财务 authority；不会自动释放现金或过账",
     invoice_source_loaded: false,
     invoice_source_in_count: "0",
     invoice_source_out_count: "0",
@@ -2456,7 +2468,11 @@ fn sales_row_from_json(value : Json) -> SalesRow? {
         primary,
         secondary,
         amount_display: json_object_text(fields, "amount_display", "—"),
-        state: json_object_text(fields, "state", ""),
+        state: json_object_text(
+          fields,
+          "state",
+          json_object_text(fields, "status", ""),
+        ),
         source_kind: json_object_text(fields, "source_kind", "imported"),
       })
     }
@@ -5931,6 +5947,45 @@ fn load_project(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
 }
 
 ///|
+fn sales_revenue_command_body(command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-sales-revenue-create-v1\",\"revenue_id\":\"REV-RABBITA-LOCAL\",\"revenue_code\":\"SR-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"customer_name\":\"Rabbita 本地回款演示\",\"amount_minor\":456700,\"receive_date\":\"2026-07-14\",\"status\":\"expected\",\"payment_type\":\"bank\",\"contract_no\":\"SCT-RABBITA-LOCAL\",\"remark\":\"本地回款登记演示\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:create\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":500000}}"
+  } else if command_type == "update" {
+    "{\"idempotency_key\":\"rabbita-sales-revenue-update-v1\",\"customer_name\":\"Rabbita 本地回款演示（已核对）\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:update\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":0}}"
+  } else if command_type == "confirm_received" {
+    "{\"idempotency_key\":\"rabbita-sales-revenue-confirm-v1\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:confirm_received\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":0}}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-sales-revenue-delete-v1\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:delete\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":0}}"
+  }
+}
+
+///|
+fn issue_sales_revenue_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let suffix = if command_type == "confirm_received" {
+    "confirm-received"
+  } else {
+    command_type
+  }
+  let path = if command_type == "create" {
+    "/api/company/sales/revenues"
+  } else {
+    "/api/company/sales/revenues/" + model.sales_revenue_id + "/" + suffix
+  }
+  @http.post(path)
+  .with_text(sales_revenue_command_body(command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesRevenueCommandFinished(body))
+      Err(_) => emit(SalesRevenueCommandFailed)
+    }
+  })
+}
+
+///|
 fn loan_command_body(command_type : String) -> String {
   if command_type == "create" {
     "{\"idempotency_key\":\"rabbita-loan-create-v1\",\"loan_id\":\"LOAN-RABBITA-LOCAL\",\"loan_code\":\"JK-RABBITA-LOCAL\",\"subject\":\"沈阳项目会议备用金\",\"employee_id\":\"employee-rabbita\",\"principal_id\":\"co-rabbita\",\"scope\":\"employee:employee-rabbita\",\"currency\":\"CNY\",\"amount_minor\":800000,\"apply_dept_guid\":\"bu-rabbita\",\"apply_date\":\"2026-07-13\",\"pay_unit\":\"个人备用金\",\"proj_guid\":\"proj-0001\",\"evidence_ids\":[\"rabbita:loan:purpose-001\"],\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"advance:create\",\"scope\":\"employee:employee-rabbita\",\"max_amount_minor\":800000}}"
@@ -7515,6 +7570,88 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_family: family,
           sales_rows: [],
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateSalesRevenue =>
+      if model.sales_revenue_state == "new" ||
+        model.sales_revenue_state == "error" {
+        (
+          issue_sales_revenue_command(emit, model, "create"),
+          {
+            ..model,
+            sales_revenue_state: "pending",
+            sales_revenue_command_note: "正在登记本地回款 · 校验销售/财务 authority…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    UpdateSalesRevenue =>
+      if model.sales_revenue_state == "expected" {
+        (
+          issue_sales_revenue_command(emit, model, "update"),
+          {
+            ..model,
+            sales_revenue_state: "pending",
+            sales_revenue_command_note: "正在更新本地回款备注并写入审计…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ConfirmSalesRevenue =>
+      if model.sales_revenue_state == "expected" {
+        (
+          issue_sales_revenue_command(emit, model, "confirm_received"),
+          {
+            ..model,
+            sales_revenue_state: "pending",
+            sales_revenue_command_note: "正在确认到账证据 · 不释放现金或过账…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    DeleteSalesRevenue =>
+      if model.sales_revenue_state == "received" ||
+        model.sales_revenue_state == "expected" {
+        (
+          issue_sales_revenue_command(emit, model, "delete"),
+          {
+            ..model,
+            sales_revenue_state: "pending",
+            sales_revenue_command_note: "正在撤回本地回款投影 · 导入行仍保持只读…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    SalesRevenueCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"deleted\"") {
+        "deleted"
+      } else if body.contains("\"state\":\"received\"") {
+        "received"
+      } else if body.contains("\"state\":\"expected\"") {
+        "expected"
+      } else {
+        "observed"
+      }
+      (
+        load_sales(emit, "revenues"),
+        {
+          ..model,
+          sales_revenue_state: next_state,
+          sales_revenue_command_note: "已写入 PostgreSQL · 回款命令完成 · 审计凭证已生成",
+        },
+      )
+    }
+    SalesRevenueCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          sales_revenue_state: "error",
+          sales_revenue_command_note: "回款命令服务不可用、authority 不足或状态不允许",
         },
       )
     InvoiceSourceInLoaded(body) =>
@@ -15038,9 +15175,43 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "销售回款 (R6)",
     "SALES / REVENUES",
     "登记销售回款、到账日期、付款类型与销售合同号，保持回款与应收台帐可追溯。",
-    [nav_button(emit, "/sales/revenues", "erp-primary-btn", "＋ 新增回款")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateSalesRevenue),
+        "＋ 登记本地回款",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ConfirmSalesRevenue),
+        "确认到账",
+      ),
+    ],
     div <| [
       sales_runtime_banner(model, "revenues"),
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(UpdateSalesRevenue),
+          "更新本地回款",
+        ),
+        button(
+          class="erp-danger-btn",
+          on_click=emit(DeleteSalesRevenue),
+          "撤回本地回款",
+        ),
+      ],
+      table_panel(
+        "本地回款命令",
+        "REV-RABBITA-LOCAL · 状态 " + model.sales_revenue_state,
+        data_table(["命令", "状态", "边界"], [
+          [
+            "创建 / 更新 / 确认 / 撤回",
+            model.sales_revenue_state,
+            model.sales_revenue_command_note,
+          ],
+        ]),
+      ),
       sales_projection_table(model, "revenues"),
       div(class="erp-stat-grid") <| [
         metric("本月到账", "¥6,820 万", "126 笔", "metric-blue"),
