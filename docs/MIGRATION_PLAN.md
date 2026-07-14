@@ -1041,6 +1041,16 @@ pending. Do not open another broad fixture-backed surface or enable a
 mutation/provider effect until step 7 produces a validated artifact and the
 named owner accepts its coverage.
 
+**Rehearsal refresh (2026-07-14).** A new read-only run of
+`scripts/erp_migration_rehearsal.sh` against the immutable snapshot completed
+without source mutation: the export contract still verifies 26 tables and 120
+rows, the schema gap remains 49 tables across seven waves, raw staging and
+relationship audit pass, and the generated empty-table handoff contains 49
+pending entries with `promotion_authorized=false` and
+`cutover_authorized=false`. This strengthens the handoff evidence but does not
+clear the source-export gate; the next valid input is still the redacted
+MySQL/JSON export or a fully owner-approved disposition artifact.
+
 The export contract now also checks every non-empty row for a non-null,
 unique declared primary-key value before reporting content verification. This
 strengthens the handoff without changing the current disposition: the
