@@ -298,6 +298,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_profile_scenario_and_production_identity"
     if target_state == "connected_import_template_read":
         return "accept_import_template_read_and_production_identity"
+    if target_state == "connected_investment_import_read":
+        return "accept_browser_investment_import_scenario_and_production_identity"
     if target_state == "connected_expense_read":
         return "accept_browser_expense_scenario_and_production_identity"
     if target_state == "connected_expense_detail_read":
@@ -404,6 +406,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] == "/:bizType/template"
     ):
         return "connected_import_template_read", "accept_import_template_read_and_production_identity"
+    if (
+        handler["module"] == "investment"
+        and handler["method"] == "GET"
+        and handler["path"] == "/projects/:projGuid/excel-imports"
+    ):
+        return "connected_investment_import_read", "accept_browser_investment_import_scenario_and_production_identity"
     if (
         handler["module"] == "reports"
         and handler["method"] == "GET"

@@ -1068,6 +1068,21 @@ def main() -> int:
             or investment_versions_payload.get("data", [])[0].get("isCurrent") is not True
         ):
             raise SmokeError(f"investment version read failed: {status} {investment_versions_payload}")
+        status, investment_imports_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/excel-imports",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_imports_payload is None
+            or investment_imports_payload.get("data") != []
+            or investment_imports_payload.get("source_coverage", {}).get("tzsy_excel_import") != 0
+            or "tzsy_excel_import" not in investment_imports_payload.get("missing_or_empty_source_tables", [])
+            or investment_imports_payload.get("authorizing") is not False
+            or investment_imports_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"investment import history read failed: {status} {investment_imports_payload}")
         status, investment_indices_payload = request(
             args.port,
             "/api/company/investment/versions/tzsy-ver-tjhjy-v1/indices",
@@ -2447,6 +2462,7 @@ def main() -> int:
                     "cost_subject_rows": 5,
                     "proceeding_rows": 3,
                     "investment_version_rows": 1,
+                    "investment_import_rows": len(investment_imports_payload.get("data", [])),
                     "investment_index_rows": 26,
                     "investment_dimension_rows": 5,
                     "investment_profit_revenue": 18500.0,

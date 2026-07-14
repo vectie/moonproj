@@ -141,6 +141,7 @@ from company_postgres_service import (
     projects as service_projects,
     dynamic_cost as service_dynamic_cost,
     investment_versions as service_investment_versions,
+    investment_imports as service_investment_imports,
     investment_indices as service_investment_indices,
     investment_profit_summary as service_investment_profit_summary,
     investment_sensitivity as service_investment_sensitivity,
@@ -1000,6 +1001,10 @@ def cost_dashboard_v3(
 
 def investment_versions(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
     return service_investment_versions(_ReadModelPool(args), project_id, 500)
+
+
+def investment_imports(args: argparse.Namespace, project_id: str) -> dict[str, Any]:
+    return service_investment_imports(_ReadModelPool(args), project_id, 500)
 
 
 def investment_indices(
@@ -2020,6 +2025,13 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 )
                 if investment_versions_match is not None:
                     response(self, 200, investment_versions(args, investment_versions_match.group(1)))
+                    return
+                investment_imports_match = re.fullmatch(
+                    r"/api/company/investment/projects/([A-Za-z0-9_.:-]{1,128})/excel-imports",
+                    parsed.path,
+                )
+                if investment_imports_match is not None:
+                    response(self, 200, investment_imports(args, investment_imports_match.group(1)))
                     return
                 investment_indices_match = re.fullmatch(
                     r"/api/company/investment/versions/([A-Za-z0-9_.:-]{1,128})/indices",

@@ -85,6 +85,8 @@ The bounded service exposes these endpoints:
   source-compatible investment reads)
 * ``/api/company/investment/projects/<id>/sensitivity`` (GET,
   source-compatible read-only sensitivity observation)
+* ``/api/company/investment/projects/<id>/excel-imports`` (GET,
+  source-compatible import-history observation; absent import rows stay empty)
 * ``/api/company/investment/projects/<id>/profit-actual-v2`` (GET,
   source-compatible cost-dashboard v3 read)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
@@ -5935,6 +5937,72 @@ def investment_versions(
     }
 
 
+def investment_imports(
+    pool: PsqlPool,
+    project_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Observe imported Excel workbooks without enabling upload or parsing.
+
+    The source list route only joins import-history rows to versions and
+    users.  The controlled export currently has no ``tzsy_excel_import``
+    rows, so this adapter returns an explicit empty list and coverage metadata
+    instead of exposing designer imports or manufacturing workbook state.
+    """
+
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), INVESTMENT_IMPORT_SOURCE_TABLES))
+        for table in sorted(INVESTMENT_IMPORT_SOURCE_TABLES)
+    }
+    versions = {
+        str(row["payload"].get("version_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "tzsy_version", max(max_rows, 500), INVESTMENT_IMPORT_SOURCE_TABLES)
+    }
+    users = {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), INVESTMENT_IMPORT_SOURCE_TABLES)
+    }
+    result: list[dict[str, Any]] = []
+    for row in _raw_source_rows(pool, "tzsy_excel_import", max(max_rows, 500), INVESTMENT_IMPORT_SOURCE_TABLES):
+        payload = row["payload"]
+        if str(payload.get("proj_guid") or "") != project_id:
+            continue
+        version_guid = str(payload.get("version_guid") or "")
+        version = versions.get(version_guid, {})
+        creator = users.get(str(payload.get("created_by") or ""), {})
+        result.append(
+            {
+                "importGuid": str(payload.get("import_guid") or row["record_id"]),
+                "versionGuid": version_guid,
+                "versionName": str(version.get("version_name") or ""),
+                "fileName": str(payload.get("file_name") or ""),
+                "fileSize": payload.get("file_size"),
+                "sheetCount": payload.get("sheet_count"),
+                "nonEmptyCells": payload.get("non_empty_cells"),
+                "formulaCount": payload.get("formula_count"),
+                "crossSheetFormulaCount": payload.get("cross_sheet_formula_count"),
+                "status": str(payload.get("status") or ""),
+                "createdByName": str(creator.get("emp_name") or creator.get("user_name") or ""),
+                "createdAt": str(payload.get("created_at") or ""),
+                "sourceKind": "imported",
+            }
+        )
+    result.sort(key=lambda item: str(item.get("createdAt") or ""), reverse=True)
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:20],
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
 def investment_indices(
     pool: PsqlPool,
     version_id: str,
@@ -8617,6 +8685,13 @@ INVESTMENT_SOURCE_TABLES = {
     "sys_user",
     "tzsy_version",
     "tzsy_plan_index",
+}
+
+INVESTMENT_IMPORT_SOURCE_TABLES = {
+    "ep_project",
+    "sys_user",
+    "tzsy_version",
+    "tzsy_excel_import",
 }
 
 ADMIN_SOURCE_TABLES = {
@@ -14820,6 +14895,12 @@ def handler_factory(
                 ):
                     project_value = parsed.path.split("/")[-2]
                     response(self, 200, investment_versions(pool, project_value, max_response_rows), origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/excel-imports",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    response(self, 200, investment_imports(pool, project_value, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/investment/versions/[A-Za-z0-9_.:-]{1,128}/indices",
                     parsed.path,

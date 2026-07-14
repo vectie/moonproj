@@ -450,8 +450,9 @@ remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
-evidence-ready batch, the identity/RBAC observation wave, and the static
-import-template read, 18 remain; they
+evidence-ready batch, the identity/RBAC observation wave, the static
+import-template read, and the empty-safe investment import-history read, 17
+remain; they
 are not one uniform backlog. Four
 groups are now explicit:
 
@@ -472,6 +473,12 @@ groups are now explicit:
   import rows or authorize the corresponding commands. The authenticated
   service and read-model smoke checks verify the BOM, header order, download
   disposition, and unsupported-business-type 400 boundary.
+  The investment `GET /projects/:projGuid/excel-imports` list is now an
+  explicit source observation as well: the current export has zero
+  `tzsy_excel_import` rows, so the service/read-model return an empty list with
+  coverage and non-authorizing metadata rather than showing designer
+  workbooks. Detail, bridge, preview, profit-table, plan-line, mapping, and
+  cockpit routes remain gated on the other absent investment tables.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
@@ -592,7 +599,8 @@ remains open.
 
 **Investment import/cockpit audit checkpoint (2026-07-14).** The remaining
 investment GET backlog was checked against the source route implementations,
-not just the route count. Excel import/bridge/index-preview/profit-table/
+not just the route count. The Excel import-history list is now an empty-safe
+observation; bridge/index-preview/profit-table/
 plan-line/subject-mapping and profit-cockpit handlers depend on absent
 `tzsy_excel_import`, `tzsy_excel_sheet`, `tzsy_profit_table`,
 `tzsy_plan_line`, and `tzsy_subject_mapping` source tables. The source
@@ -601,8 +609,8 @@ migration keeps that covered boundary rather than substituting designer values.
 The source profit-actual route additionally simulates sparse sales/expense/CBS
 inputs, so it remains gated instead of being promoted as a source read. The
 next investment wave therefore requires the missing export and owner-approved
-calculation semantics; the current 26-index/version/sensitivity read remains
-the complete evidence-backed slice.
+calculation semantics; the current 26-index/version/sensitivity plus empty
+import-history observations are the complete evidence-backed slice.
 
 The browser pass also found an inherited source-contract inconsistency that
 must be reconciled before investment acceptance: the investment summary card
