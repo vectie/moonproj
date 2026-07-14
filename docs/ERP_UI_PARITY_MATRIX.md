@@ -227,7 +227,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `fund` | `GET` | `/dispatches` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
 | `fund` | `POST` | `/dispatches` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `fund` | `POST` | `/dispatches/:guid/approve` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `import` | `GET` | `/:bizType/template` | — | `not_connected` | `connect_authenticated_read_api` |
+| `import` | `GET` | `/:bizType/template` | — | `connected_import_template_read` | `accept_import_template_read_and_production_identity` |
 | `import` | `POST` | `/:bizType` | — | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `GET` | `/projects/:projGuid/versions` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `GET` | `/versions/:versionGuid/indices` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |

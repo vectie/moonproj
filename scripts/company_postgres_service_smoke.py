@@ -67,6 +67,31 @@ def request(
     return result.status, payload
 
 
+def request_text(
+    port: int,
+    path: str,
+    *,
+    token: str | None,
+    forwarded_tls: bool = True,
+) -> tuple[int, dict[str, str], str]:
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=30)
+    headers: dict[str, str] = {}
+    if token is not None:
+        headers["Authorization"] = "Bearer " + token
+    if forwarded_tls:
+        headers["X-Forwarded-Proto"] = "https"
+    try:
+        connection.request("GET", path, headers=headers)
+        result = connection.getresponse()
+        body = result.read().decode("utf-8")
+        response_headers = {key.lower(): value for key, value in result.getheaders()}
+    except (OSError, TimeoutError) as error:
+        connection.close()
+        raise SmokeError(f"GET {path} request failed: {error}") from error
+    connection.close()
+    return result.status, response_headers, body
+
+
 def wait_for(port: int, deadline: float) -> None:
     while time.monotonic() < deadline:
         try:
@@ -107,6 +132,17 @@ def main() -> int:
         status, payload = request(args.port, "/api/health", token=token)
         if status != 200 or payload is None or payload.get("ok") is not True:
             raise SmokeError(f"health failed: {status} {payload}")
+        status, headers, body = request_text(args.port, "/api/company/import/project/template", token=token)
+        if (
+            status != 200
+            or headers.get("content-type") != "text/csv; charset=utf-8"
+            or headers.get("content-disposition") != "attachment; filename=project_template.csv"
+            or body != "\ufeffprojCode,projName,projShortName,buCode,projStatus,beginDate\n"
+        ):
+            raise SmokeError(f"project import template failed: {status} {headers} {body!r}")
+        status, headers, body = request_text(args.port, "/api/company/import/unsupported/template", token=token)
+        if status != 400 or "不支持的 bizType" not in body:
+            raise SmokeError(f"unsupported import template failed: {status} {body!r}")
         status, payload = request(args.port, "/api/company/summary", token=token)
         if (
             status != 200

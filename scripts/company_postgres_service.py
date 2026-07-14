@@ -11,6 +11,8 @@ and provider-level capacity controls.
 The bounded service exposes these endpoints:
 
 * ``/api/health``
+* ``/api/company/import/{project,contract}/template`` (GET, static CSV
+  template read; import commands remain authenticated and separate)
 * ``/api/company/summary``
 * ``/api/company/auth/me?userCode=<source user code>`` (GET, non-secret profile read)
 * ``/api/company/receipts``
@@ -178,6 +180,44 @@ class CommandRejected(ServiceError):
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+
+
+IMPORT_TEMPLATE_HEADERS: dict[str, tuple[str, ...]] = {
+    "project": (
+        "projCode",
+        "projName",
+        "projShortName",
+        "buCode",
+        "projStatus",
+        "beginDate",
+    ),
+    "contract": (
+        "contractCode",
+        "contractName",
+        "projCode",
+        "htClass",
+        "yfProviderName",
+        "htAmount",
+        "signDate",
+    ),
+}
+
+
+def import_template(biz_type: str) -> str | None:
+    """Return the source ERP CSV import template without touching data.
+
+    The source ``import`` route only emits a fixed header row for these two
+    business types.  Keeping this as a static read preserves the download
+    contract while leaving the authenticated import commands and their
+    durable audit boundary separate.
+    """
+
+    if not IDENTIFIER.fullmatch(biz_type):
+        raise ValueError("invalid import business type")
+    headers = IMPORT_TEMPLATE_HEADERS.get(biz_type)
+    if headers is None:
+        return None
+    return "\ufeff" + ",".join(headers) + "\n"
 
 
 @dataclass
@@ -13783,6 +13823,28 @@ def response(handler: BaseHTTPRequestHandler, status: int, payload: Any, origin:
     handler.wfile.write(body)
 
 
+def response_text(
+    handler: BaseHTTPRequestHandler,
+    status: int,
+    body: str,
+    content_type: str,
+    origin: str | None,
+    content_disposition: str | None = None,
+) -> None:
+    encoded = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(encoded)))
+    handler.send_header("Cache-Control", "no-store")
+    if content_disposition is not None:
+        handler.send_header("Content-Disposition", content_disposition)
+    if origin is not None:
+        handler.send_header("Access-Control-Allow-Origin", origin)
+        handler.send_header("Vary", "Origin")
+    handler.end_headers()
+    handler.wfile.write(encoded)
+
+
 def handler_factory(
     pool: PsqlPool,
     *,
@@ -13920,6 +13982,25 @@ def handler_factory(
             try:
                 if parsed.path == "/api/health":
                     response(self, 200, health(pool, expected_schema_version), origin)
+                elif re.fullmatch(r"/api/company/import/[A-Za-z0-9_.:-]{1,128}/template", parsed.path):
+                    biz_type = parsed.path.split("/")[-2]
+                    template = import_template(biz_type)
+                    if template is None:
+                        response(
+                            self,
+                            400,
+                            {"success": False, "code": 40001, "message": "不支持的 bizType"},
+                            origin,
+                        )
+                    else:
+                        response_text(
+                            self,
+                            200,
+                            template,
+                            "text/csv; charset=utf-8",
+                            origin,
+                            f"attachment; filename={biz_type}_template.csv",
+                        )
                 elif parsed.path == "/api/company/summary":
                     response(self, 200, summary(pool, expected_schema_version), origin)
                 elif parsed.path == "/api/company/auth/me":

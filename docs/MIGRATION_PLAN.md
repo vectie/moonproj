@@ -450,7 +450,8 @@ remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
-evidence-ready batch and the identity/RBAC observation wave, 19 remain; they
+evidence-ready batch, the identity/RBAC observation wave, and the static
+import-template read, 18 remain; they
 are not one uniform backlog. Four
 groups are now explicit:
 
@@ -466,6 +467,11 @@ groups are now explicit:
   investment cohort also has one current `tzsy_version` and 26
   `tzsy_plan_index` rows, so its deterministic six-case sensitivity read is
   source-backed without activating or mutating the model.
+  The source `GET /import/:bizType/template` handler is also connected as an
+  exact static CSV read for the `project` and `contract` templates; it does not
+  import rows or authorize the corresponding commands. The authenticated
+  service and read-model smoke checks verify the BOM, header order, download
+  disposition, and unsupported-business-type 400 boundary.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
@@ -483,7 +489,7 @@ groups are now explicit:
   catalogs now have fixed, non-authorizing observation adapters; the current
   export reports an empty preference table and empty role-assignment tables
   while preserving the source permission definitions. Full health/backup and
-  import-template reads still require the reviewed identity/operations boundary
+  provider diagnostics still require the reviewed identity/operations boundary
   or a broader source export. None of these observations grants authority just
   because a local target endpoint exists.
 * **Provider/external reads:** LLM/OCR diagnostics, provider signature checks,

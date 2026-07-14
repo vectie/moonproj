@@ -8,7 +8,8 @@ source sales/receivables,
 source tender observations,
 reviewed invoice, delivery/project-progress, dashboard v1, core-report and
 report-builder metadata/template,
-employee-loan, dynamic-cost, source contract/payment, invoice/tax-ledger,
+employee-loan, dynamic-cost, static import templates, source contract/payment,
+invoice/tax-ledger,
 budget scope/loan balance, workflow instance observation, investment,
 admin-quality, attachment metadata,
  non-secret profile/preferences, RBAC observation, AI analytics, AI Hub observation, and webhook configuration
@@ -155,6 +156,7 @@ from company_postgres_service import (
     admin_health_tables as service_admin_health_tables,
     admin_health_bpm_pool as service_admin_health_bpm_pool,
     auth_preferences as service_auth_preferences,
+    import_template as service_import_template,
     rbac_current_user as service_rbac_current_user,
     rbac_permission_catalog as service_rbac_permission_catalog,
     rbac_role_detail as service_rbac_role_detail,
@@ -211,6 +213,10 @@ def auth_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any
 
 def auth_preferences(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
     return service_auth_preferences(_ReadModelPool(args), user_code, 500)
+
+
+def import_template(biz_type: str) -> str | None:
+    return service_import_template(biz_type)
 
 
 def rbac_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
@@ -1088,6 +1094,25 @@ def response(handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None
     handler.wfile.write(body)
 
 
+def response_text(
+    handler: BaseHTTPRequestHandler,
+    status: int,
+    body: str,
+    content_type: str,
+    content_disposition: str | None = None,
+) -> None:
+    encoded = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(encoded)))
+    handler.send_header("Cache-Control", "no-store")
+    if content_disposition is not None:
+        handler.send_header("Content-Disposition", content_disposition)
+    handler.send_header("Access-Control-Allow-Origin", "*")
+    handler.end_headers()
+    handler.wfile.write(encoded)
+
+
 def handler_factory(args: argparse.Namespace, public_dir: Path | None):
     from functools import partial
     from http.server import SimpleHTTPRequestHandler
@@ -1111,6 +1136,20 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/health":
                     response(self, 200, {"ok": True, "target": "postgresql", "read_only": True})
+                    return
+                if re.fullmatch(r"/api/company/import/[A-Za-z0-9_.:-]{1,128}/template", parsed.path):
+                    biz_type = parsed.path.split("/")[-2]
+                    template = import_template(biz_type)
+                    if template is None:
+                        response(self, 400, {"success": False, "code": 40001, "message": "不支持的 bizType"})
+                    else:
+                        response_text(
+                            self,
+                            200,
+                            template,
+                            "text/csv; charset=utf-8",
+                            f"attachment; filename={biz_type}_template.csv",
+                        )
                     return
                 if parsed.path == "/api/company/summary":
                     response(self, 200, summary(args))

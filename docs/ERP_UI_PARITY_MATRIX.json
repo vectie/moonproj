@@ -2575,8 +2575,8 @@
       "method": "GET",
       "path": "/:bizType/template",
       "browser_route_paths": [],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_import_template_read",
+      "required_next": "accept_import_template_read_and_production_identity"
     },
     {
       "module": "import",

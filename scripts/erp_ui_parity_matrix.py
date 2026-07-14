@@ -296,6 +296,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_dashboard_scenario_and_production_identity"
     if target_state == "connected_profile_read":
         return "accept_browser_profile_scenario_and_production_identity"
+    if target_state == "connected_import_template_read":
+        return "accept_import_template_read_and_production_identity"
     if target_state == "connected_expense_read":
         return "accept_browser_expense_scenario_and_production_identity"
     if target_state == "connected_expense_detail_read":
@@ -396,6 +398,12 @@ def required_next(target_function: str | None, target_state: str) -> str:
 def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     """Return only source handlers backed by an explicit target endpoint."""
 
+    if (
+        handler["module"] == "import"
+        and handler["method"] == "GET"
+        and handler["path"] == "/:bizType/template"
+    ):
+        return "connected_import_template_read", "accept_import_template_read_and_production_identity"
     if (
         handler["module"] == "reports"
         and handler["method"] == "GET"
