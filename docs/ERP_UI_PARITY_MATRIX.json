@@ -3922,8 +3922,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -3936,8 +3936,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -3978,8 +3978,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -3992,8 +3992,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -4034,8 +4034,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -4048,8 +4048,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -4062,8 +4062,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -4090,8 +4090,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",
@@ -4104,8 +4104,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "srm",

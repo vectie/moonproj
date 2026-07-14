@@ -4,7 +4,7 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, bounded marketing and invoice commands, and stale-assertion rejection.
+binding, bounded sales/marketing/invoice commands, and stale-assertion rejection.
 No secret value is printed.
 """
 
@@ -172,6 +172,84 @@ def main() -> int:
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
         smoke_suffix = str(int(time.time()))
+        sales_customer_id = "CUS-GW-SMOKE-" + smoke_suffix
+        sales_customer_payload = {
+            "customer_id": sales_customer_id,
+            "principal_id": "co-gateway-sales-smoke",
+            "scope": "project:proj-0001",
+            "customer_code": sales_customer_id,
+            "name": "gateway sales command smoke",
+            "contact_reference": "contact:gateway-sales",
+            "idempotency_key": "sales-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, sales_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/sales/customers",
+            headers={"Cookie": cookie},
+            payload=sales_customer_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(sales_payload, dict)
+            or sales_payload.get("customer", {}).get("state") != "active"
+        ):
+            raise SmokeError(f"trusted sales command forwarding failed: {status}")
+        status, _headers, sales_replay_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/sales/customers",
+            headers={"Cookie": cookie},
+            payload=sales_customer_payload,
+        )
+        if (
+            status != 200
+            or not isinstance(sales_replay_payload, dict)
+            or sales_replay_payload.get("idempotent_replay") is not True
+        ):
+            raise SmokeError(f"trusted sales command replay failed: {status}")
+        status, _headers, sales_update_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/sales/customers/{sales_customer_id}/update",
+            headers={"Cookie": cookie},
+            payload={
+                "name": "gateway sales command smoke updated",
+                "idempotency_key": "sales-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(sales_update_payload, dict)
+            or sales_update_payload.get("customer", {}).get("state") != "active"
+        ):
+            raise SmokeError(f"trusted sales command update failed: {status}")
+        status, _headers, sales_block_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/sales/customers/{sales_customer_id}/block",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "sales-gateway-block-" + smoke_suffix},
+        )
+        if (
+            status != 200
+            or not isinstance(sales_block_payload, dict)
+            or sales_block_payload.get("customer", {}).get("state") != "blocked"
+        ):
+            raise SmokeError(f"trusted sales command block failed: {status}")
+        status, _headers, sales_archive_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/sales/customers/{sales_customer_id}/archive",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "sales-gateway-archive-" + smoke_suffix},
+        )
+        if (
+            status != 200
+            or not isinstance(sales_archive_payload, dict)
+            or sales_archive_payload.get("customer", {}).get("state") != "archived"
+        ):
+            raise SmokeError(f"trusted sales command archive failed: {status}")
         marketing_id = "MKT-GW-SMOKE-" + smoke_suffix
         marketing_key = "marketing-gateway-create-" + smoke_suffix
         marketing_body = {

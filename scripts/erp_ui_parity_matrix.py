@@ -388,6 +388,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_marketing_scenario_and_production_identity"
     if target_state == "connected_marketing_command":
         return "accept_browser_marketing_command_scenario_and_marketing_owner"
+    if target_state == "connected_sales_command":
+        return "accept_browser_sales_command_scenario_and_sales_finance_owner"
     if target_state == "connected_invoice_command":
         return "accept_browser_invoice_command_scenario_and_finance_owner"
     if target_state == "connected_notification_read":
@@ -758,6 +760,17 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_marketing_command", "accept_browser_marketing_command_scenario_and_marketing_owner"
     if (
+        handler["module"] == "sales"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/customers", "/subscriptions", "/mortgages", "/refunds"})
+            or (handler["method"] == "PUT" and handler["path"] == "/customers/:guid")
+            or (handler["method"] == "POST" and handler["path"] == "/subscriptions/:guid/convert-to-contract")
+            or (handler["method"] == "POST" and handler["path"] in {"/mortgages/:guid/approve", "/mortgages/:guid/release"})
+            or (handler["method"] == "POST" and handler["path"] == "/refunds/:guid/approve")
+        )
+    ):
+        return "connected_sales_command", "accept_browser_sales_command_scenario_and_sales_finance_owner"
+    if (
         handler["module"] == "notify"
         and handler["method"] == "GET"
         and handler["path"]
@@ -914,6 +927,8 @@ def build_matrix(
             api_state = "connected_marketing_read"
         elif target_state == "connected_marketing_command":
             api_state = "connected_marketing_command"
+        elif target_state == "connected_sales_command":
+            api_state = "connected_sales_command"
         elif target_state == "connected_invoice_command":
             api_state = "connected_invoice_command"
         elif target_state == "connected_notification_read":

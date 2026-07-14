@@ -76,3 +76,16 @@ This is runtime evidence, not production acceptance. Real source rows,
 customer/principal identity mapping, collection and tax policy, browser
 scenario acceptance, named sales/finance owner sign-off, and production
 identity/session deployment remain required.
+
+## Source action reconciliation
+
+The parity matrix now maps the source-equivalent customer create/update,
+subscription create/convert, mortgage create/approve/release, and refund
+create/approve actions to the existing local command runtime. The source
+customer delete action remains gated because the target deliberately exposes
+archive rather than destructive deletion. All four source revenue mutations
+(create/update/delete/confirm-received) remain gated because the target has
+only a source-compatible revenue read; no local command may silently turn a
+revenue observation into cash or accounting. These command mappings are
+local evidence only: the gateway actor/session, source identity mapping,
+browser acceptance, and sales/finance owner approval remain open.
