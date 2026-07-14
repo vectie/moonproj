@@ -1331,6 +1331,30 @@ def main() -> int:
             or source_supplier_create_payload.get("provider", {}).get("sourceKind") != "command"
         ):
             raise SmokeError(f"trusted source supplier alias failed: {status} {source_supplier_create_payload}")
+        status, _headers, source_supplier_check_sign_payload = request(
+            args.gateway_port,
+            "GET",
+            f"/api/company/srm/providers/{source_supplier_id}/check-sign",
+            headers={"Cookie": cookie},
+        )
+        check_sign_data = (
+            source_supplier_check_sign_payload.get("data", {})
+            if isinstance(source_supplier_check_sign_payload, dict)
+            else {}
+        )
+        if (
+            status != 200
+            or not isinstance(source_supplier_check_sign_payload, dict)
+            or source_supplier_check_sign_payload.get("decision") != "derived_command_preview"
+            or source_supplier_check_sign_payload.get("authorizing") is not False
+            or source_supplier_check_sign_payload.get("provider_execution") is not False
+            or check_sign_data.get("sourceKind") != "command"
+            or check_sign_data.get("allow") is not True
+        ):
+            raise SmokeError(
+                f"trusted source supplier check-sign preview failed: {status} "
+                f"{source_supplier_check_sign_payload}"
+            )
         status, _headers, source_supplier_patch_payload = request(
             args.gateway_port,
             "PATCH",

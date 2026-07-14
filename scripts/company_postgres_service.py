@@ -3012,11 +3012,10 @@ def supplier_source_check_sign_boundary(
     """Expose the ERP signature-check contract without granting procurement authority.
 
     The source route computes a contract-signing decision from the provider
-    master and risk engine.  PostgreSQL currently has no imported provider
-    rows, so the exact source missing-provider response is useful evidence.
-    If a provider is later imported, keep the route explicit about the
-    procurement-owner gate instead of silently turning a read into a signing
-    authorization or provider-side action.
+    master and risk engine.  Imported providers retain the procurement-owner
+    gate.  A command-owned supplier projection can provide a deterministic
+    local preview, but it never authorizes a signature, persists risk state,
+    or calls a provider.
     """
 
     if not IDENTIFIER.fullmatch(provider_guid):
@@ -3036,6 +3035,52 @@ def supplier_source_check_sign_boundary(
         "provider_execution": False,
     }
     if not provider_exists:
+        command_rows = suppliers(pool, provider_guid, 1)
+        command_item = command_rows[0] if command_rows else None
+        if command_item and command_item.get("source_kind") == "command":
+            state = str(command_item.get("state") or "draft")
+            if state != "voided":
+                risk = supplier_risk(pool, provider_guid)
+                if risk is not None:
+                    risk_payload = {
+                        "score": risk["score"],
+                        "rating": risk["rating"],
+                        "tags": risk["tags"],
+                        "contractCount": 0,
+                        "contractTotal": 0,
+                        "overdueCount": 0,
+                        "overdueAmount": 0,
+                    }
+                    allow = True
+                    require_extra_approve = False
+                    reason = ""
+                    if state == "blacklisted":
+                        allow = False
+                        reason = "黑名单供应商,禁止签约"
+                    elif risk["rating"] == "E":
+                        allow = False
+                        reason = "风险评级 E,禁止签约"
+                    elif risk["rating"] == "D":
+                        require_extra_approve = True
+                        reason = "风险评级 D,需要风控加签"
+                    return 200, {
+                        "success": True,
+                        "code": 0,
+                        "data": {
+                            "providerGuid": provider_guid,
+                            "allow": allow,
+                            "requireExtraApprove": require_extra_approve,
+                            "reason": reason,
+                            "risk": risk_payload,
+                            "sourceKind": "command",
+                        },
+                        "decision": "derived_command_preview",
+                        "derived_replacement": True,
+                        "procurement_owner_approval_required": True,
+                        **metadata,
+                        "source_kind": "command",
+                        "command_projection": True,
+                    }
         return 404, {
             "success": False,
             "code": 43001,

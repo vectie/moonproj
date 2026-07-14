@@ -3367,6 +3367,30 @@ def main() -> int:
             raise SmokeError(f"source supplier create alias failed: {status} {payload}")
         status, payload = request(
             args.port,
+            f"/api/company/srm/providers/{source_supplier_id}/check-sign",
+            token=token,
+        )
+        check_sign_data = (payload or {}).get("data", {})
+        check_sign_risk = check_sign_data.get("risk", {})
+        if (
+            status != 200
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("decision") != "derived_command_preview"
+            or payload.get("derived_replacement") is not True
+            or payload.get("procurement_owner_approval_required") is not True
+            or payload.get("authorizing") is not False
+            or payload.get("persisted") is not False
+            or payload.get("provider_execution") is not False
+            or check_sign_data.get("sourceKind") != "command"
+            or check_sign_data.get("allow") is not True
+            or check_sign_data.get("requireExtraApprove") is not False
+            or check_sign_risk.get("rating") != "C"
+            or check_sign_risk.get("contractCount") != 0
+        ):
+            raise SmokeError(f"command supplier check-sign preview failed: {status} {payload}")
+        status, payload = request(
+            args.port,
             "/api/company/source/srm/providers",
             token=token,
             method="POST",

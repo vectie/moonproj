@@ -47,7 +47,10 @@ rows are production data.
 - `GET /api/company/srm/providers/<guid>/check-sign` for the source-compatible
   missing-provider boundary. With an imported provider it returns an explicit
   procurement-owner gate rather than authorizing a contract signature or
-  invoking an external provider;
+  invoking an external provider. With a command-owned supplier projection it
+  returns a `derived_command_preview` using local risk semantics; that
+  preview is non-authorizing, non-persistent, and still requires
+  procurement-owner approval;
 - `POST /api/company/source/srm/providers` and `PATCH`, `PUT`, or `DELETE`
   `/api/company/source/srm/providers/<guid>` for source-field provider CRUD.
   These aliases create, update, or void command-owned supplier projections,
@@ -99,8 +102,9 @@ keeping the designer detail layout and source provenance banner.
 
 The source parity audit also records the remaining differences. The
 `srm.js` signature-check endpoint now has a bounded missing-provider/gated
-boundary; its populated-provider decision still requires procurement-owner
-approval. The external risk rescore job remains unconnected. The
+boundary plus a local command-owned derived preview; imported populated-
+provider decisions still require procurement-owner approval. The external
+risk rescore job remains unconnected. The
 source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
@@ -108,8 +112,10 @@ idempotent company commands, not proxied legacy writes.
 The source supplier CRUD aliases follow the same rule: they translate the ERP
 field family into a local supplier command, but do not pretend that a local
 projection is an imported `srm_provider` row. List/detail readback is useful
-for the designer flow and carries provenance; source statistics and populated
-provider signature/risk decisions remain source-evidence and owner gates.
+for the designer flow and carries provenance; source statistics, imported
+provider signature/risk decisions, and external rescore remain source-
+evidence and owner gates. A command-owned preview is only a local decision
+aid and never a signature or provider call.
 
 The tender command runtime is not an exact proxy for every legacy tender
 mutation. Local create and lifecycle commands enforce a forward-only state
