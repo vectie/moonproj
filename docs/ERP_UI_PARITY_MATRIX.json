@@ -1018,8 +1018,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_admin_boundary",
+      "required_next": "accept_backup_owner_retention_and_download_authorization"
     },
     {
       "module": "admin",
@@ -4272,8 +4272,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_supplier_boundary",
+      "required_next": "accept_supplier_signature_gate_and_procurement_owner"
     },
     {
       "module": "tender",

@@ -152,6 +152,8 @@ def main() -> int:
             or "ai_hub_read" not in payload.get("capabilities", [])
             or "webhook_config_read" not in payload.get("capabilities", [])
             or "report_template_read" not in payload.get("capabilities", [])
+            or "admin_backup_boundary_read" not in payload.get("capabilities", [])
+            or "supplier_signature_boundary_read" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, payload = request(args.port, "/api/company/projections?aggregate_type=notification_outbox", token=token)
@@ -204,6 +206,22 @@ def main() -> int:
                 f"source supplier detail risk read failed: {status} {supplier_detail_risk_payload}"
             )
         supplier_detail_risk_status = status
+        status, supplier_check_sign_payload = request(
+            args.port, "/api/company/srm/providers/SUP-00018/check-sign", token=token,
+        )
+        if (
+            status != 404
+            or supplier_check_sign_payload is None
+            or supplier_check_sign_payload.get("code") != 43001
+            or supplier_check_sign_payload.get("data") is not None
+            or supplier_check_sign_payload.get("source_coverage", {}).get("srm_provider") != 0
+            or supplier_check_sign_payload.get("provider_execution") is not False
+            or supplier_check_sign_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(
+                f"source supplier check-sign boundary failed: {status} {supplier_check_sign_payload}"
+            )
+        supplier_check_sign_status = status
         status, supplier_stats_payload = request(
             args.port, "/api/company/srm/stats/overview", token=token,
         )
@@ -1331,6 +1349,21 @@ def main() -> int:
             or admin_health_full_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"admin full health read failed: {status} {admin_health_full_payload}")
+        status, admin_backup_payload = request(
+            args.port, "/api/company/admin/backup/db", token=token,
+        )
+        if (
+            status != 501
+            or admin_backup_payload is None
+            or admin_backup_payload.get("code") != 43032
+            or admin_backup_payload.get("backup_status") != "gated"
+            or admin_backup_payload.get("database") != args.database
+            or admin_backup_payload.get("format") != "postgresql"
+            or admin_backup_payload.get("binary_storage") != "not_exported"
+            or admin_backup_payload.get("authorizing") is not False
+            or admin_backup_payload.get("provider_execution") is not False
+        ):
+            raise SmokeError(f"admin backup boundary failed: {status} {admin_backup_payload}")
         status, admin_llm_payload = request(
             args.port,
             "/api/company/admin/llm/status",
@@ -2700,6 +2733,7 @@ def main() -> int:
                     "supplier_source_provider_rows": supplier_source_payload.get("source_coverage", {}).get("srm_provider"),
                     "supplier_detail_source_status": supplier_detail_status,
                     "supplier_detail_risk_source_status": supplier_detail_risk_status,
+                    "supplier_check_sign_status": supplier_check_sign_status,
                     "supplier_stats_total": supplier_stats_data.get("total"),
                     "supplier_stats_contract_rows": supplier_stats_payload.get("source_coverage", {}).get("cb_contract"),
                     "attachment_rows": attachment_all_data.get("total"),
@@ -2762,6 +2796,7 @@ def main() -> int:
                     "admin_health_table_rows": 29,
                     "admin_bpm_instance_rows": 0,
                     "admin_full_health_tables": len(admin_health_full_data.get("tables", [])),
+                    "admin_backup_status": admin_backup_payload.get("code"),
                     "admin_llm_provider": admin_llm_payload.get("data", {}).get("provider"),
                     "admin_ai_diag_provider": admin_ai_diag_payload.get("data", {}).get("provider"),
                     "workflow_instance_rows": 0,

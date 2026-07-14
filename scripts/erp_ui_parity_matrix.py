@@ -376,6 +376,12 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_warning_scenario_and_production_identity"
     if target_state == "connected_attachment_read":
         return "accept_browser_attachment_scenario_and_production_identity"
+    if target_state == "connected_attachment_boundary":
+        return "accept_binary_storage_and_production_identity"
+    if target_state == "connected_admin_boundary":
+        return "accept_backup_owner_retention_and_download_authorization"
+    if target_state == "connected_supplier_boundary":
+        return "accept_supplier_signature_gate_and_procurement_owner"
     if target_state == "connected_marketing_read":
         return "accept_browser_marketing_scenario_and_production_identity"
     if target_state == "connected_notification_read":
@@ -485,6 +491,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] == "/download/:guid"
     ):
         return "connected_attachment_boundary", "accept_binary_storage_and_production_identity"
+    if (
+        handler["module"] == "admin"
+        and handler["method"] == "GET"
+        and handler["path"] == "/backup/db"
+    ):
+        return "connected_admin_boundary", "accept_backup_owner_retention_and_download_authorization"
     if (
         handler["module"] == "attachment"
         and handler["method"] == "GET"
@@ -791,6 +803,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] == "/providers/:guid/risk"
     ):
         return "connected_supplier_risk_read", "accept_browser_supplier_risk_scenario_and_production_identity"
+    if (
+        handler["module"] == "srm"
+        and handler["method"] == "GET"
+        and handler["path"] == "/providers/:guid/check-sign"
+    ):
+        return "connected_supplier_boundary", "accept_supplier_signature_gate_and_procurement_owner"
     if (
         handler["module"] == "srm"
         and handler["method"] == "GET"

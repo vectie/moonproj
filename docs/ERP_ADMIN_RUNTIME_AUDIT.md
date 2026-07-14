@@ -27,6 +27,7 @@ The target now exposes source-compatible read boundaries:
 | BPM pool snapshot | `/api/company/admin/health/bpm-pool` | source-coverage read |
 | OCR provider status | `/api/company/admin/ocr/status` | metadata-only read; provider execution gated |
 | Error log metadata | `/api/company/admin/error-log` | bounded read; IP/stack redacted |
+| Database backup export | `/api/company/admin/backup/db` | PostgreSQL target-format boundary; export gated |
 
 The Rabbita `/system-health` screen now calls both health endpoints through the
 read-only PostgreSQL adapter. When the responses arrive it shows the 29-table
@@ -91,6 +92,10 @@ render explicit empty-source/definition states after successful reads.
 - The parity matrix marks `/ocr-config` and `/error-log` as connected
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.
+- The parity matrix marks `GET /backup/db` as a connected PostgreSQL boundary.
+  It never invokes the source MySQL `mysqldump`, returns no binary, and keeps
+  backup ownership, retention, download authorization, and restore testing as
+  managed-operations gates.
 
 **Browser evidence (2026-07-14).** A local PostgreSQL read-model session
 opened `/audit-log`, `/error-log`, `/system-health`, `/users`, `/admin`, and

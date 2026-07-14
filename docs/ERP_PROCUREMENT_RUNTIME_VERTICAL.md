@@ -43,6 +43,10 @@ rows are production data.
   provider risk detail. It reuses the ERP risk calculation over that provider's
   imported contracts and milestones, returns coverage metadata, and remains a
   derived non-authorizing read;
+- `GET /api/company/srm/providers/<guid>/check-sign` for the source-compatible
+  missing-provider boundary. With an imported provider it returns an explicit
+  procurement-owner gate rather than authorizing a contract signature or
+  invoking an external provider;
 - `GET /api/company/srm/stats/overview` for source-backed enabled-provider,
   rating, category/source, and top-business aggregates;
 - `GET /api/company/source/srm/categories` for the source `srm_category`
@@ -85,11 +89,13 @@ does not mutate qualification. Provider detail also loads the risk-detail read
 and shows score, rating, tags, contract count, and overdue milestones while
 keeping the designer detail layout and source provenance banner.
 
-The source parity audit also records the remaining differences. The source
-`srm.js` signature-check endpoint and external risk rescore job are not
-connected; the source-compatible risk board remains read-only and
-non-authorizing while the snapshot has no supplier rows. All target mutations
-above are separate idempotent company commands, not proxied legacy writes.
+The source parity audit also records the remaining differences. The
+`srm.js` signature-check endpoint now has a bounded missing-provider/gated
+boundary; its populated-provider decision still requires procurement-owner
+approval. The external risk rescore job remains unconnected. The
+source-compatible risk board remains read-only and non-authorizing while the
+snapshot has no supplier rows. All target mutations above are separate
+idempotent company commands, not proxied legacy writes.
 
 The source tender boundary is:
 
@@ -145,6 +151,6 @@ is absent; a disposable non-empty source cohort was verified to produce the
 expected contract/overdue counts and a derived rating, then removed.
 
 Remaining gates are the supplier/tender command slice above, a redacted source
-procurement export, supplier identity and owner approval, award-to-commitment
-acceptance, browser acceptance through the real gateway session, and production
-identity/role/session deployment.
+procurement export, supplier identity and owner approval, the populated-provider
+signature decision, award-to-commitment acceptance, browser acceptance through
+the real gateway session, and production identity/role/session deployment.

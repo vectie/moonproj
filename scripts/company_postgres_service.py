@@ -43,6 +43,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
 * ``/api/company/suppliers/<id>/risk`` (GET)
 * ``/api/company/srm/providers[/{guid}]``, ``/api/company/srm/providers/{guid}/risk``,
+  and ``/api/company/srm/providers/{guid}/check-sign`` (GET, source-compatible
+  missing-provider/signature boundary; procurement approval remains gated),
   ``/api/company/srm/stats/overview``,
   and ``/api/company/srm/risk-board`` (GET)
   source-compatible, non-authorizing reads with coverage metadata
@@ -106,6 +108,8 @@ The bounded service exposes these endpoints:
   governance reads; runtime metrics remain unavailable)
 * ``/api/company/admin/{llm/status,ai/diag}`` (GET, redacted diagnostic reads;
   provider execution remains disabled)
+* ``/api/company/admin/backup/db`` (GET, PostgreSQL backup-export boundary;
+  binary export remains gated)
 * ``/api/company/admin/ocr/status`` and ``/api/company/admin/error-log`` (GET,
   source-compatible metadata reads; OCR execution and raw error-network fields
   remain gated)
@@ -446,6 +450,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_read",
             "supplier_source_read",
             "supplier_risk_read",
+            "supplier_signature_boundary_read",
             "supplier_command",
             "tender_command",
             "contract_split_command",
@@ -473,6 +478,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "cost_dashboard_read",
             "dashboard_v2_read",
             "admin_health_full_read",
+            "admin_backup_boundary_read",
             "ai_diagnostic_read",
             "webhook_config_read",
             "report_template_read",
@@ -502,6 +508,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_read",
             "supplier_source_read",
             "supplier_risk_read",
+            "supplier_signature_boundary_read",
             "supplier_command",
             "tender_command",
             "contract_split_command",
@@ -524,6 +531,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "cost_dashboard_read",
             "dashboard_v2_read",
             "admin_health_full_read",
+            "admin_backup_boundary_read",
             "ai_diagnostic_read",
         ],
         "schema_version": expected_schema_version,
@@ -2246,6 +2254,61 @@ def supplier_source_risk(
             "sourceKind": "imported",
         },
         **_supplier_source_metadata(coverage),
+    }
+
+
+def supplier_source_check_sign_boundary(
+    pool: PsqlPool,
+    provider_guid: str,
+    max_rows: int,
+) -> tuple[int, dict[str, Any]]:
+    """Expose the ERP signature-check contract without granting procurement authority.
+
+    The source route computes a contract-signing decision from the provider
+    master and risk engine.  PostgreSQL currently has no imported provider
+    rows, so the exact source missing-provider response is useful evidence.
+    If a provider is later imported, keep the route explicit about the
+    procurement-owner gate instead of silently turning a read into a signing
+    authorization or provider-side action.
+    """
+
+    if not IDENTIFIER.fullmatch(provider_guid):
+        raise ValueError("invalid provider_guid")
+    coverage = _supplier_source_coverage(pool, max_rows)
+    providers = _raw_source_rows(
+        pool, "srm_provider", max(max_rows, 500), SRM_PROVIDER_SOURCE_TABLES,
+    )
+    provider_exists = any(
+        str(row["payload"].get("provider_guid") or row["record_id"]) == provider_guid
+        and not row["payload"].get("deleted_at")
+        for row in providers
+    )
+    metadata = {
+        **_supplier_source_metadata(coverage),
+        "persisted": False,
+        "provider_execution": False,
+    }
+    if not provider_exists:
+        return 404, {
+            "success": False,
+            "code": 43001,
+            "message": "供应商不存在",
+            "data": None,
+            **metadata,
+        }
+    return 409, {
+        "success": False,
+        "code": 43003,
+        "message": "供应商签约校验仍需采购负责人审批",
+        "data": {
+            "providerGuid": provider_guid,
+            "allow": None,
+            "requireExtraApprove": None,
+            "reason": "采购负责人审批后才能执行签约校验",
+            "risk": None,
+        },
+        "decision": "gated",
+        **metadata,
     }
 
 
@@ -7839,6 +7902,47 @@ def admin_health_full(pool: PsqlPool, max_rows: int, database: str | None) -> di
         "authorizing": False,
         "persisted": False,
         "provider_execution": False,
+    }
+
+
+def admin_backup_boundary(
+    database: str | None,
+) -> tuple[int, dict[str, Any]]:
+    """Describe the target-native backup boundary without exporting a dump.
+
+    The ERP route streams a MySQL ``mysqldump``.  This product is PostgreSQL
+    backed, so invoking that command would be both incorrect and an unsafe
+    privileged side effect.  Keep the endpoint visible with an explicit
+    target-format gate until backup ownership, retention, and download
+    authorization are approved.
+    """
+
+    if not database:
+        return 500, {
+            "success": False,
+            "code": 43031,
+            "message": "PGDATABASE 未配置",
+            "backup_status": "gated",
+            "format": "postgresql",
+            "source_kind": "target_database",
+            "authorizing": False,
+            "persisted": False,
+            "provider_execution": False,
+            "binary_storage": "not_exported",
+        }
+    return 501, {
+        "success": False,
+        "code": 43032,
+        "message": "PostgreSQL 备份导出尚未启用",
+        "backup_status": "gated",
+        "database": database,
+        "format": "postgresql",
+        "source_kind": "target_database",
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "binary_storage": "not_exported",
+        "next_gate": "backup-owner-retention-and-download-authorization",
     }
 
 
@@ -15803,6 +15907,12 @@ def handler_factory(
                     response(self, 200, supplier_source_sources(), origin)
                 elif parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(pool, max_response_rows), origin)
+                elif re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/check-sign", parsed.path):
+                    provider_guid = parsed.path.split("/")[-2]
+                    status, result = supplier_source_check_sign_boundary(
+                        pool, provider_guid, max_response_rows,
+                    )
+                    response(self, status, result, origin)
                 elif re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
                     provider_guid = parsed.path.split("/")[-2]
                     risk = supplier_source_risk(pool, provider_guid, max_response_rows)
@@ -16625,6 +16735,9 @@ def handler_factory(
                     response(self, 200, admin_health_bpm_pool(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/health/full":
                     response(self, 200, admin_health_full(pool, max_response_rows, database_name), origin)
+                elif parsed.path == "/api/company/admin/backup/db":
+                    status, result = admin_backup_boundary(database_name)
+                    response(self, status, result, origin)
                 elif parsed.path == "/api/company/admin/llm/status":
                     response(self, 200, admin_llm_status(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/ai/diag":

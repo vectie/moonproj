@@ -289,8 +289,8 @@ instance/action tables contain zero rows, while supplier tables
 (`srm_provider`, `srm_category`) are absent from the snapshot. The target
 parity register currently records 56 browser routes and 338 source API
 handlers (182 mutations), with 54 connected browser states, 0
-fixture-backed read-only states, 2 public states, 54 connected API groups,
-and 2 fixture/no-source API groups. The newly connected
+fixture-backed read-only states, 2 public states, and all 156 source GET/HEAD
+handlers connected through reads or explicit safety boundaries. The newly connected
 AI analytics, AI Hub observation, webhook configuration, report-builder, and cost-dashboard read families are
 included in those counts; their source tables are currently empty and are not
 treated as provider, draft, notification, or report-template authority.
@@ -301,6 +301,10 @@ The source-handler action register now marks the ERP `GET /srm/providers` and
 overview is connected through `/api/company/srm/stats/overview` as well, and
 the provider risk-detail read is connected through
 `/api/company/srm/providers/<guid>/risk`.
+The supplier signature-check handler now has a source-compatible missing-
+provider boundary and an explicit populated-provider procurement gate. The
+admin backup handler now has a PostgreSQL target-format export boundary; it
+does not invoke the source MySQL dump process or return binary data.
 The route-level count now includes the connected `/srm/providers/:guid`
 source-detail read; the list remains a connected command-form page with a
 separate source master read.
@@ -504,15 +508,16 @@ groups are now explicit:
   while preserving the source permission definitions. Full health, redacted
   LLM status, and no-provider AI diagnostics now have PostgreSQL observation
   adapters; runtime metrics are unavailable and provider execution remains
-  disabled. Backup/download binaries and provider signature checks remain
-  gated. None of these observations grants authority just because a local
-  target endpoint exists.
+  disabled. Attachment binaries and PostgreSQL backup export remain gated;
+  provider signature checking has a missing-provider/gated boundary but does
+  not authorize a populated-provider decision. None of these observations
+  grants authority just because a local target endpoint exists.
 * **Provider/external reads:** LLM/OCR diagnostics now expose redacted,
-  no-execution metadata, but provider signature checks and similar
-  status/verification endpoints remain provider and credential gates. A
-  successful metadata read does not authorize a provider call.
+  no-execution metadata, but populated-provider signature decisions and
+  similar status/verification endpoints remain provider and credential gates.
+  A successful metadata read does not authorize a provider call.
 
-The remaining 190 API handlers are therefore deliberately split between these
+The remaining 182 mutation API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
@@ -710,9 +715,9 @@ currently imported rows. It also exposes source-shaped full-health, redacted
 LLM-status, and AI-diagnostic reads. The service smoke verifies project-scoped
 v2/v3 values, the attachment download boundary, and all three diagnostic
 responses; health runtime metrics are explicitly unavailable and no provider
-ping is performed. The parity matrix now
-leaves only two unconnected source GET/HEAD handlers: backup binary and
-supplier provider signature check. Rabbita does not mount v2 or v3 yet; the v3
+ping is performed. The parity matrix now has explicit boundaries for every
+source GET/HEAD handler, including the PostgreSQL backup-export boundary and
+supplier signature-check boundary. Rabbita does not mount v2 or v3 yet; the v3
 API observation reports the
 16 absent cross-domain tables explicitly, and production identity, browser
 scope acceptance, and owner reconciliation remain open.
@@ -726,10 +731,10 @@ source-style missing-record boundary, while plan-line and mapping reads return
 empty data with coverage metadata. Smoke evidence covers all of these paths
 without upload, write, provider execution, or designer fixture substitution.
 Profit-actual remains gated because the source route simulates sparse actuals;
-the two remaining unconnected GET/HEAD handlers are backup binary and provider
-signature check; dashboard v3 and investment profit-actual are now bounded API
-observations, while attachment download has a source-compatible missing-binary
-boundary. None is a mounted or accepted production capability.
+dashboard v3 and investment profit-actual are now bounded API observations,
+while attachment download, PostgreSQL backup export, and supplier signature
+checking have explicit boundaries. None is a mounted or accepted production
+capability.
 
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
@@ -785,11 +790,11 @@ than raw route count:
 | P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
-| P4 | Supplier provider signature check | Bind provider credentials, signature algorithm, timeout/retry, and audit trail | Procurement/security owner approval and a real provider test contract |
+| P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
 | P5 | Mutations and external effects | Implement commands only per capability, with authority, idempotency, audit, accounting/tax/cash boundaries, and replay evidence | Named business owner acceptance; bounded reads alone do not unlock writes |
 
-This ordering supersedes the earlier route-count-first sequence. The three
-remaining GET/HEAD handlers are explicit gates, not a reason to broaden the
+This ordering supersedes the earlier route-count-first sequence. The remaining
+GET/HEAD boundaries are explicit gates, not a reason to broaden the
 surface with synthetic data or provider calls. The route matrix remains
 `functional_parity_incomplete` until the connected read slices pass managed
 identity, source reconciliation, browser interaction, and named-owner gates.
@@ -900,8 +905,9 @@ identity, source reconciliation, browser interaction, and named-owner gates.
 The source-to-target runtime inventory is now explicit: the ERP contains 56
 browser routes, 338 API handlers, and 182 mutation handlers. The target matrix
 currently records 54 connected browser states, no fixture-backed read-only
-state, and two public states. Its API matrix records 54 connected API groups
-and 2 fixture/no-source groups across MDM organization/project, budget
+state, and two public states. Its API matrix records all 156 source GET/HEAD
+ handlers with explicit connected reads or safety boundaries; the 182 mutation
+ handlers remain separate across MDM organization/project, budget
 dictionary and expense detail, investment and cost-dashboard v3,
 admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
@@ -951,8 +957,9 @@ Execute the remainder in this order:
     dedicated read-only smoke checks pass; at that checkpoint the parity action
     register marked 35 source GET handlers connected. Subsequent identity/RBAC,
     dashboard/admin, investment Excel, dashboard v3, attachment-boundary, and
-    investment-actual boundary waves have expanded the connected read set; the
-    current matrix leaves two GET/HEAD handlers unconnected. Do
+    investment-actual, backup-boundary, and supplier-signature-boundary waves
+    have expanded the connected read set; the current matrix leaves no source
+    GET/HEAD handler without an explicit target boundary. Do
     not use any bounded read wave to unlock commands or to infer missing sales,
     invoice, supplier, tender, tax, or investment detail rows. The remaining
     gate is production identity, browser acceptance, owner evidence, and the
@@ -961,10 +968,11 @@ Execute the remainder in this order:
    The local supplier lifecycle/risk reads, source-compatible provider-list/detail and risk-board reads,
    tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
-   command-state checks. Remaining procurement work is the source signature-
-   check and external risk-rescore integration (or an owner-approved derived
-   replacement), a redacted source export, supplier identity mapping, browser
-   acceptance, award-to-commitment acceptance, and procurement-owner sign-off.
+   command-state checks. Remaining procurement work is populated-provider
+   signature decision parity and external risk-rescore integration (or an
+   owner-approved derived replacement), a redacted source export, supplier
+   identity mapping, browser acceptance, award-to-commitment acceptance, and
+   procurement-owner sign-off.
    Imported rows remain read-only and no award creates a commitment implicitly.
 5. Treat the employee-loan command boundary as a finance-owner acceptance
    slice: verify authority grants, applicant ownership, replay/conflict

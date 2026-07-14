@@ -108,6 +108,7 @@ from company_postgres_service import (
     supplier_source_detail as service_supplier_source_detail,
     supplier_source_stats as service_supplier_source_stats,
     supplier_source_risk as service_supplier_source_risk,
+    supplier_source_check_sign_boundary as service_supplier_source_check_sign_boundary,
     supplier_risk as service_supplier_risk,
     supplier_risk_board as service_supplier_risk_board,
     supplier_risk_board_source as service_supplier_risk_board_source,
@@ -159,6 +160,7 @@ from company_postgres_service import (
     admin_audit_actions as service_admin_audit_actions,
     admin_health_tables as service_admin_health_tables,
     admin_health_bpm_pool as service_admin_health_bpm_pool,
+    admin_backup_boundary as service_admin_backup_boundary,
     auth_preferences as service_auth_preferences,
     import_template as service_import_template,
     rbac_current_user as service_rbac_current_user,
@@ -828,6 +830,15 @@ def supplier_source_risk(args: argparse.Namespace, provider_guid: str) -> dict[s
     return service_supplier_source_risk(_ReadModelPool(args), provider_guid, 500)
 
 
+def supplier_source_check_sign_boundary(
+    args: argparse.Namespace,
+    provider_guid: str,
+) -> tuple[int, dict[str, Any]]:
+    return service_supplier_source_check_sign_boundary(
+        _ReadModelPool(args), provider_guid, 500,
+    )
+
+
 def supplier_risk(args: argparse.Namespace, supplier_id: str) -> dict[str, Any] | None:
     return service_supplier_risk(_ReadModelPool(args), supplier_id)
 
@@ -1108,6 +1119,10 @@ def admin_health_tables(args: argparse.Namespace) -> dict[str, Any]:
 
 def admin_health_bpm_pool(args: argparse.Namespace) -> dict[str, Any]:
     return service_admin_health_bpm_pool(_ReadModelPool(args), 500)
+
+
+def admin_backup_boundary(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
+    return service_admin_backup_boundary(args.database)
 
 
 def loans(
@@ -1864,6 +1879,11 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/srm/providers":
                     response(self, 200, supplier_source_list(args))
                     return
+                if re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/check-sign", parsed.path):
+                    provider_guid = parsed.path.split("/")[-2]
+                    status, result = supplier_source_check_sign_boundary(args, provider_guid)
+                    response(self, status, result)
+                    return
                 if re.fullmatch(r"/api/company/srm/providers/[A-Za-z0-9_.:-]{1,128}/risk", parsed.path):
                     provider_guid = parsed.path.split("/")[-2]
                     risk = supplier_source_risk(args, provider_guid)
@@ -2234,6 +2254,10 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/admin/health/bpm-pool":
                     response(self, 200, admin_health_bpm_pool(args))
+                    return
+                if parsed.path == "/api/company/admin/backup/db":
+                    status, result = admin_backup_boundary(args)
+                    response(self, status, result)
                     return
                 if parsed.path == "/api/company/dashboard/group/overview":
                     response(self, 200, dashboard_group_overview(args))
