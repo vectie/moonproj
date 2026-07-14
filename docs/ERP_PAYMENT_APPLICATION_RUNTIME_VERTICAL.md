@@ -43,27 +43,36 @@ local command projection:
   for the idempotent local approval lifecycle;
 - `POST /api/company/payment-applies/<id>/update` and `/void` for the
   source-aligned edit/void controls on local command-owned applications.
+- `POST /api/company/source/cost/payment-applies` as a source-field create
+  alias; it creates a local draft and immediately submits it so the source
+  workflow state is `申请审批中`/`submitted`.
+- `PUT /api/company/source/cost/payment-applies/<id>` and `DELETE .../<id>`
+  as source-shaped update/void aliases for command-owned applications.
+  Imported applications remain read-only.
 
 The read-only development adapter exposes the same GET surface. The
 loopback-only gateway allow-lists the POST family, establishes its in-memory
 HttpOnly session, and signs the actor assertion before the service accepts a
-command. Rabbita `/payment-applies` loads live rows, keeps the source-shaped
-table, and exposes the local command buttons.
+command, including the source payment aliases. Rabbita `/payment-applies`
+loads live rows, keeps the source-shaped table, and exposes the local command
+buttons.
 
 ## Acceptance evidence
 
 The local service probe read all three imported rows, checked a real payment
 plan for early-payment and over-payment conditions, created a temporary
 payment application, replayed the idempotency key, ran submit/update/reject/
-resubmit/approve/void, and read the result back. A gateway HTTP probe created
-a second temporary application as `rabbita-user`; temporary command
-projections, records, and audit rows were removed after verification.
+resubmit/approve/void, and read the result back. The source-shaped alias probe
+created, replayed, updated, voided, and read back a command-owned application;
+all responses carried explicit no-cash/accounting/tax markers. The gateway
+HTTP probe repeated the source alias lifecycle as `rabbita-user`.
 
 ## Remaining gate
 
-Source cost handlers still include edit/void, milestone mutation, early-payment
-execution, attachments, workflow assignment, and payment execution surfaces
-that are not yet connected to Rabbita. The source milestone-check adapter is
+Source cost handlers still include contract/dynamic-cost/milestone mutation,
+early-payment execution, attachments, workflow assignment, and payment
+execution surfaces that are not yet connected to Rabbita. The source
+milestone-check adapter is
 connected as a read-only covered boundary, but the current export has no
 milestone rows and Rabbita does not invoke the check as a command. The source
 read batch is connected, but

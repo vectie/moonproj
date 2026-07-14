@@ -33,6 +33,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/source/cost/contracts[/{id}[/milestones]]`` and
   ``/api/company/source/cost/payment-applies`` (GET, imported-source contract
   and payment observations)
+* ``/api/company/source/cost/payment-applies`` (POST create alias) and
+  ``/api/company/source/cost/payment-applies/<id>`` (PUT/DELETE local-command
+  aliases; imported applications remain read-only)
 * ``/api/company/source/invoice/{in,out}`` and
   ``/api/company/source/invoice/tax-ledger`` (GET, imported-source invoice
   and tax-ledger observations)
@@ -465,6 +468,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "contract_command",
             "payment_application_read",
             "payment_application_command",
+            "payment_application_source_command_alias",
             "procurement_read",
             "supplier_read",
             "supplier_source_read",
@@ -531,6 +535,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "contract_command",
             "payment_application_read",
             "payment_application_command",
+            "payment_application_source_command_alias",
             "procurement_read",
             "supplier_read",
             "supplier_source_read",
@@ -1188,16 +1193,24 @@ COST_SOURCE_TABLES = {
 }
 
 
-def _cost_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+def _cost_source_metadata(
+    coverage: dict[str, int],
+    *,
+    command_projection: bool = False,
+) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
         "persisted": False,
+        "command_projection": command_projection,
         "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
 
 
@@ -1460,6 +1473,67 @@ def cost_source_contract_detail(
     }
 
 
+def _cost_source_payment_command_row(item: dict[str, Any]) -> dict[str, Any]:
+    apply_id = str(item.get("apply_id") or "")
+    amount_minor = int(item.get("amount_minor") or 0)
+    operation_state = str(item.get("operation_state") or item.get("apply_state") or "draft")
+    apply_state = str(item.get("apply_state") or operation_state)
+    pay_state = str(item.get("pay_state") or "未支付")
+    contract_id = str(item.get("contract_id") or "")
+    project_id = str(item.get("project_id") or "")
+    return {
+        "htfkApplyGuid": apply_id,
+        "applyCode": str(item.get("apply_code") or apply_id),
+        "contractGuid": contract_id,
+        "contractName": str(item.get("contract_name") or contract_id),
+        "yfProviderName": str(item.get("supplier_name") or ""),
+        "projGuid": project_id,
+        "projName": str(item.get("project_name") or project_id),
+        "payClass": str(item.get("pay_class") or "合同"),
+        "operationState": operation_state,
+        "applyState": apply_state,
+        "payState": pay_state,
+        "subject": str(item.get("subject") or ""),
+        "applyDeptName": "",
+        "appliedBy": str(item.get("applied_by") or ""),
+        "appliedByName": str(item.get("applied_by_name") or item.get("applied_by") or ""),
+        "applyDate": str(item.get("apply_date") or ""),
+        "applyAmount": amount_minor / 100,
+        "applyTypeCode": str(item.get("apply_type_code") or ""),
+        "htfkPlanGuid": str(item.get("plan_id") or ""),
+        "milestoneGuid": str(item.get("milestone_id") or ""),
+        "sourceKind": "command",
+        "sourceId": "moonproj:command:payment_application:" + apply_id,
+        "apply_id": apply_id,
+        "apply_code": str(item.get("apply_code") or apply_id),
+        "contract_id": contract_id,
+        "contract_name": str(item.get("contract_name") or contract_id),
+        "project_name": str(item.get("project_name") or project_id),
+        "supplier_name": str(item.get("supplier_name") or ""),
+        "amount_minor": amount_minor,
+        "amount_display": f"¥{amount_minor / 100:,.2f}",
+        "currency": str(item.get("currency") or "CNY"),
+        "apply_date": str(item.get("apply_date") or ""),
+        "operation_state": operation_state,
+        "apply_state": apply_state,
+        "pay_state": pay_state,
+        "apply_type_code": str(item.get("apply_type_code") or ""),
+        "pay_class": str(item.get("pay_class") or "合同"),
+        "applied_by": str(item.get("applied_by") or ""),
+        "applied_by_name": str(item.get("applied_by_name") or item.get("applied_by") or ""),
+        "source_kind": "command",
+        "plan_id": str(item.get("plan_id") or ""),
+        "milestone_id": str(item.get("milestone_id") or ""),
+        "command_projection": True,
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
 def cost_source_payment_applications(
     pool: PsqlPool,
     view: str,
@@ -1550,9 +1624,37 @@ def cost_source_payment_applications(
             "plan_id": _report_text(payload, "htfk_plan_guid"),
             "milestone_id": _report_text(payload, "milestone_guid"),
         })
+    for item in payment_applications(pool, None, "all", max(max_rows, 500)):
+        if item.get("source_kind") != "command":
+            continue
+        contract_id = str(item.get("contract_id") or "")
+        contract = contracts.get(contract_id)
+        if contract is None or contract.get("deleted_at"):
+            continue
+        if bu_guid is not None and _report_text(contract, "bu_guid") != bu_guid:
+            continue
+        applied_by = str(item.get("applied_by") or "")
+        if user_id is not None and applied_by != user_id:
+            continue
+        operation_state = str(item.get("operation_state") or "")
+        pay_state = str(item.get("pay_state") or "")
+        if view == "mine" and user_id is None:
+            continue
+        if view == "approving" and operation_state != "submitted":
+            continue
+        if view == "approved" and operation_state != "approved":
+            continue
+        if view == "fullpaid" and pay_state != "完全支付":
+            continue
+        result.append(_cost_source_payment_command_row(item))
     result.sort(key=lambda item: (str(item.get("applyDate", "")), str(item.get("htfkApplyGuid", ""))), reverse=True)
     coverage = _cost_source_coverage(pool, max_rows)
-    return {"success": True, "code": 0, "data": result[:max_rows], **_cost_source_metadata(coverage)}
+    return {
+        "success": True,
+        "code": 0,
+        "data": result[:max_rows],
+        **_cost_source_metadata(coverage, command_projection=True),
+    }
 
 
 def _decode_tender_fields(line: str) -> dict[str, Any]:
@@ -5736,7 +5838,7 @@ def _payment_request(
         apply_type_code = body.get("apply_type_code", "WORK_PROGRESS")
         if not isinstance(apply_type_code, str) or not apply_type_code.strip():
             raise CommandRejected("apply_type_code must be text", 422)
-        return apply_id, {
+        request: dict[str, Any] = {
             "command_type": command_type,
             "apply_id": apply_id,
             "apply_code": apply_code,
@@ -5752,6 +5854,11 @@ def _payment_request(
             "project_id": contract[0].get("project_id", ""),
             "actor_id": actor_id,
         }
+        for key in ("milestone_id", "early_pay_reason", "force_early"):
+            value = body.get(key)
+            if value not in (None, "", False):
+                request[key] = value
+        return apply_id, request
     if apply_id is None or not IDENTIFIER.fullmatch(apply_id):
         raise CommandRejected("apply_id is required", 422)
     if command_type == "update":
@@ -5788,6 +5895,121 @@ def _payment_request(
         "apply_id": apply_id,
         "reason": reason.strip(),
         "actor_id": actor_id,
+    }
+
+
+def _source_payment_create_body(
+    body: dict[str, Any],
+    *,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    apply_id = body.get("htfkApplyGuid", body.get("htfk_apply_guid"))
+    if apply_id is None or not str(apply_id).strip():
+        apply_id = "PAY-SRC-" + idempotency_key
+    if not isinstance(apply_id, str) or not IDENTIFIER.fullmatch(apply_id.strip()):
+        raise CommandRejected("htfkApplyGuid contains unsupported characters", 422)
+    apply_code = body.get("applyCode", body.get("apply_code"))
+    if not isinstance(apply_code, str) or not apply_code.strip():
+        raise CommandRejected("applyCode is required", 422)
+    contract_id = body.get("contractGuid", body.get("contract_id"))
+    if not isinstance(contract_id, str) or not IDENTIFIER.fullmatch(contract_id.strip()):
+        raise CommandRejected("contractGuid is required", 422)
+    amount_minor = _source_decimal_minor(body, "applyAmount", minimum=1)
+    subject = body.get("subject")
+    if subject is None or not str(subject).strip():
+        subject = apply_code
+    if not isinstance(subject, str) or not subject.strip():
+        raise CommandRejected("subject is required", 422)
+    apply_type_code = body.get("applyTypeCode", body.get("apply_type_code", "WORK_PROGRESS"))
+    if not isinstance(apply_type_code, str) or not apply_type_code.strip():
+        raise CommandRejected("applyTypeCode must be text", 422)
+    plan_id = body.get("htfkPlanGuid", body.get("plan_id", ""))
+    if plan_id is None:
+        plan_id = ""
+    if not isinstance(plan_id, str):
+        raise CommandRejected("htfkPlanGuid must be text", 422)
+    milestone_id = body.get("milestoneGuid", body.get("milestone_id", ""))
+    if milestone_id is None:
+        milestone_id = ""
+    if not isinstance(milestone_id, str):
+        raise CommandRejected("milestoneGuid must be text", 422)
+    result: dict[str, Any] = {
+        "apply_id": apply_id.strip(),
+        "apply_code": apply_code.strip(),
+        "contract_id": contract_id.strip(),
+        "plan_id": plan_id.strip(),
+        "milestone_id": milestone_id.strip(),
+        "apply_class": body.get("applyClass", body.get("apply_class", 0)),
+        "apply_type_code": apply_type_code.strip(),
+        "subject": subject.strip(),
+        "amount_minor": amount_minor,
+        "currency": str(body.get("currency", "CNY")).upper(),
+        "apply_date": body.get("applyDate", body.get("apply_date", time.strftime("%Y-%m-%d"))),
+        "_source_alias": True,
+    }
+    for key in ("earlyPayReason", "early_pay_reason"):
+        value = body.get(key)
+        if value is not None:
+            if not isinstance(value, str):
+                raise CommandRejected("earlyPayReason must be text", 422)
+            result["early_pay_reason"] = value.strip()
+            break
+    force_early = body.get("forceEarly", body.get("force_early", False))
+    if not isinstance(force_early, bool):
+        raise CommandRejected("forceEarly must be boolean", 422)
+    result["force_early"] = force_early
+    return result
+
+
+def _source_payment_update_body(body: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    subject = body.get("subject")
+    if subject is not None:
+        if not isinstance(subject, str) or not subject.strip():
+            raise CommandRejected("subject must be non-empty text", 422)
+        result["subject"] = subject.strip()
+    if "applyAmount" in body or "apply_amount" in body:
+        result["amount_minor"] = _source_decimal_minor(
+            body,
+            "applyAmount" if "applyAmount" in body else "apply_amount",
+            minimum=1,
+        )
+    apply_type_code = body.get("applyTypeCode", body.get("apply_type_code"))
+    if apply_type_code is not None:
+        if not isinstance(apply_type_code, str) or not apply_type_code.strip():
+            raise CommandRejected("applyTypeCode must be non-empty text", 422)
+        result["apply_type_code"] = apply_type_code.strip()
+    if not result:
+        raise CommandRejected("payment application update requires a mutable field", 422)
+    return result
+
+
+def _source_payment_alias_result(
+    result: dict[str, Any],
+    *,
+    apply_code: str | None = None,
+) -> dict[str, Any]:
+    payment = result.get("payment_application")
+    if not isinstance(payment, dict):
+        raise ServiceError("payment application command result is missing payment data")
+    apply_id = str(payment.get("apply_id") or "")
+    command = result.get("command")
+    request = command.get("request", {}) if isinstance(command, dict) else {}
+    resolved_apply_code = str(apply_code or request.get("apply_code") or payment.get("apply_code") or apply_id)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"htfkApplyGuid": apply_id, "applyCode": resolved_apply_code},
+        "payment_application": payment,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
 
 
@@ -5979,6 +6201,40 @@ def payment_application_command(
     if not isinstance(result, dict):
         raise ServiceError("payment application command receipt has no result")
     return {"command": receipt, "payment_application": result, "idempotent_replay": not created}
+
+
+def source_payment_create_command(
+    pool: PsqlPool,
+    *,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    normalized = _source_payment_create_body(body, idempotency_key=idempotency_key)
+    create_result = payment_application_command(
+        pool,
+        command_type="create",
+        apply_id=None,
+        body=normalized,
+        actor_id=actor_id,
+        idempotency_key=idempotency_key,
+    )
+    apply_id = str(create_result.get("payment_application", {}).get("apply_id") or normalized["apply_id"])
+    submit_key = "source-payment-submit-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:32]
+    submit_result = payment_application_command(
+        pool,
+        command_type="submit",
+        apply_id=apply_id,
+        body={},
+        actor_id=actor_id,
+        idempotency_key=submit_key,
+    )
+    return {
+        "command": create_result.get("command"),
+        "submit_command": submit_result.get("command"),
+        "payment_application": submit_result.get("payment_application"),
+        "idempotent_replay": create_result.get("idempotent_replay") is True,
+    }
 
 
 def _required_text(body: dict[str, Any], key: str) -> str:
@@ -19975,6 +20231,10 @@ def handler_factory(
                     command_family = "payment_application"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/source/cost/payment-applies":
+                    command_family = "payment_source_alias"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/tenders":
                     command_family = "tender"
                     command_type = "create"
@@ -20196,7 +20456,15 @@ def handler_factory(
                                 response(self, 404, {"error": "not found"}, origin)
                             return
                 actor = self._request_actor_id()
-                if command_family == "tender_source_alias":
+                if command_family == "payment_source_alias":
+                    result = source_payment_create_command(
+                        pool,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_payment_alias_result(result)
+                elif command_family == "tender_source_alias":
                     body = _source_tender_command_body(body, idempotency_key=idempotency_key)
                     result = tender_command(
                         pool,
@@ -20372,6 +20640,53 @@ def handler_factory(
                 response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
+
+        def _source_cost_payment_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/cost/payment-applies/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                command_type = "update" if method == "PUT" else "void"
+                command_body = _source_payment_update_body(body) if method == "PUT" else {
+                    "reason": body.get("reason", "") if isinstance(body, dict) else "",
+                }
+                result = payment_application_command(
+                    pool,
+                    command_type=command_type,
+                    apply_id=match.group(1),
+                    body=command_body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                current = payment_applications(pool, match.group(1), "all", 1)
+                apply_code = str(current[0].get("apply_code") or "") if current else None
+                response(
+                    self,
+                    200,
+                    _source_payment_alias_result(result, apply_code=apply_code),
+                    origin,
+                )
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
 
         def _plan_task_method_alias(self, method: str) -> bool:
             if method not in {"PUT", "DELETE"}:
@@ -20619,21 +20934,32 @@ def handler_factory(
             return True
 
         def do_PUT(self) -> None:  # noqa: N802
-            if not self._plan_task_method_alias("PUT"):
-                if not self._fund_method_alias("PUT"):
-                    if not self._expense_method_alias("PUT"):
-                        if not self._sales_method_alias("PUT"):
-                            if not self._marketing_method_alias("PUT"):
-                                self._loan_method_alias("PUT")
+            if self._source_cost_payment_method_alias("PUT"):
+                return
+            if self._plan_task_method_alias("PUT"):
+                return
+            if self._fund_method_alias("PUT"):
+                return
+            if self._expense_method_alias("PUT"):
+                return
+            if self._sales_method_alias("PUT"):
+                return
+            self._marketing_method_alias("PUT") or self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
-            if not self._plan_task_method_alias("DELETE"):
-                if not self._fund_method_alias("DELETE"):
-                    if not self._expense_method_alias("DELETE"):
-                        if not self._invoice_method_alias("DELETE"):
-                            if not self._marketing_method_alias("DELETE"):
-                                if not self._sales_method_alias("DELETE"):
-                                    self._loan_method_alias("DELETE")
+            if self._source_cost_payment_method_alias("DELETE"):
+                return
+            if self._plan_task_method_alias("DELETE"):
+                return
+            if self._fund_method_alias("DELETE"):
+                return
+            if self._expense_method_alias("DELETE"):
+                return
+            if self._invoice_method_alias("DELETE"):
+                return
+            if self._marketing_method_alias("DELETE"):
+                return
+            self._sales_method_alias("DELETE") or self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

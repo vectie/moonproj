@@ -102,10 +102,13 @@ def main() -> int:
         status, applies = request(
             args.port, "/api/company/source/cost/payment-applies?view=all", token=token,
         )
+        apply_rows = applies.get("data", []) if isinstance(applies, dict) else []
+        imported_apply_rows = [row for row in apply_rows if row.get("sourceKind") == "imported"]
         expect(
             status == 200
             and applies is not None
-            and len(applies.get("data", [])) == 3
+            and len(imported_apply_rows) == 3
+            and len(apply_rows) >= len(imported_apply_rows)
             and applies.get("source_coverage", {}).get("cb_htfk_apply") == 3
             and applies.get("authorizing") is False,
             f"source payment application read failed: {status} {applies}",

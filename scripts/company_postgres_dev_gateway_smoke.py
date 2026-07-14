@@ -828,6 +828,69 @@ def main() -> int:
             )
         ):
             raise SmokeError(f"trusted source split alias readback failed: {status}")
+        source_payment_code = "FK-GW-SOURCE-SMOKE-" + smoke_suffix
+        source_payment_payload = {
+            "applyCode": source_payment_code,
+            "contractGuid": "ht-tj-001",
+            "subject": "gateway source payment alias smoke",
+            "applyAmount": "2345.67",
+            "applyTypeCode": "WORK_PROGRESS",
+            "idempotency_key": "source-payment-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, source_payment_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/cost/payment-applies",
+            headers={"Cookie": cookie},
+            payload=source_payment_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(source_payment_create_payload, dict)
+            or source_payment_create_payload.get("success") is not True
+            or source_payment_create_payload.get("data", {}).get("applyCode") != source_payment_code
+            or source_payment_create_payload.get("payment_application", {}).get("state") != "submitted"
+        ):
+            raise SmokeError(f"trusted source payment alias create failed: {status}")
+        source_payment_guid = source_payment_create_payload.get("data", {}).get("htfkApplyGuid")
+        if not isinstance(source_payment_guid, str) or not source_payment_guid:
+            raise SmokeError("trusted source payment alias id missing")
+        status, _headers, source_payment_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/cost/payment-applies/{source_payment_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "subject": "gateway source payment alias updated",
+                "applyAmount": "2345.67",
+                "applyTypeCode": "PURCHASE",
+                "idempotency_key": "source-payment-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_payment_update_payload, dict)
+            or source_payment_update_payload.get("data", {}).get("applyCode") != source_payment_code
+            or source_payment_update_payload.get("payment_application", {}).get("state") != "submitted"
+        ):
+            raise SmokeError(f"trusted source payment alias update failed: {status}")
+        status, _headers, source_payment_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/cost/payment-applies/{source_payment_guid}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source payment alias smoke void",
+                "idempotency_key": "source-payment-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_payment_delete_payload, dict)
+            or source_payment_delete_payload.get("data", {}).get("applyCode") != source_payment_code
+            or source_payment_delete_payload.get("payment_application", {}).get("state") != "voided"
+        ):
+            raise SmokeError(f"trusted source payment alias delete failed: {status}")
         stale_headers = identity_headers(user_code, identity_secret, int(time.time()) - 61)
         status, _headers, payload = request(
             args.gateway_port,

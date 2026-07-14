@@ -157,6 +157,7 @@ def main() -> int:
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
+            or "payment_application_source_command_alias" not in payload.get("capabilities", [])
             or "fund_command" not in payload.get("capabilities", [])
             or "project_plan_command" not in payload.get("capabilities", [])
             or "tender_source_command_alias" not in payload.get("capabilities", [])
@@ -3080,6 +3081,102 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/payment-applies/{apply_id}", token=token)
         if status != 200 or payload is None or payload.get("operation_state") != "voided":
             raise SmokeError(f"payment application void detail failed: {status} {payload}")
+        source_payment_code = "FK-SOURCE-SMOKE-" + nonce
+        source_payment_payload = {
+            "applyCode": source_payment_code,
+            "contractGuid": "ht-tj-001",
+            "subject": "source payment application alias smoke",
+            "applyAmount": "1234.50",
+            "applyTypeCode": "WORK_PROGRESS",
+            "htfkPlanGuid": "",
+            "milestoneGuid": "",
+        }
+        source_payment_key = "source-payment-create-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/payment-applies",
+            token=token,
+            method="POST",
+            payload=source_payment_payload,
+            idempotency_key=source_payment_key,
+        )
+        if (
+            status != 201
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("data", {}).get("applyCode") != source_payment_code
+            or payload.get("payment_application", {}).get("state") != "submitted"
+            or payload.get("cash_effect") is not False
+            or payload.get("accounting_effect") is not False
+            or payload.get("tax_effect") is not False
+        ):
+            raise SmokeError(f"source payment application alias create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/payment-applies",
+            token=token,
+            method="POST",
+            payload=source_payment_payload,
+            idempotency_key=source_payment_key,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source payment application alias replay failed: {status} {payload}")
+        source_payment_id = payload.get("data", {}).get("htfkApplyGuid")
+        if not isinstance(source_payment_id, str) or not source_payment_id:
+            raise SmokeError(f"source payment application alias id missing: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/payment-applies/{source_payment_id}",
+            token=token,
+            method="PUT",
+            payload={
+                "subject": "source payment application alias updated",
+                "applyAmount": "1234.50",
+                "applyTypeCode": "PURCHASE",
+            },
+            idempotency_key="source-payment-update-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("data", {}).get("applyCode") != source_payment_code
+            or payload.get("payment_application", {}).get("state") != "submitted"
+        ):
+            raise SmokeError(f"source payment application alias update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/cost/payment-applies/{source_payment_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source payment application alias smoke void"},
+            idempotency_key="source-payment-delete-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("data", {}).get("applyCode") != source_payment_code
+            or payload.get("payment_application", {}).get("state") != "voided"
+        ):
+            raise SmokeError(f"source payment application alias delete failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/cost/payment-applies?view=all",
+            token=token,
+        )
+        source_payment_rows = (payload or {}).get("data", []) if isinstance(payload, dict) else []
+        source_payment_row = next(
+            (row for row in source_payment_rows if row.get("htfkApplyGuid") == source_payment_id),
+            None,
+        )
+        if (
+            status != 200
+            or source_payment_row is None
+            or source_payment_row.get("sourceKind") != "command"
+            or source_payment_row.get("operationState") != "voided"
+            or source_payment_row.get("command_projection") is not True
+            or source_payment_row.get("cash_effect") is not False
+        ):
+            raise SmokeError(f"source payment application alias readback failed: {status} {payload}")
         tender_id = "TD-SMOKE-" + nonce
         tender_payload = {
             "tender_id": tender_id,
