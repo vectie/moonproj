@@ -14,7 +14,8 @@ or receiving credentials.
 - all table names and safe `tables/<name>.json` paths;
 - schema coverage against the 75-table ERP initializer;
 - per-table row counts and SHA-256 hashes;
-- primary-key identity for non-empty tables;
+- primary-key identity for non-empty tables, including non-null values and
+  duplicate-key rejection;
 - recursive removal/rejection of password, token, secret, private, credential,
   IP, and raw database-DSN values;
 - missing and extra tables as explicit scope findings.

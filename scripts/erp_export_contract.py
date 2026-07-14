@@ -124,6 +124,18 @@ def validate(schema_path: Path, export_dir: Path) -> dict[str, Any]:
         primary_key = entry.get("primary_key", "")
         if rows and (not isinstance(primary_key, str) or not primary_key.strip()):
             raise ExportError(f"non-empty table has no primary key: {table}")
+        if rows:
+            seen_keys: set[str] = set()
+            for index, row in enumerate(value):
+                if not isinstance(row, dict):
+                    raise ExportError(f"row is not an object for {table}[{index}]")
+                key_value = row.get(primary_key)
+                if key_value is None or key_value == "":
+                    raise ExportError(f"primary-key value is missing for {table}[{index}]")
+                key_identity = json.dumps(key_value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                if key_identity in seen_keys:
+                    raise ExportError(f"duplicate primary-key value for {table}: {key_value}")
+                seen_keys.add(key_identity)
         table_hash = entry.get("sha256")
         if not isinstance(table_hash, str) or not SHA256.fullmatch(table_hash):
             raise ExportError(f"invalid table hash for {table}")

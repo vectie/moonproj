@@ -1014,6 +1014,12 @@ owner-approved disposition for each absent table), validate it with
 `erp_export_contract.py`, then compare it against the immutable fixture before
 any broader staging or workflow promotion.
 
+The export contract now also checks every non-empty row for a non-null,
+unique declared primary-key value before reporting content verification. This
+strengthens the handoff without changing the current disposition: the
+available SQLite artifact still verifies 120 rows but remains
+`source_export_incomplete` until the 49 missing tables arrive.
+
 | Priority | Scope | Decision / exit evidence | Keep gated until |
 | --- | --- | --- | --- |
 | P0 | Production identity and shadow operation for connected reads | Managed issuer/audience, token rotation, persistent session/rollback, named owner acceptance, and a read-only shadow comparison | Security/operations owner approval and a complete credential-safe source export |
