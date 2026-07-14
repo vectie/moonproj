@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/schema_cohort_mapping"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror SchemaCohortMappingError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+} derive(@debug.Debug)
+
+// Types and methods
+type AcceptedEntry
+
+type PlanEntry
+
+// Type aliases
+
+// Traits
+

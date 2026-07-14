@@ -82,7 +82,8 @@ an explicit `specify_then_implement_then_import` action, except credential
 history which requires a security review exclusion. The cutover gate requires
 this report and carries the 49 schema-only tables as an explicit open scope
 exception.
-`scripts/erp_schema_cohort_plan.py` then orders those 49 tables into seven
+MoonBit `cmd/schema_cohort_plan`, invoked through
+`scripts/erp_schema_cohort_plan.sh`, then orders those 49 tables into seven
 dependency-aware waves, preserving table-specific security actions for tokens,
 credentials, attachments, email/network data, and retention. See
 [ERP_SCHEMA_COHORTS.md](ERP_SCHEMA_COHORTS.md).
@@ -93,7 +94,8 @@ declare foreign keys. The current fixture checks 60 relationships and 216
 non-empty references with zero orphan values; the result is included in the
 cutover evidence before any target promotion is considered reconciled.
 
-`scripts/erp_route_inventory.py` inventories the actual ERP route surface and
+MoonBit `cmd/route_inventory`, invoked through `scripts/erp_route_inventory.sh`,
+inventories the actual ERP route surface and
 tags every handler with a baseline capability ID. The current source reports
 30 route files, 338 handler registrations, and 28 middleware registrations;
 the route surface remains a parity inventory until each critical workflow has

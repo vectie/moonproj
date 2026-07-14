@@ -87,7 +87,7 @@ SCHEMA_GAP="$WORK_DIR/schema-gap.json"
 "$SCRIPT_DIR/erp_schema_gap_report.sh" "$SCHEMA_PATH" "$EXPORT_DIR/manifest.json" "$SCHEMA_GAP"
 echo "schema_gap=$SCHEMA_GAP"
 SCHEMA_COHORT_PLAN="$WORK_DIR/schema-cohort-plan.json"
-"$SCRIPT_DIR/erp_schema_cohort_plan.py" "$SCHEMA_PATH" "$SCHEMA_GAP" "$SCHEMA_COHORT_PLAN"
+"$SCRIPT_DIR/erp_schema_cohort_plan.sh" "$SCHEMA_PATH" "$SCHEMA_GAP" "$SCHEMA_COHORT_PLAN"
 echo "schema_cohort_plan=$SCHEMA_COHORT_PLAN"
 SOURCE_EXPORT_REQUEST="$WORK_DIR/source-export-request.json"
 "$SCRIPT_DIR/erp_source_export_request.sh" \
@@ -95,44 +95,44 @@ SOURCE_EXPORT_REQUEST="$WORK_DIR/source-export-request.json"
 echo "source_export_request=$SOURCE_EXPORT_REQUEST"
 FOUNDATION_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_foundation_security_mapping.json"
 FOUNDATION_SCHEMA_RESULT="$WORK_DIR/schema-foundation-security.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$FOUNDATION_SCHEMA_MAPPING" "$FOUNDATION_SCHEMA_RESULT"
 echo "foundation_schema_mapping=$FOUNDATION_SCHEMA_RESULT"
 WORKFLOW_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_workflow_control_mapping.json"
 WORKFLOW_SCHEMA_RESULT="$WORK_DIR/schema-workflow-control.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$WORKFLOW_SCHEMA_MAPPING" "$WORKFLOW_SCHEMA_RESULT"
 echo "workflow_schema_mapping=$WORKFLOW_SCHEMA_RESULT"
 COST_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_cost_investment_mapping.json"
 COST_SCHEMA_RESULT="$WORK_DIR/schema-cost-investment.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$COST_SCHEMA_MAPPING" "$COST_SCHEMA_RESULT"
 echo "cost_investment_schema_mapping=$COST_SCHEMA_RESULT"
 PROCUREMENT_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_procurement_contract_mapping.json"
 PROCUREMENT_SCHEMA_RESULT="$WORK_DIR/schema-procurement-contract.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$PROCUREMENT_SCHEMA_MAPPING" "$PROCUREMENT_SCHEMA_RESULT"
 echo "procurement_contract_schema_mapping=$PROCUREMENT_SCHEMA_RESULT"
 SALES_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_sales_receivables_mapping.json"
 SALES_SCHEMA_RESULT="$WORK_DIR/schema-sales-receivables.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$SALES_SCHEMA_MAPPING" "$SALES_SCHEMA_RESULT"
 echo "sales_receivables_schema_mapping=$SALES_SCHEMA_RESULT"
 DELIVERY_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_delivery_treasury_mapping.json"
 DELIVERY_SCHEMA_RESULT="$WORK_DIR/schema-delivery-treasury.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$DELIVERY_SCHEMA_MAPPING" "$DELIVERY_SCHEMA_RESULT"
 echo "delivery_treasury_schema_mapping=$DELIVERY_SCHEMA_RESULT"
 REPORTING_SCHEMA_MAPPING="$SCRIPT_DIR/fixtures/schema_reporting_notification_mapping.json"
 REPORTING_SCHEMA_RESULT="$WORK_DIR/schema-reporting-notification.json"
-python3 "$SCRIPT_DIR/erp_schema_cohort_mapping.py" \
+"$SCRIPT_DIR/erp_schema_cohort_mapping.sh" \
   "$SCHEMA_COHORT_PLAN" "$REPORTING_SCHEMA_MAPPING" "$REPORTING_SCHEMA_RESULT"
 echo "reporting_notification_schema_mapping=$REPORTING_SCHEMA_RESULT"
 RELATIONSHIP_AUDIT="$WORK_DIR/relationship-audit.json"
 "$SCRIPT_DIR/erp_relationship_audit.py" "$DB_PATH" "$EXPORT_DIR/manifest.json" "$RELATIONSHIP_AUDIT"
 echo "relationship_audit=$RELATIONSHIP_AUDIT"
 ROUTE_INVENTORY="$WORK_DIR/route-inventory.json"
-"$SCRIPT_DIR/erp_route_inventory.py" "$ROUTES_DIR" "$ROUTE_INVENTORY"
+"$SCRIPT_DIR/erp_route_inventory.sh" "$ROUTES_DIR" "$ROUTE_INVENTORY"
 echo "route_inventory=$ROUTE_INVENTORY"
 "$SCRIPT_DIR/erp_snapshot_stage_raw.sh" "$EXPORT_DIR" "$STAGING_PATH"
 "$SCRIPT_DIR/company_sqlite_rehearsal.py" "$STAGING_PATH" "$TARGET_DB"

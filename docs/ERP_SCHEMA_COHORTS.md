@@ -27,7 +27,8 @@ does not invent rows or treat schema presence as migration success.
    email outbox controls.
 
 The machine-readable artifact is emitted by
-`scripts/erp_schema_cohort_plan.py` as `schema-cohort-plan.json` during the
+the MoonBit `cmd/schema_cohort_plan`, invoked through
+`scripts/erp_schema_cohort_plan.sh`, as `schema-cohort-plan.json` during the
 rehearsal. Every wave requires credential-safe export, relationship review,
 explicit identity/principal mappings, a native domain importer, exact parity,
 replay evidence, and business acceptance. Tokens, password history, file paths,

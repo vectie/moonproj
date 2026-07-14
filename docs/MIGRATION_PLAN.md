@@ -1031,9 +1031,9 @@ artifact was re-exported from
 `scripts/erp_snapshot_export.sh`. The result is unchanged and hash-bound:
 26 tables, 120 rows, and source SHA-256
 `4ff5dd0ad0b75c6cfc572f99047fe41c5df4b8c48d3877f707fe063aec7dea03`.
-Re-running the MoonBit schema-gap command, `erp_schema_cohort_plan.py`, and
-the MoonBit `cmd/source_export_request` command, invoked through
-`erp_source_export_request.sh`, against that manifest produces 75 schema
+Re-running the MoonBit schema-gap and `cmd/schema_cohort_plan` commands, plus
+the MoonBit `cmd/source_export_request` command, through their shell wrappers,
+against that manifest produces 75 schema
 definitions, 26 present tables, 49 `schema_only` tables, seven ordered waves,
 and an explicit 49-table request with state `awaiting_source_export`.
 The request remains read-only and credential-free: empty tables, primary-key
@@ -1229,17 +1229,21 @@ connected only as non-authorizing reads; instance/task actions remain gated. Tha
 rather than additional platform hardening, controls the next work.
 
 **Runtime-language checkpoint (2026-07-15).** The export-contract,
-schema-gap, and source-export-request Python bridge slices have been replaced
-in the active rehearsal path. MoonBit `cmd/export_contract`,
-`cmd/schema_gap`, and `cmd/source_export_request`, invoked through shell
-wrappers, validate the same manifest, table hashes, row counts, primary-key
-identities, recursive redaction, capability mapping, 75-table coverage, and
-49-table request contract as the former Python checkers. Against the current
-fixture all three reports are byte-for-byte equivalent: 26 exported tables,
-120 verified rows, 49 missing schema tables, and `source_export_incomplete`
-with promotion and cutover both false. The remaining Python service, gateway,
-and rehearsal adapters stay frozen as bridge evidence until their MoonBit
-equivalents are shadow-compared.
+schema-gap, schema-cohort-plan, schema-cohort-mapping, and
+source-export-request Python bridge slices have been replaced in the active
+rehearsal path. MoonBit `cmd/export_contract`, `cmd/schema_gap`,
+`cmd/schema_cohort_plan`, `cmd/schema_cohort_mapping`,
+`cmd/source_export_request`, and `cmd/route_inventory`, invoked through shell
+wrappers, validate the same
+manifest, table hashes, row counts, primary-key identities, recursive
+redaction, capability mapping, seven-wave ordering, seven mapping outputs,
+75-table coverage, 49-table request contract, and 30-file/338-handler/
+28-middleware route baseline as the former Python checkers. Against the current
+fixture all replacement outputs are byte-for-byte equivalent: 26 exported
+tables, 120 verified rows, 49 missing schema tables, and
+`source_export_incomplete` with promotion and cutover both false. The
+remaining Python service, gateway, and rehearsal adapters stay frozen as
+bridge evidence until their MoonBit equivalents are shadow-compared.
 
 Execute the remainder in this order:
 
