@@ -35,3 +35,8 @@ Once a complete export is supplied, the same contract can report
 `ready_for_source_import`; it still does not promote rows. The existing
 redacted staging, native domain importers, parity checks, accounting links,
 backup/restore, and business-acceptance gates remain mandatory afterward.
+
+The PostgreSQL service makes this scope check observable without exposing raw
+payloads at `GET /api/company/source/migration/schema-coverage`. The endpoint
+is bound to the snapshot hash, reports per-table raw-envelope counts, and stays
+non-authorizing while `source_export_incomplete` is true.

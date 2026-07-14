@@ -309,6 +309,14 @@ The route-level count now includes the connected `/srm/providers/:guid`
 source-detail read; the list remains a connected command-form page with a
 separate source master read.
 
+The source reconciliation inventory is now observable at
+`/api/company/source/migration/schema-coverage`. It reports the hash-bound
+75-table schema, 26-table rehearsal snapshot, 49 schema-only tables, per-table
+raw-envelope counts, and explicit `source_export_incomplete`,
+`promotion_authorized=false`, and `cutover_authorized=false` state. This makes
+the remaining export gap measurable from the PostgreSQL service without
+fabricating empty rows or treating the rehearsal snapshot as complete.
+
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
 initiated documents; `/expenses` and `/expenses/:guid` read the source
@@ -787,7 +795,7 @@ than raw route count:
 | Priority | Scope | Decision / exit evidence | Keep gated until |
 | --- | --- | --- | --- |
 | P0 | Production identity and shadow operation for connected reads | Managed issuer/audience, token rotation, persistent session/rollback, named owner acceptance, and a read-only shadow comparison | Security/operations owner approval and a complete credential-safe source export |
-| P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
+| P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; runtime `/api/company/source/migration/schema-coverage` evidence; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |

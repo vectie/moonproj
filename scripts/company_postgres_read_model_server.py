@@ -109,6 +109,7 @@ from company_postgres_service import (
     supplier_source_stats as service_supplier_source_stats,
     supplier_source_risk as service_supplier_source_risk,
     supplier_source_check_sign_boundary as service_supplier_source_check_sign_boundary,
+    source_schema_coverage as service_source_schema_coverage,
     supplier_risk as service_supplier_risk,
     supplier_risk_board as service_supplier_risk_board,
     supplier_risk_board_source as service_supplier_risk_board_source,
@@ -837,6 +838,10 @@ def supplier_source_check_sign_boundary(
     return service_supplier_source_check_sign_boundary(
         _ReadModelPool(args), provider_guid, 500,
     )
+
+
+def source_schema_coverage(args: argparse.Namespace) -> dict[str, Any]:
+    return service_source_schema_coverage(_ReadModelPool(args), 500)
 
 
 def supplier_risk(args: argparse.Namespace, supplier_id: str) -> dict[str, Any] | None:
@@ -1717,6 +1722,9 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     return
                 if parsed.path == "/api/company/source/srm/categories":
                     response(self, 200, supplier_source_categories(args))
+                    return
+                if parsed.path == "/api/company/source/migration/schema-coverage":
+                    response(self, 200, source_schema_coverage(args))
                     return
                 if parsed.path == "/api/company/source/srm/dict/eval-results":
                     response(self, 200, supplier_source_eval_results(args))

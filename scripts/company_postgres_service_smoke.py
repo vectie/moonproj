@@ -154,8 +154,38 @@ def main() -> int:
             or "report_template_read" not in payload.get("capabilities", [])
             or "admin_backup_boundary_read" not in payload.get("capabilities", [])
             or "supplier_signature_boundary_read" not in payload.get("capabilities", [])
+            or "source_schema_inventory_read" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
+        status, source_schema_coverage_payload = request(
+            args.port, "/api/company/source/migration/schema-coverage", token=token,
+        )
+        source_schema_data = (source_schema_coverage_payload or {}).get("data", {})
+        source_schema_tables = source_schema_data.get("tables", [])
+        source_schema_by_name = {
+            row.get("table"): row for row in source_schema_tables if isinstance(row, dict)
+        }
+        if (
+            status != 200
+            or source_schema_coverage_payload is None
+            or source_schema_data.get("schemaTableCount") != 75
+            or source_schema_data.get("snapshotTableCount") != 26
+            or source_schema_data.get("schemaOnlyTableCount") != 49
+            or len(source_schema_tables) != 75
+            or source_schema_coverage_payload.get("source_export_state") != "source_export_incomplete"
+            or source_schema_coverage_payload.get("source_snapshot_id")
+            != "erp-snapshot:4ff5dd0ad0b75c6cfc572f99047fe41c5df4b8c48d3877f707fe063aec7dea03"
+            or source_schema_coverage_payload.get("source_coverage", {}).get("cb_contract") != 2
+            or source_schema_coverage_payload.get("source_coverage", {}).get("srm_provider") != 0
+            or "srm_provider" not in source_schema_data.get("schemaOnlyTables", [])
+            or source_schema_by_name.get("wf_process_instance", {}).get("state") != "empty_in_snapshot"
+            or source_schema_coverage_payload.get("promotion_authorized") is not False
+            or source_schema_coverage_payload.get("cutover_authorized") is not False
+            or source_schema_coverage_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(
+                f"source schema coverage read failed: {status} {source_schema_coverage_payload}"
+            )
         status, payload = request(args.port, "/api/company/projections?aggregate_type=notification_outbox", token=token)
         if status != 200 or payload is None or not isinstance(payload.get("items"), list):
             raise SmokeError(f"projection query failed: {status} {payload}")
@@ -2734,6 +2764,9 @@ def main() -> int:
                     "supplier_detail_source_status": supplier_detail_status,
                     "supplier_detail_risk_source_status": supplier_detail_risk_status,
                     "supplier_check_sign_status": supplier_check_sign_status,
+                    "source_schema_table_count": source_schema_data.get("schemaTableCount"),
+                    "source_schema_only_table_count": source_schema_data.get("schemaOnlyTableCount"),
+                    "source_schema_export_state": source_schema_coverage_payload.get("source_export_state"),
                     "supplier_stats_total": supplier_stats_data.get("total"),
                     "supplier_stats_contract_rows": supplier_stats_payload.get("source_coverage", {}).get("cb_contract"),
                     "attachment_rows": attachment_all_data.get("total"),

@@ -50,6 +50,8 @@ The bounded service exposes these endpoints:
   source-compatible, non-authorizing reads with coverage metadata
 * ``/api/company/source/srm/{categories,dict/eval-results,dict/sources}``
   (GET, source/definition dictionary observations)
+* ``/api/company/source/migration/schema-coverage`` (GET, credential-free
+  75-table source reconciliation inventory; missing tables remain gated)
 * ``/api/company/tender-splits`` (GET/POST)
 * ``/api/company/source/tender/{tenders,awards,splits}`` (GET, source ERP
   procurement observations; empty source tables stay explicit)
@@ -449,6 +451,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "procurement_read",
             "supplier_read",
             "supplier_source_read",
+            "source_schema_inventory_read",
             "supplier_risk_read",
             "supplier_signature_boundary_read",
             "supplier_command",
@@ -507,6 +510,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "procurement_read",
             "supplier_read",
             "supplier_source_read",
+            "source_schema_inventory_read",
             "supplier_risk_read",
             "supplier_signature_boundary_read",
             "supplier_command",
@@ -8304,6 +8308,188 @@ REPORT_TEMPLATE_TABLE_META = [
 REPORT_TEMPLATE_OPERATORS = ["=", "!=", ">", ">=", "<", "<=", "like", "in"]
 
 
+ERP_SCHEMA_TABLES = {
+    "attachment",
+    "audit_log",
+    "cb_change_apply",
+    "cb_contract",
+    "cb_contract_milestone",
+    "cb_cost",
+    "cb_expense_detail",
+    "cb_expense_split",
+    "cb_htfk_apply",
+    "cb_htfkplan",
+    "cb_loan_offset",
+    "cb_plan_version",
+    "cb_r_master",
+    "cb_subject_dict",
+    "contract_split",
+    "ep_project",
+    "fund_dispatch",
+    "fund_plan",
+    "invoice_in",
+    "invoice_out",
+    "jd_task",
+    "jd_task_report",
+    "mkt_campaign",
+    "mkt_channel",
+    "mkt_material",
+    "mkt_placement",
+    "mu_business_unit",
+    "my_biz_param_option",
+    "proj_lifecycle_instance",
+    "proj_lifecycle_stage",
+    "proj_output",
+    "proj_progress",
+    "report_share_link",
+    "sale_contract",
+    "sale_customer",
+    "sale_mortgage",
+    "sale_refund",
+    "sale_revenue",
+    "sale_subscription",
+    "srm_category",
+    "srm_provider",
+    "srm_provider_bu",
+    "sys_email_outbox",
+    "sys_message",
+    "sys_param",
+    "sys_password_history",
+    "sys_report_template",
+    "sys_role",
+    "sys_user",
+    "sys_user_pref",
+    "sys_user_role",
+    "sys_warning",
+    "sys_warning_rule_custom",
+    "sys_warning_scan",
+    "sys_warning_subscription",
+    "sys_warning_ticket",
+    "tender_award",
+    "tender_plan",
+    "tzsy_excel_import",
+    "tzsy_excel_sheet",
+    "tzsy_plan_index",
+    "tzsy_plan_line",
+    "tzsy_profit_table",
+    "tzsy_subject_mapping",
+    "tzsy_version",
+    "vcb_expense",
+    "vcb_loan_simple",
+    "vys_proceeding",
+    "wf_approval_rule",
+    "wf_process_def",
+    "wf_process_instance",
+    "wf_runtime_assignee",
+    "wf_step_action",
+    "wf_step_assignee",
+    "wf_step_def",
+}
+
+
+ERP_SNAPSHOT_TABLES = {
+    "audit_log",
+    "cb_contract",
+    "cb_cost",
+    "cb_expense_detail",
+    "cb_expense_split",
+    "cb_htfk_apply",
+    "cb_htfkplan",
+    "cb_loan_offset",
+    "ep_project",
+    "jd_task",
+    "jd_task_report",
+    "mu_business_unit",
+    "my_biz_param_option",
+    "proj_lifecycle_instance",
+    "proj_lifecycle_stage",
+    "sys_user",
+    "tzsy_plan_index",
+    "tzsy_version",
+    "vcb_expense",
+    "vcb_loan_simple",
+    "vys_proceeding",
+    "wf_process_def",
+    "wf_process_instance",
+    "wf_step_action",
+    "wf_step_assignee",
+    "wf_step_def",
+}
+
+
+ERP_SOURCE_SNAPSHOT_ID = (
+    "erp-snapshot:4ff5dd0ad0b75c6cfc572f99047fe41c5df4b8c48d3877f707fe063aec7dea03"
+)
+
+
+def source_schema_coverage(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    """Expose the authoritative source schema gap without promoting data.
+
+    The checked-in rehearsal snapshot contains 26 of the ERP's 75 schema
+    tables.  Counts are read from raw source envelopes already in PostgreSQL;
+    the static schema/snapshot sets are tied to the hash-identified export
+    request and make the 49-table gap explicit until a newer export is
+    reconciled.  No empty table is represented as a fabricated row.
+    """
+
+    del max_rows  # The inventory query returns one bounded row per schema table.
+    counts = {table: 0 for table in ERP_SCHEMA_TABLES}
+    for line in query_lines(
+        pool,
+        """
+        SELECT substring(record_type from 12), count(*)::text
+        FROM company_record
+        WHERE record_type LIKE 'legacy/raw/%'
+        GROUP BY record_type
+        """,
+    ):
+        fields = line.split("|")
+        if len(fields) != 2:
+            raise ServiceError("unexpected source schema coverage shape")
+        table = fields[0]
+        if table in counts:
+            try:
+                counts[table] = int(fields[1])
+            except ValueError as error:
+                raise ServiceError("invalid source schema coverage count") from error
+
+    rows = []
+    for table in sorted(ERP_SCHEMA_TABLES):
+        count = counts[table]
+        if count > 0:
+            state = "imported"
+        elif table in ERP_SNAPSHOT_TABLES:
+            state = "empty_in_snapshot"
+        else:
+            state = "schema_only"
+        rows.append({"table": table, "rowCount": count, "state": state})
+    schema_only = [row["table"] for row in rows if row["state"] == "schema_only"]
+    empty = [row["table"] for row in rows if row["rowCount"] == 0]
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "tables": rows,
+            "schemaTableCount": len(ERP_SCHEMA_TABLES),
+            "snapshotTableCount": len(ERP_SNAPSHOT_TABLES),
+            "importedTableCount": sum(1 for row in rows if row["rowCount"] > 0),
+            "schemaOnlyTableCount": len(schema_only),
+            "schemaOnlyTables": schema_only,
+        },
+        "source_kind": "migration_inventory",
+        "source_snapshot_id": ERP_SOURCE_SNAPSHOT_ID,
+        "source_export_state": "source_export_incomplete",
+        "source_coverage": counts,
+        "missing_or_empty_source_tables": empty,
+        "schema_only_source_tables": schema_only,
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "promotion_authorized": False,
+        "cutover_authorized": False,
+    }
+
+
 def _raw_source_rows(
     pool: PsqlPool,
     table: str,
@@ -15901,6 +16087,8 @@ def handler_factory(
                     response(self, 200, result, origin)
                 elif parsed.path == "/api/company/source/srm/categories":
                     response(self, 200, supplier_source_categories(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/source/migration/schema-coverage":
+                    response(self, 200, source_schema_coverage(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/source/srm/dict/eval-results":
                     response(self, 200, supplier_source_eval_results(), origin)
                 elif parsed.path == "/api/company/source/srm/dict/sources":

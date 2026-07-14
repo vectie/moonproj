@@ -48,6 +48,10 @@ exported file and compares the bundle against all 75 schema tables. The current
 artifact therefore reports 26 verified export tables and 49 missing tables as
 `source_export_incomplete`; a future complete MySQL/JSON export can reuse the
 same contract before any raw staging or domain promotion.
+The PostgreSQL service exposes the same scope at
+`/api/company/source/migration/schema-coverage`, including the immutable
+snapshot hash and per-table imported/empty-in-snapshot/schema-only state. This
+is an observation boundary only: it does not promote rows or authorize cutover.
 Then run `scripts/erp_snapshot_stage_raw.sh /controlled/output /controlled/staging.ndjson`
 to produce 120 raw envelopes for this fixture. The staging step accepts only the
 redacted export directory, derives identities from the exporter-recorded primary
