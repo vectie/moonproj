@@ -6,8 +6,10 @@ The source ERP notification surface is broader than the designer inbox. Its
 read routes cover user-scoped sys_message rows and unread counts,
 sys_warning_subscription, parameterized sys_param configuration,
 sys_email_outbox metadata, digest preview/log evidence, and LLM-provider
-discovery. Delivery, provider calls, subscription mutation, and message
-acknowledgement are separate authority-bearing actions.
+discovery. Delivery, provider calls, and message acknowledgement are separate
+authority-bearing actions. Self-scoped subscription mutations have a bounded
+local command seam; they do not deliver notifications or change company
+configuration.
 
 ## Connected read boundary
 
@@ -26,6 +28,19 @@ outbox metadata, digest preview/log rows, and provider discovery. Successful
 empty responses are rendered as explicit 无源记录 states; designer rows
 remain a transport-failure fallback only.
 
+## Self-scoped subscription command boundary
+
+`POST /api/company/source/notify/subscriptions` and `PATCH`/`DELETE`
+`/api/company/source/notify/subscriptions/:id` bind the command to the signed
+source `user_code`, validate the source channel vocabulary, and persist
+idempotent `notification_subscription` revisions plus audit receipts. The
+subscription read merges active local projections with imported rows and
+filters local tombstones. Imported `sys_warning_subscription` rows remain
+read-only. Command responses explicitly report `authorizing=false`,
+`delivery_effect=false`, `provider_execution=false`, and no accounting, cash,
+or tax effect. Trusted-gateway create/replay/read/update/delete evidence is
+covered by the PostgreSQL smoke.
+
 The current PostgreSQL export has no imported rows for sys_message,
 sys_warning_subscription, sys_param, sys_email_outbox, or
 sys_warning_digest_log. It has five imported sys_user rows, which are
@@ -39,13 +54,14 @@ and always reports provider_execution=false.
 The following source actions remain explicitly outside this read slice:
 
 - marking one/all messages read;
-- subscription create/update/delete;
+- message acknowledgement;
 - configuration writes and webhook tests;
 - digest dispatch, email test/redelivery, and provider test calls;
 - notification outbox delivery, retry/consent policy, and workflow effects;
 - production identity, browser acceptance, and owner reconciliation.
 
-The parity matrix therefore records the two browser routes as
-connected_notification_read, while the source mutation handlers remain
-action items. This is source coverage evidence, not a claim of notification
-delivery or accounting impact.
+The parity matrix records subscription create/update/delete as
+`connected_notification_subscription_command`; browser acceptance, managed
+identity, notification-owner approval, and real delivery remain open. This is
+source translation evidence, not a claim of notification delivery or
+accounting impact.

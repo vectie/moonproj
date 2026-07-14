@@ -234,6 +234,93 @@ def main() -> int:
         )
         if status != 200 or not isinstance(preference_deleted_read, dict) or preference_key in preference_deleted_read.get("data", {}):
             raise SmokeError(f"trusted preference tombstone readback failed: {status}")
+        subscription_suffix = str(time.time_ns())
+        subscription_body = {
+            "ruleCode": "W005",
+            "bizType": "project",
+            "severityMin": "warning",
+            "channels": ["in_app", "email"],
+            "enabled": True,
+            "idempotency_key": "notification-subscription-create-" + subscription_suffix,
+        }
+        status, _headers, subscription_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/notify/subscriptions",
+            headers={"Cookie": cookie},
+            payload=subscription_body,
+        )
+        subscription = (subscription_create_payload or {}).get("data", {}) if isinstance(subscription_create_payload, dict) else {}
+        subscription_id = subscription.get("subId")
+        if (
+            status != 200
+            or not isinstance(subscription_create_payload, dict)
+            or subscription_create_payload.get("source_kind") != "command"
+            or not isinstance(subscription_id, int)
+            or subscription_create_payload.get("delivery_effect") is not False
+        ):
+            raise SmokeError(f"trusted notification subscription create failed: {status}")
+        status, _headers, subscription_replay_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/notify/subscriptions",
+            headers={"Cookie": cookie},
+            payload=subscription_body,
+        )
+        if status != 200 or not isinstance(subscription_replay_payload, dict) or subscription_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"trusted notification subscription replay failed: {status}")
+        status, _headers, subscription_read_payload = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/notify/subscriptions?userCode=admin",
+            headers={"Cookie": cookie},
+        )
+        subscription_rows = (subscription_read_payload or {}).get("data", []) if isinstance(subscription_read_payload, dict) else []
+        if (
+            status != 200
+            or not isinstance(subscription_rows, list)
+            or not any(row.get("subId") == subscription_id and row.get("sourceKind") == "command" for row in subscription_rows if isinstance(row, dict))
+            or not isinstance(subscription_read_payload, dict)
+            or subscription_read_payload.get("command_projection") is not True
+        ):
+            raise SmokeError(f"trusted notification subscription readback failed: {status}")
+        status, _headers, subscription_update_payload = request(
+            args.gateway_port,
+            "PATCH",
+            f"/api/company/source/notify/subscriptions/{subscription_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "enabled": False,
+                "channels": ["in_app"],
+                "idempotency_key": "notification-subscription-update-" + subscription_suffix,
+            },
+        )
+        updated_subscription = (subscription_update_payload or {}).get("data", {}) if isinstance(subscription_update_payload, dict) else {}
+        if (
+            status != 200
+            or updated_subscription.get("subId") != subscription_id
+            or updated_subscription.get("enabled") is not False
+            or updated_subscription.get("channels") != "in_app"
+        ):
+            raise SmokeError(f"trusted notification subscription update failed: {status}")
+        status, _headers, subscription_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/notify/subscriptions/{subscription_id}",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "notification-subscription-delete-" + subscription_suffix},
+        )
+        if status != 200 or not isinstance(subscription_delete_payload, dict) or subscription_delete_payload.get("data", {}).get("subId") != subscription_id:
+            raise SmokeError(f"trusted notification subscription delete failed: {status}")
+        status, _headers, subscription_deleted_read = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/notify/subscriptions?userCode=admin",
+            headers={"Cookie": cookie},
+        )
+        subscription_rows = (subscription_deleted_read or {}).get("data", []) if isinstance(subscription_deleted_read, dict) else []
+        if status != 200 or any(row.get("subId") == subscription_id for row in subscription_rows if isinstance(row, dict)):
+            raise SmokeError(f"trusted notification subscription tombstone readback failed: {status}")
         status, _headers, budget_check_payload = request(
             args.gateway_port,
             "POST",

@@ -64,6 +64,7 @@ SOURCE_COST_MILESTONE_CONTRACT_PATH_PREFIX = "/api/company/source/cost/contracts
 SOURCE_COST_MILESTONE_PATH_PREFIX = "/api/company/source/cost/milestones"
 SOURCE_MDM_PROJECT_PATH_PREFIX = "/api/company/source/mdm/projects"
 SOURCE_AUTH_PREFERENCE_PATH_PREFIX = "/api/company/source/auth/prefs"
+SOURCE_NOTIFICATION_SUBSCRIPTION_PATH_PREFIX = "/api/company/source/notify/subscriptions"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 TRUSTED_IDENTITY_HEADER = "X-Moonproj-Identity"
@@ -387,6 +388,14 @@ def handler_factory(
                     )
                 )
                 or (
+                    method in {"PATCH", "DELETE"}
+                    and re.fullmatch(
+                        r"/api/company/source/notify/subscriptions/[0-9]{1,12}",
+                        parsed.path,
+                    )
+                )
+                or (method == "POST" and parsed.path == SOURCE_NOTIFICATION_SUBSCRIPTION_PATH_PREFIX)
+                or (
                     method == "DELETE"
                     and (
                         re.fullmatch(
@@ -557,6 +566,7 @@ def handler_factory(
                     r"/api/company/source/auth/prefs/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,
                 )
+                or parsed.path == SOURCE_NOTIFICATION_SUBSCRIPTION_PATH_PREFIX
                 or re.fullmatch(
                     r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}/milestones",
                     parsed.path,

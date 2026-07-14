@@ -539,12 +539,32 @@ def main() -> int:
             "/api/company/notify/subscriptions?userCode=admin",
             token=token,
         )
+        notification_has_command_projection = bool(
+            (notification_subscriptions_payload or {}).get("command_projection")
+        )
         if (
             status != 200
             or notification_subscriptions_payload is None
-            or notification_subscriptions_payload.get("data") != []
+            or (
+                not notification_has_command_projection
+                and notification_subscriptions_payload.get("data") != []
+            )
             or notification_subscriptions_payload.get("source_coverage", {}).get("sys_warning_subscription") != 0
             or notification_subscriptions_payload.get("authorizing") is not False
+            or (
+                not notification_has_command_projection
+                and (
+                    notification_subscriptions_payload.get("source_kind") != "imported_or_empty"
+                    or notification_subscriptions_payload.get("persisted") is not False
+                )
+            )
+            or (
+                notification_has_command_projection
+                and (
+                    notification_subscriptions_payload.get("source_kind") != "imported_or_command"
+                    or notification_subscriptions_payload.get("persisted") is not True
+                )
+            )
         ):
             raise SmokeError(f"source notification subscription read failed: {status} {notification_subscriptions_payload}")
         status, notification_config_payload = request(

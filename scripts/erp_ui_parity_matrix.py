@@ -909,6 +909,15 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_notification_read", "accept_browser_notification_scenario_and_production_identity"
     if (
+        handler["module"] == "notify"
+        and (
+            (handler["method"] == "POST" and handler["path"] == "/subscriptions")
+            or (handler["method"] == "PATCH" and handler["path"] == "/subscriptions/:id")
+            or (handler["method"] == "DELETE" and handler["path"] == "/subscriptions/:id")
+        )
+    ):
+        return "connected_notification_subscription_command", "accept_browser_notification_subscription_scenario_and_security_owner"
+    if (
         handler["module"] == "admin"
         and handler["method"] == "GET"
         and handler["path"] in {"/ocr/status", "/error-log"}
