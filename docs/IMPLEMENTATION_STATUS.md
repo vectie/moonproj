@@ -399,12 +399,15 @@ promotion of the remaining typed-staged rows, or production readiness.
 2. Close procurement acceptance before opening another broad surface. The
    local supplier lifecycle/risk reads, tender planning/award/complete, and
    contract-split reads/creates now have PostgreSQL smoke and Rabbita command
-   state evidence. The source signature-check now has an explicit
-   missing-provider/populated-provider gate; remaining procurement work is
-   populated-provider decision parity, external risk-rescore integration (or
-   an owner-approved derived replacement), source-backed rows, browser
-   acceptance, award-to-commitment acceptance, and procurement-owner sign-off.
-   Imported rows remain read-only.
+   state evidence. Reconcile the source tender create/split field and identity
+   aliases next, then explicitly decide whether source arbitrary-state writes,
+   imported tender deletion, and standalone award rows are retained as gated
+   source behavior or receive owner-approved local projections. The source
+   signature-check now has an explicit missing-provider/populated-provider
+   gate; remaining procurement work is populated-provider decision parity,
+   external risk-rescore integration (or an owner-approved derived
+   replacement), source-backed rows, browser acceptance, award-to-commitment
+   acceptance, and procurement-owner sign-off. Imported rows remain read-only.
 3. Replace the local credential/session adapter with the reviewed production
    identity, token issuer, rotation, persistence, and owner-acceptance boundary
    before calling any connected slice accepted. Do not count fixture-backed

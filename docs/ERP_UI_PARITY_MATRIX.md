@@ -383,13 +383,13 @@ are attached. The JSON output contains all 338 handler rows.
 | `srm` | `GET` | `/risk-board` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers/:guid/check-sign` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_boundary` | `accept_supplier_signature_gate_and_procurement_owner` |
 | `tender` | `GET` | `/tenders` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
-| `tender` | `POST` | `/tenders` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `tender` | `PUT` | `/tenders/:guid/state` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `tender` | `DELETE` | `/tenders/:guid` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `tender` | `POST` | `/tenders` | `/tender` | `not_connected` | `reconcile_tender_create_source_mapping_and_browser_acceptance` |
+| `tender` | `PUT` | `/tenders/:guid/state` | `/tender` | `not_connected` | `preserve_tender_state_machine_and_decide_source_overwrite_policy` |
+| `tender` | `DELETE` | `/tenders/:guid` | `/tender` | `not_connected` | `preserve_imported_tenders_and_decide_local_tombstone_policy` |
 | `tender` | `GET` | `/awards` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
-| `tender` | `POST` | `/awards` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `tender` | `POST` | `/awards` | `/tender` | `not_connected` | `reconcile_tender_award_evidence_and_owner_acceptance` |
 | `tender` | `GET` | `/splits` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |
-| `tender` | `POST` | `/splits` | `/tender` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `tender` | `POST` | `/splits` | `/tender` | `not_connected` | `reconcile_tender_split_command_alias_and_owner_acceptance` |
 | `warning` | `GET` | `/badge` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `GET` | `/` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `GET` | `/rules` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |

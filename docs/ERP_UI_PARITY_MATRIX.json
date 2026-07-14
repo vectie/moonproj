@@ -4293,7 +4293,7 @@
         "/tender"
       ],
       "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "required_next": "reconcile_tender_create_source_mapping_and_browser_acceptance"
     },
     {
       "module": "tender",
@@ -4303,7 +4303,7 @@
         "/tender"
       ],
       "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "required_next": "preserve_tender_state_machine_and_decide_source_overwrite_policy"
     },
     {
       "module": "tender",
@@ -4313,7 +4313,7 @@
         "/tender"
       ],
       "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "required_next": "preserve_imported_tenders_and_decide_local_tombstone_policy"
     },
     {
       "module": "tender",
@@ -4333,7 +4333,7 @@
         "/tender"
       ],
       "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "required_next": "reconcile_tender_award_evidence_and_owner_acceptance"
     },
     {
       "module": "tender",
@@ -4353,7 +4353,7 @@
         "/tender"
       ],
       "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "required_next": "reconcile_tender_split_command_alias_and_owner_acceptance"
     },
     {
       "module": "warning",

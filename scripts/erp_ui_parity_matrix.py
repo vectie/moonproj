@@ -557,6 +557,17 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/tenders", "/awards", "/splits"}
     ):
         return "connected_tender_source_read", "accept_browser_tender_source_scenario_and_production_identity"
+    if handler["module"] == "tender" and handler["method"] == "POST":
+        if handler["path"] == "/tenders":
+            return "not_connected", "reconcile_tender_create_source_mapping_and_browser_acceptance"
+        if handler["path"] == "/splits":
+            return "not_connected", "reconcile_tender_split_command_alias_and_owner_acceptance"
+        if handler["path"] == "/awards":
+            return "not_connected", "reconcile_tender_award_evidence_and_owner_acceptance"
+    if handler["module"] == "tender" and handler["method"] == "PUT" and handler["path"] == "/tenders/:guid/state":
+        return "not_connected", "preserve_tender_state_machine_and_decide_source_overwrite_policy"
+    if handler["module"] == "tender" and handler["method"] == "DELETE" and handler["path"] == "/tenders/:guid":
+        return "not_connected", "preserve_imported_tenders_and_decide_local_tombstone_policy"
     if (
         handler["module"] == "budget"
         and handler["method"] == "GET"

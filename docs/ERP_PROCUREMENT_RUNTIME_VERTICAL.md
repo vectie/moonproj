@@ -97,6 +97,17 @@ source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
 
+The tender command runtime is not an exact proxy for every legacy tender
+mutation. Local create and lifecycle commands enforce a forward-only state
+machine, while the legacy API also exposes arbitrary state replacement,
+hard-delete, standalone award insertion, and a split payload under different
+field names. The parity matrix therefore keeps `POST /tenders`,
+`PUT /tenders/:guid/state`, `DELETE /tenders/:guid`, `POST /awards`, and
+`POST /splits` as explicit translation or policy gates. The next bounded work
+is a source-compatible create alias and a split alias to
+`/api/company/tender-splits`; imported tender rows remain read-only, and no
+award or deletion behavior is promoted without a named procurement owner.
+
 The source tender boundary is:
 
 - `GET /api/company/source/tender/tenders` over `tender_plan`;
