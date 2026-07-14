@@ -148,6 +148,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/investment/projects/<id>/profit-actual`` (GET,
   source-compatible missing-plan boundary; sparse simulation remains gated)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
+* ``/api/company/admin/dict/options`` (POST/PATCH, local command-owned
+  dictionary overlays; imported options remain read-only)
 * ``/api/company/admin/quality/overview`` and
   ``/api/company/admin/health/{tables,bpm-pool,full}`` (GET, source-coverage
   governance reads; runtime metrics remain unavailable)
@@ -563,6 +565,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "report_template_command",
             "report_template_run",
             "warning_command",
+            "admin_dictionary_command",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -635,6 +638,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "report_template_command",
             "report_template_run",
             "warning_command",
+            "admin_dictionary_command",
         ],
         "schema_version": expected_schema_version,
     }
@@ -11152,25 +11156,33 @@ def rbac_permission_catalog() -> dict[str, Any]:
 
 
 def admin_dict_groups(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
-    raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
+    merged, command_count, source_count = _admin_dict_merged_rows(pool, max_rows)
     groups: dict[str, dict[str, int]] = {}
-    for row in raw:
-        name = str(row["payload"].get("param_name") or "")
+    for row in merged:
+        name = str(row.get("groupName") or "")
         if not name:
             continue
         group = groups.setdefault(name, {"total": 0, "enabled": 0})
         group["total"] += 1
-        if bool(row["payload"].get("enabled", 0)):
+        if row.get("enabled") is True:
             group["enabled"] += 1
     return {
         "success": True,
         "code": 0,
         "data": [
-            {"groupName": name, "total": value["total"], "enabled": value["enabled"], "sourceKind": "imported"}
+            {
+                "groupName": name,
+                "total": value["total"],
+                "enabled": value["enabled"],
+                "sourceKind": "imported_or_command" if command_count else "imported",
+            }
             for name, value in sorted(groups.items())
         ],
-        "source_kind": "imported",
-        "source_coverage": {"my_biz_param_option": len(raw)},
+        "source_kind": "imported_or_command" if command_count else "imported",
+        "source_coverage": {"my_biz_param_option": source_count},
+        "command_projection_count": command_count,
+        "authorizing": False,
+        "persisted": False,
     }
 
 
@@ -11181,37 +11193,367 @@ def admin_dict_options(
 ) -> dict[str, Any]:
     if group_name is not None and len(group_name) > 128:
         raise ValueError("invalid groupName")
-    raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
-    rows = [
-        row
-        for row in raw
-        if group_name is None or str(row["payload"].get("param_name") or "") == group_name
-    ]
-    rows.sort(
-        key=lambda row: (
-            str(row["payload"].get("param_name") or ""),
-            int(row["payload"].get("display_order") or 0),
-            str(row["payload"].get("param_code") or ""),
-        )
-    )
+    rows, command_count, source_count = _admin_dict_merged_rows(pool, max_rows)
+    if group_name is not None:
+        rows = [row for row in rows if row["groupName"] == group_name]
     return {
         "success": True,
         "code": 0,
-        "data": [
-            {
-                "paramGuid": str(row["payload"].get("param_guid") or row["record_id"]),
-                "groupName": str(row["payload"].get("param_name") or ""),
-                "code": str(row["payload"].get("param_code") or ""),
-                "value": str(row["payload"].get("param_value") or ""),
-                "displayOrder": int(row["payload"].get("display_order") or 0),
-                "enabled": bool(row["payload"].get("enabled", 0)),
-                "sourceKind": "imported",
-            }
-            for row in rows
-        ],
-        "source_kind": "imported",
-        "source_coverage": {"my_biz_param_option": len(raw)},
+        "data": rows,
+        "source_kind": "imported_or_command" if command_count else "imported",
+        "source_coverage": {"my_biz_param_option": source_count},
+        "command_projection_count": command_count,
+        "authorizing": False,
+        "persisted": False,
     }
+
+
+def _admin_dict_command_projection_rows(
+    pool: PsqlPool,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    lines = query_lines(
+        pool,
+        f"""
+        SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+               revision::text,
+               encode(convert_to(payload::text, 'UTF8'), 'hex'),
+               encode(convert_to(source_event_id, 'UTF8'), 'hex')
+        FROM (
+          SELECT DISTINCT ON (aggregate_id)
+                 aggregate_id, revision, payload, source_event_id
+          FROM company_aggregate_projection
+          WHERE aggregate_type = 'admin_dict_option'
+          ORDER BY aggregate_id, revision DESC
+        ) latest
+        ORDER BY aggregate_id
+        LIMIT {max(max_rows, 500)}
+        """,
+    )
+    result: list[dict[str, Any]] = []
+    for line in lines:
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected admin dictionary projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid admin dictionary projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("admin dictionary projection payload is not an object")
+        result.append(
+            {
+                "param_guid": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[3]),
+            }
+        )
+    return result
+
+
+def _admin_dict_row(
+    payload: dict[str, Any],
+    *,
+    param_guid: str,
+    source_kind: str,
+    command_projection: bool,
+) -> dict[str, Any]:
+    return {
+        "paramGuid": param_guid,
+        "groupName": str(payload.get("group_name") or payload.get("param_name") or ""),
+        "code": str(payload.get("code") or payload.get("param_code") or ""),
+        "value": str(payload.get("value") or payload.get("param_value") or ""),
+        "displayOrder": int(payload.get("display_order") or 0),
+        "enabled": bool(payload.get("enabled", 0)),
+        "sourceKind": source_kind,
+        "commandProjection": command_projection,
+        "persisted": command_projection,
+    }
+
+
+def _admin_dict_merged_rows(
+    pool: PsqlPool,
+    max_rows: int,
+) -> tuple[list[dict[str, Any]], int, int]:
+    raw = _raw_source_rows(pool, "my_biz_param_option", max(max_rows, 100), ADMIN_SOURCE_TABLES)
+    merged: dict[str, dict[str, Any]] = {}
+    for row in raw:
+        payload = row["payload"]
+        param_guid = str(payload.get("param_guid") or row["record_id"])
+        merged[param_guid] = _admin_dict_row(
+            payload,
+            param_guid=param_guid,
+            source_kind="imported",
+            command_projection=False,
+        )
+    commands = _admin_dict_command_projection_rows(pool, max_rows)
+    for command in commands:
+        payload = command["payload"]
+        if str(payload.get("state") or "active") == "deleted":
+            merged.pop(command["param_guid"], None)
+            continue
+        merged[command["param_guid"]] = _admin_dict_row(
+            payload,
+            param_guid=command["param_guid"],
+            source_kind=(
+                "imported_or_command"
+                if command["param_guid"] in merged
+                else "command"
+            ),
+            command_projection=True,
+        )
+    rows = sorted(
+        merged.values(),
+        key=lambda row: (row["groupName"], row["displayOrder"], row["code"]),
+    )
+    return rows[:max_rows], len(commands), len(raw)
+
+
+def _admin_dict_command_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    required: bool = False,
+    identifier: bool = False,
+    default: str = "",
+    max_length: int = 256,
+) -> str:
+    value = body.get(key, default)
+    if value is None:
+        value = default
+    if not isinstance(value, str):
+        raise CommandRejected(f"{key} must be text", 422)
+    value = value.strip()
+    if required and not value:
+        raise CommandRejected(f"{key} is required", 422)
+    if len(value) > max_length:
+        raise CommandRejected(f"{key} is too long", 422)
+    if identifier and value and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _admin_dict_super_user(pool: PsqlPool, actor_id: str) -> bool:
+    users = _raw_source_rows(pool, "sys_user", 100, ADMIN_SOURCE_TABLES)
+    return any(
+        str(row["payload"].get("user_code") or "") == actor_id
+        and bool(row["payload"].get("is_super_user", 0))
+        and bool(row["payload"].get("enabled", 0))
+        for row in users
+    )
+
+
+def admin_dict_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    param_guid: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if command_type not in {"create", "update"}:
+        raise CommandRejected("unsupported admin dictionary command", 404)
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    if not _admin_dict_super_user(pool, actor_id):
+        raise CommandRejected("数据字典写入需要启用的超级用户", 403)
+
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        request = existing.get("request")
+        if not isinstance(request, dict):
+            raise ServiceError("stored admin dictionary command has no request")
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored admin dictionary command has no result")
+        return {"command": existing, "option": result, "idempotent_replay": True}
+
+    raw = _raw_source_rows(pool, "my_biz_param_option", 500, ADMIN_SOURCE_TABLES)
+    imported: dict[str, dict[str, Any]] = {}
+    for row in raw:
+        payload = row["payload"]
+        guid = str(payload.get("param_guid") or row["record_id"])
+        imported[guid] = payload
+    projections = _admin_dict_command_projection_rows(pool, 500)
+    current_projection = {
+        row["param_guid"]: row["payload"] for row in projections
+    }
+
+    if command_type == "create":
+        group_name = _admin_dict_command_text(body, "groupName", required=True, identifier=True)
+        code = _admin_dict_command_text(body, "code", required=True, identifier=True)
+        value = _admin_dict_command_text(body, "value", required=True)
+        display_order = body.get("displayOrder", 0)
+        if isinstance(display_order, bool) or not isinstance(display_order, int) or display_order < 0:
+            raise CommandRejected("displayOrder must be a non-negative integer", 422)
+        if any(
+            str(payload.get("param_name") or payload.get("group_name") or "") == group_name
+            and str(payload.get("param_code") or payload.get("code") or "") == code
+            for payload in list(imported.values()) + list(current_projection.values())
+            if str(payload.get("state") or "active") != "deleted"
+        ):
+            raise CommandRejected("同分组内编码重复", 409)
+        param_guid = "DICT-CMD-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:24]
+        request = {
+            "command_type": "create",
+            "param_guid": param_guid,
+            "group_name": group_name,
+            "code": code,
+            "value": value,
+            "display_order": display_order,
+            "enabled": True,
+            "actor_id": actor_id,
+        }
+    else:
+        if param_guid is None or not IDENTIFIER.fullmatch(param_guid):
+            raise CommandRejected("param_guid is required", 422)
+        base = current_projection.get(param_guid) or imported.get(param_guid)
+        if base is None or str(base.get("state") or "active") == "deleted":
+            raise CommandRejected("字典项不存在", 404)
+        group_name = str(base.get("group_name") or base.get("param_name") or "")
+        code = str(base.get("code") or base.get("param_code") or "")
+        value = str(base.get("value") or base.get("param_value") or "")
+        display_order = int(base.get("display_order") or 0)
+        enabled = bool(base.get("enabled", 0))
+        if "value" in body:
+            value = _admin_dict_command_text(body, "value", required=True)
+        if "enabled" in body:
+            enabled_value = body.get("enabled")
+            if isinstance(enabled_value, bool):
+                enabled = enabled_value
+            elif isinstance(enabled_value, int) and enabled_value in {0, 1}:
+                enabled = bool(enabled_value)
+            else:
+                raise CommandRejected("enabled must be boolean", 422)
+        if "displayOrder" in body:
+            display_order = body.get("displayOrder")
+            if isinstance(display_order, bool) or not isinstance(display_order, int) or display_order < 0:
+                raise CommandRejected("displayOrder must be a non-negative integer", 422)
+        if not any(key in body for key in ("value", "enabled", "displayOrder")):
+            return {
+                "command": None,
+                "option": {"paramGuid": param_guid, "updated": 0, "sourceKind": "imported"},
+                "idempotent_replay": False,
+            }
+        request = {
+            "command_type": "update",
+            "param_guid": param_guid,
+            "group_name": group_name,
+            "code": code,
+            "value": value,
+            "display_order": display_order,
+            "enabled": enabled,
+            "actor_id": actor_id,
+        }
+
+    aggregate_id = str(param_guid)
+    event_id = f"admin_dict_option:{command_type}:{idempotency_key}"
+    command_source = "moonproj:command:" + idempotency_key
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "admin_dictionary",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "admin_dict_option",
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal('admin_dict_option:' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_revision integer;
+      next_payload jsonb;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'admin_dict_option'
+        AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(command_type == 'create').lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'admin dictionary option already exists'; END IF;
+        next_revision := 1;
+        next_payload := {sql_literal(request_json)}::jsonb;
+      ELSE
+        IF current_payload IS NULL THEN
+          next_revision := 1;
+          next_payload := {sql_literal(request_json)}::jsonb;
+        ELSE
+          SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+          FROM company_aggregate_projection p
+          WHERE p.aggregate_type = 'admin_dict_option'
+            AND p.aggregate_id = {sql_literal(aggregate_id)};
+          next_payload := {sql_literal(request_json)}::jsonb;
+        END IF;
+      END IF;
+      next_payload := next_payload || jsonb_build_object(
+        'state', 'active', 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
+        'updated_by', {sql_literal(actor_id)});
+      INSERT INTO company_aggregate_projection(
+        aggregate_type, aggregate_id, revision, payload, source_event_id
+      ) VALUES (
+        'admin_dict_option', {sql_literal(aggregate_id)}, next_revision,
+        next_payload, {sql_literal(event_id)}
+      );
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', 'admin_dictionary.' || {sql_literal(command_type)},
+          'aggregate_type', 'admin_dict_option', 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', 'active', 'revision', next_revision,
+          'authorizing', false, 'provider_execution', false,
+          'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object(
+        'paramGuid', {sql_literal(aggregate_id)},
+        'groupName', next_payload->>'group_name', 'code', next_payload->>'code',
+        'value', next_payload->>'value', 'displayOrder', (next_payload->>'display_order')::integer,
+        'enabled', (next_payload->>'enabled')::boolean, 'state', 'active',
+        'revision', next_revision, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)},
+        'sourceKind', 'command', 'commandProjection', true, 'persisted', true,
+        'authorizing', false, 'providerExecution', false,
+        'cashEffect', false, 'accountingEffect', false, 'taxEffect', false
+      );
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    COMMIT;
+    """
+    pool.execute(sql)
+    command = _existing_command(pool, idempotency_key)
+    if command is None:
+        raise ServiceError("admin dictionary command receipt was not persisted")
+    result = command.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("admin dictionary command receipt has no result")
+    return {"command": command, "option": result, "idempotent_replay": False}
 
 
 def admin_audit_logs(
@@ -24445,6 +24787,10 @@ def handler_factory(
                     command_family = "report_template"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/admin/dict/options":
+                    command_family = "admin_dictionary"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/reports/templates/run":
                     command_family = "report_template_run"
                     command_type = "run"
@@ -24892,6 +25238,15 @@ def handler_factory(
                         pool,
                         command_type="create",
                         template_id=None,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                elif command_family == "admin_dictionary":
+                    result = admin_dict_command(
+                        pool,
+                        command_type="create",
+                        param_guid=None,
                         body=body,
                         actor_id=actor,
                         idempotency_key=idempotency_key,
@@ -25660,6 +26015,42 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _admin_dict_method_alias(self, method: str) -> bool:
+            if method != "PATCH":
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/admin/dict/options/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = admin_dict_command(
+                    pool,
+                    command_type="update",
+                    param_guid=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
             if self._auth_preference_method_alias("PUT"):
                 return
@@ -25686,6 +26077,8 @@ def handler_factory(
             self._marketing_method_alias("PUT") or self._loan_method_alias("PUT")
 
         def do_PATCH(self) -> None:  # noqa: N802
+            if self._admin_dict_method_alias("PATCH"):
+                return
             if self._notification_subscription_method_alias("PATCH"):
                 return
             if self._supplier_method_alias("PATCH"):

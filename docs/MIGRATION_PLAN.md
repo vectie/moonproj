@@ -1138,14 +1138,19 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    production KPI parity. See
    [`ERP_DYNAMIC_COST_RUNTIME_AUDIT.md`](ERP_DYNAMIC_COST_RUNTIME_AUDIT.md).
    Admin dictionary, bounded quality, audit, health, user-roster, and
-   imported-profile reads are connected
+   imported-profile reads are connected. The source dictionary POST/PATCH
+   handlers now have a bounded PostgreSQL command-owned overlay: an enabled
+   imported super-user is required, imported rows stay read-only, replay writes
+   only projection/receipt/audit evidence, and provider/cash/accounting/tax
+   effects remain false. The Rabbita dictionary table is still read-only, so
+   browser command controls and production identity are not yet accepted.
    for the available governance rows (one group, five options, twelve quality
    rules with four unavailable dependencies, five imported users, two audit
    events, 29 health-table coverage rows, and an empty BPM pool). The profile
    vertical also preserves the source user's initiated-document rows (zero
    expenses, one loan, and three payment applications for the imported
    `limingjin` identity); super-user
-   scope, writes, role tables, retention, source completeness, and
+   scope, audit/role writes, retention, source completeness, and
    security-owner acceptance remain gated. See
    [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).
    The expense list now has a separate source-compatible read over

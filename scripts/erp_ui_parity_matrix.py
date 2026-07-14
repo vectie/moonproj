@@ -695,6 +695,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         return "connected_investment_read", "accept_browser_investment_scenario_and_production_identity"
     if (
         handler["module"] == "admin"
+        and (
+            (handler["method"] == "POST" and handler["path"] == "/dict/options")
+            or (handler["method"] == "PATCH" and handler["path"] == "/dict/options/:guid")
+        )
+    ):
+        return "connected_admin_dictionary_command", "accept_browser_admin_dictionary_command_scenario_and_super_user_owner"
+    if (
+        handler["module"] == "admin"
         and handler["method"] == "GET"
         and handler["path"]
         in {

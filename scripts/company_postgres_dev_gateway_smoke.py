@@ -181,6 +181,48 @@ def main() -> int:
         warning_rows = (warning_list or {}).get("data", {}).get("rows", [])
         if status != 200 or not isinstance(warning_list, dict) or len(warning_rows) != 1:
             raise SmokeError(f"trusted warning read failed: {status} {warning_list}")
+        status, _headers, admin_dict = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/admin/dict/options?groupName=cost_subject",
+            headers={"Cookie": cookie},
+        )
+        admin_dict_rows = (admin_dict or {}).get("data", [])
+        if status != 200 or not isinstance(admin_dict, dict) or len(admin_dict_rows) != 5:
+            raise SmokeError(f"trusted admin dictionary read failed: {status} {admin_dict}")
+        status, _headers, admin_dict_command = request(
+            args.gateway_port,
+            "PATCH",
+            f"/api/company/admin/dict/options/{admin_dict_rows[0].get('paramGuid')}",
+            headers={"Cookie": cookie},
+            payload={
+                "value": "部门费用-管理费用-办公费-打印制作费",
+                "idempotency_key": "admin-dict-update-rabbita-v1",
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(admin_dict_command, dict)
+            or admin_dict_command.get("option", {}).get("paramGuid") != admin_dict_rows[0].get("paramGuid")
+            or admin_dict_command.get("option", {}).get("authorizing") is not False
+        ):
+            raise SmokeError(f"trusted admin dictionary command failed: {status} {admin_dict_command}")
+        status, _headers, admin_dict_replay = request(
+            args.gateway_port,
+            "PATCH",
+            f"/api/company/admin/dict/options/{admin_dict_rows[0].get('paramGuid')}",
+            headers={"Cookie": cookie},
+            payload={
+                "value": "部门费用-管理费用-办公费-打印制作费",
+                "idempotency_key": "admin-dict-update-rabbita-v1",
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(admin_dict_replay, dict)
+            or admin_dict_replay.get("idempotent_replay") is not True
+        ):
+            raise SmokeError(f"trusted admin dictionary replay failed: {status} {admin_dict_replay}")
         warning_guid = warning_rows[0].get("warningGuid")
         if warning_rows[0].get("status") == "open":
             status, _headers, warning_command = request(

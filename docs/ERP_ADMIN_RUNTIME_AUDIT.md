@@ -18,7 +18,7 @@ The target now exposes source-compatible read boundaries:
 | Source surface | Target endpoint | Target state |
 |---|---|---|
 | Dictionary groups | `/api/company/admin/dict/groups` | source-compatible read |
-| Dictionary options | `/api/company/admin/dict/options` | source-compatible read |
+| Dictionary options | `/api/company/admin/dict/options` | source-compatible read plus bounded local create/update overlay |
 | Quality overview | `/api/company/admin/quality/overview` | bounded source read |
 | User roster | `/api/company/rbac/users` | source-backed read; role data gated |
 | Audit logs | `/api/company/admin/audit/logs` | source-compatible read |
@@ -40,11 +40,16 @@ The Rabbita `/admin` screen now calls the dictionary group/options reads after
 the quality overview succeeds. Its data-dictionary table shows the five
 imported `cost_subject` options and source provenance; the quality table keeps
 the twelve-rule result, including unavailable source dependencies. The
-dictionary fixture remains an offline fallback, and no dictionary write is
-enabled.
+dictionary fixture remains an offline fallback. The PostgreSQL service now
+also accepts source-shaped dictionary create/update commands as command-owned
+overlays: imported rows are never mutated, an enabled imported source
+super-user is required, and the command writes only an immutable projection,
+receipt, and audit event with `authorizing=false` and no provider, cash,
+accounting, or tax effect. The current Rabbita table remains read-only, so
+browser action wiring is still a separate parity gate.
 
-Rows preserve source field names and are marked `sourceKind=imported`. The
-quality response marks unavailable rules as `NO_SOURCE_ROWS` and includes
+Rows preserve source field names and carry explicit imported, imported-or-
+command, or command provenance. The quality response marks unavailable rules as `NO_SOURCE_ROWS` and includes
 per-table coverage; it does not turn missing source data into passing checks.
 The user roster preserves five imported identities and organization labels;
 `sys_role`/`sys_user_role` coverage is returned as `NO_SOURCE_ROWS`, so no role
@@ -56,8 +61,10 @@ The Rabbita `/audit-log` screen now consumes the two imported login rows and
 the `login × 2` action aggregate through the read-only adapter. It keeps the
 source IP redaction and append-only presentation; filtering, retention,
 deletion, and export authority remain separate gates.
-The target does not expose dictionary writes, audit deletion, role changes, or
-super-user elevation. OCR status never executes a provider or returns secret
+The target does not expose audit deletion, role changes, or super-user
+elevation. Dictionary create/update is available only through the bounded
+authenticated service/gateway overlay described above; it does not promote or
+rewrite imported rows. OCR status never executes a provider or returns secret
 values; error-log reads never return raw IP addresses or stack traces. The
 current export has no `sys_param` or `sys_error_log` rows, so both screens
 render explicit empty-source/definition states after successful reads.
@@ -75,7 +82,8 @@ render explicit empty-source/definition states after successful reads.
   the BPM pool explicitly reports zero source instances/actions and
   `authorizing=false`.
 - The parity matrix marks the nine connected source admin GET handlers as
-  `connected_admin_read`.
+  `connected_admin_read` and the source dictionary POST/PATCH handlers as
+  `connected_admin_dictionary_command`.
 - The parity matrix marks the source `GET /rbac/users` roster as
   `connected_rbac_user_read`; role and permission endpoints remain gated.
 - The parity matrix marks `/users` as `connected_rbac_user_read`; the
@@ -89,6 +97,9 @@ render explicit empty-source/definition states after successful reads.
   control surface.
 - The parity matrix marks `/admin` as `connected_admin_read`; source
   super-user scope and owner acceptance remain required.
+- The trusted gateway smoke exercises dictionary PATCH with the imported
+  `admin` super-user, verifies idempotent replay, and confirms the command
+  receipt/audit result is non-authorizing with no external effect.
 - The parity matrix marks `/ocr-config` and `/error-log` as connected
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.
@@ -108,9 +119,10 @@ tables are unavailable. No write, OCR call, or Webhook delivery was attempted.
 
 ## Remaining gate
 
-1. Bind admin screens to production identity and enforce the source super-user
-   role and organization scope.
+1. Bind admin screens and dictionary actions to production identity and enforce
+   the source super-user role and organization scope.
 2. Reconcile the full audit/dictionary export, retention policy, and security
    owner acceptance before treating these rows as complete governance history.
-3. Keep dictionary writes, audit retention/deletion, role administration, and
-   system-health actions separately authorized.
+3. Keep audit retention/deletion, role administration, and system-health
+   actions separately authorized; keep dictionary overlays isolated from source
+   promotion and external effects.

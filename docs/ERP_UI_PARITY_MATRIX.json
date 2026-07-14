@@ -922,8 +922,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_admin_dictionary_command",
+      "required_next": "accept_browser_admin_dictionary_command_scenario_and_super_user_owner"
     },
     {
       "module": "admin",
@@ -936,8 +936,8 @@
         "/system-health",
         "/admin"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_admin_dictionary_command",
+      "required_next": "accept_browser_admin_dictionary_command_scenario_and_super_user_owner"
     },
     {
       "module": "admin",

@@ -158,6 +158,7 @@ def main() -> int:
             or "report_template_command" not in payload.get("capabilities", [])
             or "report_template_run" not in payload.get("capabilities", [])
             or "warning_command" not in payload.get("capabilities", [])
+            or "admin_dictionary_command" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
             or "contract_source_command_alias" not in payload.get("capabilities", [])

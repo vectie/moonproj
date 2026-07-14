@@ -433,6 +433,13 @@ def handler_factory(
                     r"/api/company/source/cost/dynamic-cost/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,
                 )
+                or (
+                    method == "PATCH"
+                    and re.fullmatch(
+                        r"/api/company/admin/dict/options/[A-Za-z0-9_.:-]{1,128}",
+                        parsed.path,
+                    )
+                )
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return
@@ -570,6 +577,7 @@ def handler_factory(
                 or parsed.path in {
                     REPORT_PATH_PREFIX + "/templates",
                     REPORT_PATH_PREFIX + "/templates/run",
+                    "/api/company/admin/dict/options",
                 }
                 or re.fullmatch(
                     r"/api/company/warning/[A-Za-z0-9_.:-]{1,128}/(resolve|ignore)",

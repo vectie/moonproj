@@ -9,7 +9,7 @@ aliases now use the bounded connected v1 read. The connected exceptions are the 
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master reads plus the local project command, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
-fund-plan, project-plan task, observed-warning reads plus bounded resolve/ignore commands, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata plus bounded local command verticals.
+fund-plan, project-plan task, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
@@ -89,8 +89,8 @@ are attached. The JSON output contains all 338 handler rows.
 |---|---|---|---|---|---|
 | `admin` | `GET` | `/dict/groups` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/dict/options` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
-| `admin` | `POST` | `/dict/options` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `admin` | `PATCH` | `/dict/options/:guid` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `admin` | `POST` | `/dict/options` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_dictionary_command` | `accept_browser_admin_dictionary_command_scenario_and_super_user_owner` |
+| `admin` | `PATCH` | `/dict/options/:guid` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_dictionary_command` | `accept_browser_admin_dictionary_command_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/quality/overview` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/audit/logs` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/audit/actions` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
