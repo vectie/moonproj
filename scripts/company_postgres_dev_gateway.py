@@ -49,6 +49,7 @@ SALES_PATH_PREFIX = "/api/company/sales"
 RECEIVABLE_PATH_PREFIX = "/api/company/receivables"
 DELIVERY_PATH_PREFIX = "/api/company/delivery"
 LOAN_PATH_PREFIX = "/api/company/loans"
+MARKETING_PATH_PREFIX = "/api/company/marketing"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 TRUSTED_IDENTITY_HEADER = "X-Moonproj-Identity"
@@ -323,7 +324,13 @@ def handler_factory(
             if actor is None:
                 return
             parsed = urlparse(self.path)
-            if not re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path):
+            if not (
+                re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path)
+                or re.fullmatch(
+                    r"/api/company/marketing/(campaigns|placements|channels|materials)/[A-Za-z0-9_.:-]{1,128}(?:/effect)?",
+                    parsed.path,
+                )
+            ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return
             try:
@@ -446,6 +453,8 @@ def handler_factory(
                 or parsed.path.startswith(DELIVERY_PATH_PREFIX + "/")
                 or parsed.path == LOAN_PATH_PREFIX
                 or parsed.path.startswith(LOAN_PATH_PREFIX + "/")
+                or parsed.path == MARKETING_PATH_PREFIX
+                or parsed.path.startswith(MARKETING_PATH_PREFIX + "/")
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return

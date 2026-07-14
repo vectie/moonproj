@@ -3049,8 +3049,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3059,8 +3059,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3069,8 +3069,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3089,8 +3089,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3099,8 +3099,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3119,8 +3119,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3129,8 +3129,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3149,8 +3149,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "marketing",
@@ -3159,8 +3159,8 @@
       "browser_route_paths": [
         "/marketing"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_marketing_command",
+      "required_next": "accept_browser_marketing_command_scenario_and_marketing_owner"
     },
     {
       "module": "mdm",

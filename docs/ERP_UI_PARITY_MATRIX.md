@@ -9,7 +9,7 @@ aliases now use the bounded connected v1 read. The connected exceptions are the 
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
-fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
+fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
@@ -273,18 +273,18 @@ are attached. The JSON output contains all 338 handler rows.
 | `loan` | `PUT` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
 | `loan` | `DELETE` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_command` | `accept_browser_loan_command_scenario_and_finance_owner` |
 | `marketing` | `GET` | `/campaigns` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
-| `marketing` | `POST` | `/campaigns` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `PUT` | `/campaigns/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `DELETE` | `/campaigns/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `marketing` | `POST` | `/campaigns` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
+| `marketing` | `PUT` | `/campaigns/:guid` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
+| `marketing` | `DELETE` | `/campaigns/:guid` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
 | `marketing` | `GET` | `/placements` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
-| `marketing` | `POST` | `/placements` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `PUT` | `/placements/:guid/effect` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `marketing` | `POST` | `/placements` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
+| `marketing` | `PUT` | `/placements/:guid/effect` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
 | `marketing` | `GET` | `/channels` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
-| `marketing` | `POST` | `/channels` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `DELETE` | `/channels/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `marketing` | `POST` | `/channels` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
+| `marketing` | `DELETE` | `/channels/:guid` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
 | `marketing` | `GET` | `/materials` | `/marketing` | `connected_marketing_read` | `accept_browser_marketing_scenario_and_production_identity` |
-| `marketing` | `POST` | `/materials` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `marketing` | `DELETE` | `/materials/:guid` | `/marketing` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `marketing` | `POST` | `/materials` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
+| `marketing` | `DELETE` | `/materials/:guid` | `/marketing` | `connected_marketing_command` | `accept_browser_marketing_command_scenario_and_marketing_owner` |
 | `mdm` | `GET` | `/business-units/tree` | `/projects`, `/projects/:projGuid` | `connected_mdm_read` | `accept_browser_mdm_scenario_and_production_identity` |
 | `mdm` | `GET` | `/projects` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `mdm` | `GET` | `/projects/:projGuid/lifecycle` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |

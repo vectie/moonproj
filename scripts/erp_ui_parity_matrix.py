@@ -384,6 +384,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_supplier_signature_gate_and_procurement_owner"
     if target_state == "connected_marketing_read":
         return "accept_browser_marketing_scenario_and_production_identity"
+    if target_state == "connected_marketing_command":
+        return "accept_browser_marketing_command_scenario_and_marketing_owner"
     if target_state == "connected_notification_read":
         return "accept_browser_notification_scenario_and_production_identity"
     if target_state == "connected_admin_ocr_read":
@@ -726,6 +728,15 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_marketing_read", "accept_browser_marketing_scenario_and_production_identity"
     if (
+        handler["module"] == "marketing"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/campaigns", "/placements", "/channels", "/materials"})
+            or (handler["method"] == "PUT" and handler["path"] in {"/campaigns/:guid", "/placements/:guid/effect"})
+            or (handler["method"] == "DELETE" and handler["path"] in {"/campaigns/:guid", "/channels/:guid", "/materials/:guid"})
+        )
+    ):
+        return "connected_marketing_command", "accept_browser_marketing_command_scenario_and_marketing_owner"
+    if (
         handler["module"] == "notify"
         and handler["method"] == "GET"
         and handler["path"]
@@ -880,6 +891,8 @@ def build_matrix(
             api_state = "connected_attachment_read"
         elif target_state == "connected_marketing_read":
             api_state = "connected_marketing_read"
+        elif target_state == "connected_marketing_command":
+            api_state = "connected_marketing_command"
         elif target_state == "connected_notification_read":
             api_state = "connected_notification_read"
         elif target_state == "connected_admin_ocr_read":
@@ -1009,7 +1022,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, observed-warning, attachment-metadata, marketing, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
+        "fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

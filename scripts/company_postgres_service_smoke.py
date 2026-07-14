@@ -155,6 +155,7 @@ def main() -> int:
             or "admin_backup_boundary_read" not in payload.get("capabilities", [])
             or "supplier_signature_boundary_read" not in payload.get("capabilities", [])
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
+            or "marketing_command" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, source_schema_coverage_payload = request(
@@ -330,10 +331,16 @@ def main() -> int:
             "/api/company/marketing/materials?projGuid=proj-0001",
         ):
             status, marketing_payload = request(args.port, marketing_path, token=token)
+            marketing_rows = (marketing_payload or {}).get("data", [])
+            imported_marketing_rows = [
+                row for row in marketing_rows
+                if isinstance(row, dict) and row.get("sourceKind") != "command"
+            ]
             if (
                 status != 200
                 or marketing_payload is None
-                or marketing_payload.get("data") != []
+                or not isinstance(marketing_rows, list)
+                or imported_marketing_rows != []
                 or marketing_payload.get("source_coverage", {}).get("mkt_campaign") != 0
                 or marketing_payload.get("source_coverage", {}).get("mkt_placement") != 0
                 or marketing_payload.get("source_coverage", {}).get("mkt_channel") != 0
@@ -1772,6 +1779,234 @@ def main() -> int:
             if status != 200 or detail is None or not isinstance(detail.get("offsets"), list):
                 raise SmokeError(f"loan detail failed: {status} {detail}")
         nonce = uuid.uuid4().hex[:10]
+        marketing_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
+        marketing_principal = "co-marketing-smoke"
+        marketing_scope = "project:proj-0001"
+
+        def marketing_authority(capability: str, max_amount_minor: int = 0) -> dict[str, Any]:
+            return {
+                "active": True,
+                "principal_id": marketing_principal,
+                "actor_id": marketing_actor,
+                "capability": capability,
+                "scope": marketing_scope,
+                "max_amount_minor": max_amount_minor,
+            }
+
+        marketing_campaign_create_key = "marketing-campaign-create-" + nonce
+        marketing_campaign_id = "CAMP-" + marketing_campaign_create_key
+        marketing_campaign_payload = {
+            "projGuid": "proj-0001",
+            "name": "marketing command smoke",
+            "campaignType": "推广活动",
+            "budget": "1000.00",
+            "principal_id": marketing_principal,
+            "scope": marketing_scope,
+            "authority": marketing_authority("marketing:campaign:create", 200000),
+        }
+        invalid_marketing_payload = dict(marketing_campaign_payload)
+        invalid_marketing_payload["authority"] = {
+            **marketing_authority("marketing:campaign:create", 200000),
+            "actor_id": "wrong-actor",
+        }
+        status, invalid_marketing_command = request(
+            args.port,
+            "/api/company/marketing/campaigns",
+            token=token,
+            method="POST",
+            payload=invalid_marketing_payload,
+            idempotency_key="marketing-campaign-invalid-" + nonce,
+        )
+        if status != 403 or invalid_marketing_command is None:
+            raise SmokeError(f"marketing authority guard failed: {status} {invalid_marketing_command}")
+        status, marketing_command_payload = request(
+            args.port,
+            "/api/company/marketing/campaigns",
+            token=token,
+            method="POST",
+            payload=marketing_campaign_payload,
+            idempotency_key=marketing_campaign_create_key,
+        )
+        if (
+            status != 201
+            or marketing_command_payload is None
+            or marketing_command_payload.get("campaign", {}).get("state") != "planning"
+            or marketing_command_payload.get("campaign", {}).get("revision") != 1
+        ):
+            raise SmokeError(f"marketing campaign create failed: {status} {marketing_command_payload}")
+        status, marketing_replay_payload = request(
+            args.port,
+            "/api/company/marketing/campaigns",
+            token=token,
+            method="POST",
+            payload=marketing_campaign_payload,
+            idempotency_key=marketing_campaign_create_key,
+        )
+        if status != 200 or marketing_replay_payload is None or marketing_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"marketing campaign idempotency failed: {status} {marketing_replay_payload}")
+        status, marketing_update_payload = request(
+            args.port,
+            f"/api/company/marketing/campaigns/{marketing_campaign_id}",
+            token=token,
+            method="PUT",
+            payload={
+                "name": "marketing command smoke updated",
+                "actualCost": "10.00",
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:campaign:update", 200000),
+            },
+            idempotency_key="marketing-campaign-update-" + nonce,
+        )
+        if status != 200 or marketing_update_payload is None or marketing_update_payload.get("campaign", {}).get("revision") != 2:
+            raise SmokeError(f"marketing campaign update failed: {status} {marketing_update_payload}")
+
+        marketing_placement_id = "PLAC-SMOKE-" + nonce
+        status, marketing_placement_payload = request(
+            args.port,
+            "/api/company/marketing/placements",
+            token=token,
+            method="POST",
+            payload={
+                "placementGuid": marketing_placement_id,
+                "placementCode": "PLAC-SMOKE-" + nonce,
+                "campaignGuid": marketing_campaign_id,
+                "channelName": "搜索引擎营销",
+                "amount": "100.00",
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:placement:create", 20000),
+            },
+            idempotency_key="marketing-placement-create-" + nonce,
+        )
+        if status != 201 or marketing_placement_payload is None or marketing_placement_payload.get("placement", {}).get("state") != "placed":
+            raise SmokeError(f"marketing placement create failed: {status} {marketing_placement_payload}")
+        status, marketing_effect_payload = request(
+            args.port,
+            f"/api/company/marketing/placements/{marketing_placement_id}/effect",
+            token=token,
+            method="PUT",
+            payload={
+                "impressions": 100,
+                "clicks": 10,
+                "leads": 2,
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:placement:effect"),
+            },
+            idempotency_key="marketing-placement-effect-" + nonce,
+        )
+        if status != 200 or marketing_effect_payload is None or marketing_effect_payload.get("placement", {}).get("state") != "completed":
+            raise SmokeError(f"marketing placement effect failed: {status} {marketing_effect_payload}")
+
+        marketing_channel_id = "CH-SMOKE-" + nonce
+        status, marketing_channel_payload = request(
+            args.port,
+            "/api/company/marketing/channels",
+            token=token,
+            method="POST",
+            payload={
+                "channelGuid": marketing_channel_id,
+                "channelCode": "CH-SMOKE-" + nonce,
+                "name": "搜索引擎",
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:channel:create"),
+            },
+            idempotency_key="marketing-channel-create-" + nonce,
+        )
+        if status != 201 or marketing_channel_payload is None or marketing_channel_payload.get("channel", {}).get("state") != "active":
+            raise SmokeError(f"marketing channel create failed: {status} {marketing_channel_payload}")
+        status, marketing_channel_delete_payload = request(
+            args.port,
+            f"/api/company/marketing/channels/{marketing_channel_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:channel:delete"),
+            },
+            idempotency_key="marketing-channel-delete-" + nonce,
+        )
+        if status != 200 or marketing_channel_delete_payload is None or marketing_channel_delete_payload.get("channel", {}).get("state") != "deleted":
+            raise SmokeError(f"marketing channel delete failed: {status} {marketing_channel_delete_payload}")
+
+        marketing_material_id = "MAT-SMOKE-" + nonce
+        status, marketing_material_payload = request(
+            args.port,
+            "/api/company/marketing/materials",
+            token=token,
+            method="POST",
+            payload={
+                "materialGuid": marketing_material_id,
+                "materialCode": "MAT-SMOKE-" + nonce,
+                "projGuid": "proj-0001",
+                "name": "展架物料",
+                "unitCost": "2.50",
+                "quantity": 2,
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:material:create", 500),
+            },
+            idempotency_key="marketing-material-create-" + nonce,
+        )
+        if status != 201 or marketing_material_payload is None or marketing_material_payload.get("material", {}).get("state") != "designing":
+            raise SmokeError(f"marketing material create failed: {status} {marketing_material_payload}")
+        status, marketing_material_delete_payload = request(
+            args.port,
+            f"/api/company/marketing/materials/{marketing_material_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:material:delete"),
+            },
+            idempotency_key="marketing-material-delete-" + nonce,
+        )
+        if status != 200 or marketing_material_delete_payload is None or marketing_material_delete_payload.get("material", {}).get("state") != "deleted":
+            raise SmokeError(f"marketing material delete failed: {status} {marketing_material_delete_payload}")
+
+        status, marketing_campaign_delete_payload = request(
+            args.port,
+            f"/api/company/marketing/campaigns/{marketing_campaign_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "principal_id": marketing_principal,
+                "scope": marketing_scope,
+                "authority": marketing_authority("marketing:campaign:delete"),
+            },
+            idempotency_key="marketing-campaign-delete-" + nonce,
+        )
+        if status != 200 or marketing_campaign_delete_payload is None or marketing_campaign_delete_payload.get("campaign", {}).get("state") != "deleted":
+            raise SmokeError(f"marketing campaign delete failed: {status} {marketing_campaign_delete_payload}")
+        status, marketing_readback_payload = request(
+            args.port,
+            f"/api/company/marketing/placements?campaignGuid={marketing_campaign_id}",
+            token=token,
+        )
+        marketing_readback_rows = (marketing_readback_payload or {}).get("data", [])
+        if (
+            status != 200
+            or marketing_readback_payload is None
+            or not isinstance(marketing_readback_rows, list)
+            or not any(
+                isinstance(row, dict)
+                and row.get("placementGuid") == marketing_placement_id
+                and row.get("sourceKind") == "command"
+                and row.get("state") == "completed"
+                for row in marketing_readback_rows
+            )
+        ):
+            raise SmokeError(f"marketing source-shaped command readback failed: {status} {marketing_readback_payload}")
+        marketing_command_states = {
+            "campaign": marketing_campaign_delete_payload.get("campaign", {}).get("state"),
+            "placement": marketing_effect_payload.get("placement", {}).get("state"),
+            "channel": marketing_channel_delete_payload.get("channel", {}).get("state"),
+            "material": marketing_material_delete_payload.get("material", {}).get("state"),
+        }
         loan_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
         loan_id = "LOAN-SMOKE-" + nonce
         loan_payload = {
@@ -2778,6 +3013,7 @@ def main() -> int:
                     "marketing_placement_rows": len(marketing_payloads["/api/company/marketing/placements"].get("data", [])),
                     "marketing_channel_rows": len(marketing_payloads["/api/company/marketing/channels"].get("data", [])),
                     "marketing_material_rows": len(marketing_payloads["/api/company/marketing/materials?projGuid=proj-0001"].get("data", [])),
+                    "marketing_command_states": marketing_command_states,
                     "ai_intake_rows": ai_kpi.get("intakeTotal"),
                     "ai_query_rows": ai_kpi.get("queryTotal"),
                     "ai_skip_rows": ai_kpi.get("skipTotal"),

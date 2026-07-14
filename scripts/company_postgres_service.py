@@ -52,6 +52,9 @@ The bounded service exposes these endpoints:
   (GET, source/definition dictionary observations)
 * ``/api/company/source/migration/schema-coverage`` (GET, credential-free
   75-table source reconciliation inventory; missing tables remain gated)
+* ``/api/company/marketing/{campaigns,placements,channels,materials}``
+  (GET plus authority-checked local command lifecycles; provider, budget, and
+  accounting effects remain separate)
 * ``/api/company/tender-splits`` (GET/POST)
 * ``/api/company/source/tender/{tenders,awards,splits}`` (GET, source ERP
   procurement observations; empty source tables stay explicit)
@@ -463,6 +466,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "invoice_read",
             "delivery_read",
             "delivery_command",
+            "marketing_read",
+            "marketing_command",
             "report_read",
             "workflow_definition_read",
             "project_read",
@@ -522,6 +527,8 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "invoice_read",
             "delivery_read",
             "delivery_command",
+            "marketing_read",
+            "marketing_command",
             "report_read",
             "workflow_definition_read",
             "project_read",
@@ -12899,13 +12906,602 @@ def attachment_source_download(
 
 def _marketing_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
     }
+
+
+MARKETING_COMMAND_AGGREGATES = {
+    "campaign": ("marketing_campaign", "mkt_campaign"),
+    "placement": ("marketing_placement", "mkt_placement"),
+    "channel": ("marketing_channel", "mkt_channel"),
+    "material": ("marketing_material", "mkt_material"),
+}
+
+
+def _marketing_command_projection_rows(
+    pool: PsqlPool,
+    aggregate_type: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if aggregate_type not in {value[0] for value in MARKETING_COMMAND_AGGREGATES.values()}:
+        raise ValueError("unsupported marketing aggregate type")
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = {sql_literal(aggregate_type)}
+        AND payload->>'source_kind' = 'command'
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max(1, max_rows)}
+    """
+    rows: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected marketing projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid marketing projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("marketing projection payload is not an object")
+        rows.append(
+            {
+                "record_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_id": decode_hex(fields[3]),
+                "source_kind": "command",
+            }
+        )
+    return rows
+
+
+def _marketing_rows(
+    pool: PsqlPool,
+    table: str,
+    aggregate_type: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    return _raw_source_rows(
+        pool, table, max(max_rows, 500), MARKETING_SOURCE_TABLES
+    ) + _marketing_command_projection_rows(pool, aggregate_type, max_rows)
+
+
+def _marketing_value(body: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in body and body[key] is not None:
+            return body[key]
+    return None
+
+
+def _marketing_required_text(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+) -> str:
+    value = _marketing_value(body, *keys)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{keys[0]} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _marketing_optional_text(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+) -> str:
+    value = _marketing_value(body, *keys)
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise CommandRejected(f"{keys[0]} must be text", 422)
+    value = value.strip()
+    if value and identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _marketing_amount(
+    body: dict[str, Any],
+    *keys: str,
+    positive: bool = True,
+) -> tuple[str, int]:
+    value = _marketing_value(body, *keys)
+    if value is None:
+        raise CommandRejected(f"{keys[0]} is required", 422)
+    try:
+        amount = Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as error:
+        raise CommandRejected(f"{keys[0]} must be a decimal amount", 422) from error
+    if not amount.is_finite():
+        raise CommandRejected(f"{keys[0]} must be a finite decimal amount", 422)
+    if amount < 0 or (positive and amount == 0):
+        raise CommandRejected(f"{keys[0]} must be positive", 422)
+    return str(amount), int(amount * 100)
+
+
+def _marketing_nonnegative_int(body: dict[str, Any], *keys: str) -> int:
+    value = _marketing_value(body, *keys)
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        raise CommandRejected(f"{keys[0]} must be a non-negative integer", 422)
+    try:
+        result = int(value)
+    except (TypeError, ValueError) as error:
+        raise CommandRejected(f"{keys[0]} must be a non-negative integer", 422) from error
+    if result < 0:
+        raise CommandRejected(f"{keys[0]} must be a non-negative integer", 422)
+    return result
+
+
+def _marketing_authority(
+    body: dict[str, Any],
+    *,
+    actor_id: str,
+    principal_id: str,
+    scope: str,
+    capability: str,
+    amount_minor: int,
+) -> dict[str, Any]:
+    grant = body.get("authority")
+    if not isinstance(grant, dict):
+        raise CommandRejected("authority grant is required", 403)
+    if grant.get("active") is not True:
+        raise CommandRejected("authority grant is inactive", 403)
+    if grant.get("principal_id") != principal_id:
+        raise CommandRejected("authority grant principal does not match marketing resource", 403)
+    if grant.get("actor_id") != actor_id:
+        raise CommandRejected("authority grant actor does not match signed actor", 403)
+    if grant.get("capability") != capability:
+        raise CommandRejected(f"authority grant must allow {capability}", 403)
+    if grant.get("scope") != scope:
+        raise CommandRejected("authority grant scope does not match marketing resource", 403)
+    try:
+        max_amount = int(grant.get("max_amount_minor"))
+    except (TypeError, ValueError) as error:
+        raise CommandRejected("authority grant max_amount_minor is required", 403) from error
+    if max_amount < amount_minor:
+        raise CommandRejected("authority grant amount is exceeded", 403)
+    return {
+        "active": True,
+        "principal_id": principal_id,
+        "actor_id": actor_id,
+        "capability": capability,
+        "scope": scope,
+        "max_amount_minor": max_amount,
+    }
+
+
+def _marketing_request(
+    resource: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> tuple[str, dict[str, Any]]:
+    if resource not in MARKETING_COMMAND_AGGREGATES:
+        raise CommandRejected("unsupported marketing resource", 404)
+    allowed = {
+        "campaign": {"create", "update", "delete"},
+        "placement": {"create", "effect"},
+        "channel": {"create", "delete"},
+        "material": {"create", "delete"},
+    }
+    if command_type not in allowed[resource]:
+        raise CommandRejected("unsupported marketing command", 404)
+    generated_suffix = idempotency_key[:110]
+
+    def generated(prefix: str) -> str:
+        return (prefix + "-" + generated_suffix)[:128]
+
+    if command_type == "create":
+        id_keys = {
+            "campaign": ("campaignGuid", "campaign_guid"),
+            "placement": ("placementGuid", "placement_guid"),
+            "channel": ("channelGuid", "channel_guid"),
+            "material": ("materialGuid", "material_guid"),
+        }
+        current_id = _marketing_optional_text(body, *id_keys[resource], identifier=True)
+        if not current_id:
+            current_id = generated(resource[:4].upper())
+        principal_id = _marketing_required_text(body, "principal_id", identifier=True)
+        scope = _marketing_required_text(body, "scope", identifier=True)
+        if resource == "campaign":
+            proj_guid = _marketing_required_text(body, "projGuid", "proj_guid", identifier=True)
+            name = _marketing_required_text(body, "name")
+            budget, budget_minor = _marketing_amount(body, "budget", positive=False)
+            authority = _marketing_authority(
+                body,
+                actor_id=actor_id,
+                principal_id=principal_id,
+                scope=scope,
+                capability="marketing:campaign:create",
+                amount_minor=budget_minor,
+            )
+            request = {
+                "campaignGuid": current_id,
+                "campaignCode": _marketing_optional_text(body, "campaignCode", "campaign_code")
+                or generated("CAMP"),
+                "projGuid": proj_guid,
+                "buGuid": _marketing_optional_text(body, "buGuid", "bu_guid", identifier=True),
+                "name": name,
+                "campaignType": _marketing_optional_text(body, "campaignType", "campaign_type")
+                or "推广活动",
+                "budget": budget,
+                "actualCost": "0.00",
+                "startDate": _marketing_optional_text(body, "startDate", "start_date") or str(date.today()),
+                "endDate": _marketing_optional_text(body, "endDate", "end_date"),
+                "goal": _marketing_optional_text(body, "goal"),
+                "remark": _marketing_optional_text(body, "remark"),
+                "l3Code": _marketing_optional_text(body, "l3Code", "l3_code", identifier=True)
+                or "R19.02.03",
+                "principal_id": principal_id,
+                "scope": scope,
+                "actor_id": actor_id,
+                "state": "planning",
+                "authority": authority,
+                "command_type": command_type,
+            }
+        elif resource == "placement":
+            amount, amount_minor = _marketing_amount(body, "amount", positive=False)
+            authority = _marketing_authority(
+                body,
+                actor_id=actor_id,
+                principal_id=principal_id,
+                scope=scope,
+                capability="marketing:placement:create",
+                amount_minor=amount_minor,
+            )
+            request = {
+                "placementGuid": current_id,
+                "placementCode": _marketing_optional_text(body, "placementCode", "placement_code")
+                or generated("PLAC"),
+                "campaignGuid": _marketing_optional_text(body, "campaignGuid", "campaign_guid", identifier=True),
+                "channelGuid": _marketing_optional_text(body, "channelGuid", "channel_guid", identifier=True),
+                "channelName": _marketing_required_text(body, "channelName", "channel_name"),
+                "amount": amount,
+                "placeDate": _marketing_optional_text(body, "placeDate", "place_date") or str(date.today()),
+                "durationDays": _marketing_nonnegative_int(body, "durationDays", "duration_days") or 30,
+                "impressions": 0,
+                "clicks": 0,
+                "leads": 0,
+                "state": "placed",
+                "remark": _marketing_optional_text(body, "remark"),
+                "l3Code": _marketing_optional_text(body, "l3Code", "l3_code", identifier=True)
+                or "R19.02.02",
+                "principal_id": principal_id,
+                "scope": scope,
+                "actor_id": actor_id,
+                "authority": authority,
+                "command_type": command_type,
+            }
+        else:
+            request = {
+                "principal_id": principal_id,
+                "scope": scope,
+                "actor_id": actor_id,
+                "command_type": command_type,
+            }
+            if resource == "channel":
+                authority = _marketing_authority(
+                    body,
+                    actor_id=actor_id,
+                    principal_id=principal_id,
+                    scope=scope,
+                    capability="marketing:channel:create",
+                    amount_minor=0,
+                )
+                request["authority"] = authority
+                request.update(
+                    {
+                        "channelGuid": current_id,
+                        "channelCode": _marketing_optional_text(body, "channelCode", "channel_code")
+                        or generated("CH"),
+                        "name": _marketing_required_text(body, "name"),
+                        "channelType": _marketing_optional_text(body, "channelType", "channel_type") or "线上",
+                        "contactPerson": _marketing_optional_text(body, "contactPerson", "contact_person"),
+                        "contactPhone": _marketing_optional_text(body, "contactPhone", "contact_phone"),
+                        "state": "active",
+                        "remark": _marketing_optional_text(body, "remark"),
+                    }
+                )
+            else:
+                unit_cost_value = _marketing_value(body, "unitCost", "unit_cost")
+                if unit_cost_value is None:
+                    unit_cost_value = "0"
+                unit_cost, unit_cost_minor = _marketing_amount(
+                    {"unitCost": unit_cost_value}, "unitCost", positive=False
+                )
+                quantity = _marketing_nonnegative_int(body, "quantity")
+                authority = _marketing_authority(
+                    body,
+                    actor_id=actor_id,
+                    principal_id=principal_id,
+                    scope=scope,
+                    capability="marketing:material:create",
+                    amount_minor=unit_cost_minor * quantity,
+                )
+                request = {
+                    "principal_id": principal_id,
+                    "scope": scope,
+                    "actor_id": actor_id,
+                    "authority": authority,
+                    "command_type": command_type,
+                }
+                request.update(
+                    {
+                        "materialGuid": current_id,
+                        "materialCode": _marketing_optional_text(body, "materialCode", "material_code")
+                        or generated("MAT"),
+                        "projGuid": _marketing_optional_text(body, "projGuid", "proj_guid", identifier=True),
+                        "name": _marketing_required_text(body, "name"),
+                        "materialType": _marketing_optional_text(body, "materialType", "material_type") or "现场包装",
+                        "unitCost": unit_cost,
+                        "quantity": quantity,
+                        "totalCost": str((Decimal(unit_cost) * quantity).quantize(Decimal("0.01"))),
+                        "unitCostMinor": unit_cost_minor,
+                        "usagePeriod": _marketing_optional_text(body, "usagePeriod", "usage_period"),
+                        "state": "designing",
+                        "remark": _marketing_optional_text(body, "remark"),
+                        "l3Code": _marketing_optional_text(body, "l3Code", "l3_code", identifier=True)
+                        or "R19.02.07",
+                    }
+                )
+        return current_id, request
+    if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
+        raise CommandRejected("marketing resource id is required", 422)
+    principal_id = _marketing_required_text(body, "principal_id", identifier=True)
+    scope = _marketing_required_text(body, "scope", identifier=True)
+    capability = f"marketing:{resource}:{command_type}"
+    authority = _marketing_authority(
+        body,
+        actor_id=actor_id,
+        principal_id=principal_id,
+        scope=scope,
+        capability=capability,
+        amount_minor=0,
+    )
+    request: dict[str, Any] = {
+        "aggregate_id": aggregate_id,
+        "principal_id": principal_id,
+        "scope": scope,
+        "actor_id": actor_id,
+        "authority": authority,
+        "command_type": command_type,
+    }
+    if command_type == "update":
+        changes: dict[str, Any] = {}
+        for key, aliases in (
+            ("name", ("name",)),
+            ("campaignType", ("campaignType", "campaign_type")),
+            ("startDate", ("startDate", "start_date")),
+            ("endDate", ("endDate", "end_date")),
+            ("goal", ("goal",)),
+            ("remark", ("remark",)),
+            ("state", ("state",)),
+        ):
+            value = _marketing_value(body, *aliases)
+            if value is not None:
+                if not isinstance(value, str):
+                    raise CommandRejected(f"{key} must be text", 422)
+                changes[key] = value.strip()
+        budget = _marketing_value(body, "budget")
+        if budget is not None:
+            normalized, budget_minor = _marketing_amount(
+                {"budget": budget}, "budget", positive=False
+            )
+            changes["budget"] = normalized
+            request["_authority_amount_minor"] = max(
+                int(request.get("_authority_amount_minor", 0)), budget_minor
+            )
+        actual_cost = _marketing_value(body, "actualCost", "actual_cost")
+        if actual_cost is not None:
+            normalized, actual_cost_minor = _marketing_amount(
+                {"actualCost": actual_cost}, "actualCost", positive=False
+            )
+            changes["actualCost"] = normalized
+            request["_authority_amount_minor"] = max(
+                int(request.get("_authority_amount_minor", 0)), actual_cost_minor
+            )
+        if not changes:
+            raise CommandRejected("update requires at least one mutable field", 422)
+        authority = _marketing_authority(
+            body,
+            actor_id=actor_id,
+            principal_id=principal_id,
+            scope=scope,
+            capability="marketing:campaign:update",
+            amount_minor=int(request.pop("_authority_amount_minor", 0)),
+        )
+        request["authority"] = authority
+        request["changes"] = changes
+    elif command_type == "effect":
+        request["changes"] = {
+            "impressions": _marketing_nonnegative_int(body, "impressions"),
+            "clicks": _marketing_nonnegative_int(body, "clicks"),
+            "leads": _marketing_nonnegative_int(body, "leads"),
+            "state": _marketing_optional_text(body, "state") or "completed",
+        }
+        if request["changes"]["state"] not in {"placed", "completed"}:
+            raise CommandRejected("effect state is invalid", 422)
+    else:
+        request["changes"] = {}
+    return aggregate_id, request
+
+
+def _marketing_command(
+    pool: PsqlPool,
+    *,
+    resource: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    aggregate_id, request = _marketing_request(
+        resource, command_type, aggregate_id, body, actor_id, idempotency_key
+    )
+    aggregate_type, source_table = MARKETING_COMMAND_AGGREGATES[resource]
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored marketing command receipt has no result")
+        return {"command": existing, resource: result, "idempotent_replay": True}
+    current = _marketing_command_projection_rows(pool, aggregate_type, 500)
+    current_row = next((row for row in current if row["record_id"] == aggregate_id), None)
+    imported = any(
+        _marketing_text(row["payload"],
+                        "campaign_guid" if resource == "campaign" else
+                        "placement_guid" if resource == "placement" else
+                        "channel_guid" if resource == "channel" else "material_guid",
+                        "campaignGuid" if resource == "campaign" else
+                        "placementGuid" if resource == "placement" else
+                        "channelGuid" if resource == "channel" else "materialGuid",
+                        fallback=row["record_id"]) == aggregate_id
+        for row in _raw_source_rows(pool, source_table, 500, MARKETING_SOURCE_TABLES)
+    )
+    if command_type == "create":
+        if current_row is not None or imported:
+            raise CommandRejected("marketing resource already exists", 409)
+        next_revision = 1
+        next_state = str(request.get("state", "planning"))
+    else:
+        if current_row is None:
+            if imported:
+                raise CommandRejected("imported marketing resource is read-only; create a local resource first", 409)
+            raise CommandRejected("marketing resource not found", 404)
+        current_payload = current_row["payload"]
+        if current_payload.get("principal_id") != request.get("principal_id"):
+            raise CommandRejected("marketing principal does not match resource", 403)
+        if current_payload.get("scope") != request.get("scope"):
+            raise CommandRejected("marketing scope does not match resource", 403)
+        next_revision = int(current_row["revision"]) + 1
+        if command_type == "delete":
+            next_state = "deleted"
+        else:
+            next_state = str(request.get("changes", {}).get("state", current_payload.get("state", "")))
+    event_id = f"marketing:{resource}:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "marketing",
+            "resource": resource,
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    projection_request = dict(request)
+    projection_request.pop("authority", None)
+    request_json = json.dumps(projection_request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+        AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(command_type == 'create').lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'marketing resource already exists'; END IF;
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'source_kind', 'command', 'state', {sql_literal(next_state)},
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'marketing resource not found'; END IF;
+        next_payload := current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb)
+          || jsonb_build_object('source_kind', 'command', 'state', {sql_literal(next_state)},
+             'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ({sql_literal(aggregate_type)}, {sql_literal(aggregate_id)}, {next_revision},
+        next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action',
+          'marketing.' || {sql_literal(resource)} || '.' || {sql_literal(command_type)},
+          'aggregate_type', {sql_literal(aggregate_type)}, 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', {sql_literal(next_state)}, 'revision', {next_revision}),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('aggregate_id', {sql_literal(aggregate_id)},
+        'state', {sql_literal(next_state)}, 'revision', {next_revision},
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("marketing command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected marketing command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid marketing command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("marketing command receipt has no result")
+    return {"command": receipt, resource: result, "idempotent_replay": not created}
 
 
 def _marketing_source_coverage(pool: PsqlPool, max_rows: int) -> dict[str, int]:
@@ -12948,13 +13544,15 @@ def marketing_source_campaigns(
         raise ValueError("invalid state")
     coverage = _marketing_source_coverage(pool, max_rows)
     result: list[dict[str, Any]] = []
-    for source in _raw_source_rows(pool, "mkt_campaign", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+    for source in _marketing_rows(pool, "mkt_campaign", "marketing_campaign", max_rows):
         payload = source["payload"]
         current_proj = _marketing_text(payload, "proj_guid", "projGuid")
         current_state = _marketing_text(payload, "state")
         if proj_guid and current_proj != proj_guid:
             continue
         if state and current_state != state:
+            continue
+        if current_state == "deleted":
             continue
         result.append(
             {
@@ -12972,7 +13570,7 @@ def marketing_source_campaigns(
                 "goal": _marketing_text(payload, "goal"),
                 "remark": _marketing_text(payload, "remark"),
                 "l3Code": _marketing_text(payload, "l3_code", "l3Code"),
-                "sourceKind": "imported",
+                "sourceKind": "command" if source.get("source_kind") == "command" else "imported",
             }
         )
     result.sort(key=lambda item: (str(item["startDate"]), str(item["campaignCode"])), reverse=True)
@@ -12989,13 +13587,16 @@ def marketing_source_placements(
     coverage = _marketing_source_coverage(pool, max_rows)
     campaigns = {
         _marketing_text(row["payload"], "campaign_guid", "campaignGuid", fallback=row["record_id"]): row["payload"]
-        for row in _raw_source_rows(pool, "mkt_campaign", max(max_rows, 500), MARKETING_SOURCE_TABLES)
+        for row in _marketing_rows(pool, "mkt_campaign", "marketing_campaign", max_rows)
+        if _marketing_text(row["payload"], "state") != "deleted"
     }
     result: list[dict[str, Any]] = []
-    for source in _raw_source_rows(pool, "mkt_placement", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+    for source in _marketing_rows(pool, "mkt_placement", "marketing_placement", max_rows):
         payload = source["payload"]
         current_campaign = _marketing_text(payload, "campaign_guid", "campaignGuid")
         if campaign_guid and current_campaign != campaign_guid:
+            continue
+        if _marketing_text(payload, "state") == "deleted":
             continue
         campaign = campaigns.get(current_campaign, {})
         result.append(
@@ -13014,7 +13615,7 @@ def marketing_source_placements(
                 "clicks": _marketing_number(payload, "clicks"),
                 "leads": _marketing_number(payload, "leads"),
                 "l3Code": _marketing_text(payload, "l3_code", "l3Code"),
-                "sourceKind": "imported",
+                "sourceKind": "command" if source.get("source_kind") == "command" else "imported",
             }
         )
     result.sort(key=lambda item: (str(item["placeDate"]), str(item["placementCode"])), reverse=True)
@@ -13023,7 +13624,7 @@ def marketing_source_placements(
 
 def marketing_source_channels(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     coverage = _marketing_source_coverage(pool, max_rows)
-    placements = _raw_source_rows(pool, "mkt_placement", max(max_rows, 500), MARKETING_SOURCE_TABLES)
+    placements = _marketing_rows(pool, "mkt_placement", "marketing_placement", max_rows)
     counts: dict[str, tuple[int, int | float]] = {}
     for row in placements:
         payload = row["payload"]
@@ -13033,9 +13634,11 @@ def marketing_source_channels(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
         count, total = counts.get(channel_guid, (0, 0))
         counts[channel_guid] = (count + 1, total + _marketing_number(payload, "amount"))
     result: list[dict[str, Any]] = []
-    for source in _raw_source_rows(pool, "mkt_channel", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+    for source in _marketing_rows(pool, "mkt_channel", "marketing_channel", max_rows):
         payload = source["payload"]
         guid = _marketing_text(payload, "channel_guid", "channelGuid", fallback=source["record_id"])
+        if _marketing_text(payload, "state") == "deleted":
+            continue
         count, total = counts.get(guid, (0, _marketing_number(payload, "total_cost", "totalCost")))
         result.append(
             {
@@ -13048,7 +13651,7 @@ def marketing_source_channels(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
                 "state": _marketing_text(payload, "state"),
                 "totalCost": total,
                 "placementCount": count,
-                "sourceKind": "imported",
+                "sourceKind": "command" if source.get("source_kind") == "command" else "imported",
             }
         )
     result.sort(key=lambda item: (float(item["totalCost"]), str(item["channelCode"])), reverse=True)
@@ -13064,10 +13667,12 @@ def marketing_source_materials(
         raise ValueError("invalid proj_guid")
     coverage = _marketing_source_coverage(pool, max_rows)
     result: list[dict[str, Any]] = []
-    for source in _raw_source_rows(pool, "mkt_material", max(max_rows, 500), MARKETING_SOURCE_TABLES):
+    for source in _marketing_rows(pool, "mkt_material", "marketing_material", max_rows):
         payload = source["payload"]
         current_proj = _marketing_text(payload, "proj_guid", "projGuid")
         if proj_guid and current_proj != proj_guid:
+            continue
+        if _marketing_text(payload, "state") == "deleted":
             continue
         result.append(
             {
@@ -13083,7 +13688,7 @@ def marketing_source_materials(
                 "state": _marketing_text(payload, "state"),
                 "remark": _marketing_text(payload, "remark"),
                 "l3Code": _marketing_text(payload, "l3_code", "l3Code"),
-                "sourceKind": "imported",
+                "sourceKind": "command" if source.get("source_kind") == "command" else "imported",
             }
         )
     result.sort(key=lambda item: (str(item["materialCode"]), str(item["materialGuid"])), reverse=True)
@@ -17300,6 +17905,26 @@ def handler_factory(
                     command_type = "create"
                     aggregate_id = None
                     body["_delivery_family"] = "output"
+                elif parsed.path == "/api/company/marketing/campaigns":
+                    command_family = "marketing"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_marketing_resource"] = "campaign"
+                elif parsed.path == "/api/company/marketing/placements":
+                    command_family = "marketing"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_marketing_resource"] = "placement"
+                elif parsed.path == "/api/company/marketing/channels":
+                    command_family = "marketing"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_marketing_resource"] = "channel"
+                elif parsed.path == "/api/company/marketing/materials":
+                    command_family = "marketing"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_marketing_resource"] = "material"
                 else:
                     expense_match = re.fullmatch(
                         r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
@@ -17383,11 +18008,21 @@ def handler_factory(
                         command_type = "report"
                         body["_delivery_family"] = "task_report"
                     else:
-                        if parsed.path.startswith("/api/"):
-                            response(self, 404, {"error": "unknown company command"}, origin)
+                        marketing_effect_match = re.fullmatch(
+                            r"/api/company/marketing/placements/([A-Za-z0-9_.:-]{1,128})/effect",
+                            parsed.path,
+                        )
+                        if marketing_effect_match is not None:
+                            command_family = "marketing"
+                            aggregate_id = marketing_effect_match.group(1)
+                            command_type = "effect"
+                            body["_marketing_resource"] = "placement"
                         else:
-                            response(self, 404, {"error": "not found"}, origin)
-                        return
+                            if parsed.path.startswith("/api/"):
+                                response(self, 404, {"error": "unknown company command"}, origin)
+                            else:
+                                response(self, 404, {"error": "not found"}, origin)
+                            return
                 actor = self._request_actor_id()
                 if command_family == "contract":
                     result = contract_command(
@@ -17458,6 +18093,17 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "marketing":
+                    resource = str(body.pop("_marketing_resource", ""))
+                    result = _marketing_command(
+                        pool,
+                        resource=resource,
+                        command_type=command_type,
+                        aggregate_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 elif command_family == "loan":
                     result = loan_command(
                         pool,
@@ -17490,11 +18136,73 @@ def handler_factory(
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
 
+        def _marketing_method_alias(self, method: str) -> bool:
+            parsed = urlparse(self.path)
+            resource: str | None = None
+            command_type: str | None = None
+            aggregate_id: str | None = None
+            if method == "PUT":
+                campaign_match = re.fullmatch(
+                    r"/api/company/marketing/campaigns/([A-Za-z0-9_.:-]{1,128})",
+                    parsed.path,
+                )
+                effect_match = re.fullmatch(
+                    r"/api/company/marketing/placements/([A-Za-z0-9_.:-]{1,128})/effect",
+                    parsed.path,
+                )
+                if campaign_match is not None:
+                    resource, command_type, aggregate_id = "campaign", "update", campaign_match.group(1)
+                elif effect_match is not None:
+                    resource, command_type, aggregate_id = "placement", "effect", effect_match.group(1)
+            elif method == "DELETE":
+                delete_match = re.fullmatch(
+                    r"/api/company/marketing/(campaigns|channels|materials)/([A-Za-z0-9_.:-]{1,128})",
+                    parsed.path,
+                )
+                if delete_match is not None:
+                    resource = {
+                        "campaigns": "campaign",
+                        "channels": "channel",
+                        "materials": "material",
+                    }[delete_match.group(1)]
+                    command_type = "delete"
+                    aggregate_id = delete_match.group(2)
+            if resource is None or command_type is None or aggregate_id is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = _marketing_command(
+                    pool,
+                    resource=resource,
+                    command_type=command_type,
+                    aggregate_id=aggregate_id,
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
-            self._loan_method_alias("PUT")
+            if not self._marketing_method_alias("PUT"):
+                self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
-            self._loan_method_alias("DELETE")
+            if not self._marketing_method_alias("DELETE"):
+                self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

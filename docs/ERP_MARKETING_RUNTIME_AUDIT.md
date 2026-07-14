@@ -4,8 +4,9 @@
 
 The ERP marketing router (`../erp/erp_new/server/src/routes/marketing.js`)
 owns campaign, placement, channel, and material reads plus mutations. This
-slice migrates the four read families only; campaign/placement spend, CBS
-consumption, attribution, and provider actions remain company-domain gates.
+slice migrates the four read families and a bounded local command seam;
+campaign/placement spend, CBS consumption, attribution, and provider actions
+remain company-domain gates.
 
 ## PostgreSQL boundary
 
@@ -18,8 +19,14 @@ The authenticated service and read-model adapter expose:
 
 Responses preserve source-shaped marketing metadata and carry
 `source_coverage`, `missing_or_empty_source_tables`, and
-`authorizing=false`. No target campaign cohort or local command projection is
-used to fill a successful source read.
+`authorizing=false`. Imported rows are never mutated. Authority-checked local
+commands persist PostgreSQL aggregate projections, idempotency receipts, and
+audit events, then appear in the same reads with `sourceKind=command`:
+
+- `POST /api/company/marketing/{campaigns,placements,channels,materials}`
+- `PUT /api/company/marketing/campaigns/:guid`
+- `PUT /api/company/marketing/placements/:guid/effect`
+- `DELETE /api/company/marketing/{campaigns,channels,materials}/:guid`
 
 ## Current evidence
 
@@ -32,6 +39,8 @@ separate target rehearsal and is not promoted as imported ERP production data.
 
 ## Open gates
 
-Campaign/placement/channel/material create, update, delete, effect tracking,
-budget/CBS reservation, spend accounting, cash, attribution, production
-identity, and owner acceptance remain unimplemented gates.
+Campaign/placement/channel/material local create/update/delete/effect commands
+are now covered by service and trusted-gateway smoke tests, but browser
+production identity and named-owner acceptance remain open. Budget/CBS
+reservation, spend accounting, cash, attribution, provider execution, and
+source-export reconciliation remain unimplemented external-effect gates.

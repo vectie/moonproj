@@ -8324,7 +8324,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
           marketing_missing_table_count: missing,
           marketing_note: if loaded {
-            "已加载 PostgreSQL 营销源读模型 · 活动/投放/渠道/物料保持只读 · 空源表 " +
+            "已加载 PostgreSQL 营销读模型 · 导入行只读 · 本地命令需授权 · 空源表 " +
             missing
           } else {
             "营销 " + family + " 响应无效 · 使用设计快照"

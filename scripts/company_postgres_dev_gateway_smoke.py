@@ -4,8 +4,8 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, service forwarding, and stale-assertion rejection. No secret value is
-printed and no mutation endpoint is called.
+binding, service forwarding, a bounded marketing command, and stale-assertion
+rejection. No secret value is printed.
 """
 
 from __future__ import annotations
@@ -44,10 +44,17 @@ def request(
     path: str,
     *,
     headers: dict[str, str] | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> tuple[int, dict[str, str], Any]:
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=20)
+    request_headers = dict(headers or {})
+    body = None
+    if payload is not None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request_headers["Content-Type"] = "application/json"
+        request_headers["Content-Length"] = str(len(body))
     try:
-        connection.request(method, path, headers=headers or {})
+        connection.request(method, path, body=body, headers=request_headers)
         result = connection.getresponse()
         body = result.read().decode("utf-8")
         response_headers = {key.lower(): value for key, value in result.getheaders()}
@@ -164,6 +171,65 @@ def main() -> int:
         )
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
+        smoke_suffix = str(int(time.time()))
+        marketing_id = "MKT-GW-SMOKE-" + smoke_suffix
+        marketing_key = "marketing-gateway-create-" + smoke_suffix
+        marketing_body = {
+            "campaignGuid": marketing_id,
+            "campaignCode": "CAMP-GW-SMOKE-" + smoke_suffix,
+            "projGuid": "proj-0001",
+            "name": "gateway marketing command smoke",
+            "budget": "10.00",
+            "principal_id": "co-gateway-smoke",
+            "scope": "project:proj-0001",
+            "authority": {
+                "active": True,
+                "principal_id": "co-gateway-smoke",
+                "actor_id": user_code,
+                "capability": "marketing:campaign:create",
+                "scope": "project:proj-0001",
+                "max_amount_minor": 2000,
+            },
+            "idempotency_key": marketing_key,
+        }
+        status, _headers, marketing_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/marketing/campaigns",
+            headers={"Cookie": cookie},
+            payload=marketing_body,
+        )
+        if (
+            status != 201
+            or not isinstance(marketing_payload, dict)
+            or marketing_payload.get("campaign", {}).get("state") != "planning"
+        ):
+            raise SmokeError(f"trusted marketing command forwarding failed: {status}")
+        status, _headers, marketing_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/marketing/campaigns/{marketing_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "principal_id": "co-gateway-smoke",
+                "scope": "project:proj-0001",
+                "authority": {
+                    "active": True,
+                    "principal_id": "co-gateway-smoke",
+                    "actor_id": user_code,
+                    "capability": "marketing:campaign:delete",
+                    "scope": "project:proj-0001",
+                    "max_amount_minor": 0,
+                },
+                "idempotency_key": "marketing-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(marketing_delete_payload, dict)
+            or marketing_delete_payload.get("campaign", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted marketing command delete failed: {status}")
         stale_headers = identity_headers(user_code, identity_secret, int(time.time()) - 61)
         status, _headers, payload = request(
             args.gateway_port,

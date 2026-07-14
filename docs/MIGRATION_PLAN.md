@@ -319,6 +319,17 @@ fabricating empty rows or treating the rehearsal snapshot as complete. The
 Rabbita System Health page now renders the same scope evidence, so operators
 can see the migration boundary without leaving the company product.
 
+The marketing action register is now split by ownership rather than flattened
+into a generic read-only status. All thirteen source marketing handlers have a
+target boundary: the four GET families preserve imported coverage, while the
+four POST families plus campaign update/delete, placement effect, channel
+delete, and material delete persist local command projections through the
+PostgreSQL service and trusted gateway. Service and gateway smoke evidence
+covers campaign create/replay/update/delete, placement create/effect, channel
+create/delete, and material create/delete. This closes only the local command
+boundary; it does not claim provider calls, budget reservation, CBS spend,
+accounting/tax posting, attribution, or production identity.
+
 The latest bounded target reads are now part of the execution baseline, but
 not accepted production behavior: `/profile` reads the imported user and
 initiated documents; `/expenses` and `/expenses/:guid` read the source
@@ -400,13 +411,16 @@ download now has a source-compatible missing-record boundary, while real
 binary serving, deletion, OCR re-extraction, production identity, and owner
 acceptance remain separate gates.
 
-The marketing screen is now a bounded source read family. `/marketing` loads
-`/api/company/marketing/{campaigns,placements,channels,materials}` with
-project/state filters and explicit source-table coverage. The current export
-has no marketing rows, so successful reads show an empty source state while
-the reviewed marketing cohort remains separate from imported ERP data. Create,
-update, delete, effect tracking, CBS/spend consumption, accounting,
-attribution, production identity, and owner acceptance remain gates.
+The marketing screen is now a bounded source/read-command family. `/marketing`
+loads `/api/company/marketing/{campaigns,placements,channels,materials}` with
+project/state filters and explicit source-table coverage. Imported source rows
+remain read-only; local campaign, placement, channel, and material commands are
+authority-bound, idempotent, PostgreSQL-owned projections with audit receipts,
+and their source-shaped readback is marked `sourceKind=command`. The current
+export has no marketing rows, so source coverage remains empty while local
+commands stay visibly separate from imported ERP data. Provider execution,
+CBS/spend consumption, accounting/tax, attribution, production identity, and
+owner acceptance remain gates.
 
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
@@ -801,7 +815,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Implement commands only per capability, with authority, idempotency, audit, accounting/tax/cash boundaries, and replay evidence | Named business owner acceptance; bounded reads alone do not unlock writes |
+| P5 | Mutations and external effects | Marketing local command cohort now has authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence; continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the
