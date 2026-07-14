@@ -543,6 +543,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/projects/:projGuid/profit-summary",
             "/projects/:projGuid/sensitivity",
             "/meta/dimensions",
+            "/excel-imports/:importGuid/bridge-plan",
+            "/excel-imports/:importGuid",
+            "/excel-imports/:importGuid/index-upsert-preview",
+            "/excel-imports/:importGuid/profit-table",
+            "/excel-imports/:importGuid/plan-line-preview",
+            "/projects/:projGuid/plan-lines",
+            "/projects/:projGuid/subject-mappings",
+            "/projects/:projGuid/profit-cockpit",
         }
     ):
         return "connected_investment_read", "accept_browser_investment_scenario_and_production_identity"
@@ -558,7 +566,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/audit/actions",
             "/health/tables",
             "/health/bpm-pool",
+            "/health/full",
         }
+    ):
+        return "connected_admin_read", "accept_browser_admin_scenario_and_super_user_owner"
+    if (
+        handler["module"] == "admin"
+        and handler["method"] == "GET"
+        and handler["path"] in {"/llm/status", "/ai/diag"}
     ):
         return "connected_admin_read", "accept_browser_admin_scenario_and_super_user_owner"
     if (
@@ -589,6 +604,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/group/top-anomalies",
             "/project/:projGuid/kpi",
             "/project/:projGuid/anomalies",
+            "/v2/group",
         }
     ):
         return "connected_dashboard_read", "accept_browser_dashboard_scenario_and_production_identity"

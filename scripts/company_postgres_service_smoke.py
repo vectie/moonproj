@@ -957,7 +957,7 @@ def main() -> int:
         )
         if (
             status != 200
-           or dashboard_project_anomalies is None
+            or dashboard_project_anomalies is None
            or not isinstance(dashboard_project_anomalies.get("data"), list)
             or len(dashboard_project_anomalies.get("data", [])) != 1
             or dashboard_project_anomalies.get("data", [])[0].get("severity") != "warning"
@@ -967,9 +967,27 @@ def main() -> int:
             raise SmokeError(
                 f"dashboard project anomaly read failed: {status} {dashboard_project_anomalies}"
             )
+        status, dashboard_v2_payload = request(
+            args.port,
+            "/api/company/dashboard/v2/group?projGuid=proj-0001",
+            token=token,
+        )
+        dashboard_v2_data = (dashboard_v2_payload or {}).get("data", {})
+        if (
+            status != 200
+            or dashboard_v2_payload is None
+            or dashboard_v2_data.get("scope", {}).get("projGuid") != "proj-0001"
+            or dashboard_v2_data.get("kpi", {}).get("projectCount") != 1
+            or dashboard_v2_data.get("kpi", {}).get("contractInProgressAmount") != 25050000.0
+            or not isinstance(dashboard_v2_data.get("paymentTrend"), list)
+            or dashboard_v2_payload.get("source_coverage", {}).get("ep_project") != 2
+            or dashboard_v2_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"dashboard v2 read failed: {status} {dashboard_v2_payload}")
         dashboard_overview_rows = dashboard_overview.get("data", {})
         dashboard_funnel_rows = dashboard_funnel.get("data", [])
         dashboard_anomaly_rows = dashboard_anomalies.get("data", [])
+        dashboard_v2_rows = dashboard_v2_data
         status, payload = request(args.port, "/api/company/workflow/process-defs", token=token)
         if (
             status != 200
@@ -1083,6 +1101,56 @@ def main() -> int:
             or investment_imports_payload.get("persisted") is not False
         ):
             raise SmokeError(f"investment import history read failed: {status} {investment_imports_payload}")
+        investment_import_detail_statuses = {}
+        for investment_import_path in (
+            "/api/company/investment/excel-imports/no-import",
+            "/api/company/investment/excel-imports/no-import/bridge-plan",
+            "/api/company/investment/excel-imports/no-import/index-upsert-preview",
+            "/api/company/investment/excel-imports/no-import/profit-table",
+            "/api/company/investment/excel-imports/no-import/plan-line-preview",
+        ):
+            status, investment_import_detail_payload = request(
+                args.port, investment_import_path, token=token,
+            )
+            if status != 404 or investment_import_detail_payload is None:
+                raise SmokeError(
+                    f"investment import detail boundary failed: {investment_import_path}: "
+                    f"{status} {investment_import_detail_payload}"
+                )
+            investment_import_detail_statuses[investment_import_path] = status
+        status, investment_plan_lines_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/plan-lines",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_plan_lines_payload is None
+            or investment_plan_lines_payload.get("data", {}).get("lines") != []
+            or investment_plan_lines_payload.get("source_coverage", {}).get("tzsy_plan_line") != 0
+            or investment_plan_lines_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"investment plan-line read failed: {status} {investment_plan_lines_payload}")
+        status, investment_mappings_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/subject-mappings",
+            token=token,
+        )
+        if (
+            status != 200
+            or investment_mappings_payload is None
+            or investment_mappings_payload.get("data", {}).get("groups") != {}
+            or investment_mappings_payload.get("source_coverage", {}).get("tzsy_subject_mapping") != 0
+            or investment_mappings_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"investment subject mapping read failed: {status} {investment_mappings_payload}")
+        status, investment_cockpit_payload = request(
+            args.port,
+            "/api/company/investment/projects/proj-0001/profit-cockpit",
+            token=token,
+        )
+        if status != 404 or investment_cockpit_payload is None or investment_cockpit_payload.get("code") != 41002:
+            raise SmokeError(f"investment cockpit boundary failed: {status} {investment_cockpit_payload}")
         status, investment_indices_payload = request(
             args.port,
             "/api/company/investment/versions/tzsy-ver-tjhjy-v1/indices",
@@ -1169,6 +1237,48 @@ def main() -> int:
             or admin_groups_payload.get("data", [])[0].get("enabled") != 5
         ):
             raise SmokeError(f"admin dictionary groups read failed: {status} {admin_groups_payload}")
+        status, admin_health_full_payload = request(
+            args.port,
+            "/api/company/admin/health/full",
+            token=token,
+        )
+        admin_health_full_data = (admin_health_full_payload or {}).get("data", {})
+        if (
+            status != 200
+            or admin_health_full_payload is None
+            or admin_health_full_data.get("runtimeMetricsAvailable") is not False
+            or len(admin_health_full_data.get("tables", [])) != 29
+            or admin_health_full_data.get("db", {}).get("name") != args.database
+            or admin_health_full_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"admin full health read failed: {status} {admin_health_full_payload}")
+        status, admin_llm_payload = request(
+            args.port,
+            "/api/company/admin/llm/status",
+            token=token,
+        )
+        if (
+            status != 200
+            or admin_llm_payload is None
+            or admin_llm_payload.get("data", {}).get("provider") != "mock"
+            or admin_llm_payload.get("data", {}).get("providers") != []
+            or admin_llm_payload.get("provider_execution") is not False
+            or admin_llm_payload.get("secret_values_redacted") is not True
+        ):
+            raise SmokeError(f"admin LLM status read failed: {status} {admin_llm_payload}")
+        status, admin_ai_diag_payload = request(
+            args.port,
+            "/api/company/admin/ai/diag",
+            token=token,
+        )
+        if (
+            status != 200
+            or admin_ai_diag_payload is None
+            or admin_ai_diag_payload.get("data", {}).get("pingResult") is not None
+            or admin_ai_diag_payload.get("provider_execution") is not False
+            or admin_ai_diag_payload.get("secret_values_redacted") is not True
+        ):
+            raise SmokeError(f"admin AI diagnostic read failed: {status} {admin_ai_diag_payload}")
         status, admin_quality_payload = request(
             args.port,
             "/api/company/admin/quality/overview",
@@ -2451,6 +2561,8 @@ def main() -> int:
                     "report_template_rows": report_template_rows,
                     "report_missing_source_tables": report_missing_tables,
                     "dashboard_project_count": dashboard_overview_rows.get("projectCount"),
+                    "dashboard_v2_project_count": dashboard_v2_rows.get("kpi", {}).get("projectCount"),
+                    "dashboard_v2_contract_in_progress": dashboard_v2_rows.get("kpi", {}).get("contractInProgressAmount"),
                     "dashboard_funnel_rows": len(dashboard_funnel_rows),
                     "dashboard_anomaly_rows": len(dashboard_anomaly_rows),
                     "dashboard_missing_source_tables": dashboard_overview.get("missing_source_tables", []),
@@ -2463,6 +2575,9 @@ def main() -> int:
                     "proceeding_rows": 3,
                     "investment_version_rows": 1,
                     "investment_import_rows": len(investment_imports_payload.get("data", [])),
+                    "investment_import_detail_boundary_rows": len(investment_import_detail_statuses),
+                    "investment_plan_line_rows": len(investment_plan_lines_payload.get("data", {}).get("lines", [])),
+                    "investment_subject_mapping_groups": len(investment_mappings_payload.get("data", {}).get("groups", {})),
                     "investment_index_rows": 26,
                     "investment_dimension_rows": 5,
                     "investment_profit_revenue": 18500.0,
@@ -2560,6 +2675,9 @@ def main() -> int:
                     "admin_audit_action_rows": 1,
                     "admin_health_table_rows": 29,
                     "admin_bpm_instance_rows": 0,
+                    "admin_full_health_tables": len(admin_health_full_data.get("tables", [])),
+                    "admin_llm_provider": admin_llm_payload.get("data", {}).get("provider"),
+                    "admin_ai_diag_provider": admin_ai_diag_payload.get("data", {}).get("provider"),
                     "workflow_instance_rows": 0,
                     "workflow_action_rows": 0,
                     "project_count": 2,

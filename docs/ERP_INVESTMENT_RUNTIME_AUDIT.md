@@ -20,6 +20,10 @@ The target now exposes source-compatible read boundaries:
 | Profit summary | `/api/company/investment/projects/:id/profit-summary` | source-compatible read |
 | Dimension metadata | `/api/company/investment/meta/dimensions` | source-compatible read |
 | Sensitivity scenarios | `/api/company/investment/projects/:id/sensitivity` | deterministic, analytics-only read |
+| Excel import detail/bridge/preview | `/api/company/investment/excel-imports/:id/...` | source-preserving boundary |
+| Profit table and plan-line reads | `/api/company/investment/excel-imports/:id/{profit-table,plan-line-preview}` and `/projects/:id/plan-lines` | source-preserving boundary |
+| Subject mappings | `/api/company/investment/projects/:id/subject-mappings` | empty-safe source read |
+| Profit cockpit | `/api/company/investment/projects/:id/profit-cockpit` | source-style missing-data boundary |
 
 Rows preserve source field names and are marked `sourceKind=imported`. No Excel
 import, version creation/activation, index update, valuation, cash movement,
@@ -36,8 +40,9 @@ original project comparison table as an offline fallback.
 - PostgreSQL service smoke returns one current version, 26 grouped indices,
   five dimension groups, and the source profit summary (`revenue=18500`,
   `netProfit=2890`, `irr=14.8`).
-- The parity matrix marks the five source investment GET handlers as
-  `connected_investment_read`.
+- The parity matrix marks 13 source investment GET handlers as
+  `connected_investment_read`; the Excel boundary smoke covers absent import
+  records, empty plan-line/mapping reads, and the covered cockpit 41002.
 - The sensitivity read reports one current-version and 26 index rows with no
   provider execution, persistence, or authority effect.
 - The parity matrix marks `/investment` as `connected_investment_read`; the
@@ -51,14 +56,14 @@ original project comparison table as an offline fallback.
 The source Excel/import and profit-cockpit routes were re-audited against the
 current export. `tzsy_excel_import`, `tzsy_excel_sheet`, `tzsy_profit_table`,
 `tzsy_plan_line`, and `tzsy_subject_mapping` are not present in the controlled
-PostgreSQL source cohort. Consequently the import list/detail, bridge plan,
-index-upsert preview, profit-table, plan-line preview/list, subject-mapping,
-and profit-cockpit reads cannot produce source rows yet. The original
-`profit-cockpit` handler returns a covered `41002` when no imported profit table
-exists, which is the correct boundary to preserve rather than filling the
-screen with the designer snapshot.
+PostgreSQL source cohort. The target nevertheless exposes source-preserving
+detail, bridge-plan, index-preview, profit-table, plan-line, mapping, and
+cockpit boundaries: absent import records return source-style 404s, plan-line
+and mapping reads return explicit empty data with coverage, and the cockpit
+returns the covered `41002` when no imported profit table exists. No designer
+workbook rows are substituted.
 
-The original `profit-actual` handler is also deliberately not promoted: it
+The original `profit-actual` handler is still deliberately not promoted: it
 depends on absent sales, expense, split, change, CBS, and plan-version tables
 and simulates values when those tables are sparse. The already connected
 `profit-actual-v2` read remains the explicit empty-CBS observation. These

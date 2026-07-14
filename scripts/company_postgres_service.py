@@ -69,6 +69,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/dashboard/group/{overview,funnel,top-anomalies}`` and
   ``/api/company/dashboard/project/<id>/{kpi,anomalies}`` (GET,
   source-backed bounded cockpit reads)
+* ``/api/company/dashboard/v2/group`` (GET, scoped source-backed cockpit v2
+  observation; v3 cross-domain aggregation remains gated)
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/source/workflow/{tasks/mine,tasks/initiated,tasks/my-history,
@@ -87,11 +89,19 @@ The bounded service exposes these endpoints:
   source-compatible read-only sensitivity observation)
 * ``/api/company/investment/projects/<id>/excel-imports`` (GET,
   source-compatible import-history observation; absent import rows stay empty)
+* ``/api/company/investment/excel-imports/<id>[/bridge-plan|/index-upsert-preview|
+  /profit-table|/plan-line-preview]`` and
+  ``/api/company/investment/projects/<id>/{plan-lines,subject-mappings,
+  profit-cockpit}`` (GET, source-preserving Excel/cockpit boundaries; absent
+  workbook rows stay explicit)
 * ``/api/company/investment/projects/<id>/profit-actual-v2`` (GET,
   source-compatible cost-dashboard v3 read)
 * ``/api/company/admin/{dict,audit}/...`` (GET, source-compatible governance reads)
 * ``/api/company/admin/quality/overview`` and
-  ``/api/company/admin/health/{tables,bpm-pool}`` (GET, source-coverage governance reads)
+  ``/api/company/admin/health/{tables,bpm-pool,full}`` (GET, source-coverage
+  governance reads; runtime metrics remain unavailable)
+* ``/api/company/admin/{llm/status,ai/diag}`` (GET, redacted diagnostic reads;
+  provider execution remains disabled)
 * ``/api/company/admin/ocr/status`` and ``/api/company/admin/error-log`` (GET,
   source-compatible metadata reads; OCR execution and raw error-network fields
   remain gated)
@@ -457,6 +467,9 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "ai_analytics_read",
             "ai_hub_read",
             "cost_dashboard_read",
+            "dashboard_v2_read",
+            "admin_health_full_read",
+            "ai_diagnostic_read",
             "webhook_config_read",
             "report_template_read",
         ],
@@ -505,6 +518,9 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "audit_receipt",
             "ai_hub_read",
             "cost_dashboard_read",
+            "dashboard_v2_read",
+            "admin_health_full_read",
+            "ai_diagnostic_read",
         ],
         "schema_version": expected_schema_version,
     }
@@ -6003,6 +6019,512 @@ def investment_imports(
     }
 
 
+def _investment_excel_metadata(pool: PsqlPool, max_rows: int) -> tuple[dict[str, int], list[str]]:
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES))
+        for table in sorted(INVESTMENT_EXCEL_SOURCE_TABLES)
+    }
+    return coverage, [table for table, count in coverage.items() if count == 0]
+
+
+def _investment_excel_envelope(
+    data: Any,
+    coverage: dict[str, int],
+    missing: list[str],
+) -> dict[str, Any]:
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": missing,
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def _investment_import_source(
+    pool: PsqlPool,
+    import_id: str,
+    max_rows: int,
+) -> tuple[dict[str, Any], dict[str, int], list[str]] | None:
+    if not IDENTIFIER.fullmatch(import_id):
+        raise ValueError("invalid import_guid")
+    coverage, missing = _investment_excel_metadata(pool, max_rows)
+    imports = _raw_source_rows(pool, "tzsy_excel_import", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+    selected = next(
+        (
+            row for row in imports
+            if str(row["payload"].get("import_guid") or row["record_id"]) == import_id
+        ),
+        None,
+    )
+    if selected is None:
+        return None
+    payload = selected["payload"]
+    project_id = str(payload.get("proj_guid") or "")
+    version_id = str(payload.get("version_guid") or "")
+    projects = {
+        str(row["payload"].get("proj_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "ep_project", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+    }
+    versions = {
+        str(row["payload"].get("version_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "tzsy_version", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+    }
+    users = {
+        str(row["payload"].get("user_id") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "sys_user", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+    }
+    version = versions.get(version_id, {})
+    creator = users.get(str(payload.get("created_by") or ""), {})
+    sheets: list[dict[str, Any]] = []
+    for row in _raw_source_rows(pool, "tzsy_excel_sheet", max(max_rows, 2000), INVESTMENT_EXCEL_SOURCE_TABLES):
+        sheet = row["payload"]
+        if str(sheet.get("import_guid") or "") != import_id:
+            continue
+        summary = sheet.get("summary_json") or sheet.get("summary")
+        if isinstance(summary, str):
+            try:
+                summary = json.loads(summary)
+            except json.JSONDecodeError:
+                summary = None
+        sheets.append(
+            {
+                "sheetGuid": str(sheet.get("sheet_guid") or row["record_id"]),
+                "sheetOrder": int(sheet.get("sheet_order") or 0),
+                "sheetName": str(sheet.get("sheet_name") or ""),
+                "dimensionRef": str(sheet.get("dimension_ref") or ""),
+                "rowCount": sheet.get("row_count"),
+                "colCount": sheet.get("col_count"),
+                "nonEmptyCount": sheet.get("non_empty_count"),
+                "formulaCount": sheet.get("formula_count"),
+                "crossSheetFormulaCount": sheet.get("cross_sheet_formula_count"),
+                "mappedModule": str(sheet.get("mapped_module") or "unmapped"),
+                "mappedModuleName": str(sheet.get("mapped_module_name") or ""),
+                "department": str(sheet.get("department") or ""),
+                "summary": summary,
+                "cellsJson": sheet.get("cells_json"),
+            }
+        )
+    sheets.sort(key=lambda value: (int(value.get("sheetOrder") or 0), str(value.get("sheetGuid") or "")))
+    mapping = payload.get("mapping_json") or payload.get("mapping")
+    if isinstance(mapping, str):
+        try:
+            mapping = json.loads(mapping)
+        except json.JSONDecodeError:
+            mapping = None
+    data = {
+        "importGuid": str(payload.get("import_guid") or selected["record_id"]),
+        "projGuid": project_id,
+        "projName": str(projects.get(project_id, {}).get("proj_name") or ""),
+        "versionGuid": version_id,
+        "versionName": str(version.get("version_name") or ""),
+        "fileName": str(payload.get("file_name") or ""),
+        "fileSize": payload.get("file_size"),
+        "sheetCount": payload.get("sheet_count"),
+        "nonEmptyCells": payload.get("non_empty_cells"),
+        "formulaCount": payload.get("formula_count"),
+        "crossSheetFormulaCount": payload.get("cross_sheet_formula_count"),
+        "status": str(payload.get("status") or ""),
+        "mapping": mapping,
+        "createdByName": str(creator.get("emp_name") or creator.get("user_name") or ""),
+        "createdAt": str(payload.get("created_at") or ""),
+        "sheets": sheets,
+    }
+    return data, coverage, missing
+
+
+INVESTMENT_BRIDGE_PLANS: dict[str, dict[str, Any]] = {
+    "project_master": {
+        "erpTargets": ["ep_project"],
+        "erpSources": ["ep_project"],
+        "apiEndpoints": ["GET /mdm/projects"],
+        "status": "parsed",
+        "gap": "Excel 项目主数据尚未回写 ep_project。",
+        "nextAction": "完成抽取层和项目主数据 owner review 后再回写。",
+    },
+    "profit_summary": {
+        "erpTargets": ["tzsy_plan_index"],
+        "erpSources": ["tzsy_plan_index"],
+        "apiEndpoints": ["GET /investment/projects/:projGuid/profit-summary"],
+        "status": "parsed",
+        "gap": "利润指标仍需逐项校准，Excel 值未自动写入。",
+        "nextAction": "先完成 preview，再由 owner 批准批量 upsert。",
+    },
+    "unmapped": {
+        "erpTargets": [],
+        "erpSources": [],
+        "apiEndpoints": [],
+        "status": "unmapped",
+        "gap": "sheet 未匹配已审计模块。",
+        "nextAction": "补充映射规则并重新审核。",
+    },
+}
+
+
+def investment_import_detail(pool: PsqlPool, import_id: str, max_rows: int) -> dict[str, Any] | None:
+    source = _investment_import_source(pool, import_id, max_rows)
+    if source is None:
+        return None
+    data, coverage, missing = source
+    return _investment_excel_envelope(data, coverage, missing)
+
+
+def investment_import_bridge_plan(pool: PsqlPool, import_id: str, max_rows: int) -> dict[str, Any] | None:
+    source = _investment_import_source(pool, import_id, max_rows)
+    if source is None:
+        return None
+    data, coverage, missing = source
+    module_counts: dict[str, int] = {}
+    sheets: list[dict[str, Any]] = []
+    for sheet in data["sheets"]:
+        module = str(sheet.get("mappedModule") or "unmapped")
+        module_counts[module] = module_counts.get(module, 0) + 1
+        plan = INVESTMENT_BRIDGE_PLANS.get(module, INVESTMENT_BRIDGE_PLANS["unmapped"])
+        sheets.append(
+            {
+                "sheetOrder": sheet["sheetOrder"],
+                "sheetName": sheet["sheetName"],
+                "mappedModule": module,
+                "mappedModuleName": sheet["mappedModuleName"],
+                "department": sheet["department"],
+                **plan,
+            }
+        )
+    bridge_data = {
+        "importGuid": data["importGuid"],
+        "projGuid": data["projGuid"],
+        "versionGuid": data["versionGuid"],
+        "fileName": data["fileName"],
+        "status": data["status"],
+        "summary": {
+            "sheetCount": data["sheetCount"],
+            "nonEmptyCells": data["nonEmptyCells"],
+            "formulaCount": data["formulaCount"],
+            "crossSheetFormulaCount": data["crossSheetFormulaCount"],
+            "moduleCounts": module_counts,
+            "mappedSheetCount": sum(count for module, count in module_counts.items() if module != "unmapped"),
+            "unmappedSheetCount": module_counts.get("unmapped", 0),
+            "createdAt": data["createdAt"],
+        },
+        "sheets": sheets,
+    }
+    return _investment_excel_envelope(bridge_data, coverage, missing)
+
+
+def investment_index_upsert_preview(pool: PsqlPool, import_id: str, max_rows: int) -> dict[str, Any] | None:
+    source = _investment_import_source(pool, import_id, max_rows)
+    if source is None:
+        return None
+    data, coverage, missing = source
+    mapping = {
+        "profit_summary": (
+            ("revenue", "CO.Revenue", "可售货值", "carry_over", "万元"),
+            ("cost", "CO.Cost", "成本结转", "carry_over", "万元"),
+            ("grossProfit", "CO.GrossProfit", "毛利", "carry_over", "万元"),
+            ("netProfit", "CO.NetProfit", "净利润", "carry_over", "万元"),
+            ("irr", "CO.IRR", "项目 IRR", "carry_over", "%"),
+            ("npv", "CO.NPV", "项目 NPV(8%折现)", "carry_over", "万元"),
+        ),
+        "tax_detail": (("taxTotal", "Tax.Total", "税费合计", "tax", "万元"),),
+        "financial_cost_detail": (("finTotal", "Fin.Total", "融资总额", "financing", "万元"),),
+    }
+    existing = {
+        str(row["payload"].get("full_code") or ""): row["payload"]
+        for row in _investment_source_rows(pool, "tzsy_plan_index", max_rows)
+        if str(row["payload"].get("version_guid") or "") == data["versionGuid"]
+        and not row["payload"].get("deleted_at")
+    }
+    items: list[dict[str, Any]] = []
+    sheets_with_mapping = 0
+    sheets_extracted = 0
+    for sheet in data["sheets"]:
+        fields = mapping.get(str(sheet.get("mappedModule") or ""), ())
+        if not fields:
+            continue
+        sheets_with_mapping += 1
+        summary = sheet.get("summary") if isinstance(sheet.get("summary"), dict) else {}
+        extracted = summary.get("extractedKeyValues")
+        if isinstance(extracted, list):
+            sheets_extracted += 1
+        extracted_by_key = {
+            str(value.get("fieldKey") or ""): value
+            for value in extracted or []
+            if isinstance(value, dict)
+        }
+        for field_key, full_code, index_name, dimension, unit in fields:
+            old = existing.get(full_code, {})
+            hit = extracted_by_key.get(field_key)
+            item = {
+                "sheetOrder": sheet["sheetOrder"],
+                "sheetName": sheet["sheetName"],
+                "mappedModule": sheet["mappedModule"],
+                "mappedModuleName": sheet["mappedModuleName"],
+                "fullCode": full_code,
+                "indexName": index_name,
+                "dimension": dimension,
+                "unit": unit,
+                "oldValue": old.get("index_value"),
+                "existingIndexGuid": old.get("index_guid"),
+                "newValue": hit.get("value") if hit else None,
+                "sourceCell": hit.get("valueRef") if hit else None,
+                "anchorCell": hit.get("anchorRef") if hit else None,
+                "confidence": "high" if hit and hit.get("direction") == "right" else ("medium" if hit else None),
+                "canUpsert": bool(hit),
+                "proposedAction": "update" if hit and old else ("insert" if hit else None),
+                "reason": None if hit else "未抽取到源单元格值。",
+                "missingData": None if hit else "extractedKeyValues",
+            }
+            items.append(item)
+    preview_data = {
+        "importGuid": data["importGuid"],
+        "projGuid": data["projGuid"],
+        "versionGuid": data["versionGuid"],
+        "versionName": data["versionName"],
+        "versionNo": None,
+        "versionIsCurrent": None,
+        "fileName": data["fileName"],
+        "summary": {
+            "sheetsTotal": len(data["sheets"]),
+            "sheetsWithMapping": sheets_with_mapping,
+            "sheetsExtracted": sheets_extracted,
+            "itemsTotal": len(items),
+            "itemsCanUpsert": sum(1 for item in items if item["canUpsert"]),
+            "itemsToInsert": sum(1 for item in items if item["proposedAction"] == "insert"),
+            "itemsToUpdate": sum(1 for item in items if item["proposedAction"] == "update"),
+            "itemsToSkip": sum(1 for item in items if item["proposedAction"] is None),
+        },
+        "items": items,
+    }
+    return _investment_excel_envelope(preview_data, coverage, missing)
+
+
+def investment_profit_table(pool: PsqlPool, import_id: str, max_rows: int) -> dict[str, Any] | None:
+    source = _investment_import_source(pool, import_id, max_rows)
+    if source is None:
+        return None
+    data, coverage, missing = source
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in _raw_source_rows(pool, "tzsy_profit_table", max(max_rows, 5000), INVESTMENT_EXCEL_SOURCE_TABLES):
+        payload = row["payload"]
+        if str(payload.get("import_guid") or "") != import_id:
+            continue
+        row_key = str(payload.get("row_idx") or "0")
+        grouped.setdefault(row_key, {"row": int(payload.get("row_idx") or 0), "cells": {}})["cells"][
+            str(payload.get("col_key") or payload.get("col_idx") or "")
+        ] = {
+            "text": payload.get("text_value"),
+            "num": payload.get("num_value"),
+            "formula": payload.get("formula"),
+            "ref": payload.get("cell_ref"),
+            "isHeader": bool(payload.get("is_header")),
+        }
+    rows = sorted(grouped.values(), key=lambda value: value["row"])
+    return _investment_excel_envelope(
+        {
+            "importGuid": data["importGuid"],
+            "projGuid": data["projGuid"],
+            "versionGuid": data["versionGuid"],
+            "sheetName": "利润测算总表",
+            "source": "tzsy_profit_table" if rows else "empty",
+            "merged": [],
+            "rows": rows,
+            "columnOrder": sorted({column for row in rows for column in row["cells"]}),
+        },
+        coverage,
+        missing,
+    )
+
+
+def investment_plan_line_preview(pool: PsqlPool, import_id: str, max_rows: int) -> dict[str, Any] | None:
+    source = _investment_import_source(pool, import_id, max_rows)
+    if source is None:
+        return None
+    data, coverage, missing = source
+    sheet_summary = []
+    for sheet in data["sheets"]:
+        if sheet["mappedModule"] in {"land_cost_detail", "construction_cost_detail", "design_cost_detail", "marketing_cost_detail", "admin_cost_detail", "audit_fee_detail", "financial_cost_detail", "tax_detail"}:
+            sheet_summary.append(
+                {
+                    "sheet": sheet["sheetName"],
+                    "module": sheet["mappedModule"],
+                    "lines": 0,
+                    "reason": "源 sheet cells_json 未导入或尚未完成安全抽取。",
+                }
+            )
+    return _investment_excel_envelope(
+        {
+            "importGuid": data["importGuid"],
+            "projGuid": data["projGuid"],
+            "versionGuid": data["versionGuid"],
+            "summary": {
+                "sheetsScanned": len(data["sheets"]),
+                "sheetsWithRule": len(sheet_summary),
+                "linesTotal": 0,
+                "amountTotal": 0.0,
+            },
+            "sheetSummary": sheet_summary,
+            "lines": [],
+        },
+        coverage,
+        missing,
+    )
+
+
+def investment_plan_lines(
+    pool: PsqlPool,
+    project_id: str,
+    query: dict[str, str | None],
+    max_rows: int,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    coverage, missing = _investment_excel_metadata(pool, max_rows)
+    rows: list[dict[str, Any]] = []
+    for row in _raw_source_rows(pool, "tzsy_plan_line", max(max_rows, 5000), INVESTMENT_EXCEL_SOURCE_TABLES):
+        payload = row["payload"]
+        if str(payload.get("proj_guid") or "") != project_id:
+            continue
+        checks = {
+            "versionGuid": "version_guid",
+            "moduleCode": "module_code",
+            "sheet": "source_sheet",
+            "department": "department",
+            "status": "status",
+        }
+        if any(query.get(key) and str(payload.get(source_key) or "") != query[key] for key, source_key in checks.items()):
+            continue
+        keyword = query.get("keyword")
+        if keyword and keyword.casefold() not in str(payload.get("subject") or "").casefold():
+            continue
+        rows.append(
+            {
+                "lineGuid": str(payload.get("line_guid") or row["record_id"]),
+                "projGuid": project_id,
+                "versionGuid": str(payload.get("version_guid") or ""),
+                "importGuid": str(payload.get("import_guid") or ""),
+                "sourceSheet": str(payload.get("source_sheet") or ""),
+                "moduleCode": str(payload.get("module_code") or ""),
+                "moduleName": str(payload.get("module_name") or ""),
+                "subject": str(payload.get("subject") or ""),
+                "planAmount": payload.get("plan_amount"),
+                "planPeriod": str(payload.get("plan_period") or ""),
+                "department": str(payload.get("department") or ""),
+                "sourceRow": payload.get("source_row"),
+                "sourceCell": str(payload.get("source_cell") or ""),
+                "status": str(payload.get("status") or ""),
+                "remark": str(payload.get("remark") or ""),
+                "createdAt": str(payload.get("created_at") or ""),
+                "updatedAt": str(payload.get("updated_at") or ""),
+            }
+        )
+    rows.sort(key=lambda value: (value["moduleCode"], value["sourceSheet"], int(value["sourceRow"] or 0)))
+    by_module: dict[str, dict[str, Any]] = {}
+    amount_total = 0.0
+    for row in rows:
+        module = row["moduleCode"] or "unknown"
+        item = by_module.setdefault(module, {"moduleCode": module, "moduleName": row["moduleName"], "count": 0, "amount": 0.0})
+        item["count"] += 1
+        amount = _report_float(row, "planAmount")
+        item["amount"] += amount
+        amount_total += amount
+    for item in by_module.values():
+        item["amount"] = round(item["amount"], 4)
+    return _investment_excel_envelope(
+        {
+            "lines": rows,
+            "summary": {"count": len(rows), "amountTotal": round(amount_total, 4), "byModule": list(by_module.values())},
+        },
+        coverage,
+        missing,
+    )
+
+
+def investment_subject_mappings(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    coverage, missing = _investment_excel_metadata(pool, max_rows)
+    project = next(
+        (
+            row["payload"] for row in _raw_source_rows(pool, "ep_project", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+            if str(row["payload"].get("proj_guid") or row["record_id"]) == project_id
+            and not row["payload"].get("deleted_at")
+        ),
+        None,
+    )
+    if project is None:
+        return None
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for row in _raw_source_rows(pool, "tzsy_subject_mapping", max(max_rows, 5000), INVESTMENT_EXCEL_SOURCE_TABLES):
+        payload = row["payload"]
+        if str(payload.get("proj_guid") or "") != project_id:
+            continue
+        category = str(payload.get("category") or "custom")
+        groups.setdefault(category, []).append(
+            {
+                "key": str(payload.get("param_key") or ""),
+                "value": str(payload.get("param_value") or ""),
+                "type": str(payload.get("value_type") or "string"),
+                "description": str(payload.get("description") or ""),
+            }
+        )
+    return _investment_excel_envelope(
+        {"projGuid": project_id, "projName": str(project.get("proj_name") or ""), "groups": groups},
+        coverage,
+        missing,
+    )
+
+
+def investment_profit_cockpit(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, Any] | None:
+    if not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    coverage, missing = _investment_excel_metadata(pool, max_rows)
+    project = next(
+        (
+            row["payload"] for row in _raw_source_rows(pool, "ep_project", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+            if str(row["payload"].get("proj_guid") or row["record_id"]) == project_id
+            and not row["payload"].get("deleted_at")
+        ),
+        None,
+    )
+    if project is None:
+        return None
+    imports = {
+        str(row["payload"].get("import_guid") or row["record_id"]): row["payload"]
+        for row in _raw_source_rows(pool, "tzsy_excel_import", max(max_rows, 500), INVESTMENT_EXCEL_SOURCE_TABLES)
+        if str(row["payload"].get("proj_guid") or "") == project_id
+    }
+    table_rows = [
+        row["payload"]
+        for row in _raw_source_rows(pool, "tzsy_profit_table", max(max_rows, 5000), INVESTMENT_EXCEL_SOURCE_TABLES)
+        if str(row["payload"].get("import_guid") or "") in imports
+    ]
+    if not table_rows:
+        return None
+    values: dict[str, dict[str, Any]] = {}
+    for row in table_rows:
+        if str(row.get("col_key") or "") != "C":
+            continue
+        key = "R" + str(row.get("row_idx") or "")
+        values[key] = {"total": row.get("num_value") or 0}
+    return _investment_excel_envelope(
+        {
+            "projGuid": project_id,
+            "projName": str(project.get("proj_name") or ""),
+            "versionGuid": str(next(iter(imports.values()), {}).get("version_guid") or ""),
+            "importGuid": next(iter(imports.keys()), ""),
+            "source": "tzsy_profit_table",
+            "values": values,
+            "children": {},
+        },
+        coverage,
+        missing,
+    )
+
+
 def investment_indices(
     pool: PsqlPool,
     version_id: str,
@@ -7167,6 +7689,123 @@ def admin_health_bpm_pool(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
             ),
         },
         "authorizing": False,
+    }
+
+
+ADMIN_DIAGNOSTIC_SOURCE_TABLES = {"sys_param", "sys_user"}
+
+
+def _admin_diagnostic_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+    return {
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "secret_values_redacted": True,
+    }
+
+
+def _admin_diagnostic_params(pool: PsqlPool, max_rows: int) -> tuple[dict[str, str], dict[str, int]]:
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), ADMIN_DIAGNOSTIC_SOURCE_TABLES))
+        for table in sorted(ADMIN_DIAGNOSTIC_SOURCE_TABLES)
+    }
+    params: dict[str, str] = {}
+    for row in _raw_source_rows(pool, "sys_param", max(max_rows, 500), ADMIN_DIAGNOSTIC_SOURCE_TABLES):
+        payload = row["payload"]
+        key = str(payload.get("pk") or payload.get("key") or payload.get("param_key") or "")
+        if key:
+            params[key] = str(payload.get("pv") or payload.get("value") or payload.get("param_value") or "")
+    return params, coverage
+
+
+def _redacted_diagnostic_params(params: dict[str, str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for key, value in sorted(params.items()):
+        lowered = key.lower()
+        if any(marker in lowered for marker in ("key", "pass", "secret", "token", "password")):
+            result[key] = "***" if value else "(空)"
+        else:
+            result[key] = value
+    return result
+
+
+def admin_health_full(pool: PsqlPool, max_rows: int, database: str | None) -> dict[str, Any]:
+    """Expose the source health shape with PostgreSQL coverage and no fake runtime metrics."""
+
+    tables = admin_health_tables(pool, max_rows)
+    bpm_pool = admin_health_bpm_pool(pool, max_rows)
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 500), ADMIN_HEALTH_SOURCE_TABLES))
+        for table in sorted(ADMIN_HEALTH_SOURCE_TABLES)
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "uptime": {"seconds": None, "hours": None},
+            "memory": {"rssMB": None, "heapUsedMB": None, "heapTotalMB": None},
+            "node": {"version": None, "platform": None},
+            "db": {"sizeMB": None, "name": database},
+            "tables": tables["data"],
+            "workflow": bpm_pool["data"],
+            "runtimeMetricsAvailable": False,
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
+def admin_llm_status(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    """Read redacted LLM configuration without invoking a provider."""
+
+    params, coverage = _admin_diagnostic_params(pool, max_rows)
+    provider = params.get("ai.llm.provider") or "mock"
+    fallback = params.get("ai.llm.fallback_providers") or ""
+    global_key = params.get("ai.llm.key") or ""
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "provider": provider,
+            "fallbackList": fallback,
+            "globalKeyMasked": "***" if global_key else "(未配)",
+            "providers": [],
+            "note": "PostgreSQL migration adapter exposes redacted configuration only; provider execution remains disabled.",
+        },
+        **_admin_diagnostic_metadata(coverage),
+    }
+
+
+def admin_ai_diag(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
+    """Return an explicit no-provider-execution AI diagnostic."""
+
+    params, coverage = _admin_diagnostic_params(pool, max_rows)
+    provider = params.get("ai.llm.provider") or "(未配)"
+    global_key = bool(params.get("ai.llm.key"))
+    provider_key = bool(params.get("ai.llm.key." + provider)) if provider != "(未配)" else False
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "provider": provider,
+            "hasGlobalKey": global_key,
+            "hasProviderKey": provider_key,
+            "allParams": _redacted_diagnostic_params(params),
+            "pingResult": None,
+            "hint": "Provider execution is disabled in the PostgreSQL migration adapter; configure a reviewed managed provider before enabling it.",
+        },
+        **_admin_diagnostic_metadata(coverage),
     }
 
 
@@ -8389,6 +9028,148 @@ def dashboard_group_top_anomalies(
     return _dashboard_envelope(ranked[:limit], coverage, missing)
 
 
+def dashboard_v2_group(
+    pool: PsqlPool,
+    business_unit_id: str | None,
+    project_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Translate the source cockpit v2 read using bounded imported rows."""
+
+    if business_unit_id is not None and not IDENTIFIER.fullmatch(business_unit_id):
+        raise ValueError("invalid buGuid")
+    if project_id is not None and not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid projGuid")
+    rows, coverage, missing = _dashboard_context(pool, max_rows)
+    projects = [
+        row["payload"]
+        for row in rows["ep_project"]
+        if not row["payload"].get("deleted_at")
+        and (project_id is None or str(row["payload"].get("proj_guid") or "") == project_id)
+        and (business_unit_id is None or str(row["payload"].get("bu_guid") or "") == business_unit_id)
+    ]
+    project_ids = {str(project.get("proj_guid") or "") for project in projects}
+    contract_rows = [
+        row["payload"]
+        for row in rows["cb_contract"]
+        if (project_id is None or str(row["payload"].get("proj_guid") or "") in project_ids)
+        and (business_unit_id is None or str(row["payload"].get("bu_guid") or "") == business_unit_id)
+    ]
+    contract_ids = {str(row.get("contract_guid") or "") for row in contract_rows}
+    application_rows = [
+        row["payload"]
+        for row in rows["cb_htfk_apply"]
+        if (project_id is None or str(row["payload"].get("proj_guid") or "") in project_ids)
+        and (business_unit_id is None or str(row["payload"].get("bu_guid") or "") == business_unit_id)
+    ]
+    plan_rows = [
+        row["payload"]
+        for row in rows["cb_htfkplan"]
+        if str(row["payload"].get("contract_guid") or "") in contract_ids
+    ]
+    warnings = [
+        row["payload"]
+        for row in rows["sys_warning"]
+        if str(row["payload"].get("status") or "") == "open"
+        and (project_id is None or str(row["payload"].get("proj_guid") or "") == project_id)
+        and (business_unit_id is None or str(row["payload"].get("bu_guid") or "") == business_unit_id)
+    ]
+    processes = [
+        row["payload"]
+        for row in rows["wf_process_instance"]
+        if str(row["payload"].get("status") or "") == "Running"
+        and (business_unit_id is None or str(row["payload"].get("bu_guid") or "") == business_unit_id)
+    ]
+    month_series: list[str] = []
+    today = date.today()
+    for offset in range(-6, 4):
+        month = today.month - 1 + offset
+        year = today.year + month // 12
+        month = month % 12 + 1
+        month_series.append(f"{year:04d}-{month:02d}")
+    plan_by_month: dict[str, float] = {}
+    actual_by_month: dict[str, float] = {}
+    for payload in plan_rows:
+        month = str(payload.get("jhfk_date") or "")[:7]
+        if month:
+            plan_by_month[month] = plan_by_month.get(month, 0.0) + _report_float(payload, "jhfk_amount")
+    for payload in application_rows:
+        if str(payload.get("apply_state") or "") != "已审核":
+            continue
+        month = str(payload.get("apply_date") or "")[:7]
+        if month:
+            actual_by_month[month] = actual_by_month.get(month, 0.0) + _report_float(payload, "apply_amount")
+    stage_distribution: dict[str, int] = {}
+    for project in projects:
+        stage = str(project.get("proj_status") or "unknown")
+        stage_distribution[stage] = stage_distribution.get(stage, 0) + 1
+    warning_rows = [
+        {
+            "warningGuid": str(payload.get("warning_guid") or ""),
+            "ruleCode": str(payload.get("rule_code") or ""),
+            "ruleName": str(payload.get("rule_name") or ""),
+            "severity": str(payload.get("severity") or ""),
+            "bizType": str(payload.get("biz_type") or ""),
+            "bizDataGuid": str(payload.get("biz_data_guid") or ""),
+            "title": str(payload.get("title") or ""),
+            "firstDetectedAt": str(payload.get("first_detected_at") or ""),
+        }
+        for payload in warnings
+    ]
+    warning_rows.sort(
+        key=lambda value: (
+            {"error": 0, "warning": 1}.get(value["severity"], 2),
+            value["firstDetectedAt"],
+        )
+    )
+    target_contracts = [
+        payload for payload in contract_rows
+        if str(payload.get("js_state") or "") != "已结算"
+    ]
+    unpaid = [
+        payload for payload in application_rows
+        if str(payload.get("pay_state") or "") == "未支付"
+        and str(payload.get("apply_state") or "") == "已审核"
+    ]
+    data = {
+        "scope": {"buGuid": business_unit_id, "projGuid": project_id},
+        "kpi": {
+            "projectCount": len(projects),
+            "inProgressProjects": sum(
+                1 for project in projects
+                if str(project.get("proj_status") or "") in {"planning", "development", "sales"}
+            ),
+            "contractInProgressAmount": sum(
+                _report_float(payload, "ht_amount") + _report_float(payload, "sum_alter_amount")
+                for payload in target_contracts
+            ),
+            "unpaidAmount": sum(_report_float(payload, "apply_amount") for payload in unpaid),
+            "openWarnings": len(warnings),
+            "runningProcesses": len(processes),
+        },
+        "paymentTrend": [
+            {"ym": month, "plan": plan_by_month.get(month, 0.0), "actual": actual_by_month.get(month, 0.0)}
+            for month in month_series
+        ],
+        "stageDistribution": [
+            {"stage": stage, "count": count}
+            for stage, count in sorted(stage_distribution.items())
+        ],
+        "latestWarnings": warning_rows[:5],
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": missing,
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
 def _dashboard_project_context(
     rows: dict[str, list[dict[str, Any]]],
     project_id: str,
@@ -8692,6 +9473,17 @@ INVESTMENT_IMPORT_SOURCE_TABLES = {
     "sys_user",
     "tzsy_version",
     "tzsy_excel_import",
+}
+
+INVESTMENT_EXCEL_SOURCE_TABLES = {
+    "ep_project",
+    "sys_user",
+    "tzsy_version",
+    "tzsy_excel_import",
+    "tzsy_excel_sheet",
+    "tzsy_profit_table",
+    "tzsy_plan_line",
+    "tzsy_subject_mapping",
 }
 
 ADMIN_SOURCE_TABLES = {
@@ -13923,6 +14715,7 @@ def response_text(
 def handler_factory(
     pool: PsqlPool,
     *,
+    database_name: str,
     expected_schema_version: int,
     bearer_token: str,
     require_forwarded_tls: bool,
@@ -14523,6 +15316,19 @@ def handler_factory(
                         dashboard_group_top_anomalies(pool, limit, max_response_rows),
                         origin,
                     )
+                elif parsed.path == "/api/company/dashboard/v2/group":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        dashboard_v2_group(
+                            pool,
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif re.fullmatch(
                     r"/api/company/dashboard/project/[A-Za-z0-9_.:-]{1,128}/(kpi|anomalies)",
                     parsed.path,
@@ -14902,6 +15708,100 @@ def handler_factory(
                     project_value = parsed.path.split("/")[-2]
                     response(self, 200, investment_imports(pool, project_value, max_response_rows), origin)
                 elif re.fullmatch(
+                    r"/api/company/investment/excel-imports/[A-Za-z0-9_.:-]{1,128}",
+                    parsed.path,
+                ):
+                    import_value = parsed.path.rsplit("/", 1)[-1]
+                    result = investment_import_detail(pool, import_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "导入记录不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/excel-imports/[A-Za-z0-9_.:-]{1,128}/bridge-plan",
+                    parsed.path,
+                ):
+                    import_value = parsed.path.split("/")[-2]
+                    result = investment_import_bridge_plan(pool, import_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "导入记录不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/excel-imports/[A-Za-z0-9_.:-]{1,128}/index-upsert-preview",
+                    parsed.path,
+                ):
+                    import_value = parsed.path.split("/")[-2]
+                    result = investment_index_upsert_preview(pool, import_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "导入记录不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/excel-imports/[A-Za-z0-9_.:-]{1,128}/profit-table",
+                    parsed.path,
+                ):
+                    import_value = parsed.path.split("/")[-2]
+                    result = investment_profit_table(pool, import_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "导入记录不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/excel-imports/[A-Za-z0-9_.:-]{1,128}/plan-line-preview",
+                    parsed.path,
+                ):
+                    import_value = parsed.path.split("/")[-2]
+                    result = investment_plan_line_preview(pool, import_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 43001, "message": "导入记录不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/plan-lines",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        investment_plan_lines(
+                            pool,
+                            project_value,
+                            {
+                                "versionGuid": query.get("versionGuid", [None])[0],
+                                "moduleCode": query.get("moduleCode", [None])[0],
+                                "sheet": query.get("sheet", [None])[0],
+                                "department": query.get("department", [None])[0],
+                                "status": query.get("status", [None])[0],
+                                "keyword": query.get("keyword", [None])[0],
+                            },
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/subject-mappings",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    result = investment_subject_mappings(pool, project_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 41001, "message": "项目不存在"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
+                    r"/api/company/investment/projects/[A-Za-z0-9_.:-]{1,128}/profit-cockpit",
+                    parsed.path,
+                ):
+                    project_value = parsed.path.split("/")[-2]
+                    result = investment_profit_cockpit(pool, project_value, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"success": False, "code": 41002, "message": "该项目暂无利润测算总表数据"}, origin)
+                    else:
+                        response(self, 200, result, origin)
+                elif re.fullmatch(
                     r"/api/company/investment/versions/[A-Za-z0-9_.:-]{1,128}/indices",
                     parsed.path,
                 ):
@@ -15002,6 +15902,12 @@ def handler_factory(
                     response(self, 200, admin_health_tables(pool, max_response_rows), origin)
                 elif parsed.path == "/api/company/admin/health/bpm-pool":
                     response(self, 200, admin_health_bpm_pool(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/health/full":
+                    response(self, 200, admin_health_full(pool, max_response_rows, database_name), origin)
+                elif parsed.path == "/api/company/admin/llm/status":
+                    response(self, 200, admin_llm_status(pool, max_response_rows), origin)
+                elif parsed.path == "/api/company/admin/ai/diag":
+                    response(self, 200, admin_ai_diag(pool, max_response_rows), origin)
                 elif re.fullmatch(
                     r"/api/company/projects/[A-Za-z0-9_.:-]{1,128}/tasks",
                     parsed.path,
@@ -15633,6 +16539,7 @@ def main() -> int:
             (args.host, args.port),
             handler_factory(
                 pool,
+                database_name=args.database,
                 expected_schema_version=args.schema_version,
                 bearer_token=bearer_token,
                 require_forwarded_tls=args.require_forwarded_tls,

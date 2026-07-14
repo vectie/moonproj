@@ -451,8 +451,9 @@ remain separate gates.
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
 evidence-ready batch, the identity/RBAC observation wave, the static
-import-template read, and the empty-safe investment import-history read, 17
-remain; they
+import-template read, the empty-safe investment import-history read, the
+dashboard/admin observation wave, and the investment Excel observation wave,
+5 remain; they
 are not one uniform backlog. Four
 groups are now explicit:
 
@@ -473,12 +474,14 @@ groups are now explicit:
   import rows or authorize the corresponding commands. The authenticated
   service and read-model smoke checks verify the BOM, header order, download
   disposition, and unsupported-business-type 400 boundary.
-  The investment `GET /projects/:projGuid/excel-imports` list is now an
-  explicit source observation as well: the current export has zero
-  `tzsy_excel_import` rows, so the service/read-model return an empty list with
-  coverage and non-authorizing metadata rather than showing designer
-  workbooks. Detail, bridge, preview, profit-table, plan-line, mapping, and
-  cockpit routes remain gated on the other absent investment tables.
+  The investment `GET /projects/:projGuid/excel-imports` list and the detail,
+  bridge, index-preview, profit-table, plan-line-preview, plan-line list,
+  subject-mapping, and profit-cockpit reads now have source-preserving
+  boundaries. The current export has zero `tzsy_excel_import`, sheet, profit,
+  plan-line, and mapping rows, so these routes return explicit empty data or
+  source-style 404s with coverage rather than showing designer workbooks. The
+  profit-actual calculation remains gated because it would apply simulation
+  semantics to sparse source evidence.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
@@ -495,15 +498,18 @@ groups are now explicit:
 * **Identity/RBAC and operational reads:** preferences and role/permission
   catalogs now have fixed, non-authorizing observation adapters; the current
   export reports an empty preference table and empty role-assignment tables
-  while preserving the source permission definitions. Full health/backup and
-  provider diagnostics still require the reviewed identity/operations boundary
-  or a broader source export. None of these observations grants authority just
-  because a local target endpoint exists.
-* **Provider/external reads:** LLM/OCR diagnostics, provider signature checks,
-  and similar status/verification endpoints remain provider and credential
-  gates. A successful metadata read does not authorize a provider call.
+  while preserving the source permission definitions. Full health, redacted
+  LLM status, and no-provider AI diagnostics now have PostgreSQL observation
+  adapters; runtime metrics are unavailable and provider execution remains
+  disabled. Backup/download binaries and provider signature checks remain
+  gated. None of these observations grants authority just because a local
+  target endpoint exists.
+* **Provider/external reads:** LLM/OCR diagnostics now expose redacted,
+  no-execution metadata, but provider signature checks and similar
+  status/verification endpoints remain provider and credential gates. A
+  successful metadata read does not authorize a provider call.
 
-The remaining 196 API handlers are therefore deliberately split between these
+The remaining 190 API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
@@ -644,9 +650,9 @@ empty; audit showed the two imported login rows; and OCR/Webhook screens showed
 redacted metadata only. No mutation or provider call was made.
 
 Two important non-parity states were made explicit by this pass. The health
-screen's table/BPM coverage is source-backed, but its uptime, memory, storage,
-and queue figures are still an offline design snapshot because
-`/admin/health/full` remains operational and not connected. The users/roles
+screen's table/BPM coverage is source-backed; the newly connected full-health
+service read still reports uptime, memory, storage, and queue metrics as
+unavailable, and browser mounting/production acceptance remains open. The users/roles
 screen has the five imported identities, an explicit `NO_SOURCE_ROWS` role
 state, and the source-defined 11-module permission catalog; these are
 observation metadata, not an authorization source. Attachment binaries,
@@ -691,6 +697,30 @@ smoke verifies valid login/forwarding, stale-assertion rejection, and missing
 session rejection. This materially improves the identity seam, but the local
 session store is still in-memory and the managed issuer/audience, token
 rotation, deployment, and security-owner approval gates remain open.
+
+**Dashboard/admin observation checkpoint (2026-07-14).** The authenticated
+PostgreSQL service now exposes the source cockpit v2 scope (`buGuid`/`projGuid`)
+with KPI, payment-trend, stage-distribution, and warning observations over the
+currently imported rows. It also exposes source-shaped full-health, redacted
+LLM-status, and AI-diagnostic reads. The service smoke verifies project-scoped
+v2 values and all three diagnostic responses; health runtime metrics are
+explicitly unavailable and no provider ping is performed. The parity matrix now
+reduces the unconnected source GET/HEAD backlog from 17 to 13. Rabbita does
+not mount v2 yet, v3 remains gated on the 16 absent cross-domain tables, and
+production identity, browser scope acceptance, and owner reconciliation remain
+open.
+
+**Investment Excel observation checkpoint (2026-07-14).** The service now
+preserves the source boundary for import detail, bridge-plan, index-upsert
+preview, profit-table, plan-line preview/list, subject mappings, and profit
+cockpit. With no imported workbook, sheet, profit-table, plan-line, or mapping
+rows in PostgreSQL, detail/bridge/preview/profit/cockpit requests return the
+source-style missing-record boundary, while plan-line and mapping reads return
+empty data with coverage metadata. Smoke evidence covers all of these paths
+without upload, write, provider execution, or designer fixture substitution.
+Profit-actual remains gated because the source route simulates sparse actuals;
+the five remaining unconnected GET/HEAD handlers are backup binary, attachment
+binary, dashboard v3, profit-actual, and provider signature check.
 
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
@@ -810,17 +840,17 @@ the sidebar-driven app routes and is kept as a deployment/cutover check.
    tables and zero workflow-instance/action rows. Templates, share links, production
    identity, browser acceptance, and report-owner reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
-4a. **The dashboard/cockpit now has a bounded v1 read slice, but is not
+4a. **The dashboard/cockpit now has bounded v1 and v2 read slices, but is not
    accepted parity.** The source cockpit exposes seven GET handlers (overview,
    funnel, top anomalies, project KPI/anomalies, and v2/v3 group views) over
-   30 unique tables. The target now exposes the first five as authenticated
-   source-backed reads, and Rabbita loads the group overview, funnel, and
-   anomaly rows while preserving the designer layout. Only 14 of the 30
-   dependencies are present in the controlled export; 16 cross-domain tables
-   needed by v2/v3 sales, funds, invoices, tenders, warnings, and CBS views
-   are absent. Every response reports source coverage and missing tables; no
-   synthetic revenue, cash, health, warning, or risk values are introduced.
-   Production identity, browser scope acceptance, and v2/v3 source coverage
+   30 unique tables. The target exposes the first five plus a scoped v2 read as
+   authenticated source-backed observations, and Rabbita loads the v1 group
+   overview, funnel, and anomaly rows while preserving the designer layout.
+   Only 14 of the 30 dependencies are present in the controlled export; 16
+   cross-domain tables needed by the full v3 view are absent. Every response
+   reports source coverage and missing tables; no synthetic revenue, cash,
+   health, warning, or risk values are introduced. Production identity,
+   browser scope acceptance, v3 source coverage, and owner reconciliation
    remain open. Report reads do not constitute cockpit parity. See
    ERP_DASHBOARD_RUNTIME_AUDIT.md.
 5. **Partial source, not full ERP data.** The authoritative ERP inventory is
@@ -844,8 +874,9 @@ admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan,
 workflow-definition, AI analytics, AI Hub observation, webhook metadata,
-report-builder metadata, and cost-dashboard v3 reads; the three dashboard
-aliases now represent the bounded source-backed v1 read. The remaining browser views
+report-builder metadata, cost-dashboard v3, and dashboard-v2 reads; the three
+dashboard aliases still represent the bounded source-backed v1 read while v2
+is API-connected but not mounted. The remaining browser views
 and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,

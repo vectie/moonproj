@@ -97,14 +97,14 @@ are attached. The JSON output contains all 338 handler rows.
 | `admin` | `GET` | `/health/tables` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/health/bpm-pool` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/backup/db` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
-| `admin` | `GET` | `/health/full` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
+| `admin` | `GET` | `/health/full` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/error-log` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_error_read` | `accept_browser_error_log_scenario_and_super_user_owner` |
 | `admin` | `GET` | `/ocr/status` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_ocr_read` | `accept_browser_ocr_scenario_and_super_user_owner` |
 | `admin` | `POST` | `/ocr/test` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `admin` | `GET` | `/llm/status` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
+| `admin` | `GET` | `/llm/status` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `admin` | `POST` | `/llm/test` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `admin` | `POST` | `/sys-param` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `admin` | `GET` | `/ai/diag` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `not_connected` | `connect_authenticated_read_api` |
+| `admin` | `GET` | `/ai/diag` | `/ocr-config`, `/audit-log`, `/error-log`, `/system-health`, `/admin` | `connected_admin_read` | `accept_browser_admin_scenario_and_super_user_owner` |
 | `ai-hub` | `POST` | `/intake` | `/ai-hub` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `ai-hub` | `POST` | `/confirm` | `/ai-hub` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `ai-hub` | `POST` | `/discard/:draftId` | `/ai-hub` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -216,7 +216,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `dashboard` | `GET` | `/group/top-anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/project/:projGuid/kpi` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/project/:projGuid/anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
-| `dashboard` | `GET` | `/v2/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
+| `dashboard` | `GET` | `/v2/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/v3/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
 | `export` | `POST` | `/excel` | — | `not_connected` | `implement_authenticated_command_and_audit` |
 | `fund` | `GET` | `/plans` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
@@ -236,9 +236,9 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `GET` | `/meta/dimensions` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/projects/:projGuid/excel-imports` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `GET` | `/projects/:projGuid/excel-imports` | `/investment` | `connected_investment_import_read` | `accept_browser_investment_import_scenario_and_production_identity` |
-| `investment` | `GET` | `/excel-imports/:importGuid/bridge-plan` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
-| `investment` | `GET` | `/excel-imports/:importGuid` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
-| `investment` | `GET` | `/excel-imports/:importGuid/index-upsert-preview` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/excel-imports/:importGuid/bridge-plan` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
+| `investment` | `GET` | `/excel-imports/:importGuid` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
+| `investment` | `GET` | `/excel-imports/:importGuid/index-upsert-preview` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/excel-imports/:importGuid/index-upsert` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `POST` | `/projects/:projGuid/versions` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `POST` | `/projects/:projGuid/versions/:versionGuid/activate` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -247,14 +247,14 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `DELETE` | `/indices/:indexGuid` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `GET` | `/projects/:projGuid/sensitivity` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/projects/:projGuid/ai-explain` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `investment` | `GET` | `/excel-imports/:importGuid/profit-table` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
-| `investment` | `GET` | `/excel-imports/:importGuid/plan-line-preview` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/excel-imports/:importGuid/profit-table` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
+| `investment` | `GET` | `/excel-imports/:importGuid/plan-line-preview` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/excel-imports/:importGuid/plan-lines/import` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `investment` | `GET` | `/projects/:projGuid/plan-lines` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/projects/:projGuid/plan-lines` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `PUT` | `/plan-lines/:lineGuid` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `investment` | `GET` | `/projects/:projGuid/subject-mappings` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/projects/:projGuid/subject-mappings` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `PUT` | `/projects/:projGuid/subject-mappings` | `/investment` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `investment` | `GET` | `/projects/:projGuid/profit-cockpit` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
+| `investment` | `GET` | `/projects/:projGuid/profit-cockpit` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `GET` | `/projects/:projGuid/profit-actual` | `/investment` | `not_connected` | `connect_authenticated_read_api` |
 | `investment` | `GET` | `/projects/:projGuid/profit-actual-v2` | `/investment` | `connected_cost_dashboard_read` | `accept_browser_cost_dashboard_scenario_and_production_identity` |
 | `invoice` | `GET` | `/in` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
