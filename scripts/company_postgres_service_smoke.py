@@ -2010,6 +2010,108 @@ def main() -> int:
             or lifecycle_payload.get("data", {}).get("stages", [])[0].get("stageCode") != "initiation"
         ):
             raise SmokeError(f"project lifecycle read failed: {status} {lifecycle_payload}")
+        project_nonce = uuid.uuid4().hex[:10]
+        command_project_id = "PRJ-SMOKE-" + project_nonce
+        command_project_code = "PRJ-CODE-SMOKE-" + project_nonce
+        command_project_payload = {
+            "projGuid": command_project_id,
+            "projCode": command_project_code,
+            "projName": "project source command smoke",
+            "projShortName": "project smoke",
+            "buGuid": "bu-tjgs-0001",
+            "buName": "天津公司",
+            "levelCode": "001",
+            "beginDate": "2026-07-14",
+            "projStatus": "initiation",
+        }
+        status, command_project_create = request(
+            args.port,
+            "/api/company/source/mdm/projects",
+            token=token,
+            method="POST",
+            payload=command_project_payload,
+            idempotency_key="project-source-create-" + project_nonce,
+        )
+        if (
+            status != 201
+            or command_project_create is None
+            or command_project_create.get("source_kind") != "command"
+            or command_project_create.get("project", {}).get("projGuid") != command_project_id
+            or command_project_create.get("project", {}).get("buGuid") != "bu-tjgs-0001"
+            or command_project_create.get("cash_effect") is not False
+            or command_project_create.get("accounting_effect") is not False
+            or command_project_create.get("tax_effect") is not False
+        ):
+            raise SmokeError(f"project source command create failed: {status} {command_project_create}")
+        status, command_project_replay = request(
+            args.port,
+            "/api/company/source/mdm/projects",
+            token=token,
+            method="POST",
+            payload=command_project_payload,
+            idempotency_key="project-source-create-" + project_nonce,
+        )
+        if status != 200 or command_project_replay is None or command_project_replay.get("idempotent_replay") is not True:
+            raise SmokeError(f"project source command replay failed: {status} {command_project_replay}")
+        status, command_project_read = request(
+            args.port,
+            f"/api/company/projects/{command_project_id}",
+            token=token,
+        )
+        if (
+            status != 200
+            or command_project_read is None
+            or command_project_read.get("source_kind") != "command"
+            or len(command_project_read.get("lifecycle", [])) != 7
+        ):
+            raise SmokeError(f"project source command readback failed: {status} {command_project_read}")
+        status, command_project_update = request(
+            args.port,
+            f"/api/company/source/mdm/projects/{command_project_id}",
+            token=token,
+            method="PUT",
+            payload={"projName": "project source command smoke updated", "projStatus": "planning"},
+            idempotency_key="project-source-update-" + project_nonce,
+        )
+        if (
+            status != 200
+            or command_project_update is None
+            or command_project_update.get("project", {}).get("projName") != "project source command smoke updated"
+            or command_project_update.get("project", {}).get("projStatus") != "planning"
+        ):
+            raise SmokeError(f"project source command update failed: {status} {command_project_update}")
+        status, imported_project_update = request(
+            args.port,
+            "/api/company/source/mdm/projects/proj-0001",
+            token=token,
+            method="PUT",
+            payload={"projName": "must remain imported"},
+            idempotency_key="project-source-imported-update-" + project_nonce,
+        )
+        if status != 409 or imported_project_update is None:
+            raise SmokeError(f"imported project write guard failed: {status} {imported_project_update}")
+        status, command_project_delete = request(
+            args.port,
+            f"/api/company/source/mdm/projects/{command_project_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "project source command smoke"},
+            idempotency_key="project-source-delete-" + project_nonce,
+        )
+        if (
+            status != 200
+            or command_project_delete is None
+            or command_project_delete.get("project", {}).get("projCode") != command_project_code
+            or command_project_delete.get("project", {}).get("sourceKind") != "command"
+        ):
+            raise SmokeError(f"project source command delete failed: {status} {command_project_delete}")
+        status, command_project_deleted_read = request(
+            args.port,
+            f"/api/company/projects/{command_project_id}",
+            token=token,
+        )
+        if status != 404 or command_project_deleted_read is None:
+            raise SmokeError(f"project source command tombstone readback failed: {status} {command_project_deleted_read}")
         status, plan_tasks_payload = request(
             args.port,
             "/api/company/projects/proj-0001/tasks",

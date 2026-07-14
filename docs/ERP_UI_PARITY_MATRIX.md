@@ -7,7 +7,7 @@ not count as connected company behavior. The generic PostgreSQL
 summary/read-model adapter is not dashboard parity; the three dashboard
 aliases now use the bounded connected v1 read. The connected exceptions are the local
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
-MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
+MDM organization/project master reads plus the local project command, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
 fund-plan, project-plan task, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
 
@@ -288,9 +288,9 @@ are attached. The JSON output contains all 338 handler rows.
 | `mdm` | `GET` | `/business-units/tree` | `/projects`, `/projects/:projGuid` | `connected_mdm_read` | `accept_browser_mdm_scenario_and_production_identity` |
 | `mdm` | `GET` | `/projects` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
 | `mdm` | `GET` | `/projects/:projGuid/lifecycle` | `/projects`, `/projects/:projGuid` | `connected_project_read` | `accept_browser_project_scenario_and_production_identity` |
-| `mdm` | `POST` | `/projects` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `mdm` | `PUT` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `mdm` | `DELETE` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `mdm` | `POST` | `/projects` | `/projects`, `/projects/:projGuid` | `connected_mdm_project_command` | `accept_browser_mdm_project_command_scenario_and_operations_owner` |
+| `mdm` | `PUT` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `connected_mdm_project_command` | `accept_browser_mdm_project_command_scenario_and_operations_owner` |
+| `mdm` | `DELETE` | `/projects/:projGuid` | `/projects`, `/projects/:projGuid` | `connected_mdm_project_command` | `accept_browser_mdm_project_command_scenario_and_operations_owner` |
 | `notify` | `GET` | `/messages` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `GET` | `/messages/unread-count` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/messages/:guid/read` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |

@@ -905,6 +905,67 @@ def main() -> int:
             or source_contract_delete_payload.get("contract", {}).get("state") != "deleted"
         ):
             raise SmokeError(f"trusted source contract alias delete failed: {status}")
+        source_project_id = "PRJ-GW-SOURCE-" + smoke_suffix
+        source_project_code = "PRJ-GW-CODE-" + smoke_suffix
+        status, _headers, source_project_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/mdm/projects",
+            headers={"Cookie": cookie},
+            payload={
+                "projGuid": source_project_id,
+                "projCode": source_project_code,
+                "projName": "gateway source project alias smoke",
+                "projShortName": "gateway project",
+                "buGuid": "bu-tjgs-0001",
+                "buName": "天津公司",
+                "levelCode": "001",
+                "beginDate": "2026-07-14",
+                "projStatus": "initiation",
+                "idempotency_key": "source-project-gateway-create-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 201
+            or not isinstance(source_project_create_payload, dict)
+            or source_project_create_payload.get("project", {}).get("projGuid") != source_project_id
+            or source_project_create_payload.get("project", {}).get("sourceKind") != "command"
+        ):
+            raise SmokeError(f"trusted source project alias create failed: {status}")
+        status, _headers, source_project_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/mdm/projects/{source_project_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "projName": "gateway source project alias updated",
+                "projStatus": "planning",
+                "idempotency_key": "source-project-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_project_update_payload, dict)
+            or source_project_update_payload.get("project", {}).get("projName") != "gateway source project alias updated"
+        ):
+            raise SmokeError(f"trusted source project alias update failed: {status}")
+        status, _headers, source_project_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/mdm/projects/{source_project_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source project alias smoke",
+                "idempotency_key": "source-project-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_project_delete_payload, dict)
+            or source_project_delete_payload.get("project", {}).get("projCode") != source_project_code
+            or source_project_delete_payload.get("project", {}).get("sourceKind") != "command"
+        ):
+            raise SmokeError(f"trusted source project alias delete failed: {status}")
         source_cost_code = "SRC-GW-COST-" + smoke_suffix
         source_cost_payload = {
             "projGuid": "proj-0001",

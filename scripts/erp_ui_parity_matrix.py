@@ -642,6 +642,18 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_project_read", "accept_browser_project_scenario_and_production_identity"
     if (
+        handler["module"] == "mdm"
+        and handler["method"] == "POST"
+        and handler["path"] == "/projects"
+    ):
+        return "connected_mdm_project_command", "accept_browser_mdm_project_command_scenario_and_operations_owner"
+    if (
+        handler["module"] == "mdm"
+        and handler["method"] in {"PUT", "DELETE"}
+        and handler["path"] == "/projects/:projGuid"
+    ):
+        return "connected_mdm_project_command", "accept_browser_mdm_project_command_scenario_and_operations_owner"
+    if (
         handler["module"] == "budget"
         and handler["method"] == "GET"
         and handler["path"] in {"/dict/cost-subjects", "/proceedings"}
@@ -1174,7 +1186,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "summary/read-model adapter is not dashboard parity; the three dashboard",
         "aliases now use the bounded connected v1 read. The connected exceptions are the local",
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
-        "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
+        "MDM organization/project master reads plus the local project command, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
         "fund-plan, project-plan task, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
         "",

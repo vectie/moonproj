@@ -7,7 +7,8 @@ establishes an in-memory HttpOnly session, signs its actor assertion, converts
 a JSON ``idempotency_key`` field into the required ``Idempotency-Key`` header,
 and forwards only the company
 read/expense (including draft update/void)/contract/payment-application/tender/source-tender-alias/supplier/supplier-provider/supplier-risk/split/sales/delivery/
-loan/fund/project-plan/reports paths. Fund and project-plan commands are local
+loan/fund/project-plan/MDM-project/reports paths. Fund, project-plan, and MDM
+project commands are local
 planning projections only;
 cash release, accounting, and tax effects remain separate.
 The default fixture mode is development-only. An opt-in trusted-upstream mode
@@ -61,6 +62,7 @@ SOURCE_COST_PAYMENT_PATH_PREFIX = "/api/company/source/cost/payment-applies"
 SOURCE_COST_DYNAMIC_PATH_PREFIX = "/api/company/cost/dynamic-cost"
 SOURCE_COST_MILESTONE_CONTRACT_PATH_PREFIX = "/api/company/source/cost/contracts"
 SOURCE_COST_MILESTONE_PATH_PREFIX = "/api/company/source/cost/milestones"
+SOURCE_MDM_PROJECT_PATH_PREFIX = "/api/company/source/mdm/projects"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 TRUSTED_IDENTITY_HEADER = "X-Moonproj-Identity"
@@ -370,6 +372,13 @@ def handler_factory(
                     )
                 )
                 or (
+                    method in {"PUT", "DELETE"}
+                    and re.fullmatch(
+                        r"/api/company/source/mdm/projects/[A-Za-z0-9_.:-]{1,128}",
+                        parsed.path,
+                    )
+                )
+                or (
                     method == "DELETE"
                     and (
                         re.fullmatch(
@@ -535,6 +544,7 @@ def handler_factory(
                 or parsed.path == SOURCE_COST_PAYMENT_PATH_PREFIX
                 or parsed.path == SOURCE_COST_DYNAMIC_PATH_PREFIX
                 or parsed.path == SOURCE_COST_MILESTONE_CONTRACT_PATH_PREFIX
+                or parsed.path == SOURCE_MDM_PROJECT_PATH_PREFIX
                 or re.fullmatch(
                     r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}/milestones",
                     parsed.path,

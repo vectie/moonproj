@@ -123,6 +123,10 @@ The bounded service exposes these endpoints:
   observations)
 * ``/api/company/projects`` and ``/api/company/projects/<id>`` (GET)
 * ``/api/company/business-units/tree`` (GET, source-compatible MDM read)
+* ``/api/company/source/mdm/projects`` (POST source-field create alias) and
+  ``/api/company/source/mdm/projects/<id>`` (PUT/DELETE local command aliases;
+  imported projects remain read-only and lifecycle/task/workflow/budget,
+  accounting, cash, and tax effects remain separate)
 * ``/api/company/budget/dict/cost-subjects`` and
   ``/api/company/budget/proceedings`` (GET, source-compatible budget reads)
 * ``/api/company/source/budget/users-in-bu`` and
@@ -514,6 +518,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "report_read",
             "workflow_definition_read",
             "project_read",
+            "project_command",
             "loan_read",
             "loan_command",
             "profile_observation_read",
@@ -585,6 +590,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "report_read",
             "workflow_definition_read",
             "project_read",
+            "project_command",
             "loan_read",
             "loan_command",
             "profile_observation_read",
@@ -14244,6 +14250,463 @@ ADMIN_HEALTH_SOURCE_TABLES = {
 }
 
 
+def _latest_project_command_rows(
+    pool: PsqlPool,
+    project_id: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if project_id is not None and not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid project_id")
+    predicate = ""
+    if project_id is not None:
+        predicate = f"AND aggregate_id = {sql_literal(project_id)}"
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = 'project'
+        AND payload->>'source_kind' = 'command' {predicate}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected project command projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid project command projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("project command projection payload is not an object")
+        result.append(
+            {
+                "project_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[3]),
+            }
+        )
+    return result
+
+
+def _project_text(
+    body: dict[str, Any],
+    *keys: str,
+    required: bool = False,
+    identifier: bool = False,
+    default: str = "",
+    max_length: int = 128,
+) -> str:
+    value: Any = None
+    found = False
+    for key in keys:
+        if key in body:
+            value = body[key]
+            found = True
+            break
+    if not found or value is None:
+        if required:
+            raise CommandRejected(f"{keys[0]} is required", 422)
+        return default
+    if not isinstance(value, str):
+        raise CommandRejected(f"{keys[0]} must be text", 422)
+    value = value.strip()
+    if required and not value:
+        raise CommandRejected(f"{keys[0]} is required", 422)
+    if len(value) > max_length:
+        raise CommandRejected(f"{keys[0]} is too long", 422)
+    if identifier and value and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _source_project_create_body(
+    body: dict[str, Any],
+    *,
+    idempotency_key: str,
+    actor_id: str,
+    lifecycle: list[dict[str, Any]],
+) -> dict[str, Any]:
+    project_id = _project_text(
+        body,
+        "projGuid",
+        "proj_guid",
+        "project_id",
+        identifier=True,
+        default="PRJ-SRC-" + idempotency_key,
+    )
+    project_code = _project_text(body, "projCode", "proj_code", required=True)
+    project_name = _project_text(body, "projName", "proj_name", required=True)
+    bu_guid = _project_text(body, "buGuid", "bu_guid", identifier=True, required=True)
+    short_name = _project_text(
+        body,
+        "projShortName",
+        "proj_short_name",
+        default=project_name,
+    )
+    level_code = _project_text(
+        body,
+        "levelCode",
+        "level_code",
+        default="001",
+        identifier=True,
+    )
+    begin_date = _project_text(body, "beginDate", "begin_date", max_length=64)
+    project_status = _project_text(
+        body,
+        "projStatus",
+        "proj_status",
+        default="initiation",
+        max_length=64,
+    )
+    return {
+        "command_type": "create",
+        "project_id": project_id,
+        "proj_guid": project_id,
+        "proj_code": project_code,
+        "proj_name": project_name,
+        "proj_short_name": short_name,
+        "bu_guid": bu_guid,
+        "bu_name": _project_text(body, "buName", "bu_name", default=bu_guid),
+        "level": 1,
+        "level_code": level_code,
+        "if_end": True,
+        "begin_date": begin_date,
+        "end_date": _project_text(body, "endDate", "end_date", max_length=64),
+        "proj_status": project_status,
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "lifecycle": lifecycle,
+        "actor_id": actor_id,
+        "source_alias": True,
+    }
+
+
+def _source_project_update_body(body: dict[str, Any]) -> dict[str, Any]:
+    changes: dict[str, Any] = {}
+    mapping = {
+        "projName": "proj_name",
+        "projShortName": "proj_short_name",
+        "buGuid": "bu_guid",
+        "beginDate": "begin_date",
+        "projStatus": "proj_status",
+    }
+    for source_key, target_key in mapping.items():
+        if source_key not in body and target_key not in body:
+            continue
+        key = source_key if source_key in body else target_key
+        value = body[key]
+        if not isinstance(value, str):
+            raise CommandRejected(f"{source_key} must be text", 422)
+        value = value.strip()
+        if target_key == "bu_guid" and (not value or not IDENTIFIER.fullmatch(value)):
+            raise CommandRejected("buGuid contains unsupported characters", 422)
+        if len(value) > (64 if target_key in {"begin_date", "proj_status"} else 128):
+            raise CommandRejected(f"{source_key} is too long", 422)
+        if target_key == "proj_name" and not value:
+            raise CommandRejected("projName is required", 422)
+        changes[target_key] = value
+    if not changes:
+        raise CommandRejected("project update requires a mutable field", 422)
+    return changes
+
+
+def _project_source_row(item: dict[str, Any]) -> dict[str, Any]:
+    project_id = str(item.get("project_id") or "")
+    return {
+        "projGuid": project_id,
+        "projCode": str(item.get("project_code") or project_id),
+        "projName": str(item.get("project_name") or project_id),
+        "projShortName": str(item.get("project_short_name") or ""),
+        "buGuid": str(item.get("bu_guid") or ""),
+        "buName": str(item.get("bu_name") or item.get("bu_guid") or ""),
+        "level": int(item.get("level") or 0),
+        "levelCode": str(item.get("level_code") or ""),
+        "ifEnd": bool(item.get("if_end")),
+        "bgnSaleDate": str(item.get("bgn_sale_date") or ""),
+        "endSaleDate": str(item.get("end_sale_date") or ""),
+        "beginDate": str(item.get("begin_date") or ""),
+        "endDate": str(item.get("end_date") or ""),
+        "projStatus": str(item.get("proj_status") or ""),
+        "createdAt": str(item.get("created_at") or ""),
+        "sourceKind": str(item.get("source_kind") or "command"),
+        "sourceId": "moonproj:command:project:" + project_id,
+    }
+
+
+def _source_project_alias_result(
+    pool: PsqlPool,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    project = result.get("project")
+    if not isinstance(project, dict):
+        raise ServiceError("project command result is missing project data")
+    project_id = str(project.get("project_id") or "")
+    rows = projects(pool, project_id, None, None, 1)["items"]
+    if rows:
+        source_row = _project_source_row(rows[0])
+    else:
+        latest = _latest_project_command_rows(pool, project_id, 1)
+        payload = latest[0]["payload"] if latest else {}
+        source_row = _project_source_row(
+            {
+                "project_id": project_id,
+                "project_code": payload.get("proj_code") or project.get("project_code") or project_id,
+                "project_name": payload.get("proj_name") or project_id,
+                "project_short_name": payload.get("proj_short_name") or "",
+                "bu_guid": payload.get("bu_guid") or "",
+                "bu_name": payload.get("bu_name") or "",
+                "level": payload.get("level") or 0,
+                "level_code": payload.get("level_code") or "",
+                "if_end": payload.get("if_end"),
+                "begin_date": payload.get("begin_date") or "",
+                "end_date": payload.get("end_date") or "",
+                "proj_status": payload.get("proj_status") or "",
+                "created_at": payload.get("created_at") or "",
+                "source_kind": "command",
+            }
+        )
+    command = result.get("command")
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "projGuid": project_id,
+            "projCode": str(source_row.get("projCode") or project_id),
+        },
+        "project": source_row,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
+def project_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    project_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if command_type not in {"create", "update", "delete"}:
+        raise CommandRejected("unsupported project command", 404)
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored project command receipt has no result")
+        return {"command": existing, "project": result, "idempotent_replay": True}
+    if command_type == "create":
+        stages = sorted(
+            _raw_source_rows(pool, "proj_lifecycle_stage", 100, PROJECT_SOURCE_TABLES),
+            key=lambda row: (int(row["payload"].get("stage_order") or 0), str(row["payload"].get("stage_code") or "")),
+        )
+        lifecycle = [
+            {
+                "stage_code": str(row["payload"].get("stage_code") or ""),
+                "stage_name": str(row["payload"].get("stage_name") or row["payload"].get("stage_code") or ""),
+                "stage_order": int(row["payload"].get("stage_order") or 0),
+                "status": "pending",
+                "progress_pct": "0",
+                "planned_start": "",
+                "planned_end": "",
+                "actual_start": "",
+                "actual_end": "",
+                "source_kind": "command",
+            }
+            for row in stages
+        ]
+        request = _source_project_create_body(
+            body,
+            idempotency_key=idempotency_key,
+            actor_id=actor_id,
+            lifecycle=lifecycle,
+        )
+        project_id = str(request["project_id"])
+        duplicate = projects(pool, None, None, str(request["proj_code"]), 500)["items"]
+        if any(str(item.get("project_code") or "") == str(request["proj_code"]) for item in duplicate):
+            raise CommandRejected("project code already exists", 409)
+        bu_rows = _raw_source_rows(pool, "mu_business_unit", 500, PROJECT_SOURCE_TABLES)
+        if not any(str(row["payload"].get("bu_guid") or row["record_id"]) == request["bu_guid"] for row in bu_rows):
+            raise CommandRejected("buGuid does not identify an imported business unit", 409)
+        current = projects(pool, project_id, None, None, 1)["items"]
+        if current:
+            raise CommandRejected("project already exists", 409)
+        create_mode = True
+    else:
+        if project_id is None or not IDENTIFIER.fullmatch(project_id):
+            raise CommandRejected("project_id is required", 422)
+        current = projects(pool, project_id, None, None, 1)["items"]
+        if not current:
+            raise CommandRejected("project not found", 404)
+        if current[0].get("source_kind") != "command":
+            raise CommandRejected("imported project is read-only; use a distinct local identity", 409)
+        if command_type == "update":
+            changes = _source_project_update_body(body)
+            if "bu_guid" in changes:
+                bu_rows = _raw_source_rows(pool, "mu_business_unit", 500, PROJECT_SOURCE_TABLES)
+                if not any(str(row["payload"].get("bu_guid") or row["record_id"]) == changes["bu_guid"] for row in bu_rows):
+                    raise CommandRejected("buGuid does not identify an imported business unit", 409)
+            request = {
+                "command_type": command_type,
+                "project_id": project_id,
+                "actor_id": actor_id,
+                "changes": changes,
+            }
+        else:
+            reason = body.get("reason", "")
+            if not isinstance(reason, str):
+                raise CommandRejected("reason must be text", 422)
+            request = {
+                "command_type": command_type,
+                "project_id": project_id,
+                "actor_id": actor_id,
+                "reason": reason.strip(),
+            }
+        create_mode = False
+    aggregate_id = str(project_id)
+    event_id = f"project:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "project",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "project",
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    if create_mode:
+        next_payload_expr = (
+            f"{sql_literal(request_json)}::jsonb || jsonb_build_object('state', 'active', "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'active'"
+    elif command_type == "delete":
+        next_payload_expr = (
+            f"current_payload || jsonb_build_object('state', 'deleted', 'deleted_at', {sql_literal(event_id)}, "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)}, "
+            f"'reason', {sql_literal(request_json)}::jsonb->>'reason')"
+        )
+        next_state_expr = "'deleted'"
+    else:
+        next_payload_expr = (
+            f"current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb) "
+            f"|| jsonb_build_object('state', 'active', 'source_kind', 'command', 'event_id', {sql_literal(event_id)}, "
+            f"'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'active'"
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal('project:' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      next_revision integer;
+      next_state text;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'project' AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(create_mode).lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'project already exists'; END IF;
+        next_revision := 1;
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'project not found'; END IF;
+        IF current_payload->>'state' = 'deleted' THEN RAISE EXCEPTION 'project is deleted'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'project' AND p.aggregate_id = {sql_literal(aggregate_id)};
+      END IF;
+      next_payload := {next_payload_expr};
+      next_state := {next_state_expr};
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('project', {sql_literal(aggregate_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', 'project.' || {sql_literal(command_type)},
+          'aggregate_type', 'project', 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', next_state, 'revision', next_revision,
+          'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object(
+        'project_id', {sql_literal(aggregate_id)},
+        'project_code', coalesce(next_payload->>'proj_code', next_payload->>'project_code', {sql_literal(aggregate_id)}),
+        'state', next_state, 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)}, 'source_kind', 'command',
+        'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+      );
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("project command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected project command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid project command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("project command receipt has no result")
+    return {"command": receipt, "project": result, "idempotent_replay": not created}
+
+
 def projects(
     pool: PsqlPool,
     project_id: str | None,
@@ -14262,6 +14725,15 @@ def projects(
         for table in sorted(PROJECT_SOURCE_TABLES)
     }
     raw_projects = _raw_source_rows(pool, "ep_project", max_rows, PROJECT_SOURCE_TABLES)
+    command_projects = _latest_project_command_rows(pool, project_id, max(max_rows, 500))
+    project_rows = [
+        {"payload": row["payload"], "source_kind": "imported"}
+        for row in raw_projects
+    ] + [
+        {"payload": row["payload"], "source_kind": "command"}
+        for row in command_projects
+        if str(row["payload"].get("state") or "") != "deleted"
+    ]
     raw_units = _raw_source_rows(pool, "mu_business_unit", max(max_rows, 100), PROJECT_SOURCE_TABLES)
     raw_stages = _raw_source_rows(pool, "proj_lifecycle_stage", max(max_rows, 100), PROJECT_SOURCE_TABLES)
     raw_instances = _raw_source_rows(
@@ -14340,9 +14812,10 @@ def projects(
     for values in reports_by_task.values():
         values.sort(key=lambda value: (str(value["report_date"]), str(value["report_id"])), reverse=True)
     items: list[dict[str, Any]] = []
-    for row in raw_projects:
+    for row in project_rows:
         payload = row["payload"]
-        pid = str(payload.get("proj_guid", row["record_id"]))
+        source_kind = str(row.get("source_kind") or "imported")
+        pid = str(payload.get("proj_guid") or payload.get("project_id") or "")
         if payload.get("deleted_at"):
             continue
         if project_id is not None and pid != project_id:
@@ -14358,28 +14831,37 @@ def projects(
         lifecycle: list[dict[str, Any]] = []
         current_stage = ""
         last_done = ""
-        for stage in stages:
-            code = str(stage.get("stage_code") or "")
-            instance = instances.get((pid, code), {})
-            stage_status = str(instance.get("status") or "pending")
-            if stage_status == "in_progress" and not current_stage:
-                current_stage = str(stage.get("stage_name") or code)
-            if stage_status == "done":
-                last_done = str(stage.get("stage_name") or code)
-            lifecycle.append(
-                {
-                    "stage_code": code,
-                    "stage_name": str(stage.get("stage_name") or code),
-                    "stage_order": int(stage.get("stage_order") or 0),
-                    "status": stage_status,
-                    "progress_pct": str(instance.get("progress_pct") if instance.get("progress_pct") is not None else 0),
-                    "planned_start": str(instance.get("planned_start") or ""),
-                    "planned_end": str(instance.get("planned_end") or ""),
-                    "actual_start": str(instance.get("actual_start") or ""),
-                    "actual_end": str(instance.get("actual_end") or ""),
-                    "source_kind": "imported",
-                }
-            )
+        if source_kind == "command" and isinstance(payload.get("lifecycle"), list):
+            lifecycle = [value for value in payload["lifecycle"] if isinstance(value, dict)]
+            for stage in lifecycle:
+                stage_status = str(stage.get("status") or "pending")
+                if stage_status == "in_progress" and not current_stage:
+                    current_stage = str(stage.get("stage_name") or stage.get("stage_code") or "")
+                if stage_status == "done":
+                    last_done = str(stage.get("stage_name") or stage.get("stage_code") or "")
+        else:
+            for stage in stages:
+                code = str(stage.get("stage_code") or "")
+                instance = instances.get((pid, code), {})
+                stage_status = str(instance.get("status") or "pending")
+                if stage_status == "in_progress" and not current_stage:
+                    current_stage = str(stage.get("stage_name") or code)
+                if stage_status == "done":
+                    last_done = str(stage.get("stage_name") or code)
+                lifecycle.append(
+                    {
+                        "stage_code": code,
+                        "stage_name": str(stage.get("stage_name") or code),
+                        "stage_order": int(stage.get("stage_order") or 0),
+                        "status": stage_status,
+                        "progress_pct": str(instance.get("progress_pct") if instance.get("progress_pct") is not None else 0),
+                        "planned_start": str(instance.get("planned_start") or ""),
+                        "planned_end": str(instance.get("planned_end") or ""),
+                        "actual_start": str(instance.get("actual_start") or ""),
+                        "actual_end": str(instance.get("actual_end") or ""),
+                        "source_kind": "imported",
+                    }
+                )
         project_tasks = tasks_by_project.get(pid, [])
         status_counts: dict[str, int] = {}
         for task in project_tasks:
@@ -14392,7 +14874,7 @@ def projects(
                 "project_name": str(payload.get("proj_name") or pid),
                 "project_short_name": str(payload.get("proj_short_name") or ""),
                 "bu_guid": str(payload.get("bu_guid") or ""),
-                "bu_name": str(units.get(str(payload.get("bu_guid") or ""), {}).get("bu_name") or ""),
+                "bu_name": str(payload.get("bu_name") or units.get(str(payload.get("bu_guid") or ""), {}).get("bu_name") or ""),
                 "level": int(payload.get("level") or 0),
                 "level_code": str(payload.get("level_code") or ""),
                 "if_end": bool(payload.get("if_end", 0)),
@@ -14410,13 +14892,14 @@ def projects(
                     for task in project_tasks
                     for report in reports_by_task.get(str(task["task_id"]), [])
                 ],
-                "source_kind": "imported",
+                "source_kind": source_kind,
             }
         )
     items.sort(key=lambda value: (str(value["project_code"]), str(value["project_id"])))
     return {
         "items": items,
-        "source_kind": "imported",
+        "source_kind": "imported_or_command" if any(item.get("source_kind") == "command" for item in items) else "imported",
+        "command_projection": any(item.get("source_kind") == "command" for item in items),
         "source_coverage": coverage,
         "missing_source_tables": [table for table, count in coverage.items() if count == 0],
     }
@@ -22176,6 +22659,10 @@ def handler_factory(
                     command_family = "contract_source_alias"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/source/mdm/projects":
+                    command_family = "project_source_alias"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/source/srm/providers":
                     command_family = "supplier_source_alias"
                     command_type = "create"
@@ -22465,6 +22952,16 @@ def handler_factory(
                         idempotency_key=idempotency_key,
                     )
                     result = _source_contract_alias_result(pool, result)
+                elif command_family == "project_source_alias":
+                    result = project_command(
+                        pool,
+                        command_type="create",
+                        project_id=None,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_project_alias_result(pool, result)
                 elif command_family == "supplier_source_alias":
                     body = _source_supplier_create_body(
                         body,
@@ -23185,7 +23682,46 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _source_project_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/mdm/projects/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                command_type = "update" if method == "PUT" else "delete"
+                result = project_command(
+                    pool,
+                    command_type=command_type,
+                    project_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, _source_project_alias_result(pool, result), origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
+            if self._source_project_method_alias("PUT"):
+                return
             if self._supplier_method_alias("PUT"):
                 return
             if self._source_dynamic_cost_method_alias("PUT"):
@@ -23212,6 +23748,8 @@ def handler_factory(
             response(self, 404, {"error": "unsupported company patch"}, self._origin())
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if self._source_project_method_alias("DELETE"):
+                return
             if self._tender_method_alias("DELETE"):
                 return
             if self._supplier_method_alias("DELETE"):
