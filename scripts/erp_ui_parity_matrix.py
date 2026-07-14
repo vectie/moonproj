@@ -244,7 +244,7 @@ def match_target(
         if path == "/webhook-config" and function == "webhook_view":
             return function, "connected_webhook_read"
         if path == "/report-builder" and function == "report_builder_view":
-            return function, "connected_report_builder_read"
+            return function, "connected_report_builder_command_form"
         if path == "/profile" and function == "profile_view":
             return function, "connected_profile_read"
         if path == "/expenses" and function == "expenses_view":
@@ -416,6 +416,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_webhook_scenario_and_production_identity"
     if target_state == "connected_report_builder_read":
         return "accept_browser_report_builder_scenario_and_production_identity"
+    if target_state == "connected_report_builder_command_form":
+        return "accept_browser_report_builder_command_scenario_and_report_owner"
     if target_state == "fixture_backed_form":
         return "connect_authenticated_read_and_command_api_and_accept_scenario"
     return "connect_authenticated_read_api_and_accept_screenshot_and_scenario"
@@ -968,6 +970,18 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_report_builder_read", "accept_browser_report_builder_scenario_and_production_identity"
     if (
+        handler["module"] == "reports"
+        and handler["method"] == "POST"
+        and handler["path"] in {"/templates", "/templates/run"}
+    ):
+        return "connected_report_builder_command", "accept_browser_report_builder_command_scenario_and_report_owner"
+    if (
+        handler["module"] == "reports"
+        and handler["method"] == "DELETE"
+        and handler["path"] == "/templates/:id"
+    ):
+        return "connected_report_builder_command", "accept_browser_report_builder_command_scenario_and_report_owner"
+    if (
         handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/providers", "/providers/:guid", "/stats/overview"}
@@ -1094,6 +1108,10 @@ def build_matrix(
             api_state = "connected_webhook_read"
         elif target_state == "connected_report_builder_read":
             api_state = "connected_report_builder_read"
+        elif target_state == "connected_report_builder_command_form":
+            api_state = "connected_report_builder_command"
+        elif target_state == "connected_report_builder_command":
+            api_state = "connected_report_builder_command"
         elif target_state == "connected_supplier_risk_read":
             api_state = "connected_supplier_risk_read"
         elif target_state == "connected_command_form":

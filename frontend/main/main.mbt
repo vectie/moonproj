@@ -1032,6 +1032,10 @@ struct Model {
   report_builder_template_rows : Array[Array[String]]
   report_builder_missing_table_count : String
   report_builder_note : String
+  report_builder_command_state : String
+  report_builder_command_note : String
+  report_builder_template_id : String
+  report_builder_run_rows : Array[Array[String]]
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
@@ -1311,6 +1315,12 @@ enum Msg {
   ReportBuilderMetaLoaded(String)
   ReportBuilderTemplatesLoaded(String)
   ReportBuilderLoadFailed
+  CreateReportTemplate
+  RunReportTemplate
+  DeleteReportTemplate
+  ReportBuilderCommandFinished(String)
+  ReportBuilderRunFinished(String)
+  ReportBuilderCommandFailed
   ProfileLoaded(String)
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
@@ -1666,6 +1676,10 @@ fn initial_model() -> Model {
     report_builder_template_rows: [],
     report_builder_missing_table_count: "0",
     report_builder_note: "自定义报表源读模型尚未加载 · 使用设计快照",
+    report_builder_command_state: "未执行",
+    report_builder_command_note: "模板创建、运行、删除仍未执行",
+    report_builder_template_id: "",
+    report_builder_run_rows: [],
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
@@ -4916,6 +4930,61 @@ fn report_builder_templates_from_body(
 }
 
 ///|
+fn report_builder_command_from_body(
+  body : String,
+) -> (Bool, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("template") {
+        Some(Json::Object(template)) =>
+          (
+            true,
+            json_object_text(template, "state", "active"),
+            json_object_text(template, "template_id", ""),
+            if json_object_text(template, "state", "active") == "deleted" {
+              "模板已删除 · 仅保留命令投影、回执与审计"
+            } else {
+              "模板已写入 PostgreSQL 命令投影 · 不触发现金、会计或税务"
+            },
+          )
+        _ => (false, "error", "", "报表模板命令响应无效")
+      }
+    _ => (false, "error", "", "报表模板命令响应无效")
+  }
+}
+
+///|
+fn report_builder_run_from_body(
+  body : String,
+) -> (Bool, Array[Array[String]], String) {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push([
+                  json_object_text(row, "contract_code", "—"),
+                  json_object_text(row, "ht_amount", "0"),
+                ])
+              _ => ()
+            }
+          }
+          (
+            true, rows, "已在导入源信封内存中运行 · sql_executed=false · 不持久化、不触发外部执行",
+          )
+        }
+        _ => (false, rows, "报表运行响应无效")
+      }
+    _ => (false, rows, "报表运行响应无效")
+  }
+}
+
+///|
 fn profile_from_body(body : String) -> Array[String] {
   let values : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -6289,6 +6358,57 @@ fn load_report_builder_templates(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(ReportBuilderTemplatesLoaded(body))
       Err(_) => emit(ReportBuilderLoadFailed)
+    }
+  })
+}
+
+///|
+fn report_builder_create_body() -> String {
+  "{\"templateName\":\"Rabbita 本地合同报表\",\"description\":\"本地报表模板命令演示\",\"baseTable\":\"cb_contract\",\"columns\":[\"contract_code\",\"ht_amount\"],\"filters\":[{\"field\":\"ht_amount\",\"op\":\">\",\"value\":0}],\"orderBy\":\"ht_amount desc\",\"isShared\":false,\"idempotency_key\":\"rabbita-report-template-create-v1\"}"
+}
+
+///|
+fn report_builder_run_body() -> String {
+  "{\"baseTable\":\"cb_contract\",\"columns\":[\"contract_code\",\"ht_amount\"],\"filters\":[{\"field\":\"ht_amount\",\"op\":\">\",\"value\":0}],\"orderBy\":\"ht_amount desc\",\"limit\":20,\"idempotency_key\":\"rabbita-report-template-run-v1\"}"
+}
+
+///|
+fn issue_report_builder_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/reports/templates")
+  .with_text(report_builder_create_body())
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportBuilderCommandFinished(body))
+      Err(_) => emit(ReportBuilderCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_report_builder_run(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/reports/templates/run")
+  .with_text(report_builder_run_body())
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportBuilderRunFinished(body))
+      Err(_) => emit(ReportBuilderCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_report_builder_delete(
+  emit : @rabbita.Emit[Msg],
+  template_id : String,
+) -> Cmd {
+  @http.delete(
+    "/api/company/reports/templates/" +
+    template_id +
+    "?idempotency_key=rabbita-report-template-delete-v1",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportBuilderCommandFinished(body))
+      Err(_) => emit(ReportBuilderCommandFailed)
     }
   })
 }
@@ -9917,6 +10037,97 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           report_builder_table_rows: [],
           report_builder_template_rows: [],
           report_builder_note: "自定义报表读模型不可用 · 使用设计快照",
+        },
+      )
+    CreateReportTemplate =>
+      if model.report_builder_command_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_report_builder_create(emit),
+          {
+            ..model,
+            report_builder_command_state: "pending",
+            report_builder_command_note: "正在创建报表模板命令…",
+          },
+        )
+      }
+    RunReportTemplate =>
+      if model.report_builder_command_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_report_builder_run(emit),
+          {
+            ..model,
+            report_builder_command_state: "running",
+            report_builder_command_note: "正在以内存导入源运行白名单报表…",
+          },
+        )
+      }
+    DeleteReportTemplate =>
+      if model.report_builder_template_id == "" ||
+        model.report_builder_command_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_report_builder_delete(emit, model.report_builder_template_id),
+          {
+            ..model,
+            report_builder_command_state: "pending",
+            report_builder_command_note: "正在删除本地报表模板命令…",
+          },
+        )
+      }
+    ReportBuilderCommandFinished(body) => {
+      let (loaded, state, template_id, note) = report_builder_command_from_body(
+        body,
+      )
+      (
+        if loaded {
+          load_report_builder_templates(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          report_builder_command_state: if loaded {
+            state
+          } else {
+            "error"
+          },
+          report_builder_template_id: if state == "deleted" {
+            ""
+          } else {
+            template_id
+          },
+          report_builder_command_note: note,
+        },
+      )
+    }
+    ReportBuilderRunFinished(body) => {
+      let (loaded, rows, note) = report_builder_run_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          report_builder_command_state: if loaded {
+            "ran"
+          } else {
+            "error"
+          },
+          report_builder_run_rows: rows,
+          report_builder_command_note: note,
+        },
+      )
+    }
+    ReportBuilderCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          report_builder_command_state: "error",
+          report_builder_command_note: "报表模板命令服务不可用或拒绝了请求",
         },
       )
     ProfileLoaded(body) => {
@@ -15116,7 +15327,29 @@ fn share_view(path : String) -> @html.Html {
 }
 
 ///|
-fn report_builder_view(model : Model) -> @html.Html {
+fn report_builder_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let actions : Array[@html.Html] = [
+    button(
+      class="erp-primary-btn",
+      on_click=emit(CreateReportTemplate),
+      "＋ 新建报表",
+    ),
+    button(
+      class="erp-secondary-btn",
+      on_click=emit(RunReportTemplate),
+      "运行本地报表",
+    ),
+  ]
+  if model.report_builder_template_id != "" &&
+    model.report_builder_command_state != "pending" {
+    actions.push(
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(DeleteReportTemplate),
+        "删除本地模板",
+      ),
+    )
+  }
   let meta_rows = if model.report_builder_loaded {
     if model.report_builder_table_rows.length() == 0 {
       [["—", "—", "0", "—", "无元数据"]]
@@ -15156,7 +15389,7 @@ fn report_builder_view(model : Model) -> @html.Html {
     "自定义报表",
     "ANALYSIS / BUILDER",
     "选择数据主题、字段和筛选条件，保存为团队可复用的自定义报表。",
-    [button(class="erp-primary-btn", "＋ 新建报表")],
+    actions,
     div <| [
       section(class="erp-builder-card") <| [
         span(class="erp-page-eyebrow", "REPORT BUILDER"),
@@ -15183,12 +15416,33 @@ fn report_builder_view(model : Model) -> @html.Html {
           meta_rows,
         ),
       ),
+      section(class="erp-builder-card") <| [
+        span(class="erp-page-eyebrow", "LOCAL COMMAND RUNTIME"),
+        h2("模板命令与运行预览"),
+        p(
+          "状态：" +
+          model.report_builder_command_state +
+          " · " +
+          model.report_builder_command_note,
+        ),
+        if model.report_builder_run_rows.length() == 0 {
+          div(
+            class="erp-empty-state",
+            "尚未运行模板 · 运行只读取已导入合同源信封，不执行原始 SQL",
+          )
+        } else {
+          data_table(
+            ["合同号", "合同金额"],
+            model.report_builder_run_rows,
+          )
+        },
+      ],
       table_panel(
         "已保存报表",
         if model.report_builder_loaded {
           "源模板 " +
           model.report_builder_template_rows.length().to_string() +
-          " · 模板创建/执行仍需授权 · 空源表 " +
+          " · 本地命令/运行已接通（无外部效果） · 空源表 " +
           model.report_builder_missing_table_count
         } else {
           "共 12 个"
@@ -18233,7 +18487,7 @@ fn business_view(
       "/loans/new" => loan_editor_view(emit, model, false)
       "/loans/LOAN-260713-001" => loan_editor_view(emit, model, true)
       "/reports" => reports_view(emit, model)
-      "/report-builder" => report_builder_view(model)
+      "/report-builder" => report_builder_view(emit, model)
       "/warning" => warning_view(model)
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)

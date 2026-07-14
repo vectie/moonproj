@@ -167,7 +167,12 @@ The bounded service exposes these endpoints:
   configuration read; provider delivery, writes, and overdue scans remain gated)
 * ``/api/company/reports/templates/meta`` and ``/api/company/reports/templates``
   (GET, source-compatible report-builder metadata/template reads; execution and
-  template mutation remain gated)
+  template commands remain bounded and source-row safe)
+* ``/api/company/reports/templates/run`` (POST, allow-listed source observation;
+  execution is evaluated against imported JSON envelopes without raw SQL)
+* ``/api/company/reports/templates`` (POST local command-owned template) and
+  ``/api/company/reports/templates/<id>`` (DELETE command-owned template;
+  imported templates remain read-only)
 * ``/api/company/cashflow/forecast`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast-v3`` (GET, source-compatible cashflow read)
 * ``/api/company/cashflow/forecast/detail`` (GET, source-compatible drill-down)
@@ -554,6 +559,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "ai_diagnostic_read",
             "webhook_config_read",
             "report_template_read",
+            "report_template_command",
+            "report_template_run",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -622,6 +629,9 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "admin_health_full_read",
             "admin_backup_boundary_read",
             "ai_diagnostic_read",
+            "report_template_read",
+            "report_template_command",
+            "report_template_run",
         ],
         "schema_version": expected_schema_version,
     }
@@ -11841,6 +11851,16 @@ REPORT_TEMPLATE_TABLE_META = [
 
 REPORT_TEMPLATE_OPERATORS = ["=", "!=", ">", ">=", "<", "<=", "like", "in"]
 
+# The report builder may inspect only these source envelopes.  This is kept
+# separate from ``REPORT_SOURCE_TABLES`` because the builder metadata also
+# exposes a few later-wave tables that are currently empty or absent from the
+# controlled export.  Reading an absent table therefore remains a truthful
+# empty observation rather than a reason to seed a designer fixture.
+REPORT_TEMPLATE_QUERY_TABLES = {
+    str(item["name"])
+    for item in REPORT_TEMPLATE_TABLE_META
+}
+
 
 ERP_SCHEMA_TABLES = {
     "attachment",
@@ -12068,6 +12088,514 @@ def _raw_report_rows(pool: PsqlPool, table: str, max_rows: int) -> list[dict[str
     return _raw_source_rows(pool, table, max_rows, REPORT_SOURCE_TABLES)
 
 
+def _report_template_definition(base_table: str) -> dict[str, Any]:
+    for item in REPORT_TEMPLATE_TABLE_META:
+        if str(item["name"]) == base_table:
+            return item
+    raise CommandRejected("不支持的 baseTable", 400)
+
+
+def _report_template_text(
+    body: dict[str, Any],
+    *keys: str,
+    required: bool = False,
+    max_length: int = 1024,
+) -> str:
+    value: Any = None
+    found = False
+    for key in keys:
+        if key in body:
+            value = body[key]
+            found = True
+            break
+    if not found or value is None:
+        if required:
+            raise CommandRejected(f"{keys[0]} is required", 400)
+        return ""
+    if not isinstance(value, str):
+        raise CommandRejected(f"{keys[0]} must be text", 400)
+    value = value.strip()
+    if required and not value:
+        raise CommandRejected(f"{keys[0]} is required", 400)
+    if len(value) > max_length:
+        raise CommandRejected(f"{keys[0]} is too long", 400)
+    return value
+
+
+def _report_template_spec(
+    body: dict[str, Any],
+    *,
+    require_name: bool,
+) -> dict[str, Any]:
+    base_table = _report_template_text(body, "baseTable", "base_table", required=True, max_length=64)
+    definition = _report_template_definition(base_table)
+    valid_fields = {
+        str(column["field"])
+        for column in definition.get("columns", [])
+        if isinstance(column, dict) and isinstance(column.get("field"), str)
+    }
+    columns = body.get("columns")
+    if not isinstance(columns, list) or not columns:
+        raise CommandRejected("请选至少一列", 400)
+    if any(not isinstance(column, str) for column in columns):
+        raise CommandRejected("columns must be text values", 400)
+    selected_columns = [column.strip() for column in columns if column.strip()]
+    if not selected_columns:
+        raise CommandRejected("请选至少一列", 400)
+    invalid_columns = [column for column in selected_columns if column not in valid_fields]
+    if invalid_columns:
+        raise CommandRejected("列名非法", 400)
+    if len(set(selected_columns)) != len(selected_columns):
+        raise CommandRejected("columns contains duplicates", 400)
+
+    filters = body.get("filters", [])
+    if filters is None:
+        filters = []
+    if not isinstance(filters, list):
+        raise CommandRejected("filters must be an array", 400)
+    normalized_filters: list[dict[str, Any]] = []
+    for item in filters:
+        if not isinstance(item, dict):
+            raise CommandRejected("filter must be an object", 400)
+        field = item.get("field")
+        operator = item.get("op")
+        if not isinstance(field, str) or not isinstance(operator, str):
+            raise CommandRejected("filter field/op is required", 400)
+        field = field.strip()
+        operator = operator.strip()
+        if field not in valid_fields:
+            raise CommandRejected("过滤字段非法", 400)
+        if operator not in REPORT_TEMPLATE_OPERATORS:
+            raise CommandRejected("过滤操作符非法", 400)
+        normalized_filters.append(
+            {
+                "field": field,
+                "op": operator,
+                "value": item.get("value"),
+            }
+        )
+
+    order_by = _report_template_text(body, "orderBy", "order_by", max_length=128)
+    order_field = ""
+    order_direction = "asc"
+    if order_by:
+        parts = order_by.split()
+        if len(parts) > 2 or parts[0] not in valid_fields:
+            raise CommandRejected("排序字段非法", 400)
+        order_field = parts[0]
+        if len(parts) == 2:
+            order_direction = parts[1].lower()
+            if order_direction not in {"asc", "desc"}:
+                raise CommandRejected("排序方向非法", 400)
+
+    is_shared = body.get("isShared", body.get("is_shared", False))
+    if not isinstance(is_shared, bool):
+        raise CommandRejected("isShared must be boolean", 400)
+    result = {
+        "template_name": _report_template_text(
+            body,
+            "templateName",
+            "template_name",
+            required=require_name,
+            max_length=128,
+        ),
+        "description": _report_template_text(body, "description", max_length=1024),
+        "base_table": base_table,
+        "columns": selected_columns,
+        "filters": normalized_filters,
+        "order_by": order_by,
+        "order_field": order_field,
+        "order_direction": order_direction,
+        "is_shared": is_shared,
+    }
+    return result
+
+
+def _report_template_projection_rows(pool: PsqlPool, max_rows: int) -> list[dict[str, Any]]:
+    lines = query_lines(
+        pool,
+        f"""
+        SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+               revision::text,
+               encode(convert_to(payload::text, 'UTF8'), 'hex')
+        FROM company_aggregate_projection
+        WHERE aggregate_type = 'report_template'
+        ORDER BY aggregate_id, revision
+        LIMIT {max(max_rows * 4, 1000)}
+        """,
+    )
+    latest: dict[str, dict[str, Any]] = {}
+    for line in lines:
+        fields = line.split("|")
+        if len(fields) != 3:
+            raise ServiceError("unexpected report template projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid report template projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("report template projection is not an object")
+        latest[decode_hex(fields[0])] = {
+            "template_id": decode_hex(fields[0]),
+            "revision": int(fields[1]),
+            "payload": payload,
+        }
+    return list(latest.values())
+
+
+def _report_template_source_row(payload: dict[str, Any], *, source_kind: str) -> dict[str, Any]:
+    def text(*keys: str) -> str:
+        for key in keys:
+            value = payload.get(key)
+            if value is not None and value != "":
+                return str(value)
+        return ""
+
+    return {
+        "templateId": text("template_id", "templateId"),
+        "templateName": text("template_name", "templateName"),
+        "description": _report_text(payload, "description"),
+        "baseTable": text("base_table", "baseTable"),
+        "columns": payload.get("columns", []) if isinstance(payload.get("columns", []), list) else [],
+        "filters": payload.get("filters", []) if isinstance(payload.get("filters", []), list) else [],
+        "orderBy": text("order_by", "orderBy"),
+        "createdBy": text("created_by", "createdBy", "actor_id"),
+        "createdAt": text("created_at", "createdAt"),
+        "isShared": _notification_bool(payload, "is_shared", "isShared"),
+        "isMine": source_kind == "command",
+        "sourceKind": source_kind,
+        "sourceId": text("source_id", "template_id", "templateId"),
+    }
+
+
+def _report_template_command_result(
+    payload: dict[str, Any],
+    *,
+    template_id: str,
+    state: str,
+    revision: int,
+    event_id: str,
+    audit_id: str,
+    actor_id: str,
+) -> dict[str, Any]:
+    result = dict(payload)
+    result.update(
+        {
+            "template_id": template_id,
+            "state": state,
+            "revision": revision,
+            "event_id": event_id,
+            "audit_id": audit_id,
+            "actor_id": actor_id,
+            "source_kind": "command",
+            "cash_effect": False,
+            "accounting_effect": False,
+            "tax_effect": False,
+        }
+    )
+    return result
+
+
+def report_template_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    template_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if command_type not in {"create", "delete"}:
+        raise CommandRejected("unsupported report template command", 404)
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        stored_request = existing.get("request")
+        if not isinstance(stored_request, dict):
+            raise ServiceError("stored report template command has no request")
+        if command_type == "create":
+            replay_spec = _report_template_spec(body, require_name=True)
+            for key in (
+                "template_name",
+                "description",
+                "base_table",
+                "columns",
+                "filters",
+                "order_by",
+                "is_shared",
+            ):
+                if stored_request.get(key) != replay_spec.get(key):
+                    raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        else:
+            replay_reason = body.get("reason", "")
+            if not isinstance(replay_reason, str):
+                raise CommandRejected("reason must be text", 422)
+            if (
+                stored_request.get("template_id") != template_id
+                or stored_request.get("reason", "") != replay_reason.strip()
+            ):
+                raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored report template command has no result")
+        return {"command": existing, "template": result, "idempotent_replay": True}
+
+    if command_type == "create":
+        spec = _report_template_spec(body, require_name=True)
+        template_id = "RPT-CMD-" + hashlib.sha256(idempotency_key.encode("utf-8")).hexdigest()[:24]
+        request = {
+            **spec,
+            "command_type": "create",
+            "template_id": template_id,
+            "actor_id": actor_id,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+    else:
+        if template_id is None or not IDENTIFIER.fullmatch(template_id):
+            raise CommandRejected("template_id is required", 422)
+        current_rows = _report_template_projection_rows(pool, 1)
+        current = next(
+            (row for row in current_rows if row["template_id"] == template_id),
+            None,
+        )
+        if current is None:
+            imported = _raw_source_rows(
+                pool,
+                "sys_report_template",
+                500,
+                REPORT_TEMPLATE_SOURCE_TABLES,
+            )
+            if any(
+                str(row["payload"].get("template_id") or row["record_id"]) == template_id
+                for row in imported
+            ):
+                raise CommandRejected("imported report template is read-only", 409)
+            raise CommandRejected("模板不存在", 404)
+        current_payload = current["payload"]
+        if current_payload.get("state") == "deleted":
+            raise CommandRejected("模板已删除", 409)
+        if str(current_payload.get("created_by") or current_payload.get("actor_id") or "") != actor_id:
+            raise CommandRejected("只能删自己的模板", 403)
+        reason = body.get("reason", "")
+        if not isinstance(reason, str):
+            raise CommandRejected("reason must be text", 422)
+        request = {
+            "command_type": "delete",
+            "template_id": template_id,
+            "actor_id": actor_id,
+            "reason": reason.strip(),
+        }
+
+    aggregate_id = str(template_id)
+    event_id = f"report_template:{command_type}:{idempotency_key}"
+    command_source = "moonproj:command:" + idempotency_key
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if command_type == "create":
+        next_payload_expr = (
+            f"{sql_literal(request_json)}::jsonb || jsonb_build_object('state', 'active', "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'active'"
+    else:
+        next_payload_expr = (
+            f"current_payload || jsonb_build_object('state', 'deleted', 'deleted_at', {sql_literal(event_id)}, "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)}, "
+            f"'reason', {sql_literal(request_json)}::jsonb->>'reason')"
+        )
+        next_state_expr = "'deleted'"
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "report_template",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "report_template",
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal('report_template:' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      next_revision integer;
+      next_state text;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'report_template' AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(command_type == 'create').lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'report template already exists'; END IF;
+        next_revision := 1;
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'report template not found'; END IF;
+        IF current_payload->>'state' = 'deleted' THEN RAISE EXCEPTION 'report template is deleted'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'report_template' AND p.aggregate_id = {sql_literal(aggregate_id)};
+      END IF;
+      next_payload := {next_payload_expr};
+      next_state := {next_state_expr};
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('report_template', {sql_literal(aggregate_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', 'report_template.' || {sql_literal(command_type)},
+          'aggregate_type', 'report_template', 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', next_state, 'revision', next_revision,
+          'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object(
+        'template_id', {sql_literal(aggregate_id)}, 'state', next_state, 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)}, 'source_kind', 'command',
+        'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+      );
+      result := next_payload || result;
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    COMMIT;
+    """
+    pool.execute(sql)
+    command = _existing_command(pool, idempotency_key)
+    if command is None:
+        raise ServiceError("report template command receipt was not persisted")
+    result = command.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("report template command receipt has no result")
+    return {"command": command, "template": result, "idempotent_replay": False}
+
+
+def report_template_run(
+    pool: PsqlPool,
+    body: dict[str, Any],
+    max_rows: int,
+) -> dict[str, Any]:
+    spec = _report_template_spec(body, require_name=False)
+    try:
+        limit_value = body.get("limit", 200)
+        if isinstance(limit_value, bool):
+            raise ValueError
+        limit = max(1, min(int(limit_value), 1000))
+    except (TypeError, ValueError) as error:
+        raise CommandRejected("limit must be an integer", 400) from error
+    base_table = spec["base_table"]
+    raw_rows = _raw_source_rows(
+        pool,
+        base_table,
+        max(max_rows, 1000),
+        REPORT_TEMPLATE_QUERY_TABLES,
+    )
+    definition = _report_template_definition(base_table)
+    numeric_fields = {
+        str(field)
+        for field, field_type in definition.get("filterableTypes", {}).items()
+        if str(field_type) == "number"
+    }
+
+    def comparable(value: Any, field: str) -> Any:
+        if field in numeric_fields:
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return Decimal("0")
+        return "" if value is None else str(value)
+
+    def matches(payload: dict[str, Any], item: dict[str, Any]) -> bool:
+        field = str(item["field"])
+        operator = str(item["op"])
+        left = comparable(payload.get(field), field)
+        right_value = item.get("value")
+        if operator == "in":
+            values = right_value if isinstance(right_value, list) else str(right_value or "").split(",")
+            return any(left == comparable(value, field) for value in values)
+        right = comparable(right_value, field)
+        if operator == "like":
+            return str(right).lower() in str(left).lower()
+        if operator == "=":
+            return left == right
+        if operator == "!=":
+            return left != right
+        if operator == ">":
+            return left > right
+        if operator == ">=":
+            return left >= right
+        if operator == "<":
+            return left < right
+        if operator == "<=":
+            return left <= right
+        return True
+
+    selected = [
+        row
+        for row in raw_rows
+        if not row["payload"].get("deleted_at")
+        and all(matches(row["payload"], item) for item in spec["filters"])
+    ]
+    if spec["order_field"]:
+        selected.sort(
+            key=lambda row: comparable(row["payload"].get(spec["order_field"]), spec["order_field"]),
+            reverse=spec["order_direction"] == "desc",
+        )
+    columns = [
+        column
+        for column in definition.get("columns", [])
+        if isinstance(column, dict) and column.get("field") in spec["columns"]
+    ]
+    rows = [
+        {field: row["payload"].get(field) for field in spec["columns"]}
+        for row in selected[:limit]
+    ]
+    coverage = {
+        table: len(_raw_source_rows(pool, table, max(max_rows, 1000), REPORT_TEMPLATE_QUERY_TABLES))
+        for table in sorted(REPORT_TEMPLATE_QUERY_TABLES)
+    }
+    coverage[base_table] = len(raw_rows)
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "sql": None,
+            "sql_executed": False,
+            "rows": rows,
+            "total": len(rows),
+            "columns": columns,
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
 def report_template_metadata() -> dict[str, Any]:
     return {
         "success": True,
@@ -12108,27 +12636,38 @@ def report_template_rows(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
             return []
 
         result.append(
-            {
-                "templateId": _report_text(payload, "template_id", source["record_id"]),
-                "templateName": _report_text(payload, "template_name"),
-                "description": _report_text(payload, "description"),
-                "baseTable": _report_text(payload, "base_table", ""),
-                "columns": json_array("columns", "columns_json"),
-                "filters": json_array("filters", "filters_json"),
-                "orderBy": _report_text(payload, "order_by", "orderBy"),
-                "createdBy": _report_text(payload, "created_by", "createdBy"),
-                "createdAt": _report_text(payload, "created_at", "createdAt"),
-                "isShared": _notification_bool(payload, "is_shared", "isShared"),
-                "isMine": False,
-                "sourceKind": "imported",
-            }
+            _report_template_source_row(
+                {
+                    **payload,
+                    "template_id": _report_text(payload, "template_id", source["record_id"]),
+                    "columns": json_array("columns", "columns_json"),
+                    "filters": json_array("filters", "filters_json"),
+                },
+                source_kind="imported",
+            )
         )
+    for projection in _report_template_projection_rows(pool, max_rows):
+        payload = projection["payload"]
+        if _report_text(payload, "state") == "deleted":
+            continue
+        result.append(_report_template_source_row(payload, source_kind="command"))
     result.sort(key=lambda row: (str(row["createdAt"]), str(row["templateId"])), reverse=True)
     return {
         "success": True,
         "code": 0,
         "data": result[:max_rows],
-        **_notification_source_metadata(coverage),
+        "source_kind": "imported_or_command",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+        "command_projection_count": sum(
+            1 for projection in _report_template_projection_rows(pool, max_rows)
+            if _report_text(projection["payload"], "state") != "deleted"
+        ),
     }
 
 
@@ -23655,6 +24194,14 @@ def handler_factory(
                     command_family = "plan_task"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/reports/templates":
+                    command_family = "report_template"
+                    command_type = "create"
+                    aggregate_id = None
+                elif parsed.path == "/api/company/reports/templates/run":
+                    command_family = "report_template_run"
+                    command_type = "run"
+                    aggregate_id = None
                 elif parsed.path in {
                     "/api/company/source/invoice/in",
                     "/api/company/source/invoice/out",
@@ -24086,6 +24633,17 @@ def handler_factory(
                             actor_id=actor,
                             idempotency_key=idempotency_key,
                         )
+                elif command_family == "report_template":
+                    result = report_template_command(
+                        pool,
+                        command_type="create",
+                        template_id=None,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                elif command_family == "report_template_run":
+                    result = report_template_run(pool, body, max_response_rows)
                 else:
                     result = expense_command(
                         pool,
@@ -24099,7 +24657,7 @@ def handler_factory(
                     command_family == "sales" and command_type == "open_receivable"
                 ) or (
                     command_family == "delivery" and family == "task_report"
-                )
+                ) or command_family == "report_template"
                 status = 201 if creates_record and not result["idempotent_replay"] else 200
                 response(self, status, result, origin)
             except PoolExhausted as error:
@@ -24141,6 +24699,43 @@ def handler_factory(
                     idempotency_key=idempotency_key,
                 )
                 response(self, 200, _source_dynamic_cost_alias_result(result), origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
+        def _report_template_method_alias(self, method: str) -> bool:
+            if method != "DELETE":
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/reports/templates/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                query_key = parse_qs(parsed.query).get("idempotency_key", [""])[0]
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip() or query_key.strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = report_template_command(
+                    pool,
+                    command_type="delete",
+                    template_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
             except PoolExhausted as error:
                 response(self, 503, {"error": str(error)}, origin)
             except CommandRejected as error:
@@ -24835,6 +25430,8 @@ def handler_factory(
             response(self, 404, {"error": "unsupported company patch"}, self._origin())
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if self._report_template_method_alias("DELETE"):
+                return
             if self._notification_subscription_method_alias("DELETE"):
                 return
             if self._auth_preference_method_alias("DELETE"):

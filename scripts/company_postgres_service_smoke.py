@@ -155,6 +155,8 @@ def main() -> int:
             or "admin_backup_boundary_read" not in payload.get("capabilities", [])
             or "supplier_signature_boundary_read" not in payload.get("capabilities", [])
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
+            or "report_template_command" not in payload.get("capabilities", [])
+            or "report_template_run" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
             or "contract_source_command_alias" not in payload.get("capabilities", [])
@@ -1275,6 +1277,119 @@ def main() -> int:
         ):
             raise SmokeError(f"report template list read failed: {status} {report_templates_payload}")
         report_template_rows = len(report_templates_payload.get("data", []))
+        report_template_key = "report-template-create-" + uuid.uuid4().hex[:12]
+        report_template_spec = {
+            "templateName": "服务烟测合同报表",
+            "description": "只读报表模板命令烟测",
+            "baseTable": "cb_contract",
+            "columns": ["contract_code", "ht_amount"],
+            "filters": [{"field": "ht_amount", "op": ">", "value": 0}],
+            "orderBy": "ht_amount desc",
+            "isShared": False,
+        }
+        status, report_template_create = request(
+            args.port,
+            "/api/company/reports/templates",
+            token=token,
+            method="POST",
+            payload=report_template_spec,
+            idempotency_key=report_template_key,
+        )
+        created_template = (report_template_create or {}).get("template", {})
+        if (
+            status != 201
+            or report_template_create is None
+            or created_template.get("state") != "active"
+            or created_template.get("source_kind") != "command"
+            or created_template.get("cash_effect") is not False
+            or created_template.get("accounting_effect") is not False
+            or created_template.get("tax_effect") is not False
+        ):
+            raise SmokeError(f"report template create failed: {status} {report_template_create}")
+        status, report_template_replay = request(
+            args.port,
+            "/api/company/reports/templates",
+            token=token,
+            method="POST",
+            payload=report_template_spec,
+            idempotency_key=report_template_key,
+        )
+        if (
+            status != 200
+            or report_template_replay is None
+            or report_template_replay.get("idempotent_replay") is not True
+            or report_template_replay.get("template", {}).get("template_id")
+            != created_template.get("template_id")
+        ):
+            raise SmokeError(f"report template replay failed: {status} {report_template_replay}")
+        status, report_template_list_command = request(
+            args.port,
+            "/api/company/reports/templates",
+            token=token,
+        )
+        if (
+            status != 200
+            or report_template_list_command is None
+            or len(report_template_list_command.get("data", [])) != 1
+            or report_template_list_command.get("data", [])[0].get("sourceKind") != "command"
+            or report_template_list_command.get("command_projection_count") != 1
+        ):
+            raise SmokeError(
+                f"report template command readback failed: {status} {report_template_list_command}"
+            )
+        status, report_template_run_payload = request(
+            args.port,
+            "/api/company/reports/templates/run",
+            token=token,
+            method="POST",
+            payload={
+                "baseTable": "cb_contract",
+                "columns": ["contract_code", "ht_amount"],
+                "filters": [{"field": "ht_amount", "op": ">", "value": 0}],
+                "orderBy": "ht_amount desc",
+                "limit": 10,
+            },
+            idempotency_key="report-template-run-" + uuid.uuid4().hex[:12],
+        )
+        run_data = (report_template_run_payload or {}).get("data", {})
+        if (
+            status != 200
+            or report_template_run_payload is None
+            or run_data.get("sql_executed") is not False
+            or len(run_data.get("rows", [])) != 2
+            or run_data.get("columns", [])[0].get("field") != "contract_code"
+            or report_template_run_payload.get("authorizing") is not False
+            or report_template_run_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"report template run failed: {status} {report_template_run_payload}")
+        status, report_template_delete = request(
+            args.port,
+            "/api/company/reports/templates/" + str(created_template.get("template_id")),
+            token=token,
+            method="DELETE",
+            payload={"reason": "service smoke cleanup"},
+            idempotency_key="report-template-delete-" + uuid.uuid4().hex[:12],
+        )
+        if (
+            status != 200
+            or report_template_delete is None
+            or report_template_delete.get("template", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"report template delete failed: {status} {report_template_delete}")
+        status, report_template_after_delete = request(
+            args.port,
+            "/api/company/reports/templates",
+            token=token,
+        )
+        if (
+            status != 200
+            or report_template_after_delete is None
+            or report_template_after_delete.get("data") != []
+            or report_template_after_delete.get("command_projection_count") != 0
+        ):
+            raise SmokeError(
+                f"report template delete readback failed: {status} {report_template_after_delete}"
+            )
         status, dashboard_overview = request(
             args.port,
             "/api/company/dashboard/group/overview",
@@ -4502,6 +4617,8 @@ def main() -> int:
                     "report_contract_rows": report_contract_rows,
                     "report_template_meta_tables": len(report_meta_data.get("tables", [])),
                     "report_template_rows": report_template_rows,
+                    "report_template_run_rows": len(run_data.get("rows", [])),
+                    "report_template_command_state": report_template_delete.get("template", {}).get("state"),
                     "report_missing_source_tables": report_missing_tables,
                     "dashboard_project_count": dashboard_overview_rows.get("projectCount"),
                     "dashboard_v2_project_count": dashboard_v2_rows.get("kpi", {}).get("projectCount"),

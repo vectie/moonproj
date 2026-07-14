@@ -39,7 +39,7 @@
     "connected_profile_read": 1,
     "connected_project_read": 2,
     "connected_rbac_user_read": 1,
-    "connected_report_builder_read": 1,
+    "connected_report_builder_command_form": 1,
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command_form": 1,
@@ -82,7 +82,7 @@
     "connected_profile_read": 1,
     "connected_project_read": 2,
     "connected_rbac_user_read": 1,
-    "connected_report_builder_read": 1,
+    "connected_report_builder_command": 1,
     "connected_report_read": 1,
     "connected_sales_read": 5,
     "connected_supplier_command": 1,
@@ -689,13 +689,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "report_builder_view",
-      "target_state": "connected_report_builder_read",
+      "target_state": "connected_report_builder_command_form",
       "source_api_module": "reports",
       "source_api_handler_count": 10,
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 3,
-      "api_state": "connected_report_builder_read",
-      "required_next": "accept_browser_report_builder_scenario_and_production_identity"
+      "api_state": "connected_report_builder_command",
+      "required_next": "accept_browser_report_builder_command_scenario_and_report_owner"
     },
     {
       "path": "/warning",
@@ -3791,8 +3791,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_report_builder_command",
+      "required_next": "accept_browser_report_builder_command_scenario_and_report_owner"
     },
     {
       "module": "reports",
@@ -3813,8 +3813,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_report_builder_command",
+      "required_next": "accept_browser_report_builder_command_scenario_and_report_owner"
     },
     {
       "module": "reports",
@@ -3824,8 +3824,8 @@
         "/reports",
         "/report-builder"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_report_builder_command",
+      "required_next": "accept_browser_report_builder_command_scenario_and_report_owner"
     },
     {
       "module": "sales",

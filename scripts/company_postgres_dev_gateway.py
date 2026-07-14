@@ -35,7 +35,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 
 class GatewayError(RuntimeError):
@@ -57,6 +57,7 @@ LOAN_PATH_PREFIX = "/api/company/loans"
 FUND_PATH_PREFIX = "/api/company/fund"
 PLAN_PATH_PREFIX = "/api/company/plan"
 MARKETING_PATH_PREFIX = "/api/company/marketing"
+REPORT_PATH_PREFIX = "/api/company/reports"
 INVOICE_PATH_PREFIX = "/api/company/source/invoice"
 SOURCE_COST_PAYMENT_PATH_PREFIX = "/api/company/source/cost/payment-applies"
 SOURCE_COST_DYNAMIC_PATH_PREFIX = "/api/company/cost/dynamic-cost"
@@ -409,6 +410,13 @@ def handler_factory(
                         )
                     )
                 )
+                or (
+                    method == "DELETE"
+                    and re.fullmatch(
+                        r"/api/company/reports/templates/[A-Za-z0-9_.:-]{1,128}",
+                        parsed.path,
+                    )
+                )
                 or re.fullmatch(
                     r"/api/company/source/cost/payment-applies/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,
@@ -433,6 +441,8 @@ def handler_factory(
                 key = value.pop("idempotency_key", None)
                 if key is None:
                     key = self.headers.get("Idempotency-Key", "")
+                if key is None or not str(key).strip():
+                    key = parse_qs(parsed.query).get("idempotency_key", [""])[0]
                 if not isinstance(key, str) or not key.strip():
                     raise GatewayError("idempotency_key or Idempotency-Key is required")
                 body = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -557,6 +567,10 @@ def handler_factory(
                 or parsed.path.startswith(PLAN_PATH_PREFIX + "/")
                 or parsed.path == MARKETING_PATH_PREFIX
                 or parsed.path.startswith(MARKETING_PATH_PREFIX + "/")
+                or parsed.path in {
+                    REPORT_PATH_PREFIX + "/templates",
+                    REPORT_PATH_PREFIX + "/templates/run",
+                }
                 or parsed.path == INVOICE_PATH_PREFIX
                 or parsed.path.startswith(INVOICE_PATH_PREFIX + "/")
                 or parsed.path == SOURCE_COST_PAYMENT_PATH_PREFIX

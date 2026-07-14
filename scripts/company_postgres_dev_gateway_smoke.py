@@ -172,7 +172,71 @@ def main() -> int:
         )
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
-        smoke_suffix = str(int(time.time()))
+        smoke_suffix = str(time.time_ns())
+        report_template_body = {
+            "templateName": "网关烟测合同报表",
+            "description": "可信会话报表模板命令烟测",
+            "baseTable": "cb_contract",
+            "columns": ["contract_code", "ht_amount"],
+            "filters": [{"field": "ht_amount", "op": ">", "value": 0}],
+            "orderBy": "ht_amount desc",
+            "isShared": False,
+            "idempotency_key": "report-template-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, report_template_create = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/reports/templates",
+            headers={"Cookie": cookie},
+            payload=report_template_body,
+        )
+        if (
+            status != 201
+            or not isinstance(report_template_create, dict)
+            or report_template_create.get("template", {}).get("source_kind") != "command"
+        ):
+            raise SmokeError(f"trusted report template create failed: {status}")
+        status, _headers, report_template_replay = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/reports/templates",
+            headers={"Cookie": cookie},
+            payload=report_template_body,
+        )
+        if status != 200 or not isinstance(report_template_replay, dict) or report_template_replay.get("idempotent_replay") is not True:
+            raise SmokeError(f"trusted report template replay failed: {status}")
+        status, _headers, report_template_run = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/reports/templates/run",
+            headers={"Cookie": cookie},
+            payload={
+                "baseTable": "cb_contract",
+                "columns": ["contract_code", "ht_amount"],
+                "filters": [{"field": "ht_amount", "op": ">", "value": 0}],
+                "limit": 10,
+                "idempotency_key": "report-template-gateway-run-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(report_template_run, dict)
+            or report_template_run.get("data", {}).get("sql_executed") is not False
+            or len(report_template_run.get("data", {}).get("rows", [])) != 2
+        ):
+            raise SmokeError(f"trusted report template run failed: {status}")
+        report_template_id = report_template_create.get("template", {}).get("template_id")
+        status, _headers, report_template_delete = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/reports/templates/{report_template_id}"
+            f"?idempotency_key=report-template-gateway-delete-{smoke_suffix}",
+            headers={"Cookie": cookie},
+        )
+        if status != 200 or not isinstance(report_template_delete, dict) or report_template_delete.get("template", {}).get("state") != "deleted":
+            raise SmokeError(
+                f"trusted report template delete failed: {status} id={report_template_id!r} {report_template_delete}"
+            )
         preference_key = "dashboard_view"
         preference_value = {"projGuid": "proj-0001", "density": "compact"}
         status, _headers, preference_set_payload = request(

@@ -131,8 +131,12 @@ whitelist and saved-template metadata through
 `/api/company/reports/templates/meta` and `/api/company/reports/templates`.
 The export contains no `sys_report_template` rows, so successful reads show an
 explicit empty-template state while retaining the designer builder layout.
-Template execution, creation, deletion, exports, and report-owner acceptance
-remain gated.
+The PostgreSQL service/gateway now also exposes source-safe template create,
+run, and delete commands; command-owned templates are shown with
+`sourceKind=command`, while imported templates stay read-only. Run evaluates
+only the allow-listed imported envelope fields and reports `sql_executed=false`.
+CSV/PDF exports, production identity, and report-owner acceptance remain
+gated.
 The company service/gateway also exposes local
 employee-loan create, applicant submit, bounded offset, draft update, and
 draft/rejected void commands with explicit authority evidence and idempotency;
