@@ -44,10 +44,10 @@ python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
   > "$WORK_DIR/sqlite-parity.json"
 
 if [ -n "$PG_DATABASE" ]; then
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$ACCOUNTING_RECEIPT" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE" > "$WORK_DIR/postgres-apply.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$ACCOUNTING_RECEIPT" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE" > "$WORK_DIR/postgres-replay.json"
   python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \

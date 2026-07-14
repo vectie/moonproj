@@ -41,7 +41,7 @@ python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
   > "$WORK_DIR/sqlite-replay.json"
 
 if [ -n "$PG_DATABASE" ]; then
-  python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
+  "$SCRIPT_DIR/company_postgres_projection_apply.sh" \
     "$WORK_DIR/task-state-exception-evidence-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-apply.json"
@@ -49,7 +49,7 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/task-state-exception-evidence-receipt.json" \
     "$WORK_DIR/postgres-parity.json" --host "$PG_HOST" --port "$PG_PORT" \
     --user "$PG_USER" --database "$PG_DATABASE"
-  python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
+  "$SCRIPT_DIR/company_postgres_projection_apply.sh" \
     "$WORK_DIR/task-state-exception-evidence-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-replay.json"

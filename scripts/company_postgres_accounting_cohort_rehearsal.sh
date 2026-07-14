@@ -23,10 +23,10 @@ python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
   "$DOMAIN_RECEIPT" "$MAPPING_PATH" "$PLAN"
 moon run --target native cmd/accounting_link -- "$PLAN" "$RECEIPT"
 
-python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
   "$RECEIPT" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE" > "$WORK_DIR/postgres-apply.json"
-python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
   "$RECEIPT" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE" > "$WORK_DIR/postgres-replay.json"
 

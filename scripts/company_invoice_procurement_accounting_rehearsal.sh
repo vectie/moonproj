@@ -61,11 +61,11 @@ python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
   --database "$SQLITE_DATABASE" > "$WORK_DIR/procurement-sqlite-parity.json"
 
 if [ -n "$PG_DATABASE" ]; then
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/invoice-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/invoice-postgres-apply.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/invoice-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/invoice-postgres-replay.json"
@@ -73,11 +73,11 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/invoice-accounting-link-receipt.json" --backend postgres \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database-name "$PG_DATABASE" > "$WORK_DIR/invoice-postgres-parity.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/procurement-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/procurement-postgres-apply.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/procurement-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/procurement-postgres-replay.json"

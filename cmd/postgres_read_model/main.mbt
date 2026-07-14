@@ -15,83 +15,9 @@ fn fail(message : String) -> PostgresReadModelError {
 }
 
 ///|
-fn env_or(key : String, fallback : String) -> String {
-  @env.get_env_var(key).unwrap_or(fallback)
-}
-
-///|
-fn connection_args() -> Array[String] {
-  [
-    "-X",
-    "-v",
-    "ON_ERROR_STOP=1",
-    "-A",
-    "-t",
-    "-F",
-    "|",
-    "-h",
-    env_or("PGHOST", "/tmp"),
-    "-p",
-    env_or("PGPORT", "5432"),
-    "-U",
-    env_or("PGUSER", "moonproj"),
-    "-d",
-    env_or("PGDATABASE", "moonproj"),
-  ]
-}
-
-///|
-fn sql_literal(value : String) -> String {
-  "'" + value.replace(old="'", new="''") + "'"
-}
-
-///|
-fn process_text(process : @spawn.CompletedProcess, key : String) -> String {
-  match process.to_json() {
-    Object(fields) =>
-      match fields.get(key) {
-        Some(String(value)) => value
-        _ => ""
-      }
-    _ => ""
-  }
-}
-
-///|
-fn process_status(process : @spawn.CompletedProcess) -> Int {
-  match process.to_json() {
-    Object(fields) =>
-      match fields.get("status") {
-        Some(Number(value, ..)) => value.to_int()
-        _ => -1
-      }
-    _ => -1
-  }
-}
-
-///|
 async fn run_psql(sql : String) -> String raise PostgresReadModelError {
-  let arguments = connection_args()
-  arguments.append(["-c", sql])
-  let process = @spawn.spawn(
-    env_or("PSQL_BIN", "psql"),
-    arguments.map(fn(value) { value.to_string_view() }),
-    timeout=30_000,
-  ) catch {
+  @postgres.run_sql(@postgres.connection_from_env(), sql) catch {
     error => raise PostgresReadModelError::QueryFailed("\{to_repr(error)}")
-  }
-  let status = process_status(process)
-  if status != 0 {
-    let detail = process_text(process, "stderr")
-    raise PostgresReadModelError::QueryFailed(
-      if detail.is_empty() {
-        "psql failed"
-      } else {
-        detail.trim().to_owned()
-      },
-    )
-  } else {
-    process_text(process, "stdout")
   }
 }
 
@@ -243,7 +169,7 @@ async fn projections(
       if !valid_identifier(value) {
         raise fail("invalid aggregate_type")
       }
-      " WHERE aggregate_type = " + sql_literal(value)
+      " WHERE aggregate_type = " + @postgres.sql_literal(value)
     }
     None => ""
   }

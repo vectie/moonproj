@@ -70,7 +70,7 @@ mkdir -p "$WORK_DIR"
 # source envelope that is sent to PostgreSQL.
 rm -f "$SQLITE_DB" "$SQLITE_DB.pending"
 "$SCRIPT_DIR/company_sqlite_rehearsal.py" "$STAGING_PATH" "$SQLITE_DB" > "$WORK_DIR/sqlite-raw-apply.json"
-python3 "$SCRIPT_DIR/company_postgres_target_apply.py" \
+"$SCRIPT_DIR/company_postgres_target_apply.sh" \
   "$STAGING_PATH" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE" > "$WORK_DIR/postgres-raw-apply.json"
 
@@ -88,7 +88,7 @@ python3 "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
   "$WORK_DIR/base-sqlite-projection-parity.json"
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
   "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" > "$WORK_DIR/base-sqlite-projection-replay.json"
-python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
+"$SCRIPT_DIR/company_postgres_projection_apply.sh" \
   "$WORK_DIR/domain-promotion.json" \
   --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE" > "$WORK_DIR/base-projection-apply.json"
@@ -96,7 +96,7 @@ python3 "$SCRIPT_DIR/company_postgres_projection_parity.py" \
   "$WORK_DIR/domain-promotion.json" "$WORK_DIR/base-projection-parity.json" \
   --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE"
-python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" \
+"$SCRIPT_DIR/company_postgres_projection_apply.sh" \
   "$WORK_DIR/domain-promotion.json" \
   --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE" > "$WORK_DIR/base-projection-replay.json"
@@ -111,11 +111,11 @@ apply_projection() {
   apply="$WORK_DIR/$label-postgres-apply.json"
   parity="$WORK_DIR/$label-postgres-parity.json"
   replay="$WORK_DIR/$label-postgres-replay.json"
-  python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" "$receipt" \
+  "$SCRIPT_DIR/company_postgres_projection_apply.sh" "$receipt" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" > "$apply"
   python3 "$SCRIPT_DIR/company_postgres_projection_parity.py" "$receipt" "$parity" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE"
-  python3 "$SCRIPT_DIR/company_postgres_projection_apply.py" "$receipt" \
+  "$SCRIPT_DIR/company_postgres_projection_apply.sh" "$receipt" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" > "$replay"
 }
 
@@ -124,9 +124,9 @@ apply_accounting() {
   receipt=$2
   apply="$WORK_DIR/$label-postgres-apply.json"
   replay="$WORK_DIR/$label-postgres-replay.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" "$receipt" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" "$receipt" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" > "$apply"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" "$receipt" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" "$receipt" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" > "$replay"
 }
 

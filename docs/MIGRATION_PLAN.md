@@ -489,7 +489,7 @@ delete boundary is now verified end to end. The service smoke creates a local
 progress projection, deletes it with an idempotency key, replays the same
 request, and confirms the tombstone is absent from the progress readback; the
 trusted gateway smoke repeats the same boundary through the Rabbita-facing
-gateway. Bridge syntax checks, `moon test` (246 tests), source-read smoke, and
+gateway. Bridge syntax checks, `moon test` (252 portable / 256 native tests), source-read smoke, and
 the route-parity regeneration all pass. This closes only local progress
 projection deletion: imported ERP progress remains immutable, and delivery
 recognition, workflow, cash, accounting, tax, production identity, browser
@@ -1250,7 +1250,19 @@ native PostgreSQL runtime slice is now also available as
 `projections` reads execute through the inherited PostgreSQL environment and
 match the Python read-model responses, including aggregate-type filtering, on
 the live target. This is a bounded CLI adapter, not yet the authenticated HTTP
-service or gateway.
+service or gateway. The raw PostgreSQL target-apply boundary is now also native
+MoonBit (`cmd/postgres_target_apply` plus
+`scripts/company_postgres_target_apply.sh`): it validates the staging manifest,
+applies the catalog/receipt transaction through `psql`, and has native replay
+hash parity with the frozen Python adapter in an isolated PostgreSQL schema.
+Native `cmd/postgres_projection_apply` now covers the validated domain-receipt
+projection transaction as well, including deterministic event identity,
+immutable revisions, cohort receipt, and replay-hash parity; the typed cohort
+shell rehearsals use that wrapper. Native
+`cmd/postgres_accounting_link_apply` covers the explicit event/source/journal
+traceability transaction and replay hash as well; all PostgreSQL accounting
+cohort wrappers now use the shell entrypoint. These three persistence adapters
+remain effect-neutral and do not post journals, release cash, or close periods.
 
 Execute the remainder in this order:
 
@@ -1287,11 +1299,18 @@ Execute the remainder in this order:
     operational commands. Run the Python bridge and MoonBit implementation in
     shadow, compare canonical response/receipt hashes and replay counts, then
     delete or archive the Python entry points before managed deployment.
-    The bounded native `cmd/postgres_read_model` slice now covers the first
-    three fixed read contracts and has exact response parity with the Python
-    development adapter; continue the port with the remaining HTTP routes,
-    authenticated service, gateway, and shadow/replay checks before treating
-    this convergence step as complete.
+    Native `cmd/postgres_read_model` covers the first three fixed read
+    contracts, and native `cmd/postgres_read_model_server` now serves the first
+    bounded HTTP read surface (`health`, `summary`, `receipts`, and filtered
+    projections, plus method/OPTIONS handling). Both have exact live response
+    parity with the frozen Python development adapter. Native
+    `cmd/postgres_target_apply`, `cmd/postgres_projection_apply`, and
+    `cmd/postgres_accounting_link_apply` cover the raw, aggregate, and
+    accounting traceability transactions with replay-hash parity. Continue the
+    port with the remaining HTTP routes, authenticated service, gateway,
+    rehearsal planners/parity tools, and shadow/replay checks before treating
+    this convergence step as complete; Python remains bridge evidence only and
+    is not an accepted build, test, or deployment dependency.
 3b. **Completed locally (2026-07-14):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

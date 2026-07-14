@@ -32,7 +32,7 @@ backup/replay checks; it is not the production target.
 ## Target apply
 
 The credential-free raw staging artifact can be applied to this target with
-`scripts/company_postgres_target_apply.py`. It validates the staging manifest,
+the native MoonBit wrapper `scripts/company_postgres_target_apply.sh`. It validates the staging manifest,
 applies the version-4 catalog, inserts opaque `company_record` envelopes in a
 transaction, and finalizes an idempotent migration receipt. Supply the
 password through PostgreSQL's normal secret mechanism; it is not a script
@@ -40,45 +40,54 @@ argument or repository value:
 
 ```text
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
-  scripts/company_postgres_target_apply.py /path/to/raw-staging.ndjson
+  scripts/company_postgres_target_apply.sh /path/to/raw-staging.ndjson
 ```
+
+The former `company_postgres_target_apply.py` remains only as frozen bridge
+evidence for shadow comparison; it is no longer invoked by the PostgreSQL
+cohort rehearsal.
 
 The local target was verified on the available redacted ERP snapshot with
 schema version `4`, `120` staged and durable raw records, `115` aggregate
 projections, `7` reviewed accounting-event links, and `24` cohort receipts
 before optional posting.
 Replaying the same staging artifact and reviewed receipts inserted `0` rows
-and did not create duplicate receipts. Native aggregate
-promotion receipts can now be persisted through
-`scripts/company_postgres_projection_apply.py`; reviewed accounting-link
-receipts use `scripts/company_postgres_accounting_link_apply.py`. Both adapters
-lock their target table, reject event/source/journal conflicts, preserve
-immutable revisions or links, write a cohort-scoped migration receipt, and
-make an identical replay insert `0` rows. They do not infer business effects,
-release cash, or post journals.
+and did not create duplicate receipts. Native aggregate promotion receipts
+are persisted through `scripts/company_postgres_projection_apply.sh`, and
+reviewed accounting-link receipts through
+`scripts/company_postgres_accounting_link_apply.sh`. Both native adapters lock
+their target table, reject event/source/journal conflicts, preserve immutable
+revisions or links, write a cohort-scoped migration receipt, and make an
+identical replay insert `0` rows. They do not infer business effects, release
+cash, or post journals. The former Python adapters remain frozen bridge
+evidence for shadow comparison only.
 
 The reviewed posting boundary is separate: compile an explicit chart/period
-map with `scripts/erp_accounting_post_plan.py`, validate it through
+map with the current bridge planner, validate it through
 `cmd/accounting_post`, then pass the resulting domain receipt to
-`scripts/company_postgres_projection_apply.py`. The posting projection and its
+`scripts/company_postgres_projection_apply.sh`. The posting projection and its
 parity/replay evidence use the same immutable target boundary; they still do
 not release cash, file tax, close a period, or authorize ownership transfer.
 
-For local browser verification, `scripts/company_postgres_read_model_server.py`
-serves the same target through fixed read-only endpoints (`/api/health`,
+For local browser verification, the native
+`scripts/company_postgres_read_model_server.sh` serves the same target through
+fixed read-only endpoints (`/api/health`,
 `/api/company/summary`, `/api/company/receipts`, and
 `/api/company/projections`). It is a development adapter only; production
 authentication, pooling, TLS, observability, and command endpoints remain
-deployment gates.
+deployment gates. The former Python server remains frozen bridge evidence for
+shadow comparison.
 
-The first native runtime slice is available without Python through
+The native runtime slice is available without Python through
 `scripts/company_postgres_read_model.sh summary|receipts|projections
 [aggregate_type]`. The MoonBit command runs only fixed allow-listed queries via
 `psql`, inherits PostgreSQL connection settings (`PGHOST`, `PGPORT`, `PGUSER`,
 `PGDATABASE`, and `PGPASSWORD`), and has been shadow-compared against the
-development HTTP adapter. It is intentionally read-only and bounded; it does
-not replace the authenticated HTTP service or gateway yet.
-The authenticated bounded runtime is `scripts/company_postgres_service.py`.
+development HTTP adapter. The native HTTP server and CLI are intentionally
+read-only and bounded; they do not replace the authenticated HTTP service or
+gateway yet.
+The authenticated bounded runtime remains `scripts/company_postgres_service.py`
+as frozen bridge evidence while its MoonBit replacement is ported.
 It keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a
 bearer token from an environment variable and forwarded TLS, exposes the four
 fixed reads, and now provides the local expense, contract, and payment-application
@@ -101,10 +110,10 @@ For a reviewed receipt, use the same PostgreSQL credential mechanism:
 
 ```text
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
-  scripts/company_postgres_projection_apply.py /path/to/domain-promotion.json
+scripts/company_postgres_projection_apply.sh /path/to/domain-promotion.json
 
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
-  scripts/company_postgres_accounting_link_apply.py /path/to/accounting-link-receipt.json
+  scripts/company_postgres_accounting_link_apply.sh /path/to/accounting-link-receipt.json
 ```
 
 The repeatable cohort runner accepts the reviewed optional maps after the

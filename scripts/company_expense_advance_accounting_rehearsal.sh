@@ -47,11 +47,11 @@ python3 "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
   "$WORK_DIR/sqlite-reconciliation.json"
 
 if [ -n "$PG_DATABASE" ]; then
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-apply.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_link_apply.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-replay.json"
