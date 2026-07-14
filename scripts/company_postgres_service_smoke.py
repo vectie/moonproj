@@ -260,6 +260,20 @@ def main() -> int:
             or attachment_stats_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source attachment stats read failed: {status} {attachment_stats_payload}")
+        status, attachment_download_payload = request(
+            args.port, "/api/company/attachments/download/no-attachment", token=token,
+        )
+        if (
+            status != 404
+            or attachment_download_payload is None
+            or attachment_download_payload.get("code") != 43001
+            or attachment_download_payload.get("binary_storage") != "not_imported"
+            or attachment_download_payload.get("downloadable") is not False
+            or attachment_download_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(
+                f"source attachment download boundary failed: {status} {attachment_download_payload}"
+            )
         marketing_payloads: dict[str, dict[str, Any]] = {}
         for marketing_path in (
             "/api/company/marketing/campaigns?projGuid=proj-0001",
@@ -984,10 +998,58 @@ def main() -> int:
             or dashboard_v2_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"dashboard v2 read failed: {status} {dashboard_v2_payload}")
+        status, dashboard_v3_payload = request(
+            args.port,
+            "/api/company/dashboard/v3/group?projGuid=proj-0001",
+            token=token,
+        )
+        dashboard_v3_data = (dashboard_v3_payload or {}).get("data", {})
+        if (
+            status != 200
+            or dashboard_v3_payload is None
+            or dashboard_v3_data.get("scope", {}).get("projGuid") != "proj-0001"
+            or dashboard_v3_data.get("kpi", {}).get("customerCount") != 0
+            or dashboard_v3_data.get("kpi", {}).get("totalExpense") != 564.0
+            or not isinstance(dashboard_v3_data.get("tops"), dict)
+            or dashboard_v3_payload.get("source_coverage", {}).get("ep_project") != 2
+            or "sale_revenue" not in dashboard_v3_payload.get("missing_or_empty_source_tables", [])
+            or dashboard_v3_payload.get("authorizing") is not False
+            or dashboard_v3_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"dashboard v3 read failed: {status} {dashboard_v3_payload}")
+        status, dashboard_v3_bu_payload = request(
+            args.port,
+            "/api/company/dashboard/v3/group?buGuid=bu-tjgs-0001",
+            token=token,
+        )
+        dashboard_v3_bu_data = (dashboard_v3_bu_payload or {}).get("data", {})
+        if (
+            status != 200
+            or dashboard_v3_bu_payload is None
+            or dashboard_v3_bu_data.get("scope", {}).get("buGuid") != "bu-tjgs-0001"
+            or dashboard_v3_bu_data.get("scope", {}).get("level") != "bu"
+            or dashboard_v3_bu_data.get("kpi", {}).get("totalExpense") != 564.0
+            or dashboard_v3_bu_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"dashboard v3 BU scope failed: {status} {dashboard_v3_bu_payload}")
+        status, dashboard_v3_group_payload = request(
+            args.port, "/api/company/dashboard/v3/group", token=token,
+        )
+        dashboard_v3_group_data = (dashboard_v3_group_payload or {}).get("data", {})
+        if (
+            status != 200
+            or dashboard_v3_group_payload is None
+            or dashboard_v3_group_data.get("scope", {}).get("level") != "group"
+            or dashboard_v3_group_data.get("kpi", {}).get("totalExpense") != 564.0
+            or len(dashboard_v3_group_data.get("expenseByCity", [])) != 2
+            or dashboard_v3_group_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"dashboard v3 group scope failed: {status} {dashboard_v3_group_payload}")
         dashboard_overview_rows = dashboard_overview.get("data", {})
         dashboard_funnel_rows = dashboard_funnel.get("data", [])
         dashboard_anomaly_rows = dashboard_anomalies.get("data", [])
         dashboard_v2_rows = dashboard_v2_data
+        dashboard_v3_rows = dashboard_v3_data
         status, payload = request(args.port, "/api/company/workflow/process-defs", token=token)
         if (
             status != 200
@@ -2563,6 +2625,11 @@ def main() -> int:
                     "dashboard_project_count": dashboard_overview_rows.get("projectCount"),
                     "dashboard_v2_project_count": dashboard_v2_rows.get("kpi", {}).get("projectCount"),
                     "dashboard_v2_contract_in_progress": dashboard_v2_rows.get("kpi", {}).get("contractInProgressAmount"),
+                    "dashboard_v3_customer_count": dashboard_v3_rows.get("kpi", {}).get("customerCount"),
+                    "dashboard_v3_total_expense": dashboard_v3_rows.get("kpi", {}).get("totalExpense"),
+                    "dashboard_v3_missing_source_tables": len(
+                        dashboard_v3_payload.get("missing_or_empty_source_tables", [])
+                    ),
                     "dashboard_funnel_rows": len(dashboard_funnel_rows),
                     "dashboard_anomaly_rows": len(dashboard_anomaly_rows),
                     "dashboard_missing_source_tables": dashboard_overview.get("missing_source_tables", []),
@@ -2621,6 +2688,7 @@ def main() -> int:
                     "attachment_source_rows": attachment_all_payload.get("source_coverage", {}).get("attachment"),
                     "attachment_total_bytes": attachment_stats_data.get("total", {}).get("bytes"),
                     "attachment_binary_storage": attachment_all_payload.get("binary_storage"),
+                    "attachment_download_status": attachment_download_payload.get("code"),
                     "marketing_campaign_rows": len(marketing_payloads["/api/company/marketing/campaigns?projGuid=proj-0001"].get("data", [])),
                     "marketing_placement_rows": len(marketing_payloads["/api/company/marketing/placements"].get("data", [])),
                     "marketing_channel_rows": len(marketing_payloads["/api/company/marketing/channels"].get("data", [])),

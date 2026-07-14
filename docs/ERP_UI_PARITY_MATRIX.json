@@ -1360,8 +1360,8 @@
       "browser_route_paths": [
         "/attachments"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_attachment_boundary",
+      "required_next": "accept_binary_storage_and_production_identity"
     },
     {
       "module": "attachment",
@@ -2479,8 +2479,8 @@
         "/dashboard-v3",
         "/cockpit"
       ],
-      "action_state": "not_connected",
-      "required_next": "connect_authenticated_read_api"
+      "action_state": "connected_dashboard_read",
+      "required_next": "accept_browser_dashboard_scenario_and_production_identity"
     },
     {
       "module": "export",

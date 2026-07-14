@@ -70,7 +70,9 @@ The bounded service exposes these endpoints:
   ``/api/company/dashboard/project/<id>/{kpi,anomalies}`` (GET,
   source-backed bounded cockpit reads)
 * ``/api/company/dashboard/v2/group`` (GET, scoped source-backed cockpit v2
-  observation; v3 cross-domain aggregation remains gated)
+  observation)
+* ``/api/company/dashboard/v3/group`` (GET, source-shaped scoped cockpit v3
+  observation with explicit missing-table coverage)
 * ``/api/company/workflow/process-defs`` and
   ``/api/company/workflow/process-defs/<process-key>/preview`` (GET)
 * ``/api/company/source/workflow/{tasks/mine,tasks/initiated,tasks/my-history,
@@ -9170,6 +9172,573 @@ def dashboard_v2_group(
     }
 
 
+def dashboard_v3_group(
+    pool: PsqlPool,
+    business_unit_id: str | None,
+    project_id: str | None,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Translate the source cockpit v3 aggregate without synthetic rows.
+
+    The source handler is intentionally broad and tolerant of missing tables.
+    This adapter keeps that response shape for the rows available in the
+    PostgreSQL raw envelope, applies the same project/business-unit scope, and
+    exposes missing-table coverage so an empty section is distinguishable from
+    a measured zero.  It never writes, authorizes, or calls a provider.
+    """
+
+    if business_unit_id is not None and not IDENTIFIER.fullmatch(business_unit_id):
+        raise ValueError("invalid buGuid")
+    if project_id is not None and not IDENTIFIER.fullmatch(project_id):
+        raise ValueError("invalid projGuid")
+
+    rows, coverage, missing = _dashboard_context(pool, max(max_rows, 500))
+
+    def active(payload: dict[str, Any]) -> bool:
+        return not payload.get("deleted_at")
+
+    all_projects = [
+        row["payload"]
+        for row in rows["ep_project"]
+        if active(row["payload"])
+    ]
+    projects = [
+        payload
+        for payload in all_projects
+        if (project_id is None or str(payload.get("proj_guid") or "") == project_id)
+        and (
+            business_unit_id is None
+            or str(payload.get("bu_guid") or "") == business_unit_id
+        )
+    ]
+    project_ids = {str(payload.get("proj_guid") or "") for payload in projects}
+
+    def scoped(payload: dict[str, Any]) -> bool:
+        payload_project = str(payload.get("proj_guid") or "")
+        payload_bu = str(payload.get("bu_guid") or "")
+        if project_id is not None and payload_project != project_id:
+            return False
+        if business_unit_id is not None and payload_bu != business_unit_id:
+            return False
+        return True
+
+    def amount(payload: dict[str, Any], key: str) -> float:
+        return _report_float(payload, key)
+
+    def wan(value: float) -> float:
+        return round(value / 10000, 2)
+
+    contracts = [
+        payload
+        for payload in (row["payload"] for row in rows["cb_contract"])
+        if active(payload) and scoped(payload)
+    ]
+    applications = [
+        payload
+        for payload in (row["payload"] for row in rows["cb_htfk_apply"])
+        if active(payload) and scoped(payload)
+    ]
+    contract_by_id = {
+        str(payload.get("contract_guid") or ""): payload
+        for payload in contracts
+        if payload.get("contract_guid")
+    }
+
+    sale_contracts = [
+        payload
+        for payload in (row["payload"] for row in rows["sale_contract"])
+        if active(payload) and scoped(payload)
+    ]
+    sale_contract_ids = {
+        str(payload.get("scontract_guid") or payload.get("contract_guid") or "")
+        for payload in sale_contracts
+    }
+    sale_mortgages = [
+        payload
+        for payload in (row["payload"] for row in rows["sale_mortgage"])
+        if active(payload)
+        and (
+            not (project_id or business_unit_id)
+            or str(payload.get("scontract_guid") or "") in sale_contract_ids
+        )
+    ]
+    sale_refunds = [
+        payload
+        for payload in (row["payload"] for row in rows["sale_refund"])
+        if active(payload)
+        and (
+            not (project_id or business_unit_id)
+            or str(payload.get("scontract_guid") or "") in sale_contract_ids
+        )
+    ]
+    sales = {
+        "customers": [
+            payload
+            for payload in (row["payload"] for row in rows["sale_customer"])
+            if active(payload) and scoped(payload)
+        ],
+        "subscriptions": [
+            payload
+            for payload in (row["payload"] for row in rows["sale_subscription"])
+            if active(payload) and scoped(payload)
+        ],
+        "contracts": sale_contracts,
+        "mortgages": sale_mortgages,
+        "refunds": sale_refunds,
+        "revenues": [
+            payload
+            for payload in (row["payload"] for row in rows["sale_revenue"])
+            if active(payload) and scoped(payload)
+        ],
+    }
+
+    revenue_received = sum(
+        amount(payload, "amount")
+        for payload in sales["revenues"]
+        if str(payload.get("status") or "") == "received"
+    )
+    revenue_expected = sum(
+        amount(payload, "amount")
+        for payload in sales["revenues"]
+        if str(payload.get("status") or "") == "expected"
+    )
+    signed_contracts = [
+        payload
+        for payload in contracts
+        if str(payload.get("cb_state") or "") in {"signed", "paid"}
+    ]
+    approving_contracts = [
+        payload
+        for payload in contracts
+        if str(payload.get("cb_state") or "") == "approving"
+    ]
+    unpaid_applications = [
+        payload
+        for payload in applications
+        if str(payload.get("apply_state") or "") == "已审核"
+        and str(payload.get("pay_state") or "") == "未支付"
+    ]
+    r0_contracts = [
+        payload
+        for payload in contracts
+        if str(payload.get("r_code") or "") in {"", "R0"}
+    ]
+
+    fund_plans = [
+        payload
+        for payload in (row["payload"] for row in rows["fund_plan"])
+        if active(payload) and scoped(payload)
+    ]
+    progress_rows = [
+        payload
+        for payload in (row["payload"] for row in rows["proj_progress"])
+        if active(payload) and scoped(payload)
+    ]
+    invoice_in = [
+        payload
+        for payload in (row["payload"] for row in rows["invoice_in"])
+        if active(payload) and scoped(payload)
+    ]
+    invoice_out = [
+        payload
+        for payload in (row["payload"] for row in rows["invoice_out"])
+        if active(payload) and scoped(payload)
+    ]
+    tender_plans = [
+        payload
+        for payload in (row["payload"] for row in rows["tender_plan"])
+        if active(payload) and scoped(payload)
+    ]
+    tender_ids = {
+        str(payload.get("tender_guid") or "")
+        for payload in tender_plans
+        if payload.get("tender_guid")
+    }
+    tender_awards = [
+        payload
+        for payload in (row["payload"] for row in rows["tender_award"])
+        if active(payload)
+        and (
+            not (project_id or business_unit_id)
+            or str(payload.get("tender_guid") or "") in tender_ids
+        )
+    ]
+    warnings = [
+        payload
+        for payload in (row["payload"] for row in rows["sys_warning"])
+        if active(payload)
+        and str(payload.get("status") or "") == "open"
+        and scoped(payload)
+    ]
+    processes = [
+        payload
+        for payload in (row["payload"] for row in rows["wf_process_instance"])
+        if active(payload)
+        and str(payload.get("status") or "") == "Running"
+        and (
+            not (project_id or business_unit_id)
+            or scoped(payload)
+            or str(payload.get("proj_guid") or "") in project_ids
+        )
+    ]
+
+    subject_dict = [
+        payload
+        for payload in (row["payload"] for row in rows["cb_subject_dict"])
+        if active(payload) and scoped(payload)
+    ]
+    active_versions = {
+        (
+            str(payload.get("proj_guid") or ""),
+            str(payload.get("plan_version") or ""),
+        )
+        for payload in (
+            row["payload"] for row in rows["cb_plan_version"]
+        )
+        if active(payload) and _dashboard_flag(payload.get("is_active"))
+    }
+    subject_dict = [
+        payload
+        for payload in subject_dict
+        if (
+            str(payload.get("proj_guid") or ""),
+            str(payload.get("plan_version") or ""),
+        ) in active_versions
+    ]
+    dict_plan_sum = sum(amount(payload, "plan_amount") for payload in subject_dict)
+
+    paid_contract_expense = sum(
+        amount(payload, "apply_amount")
+        for payload in applications
+        if str(payload.get("pay_state") or "") in {"完全支付", "部分支付"}
+    )
+    expenses = [
+        payload
+        for payload in (row["payload"] for row in rows["vcb_expense"])
+        if active(payload) and scoped(payload)
+    ]
+    paid_expense = sum(
+        amount(payload, "pay_amount")
+        for payload in expenses
+        if str(payload.get("pay_state") or "") in {"完全支付", "部分支付"}
+    )
+    total_revenue = wan(revenue_received)
+    total_expense = wan(paid_contract_expense + paid_expense)
+    net_profit = round(total_revenue - total_expense, 2)
+    net_profit_rate = round(net_profit / total_revenue * 100, 2) if total_revenue > 0 else 0
+
+    r6_plan = wan(revenue_expected)
+    available_cash = max(
+        0.0,
+        sum(amount(payload, "actual_amount") for payload in fund_plans if str(payload.get("direction") or "") == "in")
+        / 10000
+        - total_expense
+        + r6_plan * 0.3,
+    )
+    avg_monthly_out = max(1.0, total_expense / 6)
+    cashflow_months = round(available_cash / avg_monthly_out, 1)
+
+    expense_splits = [
+        row["payload"]
+        for row in rows["cb_expense_split"]
+        if active(row["payload"])
+    ]
+    expense_by_category_map: dict[str, float] = {}
+    for payload in applications:
+        if str(payload.get("pay_state") or "") not in {"完全支付", "部分支付"}:
+            continue
+        contract = contract_by_id.get(str(payload.get("contract_guid") or ""), {})
+        code = str(contract.get("r_code") or "R0")
+        expense_by_category_map[code] = expense_by_category_map.get(code, 0.0) + wan(
+            amount(payload, "apply_amount")
+        )
+    expense_by_id = {
+        str(payload.get("expense_guid") or ""): payload
+        for payload in expenses
+        if payload.get("expense_guid")
+    }
+    for split in expense_splits:
+        expense = expense_by_id.get(str(split.get("expense_guid") or ""))
+        if expense is None or str(expense.get("pay_state") or "") not in {"完全支付", "部分支付"}:
+            continue
+        code = str(split.get("r_code") or "R0")
+        expense_by_category_map[code] = expense_by_category_map.get(code, 0.0) + wan(
+            amount(split, "amount")
+        )
+    r_names = {
+        str(payload.get("r_code") or ""): str(payload.get("r_name") or "")
+        for payload in (
+            row["payload"] for row in rows["cb_r_master"]
+        )
+        if active(payload)
+    }
+    expense_by_category = [
+        {
+            "rCode": code,
+            "rName": r_names.get(code, code),
+            "amount": round(value, 2),
+        }
+        for code, value in expense_by_category_map.items()
+        if value > 0
+    ]
+    expense_by_category.sort(key=lambda value: (-value["amount"], value["rCode"]))
+
+    units = [
+        row["payload"]
+        for row in rows["mu_business_unit"]
+        if active(row["payload"]) and row["payload"].get("bu_type") == "company"
+    ]
+    expense_by_city: list[dict[str, Any]] = []
+    if business_unit_id is None and project_id is None:
+        for unit in units:
+            unit_id = str(unit.get("bu_guid") or "")
+            unit_contracts = [
+                payload
+                for payload in (row["payload"] for row in rows["cb_htfk_apply"])
+                if active(payload) and str(payload.get("bu_guid") or "") == unit_id
+                and str(payload.get("pay_state") or "") in {"完全支付", "部分支付"}
+            ]
+            unit_revenue = [
+                payload
+                for payload in sales["revenues"]
+                if str(payload.get("bu_guid") or "") == unit_id
+                and str(payload.get("status") or "") == "received"
+            ]
+            expense_by_city.append(
+                {
+                    "buGuid": unit_id,
+                    "name": str(unit.get("bu_name") or unit_id),
+                    "expense": wan(sum(amount(payload, "apply_amount") for payload in unit_contracts)),
+                    "revenue": wan(sum(amount(payload, "amount") for payload in unit_revenue)),
+                }
+            )
+        expense_by_city.sort(key=lambda value: (-value["expense"], value["buGuid"]))
+
+    health_weights = {"profit": 40, "recover": 25, "budget": 20, "warning": 15}
+    expected_revenue = r6_plan + total_revenue
+    profit_target = expected_revenue * 0.25
+    profit_score = min(100, net_profit / profit_target * 100) if profit_target > 0 else 50
+    recover_score = (
+        min(100, total_revenue / (total_revenue + r6_plan) * 100)
+        if total_revenue + r6_plan > 0
+        else 0
+    )
+    dict_sum_wan = dict_plan_sum / 10000
+    signed_wan = sum(wan(amount(payload, "ht_amount") + amount(payload, "sum_alter_amount")) for payload in signed_contracts)
+    approving_wan = sum(wan(amount(payload, "ht_amount") + amount(payload, "sum_alter_amount")) for payload in approving_contracts)
+    budget_rate = min(2, (signed_wan + approving_wan) / dict_sum_wan) if dict_sum_wan > 0 else 0
+    budget_score = 100 if budget_rate <= 0.9 else max(0, 100 - (budget_rate - 0.9) * 200)
+    warning_score = max(0, 100 - len(warnings) * 10)
+    health_score = round(
+        health_weights["profit"] * profit_score / 100
+        + health_weights["recover"] * recover_score / 100
+        + health_weights["budget"] * budget_score / 100
+        + health_weights["warning"] * warning_score / 100
+    )
+    health_breakdown = {
+        "profit": {"score": round(profit_score), "weight": 40, "label": "利润达成率"},
+        "recover": {"score": round(recover_score), "weight": 25, "label": "回款率"},
+        "budget": {"score": round(budget_score), "weight": 20, "label": "预算执行"},
+        "warning": {"score": round(warning_score), "weight": 15, "label": "风险告警"},
+    }
+
+    progress_active = [
+        payload for payload in progress_rows
+        if str(payload.get("state") or "") in {"pending", "in_progress"}
+    ]
+    progress_done = [
+        payload for payload in progress_rows
+        if str(payload.get("state") or "") == "completed"
+    ]
+    progress_average = (
+        sum(amount(payload, "actual_pct") for payload in progress_active) / len(progress_active)
+        if progress_active else 0
+    )
+    tender_active = [
+        payload for payload in tender_plans
+        if str(payload.get("state") or "") in {"planning", "publishing", "bidding"}
+    ]
+    signed_sales = [
+        payload for payload in sale_contracts
+        if str(payload.get("state") or "") == "signed"
+    ]
+    released_mortgages = [
+        payload for payload in sale_mortgages
+        if str(payload.get("state") or "") == "released"
+    ]
+    approved_refunds = [
+        payload for payload in sale_refunds
+        if str(payload.get("state") or "") == "approved"
+    ]
+
+    def compact_contract(payload: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "contractCode": str(payload.get("contract_code") or ""),
+            "contractName": str(payload.get("contract_name") or ""),
+            "htAmount": amount(payload, "ht_amount"),
+            "contractGuid": str(payload.get("contract_guid") or ""),
+        }
+
+    top_unpaid = [compact_contract(payload) for payload in signed_contracts]
+    top_unpaid.sort(key=lambda value: (-float(value["htAmount"]), value["contractGuid"]))
+    top_r0 = [compact_contract(payload) for payload in r0_contracts]
+    top_r0.sort(key=lambda value: (-float(value["htAmount"]), value["contractGuid"]))
+    top_approving = [compact_contract(payload) for payload in approving_contracts]
+    top_approving.sort(key=lambda value: (-float(value["htAmount"]), value["contractGuid"]))
+
+    used_by_l3: dict[str, float] = {}
+    for payload in contracts:
+        if str(payload.get("cb_state") or "") in {"signed", "paid", "approving"}:
+            code = str(payload.get("l3_code") or "")
+            if code:
+                used_by_l3[code] = used_by_l3.get(code, 0.0) + wan(
+                    amount(payload, "ht_amount") + amount(payload, "sum_alter_amount")
+                )
+    top_overbudget: list[dict[str, Any]] = []
+    for payload in subject_dict:
+        code = str(payload.get("l3_code") or "")
+        plan_amount = amount(payload, "plan_amount")
+        used = used_by_l3.get(code, 0.0)
+        if code and plan_amount > 0 and used > plan_amount:
+            top_overbudget.append(
+                {
+                    "l3Code": code,
+                    "subject": str(payload.get("subject") or ""),
+                    "planAmount": plan_amount,
+                    "used": used,
+                }
+            )
+    top_overbudget.sort(key=lambda value: (-(value["used"] - value["planAmount"]), value["l3Code"]))
+    gap_by_period: dict[str, float] = {}
+    for payload in fund_plans:
+        period = str(payload.get("plan_period") or "")
+        sign = 1 if str(payload.get("direction") or "") == "in" else -1
+        gap_by_period[period] = gap_by_period.get(period, 0.0) + sign * amount(payload, "plan_amount")
+    top_gap = [
+        {"planPeriod": period, "net": value}
+        for period, value in gap_by_period.items()
+        if value < 0
+    ]
+    top_gap.sort(key=lambda value: (value["net"], value["planPeriod"]))
+
+    funnel = [
+        {"stage": "客户", "value": len(sales["customers"])},
+        {"stage": "认筹", "value": len(sales["subscriptions"])},
+        {"stage": "签约", "value": len(signed_sales)},
+        {"stage": "放款", "value": len(released_mortgages)},
+        {"stage": "退房", "value": -len(approved_refunds)},
+    ]
+    compare_sales = [
+        {"name": "认筹", "value": len(sales["subscriptions"])},
+        {"name": "签约", "value": len(signed_sales)},
+        {"name": "放款", "value": len(released_mortgages)},
+    ]
+    compare_cost = [
+        {"name": "A 目标", "value": dict_plan_sum},
+        {"name": "D 已成", "value": signed_wan},
+        {"name": "E 在途", "value": approving_wan},
+    ]
+    compare_fund = [
+        {"name": "收入计划", "value": sum(amount(payload, "plan_amount") for payload in fund_plans if str(payload.get("direction") or "") == "in")},
+        {"name": "收入实际", "value": sum(amount(payload, "actual_amount") for payload in fund_plans if str(payload.get("direction") or "") == "in")},
+        {"name": "支出计划", "value": sum(amount(payload, "plan_amount") for payload in fund_plans if str(payload.get("direction") or "") == "out")},
+        {"name": "支出实际", "value": sum(amount(payload, "actual_amount") for payload in fund_plans if str(payload.get("direction") or "") == "out")},
+    ]
+
+    data = {
+        "scope": {
+            "buGuid": business_unit_id,
+            "projGuid": project_id,
+            "level": "project" if project_id else "bu" if business_unit_id else "group",
+        },
+        "kpi": {
+            "r6Received": total_revenue,
+            "r6Expected": r6_plan,
+            "contractSigned": signed_wan,
+            "contractApproving": approving_wan,
+            "dictPlanSum": round(dict_plan_sum, 2),
+            "unpaidApply": wan(sum(amount(payload, "apply_amount") for payload in unpaid_applications)),
+            "r0PendingCount": len(r0_contracts),
+            "customerCount": len(sales["customers"]),
+            "subCount": len(sales["subscriptions"]),
+            "signedCount": len(signed_sales),
+            "mortgageCount": len(released_mortgages),
+            "mortgageAmount": wan(sum(amount(payload, "loan_amount") for payload in released_mortgages)),
+            "refundCount": len(approved_refunds),
+            "scontractTotal": wan(sum(amount(payload, "total_price") for payload in signed_sales)),
+            "fundInPlan": sum(amount(payload, "plan_amount") for payload in fund_plans if str(payload.get("direction") or "") == "in"),
+            "fundInActual": sum(amount(payload, "actual_amount") for payload in fund_plans if str(payload.get("direction") or "") == "in"),
+            "fundOutPlan": sum(amount(payload, "plan_amount") for payload in fund_plans if str(payload.get("direction") or "") == "out"),
+            "fundOutActual": sum(amount(payload, "actual_amount") for payload in fund_plans if str(payload.get("direction") or "") == "out"),
+            "progressActive": len(progress_active),
+            "progressAvgPct": round(progress_average, 1),
+            "progressDone": len(progress_done),
+            "invInTotal": sum(amount(payload, "total_amount") for payload in invoice_in),
+            "invOutTotal": sum(amount(payload, "total_amount") for payload in invoice_out),
+            "netTax": round(
+                sum(amount(payload, "tax_amount") for payload in invoice_out)
+                - sum(amount(payload, "tax_amount") for payload in invoice_in),
+                2,
+            ),
+            "tenderActiveCount": len(tender_active),
+            "tenderActiveAmount": wan(sum(amount(payload, "estimated_amount") for payload in tender_active)),
+            "tenderAwardedAmount": wan(sum(amount(payload, "award_amount") for payload in tender_awards)),
+            "openWarnings": len(warnings),
+            "runningProcesses": len(processes),
+            "totalRevenue": total_revenue,
+            "totalExpense": total_expense,
+            "netProfit": net_profit,
+            "netProfitRate": net_profit_rate,
+            "cashflowMonths": cashflow_months,
+            "healthScore": health_score,
+        },
+        "healthBreakdown": health_breakdown,
+        "expenseByCategory": expense_by_category,
+        "expenseByCity": expense_by_city,
+        "gauge": {
+            "collectionRate": round(total_revenue / (total_revenue + r6_plan) * 100, 1)
+            if total_revenue + r6_plan > 0
+            else 0,
+            "mortgageRate": round(len(released_mortgages) / len(signed_sales) * 100, 1)
+            if signed_sales
+            else 0,
+            "payableRate": round(
+                wan(sum(amount(payload, "apply_amount") for payload in unpaid_applications))
+                / signed_wan
+                * 100,
+                1,
+            )
+            if signed_wan > 0
+            else 0,
+            "budgetUsedRate": round((signed_wan + approving_wan) / dict_sum_wan * 100, 1)
+            if dict_sum_wan > 0
+            else 0,
+        },
+        "funnel": funnel,
+        "compareSales": compare_sales,
+        "compareCost": compare_cost,
+        "compareFund": compare_fund,
+        "tops": {
+            "topUnpaid": top_unpaid[:5],
+            "topR0": top_r0[:5],
+            "topApproving": top_approving[:5],
+            "topOverbudget": top_overbudget[:5],
+            "topGap": top_gap[:5],
+        },
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": missing,
+        "authorizing": False,
+        "persisted": False,
+        "provider_execution": False,
+    }
+
+
 def _dashboard_project_context(
     rows: dict[str, list[dict[str, Any]]],
     project_id: str,
@@ -11914,6 +12483,53 @@ def attachment_source_stats(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
             ],
         },
         **_attachment_source_metadata(coverage),
+    }
+
+
+def attachment_source_download(
+    pool: PsqlPool,
+    attachment_id: str,
+    max_rows: int,
+) -> dict[str, Any]:
+    """Preserve the source download boundary without exposing a fake binary.
+
+    The controlled export contains no attachment binary store.  A missing
+    metadata row therefore keeps the source 43001 response, while a metadata
+    row whose file payload is absent keeps the source 43002 response.  Neither
+    case returns a fixture path or a local file.
+    """
+
+    if not IDENTIFIER.fullmatch(attachment_id):
+        raise ValueError("invalid attachment_id")
+    coverage = _attachment_source_coverage(pool, max_rows)
+    raw = _raw_source_rows(pool, "attachment", max(max_rows, 500), ATTACHMENT_SOURCE_TABLES)
+    row = next(
+        (
+            source
+            for source in raw
+            if _attachment_text(
+                source["payload"], "att_guid", "attGuid", fallback=source["record_id"]
+            )
+            == attachment_id
+            and not source["payload"].get("deleted_at")
+            and not source["payload"].get("deletedAt")
+        ),
+        None,
+    )
+    metadata = _attachment_source_metadata(coverage)
+    if row is None:
+        return {
+            "success": False,
+            "code": 43001,
+            "message": "附件不存在",
+            **metadata,
+        }
+    return {
+        "success": False,
+        "code": 43002,
+        "message": "文件二进制未导入",
+        "attGuid": attachment_id,
+        **metadata,
     }
 
 
@@ -15329,6 +15945,19 @@ def handler_factory(
                         ),
                         origin,
                     )
+                elif parsed.path == "/api/company/dashboard/v3/group":
+                    query = parse_qs(parsed.query)
+                    response(
+                        self,
+                        200,
+                        dashboard_v3_group(
+                            pool,
+                            query.get("buGuid", query.get("bu_guid", [None]))[0],
+                            query.get("projGuid", query.get("proj_guid", [None]))[0],
+                            max_response_rows,
+                        ),
+                        origin,
+                    )
                 elif re.fullmatch(
                     r"/api/company/dashboard/project/[A-Za-z0-9_.:-]{1,128}/(kpi|anomalies)",
                     parsed.path,
@@ -15519,6 +16148,15 @@ def handler_factory(
                         ),
                         origin,
                     )
+                elif re.fullmatch(
+                    r"/api/company/attachments/download/[A-Za-z0-9_.:-]{1,128}",
+                    parsed.path,
+                ):
+                    attachment_value = parsed.path.rsplit("/", 1)[-1]
+                    boundary = attachment_source_download(
+                        pool, attachment_value, max_response_rows,
+                    )
+                    response(self, 404, boundary, origin)
                 elif parsed.path == "/api/company/attachments/all" or parsed.path == "/api/company/attachments":
                     query = parse_qs(parsed.query)
                     response(

@@ -1,6 +1,6 @@
 # ERP Dashboard Runtime Audit
 
-Recorded: 2026-07-13
+Recorded: 2026-07-14
 Source: `../erp/erp_new`
 Target: this repository
 
@@ -17,7 +17,7 @@ query:
 | Project KPI | `GET /dashboard/project/:projGuid/kpi` | bounded source read |
 | Project anomalies | `GET /dashboard/project/:projGuid/anomalies` | bounded source read |
 | Group cockpit v2 | `GET /dashboard/v2/group` | bounded source read |
-| Group cockpit v3 | `GET /dashboard/v3/group` | not connected |
+| Group cockpit v3 | `GET /dashboard/v3/group` | bounded source observation; full cross-domain parity gated |
 
 The source implementation reads 30 unique tables. The controlled export has
 14 of them and 16 are absent:
@@ -43,16 +43,19 @@ manufacture revenue, cash, health, warning, or risk values.
   calls `/api/company/summary` for adapter status, then loads the bounded
   dashboard reads for live KPI, funnel, and anomaly values.
 - `scripts/company_postgres_service.py` exposes the five bounded v1 routes and
-  `/api/company/dashboard/v2/group`, with source coverage and missing-table
-  metadata on every response. The v3 aggregate route remains intentionally
-  unconnected; the separate development read-model server still exposes only
-  the v1 reads.
+  `/api/company/dashboard/v2/group` plus `/api/company/dashboard/v3/group`,
+  with source coverage and missing-table metadata on every response. The v3
+  aggregate route now preserves the source
+  response shape over imported rows, returns explicit missing/empty-table
+  coverage, and remains non-authorizing; the development read-model server
+  exposes fixed v1/v2/v3 reads, while Rabbita still mounts only the v1 reads.
 - Rabbita now loads the group overview, stage funnel, and top-anomaly reads
   sequentially and replaces the designer KPI/funnel/risk fixtures when the
   responses are valid. The v2 source read is service-connected for API parity
   but is not yet mounted in Rabbita; production identity, browser acceptance,
-  and owner reconciliation remain pending. The source v3 aggregate handler
-  remains unconnected and is not included in that state.
+  and owner reconciliation remain pending. The v3 aggregate is API-connected
+  as an observation only; it is not mounted in Rabbita and is not accepted as
+  full cockpit parity while its cross-domain source tables are absent.
 - Core report reads are not dashboard parity. A report overview can provide
   reconciled tables, but it does not reproduce the source cockpit's scoped
   KPIs, month trend, stage distribution, anomaly ranking, or health breakdown.
@@ -65,9 +68,10 @@ manufacture revenue, cash, health, warning, or risk values.
 2. Run browser acceptance of the bounded v1 reads through the production
    identity/entity scope boundary, including project KPI/anomaly deep links.
 3. Obtain the complete redacted export (or owner-approved empty-data
-   dispositions) before implementing the v3 cross-domain aggregate. The v2
-   read is limited to the source rows currently present; the v3 route requires
-   sales/fund/invoice/tender/warning/CBS source coverage.
+   dispositions) before accepting the v3 cross-domain aggregate as a
+   management KPI surface. The v2 and v3 reads are limited to the source rows
+   currently present; full v3 reconciliation requires sales/fund/invoice/
+   tender/warning/CBS source coverage.
 4. Retain a clearly labelled fallback only for offline development, and run
    browser acceptance before counting the dashboard as functional parity.
 5. Obtain operations/finance owner reconciliation for KPI definitions and

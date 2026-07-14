@@ -6,7 +6,7 @@ exposes only fixed read-model queries; it never accepts arbitrary SQL and has
 no mutation endpoints.  It covers company, procurement/supplier-risk, sales/receivables,
 source sales/receivables,
 source tender observations,
-reviewed invoice, delivery/project-progress, dashboard v1, core-report and
+reviewed invoice, delivery/project-progress, dashboard v1/v2/v3, core-report and
 report-builder metadata/template,
 employee-loan, dynamic-cost, static import templates, source contract/payment,
 invoice/tax-ledger,
@@ -135,6 +135,8 @@ from company_postgres_service import (
     dashboard_group_overview as service_dashboard_group_overview,
     dashboard_group_funnel as service_dashboard_group_funnel,
     dashboard_group_top_anomalies as service_dashboard_group_top_anomalies,
+    dashboard_v2_group as service_dashboard_v2_group,
+    dashboard_v3_group as service_dashboard_v3_group,
     dashboard_project_kpi as service_dashboard_project_kpi,
     dashboard_project_anomalies as service_dashboard_project_anomalies,
     business_units_tree as service_business_units_tree,
@@ -977,6 +979,26 @@ def dashboard_group_funnel(args: argparse.Namespace) -> dict[str, Any]:
 
 def dashboard_group_top_anomalies(args: argparse.Namespace, limit: int) -> dict[str, Any]:
     return service_dashboard_group_top_anomalies(_ReadModelPool(args), limit, 500)
+
+
+def dashboard_v2_group(
+    args: argparse.Namespace,
+    business_unit_id: str | None,
+    project_id: str | None,
+) -> dict[str, Any]:
+    return service_dashboard_v2_group(
+        _ReadModelPool(args), business_unit_id, project_id, 500,
+    )
+
+
+def dashboard_v3_group(
+    args: argparse.Namespace,
+    business_unit_id: str | None,
+    project_id: str | None,
+) -> dict[str, Any]:
+    return service_dashboard_v3_group(
+        _ReadModelPool(args), business_unit_id, project_id, 500,
+    )
 
 
 def dashboard_project_kpi(args: argparse.Namespace, project_id: str) -> dict[str, Any] | None:
@@ -2208,6 +2230,20 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                     except (TypeError, ValueError) as error:
                         raise ValueError("invalid dashboard anomaly limit") from error
                     response(self, 200, dashboard_group_top_anomalies(args, limit))
+                    return
+                if parsed.path in {
+                    "/api/company/dashboard/v2/group",
+                    "/api/company/dashboard/v3/group",
+                }:
+                    query = parse_qs(parsed.query)
+                    business_unit_id = query.get("buGuid", query.get("bu_guid", [None]))[0]
+                    project_id = query.get("projGuid", query.get("proj_guid", [None]))[0]
+                    result = (
+                        dashboard_v2_group(args, business_unit_id, project_id)
+                        if parsed.path.endswith("/v2/group")
+                        else dashboard_v3_group(args, business_unit_id, project_id)
+                    )
+                    response(self, 200, result)
                     return
                 dashboard_match = re.fullmatch(
                     r"/api/company/dashboard/project/([A-Za-z0-9_.:-]{1,128})/(kpi|anomalies)",

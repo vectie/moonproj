@@ -8,8 +8,8 @@ which source API module still needs a connected command/read workflow.
 
 The report is intentionally evidence-oriented.  A mounted page is not marked
 functional merely because it renders: the generic summary/read-model adapter
-is not dashboard parity; the bounded dashboard v1 reads are now explicitly
-identified, while the local expense/contract/payment-application/
+is not dashboard parity; the bounded dashboard v1/v2/v3 reads are now
+explicitly identified, while the local expense/contract/payment-application/
 tender/supplier/supplier-provider/supplier-risk/sales read verticals are explicitly identified, including the
 delivery/project-progress runtime, non-authorizing workflow-definition,
  cashflow, CBS, fund-plan, observed-warning, attachment-metadata, marketing,
@@ -482,6 +482,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     if (
         handler["module"] == "attachment"
         and handler["method"] == "GET"
+        and handler["path"] == "/download/:guid"
+    ):
+        return "connected_attachment_boundary", "accept_binary_storage_and_production_identity"
+    if (
+        handler["module"] == "attachment"
+        and handler["method"] == "GET"
         and handler["path"] in {"/list", "/all", "/stats"}
     ):
         return "connected_attachment_read", "accept_browser_attachment_scenario_and_production_identity"
@@ -605,6 +611,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
             "/project/:projGuid/kpi",
             "/project/:projGuid/anomalies",
             "/v2/group",
+            "/v3/group",
         }
     ):
         return "connected_dashboard_read", "accept_browser_dashboard_scenario_and_production_identity"

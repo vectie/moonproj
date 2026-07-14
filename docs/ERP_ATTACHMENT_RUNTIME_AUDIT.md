@@ -15,6 +15,8 @@ The authenticated service and read-model adapter expose:
 - `/api/company/attachments/list?bizType=&bizGuid=`
 - `/api/company/attachments/all?bizType=&uploadedBy=&aiStatus=&keyword=`
 - `/api/company/attachments/stats`
+- `/api/company/attachments/download/:guid` (source-compatible missing-record
+  or missing-binary boundary; never returns a local fixture file)
 
 Each response is source-compatible where metadata exists and carries
 `source_coverage`, `missing_or_empty_source_tables`, `authorizing=false`,
@@ -31,11 +33,13 @@ state (`total=0`, `bytes=0`) rather than designer fixture files. The Rabbita
 its reviewed fixture rows when the transport fails.
 
 The parity matrix marks source `GET /list`, `/all`, and `/stats` as
-`connected_attachment_read`; only binary download remains unconnected.
+`connected_attachment_read` and the download route as a
+`connected_attachment_boundary`. The current matrix leaves the actual binary
+storage/serving capability gated.
 
 ## Open gates
 
-Upload, binary download/preview, deletion, OCR re-extraction, retention,
+Upload, binary download/preview beyond the missing-data boundary, deletion, OCR re-extraction, retention,
 malware scanning, object-store ownership, production identity, and owner
 acceptance remain unimplemented gates. No attachment migration cutover is
 authorized by this read-only slice.

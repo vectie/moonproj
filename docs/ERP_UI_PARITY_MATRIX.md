@@ -127,7 +127,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `ai-stats` | `POST` | `/badge/batch` | `/ai-stats` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `POST` | `/upload` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `GET` | `/list` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
-| `attachment` | `GET` | `/download/:guid` | `/attachments` | `not_connected` | `connect_authenticated_read_api` |
+| `attachment` | `GET` | `/download/:guid` | `/attachments` | `connected_attachment_boundary` | `accept_binary_storage_and_production_identity` |
 | `attachment` | `DELETE` | `/:guid` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `POST` | `/re-extract/:guid` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `GET` | `/all` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
@@ -217,7 +217,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `dashboard` | `GET` | `/project/:projGuid/kpi` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/project/:projGuid/anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/v2/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
-| `dashboard` | `GET` | `/v3/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `not_connected` | `connect_authenticated_read_api` |
+| `dashboard` | `GET` | `/v3/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `export` | `POST` | `/excel` | — | `not_connected` | `implement_authenticated_command_and_audit` |
 | `fund` | `GET` | `/plans` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
 | `fund` | `POST` | `/plans` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |

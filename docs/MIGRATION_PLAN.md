@@ -382,7 +382,8 @@ loads `/api/company/attachments/all` and `/api/company/attachments/stats`, with
 `binary_storage=not_imported`/`downloadable=false` boundary. The current
 PostgreSQL export has no attachment rows, so the screen shows an empty source
 state after a successful read rather than designer files. Upload, binary
-download, deletion, OCR re-extraction, production identity, and owner
+download now has a source-compatible missing-record boundary, while real
+binary serving, deletion, OCR re-extraction, production identity, and owner
 acceptance remain separate gates.
 
 The marketing screen is now a bounded source read family. `/marketing` loads
@@ -485,7 +486,8 @@ groups are now explicit:
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
-  attachment download has no imported `attachment` rows; invoice/tax,
+  attachment download has a source-compatible missing-binary boundary and no
+  imported `attachment` rows; invoice/tax,
   tender/award/split and several investment detail tables are absent or empty
   in this snapshot. Progress/output, sales customer/subscription/contract/
   mortgage/refund/revenue, tender/award/split, and supplier categories now have
@@ -703,13 +705,14 @@ PostgreSQL service now exposes the source cockpit v2 scope (`buGuid`/`projGuid`)
 with KPI, payment-trend, stage-distribution, and warning observations over the
 currently imported rows. It also exposes source-shaped full-health, redacted
 LLM-status, and AI-diagnostic reads. The service smoke verifies project-scoped
-v2 values and all three diagnostic responses; health runtime metrics are
-explicitly unavailable and no provider ping is performed. The parity matrix now
-leaves only five unconnected source GET/HEAD handlers: backup binary,
-attachment binary, dashboard v3, investment profit-actual, and supplier
-provider signature check. Rabbita does not mount v2 yet, v3 remains gated on
-the 16 absent cross-domain tables, and production identity, browser scope
-acceptance, and owner reconciliation remain open.
+v2/v3 values, the attachment download boundary, and all three diagnostic
+responses; health runtime metrics are explicitly unavailable and no provider
+ping is performed. The parity matrix now
+leaves only three unconnected source GET/HEAD handlers: backup binary,
+investment profit-actual, and supplier provider signature check. Rabbita does
+not mount v2 or v3 yet; the v3 API observation reports the
+16 absent cross-domain tables explicitly, and production identity, browser
+scope acceptance, and owner reconciliation remain open.
 
 **Investment Excel observation checkpoint (2026-07-14).** The service now
 preserves the source boundary for import detail, bridge-plan, index-upsert
@@ -720,8 +723,10 @@ source-style missing-record boundary, while plan-line and mapping reads return
 empty data with coverage metadata. Smoke evidence covers all of these paths
 without upload, write, provider execution, or designer fixture substitution.
 Profit-actual remains gated because the source route simulates sparse actuals;
-the five remaining unconnected GET/HEAD handlers are backup binary, attachment
-binary, dashboard v3, profit-actual, and provider signature check.
+the three remaining unconnected GET/HEAD handlers are backup binary,
+profit-actual, and provider signature check; dashboard v3 is now a bounded API
+observation and attachment download has a source-compatible missing-binary
+boundary, but neither is a mounted or accepted production capability.
 
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
@@ -775,12 +780,12 @@ than raw route count:
 | --- | --- | --- | --- |
 | P0 | Production identity and shadow operation for connected reads | Managed issuer/audience, token rotation, persistent session/rollback, named owner acceptance, and a read-only shadow comparison | Security/operations owner approval and a complete credential-safe source export |
 | P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
-| P2 | Dashboard v3 and investment profit-actual | Implement only after the missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition; preserve source calculation semantics | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
-| P3 | Attachment download and database backup | Bind binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
+| P2 | Dashboard v3 acceptance and investment profit-actual | The v3 observation is implemented over imported rows; reconcile it against the missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then preserve source calculation semantics for profit-actual | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
+| P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature check | Bind provider credentials, signature algorithm, timeout/retry, and audit trail | Procurement/security owner approval and a real provider test contract |
 | P5 | Mutations and external effects | Implement commands only per capability, with authority, idempotency, audit, accounting/tax/cash boundaries, and replay evidence | Named business owner acceptance; bounded reads alone do not unlock writes |
 
-This ordering supersedes the earlier route-count-first sequence. The five
+This ordering supersedes the earlier route-count-first sequence. The three
 remaining GET/HEAD handlers are explicit gates, not a reason to broaden the
 surface with synthetic data or provider calls. The route matrix remains
 `functional_parity_incomplete` until the connected read slices pass managed
@@ -865,18 +870,18 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    tables and zero workflow-instance/action rows. Templates, share links, production
    identity, browser acceptance, and report-owner reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
-4a. **The dashboard/cockpit now has bounded v1 and v2 read slices, but is not
-   accepted parity.** The source cockpit exposes seven GET handlers (overview,
-   funnel, top anomalies, project KPI/anomalies, and v2/v3 group views) over
-   30 unique tables. The target exposes the first five plus a scoped v2 read as
-   authenticated source-backed observations, and Rabbita loads the v1 group
-   overview, funnel, and anomaly rows while preserving the designer layout.
-   Only 14 of the 30 dependencies are present in the controlled export; 16
-   cross-domain tables needed by the full v3 view are absent. Every response
-   reports source coverage and missing tables; no synthetic revenue, cash,
-   health, warning, or risk values are introduced. Production identity,
-   browser scope acceptance, v3 source coverage, and owner reconciliation
-   remain open. Report reads do not constitute cockpit parity. See
+4a. **The dashboard/cockpit now has bounded v1, v2, and v3 read slices, but is
+   not accepted parity.** The source cockpit exposes seven GET handlers
+   (overview, funnel, top anomalies, project KPI/anomalies, and v2/v3 group
+   views) over 30 unique tables. The target exposes all seven as authenticated
+   source-backed observations, and Rabbita loads the v1 group overview, funnel,
+   and anomaly rows while preserving the designer layout. Only 14 of the 30
+   dependencies are present in the controlled export; 16 cross-domain tables
+   needed by the full v3 view are absent. Every response reports source
+   coverage and missing tables; no synthetic revenue, cash, health, warning, or
+   risk values are introduced. Production identity, browser scope acceptance,
+   v3 source coverage, and owner reconciliation remain open. Report reads do
+   not constitute cockpit parity. See
    ERP_DASHBOARD_RUNTIME_AUDIT.md.
 5. **Partial source, not full ERP data.** The authoritative ERP inventory is
    75 tables and 30 route files with 338 handlers; the controlled export has
@@ -899,9 +904,9 @@ admin governance, dynamic cost, expense, contract, payment, procurement,
 supplier-provider, and supplier-risk,
 sales, invoice, delivery, dashboard v1, core reports, employee-loan,
 workflow-definition, AI analytics, AI Hub observation, webhook metadata,
-report-builder metadata, cost-dashboard v3, and dashboard-v2 reads; the three
-dashboard aliases still represent the bounded source-backed v1 read while v2
-is API-connected but not mounted. The remaining browser views
+   report-builder metadata, cost-dashboard v3, and dashboard-v2/v3 reads; the
+   three dashboard aliases still represent the bounded source-backed v1 read
+   while v2/v3 are API-connected but not mounted. The remaining browser views
 and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
@@ -942,8 +947,9 @@ Execute the remainder in this order:
     The service, read-model, Rabbita, and
     dedicated read-only smoke checks pass; at that checkpoint the parity action
     register marked 35 source GET handlers connected. Subsequent identity/RBAC,
-    dashboard/admin, and investment Excel waves have expanded the connected
-    read set; the current matrix leaves five GET/HEAD handlers unconnected. Do
+    dashboard/admin, investment Excel, dashboard v3, and attachment-boundary
+    waves have expanded the connected read set; the current matrix leaves
+    three GET/HEAD handlers unconnected. Do
     not use any bounded read wave to unlock commands or to infer missing sales,
     invoice, supplier, tender, tax, or investment detail rows. The remaining
     gate is production identity, browser acceptance, owner evidence, and the
@@ -993,11 +999,12 @@ Execute the remainder in this order:
    `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
    through production identity, entity scope, and operations/finance KPI
    reconciliation. The v2 service read is already connected but is not yet
-   mounted in Rabbita; the v3 route remains gated. Obtain the missing
+   mounted in Rabbita; the v3 service observation is connected but remains
+   gated as a management surface. Obtain the missing
    sales/fund/invoice/tender/warning/CBS tables (or owner-approved
-   dispositions) before implementing v3 or expanding the remaining
-   fixture-backed route families. Do not treat `/api/company/summary`, report
-   reads, or the offline fixture fallback as cockpit parity.
+   dispositions) before accepting v3 or expanding the remaining fixture-backed
+   route families. Do not treat `/api/company/summary`, report reads, or the
+   offline fixture fallback as cockpit parity.
 10. Run named-owner acceptance and a read-only shadow period for each accepted
    wave; only then approve managed production deployment, rollback, and
    ownership transfer. Keep the existing parity/cutover gates as evidence
