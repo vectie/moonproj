@@ -6,7 +6,7 @@ API. This private gateway keeps the service bearer token on the server,
 establishes an in-memory HttpOnly session, signs its actor assertion, converts
 a JSON ``idempotency_key`` field into the required ``Idempotency-Key`` header,
 and forwards only the company
-read/expense (including draft update/void)/contract/payment-application/tender/supplier/supplier-provider/supplier-risk/split/sales/delivery/
+read/expense (including draft update/void)/contract/payment-application/tender/source-tender-alias/supplier/supplier-provider/supplier-risk/split/sales/delivery/
 loan/fund/project-plan/reports paths. Fund and project-plan commands are local
 planning projections only;
 cash release, accounting, and tax effects remain separate.
@@ -46,6 +46,7 @@ BUDGET_CHECK_PATH = "/api/company/budget-check"
 CONTRACT_PATH_PREFIX = "/api/company/contracts"
 PAYMENT_APPLICATION_PATH_PREFIX = "/api/company/payment-applies"
 TENDER_PATH_PREFIX = "/api/company/tenders"
+SOURCE_TENDER_PATH_PREFIX = "/api/company/source/tender"
 SUPPLIER_PATH_PREFIX = "/api/company/suppliers"
 TENDER_SPLIT_PATH_PREFIX = "/api/company/tender-splits"
 SALES_PATH_PREFIX = "/api/company/sales"
@@ -465,6 +466,7 @@ def handler_factory(
                 or parsed.path.startswith(PAYMENT_APPLICATION_PATH_PREFIX + "/")
                 or parsed.path == TENDER_PATH_PREFIX
                 or parsed.path.startswith(TENDER_PATH_PREFIX + "/")
+                or parsed.path.startswith(SOURCE_TENDER_PATH_PREFIX + "/")
                 or parsed.path == SUPPLIER_PATH_PREFIX
                 or parsed.path.startswith(SUPPLIER_PATH_PREFIX + "/")
                 or parsed.path == TENDER_SPLIT_PATH_PREFIX

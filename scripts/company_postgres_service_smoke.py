@@ -159,6 +159,7 @@ def main() -> int:
             or "invoice_command" not in payload.get("capabilities", [])
             or "fund_command" not in payload.get("capabilities", [])
             or "project_plan_command" not in payload.get("capabilities", [])
+            or "tender_source_command_alias" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, source_schema_coverage_payload = request(
@@ -3192,6 +3193,114 @@ def main() -> int:
         )
         if status != 200 or payload is None or payload.get("state") != "planned":
             raise SmokeError(f"contract split detail failed: {status} {payload}")
+        source_tender_payload = {
+            "projGuid": "CD-HJL",
+            "tenderName": "source-compatible tender smoke",
+            "category": "construction",
+            "estimatedAmount": "12345.67",
+            "planPublishDate": "2026-07-14",
+            "planAwardDate": "2026-08-01",
+            "remark": "source tender alias smoke",
+        }
+        source_tender_key = "source-tender-create-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/tenders",
+            token=token,
+            method="POST",
+            payload=source_tender_payload,
+            idempotency_key=source_tender_key,
+        )
+        if (
+            status != 201
+            or payload is None
+            or payload.get("success") is not True
+            or not payload.get("data", {}).get("tenderGuid")
+            or payload.get("source_kind") != "command"
+        ):
+            raise SmokeError(f"source tender create alias failed: {status} {payload}")
+        source_tender_guid = payload["data"]["tenderGuid"]
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/tenders",
+            token=token,
+            method="POST",
+            payload=source_tender_payload,
+            idempotency_key=source_tender_key,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source tender alias idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/tenders?projGuid=CD-HJL",
+            token=token,
+        )
+        command_source_tenders = [
+            row
+            for row in (payload or {}).get("data", [])
+            if isinstance(row, dict) and row.get("tender_guid") == source_tender_guid
+        ]
+        if (
+            status != 200
+            or payload is None
+            or len(command_source_tenders) != 1
+            or command_source_tenders[0].get("source_kind") != "command"
+            or command_source_tenders[0].get("plan_publish_date") != "2026-07-14"
+            or command_source_tenders[0].get("estimated_amount_minor") != 1234567
+            or payload.get("command_projection") is not True
+            or payload.get("cash_effect") is not False
+        ):
+            raise SmokeError(f"source tender command readback failed: {status} {payload}")
+        source_split_payload = {
+            "parentContractGuid": contract_id,
+            "splitName": "source-compatible split smoke",
+            "splitAmount": "1234.50",
+            "splitPct": "10.00",
+            "scope": "project:CD-HJL",
+        }
+        source_split_key = "source-split-create-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/splits",
+            token=token,
+            method="POST",
+            payload=source_split_payload,
+            idempotency_key=source_split_key,
+        )
+        if status != 201 or payload is None or not payload.get("data", {}).get("splitGuid"):
+            raise SmokeError(f"source split create alias failed: {status} {payload}")
+        source_split_guid = payload["data"]["splitGuid"]
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/splits",
+            token=token,
+            method="POST",
+            payload=source_split_payload,
+            idempotency_key=source_split_key,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source split alias idempotency failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/tender/splits?parentContractGuid=" + contract_id,
+            token=token,
+        )
+        command_source_splits = [
+            row
+            for row in (payload or {}).get("data", [])
+            if isinstance(row, dict) and row.get("split_guid") == source_split_guid
+        ]
+        if (
+            status != 200
+            or payload is None
+            or len(command_source_splits) != 1
+            or command_source_splits[0].get("source_kind") != "command"
+            or command_source_splits[0].get("split_amount_minor") != 123450
+            or command_source_splits[0].get("split_pct_bps") != 1000
+            or payload.get("command_projection") is not True
+            or payload.get("cash_effect") is not False
+        ):
+            raise SmokeError(f"source split command readback failed: {status} {payload}")
         sales_customer_id = "CUS-SMOKE-" + nonce
         sales_customer_payload = {
             "customer_id": sales_customer_id,
@@ -3531,6 +3640,8 @@ def main() -> int:
                     "payment_application_state": "voided",
                     "payment_eligibility": "early_payment_flagged",
                     "tender_state": "completed",
+                    "source_tender_alias_state": "command",
+                    "source_split_alias_state": "command",
                     "supplier_state": "active",
                     "supplier_risk": "B",
                     "split_state": "planned",

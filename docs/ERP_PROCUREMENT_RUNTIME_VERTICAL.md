@@ -101,18 +101,23 @@ The tender command runtime is not an exact proxy for every legacy tender
 mutation. Local create and lifecycle commands enforce a forward-only state
 machine, while the legacy API also exposes arbitrary state replacement,
 hard-delete, standalone award insertion, and a split payload under different
-field names. The parity matrix therefore keeps `POST /tenders`,
-`PUT /tenders/:guid/state`, `DELETE /tenders/:guid`, `POST /awards`, and
-`POST /splits` as explicit translation or policy gates. The next bounded work
-is a source-compatible create alias and a split alias to
-`/api/company/tender-splits`; imported tender rows remain read-only, and no
-award or deletion behavior is promoted without a named procurement owner.
+field names. Source-compatible create and split aliases now translate those
+field names at `/api/company/source/tender/tenders` and
+`/api/company/source/tender/splits`; their command projections are visible in
+source-shaped reads with explicit provenance, and service/gateway replay smoke
+passes. The parity matrix keeps source state overwrite, imported deletion, and
+standalone award insertion as policy gates; imported tender rows remain
+read-only, and no award or deletion behavior is promoted without a named
+procurement owner. Browser and procurement-owner acceptance of the aliases is
+still open.
 
 The source tender boundary is:
 
 - `GET /api/company/source/tender/tenders` over `tender_plan`;
 - `GET /api/company/source/tender/awards` over `tender_award`;
 - `GET /api/company/source/tender/splits` over `contract_split`.
+- `POST /api/company/source/tender/tenders` as a source-field create alias;
+- `POST /api/company/source/tender/splits` as a source-field split alias.
 
 These responses preserve source fields, add normalized identity and display
 fields for Rabbita, report all three table counts, and mark the read as
@@ -144,12 +149,13 @@ That temporary evidence was removed after the runtime read check; the target
 database is back to its pre-test counts because the available ERP export has
 no supplier/tender rows.
 
-The authenticated service smoke also runs a disposable local procurement
+The authenticated service smoke also runs a nonce-scoped local procurement
 workflow: supplier create/update/submit/review, derived risk, tender
-publish/open-bidding/award/complete, and contract-split create/read. It checks
-idempotent replay and removes all disposable rows afterward; the PostgreSQL
-baseline is restored to 120 aggregate projections, 7 accounting links, and 22
-migration receipts. It separately verifies the source risk-board response has
+publish/open-bidding/award/complete, contract-split create/read, and the
+source-field tender create/split aliases. It checks idempotent replay and
+source-shaped command readback; imported source-table coverage remains
+unchanged while local command projections are retained as target evidence. It
+separately verifies the source risk-board response has
 zero high-risk rows, two imported contracts, missing `srm_provider`,
 `srm_category`, and `cb_contract_milestone` coverage, and
 `authorizing=false`. It separately verifies the source supplier list returns no

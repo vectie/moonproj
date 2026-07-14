@@ -47,6 +47,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/tenders`` and ``/api/company/tenders/<id>`` (GET)
 * ``/api/company/tenders`` (POST create planning draft)
 * ``/api/company/tenders/<id>/{publish,open_bidding,award,complete,cancel}`` (POST)
+* ``/api/company/source/tender/tenders`` and ``/api/company/source/tender/splits``
+  (POST, source-field aliases over local command projections; imported rows
+  remain read-only and cash/accounting/tax effects remain separate)
 * ``/api/company/suppliers`` and ``/api/company/suppliers/<id>`` (GET)
 * ``/api/company/suppliers`` (POST create draft)
 * ``/api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`` (POST)
@@ -470,6 +473,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_signature_boundary_read",
             "supplier_command",
             "tender_command",
+            "tender_source_command_alias",
             "contract_split_command",
             "sales_read",
             "sales_command",
@@ -535,6 +539,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_signature_boundary_read",
             "supplier_command",
             "tender_command",
+            "tender_source_command_alias",
             "contract_split_command",
             "sales_read",
             "sales_command",
@@ -1552,7 +1557,7 @@ def cost_source_payment_applications(
 
 def _decode_tender_fields(line: str) -> dict[str, Any]:
     fields = line.split("|")
-    if len(fields) != 14:
+    if len(fields) not in {14, 17}:
         raise ServiceError("unexpected tender projection shape")
     try:
         bids = json.loads(decode_hex(fields[10]))
@@ -1561,7 +1566,7 @@ def _decode_tender_fields(line: str) -> dict[str, Any]:
     if not isinstance(bids, list):
         raise ServiceError("tender bids projection is not an array")
     try:
-        return {
+        result = {
             "tender_id": decode_hex(fields[0]),
             "name": decode_hex(fields[1]),
             "project_scope": decode_hex(fields[2]),
@@ -1577,6 +1582,17 @@ def _decode_tender_fields(line: str) -> dict[str, Any]:
             "source_snapshot_id": decode_hex(fields[12]),
             "mapping_version": decode_hex(fields[13]),
         }
+        if len(fields) == 17:
+            result.update(
+                {
+                    "tender_code": decode_hex(fields[14]),
+                    "plan_publish_date": decode_hex(fields[15]),
+                    "plan_award_date": decode_hex(fields[16]),
+                }
+            )
+        else:
+            result.update({"tender_code": "", "plan_publish_date": "", "plan_award_date": ""})
+        return result
     except (ValueError, UnicodeDecodeError) as error:
         raise ServiceError("invalid tender projection encoding") from error
 
@@ -1612,7 +1628,10 @@ def tenders(
            encode(convert_to(coalesce(latest.payload->'candidate'->'bids', latest.payload->'bids', '[]'::jsonb)::text, 'UTF8'), 'hex'),
            encode(convert_to(CASE WHEN latest.payload ? 'candidate' THEN 'imported' ELSE coalesce(latest.payload->>'source_kind', 'command') END, 'UTF8'), 'hex'),
            encode(convert_to(coalesce(latest.payload->>'source_snapshot_id', latest.payload->'candidate'->>'source_snapshot_id', ''), 'UTF8'), 'hex'),
-           encode(convert_to(coalesce(latest.payload->>'mapping_version', latest.payload->'candidate'->>'mapping_version', ''), 'UTF8'), 'hex')
+           encode(convert_to(coalesce(latest.payload->>'mapping_version', latest.payload->'candidate'->>'mapping_version', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'tender_code', latest.payload->'candidate'->>'tender_code', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'plan_publish_date', latest.payload->'candidate'->>'plan_publish_date', ''), 'UTF8'), 'hex'),
+           encode(convert_to(coalesce(latest.payload->>'plan_award_date', latest.payload->'candidate'->>'plan_award_date', ''), 'UTF8'), 'hex')
     FROM latest
     {where}
     ORDER BY latest.aggregate_id
@@ -1638,14 +1657,18 @@ TENDER_SOURCE_TABLES = {
 
 def _tender_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
         "persisted": False,
+        "command_projection": True,
         "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
 
 
@@ -1716,6 +1739,77 @@ def _tender_source_split_row(row: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _tender_command_source_row(item: dict[str, Any]) -> dict[str, Any]:
+    tender_id = str(item.get("tender_id") or "")
+    project_scope = str(item.get("project_scope") or "")
+    project_guid = project_scope.removeprefix("project:")
+    amount_minor = int(item.get("estimated_amount_minor") or 0)
+    payload: dict[str, Any] = {
+        "tender_guid": tender_id,
+        "tender_id": tender_id,
+        "tender_code": str(item.get("tender_code") or "TD-" + tender_id[-24:]),
+        "proj_guid": project_guid,
+        "project_scope": project_scope,
+        "tender_name": str(item.get("name") or tender_id),
+        "name": str(item.get("name") or tender_id),
+        "category": str(item.get("category") or "uncategorized"),
+        "estimated_amount": amount_minor / 100,
+        "estimated_amount_minor": amount_minor,
+        "estimated_amount_display": f"¥{amount_minor / 100:,.2f}" if amount_minor else "—",
+        "currency": str(item.get("currency") or "CNY"),
+        "state": str(item.get("state") or "planning"),
+        "plan_publish_date": str(item.get("plan_publish_date") or ""),
+        "plan_award_date": str(item.get("plan_award_date") or ""),
+        "remark": str(item.get("remark") or ""),
+        "bids": item.get("bids", []),
+        "source_kind": "command",
+        "command_projection": True,
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+        "aggregate_type": "tender",
+        "aggregate_id": tender_id,
+        "source_id": str(item.get("source_event_id") or "moonproj:command:tender:" + tender_id),
+        "source_table": "tender_plan",
+    }
+    return payload
+
+
+def _split_command_source_row(item: dict[str, Any]) -> dict[str, Any]:
+    split_id = str(item.get("split_id") or "")
+    amount_minor = int(item.get("split_amount_minor") or 0)
+    pct_bps = int(item.get("split_pct_bps") or 0)
+    return {
+        "split_guid": split_id,
+        "split_id": split_id,
+        "parent_contract_guid": str(item.get("parent_contract_id") or ""),
+        "parent_contract_id": str(item.get("parent_contract_id") or ""),
+        "split_name": str(item.get("split_name") or split_id),
+        "split_amount": amount_minor / 100,
+        "split_amount_minor": amount_minor,
+        "split_amount_display": f"¥{amount_minor / 100:,.2f}" if amount_minor else "—",
+        "split_pct": pct_bps / 100,
+        "split_pct_bps": pct_bps,
+        "scope": str(item.get("scope") or ""),
+        "state": str(item.get("state") or "planned"),
+        "source_kind": "command",
+        "command_projection": True,
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+        "aggregate_type": "contract_split",
+        "aggregate_id": split_id,
+        "source_id": str(item.get("source_event_id") or "moonproj:command:contract_split:" + split_id),
+        "source_table": "contract_split",
+    }
+
+
 def tender_source_rows(
     pool: PsqlPool,
     family: str,
@@ -1725,7 +1819,7 @@ def tender_source_rows(
     parent_contract_guid: str | None,
     max_rows: int,
 ) -> dict[str, Any]:
-    """Read one ERP procurement table without promoting local commands."""
+    """Read ERP procurement rows with explicit local-command provenance."""
 
     if family not in {"tenders", "awards", "splits"}:
         raise ValueError("unsupported tender source family")
@@ -1763,6 +1857,28 @@ def tender_source_rows(
             rows.append(_tender_source_award_row(row))
         else:
             rows.append(_tender_source_split_row(row))
+    if family == "tenders":
+        for item in tenders(pool, None, max(max_rows, 500)):
+            if item.get("source_kind") != "command":
+                continue
+            command_row = _tender_command_source_row(item)
+            if proj_guid is not None and command_row.get("proj_guid") != proj_guid:
+                continue
+            if state is not None and command_row.get("state") != state:
+                continue
+            if tender_guid is not None and command_row.get("tender_guid") != tender_guid:
+                continue
+            rows.append(command_row)
+    elif family == "splits":
+        for item in contract_splits(pool, None, parent_contract_guid, max(max_rows, 500)):
+            if item.get("source_kind") != "command":
+                continue
+            command_row = _split_command_source_row(item)
+            if proj_guid is not None and not command_row.get("proj_guid"):
+                continue
+            if parent_contract_guid is not None and command_row.get("parent_contract_guid") != parent_contract_guid:
+                continue
+            rows.append(command_row)
     rows.sort(
         key=lambda value: (
             str(value.get("plan_publish_date") or value.get("award_date") or value.get("created_at") or ""),
@@ -4454,6 +4570,139 @@ def _tender_text(
     return value
 
 
+def _source_decimal_minor(
+    body: dict[str, Any],
+    key: str,
+    *,
+    scale: int = 100,
+    default: int | None = None,
+    minimum: int = 0,
+    maximum: int | None = None,
+) -> int:
+    value = body.get(key)
+    if value is None and default is not None:
+        return default
+    if isinstance(value, bool) or value is None:
+        raise CommandRejected(f"{key} must be a decimal number", 422)
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError) as error:
+        raise CommandRejected(f"{key} must be a decimal number", 422) from error
+    if not decimal_value.is_finite():
+        raise CommandRejected(f"{key} must be finite", 422)
+    scaled = decimal_value * scale
+    if scaled != scaled.to_integral_value():
+        raise CommandRejected(f"{key} may have at most two decimal places", 422)
+    result = int(scaled)
+    if result < minimum:
+        raise CommandRejected(f"{key} is below the minimum", 422)
+    if maximum is not None and result > maximum:
+        raise CommandRejected(f"{key} exceeds the maximum", 422)
+    return result
+
+
+def _source_tender_command_body(
+    body: dict[str, Any],
+    *,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    project_guid = body.get("projGuid", body.get("proj_guid"))
+    if not isinstance(project_guid, str) or not project_guid.strip():
+        raise CommandRejected("projGuid is required", 422)
+    project_guid = project_guid.strip()
+    if not IDENTIFIER.fullmatch(project_guid):
+        raise CommandRejected("projGuid contains unsupported characters", 422)
+    tender_name = body.get("tenderName", body.get("tender_name"))
+    if not isinstance(tender_name, str) or not tender_name.strip():
+        raise CommandRejected("tenderName is required", 422)
+    tender_id = body.get("tenderGuid", body.get("tender_guid"))
+    if tender_id is None or not str(tender_id).strip():
+        tender_id = "TD-SRC-" + idempotency_key
+    if not isinstance(tender_id, str) or not IDENTIFIER.fullmatch(tender_id.strip()):
+        raise CommandRejected("tenderGuid contains unsupported characters", 422)
+    tender_code = body.get("tenderCode", body.get("tender_code"))
+    if tender_code is None or not str(tender_code).strip():
+        tender_code = "TD-" + tender_id.strip()[-24:]
+    if not isinstance(tender_code, str) or not tender_code.strip() or len(tender_code.strip()) > 128:
+        raise CommandRejected("tenderCode is invalid", 422)
+    estimated_amount_minor = _source_decimal_minor(
+        body,
+        "estimatedAmount",
+        default=0,
+        minimum=0,
+    )
+    category = body.get("category", "uncategorized")
+    if not isinstance(category, str) or not category.strip() or len(category.strip()) > 128:
+        raise CommandRejected("category is invalid", 422)
+    currency = body.get("currency", "CNY")
+    if not isinstance(currency, str) or not re.fullmatch(r"[A-Za-z]{3}", currency.strip()):
+        raise CommandRejected("currency must be a three-letter code", 422)
+    result: dict[str, Any] = {
+        "tender_id": tender_id.strip(),
+        "tender_code": tender_code.strip(),
+        "project_scope": "project:" + project_guid,
+        "name": tender_name.strip(),
+        "category": category.strip(),
+        "estimated_amount_minor": estimated_amount_minor,
+        "currency": currency.strip().upper(),
+        "bids": body.get("bids", []),
+        "_source_alias": True,
+    }
+    for source_key, target_key in (
+        ("planPublishDate", "plan_publish_date"),
+        ("planAwardDate", "plan_award_date"),
+        ("remark", "remark"),
+    ):
+        value = body.get(source_key, body.get(target_key, ""))
+        if value is not None and not isinstance(value, str):
+            raise CommandRejected(f"{source_key} must be text", 422)
+        if isinstance(value, str) and len(value) > 256:
+            raise CommandRejected(f"{source_key} is too long", 422)
+        result[target_key] = value.strip() if isinstance(value, str) else ""
+    return result
+
+
+def _source_split_command_body(
+    body: dict[str, Any],
+    *,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    split_id = body.get("splitGuid", body.get("split_guid"))
+    if split_id is None or not str(split_id).strip():
+        split_id = "SPLIT-SRC-" + idempotency_key
+    if not isinstance(split_id, str) or not IDENTIFIER.fullmatch(split_id.strip()):
+        raise CommandRejected("splitGuid contains unsupported characters", 422)
+    parent_contract_id = body.get("parentContractGuid", body.get("parent_contract_guid"))
+    if not isinstance(parent_contract_id, str) or not IDENTIFIER.fullmatch(parent_contract_id.strip()):
+        raise CommandRejected("parentContractGuid is required", 422)
+    split_name = body.get("splitName", body.get("split_name"))
+    if not isinstance(split_name, str) or not split_name.strip():
+        raise CommandRejected("splitName is required", 422)
+    scope = body.get("scope", "")
+    if not isinstance(scope, str):
+        raise CommandRejected("scope must be text", 422)
+    split_pct_bps = _source_decimal_minor(
+        body,
+        "splitPct",
+        default=0,
+        minimum=0,
+        maximum=10000,
+    )
+    return {
+        "split_id": split_id.strip(),
+        "parent_contract_id": parent_contract_id.strip(),
+        "split_name": split_name.strip(),
+        "split_amount_minor": _source_decimal_minor(
+            body,
+            "splitAmount",
+            default=0,
+            minimum=0,
+        ),
+        "split_pct_bps": split_pct_bps,
+        "scope": scope.strip(),
+    }
+
+
 def _tender_request(
     command_type: str,
     tender_id: str | None,
@@ -4478,9 +4727,14 @@ def _tender_request(
         if (
             isinstance(estimated_amount_minor, bool)
             or not isinstance(estimated_amount_minor, int)
-            or estimated_amount_minor <= 0
+            or estimated_amount_minor < (0 if body.get("_source_alias") is True else 1)
         ):
-            raise CommandRejected("estimated_amount_minor must be a positive integer", 422)
+            raise CommandRejected(
+                "estimated_amount_minor must be a non-negative integer"
+                if body.get("_source_alias") is True
+                else "estimated_amount_minor must be a positive integer",
+                422,
+            )
         bids = body.get("bids", [])
         if not isinstance(bids, list):
             raise CommandRejected("bids must be an array", 422)
@@ -4506,7 +4760,7 @@ def _tender_request(
                 "amount_minor": amount_minor,
                 "currency": currency,
             })
-        return tender_id, {
+        request: dict[str, Any] = {
             "command_type": command_type,
             "tender_id": tender_id,
             "project_scope": project_scope,
@@ -4517,6 +4771,14 @@ def _tender_request(
             "bids": normalized_bids,
             "actor_id": actor_id,
         }
+        tender_code = body.get("tender_code")
+        if isinstance(tender_code, str) and tender_code.strip():
+            request["tender_code"] = tender_code.strip()
+        for key in ("plan_publish_date", "plan_award_date", "remark"):
+            value = body.get(key)
+            if isinstance(value, str) and value.strip():
+                request[key] = value.strip()
+        return tender_id, request
     if tender_id is None or not IDENTIFIER.fullmatch(tender_id):
         raise CommandRejected("tender_id is required", 422)
     request: dict[str, Any] = {
@@ -4868,6 +5130,53 @@ def split_command(
     if not isinstance(result, dict):
         raise ServiceError("contract split command receipt has no result")
     return {"command": receipt, "split": result, "idempotent_replay": not created}
+
+
+def _source_tender_alias_result(result: dict[str, Any]) -> dict[str, Any]:
+    tender = result.get("tender")
+    if not isinstance(tender, dict):
+        raise ServiceError("tender command result is missing tender data")
+    command = result.get("command")
+    request = command.get("request", {}) if isinstance(command, dict) else {}
+    tender_id = str(tender.get("tender_id") or request.get("tender_id") or "")
+    tender_code = str(request.get("tender_code") or tender.get("tender_code") or "TD-" + tender_id[-24:])
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"tenderGuid": tender_id, "tenderCode": tender_code},
+        "tender": tender,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
+
+
+def _source_split_alias_result(result: dict[str, Any]) -> dict[str, Any]:
+    split = result.get("split")
+    if not isinstance(split, dict):
+        raise ServiceError("contract split command result is missing split data")
+    split_id = str(split.get("split_id") or "")
+    return {
+        "success": True,
+        "code": 0,
+        "data": {"splitGuid": split_id},
+        "split": split,
+        "command": result.get("command"),
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
 
 
 def _contract_text(body: dict[str, Any], key: str, *, identifier: bool = False) -> str:
@@ -19670,6 +19979,10 @@ def handler_factory(
                     command_family = "tender"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/source/tender/tenders":
+                    command_family = "tender_source_alias"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/suppliers":
                     command_family = "supplier"
                     command_type = "create"
@@ -19702,6 +20015,10 @@ def handler_factory(
                     body["_invoice_direction"] = parsed.path.rsplit("/", 1)[-1]
                 elif parsed.path == "/api/company/tender-splits":
                     command_family = "contract_split"
+                    command_type = "create"
+                    aggregate_id = None
+                elif parsed.path == "/api/company/source/tender/splits":
+                    command_family = "split_source_alias"
                     command_type = "create"
                     aggregate_id = None
                 elif re.fullmatch(
@@ -19879,7 +20196,29 @@ def handler_factory(
                                 response(self, 404, {"error": "not found"}, origin)
                             return
                 actor = self._request_actor_id()
-                if command_family == "contract":
+                if command_family == "tender_source_alias":
+                    body = _source_tender_command_body(body, idempotency_key=idempotency_key)
+                    result = tender_command(
+                        pool,
+                        command_type=command_type,
+                        tender_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_tender_alias_result(result)
+                elif command_family == "split_source_alias":
+                    body = _source_split_command_body(body, idempotency_key=idempotency_key)
+                    result = split_command(
+                        pool,
+                        command_type=command_type,
+                        split_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_split_alias_result(result)
+                elif command_family == "contract":
                     result = contract_command(
                         pool,
                         command_type=command_type,

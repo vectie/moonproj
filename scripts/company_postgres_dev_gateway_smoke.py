@@ -4,7 +4,7 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, bounded expense/sales/marketing/invoice/fund commands, and stale-
+binding, bounded expense/sales/marketing/invoice/fund/tender source-alias commands, and stale-
 assertion rejection.
 No secret value is printed.
 """
@@ -742,6 +742,92 @@ def main() -> int:
         )
         if status != 200 or not isinstance(plan_task_delete_payload, dict) or plan_task_delete_payload.get("task", {}).get("state") != "deleted":
             raise SmokeError(f"trusted project-plan task delete failed: {status}")
+        source_tender_payload = {
+            "projGuid": "CD-HJL",
+            "tenderName": "gateway source tender alias smoke",
+            "category": "construction",
+            "estimatedAmount": "23456.78",
+            "planPublishDate": "2026-07-14",
+            "remark": "gateway source tender alias",
+            "idempotency_key": "source-tender-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, source_tender_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/tender/tenders",
+            headers={"Cookie": cookie},
+            payload=source_tender_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(source_tender_create_payload, dict)
+            or source_tender_create_payload.get("success") is not True
+            or not source_tender_create_payload.get("data", {}).get("tenderGuid")
+            or source_tender_create_payload.get("source_kind") != "command"
+        ):
+            raise SmokeError(f"trusted source tender alias failed: {status}")
+        source_tender_guid = source_tender_create_payload["data"]["tenderGuid"]
+        status, _headers, source_tender_replay_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/tender/tenders",
+            headers={"Cookie": cookie},
+            payload=source_tender_payload,
+        )
+        if status != 200 or not isinstance(source_tender_replay_payload, dict) or source_tender_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"trusted source tender alias replay failed: {status}")
+        status, _headers, source_tender_read_payload = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/source/tender/tenders?projGuid=CD-HJL",
+            headers={"Cookie": cookie},
+        )
+        if (
+            status != 200
+            or not isinstance(source_tender_read_payload, dict)
+            or not any(
+                isinstance(row, dict)
+                and row.get("tender_guid") == source_tender_guid
+                and row.get("source_kind") == "command"
+                for row in source_tender_read_payload.get("data", [])
+            )
+        ):
+            raise SmokeError(f"trusted source tender alias readback failed: {status}")
+        source_split_payload = {
+            "parentContractGuid": "ht-tj-001",
+            "splitName": "gateway source split alias smoke",
+            "splitAmount": "3456.78",
+            "splitPct": "12.50",
+            "scope": "project:CD-HJL",
+            "idempotency_key": "source-split-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, source_split_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/tender/splits",
+            headers={"Cookie": cookie},
+            payload=source_split_payload,
+        )
+        if status != 201 or not isinstance(source_split_create_payload, dict) or not source_split_create_payload.get("data", {}).get("splitGuid"):
+            raise SmokeError(f"trusted source split alias failed: {status}")
+        source_split_guid = source_split_create_payload["data"]["splitGuid"]
+        status, _headers, source_split_read_payload = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/source/tender/splits?parentContractGuid=ht-tj-001",
+            headers={"Cookie": cookie},
+        )
+        if (
+            status != 200
+            or not isinstance(source_split_read_payload, dict)
+            or not any(
+                isinstance(row, dict)
+                and row.get("split_guid") == source_split_guid
+                and row.get("source_kind") == "command"
+                for row in source_split_read_payload.get("data", [])
+            )
+        ):
+            raise SmokeError(f"trusted source split alias readback failed: {status}")
         stale_headers = identity_headers(user_code, identity_secret, int(time.time()) - 61)
         status, _headers, payload = request(
             args.gateway_port,

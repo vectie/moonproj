@@ -559,9 +559,9 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         return "connected_tender_source_read", "accept_browser_tender_source_scenario_and_production_identity"
     if handler["module"] == "tender" and handler["method"] == "POST":
         if handler["path"] == "/tenders":
-            return "not_connected", "reconcile_tender_create_source_mapping_and_browser_acceptance"
+            return "connected_tender_source_command", "accept_browser_tender_source_command_scenario_and_procurement_owner"
         if handler["path"] == "/splits":
-            return "not_connected", "reconcile_tender_split_command_alias_and_owner_acceptance"
+            return "connected_tender_split_source_command", "accept_browser_tender_split_command_scenario_and_procurement_owner"
         if handler["path"] == "/awards":
             return "not_connected", "reconcile_tender_award_evidence_and_owner_acceptance"
     if handler["module"] == "tender" and handler["method"] == "PUT" and handler["path"] == "/tenders/:guid/state":

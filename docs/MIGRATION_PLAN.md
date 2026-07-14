@@ -488,26 +488,22 @@ reports require explicit evidence and never mutate the imported task or
 trigger workflow, cash, accounting, or tax. AI scheduling remains a provider
 gate, and browser/operations-owner acceptance is still open.
 
-**Tender mutation audit checkpoint (2026-07-14).** The target already has a
-verified local tender command runtime for planning-draft creation and the
-forward-only `planning -> publishing -> bidding -> awarded -> completed`
-state machine, plus cancellation. It requires authority, idempotency,
-immutable revisions, audit receipts, qualified-supplier and matching-bid
-evidence for award, and has no implicit cash, accounting, tax, or settlement
-effect. That runtime does not make the five source mutation handlers exact
-aliases. `POST /tenders` still needs source-field/identity and response
-translation; `POST /splits` has a separate `/api/company/tender-splits`
-contract-split command that needs an explicit source alias; `POST /awards`
-creates a standalone source award while the target award is a state transition
-with bid evidence; `PUT /tenders/:guid/state` permits arbitrary source state
-writes while the target enforces the transition graph; and
-`DELETE /tenders/:guid` has no approved local tombstone and must not delete an
-imported projection. These handlers remain visible as translation/policy gates
-in the parity matrix rather than being counted as connected merely because the
-Rabbita tender buttons work. The next procurement slice is to specify and
-accept the create/split aliases with browser and procurement-owner evidence;
-source overwrite, imported deletion, and standalone award semantics remain
-separate decisions.
+**Tender mutation audit checkpoint (2026-07-14).** The target has a verified
+local tender command runtime for planning-draft creation and the forward-only
+`planning -> publishing -> bidding -> awarded -> completed` state machine,
+plus cancellation. It requires idempotency, immutable revisions, audit
+receipts, qualified-supplier and matching-bid evidence for award, and has no
+implicit cash, accounting, tax, or settlement effect. Source-field create and
+split aliases are now implemented at `/api/company/source/tender/tenders` and
+`/api/company/source/tender/splits`; they return source-shaped responses,
+merge command projections into source-shaped reads with provenance, and pass
+service/gateway replay smoke. The remaining three source mutations are still
+policy gates: `POST /awards` creates a standalone source award while the
+target award is a state transition with bid evidence;
+`PUT /tenders/:guid/state` permits arbitrary source state writes while the
+target enforces the transition graph; and `DELETE /tenders/:guid` has no
+approved local tombstone and must not delete an imported projection. Browser
+and procurement-owner acceptance of the two aliases remains open.
 
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
@@ -902,7 +898,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Tender planning/lifecycle commands and contract-split commands are also locally verified, but the source tender create/state/delete/award/split handlers remain explicit translation or policy gates as documented in the tender mutation checkpoint. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
+| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Tender planning/lifecycle commands and contract-split commands are locally verified, and source tender create/split aliases now return source-shaped readback with command provenance; source state overwrite, imported deletion, and standalone award semantics remain policy gates. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the
