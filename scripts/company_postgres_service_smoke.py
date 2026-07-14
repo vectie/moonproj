@@ -163,6 +163,7 @@ def main() -> int:
             or "fund_command" not in payload.get("capabilities", [])
             or "project_plan_command" not in payload.get("capabilities", [])
             or "tender_source_command_alias" not in payload.get("capabilities", [])
+            or "supplier_source_command_alias" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, source_schema_coverage_payload = request(
@@ -208,7 +209,8 @@ def main() -> int:
         if (
             status != 200
             or supplier_source_payload is None
-            or supplier_source_data != []
+            or not isinstance(supplier_source_data, list)
+            or any(row.get("sourceKind") == "imported" for row in supplier_source_data if isinstance(row, dict))
             or supplier_source_payload.get("source_coverage", {}).get("cb_contract") != 2
             or supplier_source_payload.get("source_coverage", {}).get("srm_provider") != 0
             or "srm_provider" not in supplier_source_payload.get("missing_or_empty_source_tables", [])
@@ -3151,6 +3153,122 @@ def main() -> int:
         status, payload = request(args.port, f"/api/company/suppliers/{supplier_id}/risk", token=token)
         if status != 200 or payload is None or payload.get("rating") != "B":
             raise SmokeError(f"supplier risk failed: {status} {payload}")
+        source_supplier_id = "SUP-SOURCE-SMOKE-" + nonce
+        source_supplier_payload = {
+            "providerGuid": source_supplier_id,
+            "providerCode": "GYS-SOURCE-" + nonce,
+            "providerName": "source-compatible supplier smoke",
+            "shortName": "source supplier",
+            "mainCategoryCode": "construction",
+            "businessScope": "source supplier smoke scope",
+            "contactPerson": "smoke contact",
+            "contactPhone": "000000",
+            "principal_id": "co-smoke",
+            "scope": "project:CD-HJL",
+        }
+        status, payload = request(
+            args.port,
+            "/api/company/source/srm/providers",
+            token=token,
+            method="POST",
+            payload=source_supplier_payload,
+            idempotency_key="source-supplier-create-" + nonce,
+        )
+        if (
+            status != 201
+            or payload is None
+            or payload.get("success") is not True
+            or payload.get("data", {}).get("providerGuid") != source_supplier_id
+            or payload.get("provider", {}).get("sourceKind") != "command"
+            or payload.get("provider", {}).get("shortName") != "source supplier"
+            or payload.get("provider", {}).get("contactPerson") != "smoke contact"
+        ):
+            raise SmokeError(f"source supplier create alias failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/source/srm/providers",
+            token=token,
+            method="POST",
+            payload=source_supplier_payload,
+            idempotency_key="source-supplier-create-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source supplier create alias replay failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            token=token,
+            method="PATCH",
+            payload={"providerName": "source-compatible supplier smoke updated"},
+            idempotency_key="source-supplier-patch-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("provider", {}).get("providerName") != "source-compatible supplier smoke updated"
+        ):
+            raise SmokeError(f"source supplier PATCH alias failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            token=token,
+            method="PUT",
+            payload={"businessScope": "source supplier updated scope"},
+            idempotency_key="source-supplier-put-" + nonce,
+        )
+        if (
+            status != 200
+            or payload is None
+            or payload.get("provider", {}).get("sourceKind") != "command"
+            or payload.get("provider", {}).get("businessScope") != "source supplier updated scope"
+        ):
+            raise SmokeError(f"source supplier PUT alias failed: {status} {payload}")
+        status, payload = request(args.port, "/api/company/srm/providers", token=token)
+        source_supplier_rows = [
+            row
+            for row in (payload or {}).get("data", [])
+            if isinstance(row, dict) and row.get("providerGuid") == source_supplier_id
+        ]
+        if (
+            status != 200
+            or len(source_supplier_rows) != 1
+            or source_supplier_rows[0].get("sourceKind") != "command"
+            or source_supplier_rows[0].get("providerName") != "source-compatible supplier smoke updated"
+            or payload.get("command_projection") is not True
+        ):
+            raise SmokeError(f"source supplier command readback failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/srm/providers/{source_supplier_id}", token=token)
+        if (
+            status != 200
+            or payload is None
+            or payload.get("data", {}).get("provider", {}).get("sourceKind") != "command"
+            or payload.get("data", {}).get("provider", {}).get("businessScope") != "source supplier updated scope"
+            or payload.get("data", {}).get("provider", {}).get("contactPerson") != "smoke contact"
+        ):
+            raise SmokeError(f"source supplier command detail failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source supplier alias smoke void"},
+            idempotency_key="source-supplier-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("provider", {}).get("auditState") != "voided":
+            raise SmokeError(f"source supplier delete alias failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "source supplier alias smoke void"},
+            idempotency_key="source-supplier-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"source supplier delete alias replay failed: {status} {payload}")
+        status, payload = request(args.port, f"/api/company/srm/providers/{source_supplier_id}", token=token)
+        if status != 404 or payload is None or payload.get("data") is not None:
+            raise SmokeError(f"source supplier delete readback failed: {status} {payload}")
         blocked_supplier_id = "SUP-SMOKE-BLOCKED-" + nonce
         blocked_payload = {
             "supplier_id": blocked_supplier_id,

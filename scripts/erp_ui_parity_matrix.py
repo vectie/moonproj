@@ -936,6 +936,18 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         return "connected_supplier_read", "accept_browser_supplier_scenario_and_production_identity"
     if (
         handler["module"] == "srm"
+        and handler["method"] == "POST"
+        and handler["path"] == "/providers"
+    ):
+        return "connected_supplier_source_command", "accept_browser_supplier_source_command_scenario_and_procurement_owner"
+    if (
+        handler["module"] == "srm"
+        and handler["method"] in {"PATCH", "PUT", "DELETE"}
+        and handler["path"] == "/providers/:guid"
+    ):
+        return "connected_supplier_source_command", "accept_browser_supplier_source_command_scenario_and_procurement_owner"
+    if (
+        handler["module"] == "srm"
         and handler["method"] == "GET"
         and handler["path"] in {"/categories", "/dict/eval-results", "/dict/sources"}
     ):

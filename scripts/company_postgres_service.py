@@ -74,6 +74,11 @@ The bounded service exposes these endpoints:
   ``/api/company/srm/stats/overview``,
   and ``/api/company/srm/risk-board`` (GET)
   source-compatible, non-authorizing reads with coverage metadata
+* ``/api/company/source/srm/providers`` (POST) and
+  ``/api/company/source/srm/providers/<guid>`` (PATCH, PUT, DELETE),
+  source-field aliases over command-owned supplier projections; imported
+  providers remain read-only and qualification/signature/provider effects
+  remain gated
 * ``/api/company/source/srm/{categories,dict/eval-results,dict/sources}``
   (GET, source/definition dictionary observations)
 * ``/api/company/source/migration/schema-coverage`` (GET, credential-free
@@ -490,6 +495,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_risk_read",
             "supplier_signature_boundary_read",
             "supplier_command",
+            "supplier_source_command_alias",
             "tender_command",
             "tender_source_command_alias",
             "contract_split_command",
@@ -560,6 +566,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "supplier_risk_read",
             "supplier_signature_boundary_read",
             "supplier_command",
+            "supplier_source_command_alias",
             "tender_command",
             "tender_source_command_alias",
             "contract_split_command",
@@ -2248,7 +2255,7 @@ def tender_source_rows(
 
 def _decode_supplier_fields(line: str) -> dict[str, Any]:
     fields = line.split("|")
-    if len(fields) != 11:
+    if len(fields) != 20:
         raise ServiceError("unexpected supplier projection shape")
     try:
         return {
@@ -2263,9 +2270,72 @@ def _decode_supplier_fields(line: str) -> dict[str, Any]:
             "source_kind": decode_hex(fields[8]),
             "source_snapshot_id": decode_hex(fields[9]),
             "mapping_version": decode_hex(fields[10]),
+            "short_name": decode_hex(fields[11]),
+            "legal_person": decode_hex(fields[12]),
+            "register_capital": decode_hex(fields[13]),
+            "business_scope": decode_hex(fields[14]),
+            "source": decode_hex(fields[15]),
+            "contact_person": decode_hex(fields[16]),
+            "contact_phone": decode_hex(fields[17]),
+            "address": decode_hex(fields[18]),
+            "enabled": decode_hex(fields[19]).lower() == "true",
         }
     except (ValueError, UnicodeDecodeError) as error:
         raise ServiceError("invalid supplier projection encoding") from error
+
+
+def _supplier_command_source_row(item: dict[str, Any]) -> dict[str, Any]:
+    evaluation_labels = {
+        "unrated": "未定级",
+        "reviewed": "已评审",
+        "qualified": "合格",
+        "unqualified": "不合格",
+        "strategic": "战略",
+    }
+    supplier_id = str(item.get("supplier_id") or "")
+    state = str(item.get("state") or "draft")
+    category_code = str(item.get("category_code") or "")
+    register_capital: float | int | None = None
+    raw_register_capital = str(item.get("register_capital") or "").strip()
+    if raw_register_capital:
+        try:
+            value = float(raw_register_capital)
+            register_capital = int(value) if value.is_integer() else value
+        except ValueError:
+            register_capital = None
+    return {
+        "providerGuid": supplier_id,
+        "providerCode": str(item.get("supplier_code") or supplier_id),
+        "providerName": str(item.get("name") or supplier_id),
+        "shortName": str(item.get("short_name") or ""),
+        "legalPerson": str(item.get("legal_person") or ""),
+        "registerCapital": register_capital,
+        "businessScope": str(item.get("business_scope") or item.get("scope") or ""),
+        "mainCategory": {"code": category_code, "name": category_code},
+        "evalResult": evaluation_labels.get(str(item.get("evaluation") or "unrated"), str(item.get("evaluation") or "未定级")),
+        "inspectState": "",
+        "auditState": state,
+        "source": str(item.get("source") or "内部收集"),
+        "contactPerson": str(item.get("contact_person") or ""),
+        "contactPhone": str(item.get("contact_phone") or ""),
+        "address": str(item.get("address") or ""),
+        "enabled": bool(item.get("enabled", state not in {"voided", "blacklisted"}))
+        and state not in {"voided", "blacklisted"},
+        "buCount": 0,
+        "contractCount": 0,
+        "sourceKind": "command",
+        "source_kind": "command",
+        "commandProjection": True,
+        "authorizing": False,
+        "persisted": True,
+        "providerExecution": False,
+        "cashEffect": False,
+        "accountingEffect": False,
+        "taxEffect": False,
+        "sourceId": str(item.get("source_id") or "moonproj:command:supplier:" + supplier_id),
+        "aggregate_type": "supplier",
+        "aggregate_id": supplier_id,
+    }
 
 
 def suppliers(
@@ -2297,6 +2367,15 @@ def suppliers(
            encode(convert_to(CASE WHEN latest.payload ? 'candidate' THEN 'imported' ELSE coalesce(latest.payload->>'source_kind', 'command') END, 'UTF8'), 'hex'),
            encode(convert_to(coalesce(latest.payload->>'source_snapshot_id', latest.payload->'candidate'->>'source_snapshot_id', ''), 'UTF8'), 'hex'),
            encode(convert_to(coalesce(latest.payload->>'mapping_version', latest.payload->'candidate'->>'mapping_version', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'short_name', latest.payload->>'short_name', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'legal_person', latest.payload->>'legal_person', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'register_capital', latest.payload->>'register_capital', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'business_scope', latest.payload->>'business_scope', latest.payload->'candidate'->>'scope', latest.payload->>'scope', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'source', latest.payload->>'source', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'contact_person', latest.payload->>'contact_person', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'contact_phone', latest.payload->>'contact_phone', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'address', latest.payload->>'address', ''), 'UTF8'), 'hex')
+           ,encode(convert_to(coalesce(latest.payload->'candidate'->>'enabled', latest.payload->>'enabled', 'true'), 'UTF8'), 'hex')
     FROM latest
     {where}
     ORDER BY latest.aggregate_id
@@ -2404,12 +2483,18 @@ def _supplier_source_coverage(
 
 def _supplier_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
+        "persisted": False,
+        "command_projection": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
 
 
@@ -2490,11 +2575,11 @@ def supplier_source_list(
     pool: PsqlPool,
     max_rows: int,
 ) -> dict[str, Any]:
-    """Read the ERP SRM provider master source without local projections.
+    """Read the ERP SRM provider master with explicit command provenance.
 
-    The response follows the ERP ``GET /srm/providers`` data shape.  It is a
-    read-only imported-source boundary: missing/empty source tables remain
-    visible and no local supplier command state is promoted into this list.
+    Imported rows remain source-preserving and read-only.  Command-owned
+    supplier projections are merged as a separate, visibly non-authorizing
+    source-shaped cohort so local CRUD aliases have deterministic readback.
     """
 
     coverage = _supplier_source_coverage(pool, max_rows)
@@ -2557,6 +2642,10 @@ def supplier_source_list(
                 "sourceKind": "imported",
             }
         )
+    for item in suppliers(pool, None, max(max_rows, 500)):
+        if item.get("source_kind") != "command" or str(item.get("state") or "") == "voided":
+            continue
+        result.append(_supplier_command_source_row(item))
     result.sort(key=lambda item: (str(item["evalResult"]), str(item["providerCode"])), reverse=True)
     return {
         "success": True,
@@ -2585,6 +2674,40 @@ def supplier_source_detail(
             provider_row = row
             break
     if provider_row is None:
+        command_rows = suppliers(pool, provider_guid, 1)
+        if command_rows and command_rows[0].get("source_kind") == "command":
+            command_item = _supplier_command_source_row(command_rows[0])
+            if command_item.get("enabled") is not False:
+                provider = {
+                    "providerGuid": command_item["providerGuid"],
+                    "providerCode": command_item["providerCode"],
+                    "providerName": command_item["providerName"],
+                    "shortName": command_item["shortName"],
+                    "legalPerson": command_item["legalPerson"],
+                    "businessLicense": "",
+                    "registerCapital": command_item["registerCapital"],
+                    "businessScope": command_item["businessScope"],
+                    "mainCategory": command_item["mainCategory"],
+                    "evalResult": command_item["evalResult"],
+                    "inspectState": command_item["inspectState"],
+                    "auditState": command_item["auditState"],
+                    "source": command_item["source"],
+                    "contactPerson": command_item["contactPerson"],
+                    "contactPhone": command_item["contactPhone"],
+                    "address": command_item["address"],
+                    "qualifications": "",
+                    "enabled": command_item["enabled"],
+                    "createdBy": str(command_rows[0].get("principal_id") or ""),
+                    "createdAt": "",
+                    "processInstanceGuid": "",
+                    "sourceKind": "command",
+                }
+                return {
+                    "success": True,
+                    "code": 0,
+                    "data": {"provider": provider, "serviceBus": [], "contracts": []},
+                    **_supplier_source_metadata(coverage),
+                }
         return {
             "success": False,
             "code": 43001,
@@ -4342,7 +4465,7 @@ def _sales_request(
         raise CommandRejected("reason must be text", 422)
     request["reason"] = reason.strip()
     if command_type == "update" and family == "customers":
-        changes: dict[str, str] = {}
+        changes: dict[str, Any] = {}
         for key in ("scope", "customer_code", "name", "contact_reference"):
             value = body.get(key)
             if value is not None:
@@ -4695,7 +4818,7 @@ def _supplier_request(
         supplier_code = _supplier_text(body, "supplier_code", identifier=True)
         name = _supplier_text(body, "name")
         category_code = _supplier_text(body, "category_code", identifier=True)
-        return supplier_id, {
+        request: dict[str, Any] = {
             "command_type": command_type,
             "supplier_id": supplier_id,
             "principal_id": principal_id,
@@ -4705,6 +4828,31 @@ def _supplier_request(
             "category_code": category_code,
             "actor_id": actor_id,
         }
+        for key in (
+            "short_name",
+            "legal_person",
+            "business_scope",
+            "source",
+            "contact_person",
+            "contact_phone",
+            "address",
+        ):
+            value = body.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or len(value.strip()) > 256:
+                raise CommandRejected(f"{key} must be text", 422)
+            request[key] = value.strip()
+        if "register_capital" in body and body["register_capital"] is not None:
+            value = body["register_capital"]
+            if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+                raise CommandRejected("register_capital must be numeric", 422)
+            request["register_capital"] = str(value)
+        if "enabled" in body and body["enabled"] is not None:
+            if not isinstance(body["enabled"], bool):
+                raise CommandRejected("enabled must be boolean", 422)
+            request["enabled"] = body["enabled"]
+        return supplier_id, request
     if supplier_id is None or not IDENTIFIER.fullmatch(supplier_id):
         raise CommandRejected("supplier_id is required", 422)
     request: dict[str, Any] = {
@@ -4713,16 +4861,38 @@ def _supplier_request(
         "actor_id": actor_id,
     }
     if command_type == "update":
-        changes: dict[str, str] = {}
-        for key in ("scope", "supplier_code", "name", "category_code"):
+        changes: dict[str, Any] = {}
+        for key in (
+            "scope",
+            "supplier_code",
+            "name",
+            "category_code",
+            "short_name",
+            "legal_person",
+            "business_scope",
+            "source",
+            "contact_person",
+            "contact_phone",
+            "address",
+            "evaluation",
+        ):
             value = body.get(key)
             if value is not None:
                 if not isinstance(value, str) or not value.strip():
                     raise CommandRejected(f"{key} must be non-empty text", 422)
                 cleaned = value.strip()
-                if key != "name" and not IDENTIFIER.fullmatch(cleaned):
+                if key in {"scope", "supplier_code", "category_code"} and not IDENTIFIER.fullmatch(cleaned):
                     raise CommandRejected(f"{key} contains unsupported characters", 422)
                 changes[key] = cleaned
+        if "register_capital" in body and body["register_capital"] is not None:
+            value = body["register_capital"]
+            if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+                raise CommandRejected("register_capital must be numeric", 422)
+            changes["register_capital"] = str(value)
+        if "enabled" in body and body["enabled"] is not None:
+            if not isinstance(body["enabled"], bool):
+                raise CommandRejected("enabled must be boolean", 422)
+            changes["enabled"] = body["enabled"]
         if not changes:
             raise CommandRejected("update requires at least one mutable field", 422)
         request["changes"] = changes
@@ -4736,6 +4906,122 @@ def _supplier_request(
         raise CommandRejected("reason must be text", 422)
     request["reason"] = reason.strip()
     return supplier_id, request
+
+
+def _source_supplier_create_body(
+    body: dict[str, Any],
+    *,
+    idempotency_key: str,
+    actor_id: str,
+) -> dict[str, Any]:
+    provider_guid = body.get("providerGuid", body.get("provider_guid"))
+    if provider_guid is None or not str(provider_guid).strip():
+        provider_guid = "SUP-SRC-" + idempotency_key
+    if not isinstance(provider_guid, str) or not IDENTIFIER.fullmatch(provider_guid.strip()):
+        raise CommandRejected("providerGuid contains unsupported characters", 422)
+    provider_name = body.get("providerName", body.get("provider_name"))
+    if not isinstance(provider_name, str) or not provider_name.strip():
+        raise CommandRejected("providerName is required", 422)
+    category_code = body.get("mainCategoryCode", body.get("category_code"))
+    if not isinstance(category_code, str) or not category_code.strip() or not IDENTIFIER.fullmatch(category_code.strip()):
+        raise CommandRejected("mainCategoryCode is required", 422)
+    provider_code = body.get("providerCode", body.get("supplier_code"))
+    if provider_code is None or not str(provider_code).strip():
+        provider_code = "GYS-SRC-" + provider_guid.strip()[-24:]
+    if not isinstance(provider_code, str) or not IDENTIFIER.fullmatch(provider_code.strip()):
+        raise CommandRejected("providerCode contains unsupported characters", 422)
+    principal_id = body.get("principal_id", actor_id)
+    scope = body.get("scope", "supplier:" + provider_guid.strip())
+    if not isinstance(principal_id, str) or not IDENTIFIER.fullmatch(principal_id.strip()):
+        raise CommandRejected("principal_id contains unsupported characters", 422)
+    if not isinstance(scope, str) or not IDENTIFIER.fullmatch(scope.strip()):
+        raise CommandRejected("scope contains unsupported characters", 422)
+    result: dict[str, Any] = {
+        "supplier_id": provider_guid.strip(),
+        "principal_id": principal_id.strip(),
+        "scope": scope.strip(),
+        "supplier_code": provider_code.strip(),
+        "name": provider_name.strip(),
+        "category_code": category_code.strip(),
+    }
+    mapping = {
+        "shortName": "short_name",
+        "legalPerson": "legal_person",
+        "businessScope": "business_scope",
+        "source": "source",
+        "contactPerson": "contact_person",
+        "contactPhone": "contact_phone",
+        "address": "address",
+        "registerCapital": "register_capital",
+        "enabled": "enabled",
+    }
+    for source_key, target_key in mapping.items():
+        if source_key in body:
+            result[target_key] = body[source_key]
+    return result
+
+
+def _source_supplier_update_body(body: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    mapping = {
+        "providerCode": "supplier_code",
+        "providerName": "name",
+        "shortName": "short_name",
+        "legalPerson": "legal_person",
+        "registerCapital": "register_capital",
+        "businessScope": "business_scope",
+        "mainCategoryCode": "category_code",
+        "evalResult": "evaluation",
+        "source": "source",
+        "contactPerson": "contact_person",
+        "contactPhone": "contact_phone",
+        "address": "address",
+        "enabled": "enabled",
+    }
+    for source_key, target_key in mapping.items():
+        if source_key in body:
+            result[target_key] = body[source_key]
+    if not result:
+        raise CommandRejected("supplier update requires a mutable field", 422)
+    return result
+
+
+def _source_supplier_alias_result(
+    pool: PsqlPool,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    supplier = result.get("supplier")
+    if not isinstance(supplier, dict):
+        raise ServiceError("supplier command result is missing supplier data")
+    supplier_id = str(supplier.get("supplier_id") or "")
+    rows = suppliers(pool, supplier_id, 1)
+    source_row = _supplier_command_source_row(rows[0]) if rows else {
+        "providerGuid": supplier_id,
+        "providerCode": supplier_id,
+        "providerName": supplier_id,
+        "sourceKind": "command",
+        "state": str(supplier.get("state") or ""),
+    }
+    command = result.get("command")
+    request = command.get("request", {}) if isinstance(command, dict) else {}
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "providerGuid": supplier_id,
+            "providerCode": str(request.get("supplier_code") or source_row.get("providerCode") or supplier_id),
+        },
+        "provider": source_row,
+        "command": command,
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
+    }
 
 
 def supplier_command(
@@ -21738,6 +22024,10 @@ def handler_factory(
                     command_family = "tender_source_alias"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/source/srm/providers":
+                    command_family = "supplier_source_alias"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path == "/api/company/suppliers":
                     command_family = "supplier"
                     command_type = "create"
@@ -22008,6 +22298,21 @@ def handler_factory(
                         idempotency_key=idempotency_key,
                     )
                     result = _source_tender_alias_result(result)
+                elif command_family == "supplier_source_alias":
+                    body = _source_supplier_create_body(
+                        body,
+                        idempotency_key=idempotency_key,
+                        actor_id=actor,
+                    )
+                    result = supplier_command(
+                        pool,
+                        command_type="create",
+                        supplier_id=None,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
+                    result = _source_supplier_alias_result(pool, result)
                 elif command_family == "split_source_alias":
                     body = _source_split_command_body(body, idempotency_key=idempotency_key)
                     result = split_command(
@@ -22671,7 +22976,51 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _supplier_method_alias(self, method: str) -> bool:
+            if method not in {"PATCH", "PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/srm/providers/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                command_type = "void" if method == "DELETE" else "update"
+                command_body = (
+                    {"reason": body.get("reason", "")}
+                    if command_type == "void"
+                    else _source_supplier_update_body(body)
+                )
+                result = supplier_command(
+                    pool,
+                    command_type=command_type,
+                    supplier_id=match.group(1),
+                    body=command_body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, _source_supplier_alias_result(pool, result), origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
+            if self._supplier_method_alias("PUT"):
+                return
             if self._source_dynamic_cost_method_alias("PUT"):
                 return
             if self._source_cost_milestone_method_alias("PUT"):
@@ -22690,8 +23039,15 @@ def handler_factory(
                 return
             self._marketing_method_alias("PUT") or self._loan_method_alias("PUT")
 
+        def do_PATCH(self) -> None:  # noqa: N802
+            if self._supplier_method_alias("PATCH"):
+                return
+            response(self, 404, {"error": "unsupported company patch"}, self._origin())
+
         def do_DELETE(self) -> None:  # noqa: N802
             if self._tender_method_alias("DELETE"):
+                return
+            if self._supplier_method_alias("DELETE"):
                 return
             if self._delivery_progress_method_alias("DELETE"):
                 return

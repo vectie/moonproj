@@ -1045,6 +1045,97 @@ def main() -> int:
             )
         ):
             raise SmokeError(f"trusted source tender delete alias readback failed: {status}")
+        source_supplier_id = "SUP-GW-SOURCE-" + smoke_suffix
+        source_supplier_payload = {
+            "providerGuid": source_supplier_id,
+            "providerCode": "GYS-GW-SOURCE-" + smoke_suffix,
+            "providerName": "gateway source supplier smoke",
+            "mainCategoryCode": "construction",
+            "businessScope": "gateway source supplier scope",
+            "principal_id": "admin",
+            "scope": "project:CD-HJL",
+            "idempotency_key": "source-supplier-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, source_supplier_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/srm/providers",
+            headers={"Cookie": cookie},
+            payload=source_supplier_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(source_supplier_create_payload, dict)
+            or source_supplier_create_payload.get("data", {}).get("providerGuid") != source_supplier_id
+            or source_supplier_create_payload.get("provider", {}).get("sourceKind") != "command"
+        ):
+            raise SmokeError(f"trusted source supplier alias failed: {status} {source_supplier_create_payload}")
+        status, _headers, source_supplier_patch_payload = request(
+            args.gateway_port,
+            "PATCH",
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "providerName": "gateway source supplier updated",
+                "idempotency_key": "source-supplier-gateway-patch-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_supplier_patch_payload, dict)
+            or source_supplier_patch_payload.get("provider", {}).get("providerName") != "gateway source supplier updated"
+        ):
+            raise SmokeError(f"trusted source supplier PATCH alias failed: {status}")
+        status, _headers, source_supplier_put_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "businessScope": "gateway source supplier updated scope",
+                "idempotency_key": "source-supplier-gateway-put-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_supplier_put_payload, dict)
+            or source_supplier_put_payload.get("provider", {}).get("sourceKind") != "command"
+            or source_supplier_put_payload.get("provider", {}).get("businessScope") != "gateway source supplier updated scope"
+        ):
+            raise SmokeError(f"trusted source supplier PUT alias failed: {status}")
+        status, _headers, source_supplier_read_payload = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/srm/providers",
+            headers={"Cookie": cookie},
+        )
+        if (
+            status != 200
+            or not isinstance(source_supplier_read_payload, dict)
+            or not any(
+                isinstance(row, dict)
+                and row.get("providerGuid") == source_supplier_id
+                and row.get("sourceKind") == "command"
+                for row in source_supplier_read_payload.get("data", [])
+            )
+        ):
+            raise SmokeError(f"trusted source supplier readback failed: {status}")
+        status, _headers, source_supplier_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/srm/providers/{source_supplier_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway source supplier alias smoke void",
+                "idempotency_key": "source-supplier-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(source_supplier_delete_payload, dict)
+            or source_supplier_delete_payload.get("provider", {}).get("auditState") != "voided"
+        ):
+            raise SmokeError(f"trusted source supplier delete alias failed: {status} {source_supplier_delete_payload}")
         source_split_payload = {
             "parentContractGuid": "ht-tj-001",
             "splitName": "gateway source split alias smoke",

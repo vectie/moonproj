@@ -2,7 +2,8 @@
 
 Status: local PostgreSQL/Rabbita slice verified; source export and production
 acceptance remain open. Supplier provider data and supplier dictionaries are
-kept as separate, non-authorizing observations.
+kept as separate observations, while source provider CRUD is translated only
+into command-owned projections and remains non-authorizing for procurement.
 
 The ERP `/tender` and `/srm/providers` pages are now connected to the company
 boundary. They read the latest `tender` and `supplier` aggregate projections
@@ -47,6 +48,13 @@ rows are production data.
   missing-provider boundary. With an imported provider it returns an explicit
   procurement-owner gate rather than authorizing a contract signature or
   invoking an external provider;
+- `POST /api/company/source/srm/providers` and `PATCH`, `PUT`, or `DELETE`
+  `/api/company/source/srm/providers/<guid>` for source-field provider CRUD.
+  These aliases create, update, or void command-owned supplier projections,
+  merge those projections into source-shaped list/detail reads with
+  `source_kind=command`, and preserve idempotent replay evidence. Imported
+  providers remain read-only; qualification, signature, risk rescore, and
+  external provider effects are not inferred;
 - `GET /api/company/srm/stats/overview` for source-backed enabled-provider,
   rating, category/source, and top-business aggregates;
 - `GET /api/company/source/srm/categories` for the source `srm_category`
@@ -96,6 +104,12 @@ approval. The external risk rescore job remains unconnected. The
 source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
+
+The source supplier CRUD aliases follow the same rule: they translate the ERP
+field family into a local supplier command, but do not pretend that a local
+projection is an imported `srm_provider` row. List/detail readback is useful
+for the designer flow and carries provenance; source statistics and populated
+provider signature/risk decisions remain source-evidence and owner gates.
 
 The tender command runtime is not an exact proxy for every legacy tender
 mutation. Local create and lifecycle commands enforce a forward-only state
@@ -172,7 +186,8 @@ source provider-risk detail also returns a covered 404 when the supplier table
 is absent; a disposable non-empty source cohort was verified to produce the
 expected contract/overdue counts and a derived rating, then removed.
 
-Remaining gates are the supplier/tender command slice above, a redacted source
+Remaining gates are populated-provider qualification/signature/rescore and
+supplier/tender owner acceptance, a redacted source
 procurement export, supplier identity and owner approval, the populated-provider
 signature decision, award-to-commitment acceptance, browser acceptance through
 the real gateway session, and production identity/role/session deployment.

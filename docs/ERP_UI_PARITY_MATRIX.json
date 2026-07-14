@@ -4176,8 +4176,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_supplier_source_command",
+      "required_next": "accept_browser_supplier_source_command_scenario_and_procurement_owner"
     },
     {
       "module": "srm",
@@ -4188,8 +4188,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_supplier_source_command",
+      "required_next": "accept_browser_supplier_source_command_scenario_and_procurement_owner"
     },
     {
       "module": "srm",
@@ -4212,8 +4212,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_supplier_source_command",
+      "required_next": "accept_browser_supplier_source_command_scenario_and_procurement_owner"
     },
     {
       "module": "srm",
@@ -4224,8 +4224,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_supplier_source_command",
+      "required_next": "accept_browser_supplier_source_command_scenario_and_procurement_owner"
     },
     {
       "module": "srm",

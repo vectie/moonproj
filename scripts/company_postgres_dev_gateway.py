@@ -363,6 +363,13 @@ def handler_factory(
                     parsed.path,
                 )
                 or (
+                    method in {"PATCH", "PUT", "DELETE"}
+                    and re.fullmatch(
+                        r"/api/company/source/srm/providers/[A-Za-z0-9_.:-]{1,128}",
+                        parsed.path,
+                    )
+                )
+                or (
                     method == "DELETE"
                     and (
                         re.fullmatch(
@@ -504,6 +511,7 @@ def handler_factory(
                 or parsed.path == TENDER_PATH_PREFIX
                 or parsed.path.startswith(TENDER_PATH_PREFIX + "/")
                 or parsed.path.startswith(SOURCE_TENDER_PATH_PREFIX + "/")
+                or parsed.path == "/api/company/source/srm/providers"
                 or parsed.path == SUPPLIER_PATH_PREFIX
                 or parsed.path.startswith(SUPPLIER_PATH_PREFIX + "/")
                 or parsed.path == TENDER_SPLIT_PATH_PREFIX
@@ -555,6 +563,9 @@ def handler_factory(
 
         def do_PUT(self) -> None:  # noqa: N802
             self._forward_loan_method("PUT")
+
+        def do_PATCH(self) -> None:  # noqa: N802
+            self._forward_loan_method("PATCH")
 
         def do_DELETE(self) -> None:  # noqa: N802
             self._forward_loan_method("DELETE")
