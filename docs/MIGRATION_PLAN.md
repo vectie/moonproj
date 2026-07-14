@@ -490,7 +490,7 @@ groups are now explicit:
   and similar status/verification endpoints remain provider and credential
   gates. A successful metadata read does not authorize a provider call.
 
-The remaining 201 API handlers are therefore deliberately split between these
+The remaining 196 API handlers are therefore deliberately split between these
 bounded read candidates and mutation/provider commands. New source-compatible
 reads must report coverage, preserve redaction and 404 behavior, and mark
 `authorizing=false`, `persisted=false`, and `provider_execution=false` where
