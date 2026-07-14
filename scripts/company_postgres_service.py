@@ -21,7 +21,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/budget/expenses`` (GET, source-compatible imported list)
 * ``/api/company/budget/expenses/<guid>`` (GET, source-compatible imported detail)
 * ``/api/company/expenses`` (POST create draft)
-* ``/api/company/expenses/<id>/{submit,approve,reject,resubmit}`` (POST)
+* ``/api/company/expenses/<id>/{submit,submit-for-approval,approve,reject,resubmit,void}`` (POST)
+* ``/api/company/expenses/<id>`` (PUT update draft, DELETE void draft/rejected)
 * ``/api/company/contracts`` and ``/api/company/contracts/<id>`` (GET)
 * ``/api/company/source/cost/contracts[/{id}[/milestones]]`` and
   ``/api/company/source/cost/payment-applies`` (GET, imported-source contract
@@ -5594,7 +5595,7 @@ def _expense_request(
     body: dict[str, Any],
     actor_id: str,
 ) -> tuple[str, dict[str, Any]]:
-    if command_type not in {"create", "submit", "approve", "reject", "resubmit"}:
+    if command_type not in {"create", "update", "submit", "approve", "reject", "resubmit", "void"}:
         raise CommandRejected("unsupported expense command", 404)
     if command_type == "create":
         requested_id = body.get("expense_id")
@@ -5625,12 +5626,33 @@ def _expense_request(
         return expense_id, request
     if expense_id is None or not IDENTIFIER.fullmatch(expense_id):
         raise CommandRejected("expense_id is required", 422)
-    request = {
+    request: dict[str, Any] = {
         "command_type": command_type,
         "expense_id": expense_id,
         "reason": body.get("reason", ""),
         "actor_id": actor_id,
     }
+    if command_type == "update":
+        changes: dict[str, Any] = {}
+        subject = body.get("subject", body.get("summary"))
+        if subject is not None:
+            if not isinstance(subject, str) or not subject.strip():
+                raise CommandRejected("subject must be non-empty text", 422)
+            changes["summary"] = subject.strip()
+        amount_minor = body.get("amount_minor")
+        if amount_minor is not None:
+            if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor <= 0:
+                raise CommandRejected("amount_minor must be a positive integer", 422)
+            changes["amount_minor"] = amount_minor
+        for key in ("project_id", "cost_subject"):
+            value = body.get(key)
+            if value is not None:
+                if not isinstance(value, str) or (value and not IDENTIFIER.fullmatch(value)):
+                    raise CommandRejected(f"{key} contains unsupported characters", 422)
+                changes[key] = value
+        if not changes:
+            raise CommandRejected("expense update requires a mutable field", 422)
+        request["changes"] = changes
     return expense_id, request
 
 
@@ -16779,16 +16801,23 @@ def expense_command(
             raise CommandRejected("expense not found", 404)
         current_state = str(current[0]["payload"].get("state", ""))
         expected = {
+            "update": "draft",
             "submit": "draft",
             "approve": "submitted",
             "reject": "submitted",
             "resubmit": "rejected",
+            "void": ("draft", "rejected"),
         }[command_type]
-        if current_state != expected:
+        expected_states = expected if isinstance(expected, tuple) else (expected,)
+        if current_state not in expected_states:
             raise CommandRejected(
-                f"expense transition {command_type} requires {expected}, found {current_state}",
+                f"expense transition {command_type} requires {','.join(expected_states)}, found {current_state}",
                 409,
             )
+        if command_type in {"update", "void"}:
+            owner = str(current[0]["payload"].get("employee_id", ""))
+            if owner and owner != actor_id:
+                raise CommandRejected("only the expense applicant may update or void this expense", 403)
     event_id = f"expense:{command_type}:{idempotency_key}"
     command_source = f"moonproj:command:{idempotency_key}"
     audit_id = event_id + ":audit"
@@ -16851,7 +16880,13 @@ def expense_command(
           RAISE EXCEPTION 'expense not found';
         END IF;
         current_state := current_payload->>'state';
-        IF {sql_literal(command_type)} = 'submit' THEN
+        IF {sql_literal(command_type)} = 'update' THEN
+          IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
+          next_state := 'draft';
+          next_payload := current_payload || coalesce({sql_literal(request_json)}::jsonb->'changes', '{{}}'::jsonb)
+            || jsonb_build_object('state', next_state, 'event_id', {sql_literal(event_id)},
+              'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason');
+        ELSIF {sql_literal(command_type)} = 'submit' THEN
           IF current_state <> 'draft' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
           next_state := 'submitted';
         ELSIF {sql_literal(command_type)} = 'approve' THEN
@@ -16863,6 +16898,13 @@ def expense_command(
         ELSIF {sql_literal(command_type)} = 'resubmit' THEN
           IF current_state <> 'rejected' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
           next_state := 'submitted';
+        ELSIF {sql_literal(command_type)} = 'void' THEN
+          IF current_state <> 'draft' AND current_state <> 'rejected' THEN RAISE EXCEPTION 'invalid expense state'; END IF;
+          next_state := 'voided';
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'deleted_at', {sql_literal(event_id)},
+            'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)},
+            'reason', {sql_literal(request_json)}::jsonb->>'reason');
         ELSE
           RAISE EXCEPTION 'unsupported expense command';
         END IF;
@@ -16870,10 +16912,12 @@ def expense_command(
         FROM company_aggregate_projection p
         WHERE p.aggregate_type = 'expense_claim'
           AND p.aggregate_id = {sql_literal(expense_id)};
-        next_payload := current_payload || jsonb_build_object(
-          'state', next_state, 'event_id', {sql_literal(event_id)},
-          'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason'
-        );
+        IF {sql_literal(command_type)} NOT IN ('update', 'void') THEN
+          next_payload := current_payload || jsonb_build_object(
+            'state', next_state, 'event_id', {sql_literal(event_id)},
+            'updated_by', {sql_literal(actor_id)}, 'reason', {sql_literal(request_json)}::jsonb->>'reason'
+          );
+        END IF;
       END IF;
       INSERT INTO company_aggregate_projection(
         aggregate_type, aggregate_id, revision, payload, source_event_id
@@ -18609,7 +18653,7 @@ def handler_factory(
                     body["_marketing_resource"] = "material"
                 else:
                     expense_match = re.fullmatch(
-                        r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|approve|reject|resubmit)",
+                        r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})/(submit|submit-for-approval|approve|reject|resubmit|void)",
                         parsed.path,
                     )
                     contract_match = re.fullmatch(
@@ -18649,7 +18693,10 @@ def handler_factory(
                         parsed.path,
                     )
                     if expense_match is not None:
-                        aggregate_id, command_type = expense_match.group(1), expense_match.group(2)
+                        aggregate_id = expense_match.group(1)
+                        command_type = {
+                            "submit-for-approval": "submit",
+                        }.get(expense_match.group(2), expense_match.group(2))
                     elif contract_match is not None:
                         command_family = "contract"
                         aggregate_id, command_type = contract_match.group(1), contract_match.group(2)
@@ -18868,6 +18915,43 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _expense_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/expenses/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            command_type = "update" if method == "PUT" else "void"
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = expense_command(
+                    pool,
+                    command_type=command_type,
+                    expense_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def _sales_method_alias(self, method: str) -> bool:
             if method not in {"PUT", "DELETE"}:
                 return False
@@ -18967,15 +19051,17 @@ def handler_factory(
             return True
 
         def do_PUT(self) -> None:  # noqa: N802
-            if not self._sales_method_alias("PUT"):
-                if not self._marketing_method_alias("PUT"):
-                    self._loan_method_alias("PUT")
+            if not self._expense_method_alias("PUT"):
+                if not self._sales_method_alias("PUT"):
+                    if not self._marketing_method_alias("PUT"):
+                        self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
-            if not self._invoice_method_alias("DELETE"):
-                if not self._marketing_method_alias("DELETE"):
-                    if not self._sales_method_alias("DELETE"):
-                        self._loan_method_alias("DELETE")
+            if not self._expense_method_alias("DELETE"):
+                if not self._invoice_method_alias("DELETE"):
+                    if not self._marketing_method_alias("DELETE"):
+                        if not self._sales_method_alias("DELETE"):
+                            self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

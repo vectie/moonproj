@@ -993,6 +993,8 @@ enum Msg {
   ExpenseDetailLoaded(String)
   ExpenseDetailLoadFailed
   CreateExpense
+  UpdateExpense
+  VoidExpense
   SubmitExpense
   RejectExpense
   ResubmitExpense
@@ -9697,12 +9699,59 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    UpdateExpense =>
+      if model.expense_id == "" || model.expense_state != "草稿" {
+        (none, model)
+      } else {
+        (
+          @http.put("/api/company/expenses/\{model.expense_id}")
+          .with_text(
+            "{\"idempotency_key\":\"rabbita-expense-update-v1\",\"subject\":\"成都项目现场出差（已补充说明）\"}",
+          )
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "提交中",
+            expense_note: "正在更新草稿并写入 PostgreSQL 投影…",
+          },
+        )
+      }
+    VoidExpense =>
+      if model.expense_id == "" ||
+        (model.expense_state != "草稿" && model.expense_state != "已驳回") {
+        (none, model)
+      } else {
+        (
+          @http.post("/api/company/expenses/\{model.expense_id}/void")
+          .with_text(
+            "{\"idempotency_key\":\"rabbita-expense-void-v1\",\"reason\":\"本地演示作废报销\"}",
+          )
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseCommandFinished(body))
+              Err(_) => emit(ExpenseCommandFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_state: "提交中",
+            expense_note: "正在作废本地报销投影并写入审计…",
+          },
+        )
+      }
     SubmitExpense =>
       if model.expense_id == "" || model.expense_state != "草稿" {
         (none, model)
       } else {
         (
-          @http.post("/api/company/expenses/\{model.expense_id}/submit")
+          @http.post(
+            "/api/company/expenses/\{model.expense_id}/submit-for-approval",
+          )
           .with_text("{\"idempotency_key\":\"rabbita-expense-submit-v1\"}")
           .expect_text(result => {
             match result {
@@ -9780,7 +9829,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       }
     ExpenseCommandFinished(body) =>
-      if body.contains("\"state\":\"approved\"") {
+      if body.contains("\"state\":\"voided\"") {
+        (
+          none,
+          {
+            ..model,
+            expense_state: "已作废",
+            expense_note: "已写入 PostgreSQL · 本地报销已作废 · 未触发现金或会计处理",
+          },
+        )
+      } else if body.contains("\"state\":\"approved\"") {
         (
           none,
           {
@@ -14603,6 +14661,20 @@ fn expense_editor_view(
     if model.expense_state == "草稿" {
       actions.push(
         button(
+          class="erp-secondary-btn",
+          on_click=emit(UpdateExpense),
+          "更新草稿",
+        ),
+      )
+      actions.push(
+        button(
+          class="erp-danger-btn",
+          on_click=emit(VoidExpense),
+          "作废报销",
+        ),
+      )
+      actions.push(
+        button(
           class="erp-primary-btn",
           on_click=emit(SubmitExpense),
           "提交审批",
@@ -14625,6 +14697,13 @@ fn expense_editor_view(
         ),
       )
     } else if model.expense_state == "已驳回" {
+      actions.push(
+        button(
+          class="erp-danger-btn",
+          on_click=emit(VoidExpense),
+          "作废报销",
+        ),
+      )
       actions.push(
         button(
           class="erp-primary-btn",

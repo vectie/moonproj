@@ -49,6 +49,6 @@ export and asserts the null master row, empty detail/split arrays, and source
 coverage. Parity now classifies `/expenses/:guid` and the source `GET
 /expenses/:guid` handler as `connected_expense_detail_read`.
 
-Browser acceptance, production identity/scope, expense edits and voiding,
+Browser acceptance of the new edit/void controls, production identity/scope,
 budget checks, workflow synchronization, accounting recognition, tax, and
 finance-owner reconciliation remain separate gates.

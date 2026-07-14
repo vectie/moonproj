@@ -16,7 +16,10 @@ bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
 | Read imported source detail | `GET /api/company/budget/expenses/:guid?userCode=...` | Source-compatible `expense`, `cb_expense_detail`, and `cb_expense_split` shape with explicit empty-source state |
 | Read one claim | `GET /api/company/expenses/:id` | 404 when absent |
 | Create draft | `POST /api/company/expenses` | `draft` |
-| Submit | `POST /api/company/expenses/:id/submit` | `draft → submitted` |
+| Update draft | `PUT /api/company/expenses/:id` | draft-only, applicant-bound update |
+| Void draft/rejected | `DELETE /api/company/expenses/:id` | `draft/rejected → voided` |
+| Void command alias | `POST /api/company/expenses/:id/void` | browser-safe idempotent alias |
+| Submit | `POST /api/company/expenses/:id/{submit,submit-for-approval}` | `draft → submitted` |
 | Reject | `POST /api/company/expenses/:id/reject` | `submitted → rejected` |
 | Resubmit | `POST /api/company/expenses/:id/resubmit` | `rejected → submitted` |
 | Approve | `POST /api/company/expenses/:id/approve` | `submitted → approved` |
@@ -24,7 +27,11 @@ bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
 The command body is JSON. Creation requires `expense_id`, `employee_id`,
 `summary`, positive integer `amount_minor`, and a three-letter `currency`; it
 may also carry `project_id` and `cost_subject`. The service actor is taken
-from service configuration, never trusted from the request body.
+from service configuration, never trusted from the request body. Draft updates
+accept a bounded subject, amount, project, or cost-subject change; update and
+void require the signed actor to match the local applicant projection. Imported
+source rows remain read-only, and no workflow, budget reservation, cash,
+accounting, or tax effect is inferred.
 
 Each accepted command writes:
 
@@ -40,15 +47,19 @@ state transition, returns `409`; missing/invalid fields return `4xx`.
 ## Evidence
 
 `scripts/company_postgres_service_smoke.py` creates a unique claim, replays
-creation, submits it, rejects it, resubmits it, approves it, replays approval,
-reads the final `approved` projection, and verifies an invalid transition is
-rejected. The smoke also retains the missing-token and forwarded-TLS checks.
+creation, exercises the source `submit-for-approval` alias, rejects,
+resubmits, approves, and replays approval. It also creates a second draft,
+updates it through the PUT boundary, voids it through DELETE, reads the final
+`approved` projection, and verifies an invalid transition is rejected. The
+trusted gateway smoke repeats the create/update/submit/reject/resubmit/approve
+path and a draft void, while both smokes retain identity, missing-token, and
+forwarded-TLS checks.
 
 ## Rabbita local path
 
 The new-expense Rabbita form now exercises the complete local command loop
-through `scripts/company_postgres_dev_gateway.py`: create draft, submit,
-reject, resubmit, and approve. The gateway serves the browser bundle and
+through `scripts/company_postgres_dev_gateway.py`: create/update draft, submit,
+reject, resubmit, approve, and void. The gateway serves the browser bundle and
 proxies same-origin `/api/` calls to the authenticated service, keeping
 `MOONPROJ_SERVICE_TOKEN` server-side and converting the form's JSON
 `idempotency_key` into the required `Idempotency-Key` header. The form

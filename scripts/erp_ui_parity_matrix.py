@@ -683,6 +683,15 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_expense_detail_read", "accept_browser_expense_detail_scenario_and_production_identity"
     if (
+        handler["module"] == "budget"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/expenses", "/expenses/:guid/submit-for-approval"})
+            or (handler["method"] == "PUT" and handler["path"] == "/expenses/:guid")
+            or (handler["method"] == "DELETE" and handler["path"] == "/expenses/:guid")
+        )
+    ):
+        return "connected_expense_command", "accept_browser_expense_command_scenario_and_finance_owner"
+    if (
         handler["module"] == "investment"
         and handler["method"] == "GET"
         and handler["path"] == "/projects/:projGuid/profit-actual-v2"

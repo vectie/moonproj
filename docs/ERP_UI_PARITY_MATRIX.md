@@ -146,11 +146,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `budget` | `GET` | `/users-in-bu` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_scope_read` | `accept_browser_budget_scope_scenario_and_production_identity` |
 | `budget` | `GET` | `/expenses` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_read` | `accept_browser_expense_scenario_and_production_identity` |
 | `budget` | `GET` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_detail_read` | `accept_browser_expense_detail_scenario_and_production_identity` |
-| `budget` | `POST` | `/expenses` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `budget` | `POST` | `/expenses/:guid/submit-for-approval` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `budget` | `POST` | `/expenses` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_command` | `accept_browser_expense_command_scenario_and_finance_owner` |
+| `budget` | `POST` | `/expenses/:guid/submit-for-approval` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_command` | `accept_browser_expense_command_scenario_and_finance_owner` |
 | `budget` | `POST` | `/expenses/:guid/sync-from-workflow` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `budget` | `PUT` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `budget` | `DELETE` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `budget` | `PUT` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_command` | `accept_browser_expense_command_scenario_and_finance_owner` |
+| `budget` | `DELETE` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_command` | `accept_browser_expense_command_scenario_and_finance_owner` |
 | `budget` | `GET` | `/my-loan-balance` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_scope_read` | `accept_browser_budget_scope_scenario_and_production_identity` |
 | `budget` | `POST` | `/budget-check` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `POST` | `/expenses/:guid/auto-offset` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |

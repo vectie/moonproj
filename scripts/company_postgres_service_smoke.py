@@ -2454,7 +2454,41 @@ def main() -> int:
         )
         if status != 409:
             raise SmokeError(f"idempotency conflict was not rejected: {status} {payload}")
-        transitions = [("submit", "submitted"), ("reject", "rejected"), ("resubmit", "submitted"), ("approve", "approved")]
+        update_id = "EXP-UPDATE-SMOKE-" + nonce
+        update_payload = dict(create_payload)
+        update_payload["expense_id"] = update_id
+        update_payload["employee_id"] = "service-operator"
+        status, payload = request(
+            args.port,
+            "/api/company/expenses",
+            token=token,
+            method="POST",
+            payload=update_payload,
+            idempotency_key="smoke-update-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("expense", {}).get("state") != "draft":
+            raise SmokeError(f"expense update fixture create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/expenses/{update_id}",
+            token=token,
+            method="PUT",
+            payload={"subject": "updated expense command smoke"},
+            idempotency_key="smoke-update-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("expense", {}).get("state") != "draft":
+            raise SmokeError(f"expense update failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/expenses/{update_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "service control smoke void"},
+            idempotency_key="smoke-void-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("expense", {}).get("state") != "voided":
+            raise SmokeError(f"expense void failed: {status} {payload}")
+        transitions = [("submit-for-approval", "submitted"), ("reject", "rejected"), ("resubmit", "submitted"), ("approve", "approved")]
         for index, (command, expected_state) in enumerate(transitions):
             key = f"smoke-{command}-{nonce}"
             status, payload = request(
@@ -3195,6 +3229,8 @@ def main() -> int:
                 {
                     "state": "service_verified",
                     "expense_state": "approved",
+                    "expense_void_state": "voided",
+                    "expense_source_submit_alias": "submitted",
                     "contract_state": "approved",
                     "payment_application_approval_state": "approved",
                     "payment_application_state": "voided",

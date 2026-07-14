@@ -4,7 +4,8 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, bounded sales/marketing/invoice commands, and stale-assertion rejection.
+binding, bounded expense/sales/marketing/invoice commands, and stale-
+assertion rejection.
 No secret value is printed.
 """
 
@@ -172,6 +173,96 @@ def main() -> int:
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
         smoke_suffix = str(int(time.time()))
+        expense_id = "EXP-GW-SMOKE-" + smoke_suffix
+        expense_payload = {
+            "expense_id": expense_id,
+            "employee_id": user_code,
+            "summary": "gateway expense command smoke",
+            "amount_minor": 8560,
+            "currency": "CNY",
+            "project_id": "proj-0001",
+            "cost_subject": "travel",
+            "idempotency_key": "expense-gateway-create-" + smoke_suffix,
+        }
+        status, _headers, expense_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/expenses",
+            headers={"Cookie": cookie},
+            payload=expense_payload,
+        )
+        if (
+            status != 201
+            or not isinstance(expense_create_payload, dict)
+            or expense_create_payload.get("expense", {}).get("state") != "draft"
+        ):
+            raise SmokeError(f"trusted expense command create failed: {status}")
+        status, _headers, expense_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/expenses/{expense_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "subject": "gateway expense command smoke updated",
+                "idempotency_key": "expense-gateway-update-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(expense_update_payload, dict)
+            or expense_update_payload.get("expense", {}).get("state") != "draft"
+        ):
+            raise SmokeError(f"trusted expense command update failed: {status}")
+        expense_transitions = [
+            ("submit-for-approval", "submitted"),
+            ("reject", "rejected"),
+            ("resubmit", "submitted"),
+            ("approve", "approved"),
+        ]
+        for command, expected_state in expense_transitions:
+            status, _headers, expense_transition_payload = request(
+                args.gateway_port,
+                "POST",
+                f"/api/company/expenses/{expense_id}/{command}",
+                headers={"Cookie": cookie},
+                payload={"idempotency_key": f"expense-gateway-{command}-{smoke_suffix}"},
+            )
+            if (
+                status != 200
+                or not isinstance(expense_transition_payload, dict)
+                or expense_transition_payload.get("expense", {}).get("state") != expected_state
+            ):
+                raise SmokeError(f"trusted expense command {command} failed: {status}")
+        void_expense_id = "EXP-GW-VOID-SMOKE-" + smoke_suffix
+        status, _headers, void_create_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/expenses",
+            headers={"Cookie": cookie},
+            payload={
+                **expense_payload,
+                "expense_id": void_expense_id,
+                "idempotency_key": "expense-gateway-void-create-" + smoke_suffix,
+            },
+        )
+        if status != 201 or not isinstance(void_create_payload, dict):
+            raise SmokeError(f"trusted expense void fixture create failed: {status}")
+        status, _headers, void_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/expenses/{void_expense_id}/void",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway expense void smoke",
+                "idempotency_key": "expense-gateway-void-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(void_payload, dict)
+            or void_payload.get("expense", {}).get("state") != "voided"
+        ):
+            raise SmokeError(f"trusted expense command void failed: {status}")
         sales_customer_id = "CUS-GW-SMOKE-" + smoke_suffix
         sales_customer_payload = {
             "customer_id": sales_customer_id,

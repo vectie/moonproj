@@ -35,7 +35,10 @@ signed `rabbita-user` before forwarding command requests.
 The service log recorded HTTP 201 for create and HTTP 200 for submit, reject,
 resubmit, and approve. PostgreSQL inspection showed the final `approved`
 projection plus five `company_command` receipts and five
-`company_audit_event` records. The probe rows were deleted after verification.
+`company_audit_event` records. The service and trusted-gateway smoke suites
+also verify the source `submit-for-approval` alias, applicant-bound draft PUT
+updates, and draft DELETE voids. The probe rows were deleted after
+verification.
 
 ## Remaining gate
 

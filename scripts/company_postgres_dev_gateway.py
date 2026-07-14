@@ -6,7 +6,7 @@ API. This private gateway keeps the service bearer token on the server,
 establishes an in-memory HttpOnly session, signs its actor assertion, converts
 a JSON ``idempotency_key`` field into the required ``Idempotency-Key`` header,
 and forwards only the company
-read/expense/contract/payment-application/tender/supplier/supplier-provider/supplier-risk/split/sales/delivery/
+read/expense (including draft update/void)/contract/payment-application/tender/supplier/supplier-provider/supplier-risk/split/sales/delivery/
 loan/reports paths.
 The default fixture mode is development-only. An opt-in trusted-upstream mode
 accepts a short-lived HMAC-signed identity assertion, verifies that the source
@@ -326,7 +326,8 @@ def handler_factory(
                 return
             parsed = urlparse(self.path)
             if not (
-                re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path)
+                re.fullmatch(r"/api/company/expenses/[A-Za-z0-9_.:-]{1,128}", parsed.path)
+                or re.fullmatch(r"/api/company/loans/[A-Za-z0-9_.:-]{1,128}", parsed.path)
                 or re.fullmatch(
                     r"/api/company/marketing/(campaigns|placements|channels|materials)/[A-Za-z0-9_.:-]{1,128}(?:/effect)?",
                     parsed.path,
