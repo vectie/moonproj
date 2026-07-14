@@ -1020,6 +1020,20 @@ owner-approved disposition for each absent table), validate it with
 `erp_export_contract.py`, then compare it against the immutable fixture before
 any broader staging or workflow promotion.
 
+**Execution-gate decision (2026-07-14 rerun).** A fresh repository audit keeps
+the plan in the same controlled state: the parity register still reports 56
+browser routes, 338 source handlers, and 182 mutations; every source
+GET/HEAD handler has an explicit target boundary, but the matrix remains
+`functional_parity_incomplete`. The local PostgreSQL service/gateway and
+Rabbita build/test evidence remains valid for the bounded read and command
+waves, while the source contract remains `source_export_incomplete` at 26/75
+tables. Therefore steps 1–6 of this plan stay complete, step 7 (the
+credential-safe export or owner-approved empty dispositions) stays active,
+and production identity/shadow acceptance plus economic/provider effects stay
+pending. Do not open another broad fixture-backed surface or enable a
+mutation/provider effect until step 7 produces a validated artifact and the
+named owner accepts its coverage.
+
 The export contract now also checks every non-empty row for a non-null,
 unique declared primary-key value before reporting content verification. This
 strengthens the handoff without changing the current disposition: the
