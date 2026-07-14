@@ -480,6 +480,14 @@ provenance. The command boundary does not reserve budget, release cash, post
 accounting, calculate/file tax, or synchronize workflow. Browser interaction,
 production identity, and finance-owner acceptance remain open.
 
+The project-plan action register now maps task create/update/delete and task
+report to a PostgreSQL-owned planning boundary. Imported `jd_task` rows remain
+read-only; local task projections require project-scoped authority,
+deterministic idempotency, immutable revisions, and audit receipts, while task
+reports require explicit evidence and never mutate the imported task or
+trigger workflow, cash, accounting, or tax. AI scheduling remains a provider
+gate, and browser/operations-owner acceptance is still open.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -873,7 +881,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
+| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the
@@ -889,7 +897,7 @@ identity, source reconciliation, browser interaction, and named-owner gates.
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise bounded expense,
    contract, payment-application, procurement, sales/receivables, invoice,
-   fund planning, core-report, and employee-loan read/command slices. Procurement covers supplier
+   fund planning, project-plan task, core-report, and employee-loan read/command slices. Procurement covers supplier
    lifecycle/risk reads, tender planning/award, and contract splits; sales
    covers customer, reservation, agreement, mortgage, refund, receivable, and
    revenue evidence reads; employee loans preserve source balances and offset
@@ -915,7 +923,8 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    lifecycle/task evidence through `/projects`; project and plan mutations
    remain separate and source-owner acceptance is still open. Source-compatible
    project-plan task/detail/summary reads now preserve seven tasks, one report,
-   and five key nodes without enabling task mutations. See
+   and five key nodes; local task create/update/delete and evidence-gated report
+   projections are also connected while imported task rows remain read-only. See
    [`ERP_PROJECT_RUNTIME_AUDIT.md`](ERP_PROJECT_RUNTIME_AUDIT.md).
    The source MDM business-unit tree is also connected as a read-only
    hierarchy (seven imported rows); legal-principal ownership and organization

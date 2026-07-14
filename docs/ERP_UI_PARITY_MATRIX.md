@@ -9,7 +9,7 @@ aliases now use the bounded connected v1 read. The connected exceptions are the 
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
-fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
+fund-plan, project-plan task, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
@@ -312,11 +312,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `notify` | `POST` | `/llm-test` | `/inbox`, `/notify-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `plan` | `GET` | `/projects/:projGuid/tasks` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
 | `plan` | `GET` | `/tasks/:guid` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
-| `plan` | `POST` | `/tasks/:guid/report` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `plan` | `POST` | `/tasks/:guid/report` | `/project-plan` | `connected_project_plan_command` | `accept_browser_project_plan_command_scenario_and_operations_owner` |
 | `plan` | `GET` | `/projects/:projGuid/plan-summary` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
-| `plan` | `POST` | `/tasks` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `plan` | `PUT` | `/tasks/:guid` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `plan` | `DELETE` | `/tasks/:guid` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `plan` | `POST` | `/tasks` | `/project-plan` | `connected_project_plan_command` | `accept_browser_project_plan_command_scenario_and_operations_owner` |
+| `plan` | `PUT` | `/tasks/:guid` | `/project-plan` | `connected_project_plan_command` | `accept_browser_project_plan_command_scenario_and_operations_owner` |
+| `plan` | `DELETE` | `/tasks/:guid` | `/project-plan` | `connected_project_plan_command` | `accept_browser_project_plan_command_scenario_and_operations_owner` |
 | `plan` | `POST` | `/ai-suggest-plan` | `/project-plan` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `plan` | `GET` | `/tasks/:guid/delay-impact` | `/project-plan` | `connected_project_plan_read` | `accept_browser_project_plan_scenario_and_production_identity` |
 | `progress` | `GET` | `/progress` | `/project/progress` | `connected_delivery_source_read` | `accept_browser_delivery_source_scenario_and_production_identity` |

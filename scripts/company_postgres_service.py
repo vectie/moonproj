@@ -23,6 +23,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/budget-check`` (POST, non-authorizing budget headroom preview)
 * ``/api/company/fund/{plans,dispatches}`` (GET plus bounded local plan/dispatch
   commands; cash, accounting, and tax effects remain separate)
+* ``/api/company/plan/tasks`` (local task create/update/delete/report commands;
+  source-compatible task reads remain under ``/api/company/projects`` and
+  ``/api/company/tasks``; imported task state remains read-only)
 * ``/api/company/expenses`` (POST create draft)
 * ``/api/company/expenses/<id>/{submit,submit-for-approval,approve,reject,resubmit,void}`` (POST)
 * ``/api/company/expenses/<id>`` (PUT update draft, DELETE void draft/rejected)
@@ -495,6 +498,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "cost_dashboard_read",
             "fund_read",
             "fund_command",
+            "project_plan_command",
             "dashboard_v2_read",
             "admin_health_full_read",
             "admin_backup_boundary_read",
@@ -554,6 +558,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "cost_dashboard_read",
             "fund_read",
             "fund_command",
+            "project_plan_command",
             "dashboard_v2_read",
             "admin_health_full_read",
             "admin_backup_boundary_read",
@@ -6224,7 +6229,7 @@ def delivery_tasks(
     project_id: str | None,
     max_rows: int,
 ) -> list[dict[str, Any]]:
-    return [
+    result = [
         _delivery_source_fields(row, table="jd_task")
         for row in _raw_delivery_rows(
             pool,
@@ -6235,6 +6240,46 @@ def delivery_tasks(
             max_rows=max_rows,
         )
     ]
+    user_rows = _raw_source_rows(pool, "sys_user", max(max_rows, 100), PROJECT_SOURCE_TABLES)
+    user_names = {
+        str(row["payload"].get("user_id", row["record_id"])): str(
+            row["payload"].get("emp_name") or row["payload"].get("user_name") or ""
+        )
+        for row in user_rows
+    }
+    for row in _latest_delivery_projection_rows(pool, "plan_task", task_id, max_rows):
+        payload = row["payload"]
+        if payload.get("deleted_at"):
+            continue
+        if project_id is not None and str(payload.get("project_id") or "") != project_id:
+            continue
+        result.append(
+            {
+                "task_id": row["aggregate_id"],
+                "task_code": str(payload.get("task_code") or ""),
+                "task_name": str(payload.get("task_name") or ""),
+                "project_id": str(payload.get("project_id") or ""),
+                "task_type": str(payload.get("task_type") or "task"),
+                "parent_task_id": str(payload.get("parent_task_id") or ""),
+                "plan_begin_date": str(payload.get("plan_begin_date") or ""),
+                "plan_end_date": str(payload.get("plan_end_date") or ""),
+                "actual_begin_date": str(payload.get("actual_begin_date") or ""),
+                "actual_end_date": str(payload.get("actual_end_date") or ""),
+                "progress_pct": str(payload.get("progress_pct") or "0"),
+                "progress_bps": int(round(float(payload.get("progress_pct") or 0) * 100)),
+                "owner_id": str(payload.get("owner_id") or ""),
+                "owner_name": user_names.get(str(payload.get("owner_id") or ""), ""),
+                "status": str(payload.get("state") or payload.get("status") or "pending"),
+                "remarks": str(payload.get("remarks") or ""),
+                "sort_order": int(payload.get("sort_order") or 0),
+                "source_kind": "command",
+                "source_id": row["source_event_id"],
+                "source_table": "company_command",
+                "revision": row["revision"],
+            }
+        )
+    result.sort(key=lambda value: (int(value.get("sort_order") or 0), str(value.get("plan_begin_date") or "")))
+    return result
 
 
 def delivery_task_reports(
@@ -6363,14 +6408,53 @@ def plan_tasks(
         source_task = _delivery_source_fields(row, table="jd_task")
         source_task["owner_name"] = user_names.get(str(source_task.get("owner_id") or ""), "")
         tasks.append(_plan_task_source_fields(source_task))
+    for row in _latest_delivery_projection_rows(pool, "plan_task", None, max_rows):
+        payload = row["payload"]
+        if payload.get("deleted_at") or str(payload.get("project_id") or "") != project_id:
+            continue
+        if task_type is not None and str(payload.get("task_type") or "task") != task_type:
+            continue
+        tasks.append(_plan_task_projection_fields(row, user_names))
     tasks.sort(key=lambda value: (int(value.get("sortOrder", 0)), str(value.get("planBeginDate", ""))))
     return {
         "success": True,
         "code": 0,
         "data": tasks,
-        "source_kind": "imported",
+        "source_kind": "imported_or_command",
         "source_coverage": {"jd_task": len(raw)},
+        "command_projection": True,
+        "authorizing": False,
     }
+
+
+def _plan_task_projection_fields(
+    row: dict[str, Any],
+    user_names: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    payload = row["payload"]
+    source_task = {
+        "task_id": row["aggregate_id"],
+        "task_code": str(payload.get("task_code") or ""),
+        "task_name": str(payload.get("task_name") or ""),
+        "project_id": str(payload.get("project_id") or ""),
+        "task_type": str(payload.get("task_type") or "task"),
+        "parent_task_id": str(payload.get("parent_task_id") or ""),
+        "plan_begin_date": str(payload.get("plan_begin_date") or ""),
+        "plan_end_date": str(payload.get("plan_end_date") or ""),
+        "actual_begin_date": str(payload.get("actual_begin_date") or ""),
+        "actual_end_date": str(payload.get("actual_end_date") or ""),
+        "progress_pct": str(payload.get("progress_pct") or "0"),
+        "owner_id": str(payload.get("owner_id") or ""),
+        "owner_name": (user_names or {}).get(str(payload.get("owner_id") or ""), ""),
+        "status": str(payload.get("state") or payload.get("status") or "pending"),
+        "remarks": str(payload.get("remarks") or ""),
+        "sort_order": int(payload.get("sort_order") or 0),
+    }
+    result = _plan_task_source_fields(source_task)
+    result["sourceKind"] = "command"
+    result["sourceId"] = row["source_event_id"]
+    result["revision"] = row["revision"]
+    return result
 
 
 def plan_task_detail(
@@ -6390,8 +6474,6 @@ def plan_task_detail(
         task_id=task_id,
         max_rows=max_rows,
     )
-    if not raw_rows:
-        return None
     user_rows = _raw_source_rows(pool, "sys_user", max(max_rows, 100), PROJECT_SOURCE_TABLES)
     user_names = {
         str(row["payload"].get("user_id", row["record_id"])): str(
@@ -6399,21 +6481,26 @@ def plan_task_detail(
         )
         for row in user_rows
     }
-    source_task = _delivery_source_fields(raw_rows[0], table="jd_task")
-    source_task["owner_name"] = user_names.get(str(source_task.get("owner_id") or ""), "")
-    task = _plan_task_source_fields(source_task)
-    project_id = str(raw_rows[0]["payload"].get("proj_guid") or "")
-    reports = [
-        _delivery_source_fields(row, table="jd_task_report")
-        for row in _raw_delivery_rows(
-            pool,
-            "jd_task_report",
-            record_id=None,
-            project_id=None,
-            task_id=task_id,
-            max_rows=max_rows,
-        )
-    ]
+    command_rows = _latest_delivery_projection_rows(pool, "plan_task", task_id, 1)
+    if raw_rows:
+        source_task = _delivery_source_fields(raw_rows[0], table="jd_task")
+        source_task["owner_name"] = user_names.get(str(source_task.get("owner_id") or ""), "")
+        task = _plan_task_source_fields(source_task)
+        project_id = str(raw_rows[0]["payload"].get("proj_guid") or "")
+    elif command_rows and not command_rows[0]["payload"].get("deleted_at"):
+        task = _plan_task_projection_fields(command_rows[0], user_names)
+        project_id = str(command_rows[0]["payload"].get("project_id") or "")
+    else:
+        return None
+    raw_report_rows = _raw_delivery_rows(
+        pool,
+        "jd_task_report",
+        record_id=None,
+        project_id=None,
+        task_id=task_id,
+        max_rows=max_rows,
+    )
+    reports = delivery_task_reports(pool, None, task_id, max_rows)
     project_name = ""
     if project_id:
         project_result = projects(pool, project_id, None, None, max_rows)
@@ -6434,16 +6521,18 @@ def plan_task_detail(
                     "summary": report.get("summary", ""),
                     "operatorGuid": report.get("operator_id", ""),
                     "operatorName": user_names.get(str(report.get("operator_id") or ""), ""),
-                    "sourceKind": "imported",
+                    "sourceKind": report.get("source_kind", "imported"),
                 }
                 for report in reports
             ],
         },
-        "source_kind": "imported",
+        "source_kind": "imported_or_command",
         "source_coverage": {
-            "jd_task": 1,
-            "jd_task_report": len(reports),
+            "jd_task": len(raw_rows),
+            "jd_task_report": len(raw_report_rows),
         },
+        "command_projection": bool(command_rows),
+        "authorizing": False,
     }
 
 
@@ -6478,8 +6567,10 @@ def plan_summary(pool: PsqlPool, project_id: str, max_rows: int) -> dict[str, An
             ],
         },
         "project_id": project_id,
-        "source_kind": "imported",
+        "source_kind": "imported_or_command",
         "source_coverage": result["source_coverage"],
+        "command_projection": True,
+        "authorizing": False,
     }
 
 
@@ -7983,6 +8074,400 @@ def rbac_current_user(
         ],
         "authorizing": False,
     }
+
+
+def _plan_task_required(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+) -> str:
+    value: Any = None
+    for key in keys:
+        if body.get(key) is not None:
+            value = body.get(key)
+            break
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{keys[0]} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _plan_task_optional(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+) -> str:
+    value: Any = None
+    for key in keys:
+        if body.get(key) is not None:
+            value = body.get(key)
+            break
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise CommandRejected(f"{keys[0]} must be text", 422)
+    value = value.strip()
+    if value and identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _plan_task_date(body: dict[str, Any], *keys: str, required: bool = False) -> str:
+    value = _plan_task_required(body, *keys) if required else _plan_task_optional(body, *keys)
+    if value and _report_date(value) is None:
+        raise CommandRejected(f"{keys[0]} must be an ISO date", 422)
+    return value
+
+
+def _plan_task_progress(value: Any, key: str = "progress_pct") -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CommandRejected(f"{key} must be a number", 422)
+    result = round(float(value), 2)
+    if result < 0 or result > 100:
+        raise CommandRejected(f"{key} must be between 0 and 100", 422)
+    return result
+
+
+def _plan_task_authority(
+    body: dict[str, Any],
+    *,
+    actor_id: str,
+    project_id: str,
+    capability: str,
+) -> dict[str, Any]:
+    value = body.get("authority")
+    if not isinstance(value, dict):
+        raise CommandRejected("authority grant is required", 403)
+    if value.get("active") is not True:
+        raise CommandRejected("authority grant is inactive", 403)
+    principal_id = value.get("principal_id")
+    if not isinstance(principal_id, str) or not IDENTIFIER.fullmatch(principal_id):
+        raise CommandRejected("authority grant principal_id is required", 403)
+    if value.get("actor_id") != actor_id:
+        raise CommandRejected("authority grant actor does not match signed actor", 403)
+    if value.get("capability") != capability:
+        raise CommandRejected(f"authority grant must allow {capability}", 403)
+    if value.get("scope") != f"project:{project_id}":
+        raise CommandRejected("authority grant scope must be project-scoped", 403)
+    return {
+        "active": True,
+        "principal_id": principal_id,
+        "actor_id": actor_id,
+        "capability": capability,
+        "scope": f"project:{project_id}",
+    }
+
+
+def _plan_task_request(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> tuple[str, dict[str, Any], bool, dict[str, Any] | None]:
+    if command_type not in {"create", "update", "delete"}:
+        raise CommandRejected("unsupported project-plan task command", 404)
+    if command_type == "create":
+        value = body.get("task_id") or body.get("task_guid") or body.get("taskGuid")
+        aggregate_id = value.strip() if isinstance(value, str) and value.strip() else "PT-" + idempotency_key
+        if not IDENTIFIER.fullmatch(aggregate_id):
+            raise CommandRejected("task_id contains unsupported characters", 422)
+        project_id = _plan_task_required(body, "project_id", "proj_guid", "projGuid", identifier=True)
+        projects_rows = _raw_source_rows(pool, "ep_project", 500, PROJECT_SOURCE_TABLES)
+        if not any(
+            str(row["payload"].get("proj_guid") or row["record_id"]) == project_id
+            for row in projects_rows
+        ):
+            raise CommandRejected("project-plan task requires an imported project identity", 409)
+        task_name = _plan_task_required(body, "task_name", "taskName")
+        task_code = _plan_task_optional(body, "task_code", "taskCode", identifier=True)
+        task_type = _plan_task_optional(body, "task_type", "taskType") or "task"
+        if task_type not in {"task", "key_node"}:
+            raise CommandRejected("task_type must be task or key_node", 422)
+        parent_task_id = _plan_task_optional(
+            body, "parent_task_id", "parentTaskGuid", "parent_task_guid", identifier=True
+        )
+        plan_begin = _plan_task_date(body, "plan_begin_date", "planBeginDate", required=True)
+        plan_end = _plan_task_date(body, "plan_end_date", "planEndDate", required=True)
+        if plan_end < plan_begin:
+            raise CommandRejected("plan end date cannot precede plan begin date", 422)
+        owner_id = _plan_task_optional(body, "owner_id", "ownerGuid", "owner_guid", identifier=True)
+        remarks = _plan_task_optional(body, "remarks")
+        order_value = body.get("sort_order", body.get("sortOrder"))
+        if order_value is None:
+            # Keep the normalized request deterministic across idempotent
+            # replays. Callers that need a precise ordering can provide it.
+            order_value = 0
+        if isinstance(order_value, bool) or not isinstance(order_value, int) or order_value < 0:
+            raise CommandRejected("sort_order must be a non-negative integer", 422)
+        authority = _plan_task_authority(
+            body,
+            actor_id=actor_id,
+            project_id=project_id,
+            capability="project:task:create",
+        )
+        request = {
+            "command_type": command_type,
+            "task_id": aggregate_id,
+            "task_code": task_code,
+            "task_name": task_name,
+            "project_id": project_id,
+            "task_type": task_type,
+            "parent_task_id": parent_task_id,
+            "plan_begin_date": plan_begin,
+            "plan_end_date": plan_end,
+            "actual_begin_date": "",
+            "actual_end_date": "",
+            "progress_pct": 0,
+            "owner_id": owner_id,
+            "status": "pending",
+            "remarks": remarks,
+            "sort_order": order_value,
+            "created_by": actor_id,
+            "authority": authority,
+        }
+        return aggregate_id, request, True, None
+
+    if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
+        raise CommandRejected("task_id is required", 422)
+    current_rows = _latest_delivery_projection_rows(pool, "plan_task", aggregate_id, 1)
+    if not current_rows:
+        imported_rows = _raw_delivery_rows(
+            pool,
+            "jd_task",
+            record_id=None,
+            project_id=None,
+            task_id=aggregate_id,
+            max_rows=1,
+        )
+        if imported_rows:
+            raise CommandRejected("imported tasks are read-only; create a local planning task first", 409)
+        raise CommandRejected("project-plan task not found", 404)
+    current = current_rows[0]["payload"]
+    if str(current.get("state") or "") == "deleted" or current.get("deleted_at"):
+        raise CommandRejected("project-plan task is already deleted", 409)
+    project_id = _plan_task_required(current, "project_id", identifier=True)
+    if str(current.get("created_by") or "") != actor_id:
+        raise CommandRejected("only the task creator may change this local task", 403)
+    authority = _plan_task_authority(
+        body,
+        actor_id=actor_id,
+        project_id=project_id,
+        capability=f"project:task:{command_type}",
+    )
+    if command_type == "delete":
+        return aggregate_id, {
+            "command_type": command_type,
+            "task_id": aggregate_id,
+            "actor_id": actor_id,
+            "reason": _plan_task_optional(body, "reason"),
+            "authority": authority,
+        }, False, current
+    changes: dict[str, Any] = {}
+    for key, aliases in (
+        ("task_name", ("task_name", "taskName")),
+        ("task_code", ("task_code", "taskCode")),
+        ("owner_id", ("owner_id", "ownerGuid", "owner_guid")),
+        ("remarks", ("remarks",)),
+    ):
+        value = _plan_task_optional(body, *aliases, identifier=key in {"task_code", "owner_id"})
+        if any(alias in body for alias in aliases):
+            if key == "task_name" and not value:
+                raise CommandRejected("taskName must be non-empty", 422)
+            changes[key] = value
+    begin_present = any(key in body for key in ("plan_begin_date", "planBeginDate"))
+    end_present = any(key in body for key in ("plan_end_date", "planEndDate"))
+    if begin_present:
+        changes["plan_begin_date"] = _plan_task_date(body, "plan_begin_date", "planBeginDate")
+    if end_present:
+        changes["plan_end_date"] = _plan_task_date(body, "plan_end_date", "planEndDate")
+    begin = changes.get("plan_begin_date", str(current.get("plan_begin_date") or ""))
+    end = changes.get("plan_end_date", str(current.get("plan_end_date") or ""))
+    if begin and end and end < begin:
+        raise CommandRejected("plan end date cannot precede plan begin date", 422)
+    if "status" in body:
+        status = _plan_task_required(body, "status")
+        if status not in {"pending", "in_progress", "done", "overdue", "blocked"}:
+            raise CommandRejected("unsupported task status", 422)
+        changes["status"] = status
+    if "progress_pct" in body or "progressPct" in body:
+        value = body.get("progress_pct", body.get("progressPct"))
+        changes["progress_pct"] = _plan_task_progress(value)
+    if not changes:
+        raise CommandRejected("task update requires a mutable field", 422)
+    return aggregate_id, {
+        "command_type": command_type,
+        "task_id": aggregate_id,
+        "actor_id": actor_id,
+        "changes": changes,
+        "authority": authority,
+    }, False, current
+
+
+def plan_task_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    aggregate_id, request, create_mode, _current = _plan_task_request(
+        pool,
+        command_type=command_type,
+        aggregate_id=aggregate_id,
+        body=body,
+        actor_id=actor_id,
+        idempotency_key=idempotency_key,
+    )
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored project-plan command receipt has no result")
+        return {"command": existing, "task": result, "idempotent_replay": True}
+    if create_mode and any(
+        str(row["payload"].get("task_guid") or row["record_id"]) == aggregate_id
+        for row in _raw_delivery_rows(
+            pool,
+            "jd_task",
+            record_id=None,
+            project_id=None,
+            task_id=None,
+            max_rows=500,
+        )
+    ):
+        raise CommandRejected("imported tasks are read-only; use a distinct local identity", 409)
+    event_id = f"plan_task:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "plan_task",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "plan_task",
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    if create_mode:
+        next_payload_expr = (
+            f"{sql_literal(request_json)}::jsonb || jsonb_build_object('state', 'pending', "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, "
+            f"'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'pending'"
+    elif command_type == "delete":
+        next_payload_expr = (
+            f"current_payload || jsonb_build_object('state', 'deleted', 'deleted_at', {sql_literal(event_id)}, "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "'deleted'"
+    else:
+        next_payload_expr = (
+            f"current_payload || coalesce(request_json->'changes', '{{}}'::jsonb) || jsonb_build_object("
+            f"'state', coalesce(request_json->'changes'->>'status', current_payload->>'state', 'pending'), "
+            f"'source_kind', 'command', 'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)})"
+        )
+        next_state_expr = "coalesce(request_json->'changes'->>'status', current_payload->>'state', 'pending')"
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal('plan_task:' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      request_json jsonb := {sql_literal(request_json)}::jsonb;
+      next_payload jsonb;
+      next_revision integer;
+      next_state text;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'plan_task' AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(create_mode).lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'project-plan task already exists'; END IF;
+        next_revision := 1;
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'project-plan task not found'; END IF;
+        IF current_payload->>'state' = 'deleted' THEN RAISE EXCEPTION 'project-plan task is deleted'; END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = 'plan_task' AND p.aggregate_id = {sql_literal(aggregate_id)};
+      END IF;
+      next_payload := {next_payload_expr};
+      next_state := {next_state_expr};
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ('plan_task', {sql_literal(aggregate_id)}, next_revision, next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', 'plan.task.' || {sql_literal(command_type)},
+          'aggregate_type', 'plan_task', 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', next_state, 'revision', next_revision,
+          'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object(
+        'taskGuid', {sql_literal(aggregate_id)}, 'state', next_state, 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)}, 'sourceKind', 'command',
+        'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+      );
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("project-plan task command did not return a receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected project-plan task receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid project-plan task receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("project-plan task receipt has no result")
+    return {"command": receipt, "task": result, "idempotent_replay": not created}
 
 
 def auth_current_user(
@@ -19203,6 +19688,10 @@ def handler_factory(
                     fund_resource = "dispatch"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path == "/api/company/plan/tasks":
+                    command_family = "plan_task"
+                    command_type = "create"
+                    aggregate_id = None
                 elif parsed.path in {
                     "/api/company/source/invoice/in",
                     "/api/company/source/invoice/out",
@@ -19285,6 +19774,14 @@ def handler_factory(
                         r"/api/company/fund/plans/([A-Za-z0-9_.:-]{1,128})/delete",
                         parsed.path,
                     )
+                    plan_task_report_match = re.fullmatch(
+                        r"/api/company/plan/tasks/([A-Za-z0-9_.:-]{1,128})/report",
+                        parsed.path,
+                    )
+                    plan_task_delete_match = re.fullmatch(
+                        r"/api/company/plan/tasks/([A-Za-z0-9_.:-]{1,128})/delete",
+                        parsed.path,
+                    )
                     sales_match = re.fullmatch(
                         r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject|delete|confirm-received)",
                         parsed.path,
@@ -19334,6 +19831,14 @@ def handler_factory(
                         command_family = "fund"
                         fund_resource = "plan"
                         aggregate_id = fund_plan_delete_match.group(1)
+                        command_type = "delete"
+                    elif plan_task_report_match is not None:
+                        command_family = "plan_task"
+                        aggregate_id = plan_task_report_match.group(1)
+                        command_type = "report"
+                    elif plan_task_delete_match is not None:
+                        command_family = "plan_task"
+                        aggregate_id = plan_task_delete_match.group(1)
                         command_type = "delete"
                     elif sales_match is not None:
                         command_family = "sales"
@@ -19484,6 +19989,28 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "plan_task":
+                    if command_type == "report":
+                        body.setdefault("report_id", "TR-" + idempotency_key)
+                        body.setdefault("task_id", aggregate_id)
+                        result = delivery_command(
+                            pool,
+                            family="task_report",
+                            command_type="report",
+                            aggregate_id=body.get("report_id"),
+                            body=body,
+                            actor_id=actor,
+                            idempotency_key=idempotency_key,
+                        )
+                    else:
+                        result = plan_task_command(
+                            pool,
+                            command_type=command_type,
+                            aggregate_id=aggregate_id,
+                            body=body,
+                            actor_id=actor,
+                            idempotency_key=idempotency_key,
+                        )
                 else:
                     result = expense_command(
                         pool,
@@ -19506,6 +20033,42 @@ def handler_factory(
                 response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
+
+        def _plan_task_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/plan/tasks/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = plan_task_command(
+                    pool,
+                    command_type="update" if method == "PUT" else "delete",
+                    aggregate_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
 
         def _fund_method_alias(self, method: str) -> bool:
             if method not in {"PUT", "DELETE"}:
@@ -19717,19 +20280,21 @@ def handler_factory(
             return True
 
         def do_PUT(self) -> None:  # noqa: N802
-            if not self._fund_method_alias("PUT"):
-                if not self._expense_method_alias("PUT"):
-                    if not self._sales_method_alias("PUT"):
-                        if not self._marketing_method_alias("PUT"):
-                            self._loan_method_alias("PUT")
+            if not self._plan_task_method_alias("PUT"):
+                if not self._fund_method_alias("PUT"):
+                    if not self._expense_method_alias("PUT"):
+                        if not self._sales_method_alias("PUT"):
+                            if not self._marketing_method_alias("PUT"):
+                                self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
-            if not self._fund_method_alias("DELETE"):
-                if not self._expense_method_alias("DELETE"):
-                    if not self._invoice_method_alias("DELETE"):
-                        if not self._marketing_method_alias("DELETE"):
-                            if not self._sales_method_alias("DELETE"):
-                                self._loan_method_alias("DELETE")
+            if not self._plan_task_method_alias("DELETE"):
+                if not self._fund_method_alias("DELETE"):
+                    if not self._expense_method_alias("DELETE"):
+                        if not self._invoice_method_alias("DELETE"):
+                            if not self._marketing_method_alias("DELETE"):
+                                if not self._sales_method_alias("DELETE"):
+                                    self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

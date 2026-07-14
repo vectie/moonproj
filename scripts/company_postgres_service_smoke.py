@@ -158,6 +158,7 @@ def main() -> int:
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
             or "fund_command" not in payload.get("capabilities", [])
+            or "project_plan_command" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, source_schema_coverage_payload = request(
@@ -1000,6 +1001,126 @@ def main() -> int:
                 f"fund command readback failed: {status} {fund_plan_command_readback}; "
                 f"{status_dispatch_readback} {fund_dispatch_command_readback}"
             )
+        plan_task_nonce = uuid.uuid4().hex[:10]
+        plan_task_id = "PT-SMOKE-" + plan_task_nonce
+        plan_task_authority = {
+            "active": True,
+            "principal_id": "principal-plan-smoke",
+            "actor_id": fund_actor,
+            "capability": "project:task:create",
+            "scope": "project:proj-0001",
+        }
+        plan_task_create_payload = {
+            "task_id": plan_task_id,
+            "task_code": "PT-CODE-" + plan_task_nonce,
+            "task_name": "service project-plan task smoke",
+            "project_id": "proj-0001",
+            "task_type": "task",
+            "plan_begin_date": "2026-08-01",
+            "plan_end_date": "2026-08-15",
+            "remarks": "local planning projection",
+            "authority": plan_task_authority,
+        }
+        status, plan_task_create_result = request(
+            args.port,
+            "/api/company/plan/tasks",
+            token=token,
+            method="POST",
+            payload=plan_task_create_payload,
+            idempotency_key="plan-task-create-" + plan_task_nonce,
+        )
+        if (
+            status != 201
+            or plan_task_create_result is None
+            or plan_task_create_result.get("task", {}).get("state") != "pending"
+            or plan_task_create_result.get("task", {}).get("cash_effect") is not False
+        ):
+            raise SmokeError(f"project-plan task create failed: {status} {plan_task_create_result}")
+        status, plan_task_replay_result = request(
+            args.port,
+            "/api/company/plan/tasks",
+            token=token,
+            method="POST",
+            payload=plan_task_create_payload,
+            idempotency_key="plan-task-create-" + plan_task_nonce,
+        )
+        if status != 200 or plan_task_replay_result is None or plan_task_replay_result.get("idempotent_replay") is not True:
+            raise SmokeError(f"project-plan task idempotency failed: {status} {plan_task_replay_result}")
+        status, plan_task_update_result = request(
+            args.port,
+            f"/api/company/plan/tasks/{plan_task_id}",
+            token=token,
+            method="PUT",
+            payload={
+                "taskName": "updated project-plan task smoke",
+                "progressPct": 25,
+                "authority": {
+                    **plan_task_authority,
+                    "capability": "project:task:update",
+                },
+            },
+            idempotency_key="plan-task-update-" + plan_task_nonce,
+        )
+        if status != 200 or plan_task_update_result is None or plan_task_update_result.get("task", {}).get("state") != "pending":
+            raise SmokeError(f"project-plan task update failed: {status} {plan_task_update_result}")
+        status, plan_task_command_readback = request(
+            args.port,
+            "/api/company/projects/proj-0001/tasks",
+            token=token,
+        )
+        if (
+            status != 200
+            or plan_task_command_readback is None
+            or not any(
+                row.get("taskGuid") == plan_task_id and row.get("sourceKind") == "command"
+                for row in plan_task_command_readback.get("data", [])
+            )
+        ):
+            raise SmokeError(f"project-plan task command readback failed: {status} {plan_task_command_readback}")
+        status, plan_task_report_result = request(
+            args.port,
+            "/api/company/plan/tasks/task-001/report",
+            token=token,
+            method="POST",
+            payload={
+                "project_id": "proj-0001",
+                "progress_pct": 20,
+                "report_date": "2026-08-05",
+                "summary": "service project-plan report smoke",
+                "evidence_ids": ["plan-task-evidence-001"],
+            },
+            idempotency_key="plan-task-report-" + plan_task_nonce,
+        )
+        if status != 200 or plan_task_report_result is None or plan_task_report_result.get("task_report", {}).get("state") != "observed":
+            raise SmokeError(f"project-plan task report failed: {status} {plan_task_report_result}")
+        status, plan_task_delete_result = request(
+            args.port,
+            f"/api/company/plan/tasks/{plan_task_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "reason": "service project-plan task smoke cleanup",
+                "authority": {
+                    **plan_task_authority,
+                    "capability": "project:task:delete",
+                },
+            },
+            idempotency_key="plan-task-delete-" + plan_task_nonce,
+        )
+        if status != 200 or plan_task_delete_result is None or plan_task_delete_result.get("task", {}).get("state") != "deleted":
+            raise SmokeError(f"project-plan task delete failed: {status} {plan_task_delete_result}")
+        status, plan_task_readback = request(
+            args.port,
+            "/api/company/projects/proj-0001/tasks",
+            token=token,
+        )
+        if (
+            status != 200
+            or plan_task_readback is None
+            or any(row.get("taskGuid") == plan_task_id for row in plan_task_readback.get("data", []))
+            or plan_task_readback.get("command_projection") is not True
+        ):
+            raise SmokeError(f"project-plan task readback failed: {status} {plan_task_readback}")
         status, warning_badge_payload = request(
             args.port, "/api/company/warning/badge", token=token,
         )
@@ -1888,11 +2009,15 @@ def main() -> int:
             "/api/company/projects/proj-0001/tasks",
             token=token,
         )
+        imported_plan_tasks = [
+            row for row in (plan_tasks_payload or {}).get("data", [])
+            if isinstance(row, dict) and row.get("sourceKind") != "command"
+        ]
         if (
             status != 200
             or plan_tasks_payload is None
             or not isinstance(plan_tasks_payload.get("data"), list)
-            or len(plan_tasks_payload["data"]) != 7
+            or len(imported_plan_tasks) != 7
             or plan_tasks_payload.get("source_coverage", {}).get("jd_task") != 7
             or plan_tasks_payload["data"][0].get("taskGuid") != "task-001"
         ):
@@ -1902,11 +2027,15 @@ def main() -> int:
             "/api/company/tasks/task-003",
             token=token,
         )
+        imported_plan_reports = [
+            row for row in (plan_task_detail_payload or {}).get("data", {}).get("reports", [])
+            if isinstance(row, dict) and row.get("sourceKind") != "command"
+        ]
         if (
             status != 200
             or plan_task_detail_payload is None
             or plan_task_detail_payload.get("data", {}).get("task", {}).get("taskGuid") != "task-003"
-            or len(plan_task_detail_payload.get("data", {}).get("reports", [])) != 1
+            or len(imported_plan_reports) != 1
             or plan_task_detail_payload.get("source_coverage", {}).get("jd_task_report") != 1
         ):
             raise SmokeError(f"project plan task detail read failed: {status} {plan_task_detail_payload}")
@@ -3546,6 +3675,9 @@ def main() -> int:
                     "fund_plan_command_deleted_state": fund_plan_delete_result.get("plan", {}).get("state"),
                     "fund_dispatch_command_state": fund_dispatch_approve_result.get("dispatch", {}).get("state"),
                     "fund_command_cash_effect": fund_dispatch_approve_result.get("dispatch", {}).get("cash_effect"),
+                    "plan_task_command_deleted_state": plan_task_delete_result.get("task", {}).get("state"),
+                    "plan_task_report_state": plan_task_report_result.get("task_report", {}).get("state"),
+                    "plan_task_command_cash_effect": plan_task_delete_result.get("task", {}).get("cash_effect"),
                     "warning_open_rows": warning_badge_data.get("openTotal"),
                     "warning_rule_rows": len(warning_rules_data.get("data", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),

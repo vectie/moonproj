@@ -725,6 +725,9 @@ struct Model {
   delivery_output_state : String
   delivery_task_id : String
   delivery_command_note : String
+  plan_task_id : String
+  plan_task_state : String
+  plan_task_command_note : String
   reports_loaded : Bool
   report_cost_rows : Array[ReportCostRow]
   report_contract_rows : Array[ReportContractRow]
@@ -1094,6 +1097,11 @@ enum Msg {
   CreateDeliveryOutput
   ConfirmDeliveryOutput
   ReportTaskProgress
+  CreatePlanTask
+  UpdatePlanTask
+  DeletePlanTask
+  PlanTaskCommandFinished(String)
+  PlanTaskCommandFailed
   DeliveryCommandFinished(String)
   DeliveryCommandFailed
   ReportsLoaded(String)
@@ -1325,6 +1333,9 @@ fn initial_model() -> Model {
     delivery_output_state: "new",
     delivery_task_id: "task-003",
     delivery_command_note: "导入任务保持只读；本地命令需要证据并写入审计",
+    plan_task_id: "",
+    plan_task_state: "idle",
+    plan_task_command_note: "项目计划任务命令尚未运行",
     reports_loaded: false,
     report_cost_rows: [],
     report_contract_rows: [],
@@ -6172,6 +6183,66 @@ fn issue_delivery_command(
 }
 
 ///|
+fn plan_task_authority_json(model : Model, capability : String) -> String {
+  "{\"active\":true,\"principal_id\":\"principal-rabbita-plan\",\"actor_id\":\"" +
+  model.user_code +
+  "\",\"capability\":\"" +
+  capability +
+  "\",\"scope\":\"project:proj-0001\"}"
+}
+
+///|
+fn plan_task_command_body(model : Model, command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-plan-task-create-v1\",\"task_id\":\"PT-RABBITA-LOCAL\",\"task_code\":\"PT-RABBITA-LOCAL\",\"task_name\":\"Rabbita 项目计划任务\",\"project_id\":\"proj-0001\",\"task_type\":\"task\",\"plan_begin_date\":\"2026-08-01\",\"plan_end_date\":\"2026-08-15\",\"remarks\":\"项目计划命令演示\",\"authority\":" +
+    plan_task_authority_json(model, "project:task:create") +
+    "}"
+  } else if command_type == "update" {
+    "{\"idempotency_key\":\"rabbita-plan-task-update-v1\",\"taskName\":\"Rabbita 项目计划任务已复核\",\"progressPct\":25,\"authority\":" +
+    plan_task_authority_json(model, "project:task:update") +
+    "}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-plan-task-delete-v1\",\"reason\":\"项目计划命令演示撤回\",\"authority\":" +
+    plan_task_authority_json(model, "project:task:delete") +
+    "}"
+  }
+}
+
+///|
+fn issue_plan_task_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/plan/tasks"
+  } else if command_type == "update" {
+    "/api/company/plan/tasks/" + model.plan_task_id
+  } else {
+    "/api/company/plan/tasks/" + model.plan_task_id + "/delete"
+  }
+  if command_type == "update" {
+    @http.put(path)
+    .with_text(plan_task_command_body(model, command_type))
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(PlanTaskCommandFinished(body))
+        Err(_) => emit(PlanTaskCommandFailed)
+      }
+    })
+  } else {
+    @http.post(path)
+    .with_text(plan_task_command_body(model, command_type))
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(PlanTaskCommandFinished(body))
+        Err(_) => emit(PlanTaskCommandFailed)
+      }
+    })
+  }
+}
+
+///|
 fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/suppliers").expect_text(result => {
     match result {
@@ -9717,6 +9788,83 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loan_command_note: "员工借款命令服务不可用或拒绝了请求",
         },
       )
+    CreatePlanTask =>
+      if model.plan_task_id != "" || model.plan_task_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_plan_task_command(emit, model, "create"),
+          {
+            ..model,
+            plan_task_state: "pending",
+            plan_task_command_note: "正在创建项目计划任务草稿…",
+          },
+        )
+      }
+    UpdatePlanTask =>
+      if model.plan_task_id == "" || model.plan_task_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_plan_task_command(emit, model, "update"),
+          {
+            ..model,
+            plan_task_state: "pending",
+            plan_task_command_note: "正在更新项目计划任务…",
+          },
+        )
+      }
+    DeletePlanTask =>
+      if model.plan_task_id == "" || model.plan_task_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_plan_task_command(emit, model, "delete"),
+          {
+            ..model,
+            plan_task_state: "pending",
+            plan_task_command_note: "正在作废项目计划任务…",
+          },
+        )
+      }
+    PlanTaskCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"deleted\"") {
+        "deleted"
+      } else if body.contains("\"state\":\"pending\"") {
+        "pending"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (
+          none,
+          { ..model, plan_task_state: "error", plan_task_command_note: body },
+        )
+      } else {
+        (
+          load_delivery(emit),
+          {
+            ..model,
+            plan_task_id: if next_state == "deleted" {
+              ""
+            } else {
+              "PT-RABBITA-LOCAL"
+            },
+            plan_task_state: next_state,
+            plan_task_command_note: "已写入 PostgreSQL 项目计划投影 · 任务状态/进度不触发现金、会计或税务",
+          },
+        )
+      }
+    }
+    PlanTaskCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          plan_task_state: "error",
+          plan_task_command_note: "项目计划任务命令服务不可用或拒绝了请求",
+        },
+      )
     CreateDeliveryProgress =>
       if model.delivery_progress_state == "new" {
         (
@@ -11157,6 +11305,29 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         "汇报当前任务",
       ),
       button(
+        class="erp-secondary-btn",
+        on_click=emit(CreatePlanTask),
+        "＋ 新建计划任务",
+      ),
+      if model.plan_task_id != "" && model.plan_task_state != "pending" {
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(UpdatePlanTask),
+          "更新计划任务",
+        )
+      } else {
+        span("")
+      },
+      if model.plan_task_id != "" && model.plan_task_state != "pending" {
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(DeletePlanTask),
+          "作废计划任务",
+        )
+      } else {
+        span("")
+      },
+      button(
         class="erp-primary-btn",
         on_click=emit(CreateDeliveryProgress),
         "＋ 新建进度记录",
@@ -11164,6 +11335,10 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div <| [
       delivery_runtime_banner(model),
+      div(class="erp-runtime-banner", [
+        strong("项目计划命令"),
+        span(" · " + model.plan_task_command_note),
+      ]),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "计划总览"),
         button(class="erp-tab", "甘特图"),

@@ -67,7 +67,9 @@ delivery parity until their source joins and calculations are reproduced.
   `/plan-summary`, and `/overview`, plus the source-only
   `/api/company/source/delivery/progress` and `/outputs` reads. Commands cover
   progress create/report/accept/reject, output create/confirm, and task
-  reporting.
+  reporting. The source plan command aliases now also cover local task
+  create/update/delete at `/api/company/plan/tasks`, while plan task reports
+  reuse the evidence-gated task-report projection.
 - Imported rows are source-preserving and read-only. Local commands require
   explicit evidence, scope, currency/value, and idempotency keys; each command
   persists an immutable projection revision and audit receipt.

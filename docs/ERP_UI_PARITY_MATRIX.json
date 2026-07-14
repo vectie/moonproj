@@ -3464,8 +3464,8 @@
       "browser_route_paths": [
         "/project-plan"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_project_plan_command",
+      "required_next": "accept_browser_project_plan_command_scenario_and_operations_owner"
     },
     {
       "module": "plan",
@@ -3484,8 +3484,8 @@
       "browser_route_paths": [
         "/project-plan"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_project_plan_command",
+      "required_next": "accept_browser_project_plan_command_scenario_and_operations_owner"
     },
     {
       "module": "plan",
@@ -3494,8 +3494,8 @@
       "browser_route_paths": [
         "/project-plan"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_project_plan_command",
+      "required_next": "accept_browser_project_plan_command_scenario_and_operations_owner"
     },
     {
       "module": "plan",
@@ -3504,8 +3504,8 @@
       "browser_route_paths": [
         "/project-plan"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_project_plan_command",
+      "required_next": "accept_browser_project_plan_command_scenario_and_operations_owner"
     },
     {
       "module": "plan",

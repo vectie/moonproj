@@ -667,6 +667,81 @@ def main() -> int:
         )
         if status != 200 or not isinstance(fund_dispatch_approve_payload, dict) or fund_dispatch_approve_payload.get("dispatch", {}).get("state") != "approved" or fund_dispatch_approve_payload.get("dispatch", {}).get("cash_effect") is not False:
             raise SmokeError(f"trusted fund dispatch approval failed: {status}")
+        plan_task_id = "PT-GW-SMOKE-" + smoke_suffix
+        plan_task_authority = {
+            "active": True,
+            "principal_id": "co-gateway-plan-smoke",
+            "actor_id": user_code,
+            "capability": "project:task:create",
+            "scope": "project:proj-0001",
+        }
+        status, _headers, plan_task_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/plan/tasks",
+            headers={"Cookie": cookie},
+            payload={
+                "task_id": plan_task_id,
+                "task_code": "PT-GW-CODE-" + smoke_suffix,
+                "task_name": "gateway project-plan task smoke",
+                "project_id": "proj-0001",
+                "task_type": "task",
+                "plan_begin_date": "2026-08-01",
+                "plan_end_date": "2026-08-15",
+                "authority": plan_task_authority,
+                "idempotency_key": "plan-task-gateway-create-" + smoke_suffix,
+            },
+        )
+        if status != 201 or not isinstance(plan_task_payload, dict) or plan_task_payload.get("task", {}).get("state") != "pending":
+            raise SmokeError(f"trusted project-plan task create failed: {status}")
+        status, _headers, plan_task_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/plan/tasks/{plan_task_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "taskName": "updated gateway project-plan task smoke",
+                "authority": {
+                    **plan_task_authority,
+                    "capability": "project:task:update",
+                },
+                "idempotency_key": "plan-task-gateway-update-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(plan_task_update_payload, dict) or plan_task_update_payload.get("task", {}).get("state") != "pending":
+            raise SmokeError(f"trusted project-plan task update failed: {status}")
+        status, _headers, plan_task_report_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/plan/tasks/task-001/report",
+            headers={"Cookie": cookie},
+            payload={
+                "project_id": "proj-0001",
+                "progress_pct": 20,
+                "report_date": "2026-08-05",
+                "summary": "gateway project-plan report smoke",
+                "evidence_ids": ["plan-task-gateway-evidence"],
+                "idempotency_key": "plan-task-gateway-report-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(plan_task_report_payload, dict) or plan_task_report_payload.get("task_report", {}).get("state") != "observed":
+            raise SmokeError(f"trusted project-plan task report failed: {status}")
+        status, _headers, plan_task_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/plan/tasks/{plan_task_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway project-plan task smoke cleanup",
+                "authority": {
+                    **plan_task_authority,
+                    "capability": "project:task:delete",
+                },
+                "idempotency_key": "plan-task-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(plan_task_delete_payload, dict) or plan_task_delete_payload.get("task", {}).get("state") != "deleted":
+            raise SmokeError(f"trusted project-plan task delete failed: {status}")
         stale_headers = identity_headers(user_code, identity_secret, int(time.time()) - 61)
         status, _headers, payload = request(
             args.gateway_port,

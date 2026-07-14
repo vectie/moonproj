@@ -350,6 +350,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_loan_command_scenario_and_finance_owner"
     if target_state == "connected_delivery_command":
         return "accept_browser_delivery_command_scenario_and_operations_owner"
+    if target_state == "connected_project_plan_command":
+        return "accept_browser_project_plan_command_scenario_and_operations_owner"
     if target_state == "connected_admin_health_read":
         return "accept_browser_admin_health_scenario_and_super_user_owner"
     if target_state == "connected_admin_read":
@@ -707,6 +709,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         )
     ):
         return "connected_fund_command_form", "accept_browser_fund_command_scenario_and_finance_owner"
+    if (
+        handler["module"] == "plan"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/tasks", "/tasks/:guid/report"})
+            or (handler["method"] in {"PUT", "DELETE"} and handler["path"] == "/tasks/:guid")
+        )
+    ):
+        return "connected_project_plan_command", "accept_browser_project_plan_command_scenario_and_operations_owner"
     if (
         handler["module"] == "investment"
         and handler["method"] == "GET"
@@ -1088,7 +1098,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
+        "fund-plan, project-plan task, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

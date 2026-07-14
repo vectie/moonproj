@@ -19,15 +19,29 @@ The target now connects the source-preserving project master/detail boundary:
 | Project detail/lifecycle/tasks | `/api/company/projects/:id` | source-preserving read |
 | Project task list | `/api/company/projects/:id/tasks` | source-compatible read |
 | Task detail/report history | `/api/company/tasks/:id` | source-compatible read |
+| Local task create/update/delete | `/api/company/plan/tasks[/:id]` | authority-bound command projection |
+| Evidence-gated task report | `/api/company/plan/tasks/:id/report` | command-owned report projection; imported task remains read-only |
 | Project plan summary | `/api/company/projects/:id/plan-summary` | source-compatible read |
 | Project lifecycle | `/api/company/projects/:id/lifecycle` | source-compatible read |
 | Task delay impact | `/api/company/tasks/:id/delay-impact` | source-compatible read |
 | Rabbita project list | `/projects` | connected read with designer fallback |
 | Rabbita project detail | `/projects/:guid` | connected read with designer fallback |
 
-The target does not create, edit, delete, or infer project state from local
-fixtures in this slice. Delivery task/progress commands remain separate
-evidence-gated boundaries.
+The target now keeps imported task rows read-only while exposing a separate
+PostgreSQL-owned project-plan task command boundary:
+
+- `POST /api/company/plan/tasks` creates a local task projection;
+- `PUT /api/company/plan/tasks/:guid` updates a local task;
+- `DELETE /api/company/plan/tasks/:guid` (plus the browser-safe `/delete`
+  POST alias) tombstones a local task;
+- `POST /api/company/plan/tasks/:guid/report` accepts an evidence-gated task
+  report projection without mutating the imported task.
+
+Commands require a signed actor, project-scoped capability, deterministic
+idempotency key, immutable revision, and audit receipt. They do not mutate
+imported `jd_task` rows or trigger workflow, cash, accounting, tax, or
+provider effects. Delivery task/progress commands remain a separate
+evidence-gated boundary.
 
 ## Current evidence
 
@@ -44,16 +58,20 @@ evidence-gated boundaries.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
   retaining the designer-built tables and forms as an explicitly labelled
   fallback/preview.
-- The parity matrix marks the two project browser routes and the two MDM GET
-  handlers as `connected_project_read`; project mutations and plan route
-  mutations remain unconnected.
+- Service and trusted-gateway smokes cover local task create/replay/update/
+  delete and an evidence-gated report alias; the source-shaped project-plan
+  readback merges command projections with `sourceKind=command` while keeping
+  source coverage separate.
+- The parity matrix marks project-plan create/update/delete/report as
+  `connected_project_plan_command`; AI scheduling, production identity,
+  browser acceptance, imported source promotion, and owner approval remain
+  open.
 
 ## Remaining gate
 
 1. Run browser acceptance through production identity and verify BU/entity scope
    and lifecycle/task reconciliation against the source implementation.
-2. Bind the source-compatible plan/lifecycle reads to the full project-plan UI
-   scenario and preserve task reporting/progress mutation authority as a
-   separate evidence-gated boundary.
+2. Bind the source-compatible plan/lifecycle reads and local task commands to
+   the full project-plan UI scenario, including evidence capture for reports.
 3. Obtain named project/operations owner acceptance before treating imported
    project state as target-owned.
