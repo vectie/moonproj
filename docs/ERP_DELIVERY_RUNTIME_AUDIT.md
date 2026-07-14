@@ -66,8 +66,9 @@ delivery parity until their source joins and calculations are reproduced.
   `/api/company/delivery/progress`, `/outputs`, `/tasks`, `/task-reports`,
   `/plan-summary`, and `/overview`, plus the source-only
   `/api/company/source/delivery/progress` and `/outputs` reads. Commands cover
-  progress create/report/accept/reject, output create/confirm, and task
-  reporting. The source plan command aliases now also cover local task
+  progress create/report/accept/reject/delete, output create/confirm, and task
+  reporting. Delete is a local tombstone restricted to command-owned progress;
+  imported rows remain read-only. The source plan command aliases now also cover local task
   create/update/delete at `/api/company/plan/tasks`, while plan task reports
   reuse the evidence-gated task-report projection.
 - Imported rows are source-preserving and read-only. Local commands require
@@ -75,11 +76,10 @@ delivery parity until their source joins and calculations are reproduced.
   persists an immutable projection revision and audit receipt.
 - The parity matrix marks the two browser pages and their command groups as
   `connected_delivery_command_form` / `connected_delivery_command`, and now
-  maps source POST `/progress`, PUT `/progress/:guid/report`, POST
-  `/outputs`, and POST `/outputs/:guid/confirm` to that evidence-gated command
-  boundary. Source DELETE `/progress/:guid` remains intentionally unconnected:
-  the target has no progress tombstone command, and imported rows stay
-  read-only. The source export still contains no `proj_progress` or
+  maps source POST `/progress`, PUT `/progress/:guid/report`, DELETE
+  `/progress/:guid`, POST `/outputs`, and POST `/outputs/:guid/confirm` to that
+  evidence-gated command boundary. DELETE only tombstones command-owned rows;
+  imported rows stay read-only. The source export still contains no `proj_progress` or
   `proj_output` rows, so the new source reads return an explicit empty
   observation; current progress/output examples remain local command evidence
   rather than a source-row import.

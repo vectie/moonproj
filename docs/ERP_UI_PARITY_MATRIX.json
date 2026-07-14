@@ -3564,8 +3564,8 @@
       "browser_route_paths": [
         "/project/progress"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_delivery_command",
+      "required_next": "accept_browser_delivery_command_scenario_and_operations_owner"
     },
     {
       "module": "progress",

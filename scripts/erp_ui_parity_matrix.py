@@ -550,6 +550,7 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and (
             (handler["method"] == "POST" and handler["path"] in {"/progress", "/outputs"})
             or (handler["method"] == "PUT" and handler["path"] == "/progress/:guid/report")
+            or (handler["method"] == "DELETE" and handler["path"] == "/progress/:guid")
             or (handler["method"] == "POST" and handler["path"] == "/outputs/:guid/confirm")
         )
     ):

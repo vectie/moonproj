@@ -4036,6 +4036,58 @@ def main() -> int:
         )
         if status != 201 or payload is None or payload.get("task_report", {}).get("state") != "observed":
             raise SmokeError(f"delivery task report failed: {status} {payload}")
+        delete_progress_id = "PROG-DELETE-SMOKE-" + nonce
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/progress",
+            token=token,
+            method="POST",
+            payload={
+                "progress_id": delete_progress_id,
+                "project_id": "proj-0001",
+                "principal_id": "co-smoke",
+                "project_scope": "project:proj-0001",
+                "stage": "删除边界",
+                "plan_pct": 10,
+                "completed_value_minor": 1,
+                "currency": "CNY",
+                "evidence_ids": ["evidence:delivery-delete:" + nonce],
+            },
+            idempotency_key="delivery-progress-delete-create-" + nonce,
+        )
+        if status != 201 or payload is None or payload.get("progress", {}).get("state") != "draft":
+            raise SmokeError(f"delivery progress delete fixture create failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/delivery/progress/{delete_progress_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "service delivery delete smoke"},
+            idempotency_key="delivery-progress-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("progress", {}).get("state") != "deleted":
+            raise SmokeError(f"delivery progress delete failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            f"/api/company/delivery/progress/{delete_progress_id}",
+            token=token,
+            method="DELETE",
+            payload={"reason": "service delivery delete smoke"},
+            idempotency_key="delivery-progress-delete-" + nonce,
+        )
+        if status != 200 or payload is None or payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"delivery progress delete replay failed: {status} {payload}")
+        status, payload = request(
+            args.port,
+            "/api/company/delivery/progress?project_id=proj-0001",
+            token=token,
+        )
+        if status != 200 or any(
+            row.get("progress_id") == delete_progress_id
+            for row in (payload or {}).get("items", [])
+            if isinstance(row, dict)
+        ):
+            raise SmokeError(f"deleted delivery progress still visible: {status} {payload}")
         print(
             json.dumps(
                 {
@@ -4060,6 +4112,7 @@ def main() -> int:
                     "mortgage_state": "released",
                     "refund_state": "paid",
                     "delivery_progress_state": "accepted",
+                    "delivery_progress_delete_state": "deleted",
                     "delivery_output_state": "confirmed",
                     "delivery_task_report_state": "observed",
                     "report_cost_rows": report_cost_rows,

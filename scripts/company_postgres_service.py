@@ -7577,6 +7577,7 @@ def delivery_progress(
     commands = [
         _delivery_projection_fields(row, family="progress")
         for row in _latest_delivery_projection_rows(pool, "delivery_progress", progress_id, max_rows)
+        if not row["payload"].get("deleted_at") and row["payload"].get("state") != "deleted"
     ]
     if project_id is not None:
         commands = [row for row in commands if row.get("project_id") == project_id]
@@ -19577,7 +19578,7 @@ def _delivery_request(
 ) -> tuple[str, str, dict[str, Any], bool, str | None, str]:
     if family == "progress":
         aggregate_type = "delivery_progress"
-        allowed = {"create", "report", "accept", "reject"}
+        allowed = {"create", "report", "accept", "reject", "delete"}
         id_key = "progress_id"
     elif family == "output":
         aggregate_type = "delivery_output"
@@ -19688,6 +19689,12 @@ def _delivery_request(
             request["acceptance_evidence_ids"] = _delivery_evidence(body, "acceptance_evidence_ids")
             request["acceptance_id"] = _delivery_required_text(body, "acceptance_id", identifier=True)
             return aggregate_id, aggregate_type, request, False, "submitted", "accepted"
+        if command_type == "delete":
+            reason = body.get("reason", "")
+            if not isinstance(reason, str):
+                raise CommandRejected("reason must be text", 422)
+            request["reason"] = reason.strip()
+            return aggregate_id, aggregate_type, request, False, None, "deleted"
         request["reason"] = _delivery_required_text(body, "reason")
         return aggregate_id, aggregate_type, request, False, "submitted", "rejected"
     request["confirm_amount"] = _delivery_required_text(body, "confirm_amount")
@@ -19760,6 +19767,12 @@ def _delivery_persist_command(
         sort_keys=True,
         separators=(",", ":"),
     )
+    state_guard = ""
+    if expected_state is not None:
+        state_guard = (
+            f"IF {sql_literal(expected_state)} <> current_payload->>'state' THEN "
+            "RAISE EXCEPTION 'delivery transition state conflict'; END IF;"
+        )
     sql = f"""
     BEGIN;
     CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
@@ -19795,13 +19808,14 @@ def _delivery_persist_command(
       ELSE
         IF current_payload IS NULL THEN RAISE EXCEPTION 'delivery record not found'; END IF;
         IF current_payload->>'source_kind' <> 'command' THEN RAISE EXCEPTION 'imported delivery record is read-only'; END IF;
-        IF {sql_literal(expected_state or '')} <> current_payload->>'state' THEN
-          RAISE EXCEPTION 'delivery transition state conflict';
-        END IF;
+        {state_guard}
         next_revision := {next_revision};
         next_payload := current_payload || {sql_literal(request_json)}::jsonb || jsonb_build_object(
           'state', {sql_literal(next_state)}, 'source_kind', 'command',
           'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(str(request['actor_id']))});
+        IF {sql_literal(command_type)} = 'delete' THEN
+          next_payload := next_payload || jsonb_build_object('deleted_at', {sql_literal(event_id)});
+        END IF;
       END IF;
       INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
       VALUES ({sql_literal(aggregate_type)}, {sql_literal(aggregate_id)}, next_revision,
@@ -22565,6 +22579,43 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
             return True
 
+        def _delivery_progress_method_alias(self, method: str) -> bool:
+            if method != "DELETE":
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/delivery/progress/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = delivery_command(
+                    pool,
+                    family="progress",
+                    command_type="delete",
+                    aggregate_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
         def do_PUT(self) -> None:  # noqa: N802
             if self._source_dynamic_cost_method_alias("PUT"):
                 return
@@ -22585,6 +22636,8 @@ def handler_factory(
             self._marketing_method_alias("PUT") or self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if self._delivery_progress_method_alias("DELETE"):
+                return
             if self._source_dynamic_cost_method_alias("DELETE"):
                 return
             if self._source_cost_milestone_method_alias("DELETE"):

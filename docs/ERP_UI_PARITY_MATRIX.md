@@ -322,7 +322,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `progress` | `GET` | `/progress` | `/project/progress` | `connected_delivery_source_read` | `accept_browser_delivery_source_scenario_and_production_identity` |
 | `progress` | `POST` | `/progress` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
 | `progress` | `PUT` | `/progress/:guid/report` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
-| `progress` | `DELETE` | `/progress/:guid` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `progress` | `DELETE` | `/progress/:guid` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
 | `progress` | `GET` | `/outputs` | `/project/progress` | `connected_delivery_source_read` | `accept_browser_delivery_source_scenario_and_production_identity` |
 | `progress` | `POST` | `/outputs` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |
 | `progress` | `POST` | `/outputs/:guid/confirm` | `/project/progress` | `connected_delivery_command` | `accept_browser_delivery_command_scenario_and_operations_owner` |

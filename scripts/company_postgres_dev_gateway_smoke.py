@@ -742,6 +742,40 @@ def main() -> int:
         )
         if status != 200 or not isinstance(plan_task_delete_payload, dict) or plan_task_delete_payload.get("task", {}).get("state") != "deleted":
             raise SmokeError(f"trusted project-plan task delete failed: {status}")
+        delivery_progress_id = "PROG-GW-DELETE-SMOKE-" + smoke_suffix
+        delivery_progress_payload = {
+            "progress_id": delivery_progress_id,
+            "project_id": "proj-0001",
+            "principal_id": "co-gateway-delivery-smoke",
+            "project_scope": "project:proj-0001",
+            "stage": "gateway delivery delete smoke",
+            "plan_pct": 10,
+            "completed_value_minor": 1,
+            "currency": "CNY",
+            "evidence_ids": ["gateway-delivery-delete-evidence"],
+            "idempotency_key": "delivery-gateway-delete-create-" + smoke_suffix,
+        }
+        status, _headers, delivery_progress_payload_result = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/delivery/progress",
+            headers={"Cookie": cookie},
+            payload=delivery_progress_payload,
+        )
+        if status != 201 or not isinstance(delivery_progress_payload_result, dict) or delivery_progress_payload_result.get("progress", {}).get("state") != "draft":
+            raise SmokeError(f"trusted delivery progress create failed: {status}")
+        status, _headers, delivery_progress_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/delivery/progress/{delivery_progress_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway delivery delete smoke",
+                "idempotency_key": "delivery-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(delivery_progress_delete_payload, dict) or delivery_progress_delete_payload.get("progress", {}).get("state") != "deleted":
+            raise SmokeError(f"trusted delivery progress delete failed: {status}")
         source_contract_id = "CT-GW-SOURCE-SMOKE-" + smoke_suffix
         source_contract_payload = {
             "contract_id": source_contract_id,
