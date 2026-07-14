@@ -19,10 +19,14 @@ The target now exposes source-compatible read boundaries:
 | Proceedings dictionary | `/api/company/budget/proceedings` | source-compatible read |
 | Users in business-unit scope | `/api/company/source/budget/users-in-bu?buGuid=<guid>` | bounded source observation |
 | Current user's approved loan balance | `/api/company/source/budget/my-loan-balance?userCode=<code>` | bounded source observation |
+| Budget headroom preview | `/api/company/budget-check` | non-authorizing calculation-only read |
 
 Each response preserves source field names (`code`, `name`, and `guid` where
-applicable) and marks rows `sourceKind=imported`. No dictionary or expense
-mutation is enabled by this slice.
+applicable) and marks rows `sourceKind=imported`. The budget-check response
+preserves the source `matched`, `target`, `used`, `remain`, `willOver`, and
+`overAmount` fields while explicitly returning `authorizing=false`,
+`persisted=false`, and `budget_consumption=false`. No dictionary, reservation,
+or expense mutation is enabled by this slice.
 
 The evidence-ready scope batch now also reads four enabled users under
 `bu-tjgs-0001` and the imported `limingjin` balance of `3500.00` through the
@@ -37,17 +41,20 @@ list and new-expense surfaces.
   `display_order` and three proceedings ordered by source code.
 - `scripts/company_postgres_source_read_smoke.py` verifies the four-user BU
   scope and 3,500.00 loan-balance read without mutations.
+- The service and trusted-gateway smokes verify a matched `CB-101` budget
+  preview and its non-authorizing/no-consumption markers without an
+  idempotency receipt.
 - The parity matrix marks the source budget `GET /dict/cost-subjects` and
   `GET /proceedings` handlers as `connected_budget_read`.
-- Expense create/update/approval, budget checks, and browser form binding
-  remain separate boundaries; the new user-scope read is observation-only and
-  does not grant authority.
+- Expense create/update/approval, auto-offset, and browser production
+  identity remain separate boundaries; the new budget-check preview is
+  observation-only and does not grant authority.
 
 ## Remaining gate
 
 1. Bind the dictionaries to the full expense create/detail browser scenario
    through production identity and company scope.
-2. Connect the full expense create/detail and budget-check browser scenario
+2. Accept the full expense create/detail and budget-check browser scenario
    through production identity and company scope.
 3. Obtain finance-owner acceptance before allowing scope grants, reservations,
    dictionary writes, or expense writes.

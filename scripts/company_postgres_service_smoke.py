@@ -1617,6 +1617,25 @@ def main() -> int:
             or expense_detail_payload.get("source_coverage", {}).get("cb_expense_split") != 0
         ):
             raise SmokeError(f"source expense detail read failed: {status} {expense_detail_payload}")
+        status, budget_check_payload = request(
+            args.port,
+            "/api/company/budget-check",
+            token=token,
+            method="POST",
+            payload={"splits": [{"costSubjectCode": "CB-101", "amount": 8560}]},
+        )
+        budget_check_data = (budget_check_payload or {}).get("data", [])
+        if (
+            status != 200
+            or budget_check_payload is None
+            or len(budget_check_data) != 1
+            or budget_check_data[0].get("matched") is not True
+            or budget_check_data[0].get("willOver") is not False
+            or budget_check_payload.get("authorizing") is not False
+            or budget_check_payload.get("persisted") is not False
+            or budget_check_payload.get("budget_consumption") is not False
+        ):
+            raise SmokeError(f"budget check preview failed: {status} {budget_check_payload}")
         status, admin_options_payload = request(
             args.port,
             "/api/company/admin/dict/options?groupName=cost_subject",
@@ -3310,6 +3329,9 @@ def main() -> int:
                     "expense_detail_rows": len(expense_detail_data.get("details", [])),
                     "expense_split_rows": len(expense_detail_data.get("splits", [])),
                     "expense_detail_source_vcb_expense_rows": expense_detail_payload.get("source_coverage", {}).get("vcb_expense"),
+                    "budget_check_rows": len(budget_check_data),
+                    "budget_check_authorizing": budget_check_payload.get("authorizing"),
+                    "budget_check_consumption": budget_check_payload.get("budget_consumption"),
                     "supplier_source_rows": len(supplier_source_data or []),
                     "supplier_source_provider_rows": supplier_source_payload.get("source_coverage", {}).get("srm_provider"),
                     "supplier_detail_source_status": supplier_detail_status,

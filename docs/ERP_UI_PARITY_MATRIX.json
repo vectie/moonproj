@@ -1643,8 +1643,8 @@
         "/expenses/new",
         "/expenses/:guid"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_budget_check_read",
+      "required_next": "accept_browser_budget_check_scenario_and_finance_owner"
     },
     {
       "module": "budget",

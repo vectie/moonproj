@@ -639,6 +639,7 @@ struct Model {
   expense_id : String
   expense_state : String
   expense_note : String
+  expense_budget_check_note : String
   contracts_loaded : Bool
   contract_rows : Array[ContractRow]
   contract_detail : ContractRow?
@@ -995,6 +996,9 @@ enum Msg {
   CreateExpense
   UpdateExpense
   VoidExpense
+  CheckExpenseBudget
+  ExpenseBudgetCheckFinished(String)
+  ExpenseBudgetCheckFailed
   SubmitExpense
   RejectExpense
   ResubmitExpense
@@ -1224,6 +1228,7 @@ fn initial_model() -> Model {
     expense_id: "EXP-RABBITA-LOCAL",
     expense_state: "未创建",
     expense_note: "先保存草稿，再提交审批",
+    expense_budget_check_note: "预算预检尚未运行",
     contracts_loaded: false,
     contract_rows: [],
     contract_detail: None,
@@ -9744,6 +9749,49 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    CheckExpenseBudget =>
+      if model.expense_state == "未创建" || model.expense_state == "草稿" {
+        (
+          @http.post("/api/company/budget-check")
+          .with_text(
+            "{\"splits\":[{\"costSubjectCode\":\"CB-101\",\"amount\":8560}]}",
+          )
+          .expect_text(result => {
+            match result {
+              Ok(body) => emit(ExpenseBudgetCheckFinished(body))
+              Err(_) => emit(ExpenseBudgetCheckFailed)
+            }
+          }),
+          {
+            ..model,
+            expense_budget_check_note: "正在读取 PostgreSQL 预算余量…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ExpenseBudgetCheckFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          expense_budget_check_note: if body.contains("\"willOver\":true") {
+            "预算预检：当前科目可能超预算 · 仅提示，不占用预算"
+          } else if body.contains("\"matched\":false") {
+            "预算预检：科目未在源 CBS 中匹配 · 仅提示，不占用预算"
+          } else {
+            "预算预检通过 · 仅提示，不占用预算"
+          },
+        },
+      )
+    ExpenseBudgetCheckFailed =>
+      (
+        none,
+        {
+          ..model,
+          expense_budget_check_note: "预算预检不可用 · 未执行预算占用",
+        },
+      )
     SubmitExpense =>
       if model.expense_id == "" || model.expense_state != "草稿" {
         (none, model)
@@ -14658,6 +14706,15 @@ fn expense_editor_view(
         ),
       )
     }
+    if model.expense_state == "未创建" || model.expense_state == "草稿" {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CheckExpenseBudget),
+          "预算预检",
+        ),
+      )
+    }
     if model.expense_state == "草稿" {
       actions.push(
         button(
@@ -14819,6 +14876,7 @@ fn expense_editor_view(
           span(model.expense_note),
         ]
       },
+      div(class="erp-source-note", model.expense_budget_check_note),
       if detail && model.expense_detail_loaded {
         div <| [
           table_panel(

@@ -20,6 +20,7 @@ The bounded service exposes these endpoints:
 * ``/api/company/expenses`` and ``/api/company/expenses/<id>`` (GET)
 * ``/api/company/budget/expenses`` (GET, source-compatible imported list)
 * ``/api/company/budget/expenses/<guid>`` (GET, source-compatible imported detail)
+* ``/api/company/budget-check`` (POST, non-authorizing budget headroom preview)
 * ``/api/company/expenses`` (POST create draft)
 * ``/api/company/expenses/<id>/{submit,submit-for-approval,approve,reject,resubmit,void}`` (POST)
 * ``/api/company/expenses/<id>`` (PUT update draft, DELETE void draft/rejected)
@@ -799,6 +800,87 @@ def budget_expenses(
         "source_kind": "imported_or_empty",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+    }
+
+
+def budget_check(
+    pool: PsqlPool,
+    body: dict[str, Any],
+    max_rows: int,
+) -> dict[str, Any]:
+    """Preview source budget headroom without reserving or mutating budget."""
+
+    splits = body.get("splits", [])
+    if not isinstance(splits, list):
+        raise CommandRejected("splits must be an array", 422)
+    raw = _raw_source_rows(pool, "cb_cost", max(max_rows, 500), {"cb_cost"})
+    coverage = {"cb_cost": len(raw)}
+    costs = [row["payload"] for row in raw]
+    results: list[dict[str, Any]] = []
+    for split in splits[:max_rows]:
+        if not isinstance(split, dict):
+            raise CommandRejected("each split must be an object", 422)
+        code = split.get("costSubjectCode", split.get("cost_subject"))
+        if not isinstance(code, str) or not code.strip():
+            raise CommandRejected("costSubjectCode is required", 422)
+        code = code.strip()
+        amount_value = split.get("amount")
+        if amount_value is None:
+            amount_minor = split.get("amount_minor")
+            if isinstance(amount_minor, bool) or not isinstance(amount_minor, int) or amount_minor < 0:
+                raise CommandRejected("split amount must be non-negative", 422)
+            amount = Decimal(amount_minor) / Decimal(100)
+        else:
+            try:
+                amount = Decimal(str(amount_value)).quantize(Decimal("0.01"))
+            except (InvalidOperation, TypeError, ValueError) as error:
+                raise CommandRejected("split amount must be a decimal number", 422) from error
+            if not amount.is_finite() or amount < 0:
+                raise CommandRejected("split amount must be non-negative", 422)
+        cost = next(
+            (
+                payload
+                for payload in costs
+                if str(payload.get("cost_code") or payload.get("costCode") or "") == code
+                or str(payload.get("cost_code") or payload.get("costCode") or "").startswith(code[:6])
+            ),
+            None,
+        )
+        if cost is None:
+            results.append({"code": code, "amount": float(amount), "matched": False})
+            continue
+        target = Decimal(str(cost.get("target_cost") or 0))
+        used = sum(
+            Decimal(str(cost.get(key) or 0))
+            for key in ("zt_cost", "ht_alter_amount", "dfs_budget")
+        )
+        remain = target - used
+        over = amount > remain
+        results.append(
+            {
+                "code": code,
+                "amount": float(amount),
+                "matched": True,
+                "costGuid": str(cost.get("cost_guid") or ""),
+                "costName": str(cost.get("cost_name") or ""),
+                "target": float(target),
+                "used": float(used),
+                "remain": float(remain),
+                "willOver": over,
+                "overAmount": float(amount - remain) if over else 0.0,
+            }
+        )
+    return {
+        "success": True,
+        "code": 0,
+        "data": results,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [table for table, count in coverage.items() if count == 0],
+        "authorizing": False,
+        "persisted": False,
+        "calculation_only": True,
+        "budget_consumption": False,
     }
 
 
@@ -18575,6 +18657,9 @@ def handler_factory(
             parsed = urlparse(self.path)
             try:
                 body = self._json_body()
+                if parsed.path == "/api/company/budget-check":
+                    response(self, 200, budget_check(pool, body, max_response_rows), origin)
+                    return
                 idempotency_key = self.headers.get("Idempotency-Key", "").strip()
                 if not idempotency_key:
                     raise CommandRejected("Idempotency-Key is required", 400)

@@ -40,6 +40,7 @@ class GatewayError(RuntimeError):
 
 
 EXPENSE_PATH_PREFIX = "/api/company/expenses"
+BUDGET_CHECK_PATH = "/api/company/budget-check"
 CONTRACT_PATH_PREFIX = "/api/company/contracts"
 PAYMENT_APPLICATION_PATH_PREFIX = "/api/company/payment-applies"
 TENDER_PATH_PREFIX = "/api/company/tenders"
@@ -445,6 +446,7 @@ def handler_factory(
             if not (
                 parsed.path == EXPENSE_PATH_PREFIX
                 or parsed.path.startswith(EXPENSE_PATH_PREFIX + "/")
+                or parsed.path == BUDGET_CHECK_PATH
                 or parsed.path == CONTRACT_PATH_PREFIX
                 or parsed.path.startswith(CONTRACT_PATH_PREFIX + "/")
                 or parsed.path == PAYMENT_APPLICATION_PATH_PREFIX
@@ -476,6 +478,10 @@ def handler_factory(
                 response(self, 400, {"error": str(error)})
                 return
             key = value.pop("idempotency_key", None)
+            if parsed.path == BUDGET_CHECK_PATH and key is None:
+                body = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+                self._forward("POST", self.path, body, None, actor)
+                return
             if not isinstance(key, str) or not key.strip():
                 response(self, 400, {"error": "idempotency_key is required for local commands"})
                 return

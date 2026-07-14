@@ -173,6 +173,22 @@ def main() -> int:
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
         smoke_suffix = str(int(time.time()))
+        status, _headers, budget_check_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/budget-check",
+            headers={"Cookie": cookie},
+            payload={"splits": [{"costSubjectCode": "CB-101", "amount": 8560}]},
+        )
+        if (
+            status != 200
+            or not isinstance(budget_check_payload, dict)
+            or len(budget_check_payload.get("data", [])) != 1
+            or budget_check_payload.get("data", [])[0].get("matched") is not True
+            or budget_check_payload.get("authorizing") is not False
+            or budget_check_payload.get("budget_consumption") is not False
+        ):
+            raise SmokeError(f"trusted budget check preview failed: {status}")
         expense_id = "EXP-GW-SMOKE-" + smoke_suffix
         expense_payload = {
             "expense_id": expense_id,

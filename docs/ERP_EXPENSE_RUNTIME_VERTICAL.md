@@ -20,6 +20,7 @@ bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
 | Void draft/rejected | `DELETE /api/company/expenses/:id` | `draft/rejected → voided` |
 | Void command alias | `POST /api/company/expenses/:id/void` | browser-safe idempotent alias |
 | Submit | `POST /api/company/expenses/:id/{submit,submit-for-approval}` | `draft → submitted` |
+| Budget preview | `POST /api/company/budget-check` | calculation-only; no reservation |
 | Reject | `POST /api/company/expenses/:id/reject` | `submitted → rejected` |
 | Resubmit | `POST /api/company/expenses/:id/resubmit` | `rejected → submitted` |
 | Approve | `POST /api/company/expenses/:id/approve` | `submitted → approved` |
@@ -53,7 +54,8 @@ updates it through the PUT boundary, voids it through DELETE, reads the final
 `approved` projection, and verifies an invalid transition is rejected. The
 trusted gateway smoke repeats the create/update/submit/reject/resubmit/approve
 path and a draft void, while both smokes retain identity, missing-token, and
-forwarded-TLS checks.
+forwarded-TLS checks. They also verify the `CB-101` budget preview through
+service and gateway without creating a command receipt or consuming budget.
 
 ## Rabbita local path
 

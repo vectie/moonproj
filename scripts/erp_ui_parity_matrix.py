@@ -692,6 +692,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_expense_command", "accept_browser_expense_command_scenario_and_finance_owner"
     if (
+        handler["module"] == "budget"
+        and handler["method"] == "POST"
+        and handler["path"] == "/budget-check"
+    ):
+        return "connected_budget_check_read", "accept_browser_budget_check_scenario_and_finance_owner"
+    if (
         handler["module"] == "investment"
         and handler["method"] == "GET"
         and handler["path"] == "/projects/:projGuid/profit-actual-v2"

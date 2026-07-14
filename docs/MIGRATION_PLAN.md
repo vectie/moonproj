@@ -458,6 +458,14 @@ requires the signed actor to match the local applicant for update/void, and
 keeps imported source rows, workflow synchronization, budget checks, cash,
 accounting, tax, and finance-owner acceptance separate.
 
+The budget action register now maps `POST /api/company/budget-check` to a
+PostgreSQL-backed, source-shaped headroom preview. It reads imported `cb_cost`
+rows, reports target/used/remain and over-budget indicators, and explicitly
+marks the response calculation-only, non-authorizing, non-persisting, and
+non-consuming. No receipt, reservation, auto-offset, workflow transition,
+cash movement, accounting entry, or tax effect is created; production
+identity and finance-owner browser acceptance remain open.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
