@@ -582,6 +582,7 @@ struct FundPlanRow {
 
 ///|
 struct WarningRow {
+  warning_guid : String
   rule_code : String
   rule_name : String
   severity : String
@@ -589,6 +590,7 @@ struct WarningRow {
   title : String
   detail : String
   status : String
+  source_kind : String
 }
 
 ///|
@@ -951,6 +953,9 @@ struct Model {
   warning_rule_count : String
   warning_missing_table_count : String
   warning_note : String
+  warning_action_state : String
+  warning_action_note : String
+  warning_action_guid : String
   attachments_loaded : Bool
   attachment_rows : Array[AttachmentRow]
   attachment_total : String
@@ -1280,6 +1285,10 @@ enum Msg {
   WarningsLoadFailed
   WarningRulesLoaded(String)
   WarningRulesLoadFailed
+  ResolveWarning
+  IgnoreWarning
+  WarningCommandFinished(String)
+  WarningCommandFailed
   AttachmentsLoaded(String)
   AttachmentsLoadFailed
   AttachmentStatsLoaded(String)
@@ -1595,6 +1604,9 @@ fn initial_model() -> Model {
     warning_rule_count: "0",
     warning_missing_table_count: "0",
     warning_note: "预警读模型尚未加载 · 使用设计快照",
+    warning_action_state: "未执行",
+    warning_action_note: "告警处理命令仍未执行",
+    warning_action_guid: "",
     attachments_loaded: false,
     attachment_rows: [],
     attachment_total: "0",
@@ -4009,6 +4021,7 @@ fn warnings_from_body(body : String) -> (Bool, Array[WarningRow], String) {
             match value {
               Json::Object(row) =>
                 rows.push({
+                  warning_guid: json_object_text(row, "warningGuid", ""),
                   rule_code: json_object_text(row, "ruleCode", "—"),
                   rule_name: json_object_text(row, "ruleName", "—"),
                   severity: json_object_text(row, "severity", "—"),
@@ -4016,6 +4029,9 @@ fn warnings_from_body(body : String) -> (Bool, Array[WarningRow], String) {
                   title: json_object_text(row, "title", "—"),
                   detail: json_object_text(row, "detail", "—"),
                   status: json_object_text(row, "status", "observed"),
+                  source_kind: json_object_text(
+                    row, "sourceKind", "observed_imported",
+                  ),
                 })
               _ => ()
             }
@@ -4036,6 +4052,29 @@ fn warning_rules_count_from_body(body : String) -> (Bool, String) {
     Json::Object(fields) =>
       (true, json_array_field(fields, "data").length().to_string())
     _ => (false, "0")
+  }
+}
+
+///|
+fn warning_command_from_body(body : String) -> (Bool, String, String, String) {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("warning") {
+        Some(Json::Object(warning)) =>
+          (
+            true,
+            json_object_text(warning, "state", "error"),
+            json_object_text(warning, "warningGuid", ""),
+            if json_object_text(warning, "state", "") == "resolved" {
+              "告警已标记为已处理 · 仅写入本地状态投影与审计"
+            } else {
+              "告警已标记为忽略 · 仅写入本地状态投影与审计"
+            },
+          )
+        _ => (false, "error", "", "告警命令响应无效")
+      }
+    _ => (false, "error", "", "告警命令响应无效")
   }
 }
 
@@ -6148,6 +6187,33 @@ fn load_warning_rules(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(WarningRulesLoaded(body))
       Err(_) => emit(WarningRulesLoadFailed)
+    }
+  })
+}
+
+///|
+fn warning_command_body(model : Model, command_type : String) -> String {
+  "{\"note\":\"Rabbita 本地告警处理演示\",\"idempotency_key\":\"rabbita-warning-" +
+  command_type +
+  "-" +
+  model.warning_action_guid +
+  "\"}"
+}
+
+///|
+fn issue_warning_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  @http.post(
+    "/api/company/warning/" + model.warning_action_guid + "/" + command_type,
+  )
+  .with_text(warning_command_body(model, command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WarningCommandFinished(body))
+      Err(_) => emit(WarningCommandFailed)
     }
   })
 }
@@ -9283,6 +9349,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           warnings_loaded: loaded,
           warning_rows: rows,
+          warning_action_guid: if rows.length() > 0 {
+            rows[0].warning_guid
+          } else {
+            ""
+          },
           warning_missing_table_count: missing_table_count,
           warning_note: if loaded {
             "已加载 PostgreSQL 观察型预警 · 不写入目标告警/工单 · 空源表 " +
@@ -9300,6 +9371,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           warnings_loaded: false,
           warning_rows: [],
+          warning_action_guid: "",
           warning_note: "预警读模型不可用 · 使用设计快照",
         },
       )
@@ -9308,6 +9380,67 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, warning_rule_count: if loaded { count } else { "0" } })
     }
     WarningRulesLoadFailed => (none, { ..model, warning_rule_count: "0" })
+    ResolveWarning =>
+      if model.warning_action_guid == "" ||
+        model.warning_action_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_warning_command(emit, model, "resolve"),
+          {
+            ..model,
+            warning_action_state: "pending",
+            warning_action_note: "正在写入告警处理命令…",
+          },
+        )
+      }
+    IgnoreWarning =>
+      if model.warning_action_guid == "" ||
+        model.warning_action_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_warning_command(emit, model, "ignore"),
+          {
+            ..model,
+            warning_action_state: "pending",
+            warning_action_note: "正在写入告警忽略命令…",
+          },
+        )
+      }
+    WarningCommandFinished(body) => {
+      let (loaded, state, guid, note) = warning_command_from_body(body)
+      (
+        if loaded {
+          load_warnings(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          warning_action_state: if loaded {
+            state
+          } else {
+            "error"
+          },
+          warning_action_guid: if loaded {
+            guid
+          } else {
+            model.warning_action_guid
+          },
+          warning_action_note: note,
+        },
+      )
+    }
+    WarningCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          warning_action_state: "error",
+          warning_action_note: "告警处理命令服务不可用或拒绝了请求",
+        },
+      )
     AttachmentsLoaded(body) => {
       let (loaded, rows, total, missing) = attachments_from_body(body)
       (
@@ -15466,7 +15599,7 @@ fn warning_runtime_table(model : Model) -> @html.Html {
     if model.warning_rows.length() == 0 {
       rows.push([
         "—", "—", "本次源导出没有可观察预警", "—", "—", "—",
-        "imported_or_empty",
+        "imported_or_empty", "imported_or_empty",
       ])
     } else {
       for row in model.warning_rows {
@@ -15478,12 +15611,14 @@ fn warning_runtime_table(model : Model) -> @html.Html {
           row.detail,
           row.severity,
           row.status,
+          row.source_kind,
         ])
       }
     }
     data_table(
       [
         "规则", "规则名称", "对象", "标题", "详情", "级别", "状态",
+        "来源",
       ],
       rows,
     )
@@ -15491,16 +15626,16 @@ fn warning_runtime_table(model : Model) -> @html.Html {
     data_table(
       [
         "预警编号", "类型", "项目 / 对象", "预警内容", "触发时间",
-        "责任人", "状态",
+        "责任人", "状态", "来源",
       ],
       [
         [
           "WARN-260713-006", "项目延期", "成都和锦里", "2# 楼砌体较计划晚 4 天",
-          "今天 09:18", "陈志强", "待处理",
+          "今天 09:18", "陈志强", "待处理", "设计快照",
         ],
         [
           "WARN-260712-011", "成本偏差", "成都和锦里", "建安成本超目标 8.4%",
-          "昨天 16:42", "李明金", "进行中",
+          "昨天 16:42", "李明金", "进行中", "设计快照",
         ],
       ],
     )
@@ -15508,7 +15643,7 @@ fn warning_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn warning_view(model : Model) -> @html.Html {
+fn warning_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let open_total = if model.warnings_loaded {
     model.warning_rows.length().to_string()
   } else {
@@ -15519,7 +15654,16 @@ fn warning_view(model : Model) -> @html.Html {
     "ANALYSIS / WARNINGS",
     "集中处理成本偏差、项目延期、资金缺口、供应商和发票异常。",
     [
-      button(class="erp-secondary-btn", "全部标记已读"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ResolveWarning),
+        "处理当前告警",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(IgnoreWarning),
+        "忽略当前告警",
+      ),
       button(class="erp-primary-btn", "配置规则"),
     ],
     div <| [
@@ -15537,7 +15681,11 @@ fn warning_view(model : Model) -> @html.Html {
           " · 规则 " +
           model.warning_rule_count +
           " · 空源表 " +
-          model.warning_missing_table_count,
+          model.warning_missing_table_count +
+          " · 命令 " +
+          model.warning_action_state +
+          " · " +
+          model.warning_action_note,
         ),
       ]),
       div(class="erp-stat-grid") <| [
@@ -18488,7 +18636,7 @@ fn business_view(
       "/loans/LOAN-260713-001" => loan_editor_view(emit, model, true)
       "/reports" => reports_view(emit, model)
       "/report-builder" => report_builder_view(emit, model)
-      "/warning" => warning_view(model)
+      "/warning" => warning_view(emit, model)
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)
       "/inbox" => inbox_view(model)

@@ -571,6 +571,10 @@ def handler_factory(
                     REPORT_PATH_PREFIX + "/templates",
                     REPORT_PATH_PREFIX + "/templates/run",
                 }
+                or re.fullmatch(
+                    r"/api/company/warning/[A-Za-z0-9_.:-]{1,128}/(resolve|ignore)",
+                    parsed.path,
+                )
                 or parsed.path == INVOICE_PATH_PREFIX
                 or parsed.path.startswith(INVOICE_PATH_PREFIX + "/")
                 or parsed.path == SOURCE_COST_PAYMENT_PATH_PREFIX

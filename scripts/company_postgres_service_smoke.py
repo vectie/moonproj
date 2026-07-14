@@ -157,6 +157,7 @@ def main() -> int:
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
             or "report_template_command" not in payload.get("capabilities", [])
             or "report_template_run" not in payload.get("capabilities", [])
+            or "warning_command" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
             or "contract_source_command_alias" not in payload.get("capabilities", [])
@@ -1172,15 +1173,20 @@ def main() -> int:
         if (
             status != 200
             or warning_badge_payload is None
-            or warning_badge_data.get("openTotal") != 1
-            or len(warning_badge_data.get("top", [])) != 1
-            or warning_badge_data.get("top", [{}])[0].get("ruleCode") != "W005"
+            or warning_badge_data.get("openTotal") not in {0, 1}
+            or (
+                warning_badge_data.get("openTotal") == 1
+                and (
+                    len(warning_badge_data.get("top", [])) != 1
+                    or warning_badge_data.get("top", [{}])[0].get("ruleCode") != "W005"
+                )
+            )
             or warning_badge_payload.get("persisted") is not False
             or warning_badge_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source warning badge read failed: {status} {warning_badge_payload}")
         status, warning_list_payload = request(
-            args.port, "/api/company/warning?status=open", token=token,
+            args.port, "/api/company/warning?status=all", token=token,
         )
         warning_list_data = (warning_list_payload or {}).get("data", {})
         if (
@@ -1192,6 +1198,52 @@ def main() -> int:
             or warning_list_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source warning list read failed: {status} {warning_list_payload}")
+        warning_guid = warning_list_data.get("rows", [{}])[0].get("warningGuid")
+        if not isinstance(warning_guid, str) or not warning_guid:
+            raise SmokeError(f"source warning guid missing: {warning_list_payload}")
+        warning_command_key = "warning-resolve-rabbita-v1"
+        status, warning_command_result = request(
+            args.port,
+            f"/api/company/warning/{warning_guid}/resolve",
+            token=token,
+            method="POST",
+            payload={"note": "warning command smoke"},
+            idempotency_key=warning_command_key,
+        )
+        if (
+            status != 200
+            or warning_command_result is None
+            or warning_command_result.get("warning", {}).get("state") != "resolved"
+            or warning_command_result.get("warning", {}).get("authorizing") is not False
+            or warning_command_result.get("warning", {}).get("cashEffect") is not False
+        ):
+            raise SmokeError(f"warning resolve command failed: {status} {warning_command_result}")
+        status, warning_command_replay = request(
+            args.port,
+            f"/api/company/warning/{warning_guid}/resolve",
+            token=token,
+            method="POST",
+            payload={"note": "warning command smoke"},
+            idempotency_key=warning_command_key,
+        )
+        if (
+            status != 200
+            or warning_command_replay is None
+            or warning_command_replay.get("idempotent_replay") is not True
+        ):
+            raise SmokeError(f"warning resolve replay failed: {status} {warning_command_replay}")
+        status, warning_open_after_command = request(
+            args.port, "/api/company/warning?status=open", token=token,
+        )
+        if (
+            status != 200
+            or warning_open_after_command is None
+            or warning_open_after_command.get("data", {}).get("total") != 0
+            or warning_open_after_command.get("command_projection_count") != 1
+        ):
+            raise SmokeError(
+                f"warning resolve readback failed: {status} {warning_open_after_command}"
+            )
         status, warning_rules_payload = request(
             args.port, "/api/company/warning/rules", token=token,
         )
@@ -1200,7 +1252,7 @@ def main() -> int:
             status != 200
             or warning_rules_payload is None
             or len(warning_rules_data.get("data", [])) != 12
-            or next((row for row in warning_rules_data["data"] if row.get("ruleCode") == "W005"), {}).get("openCount") != 1
+            or next((row for row in warning_rules_data["data"] if row.get("ruleCode") == "W005"), {}).get("openCount") != 0
             or warning_rules_payload.get("persisted") is not False
         ):
             raise SmokeError(f"source warning rules read failed: {status} {warning_rules_payload}")
@@ -4752,6 +4804,7 @@ def main() -> int:
                     "plan_task_command_cash_effect": plan_task_delete_result.get("task", {}).get("cash_effect"),
                     "warning_open_rows": warning_badge_data.get("openTotal"),
                     "warning_rule_rows": len(warning_rules_data.get("data", [])),
+                    "warning_command_state": warning_command_result.get("warning", {}).get("state"),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),
                     "supplier_risk_source_provider_rows": supplier_risk_payload.get("source_coverage", {}).get("srm_provider"),
                     "admin_audit_rows": 2,

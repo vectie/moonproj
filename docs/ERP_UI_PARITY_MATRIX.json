@@ -46,7 +46,8 @@
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
     "connected_tender_command_form": 1,
-    "connected_warning_read": 2,
+    "connected_warning_command_form": 1,
+    "connected_warning_read": 1,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
     "public": 1,
@@ -89,7 +90,8 @@
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
     "connected_tender_command": 1,
-    "connected_warning_read": 2,
+    "connected_warning_command": 1,
+    "connected_warning_read": 1,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
     "read_only_fixture_no_source_api": 2
@@ -703,13 +705,13 @@
       "source_redirect": null,
       "public": false,
       "target_function": "warning_view",
-      "target_state": "connected_warning_read",
+      "target_state": "connected_warning_command_form",
       "source_api_module": "warning",
       "source_api_handler_count": 18,
       "source_api_read_handler_count": 7,
       "source_api_mutation_handler_count": 11,
-      "api_state": "connected_warning_read",
-      "required_next": "accept_browser_warning_scenario_and_production_identity"
+      "api_state": "connected_warning_command",
+      "required_next": "accept_browser_warning_command_scenario_and_warning_owner"
     },
     {
       "path": "/warning-rules",
@@ -4429,8 +4431,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_command",
+      "required_next": "accept_browser_warning_command_scenario_and_warning_owner"
     },
     {
       "module": "warning",
@@ -4440,8 +4442,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_command",
+      "required_next": "accept_browser_warning_command_scenario_and_warning_owner"
     },
     {
       "module": "warning",

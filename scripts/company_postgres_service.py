@@ -183,7 +183,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/fund/{plans,gap-analysis,dispatches}`` (GET, source-compatible
   non-authorizing liquidity-plan reads)
 * ``/api/company/warning/{badge,'',rules,scans,custom-rules,rule-templates,tickets/mine}``
-  (GET, observed source-quality reads)
+  (GET, observed source-quality reads; resolve/ignore are local state commands
+  that overlay imported findings without mutating source rows)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
 * ``/api/company/rbac/me`` (GET, source identity/role observation; never an
   authority decision)
@@ -561,6 +562,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "report_template_read",
             "report_template_command",
             "report_template_run",
+            "warning_command",
         ],
         "schema_version": schema_version,
         "raw_records": raw,
@@ -632,6 +634,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "report_template_read",
             "report_template_command",
             "report_template_run",
+            "warning_command",
         ],
         "schema_version": expected_schema_version,
     }
@@ -16481,16 +16484,244 @@ def _fund_projection_rows(
     return result
 
 
-def _warning_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
+def _warning_source_metadata(
+    coverage: dict[str, int],
+    *,
+    command_projection_count: int = 0,
+) -> dict[str, Any]:
     return {
-        "source_kind": "observed_imported_or_empty",
+        "source_kind": (
+            "observed_imported_or_command"
+            if command_projection_count
+            else "observed_imported_or_empty"
+        ),
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
         "persisted": False,
+        "command_projection_count": command_projection_count,
     }
+
+
+def _warning_command_states(
+    pool: PsqlPool,
+    max_rows: int,
+) -> dict[str, dict[str, Any]]:
+    lines = query_lines(
+        pool,
+        f"""
+        SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+               revision::text,
+               encode(convert_to(payload::text, 'UTF8'), 'hex')
+        FROM (
+          SELECT DISTINCT ON (aggregate_type, aggregate_id)
+                 aggregate_type, aggregate_id, revision, payload
+          FROM company_aggregate_projection
+          WHERE aggregate_type = 'warning_state'
+          ORDER BY aggregate_type, aggregate_id, revision DESC
+        ) latest
+        ORDER BY aggregate_id
+        LIMIT {max(max_rows, 500)}
+        """,
+    )
+    result: dict[str, dict[str, Any]] = {}
+    for line in lines:
+        fields = line.split("|")
+        if len(fields) != 3:
+            raise ServiceError("unexpected warning command projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid warning command projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("warning command projection is not an object")
+        result[decode_hex(fields[0])] = {
+            "warning_guid": decode_hex(fields[0]),
+            "revision": int(fields[1]),
+            "payload": payload,
+        }
+    return result
+
+
+def _warning_overlay_states(
+    findings: list[dict[str, Any]],
+    states: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    for finding in findings:
+        state = states.get(str(finding.get("warningGuid") or ""))
+        if state is None:
+            continue
+        payload = state["payload"]
+        finding.update(
+            {
+                "status": str(payload.get("state") or "open"),
+                "resolvedAt": payload.get("changed_at"),
+                "resolvedBy": payload.get("actor_id"),
+                "resolvedNote": payload.get("note"),
+                "sourceKind": "observed_imported_or_command",
+                "commandProjection": True,
+                "persisted": True,
+            }
+        )
+    return findings
+
+
+def warning_state_command(
+    pool: PsqlPool,
+    *,
+    warning_guid: str,
+    command_type: str,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if command_type not in {"resolve", "ignore"}:
+        raise CommandRejected("unsupported warning command", 404)
+    if not IDENTIFIER.fullmatch(warning_guid):
+        raise CommandRejected("warning guid contains unsupported characters", 422)
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    note = body.get("note", "")
+    if not isinstance(note, str) or len(note.strip()) > 1024:
+        raise CommandRejected("note must be text", 422)
+    request = {
+        "warning_guid": warning_guid,
+        "command_type": command_type,
+        "note": note.strip(),
+        "actor_id": actor_id,
+    }
+    changed_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("warning command receipt has no result")
+        return {"command": existing, "warning": result, "idempotent_replay": True}
+
+    coverage, rows = _warning_rows_and_coverage(pool, 500)
+    findings = _warning_findings(rows)
+    if not any(str(item.get("warningGuid")) == warning_guid for item in findings):
+        raise CommandRejected("告警不存在或未由当前源观察产生", 404)
+    states = _warning_command_states(pool, 500)
+    current = states.get(warning_guid)
+    if current is not None and str(current["payload"].get("state") or "") != "open":
+        raise CommandRejected("告警已处理", 409)
+
+    next_state = "resolved" if command_type == "resolve" else "ignored"
+    event_id = f"warning:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "warning",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": "warning_state",
+            "aggregate_id": warning_guid,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    result_json = json.dumps(
+        {
+            "warningGuid": warning_guid,
+            "ruleCode": next(
+                str(item.get("ruleCode") or "")
+                for item in findings
+                if str(item.get("warningGuid")) == warning_guid
+            ),
+            "state": next_state,
+            "status": next_state,
+            "note": note.strip(),
+            "changed_at": changed_at,
+            "sourceKind": "command",
+            "commandProjection": True,
+            "persisted": True,
+            "authorizing": False,
+            "providerExecution": False,
+            "cashEffect": False,
+            "accountingEffect": False,
+            "taxEffect": False,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal('warning:' + warning_guid)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_revision integer;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'warning_state'
+        AND p.aggregate_id = {sql_literal(warning_guid)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF current_payload IS NOT NULL AND current_payload->>'state' <> 'open' THEN
+        RAISE EXCEPTION 'warning is already handled';
+      END IF;
+      SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = 'warning_state'
+        AND p.aggregate_id = {sql_literal(warning_guid)};
+      INSERT INTO company_aggregate_projection(
+        aggregate_type, aggregate_id, revision, payload, source_event_id
+      ) VALUES (
+        'warning_state', {sql_literal(warning_guid)}, next_revision,
+        {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', {sql_literal(next_state)}, 'source_kind', 'command',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)},
+          'changed_at', {sql_literal(changed_at)}
+        ), {sql_literal(event_id)}
+      );
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', {sql_literal('warning.' + command_type)},
+          'aggregate_type', 'warning_state', 'aggregate_id', {sql_literal(warning_guid)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', {sql_literal(next_state)}, 'revision', next_revision,
+          'authorizing', false, 'provider_execution', false,
+          'cash_effect', false, 'accounting_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      UPDATE company_record
+      SET payload = payload || jsonb_build_object('result', {sql_literal(result_json)}::jsonb)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    COMMIT;
+    """
+    pool.execute(sql)
+    receipt = _existing_command(pool, idempotency_key)
+    if receipt is None:
+        raise ServiceError("warning command receipt was not persisted")
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("warning command receipt has no result")
+    return {"command": receipt, "warning": result, "idempotent_replay": False}
 
 
 def _cashflow_month(value: Any) -> str | None:
@@ -18142,6 +18373,8 @@ def warning_source_list(
             raise ValueError(f"invalid {label}")
     coverage, rows = _warning_rows_and_coverage(pool, max_rows)
     findings = _warning_findings(rows)
+    command_states = _warning_command_states(pool, max_rows)
+    _warning_overlay_states(findings, command_states)
     if status is not None and status != "all":
         findings = [item for item in findings if item["status"] == status]
     if rule_code is not None:
@@ -18154,7 +18387,10 @@ def warning_source_list(
         "success": True,
         "code": 0,
         "data": {"total": len(findings), "rows": findings[:max_rows]},
-        **_warning_source_metadata(coverage),
+        **_warning_source_metadata(
+            coverage,
+            command_projection_count=len(command_states),
+        ),
     }
 
 
@@ -18187,9 +18423,12 @@ def warning_source_badge(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
 def warning_source_rules(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     coverage, rows = _warning_rows_and_coverage(pool, max_rows)
     findings = _warning_findings(rows)
+    command_states = _warning_command_states(pool, max_rows)
+    _warning_overlay_states(findings, command_states)
     counts: dict[str, int] = {}
     for finding in findings:
-        counts[finding["ruleCode"]] = counts.get(finding["ruleCode"], 0) + 1
+        if finding.get("status") == "open":
+            counts[finding["ruleCode"]] = counts.get(finding["ruleCode"], 0) + 1
     data = [
         {
             "ruleCode": code,
@@ -18202,7 +18441,15 @@ def warning_source_rules(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
         }
         for code, name, severity, biz_type in WARNING_RULE_DEFINITIONS
     ]
-    return {"success": True, "code": 0, "data": data, **_warning_source_metadata(coverage)}
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        **_warning_source_metadata(
+            coverage,
+            command_projection_count=len(command_states),
+        ),
+    }
 
 
 def warning_source_empty_read(pool: PsqlPool, table: str, max_rows: int) -> dict[str, Any]:
@@ -24202,6 +24449,13 @@ def handler_factory(
                     command_family = "report_template_run"
                     command_type = "run"
                     aggregate_id = None
+                elif re.fullmatch(
+                    r"/api/company/warning/[A-Za-z0-9_.:-]{1,128}/(resolve|ignore)",
+                    parsed.path,
+                ):
+                    command_family = "warning"
+                    aggregate_id = parsed.path.split("/")[-2]
+                    command_type = parsed.path.rsplit("/", 1)[-1]
                 elif parsed.path in {
                     "/api/company/source/invoice/in",
                     "/api/company/source/invoice/out",
@@ -24644,6 +24898,15 @@ def handler_factory(
                     )
                 elif command_family == "report_template_run":
                     result = report_template_run(pool, body, max_response_rows)
+                elif command_family == "warning":
+                    result = warning_state_command(
+                        pool,
+                        warning_guid=aggregate_id or "",
+                        command_type=command_type,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 else:
                     result = expense_command(
                         pool,

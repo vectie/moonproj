@@ -82,8 +82,10 @@ fund plans, gap analysis, and dispatch reads with explicit empty-source
 provenance; fund-plan and dispatch mutations remain gated.
 The `/warning` and `/warning-rules` screens now load observed source warning
 badge/list/rule reads. Imported project/cost evidence yields one W005 finding;
-the adapter marks observations non-persistent and non-authorizing, while
-scans, rule writes, tickets, and notifications remain gated. The authenticated
+the adapter marks observations non-authorizing and keeps imported findings
+read-only. Resolve/ignore actions write only a local `warning_state` overlay
+with replay/audit evidence; scans, rule writes, tickets, and notifications
+remain gated. The authenticated
 `/attachments` screen now reads source attachment metadata and statistics from
 PostgreSQL; the export has no attachment rows or binary storage, so the empty
 state is explicit and upload/download/OCR remain gated.

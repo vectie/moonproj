@@ -172,6 +172,33 @@ def main() -> int:
         )
         if status != 200 or not isinstance(payload, dict) or payload.get("target") != "postgresql":
             raise SmokeError(f"trusted session forwarding failed: {status}")
+        status, _headers, warning_list = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/warning?status=all",
+            headers={"Cookie": cookie},
+        )
+        warning_rows = (warning_list or {}).get("data", {}).get("rows", [])
+        if status != 200 or not isinstance(warning_list, dict) or len(warning_rows) != 1:
+            raise SmokeError(f"trusted warning read failed: {status} {warning_list}")
+        warning_guid = warning_rows[0].get("warningGuid")
+        if warning_rows[0].get("status") == "open":
+            status, _headers, warning_command = request(
+                args.gateway_port,
+                "POST",
+                f"/api/company/warning/{warning_guid}/resolve",
+                headers={"Cookie": cookie},
+                payload={
+                    "note": "warning command smoke",
+                    "idempotency_key": "warning-resolve-gateway-v1",
+                },
+            )
+            if (
+                status != 200
+                or not isinstance(warning_command, dict)
+                or warning_command.get("warning", {}).get("state") != "resolved"
+            ):
+                raise SmokeError(f"trusted warning command failed: {status} {warning_command}")
         smoke_suffix = str(time.time_ns())
         report_template_body = {
             "templateName": "网关烟测合同报表",

@@ -224,7 +224,11 @@ def match_target(
         if path == "/fund/plan" and function == "fund_plan_view":
             return function, "connected_fund_read"
         if path in {"/warning", "/warning-rules"} and function in {"warning_view", "warning_rules_view"}:
-            return function, "connected_warning_read"
+            return function, (
+                "connected_warning_command_form"
+                if path == "/warning"
+                else "connected_warning_read"
+            )
         if path == "/attachments" and function == "attachments_view":
             return function, "connected_attachment_read"
         if path == "/marketing" and function == "marketing_view":
@@ -386,6 +390,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_fund_scenario_and_production_identity"
     if target_state == "connected_warning_read":
         return "accept_browser_warning_scenario_and_production_identity"
+    if target_state == "connected_warning_command_form":
+        return "accept_browser_warning_command_scenario_and_warning_owner"
     if target_state == "connected_attachment_read":
         return "accept_browser_attachment_scenario_and_production_identity"
     if target_state == "connected_attachment_boundary":
@@ -860,6 +866,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_warning_read", "accept_browser_warning_scenario_and_production_identity"
     if (
+        handler["module"] == "warning"
+        and handler["method"] == "POST"
+        and handler["path"] in {"/:guid/resolve", "/:guid/ignore"}
+    ):
+        return "connected_warning_command", "accept_browser_warning_command_scenario_and_warning_owner"
+    if (
         handler["module"] == "attachment"
         and handler["method"] == "GET"
         and handler["path"] in {"/list", "/all", "/stats"}
@@ -1084,6 +1096,8 @@ def build_matrix(
             api_state = "connected_fund_read"
         elif target_state == "connected_warning_read":
             api_state = "connected_warning_read"
+        elif target_state == "connected_warning_command_form":
+            api_state = "connected_warning_command"
         elif target_state == "connected_attachment_read":
             api_state = "connected_attachment_read"
         elif target_state == "connected_marketing_read":

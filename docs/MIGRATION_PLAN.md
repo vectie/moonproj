@@ -413,13 +413,17 @@ result is explicitly cash/accounting/tax-neutral. Browser finance-owner
 acceptance, production identity, cash release, settlement, accounting, tax,
 and owner acceptance remain gates.
 
-The warning center is now an observed source-quality read family. `/warning`
-and `/warning-rules` load `/api/company/warning/badge`, the filtered list, and
-rule summaries; scans, custom rules, templates, and tickets remain explicit
-empty reads because their source tables are absent. The current export yields
-one deterministic W005 observation from project/cost evidence. Findings are
-not persisted or authorizing, and warning/ticket mutations, notifications,
-production identity, and owner acceptance remain gates.
+The warning center is now an observed source-quality read family with a bounded
+state-command overlay. `/warning` and `/warning-rules` load
+`/api/company/warning/badge`, the filtered list, and rule summaries; scans,
+custom rules, templates, and tickets remain explicit empty reads because their
+source tables are absent. The current export yields one deterministic W005
+observation from project/cost evidence. Imported findings stay read-only;
+resolve/ignore writes only a `warning_state` command projection, idempotency
+receipt, and audit event, with no notification, ticket, provider, cash,
+accounting, or tax effect. Production identity, browser interaction, warning
+owner acceptance, rule configuration, scans, notifications, and tickets remain
+gates.
 
 The attachment center now has a bounded source-metadata read family. `/attachments`
 loads `/api/company/attachments/all` and `/api/company/attachments/stats`, with
