@@ -241,6 +241,26 @@ It is intentionally a local development adapter: it binds to loopback and
 only allow-lists the connected expense, contract, payment-application, tender,
 supplier, split, and sales POST commands; it is not the production deployment.
 
+For an identity-bound rehearsal, use the gateway's opt-in trusted-upstream
+mode instead of fixture credentials. The upstream gateway must send
+`X-Moonproj-Identity`, `X-Moonproj-Identity-Timestamp`, and
+`X-Moonproj-Identity-Signature`, where the signature is an HMAC-SHA256 over
+`<user_code>:<unix_timestamp>` using the environment named by
+`--trusted-identity-secret-env`. The gateway accepts assertions only within
+60 seconds, verifies the enabled source `sys_user` through PostgreSQL, and
+binds the HttpOnly session actor to that source user:
+
+```sh
+export MOONPROJ_UPSTREAM_IDENTITY_SECRET=choose-a-reviewed-upstream-secret
+python3 scripts/company_postgres_dev_gateway.py \
+  --public-dir /path/to/warren/dist --port 4173 --service-port 4174 \
+  --trusted-identity-secret-env MOONPROJ_UPSTREAM_IDENTITY_SECRET
+```
+
+This is an integration seam for the managed identity gateway, not a claim
+that the local in-memory session store, issuer/audience validation, rotation,
+or production owner approval is complete.
+
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,
 compact KPI cards, dense data tables, and the source login gradient.

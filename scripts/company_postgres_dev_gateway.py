@@ -2,13 +2,17 @@
 """Serve the local Rabbita surface through the authenticated company service.
 
 The browser-side Rabbita HTTP helper intentionally has no arbitrary-header
-API. This private development gateway keeps the service bearer token on the
-server, establishes an in-memory HttpOnly session, signs its actor assertion,
-converts a JSON ``idempotency_key`` field into the required
-``Idempotency-Key`` header, and forwards only the company
+API. This private gateway keeps the service bearer token on the server,
+establishes an in-memory HttpOnly session, signs its actor assertion, converts
+a JSON ``idempotency_key`` field into the required ``Idempotency-Key`` header,
+and forwards only the company
 read/expense/contract/payment-application/tender/supplier/supplier-provider/supplier-risk/split/sales/delivery/
 loan/reports paths.
-It must bind to a private address and is not a production gateway.
+The default fixture mode is development-only. An opt-in trusted-upstream mode
+accepts a short-lived HMAC-signed identity assertion, verifies that the source
+PostgreSQL profile exists and is enabled, and binds the session actor to that
+source user. It still needs a managed session store, issuer/audience policy,
+rotation, and owner approval before production deployment.
 """
 
 from __future__ import annotations
@@ -22,12 +26,13 @@ import os
 import re
 import secrets
 import sys
+import time
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 
 class GatewayError(RuntimeError):
@@ -46,6 +51,39 @@ DELIVERY_PATH_PREFIX = "/api/company/delivery"
 LOAN_PATH_PREFIX = "/api/company/loans"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
+TRUSTED_IDENTITY_HEADER = "X-Moonproj-Identity"
+TRUSTED_IDENTITY_TIMESTAMP_HEADER = "X-Moonproj-Identity-Timestamp"
+TRUSTED_IDENTITY_SIGNATURE_HEADER = "X-Moonproj-Identity-Signature"
+TRUSTED_IDENTITY_MAX_SKEW_SECONDS = 60
+
+
+def verify_trusted_identity(
+    user_code: str,
+    timestamp: str,
+    signature: str,
+    secret: str,
+    *,
+    now: int | None = None,
+) -> bool:
+    """Verify a short-lived upstream identity assertion without logging it."""
+
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", user_code):
+        return False
+    if not re.fullmatch(r"[0-9]{1,20}", timestamp) or not re.fullmatch(r"[0-9a-f]{64}", signature):
+        return False
+    try:
+        issued_at = int(timestamp)
+    except ValueError:
+        return False
+    current = int(time.time()) if now is None else now
+    if abs(current - issued_at) > TRUSTED_IDENTITY_MAX_SKEW_SECONDS:
+        return False
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        f"{user_code}:{timestamp}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
 
 
 def proxy_request(
@@ -115,6 +153,7 @@ def handler_factory(
     dev_password: str,
     actor_id: str,
     actor_signing_secret: str,
+    trusted_identity_secret: str | None,
 ) -> type[SimpleHTTPRequestHandler]:
     sessions: dict[str, str] = {}
     session_lock = RLock()
@@ -134,6 +173,57 @@ def handler_factory(
                 return None
             with session_lock:
                 return sessions.get(morsel.value)
+
+        def _trusted_identity_actor(self) -> str | None:
+            if trusted_identity_secret is None:
+                return None
+            user_code = self.headers.get(TRUSTED_IDENTITY_HEADER, "").strip()
+            timestamp = self.headers.get(TRUSTED_IDENTITY_TIMESTAMP_HEADER, "").strip()
+            signature = self.headers.get(TRUSTED_IDENTITY_SIGNATURE_HEADER, "").strip().lower()
+            if not verify_trusted_identity(
+                user_code,
+                timestamp,
+                signature,
+                trusted_identity_secret,
+            ):
+                return None
+            try:
+                status, _content_type, body = proxy_request(
+                    service_host=service_host,
+                    service_port=service_port,
+                    token=token,
+                    method="GET",
+                    path="/api/company/auth/me?userCode=" + quote(user_code, safe=""),
+                    body=None,
+                    idempotency_key=None,
+                    actor_id=user_code,
+                    actor_signing_secret=actor_signing_secret,
+                )
+                payload = json.loads(body.decode("utf-8"))
+                profile = payload.get("data") if isinstance(payload, dict) else None
+                if status != 200 or not isinstance(profile, dict) or profile.get("enabled") is not True:
+                    return None
+            except (GatewayError, OSError, UnicodeDecodeError, json.JSONDecodeError):
+                return None
+            return user_code
+
+        def _establish_session(self, actor: str, identity_source: str) -> None:
+            session_token = secrets.token_urlsafe(32)
+            with session_lock:
+                sessions[session_token] = actor
+            cookie_flags = "HttpOnly; Path=/; SameSite=Strict"
+            if identity_source == "trusted_upstream":
+                cookie_flags += "; Secure; Max-Age=900"
+            response(
+                self,
+                200,
+                {
+                    "authenticated": True,
+                    "actor_id": actor,
+                    "identity_source": identity_source,
+                },
+                {"Set-Cookie": f"{SESSION_COOKIE}={session_token}; {cookie_flags}"},
+            )
 
         def _require_session(self) -> str | None:
             actor = self._session_actor()
@@ -193,7 +283,15 @@ def handler_factory(
         def do_OPTIONS(self) -> None:  # noqa: N802
             self.send_response(204)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key")
+            self.send_header(
+                "Access-Control-Allow-Headers",
+                "Content-Type, Idempotency-Key, "
+                + TRUSTED_IDENTITY_HEADER
+                + ", "
+                + TRUSTED_IDENTITY_TIMESTAMP_HEADER
+                + ", "
+                + TRUSTED_IDENTITY_SIGNATURE_HEADER,
+            )
             self.end_headers()
 
         def _serve_index(self) -> None:
@@ -269,6 +367,17 @@ def handler_factory(
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             if parsed.path == "/api/session/login":
+                if trusted_identity_secret is not None:
+                    actor = self._trusted_identity_actor()
+                    if actor is None:
+                        response(
+                            self,
+                            401,
+                            {"authenticated": False, "error": "trusted identity assertion rejected"},
+                        )
+                    else:
+                        self._establish_session(actor, "trusted_upstream")
+                    return
                 try:
                     body = self._json_body()
                 except GatewayError as error:
@@ -289,20 +398,7 @@ def handler_factory(
                 ):
                     response(self, 401, {"authenticated": False, "error": "invalid credentials"})
                     return
-                session_token = secrets.token_urlsafe(32)
-                with session_lock:
-                    sessions[session_token] = actor_id
-                response(
-                    self,
-                    200,
-                    {"authenticated": True, "actor_id": actor_id, "user_code": supplied_user},
-                    {
-                        "Set-Cookie": (
-                            f"{SESSION_COOKIE}={session_token}; HttpOnly; Path=/; "
-                            "SameSite=Strict"
-                        )
-                    },
-                )
+                self._establish_session(actor_id, "development_fixture")
                 return
             if parsed.path == "/api/session/logout":
                 cookie = SimpleCookie()
@@ -392,6 +488,11 @@ def main() -> int:
         "--actor-signing-secret-env",
         default="MOONPROJ_ACTOR_SIGNING_SECRET",
     )
+    parser.add_argument(
+        "--trusted-identity-secret-env",
+        default=None,
+        help="optional env name for the signed upstream identity mode",
+    )
     args = parser.parse_args()
     if args.host in {"0.0.0.0", "::", "[::]"}:
         parser.error("development gateway must bind privately")
@@ -402,7 +503,21 @@ def main() -> int:
         parser.error(f"service token environment variable is not set: {args.service_token_env}")
     dev_user = os.environ.get(args.dev_user_env, "")
     dev_password = os.environ.get(args.dev_password_env, "")
-    if not dev_user or not dev_password:
+    if args.trusted_identity_secret_env is not None and not re.fullmatch(
+        r"[A-Z][A-Z0-9_]{2,127}", args.trusted_identity_secret_env
+    ):
+        parser.error("--trusted-identity-secret-env must be an uppercase environment variable name")
+    trusted_identity_secret = (
+        os.environ.get(args.trusted_identity_secret_env, "")
+        if args.trusted_identity_secret_env is not None
+        else ""
+    )
+    if args.trusted_identity_secret_env is not None and not trusted_identity_secret:
+        parser.error(
+            "trusted identity secret environment variable is not set: "
+            f"{args.trusted_identity_secret_env}"
+        )
+    if args.trusted_identity_secret_env is None and (not dev_user or not dev_password):
         parser.error(
             "development session credentials are not set: "
             f"{args.dev_user_env} and {args.dev_password_env}"
@@ -426,6 +541,7 @@ def main() -> int:
             dev_password=dev_password,
             actor_id=args.actor_id,
             actor_signing_secret=actor_signing_secret,
+            trusted_identity_secret=trusted_identity_secret or None,
         ),
     )
     print(f"company development gateway listening on http://{args.host}:{args.port}", flush=True)

@@ -47,10 +47,18 @@ organization.
   non-authorizing RBAC current-user/role/catalog observations, the missing-user
   and missing-role 404 paths, and the `limingjin` initiated-document counts and
   identities.
+- `scripts/company_postgres_dev_gateway.py` now has an opt-in trusted-upstream
+  identity mode. It verifies a short-lived HMAC assertion, confirms the
+  asserted user exists and is enabled through `/api/company/auth/me`, then
+  binds the HttpOnly session actor to that source `user_code`. The dedicated
+  gateway smoke covers valid login, PostgreSQL forwarding, stale-assertion
+  rejection, and missing-session rejection without printing credential values.
 
 ## Remaining gates
 
 Profile updates, password changes, preference writes, role administration,
-production identity/token binding, browser acceptance, and security-owner
-approval remain separate gates. The local adapter is evidence of source
-translation, not authorization to mutate identity data or approve workflows.
+managed issuer/audience validation, session-store durability, token rotation,
+browser acceptance, and security-owner approval remain separate gates. The
+trusted-upstream mode is an identity-bound rehearsal seam; it is evidence of
+source translation and gateway binding, not authorization to mutate identity
+data or approve workflows.

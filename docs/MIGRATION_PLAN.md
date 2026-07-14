@@ -679,6 +679,19 @@ list/catalog routes and 404 for an unknown role detail. Role writes, assignments
 production identity/token binding, owner reconciliation, and the complete
 credential-safe export remain open gates.
 
+**Trusted-upstream identity rehearsal checkpoint (2026-07-14).** The local
+gateway now has an opt-in identity-bound mode for the production integration
+seam. It accepts `X-Moonproj-Identity`, a Unix timestamp, and an HMAC-SHA256
+signature over `user_code:timestamp`; assertions older than 60 seconds or with
+invalid signatures are rejected. Before creating the HttpOnly session, the
+gateway calls the authenticated PostgreSQL profile read and requires the
+asserted `sys_user` to exist and be enabled. The resulting session actor is
+the source `user_code`, not the former fixed `rabbita-user` fixture. A dedicated
+smoke verifies valid login/forwarding, stale-assertion rejection, and missing
+session rejection. This materially improves the identity seam, but the local
+session store is still in-memory and the managed issuer/audience, token
+rotation, deployment, and security-owner approval gates remain open.
+
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
 visible Rabbita navigation group through sidebar actions (not direct URL
