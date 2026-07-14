@@ -19,7 +19,8 @@ The request requires a read-only, credential-free export with:
 
 Each rehearsal emits `source-export-request.json` with state
 `awaiting_source_export`. The resulting bundle can be checked by
-`scripts/erp_export_contract.py` before raw staging or domain promotion.
+the MoonBit `cmd/export_contract` through `scripts/erp_export_contract.sh`
+before raw staging or domain promotion.
 
 If a source owner confirms that an absent table is genuinely empty, record it
 through `scripts/erp_empty_disposition.py` and

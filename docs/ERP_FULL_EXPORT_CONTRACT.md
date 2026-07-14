@@ -8,7 +8,7 @@ uses MySQL, so the migration now has a source-export contract that can validate
 a future credential-free MySQL/JSON export without connecting to the database
 or receiving credentials.
 
-`scripts/erp_export_contract.py` verifies:
+`cmd/export_contract`, invoked through `scripts/erp_export_contract.sh`, verifies:
 
 - manifest format and immutable source hash;
 - all table names and safe `tables/<name>.json` paths;
@@ -31,6 +31,10 @@ verified_rows: 120
 state: source_export_incomplete
 promotion_authorized: false
 ```
+
+The MoonBit report is the active contract artifact. It matches the former
+Python checker on the current fixture; the Python implementation is retained
+only as temporary bridge evidence during the remaining runtime port.
 
 Once a complete export is supplied, the same contract can report
 `ready_for_source_import`; it still does not promote rows. The existing

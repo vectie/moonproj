@@ -80,7 +80,7 @@ fi
 mkdir -p "$WORK_DIR"
 "$SCRIPT_DIR/erp_snapshot_export.sh" "$DB_PATH" "$EXPORT_DIR"
 EXPORT_CONTRACT="$WORK_DIR/source-export-contract.json"
-python3 "$SCRIPT_DIR/erp_export_contract.py" \
+"$SCRIPT_DIR/erp_export_contract.sh" \
   "$SCHEMA_PATH" "$EXPORT_DIR" "$EXPORT_CONTRACT"
 echo "source_export_contract=$EXPORT_CONTRACT"
 SCHEMA_GAP="$WORK_DIR/schema-gap.json"

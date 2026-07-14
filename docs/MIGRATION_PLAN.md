@@ -1041,7 +1041,7 @@ no rows are promoted and no cutover is authorized. This confirms that the
 remaining gap is missing source evidence, not an untracked implementation
 backlog. The next source action is to obtain that redacted export (or an
 owner-approved disposition for each absent table), validate it with
-`erp_export_contract.py`, then compare it against the immutable fixture before
+the MoonBit `cmd/export_contract`, then compare it against the immutable fixture before
 any broader staging or workflow promotion.
 
 **Execution-gate decision (2026-07-14 rerun).** A fresh repository audit keeps
@@ -1226,6 +1226,17 @@ and API groups are explicitly tracked
 as fixture, public, or not-connected rather than counted as parity. Workflow definitions are
 connected only as non-authorizing reads; instance/task actions remain gated. That gap,
 rather than additional platform hardening, controls the next work.
+
+**Runtime-language checkpoint (2026-07-15).** The first Python bridge slice has
+been replaced in the active rehearsal path. MoonBit `cmd/export_contract`,
+invoked through `scripts/erp_export_contract.sh`, validates the same manifest,
+table hashes, row counts, primary-key identities, recursive redaction, and
+75-table coverage contract as the former Python checker. Against the current
+fixture it produces an identical contract report: 26 exported tables, 120
+verified rows, 49 missing schema tables, and `source_export_incomplete` with
+promotion and cutover both false. The remaining Python service, gateway, and
+rehearsal adapters stay frozen as bridge evidence until their MoonBit
+equivalents are shadow-compared.
 
 Execute the remainder in this order:
 

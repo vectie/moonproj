@@ -43,7 +43,8 @@ run `scripts/erp_snapshot_export.sh /path/to/backup.db /controlled/output`.
 It writes one redacted JSON file per source table plus a manifest containing the
 immutable source hash, row counts, and per-table hashes. It never writes to the
 ERP database and its output is staging evidence, not target-owned data.
-The rehearsal also runs `scripts/erp_export_contract.py`, which verifies every
+The rehearsal also runs the MoonBit `cmd/export_contract` through
+`scripts/erp_export_contract.sh`, which verifies every
 exported file and compares the bundle against all 75 schema tables. The current
 artifact therefore reports 26 verified export tables and 49 missing tables as
 `source_export_incomplete`; a future complete MySQL/JSON export can reuse the
