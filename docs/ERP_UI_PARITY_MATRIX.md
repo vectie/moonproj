@@ -9,7 +9,7 @@ aliases now use the bounded connected v1 read. The connected exceptions are the 
 expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,
 MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,
 profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,
-fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
+fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.
 
 - Browser routes: **56**
 - Source API handlers: **338** (182 mutations)
@@ -258,11 +258,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `GET` | `/projects/:projGuid/profit-actual` | `/investment` | `connected_investment_boundary` | `accept_investment_actual_gate_and_finance_owner` |
 | `investment` | `GET` | `/projects/:projGuid/profit-actual-v2` | `/investment` | `connected_cost_dashboard_read` | `accept_browser_cost_dashboard_scenario_and_production_identity` |
 | `invoice` | `GET` | `/in` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
-| `invoice` | `POST` | `/in` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `invoice` | `DELETE` | `/in/:guid` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `invoice` | `POST` | `/in` | `/invoice` | `connected_invoice_command` | `accept_browser_invoice_command_scenario_and_finance_owner` |
+| `invoice` | `DELETE` | `/in/:guid` | `/invoice` | `connected_invoice_command` | `accept_browser_invoice_command_scenario_and_finance_owner` |
 | `invoice` | `GET` | `/out` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
-| `invoice` | `POST` | `/out` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `invoice` | `DELETE` | `/out/:guid` | `/invoice` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `invoice` | `POST` | `/out` | `/invoice` | `connected_invoice_command` | `accept_browser_invoice_command_scenario_and_finance_owner` |
+| `invoice` | `DELETE` | `/out/:guid` | `/invoice` | `connected_invoice_command` | `accept_browser_invoice_command_scenario_and_finance_owner` |
 | `invoice` | `GET` | `/tax-ledger` | `/invoice` | `connected_invoice_source_read` | `accept_browser_invoice_source_scenario_and_production_identity` |
 | `loan` | `GET` | `/loans` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |
 | `loan` | `GET` | `/loans/:guid` | `/loans`, `/loans/new`, `/loans/:guid` | `connected_loan_read` | `accept_browser_loan_scenario_and_production_identity` |

@@ -4,8 +4,8 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, service forwarding, a bounded marketing command, and stale-assertion
-rejection. No secret value is printed.
+binding, bounded marketing and invoice commands, and stale-assertion rejection.
+No secret value is printed.
 """
 
 from __future__ import annotations
@@ -230,6 +230,66 @@ def main() -> int:
             or marketing_delete_payload.get("campaign", {}).get("state") != "deleted"
         ):
             raise SmokeError(f"trusted marketing command delete failed: {status}")
+        invoice_id = "INV-GW-SMOKE-" + smoke_suffix
+        invoice_principal = "co-gateway-invoice-smoke"
+        invoice_scope = "project:proj-0001"
+        status, _headers, invoice_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/invoice/out",
+            headers={"Cookie": cookie},
+            payload={
+                "invoiceGuid": invoice_id,
+                "invoiceNo": "INV-GW-SMOKE-" + smoke_suffix,
+                "projGuid": "proj-0001",
+                "customerName": "gateway invoice smoke",
+                "invoiceDate": "2026-07-14",
+                "totalAmount": "5.00",
+                "taxRate": "0.06",
+                "principal_id": invoice_principal,
+                "scope": invoice_scope,
+                "authority": {
+                    "active": True,
+                    "principal_id": invoice_principal,
+                    "actor_id": user_code,
+                    "capability": "invoice:out:create",
+                    "scope": invoice_scope,
+                    "max_amount_minor": 500,
+                },
+                "idempotency_key": "invoice-gateway-create-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 201
+            or not isinstance(invoice_payload, dict)
+            or invoice_payload.get("invoice", {}).get("state") != "issued"
+        ):
+            raise SmokeError(f"trusted invoice command forwarding failed: {status}")
+        status, _headers, invoice_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/source/invoice/out/{invoice_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "principal_id": invoice_principal,
+                "scope": invoice_scope,
+                "authority": {
+                    "active": True,
+                    "principal_id": invoice_principal,
+                    "actor_id": user_code,
+                    "capability": "invoice:out:delete",
+                    "scope": invoice_scope,
+                    "max_amount_minor": 0,
+                },
+                "idempotency_key": "invoice-gateway-delete-" + smoke_suffix,
+            },
+        )
+        if (
+            status != 200
+            or not isinstance(invoice_delete_payload, dict)
+            or invoice_delete_payload.get("invoice", {}).get("state") != "deleted"
+        ):
+            raise SmokeError(f"trusted invoice command delete failed: {status}")
         stale_headers = identity_headers(user_code, identity_secret, int(time.time()) - 61)
         status, _headers, payload = request(
             args.gateway_port,

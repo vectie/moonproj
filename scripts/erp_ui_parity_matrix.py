@@ -386,6 +386,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_marketing_scenario_and_production_identity"
     if target_state == "connected_marketing_command":
         return "accept_browser_marketing_command_scenario_and_marketing_owner"
+    if target_state == "connected_invoice_command":
+        return "accept_browser_invoice_command_scenario_and_finance_owner"
     if target_state == "connected_notification_read":
         return "accept_browser_notification_scenario_and_production_identity"
     if target_state == "connected_admin_ocr_read":
@@ -511,6 +513,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] in {"/in", "/out", "/tax-ledger"}
     ):
         return "connected_invoice_source_read", "accept_browser_invoice_source_scenario_and_production_identity"
+    if (
+        handler["module"] == "invoice"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/in", "/out"})
+            or (handler["method"] == "DELETE" and handler["path"] in {"/in/:guid", "/out/:guid"})
+        )
+    ):
+        return "connected_invoice_command", "accept_browser_invoice_command_scenario_and_finance_owner"
     if (
         handler["module"] == "sales"
         and handler["method"] == "GET"
@@ -893,6 +903,8 @@ def build_matrix(
             api_state = "connected_marketing_read"
         elif target_state == "connected_marketing_command":
             api_state = "connected_marketing_command"
+        elif target_state == "connected_invoice_command":
+            api_state = "connected_invoice_command"
         elif target_state == "connected_notification_read":
             api_state = "connected_notification_read"
         elif target_state == "connected_admin_ocr_read":
@@ -1022,7 +1034,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "expense/contract/payment-application/tender command, supplier-provider, supplier, and supplier-risk reads,",
         "MDM organization/project master, budget dictionary, investment, admin governance reads, delivery, core report read,",
         "profile read, project-plan read, non-authorizing workflow-definition, cashflow, CBS,",
-        "fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
+        "fund-plan, observed-warning, attachment-metadata, marketing metadata reads and authority-bound local commands, invoice/tax reads and authority-bound local registration, notification metadata, OCR-status, error-log, AI-analytics, AI Hub observation, webhook-configuration, and report-builder metadata read verticals.",
         "",
         f"- Browser routes: **{report['source_browser_route_count']}**",
         f"- Source API handlers: **{report['source_api_handler_count']}** ({report['source_api_mutation_handler_count']} mutations)",

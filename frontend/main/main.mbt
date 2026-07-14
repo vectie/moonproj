@@ -7532,7 +7532,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           invoice_source_out_count: "0",
           invoice_source_tax_count: "0",
           sales_note: "已加载 PostgreSQL 进项发票源读模型 · 正在读取销项与税务台账",
-          invoice_source_note: "进项源已连接 · 继续读取销项/税务台账",
+          invoice_source_note: "进项源已连接 · 导入行只读 · 本地登记需授权 · 继续读取销项/税务台账",
         },
       )
     InvoiceSourceOutLoaded(body) => {
@@ -7545,7 +7545,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_rows: rows,
           invoice_source_out_count: out_count.to_string(),
           sales_note: "已加载 PostgreSQL 进项/销项发票源读模型 · 正在读取税务台账",
-          invoice_source_note: "进项/销项源已连接 · 正在读取税务台账",
+          invoice_source_note: "进项/销项源已连接 · 导入行只读 · 本地登记需授权 · 正在读取税务台账",
         },
       )
     }
@@ -7557,7 +7557,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           invoice_source_loaded: true,
           invoice_source_tax_count: invoice_tax_row_count_from_body(body),
           sales_note: "已加载 PostgreSQL 发票与税务台账源读模型 · 空表保持可见",
-          invoice_source_note: "进项 " +
+          invoice_source_note: "导入行只读 · 本地登记需授权 · 进项 " +
           model.invoice_source_in_count +
           " · 销项 " +
           model.invoice_source_out_count +

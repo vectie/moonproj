@@ -29,6 +29,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/source/invoice/{in,out}`` and
   ``/api/company/source/invoice/tax-ledger`` (GET, imported-source invoice
   and tax-ledger observations)
+* ``/api/company/source/invoice/{in,out}`` (POST create and DELETE local
+  command projections; imported invoices remain read-only)
 * ``/api/company/contracts`` (POST create draft)
 * ``/api/company/contracts/<id>/{submit,approve,reject,resubmit}`` (POST)
 * ``/api/company/payment-applies`` and ``/api/company/payment-applies/<id>`` (GET)
@@ -464,6 +466,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "sales_command",
             "receivable_read",
             "invoice_read",
+            "invoice_command",
             "delivery_read",
             "delivery_command",
             "marketing_read",
@@ -525,6 +528,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "sales_command",
             "receivable_read",
             "invoice_read",
+            "invoice_command",
             "delivery_read",
             "delivery_command",
             "marketing_read",
@@ -2951,13 +2955,14 @@ INVOICE_SOURCE_TABLES = {
 
 def _invoice_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
         "persisted": False,
+        "command_projection": True,
         "provider_execution": False,
     }
 
@@ -2975,6 +2980,7 @@ def _invoice_source_row(
     projects: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     payload = row["payload"]
+    source_kind = "command" if row.get("source_kind") == "command" else "imported"
     invoice_id = _report_text(payload, "invoice_guid", row["record_id"])
     invoice_no = _report_text(payload, "invoice_no", invoice_id)
     project_id = _report_text(payload, "proj_guid")
@@ -3000,15 +3006,15 @@ def _invoice_source_row(
         "state": _report_text(payload, "state"),
         "remark": _report_text(payload, "remark"),
         "direction": direction,
-        "sourceKind": "imported",
-        "sourceId": row["source_id"],
+        "sourceKind": source_kind,
+        "sourceId": row.get("source_id", row["record_id"]),
         # Compatibility fields let the existing Rabbita table consume the
         # source observation without treating it as a company projection.
         "aggregate_type": "invoice",
         "aggregate_id": invoice_id,
         "name": invoice_no,
         "amount_display": f"¥{total:,.2f}",
-        "source_kind": "imported",
+        "source_kind": source_kind,
     }
     return source
 
@@ -3026,7 +3032,7 @@ def invoice_source_rows(
         if value is not None and not IDENTIFIER.fullmatch(value):
             raise ValueError(f"invalid {label}")
     table = "invoice_" + direction
-    raw = _raw_source_rows(pool, table, max(max_rows, 500), INVOICE_SOURCE_TABLES)
+    raw = _invoice_rows(pool, direction, max_rows)
     raw_projects = _raw_source_rows(pool, "ep_project", max(max_rows, 100), INVOICE_SOURCE_TABLES)
     projects = {
         _report_text(row["payload"], "proj_guid", row["record_id"]): row["payload"]
@@ -3035,7 +3041,7 @@ def invoice_source_rows(
     rows: list[dict[str, Any]] = []
     for row in raw:
         payload = row["payload"]
-        if payload.get("deleted_at"):
+        if payload.get("deleted_at") or payload.get("state") == "deleted":
             continue
         if proj_guid is not None and _report_text(payload, "proj_guid") != proj_guid:
             continue
@@ -3086,6 +3092,410 @@ def invoice_source_tax_ledger(
         "data": {"rows": rows[:max_rows]},
         **_invoice_source_metadata(coverage),
     }
+
+
+INVOICE_COMMAND_AGGREGATES = {
+    "in": "invoice_in",
+    "out": "invoice_out",
+}
+
+
+def _invoice_command_projection_rows(
+    pool: PsqlPool,
+    direction: str,
+    max_rows: int,
+    invoice_id: str | None = None,
+) -> list[dict[str, Any]]:
+    aggregate_type = INVOICE_COMMAND_AGGREGATES.get(direction)
+    if aggregate_type is None:
+        raise ValueError("unsupported invoice direction")
+    if invoice_id is not None and not IDENTIFIER.fullmatch(invoice_id):
+        raise ValueError("invalid invoice_id")
+    where = (
+        "AND aggregate_id = " + sql_literal(invoice_id)
+        if invoice_id is not None
+        else ""
+    )
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = {sql_literal(aggregate_type)}
+        AND payload->>'source_kind' = 'command'
+        {where}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max(1, max_rows)}
+    """
+    rows: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected invoice projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid invoice projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("invoice projection payload is not an object")
+        rows.append(
+            {
+                "record_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_id": decode_hex(fields[3]),
+                "source_kind": "command",
+            }
+        )
+    return rows
+
+
+def _invoice_rows(
+    pool: PsqlPool,
+    direction: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    return _raw_source_rows(
+        pool,
+        "invoice_" + direction,
+        max(max_rows, 500),
+        INVOICE_SOURCE_TABLES,
+    ) + _invoice_command_projection_rows(pool, direction, max_rows)
+
+
+def _invoice_body_value(body: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in body and body[key] is not None:
+            return body[key]
+    return None
+
+
+def _invoice_required_text(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+) -> str:
+    value = _invoice_body_value(body, *keys)
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{keys[0]} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _invoice_optional_text(
+    body: dict[str, Any],
+    *keys: str,
+    identifier: bool = False,
+) -> str:
+    value = _invoice_body_value(body, *keys)
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise CommandRejected(f"{keys[0]} must be text", 422)
+    value = value.strip()
+    if value and identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{keys[0]} contains unsupported characters", 422)
+    return value
+
+
+def _invoice_decimal(
+    body: dict[str, Any],
+    *keys: str,
+    default: str | None = None,
+    nonnegative: bool = True,
+) -> Decimal:
+    value = _invoice_body_value(body, *keys)
+    if value is None:
+        if default is None:
+            raise CommandRejected(f"{keys[0]} is required", 422)
+        value = default
+    try:
+        result = Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as error:
+        raise CommandRejected(f"{keys[0]} must be a decimal number", 422) from error
+    if not result.is_finite() or (nonnegative and result < 0):
+        raise CommandRejected(f"{keys[0]} must be a finite non-negative number", 422)
+    return result
+
+
+def _invoice_authority(
+    body: dict[str, Any],
+    *,
+    actor_id: str,
+    principal_id: str,
+    scope: str,
+    capability: str,
+    amount_minor: int,
+) -> dict[str, Any]:
+    grant = body.get("authority")
+    if not isinstance(grant, dict) or grant.get("active") is not True:
+        raise CommandRejected("active invoice authority grant is required", 403)
+    if grant.get("principal_id") != principal_id:
+        raise CommandRejected("invoice authority principal does not match", 403)
+    if grant.get("actor_id") != actor_id:
+        raise CommandRejected("invoice authority actor does not match signed actor", 403)
+    if grant.get("scope") != scope:
+        raise CommandRejected("invoice authority scope does not match", 403)
+    if grant.get("capability") != capability:
+        raise CommandRejected(f"invoice authority must allow {capability}", 403)
+    try:
+        max_amount_minor = int(grant.get("max_amount_minor"))
+    except (TypeError, ValueError) as error:
+        raise CommandRejected("invoice authority max_amount_minor is required", 403) from error
+    if max_amount_minor < amount_minor:
+        raise CommandRejected("invoice authority amount is exceeded", 403)
+    return {
+        "active": True,
+        "principal_id": principal_id,
+        "actor_id": actor_id,
+        "scope": scope,
+        "capability": capability,
+        "max_amount_minor": max_amount_minor,
+    }
+
+
+def _invoice_request(
+    direction: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> tuple[str, dict[str, Any]]:
+    if direction not in INVOICE_COMMAND_AGGREGATES:
+        raise CommandRejected("unsupported invoice direction", 404)
+    if command_type not in {"create", "delete"}:
+        raise CommandRejected("unsupported invoice command", 404)
+    if command_type == "create":
+        invoice_id = _invoice_optional_text(body, "invoiceGuid", "invoice_guid", identifier=True)
+        if not invoice_id:
+            invoice_id = ("INV-" + direction.upper() + "-" + idempotency_key)[:128]
+        invoice_no = _invoice_required_text(body, "invoiceNo", "invoice_no")
+        total = _invoice_decimal(body, "totalAmount", "total_amount", nonnegative=False)
+        if total <= 0:
+            raise CommandRejected("totalAmount must be positive", 422)
+        tax_rate = _invoice_decimal(body, "taxRate", "tax_rate", default="0")
+        if tax_rate == Decimal("-1"):
+            raise CommandRejected("taxRate is invalid", 422)
+        tax_amount = (total * tax_rate / (Decimal("1") + tax_rate)).quantize(Decimal("0.01"))
+        principal_id = _invoice_required_text(body, "principal_id", identifier=True)
+        scope = _invoice_required_text(body, "scope", identifier=True)
+        authority = _invoice_authority(
+            body,
+            actor_id=actor_id,
+            principal_id=principal_id,
+            scope=scope,
+            capability=f"invoice:{direction}:create",
+            amount_minor=int(total * 100),
+        )
+        request: dict[str, Any] = {
+            "invoice_guid": invoice_id,
+            "invoice_no": invoice_no,
+            "proj_guid": _invoice_optional_text(body, "projGuid", "proj_guid", identifier=True),
+            "bu_guid": _invoice_optional_text(body, "buGuid", "bu_guid", identifier=True),
+            "contract_guid": _invoice_optional_text(body, "contractGuid", "contract_guid", identifier=True),
+            "provider_name": _invoice_optional_text(body, "providerName", "provider_name"),
+            "customer_name": _invoice_optional_text(body, "customerName", "customer_name"),
+            "scontract_guid": _invoice_optional_text(body, "scontractGuid", "scontract_guid", identifier=True),
+            "revenue_guid": _invoice_optional_text(body, "revenueGuid", "revenue_guid", identifier=True),
+            "invoice_date": _invoice_optional_text(body, "invoiceDate", "invoice_date") or str(date.today()),
+            "total_amount": str(total),
+            "tax_amount": str(tax_amount),
+            "tax_rate": str(tax_rate),
+            "invoice_type": _invoice_optional_text(body, "invoiceType", "invoice_type")
+            or ("增值税专用发票" if direction == "in" else "增值税普通发票"),
+            "remark": _invoice_optional_text(body, "remark"),
+            "principal_id": principal_id,
+            "scope": scope,
+            "actor_id": actor_id,
+            "command_type": command_type,
+            "direction": direction,
+            "authority": authority,
+            "state": "received" if direction == "in" else "issued",
+        }
+        return invoice_id, request
+    if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
+        raise CommandRejected("invoice_id is required", 422)
+    principal_id = _invoice_required_text(body, "principal_id", identifier=True)
+    scope = _invoice_required_text(body, "scope", identifier=True)
+    authority = _invoice_authority(
+        body,
+        actor_id=actor_id,
+        principal_id=principal_id,
+        scope=scope,
+        capability=f"invoice:{direction}:delete",
+        amount_minor=0,
+    )
+    return aggregate_id, {
+        "invoice_guid": aggregate_id,
+        "principal_id": principal_id,
+        "scope": scope,
+        "actor_id": actor_id,
+        "command_type": command_type,
+        "direction": direction,
+        "authority": authority,
+    }
+
+
+def _invoice_command(
+    pool: PsqlPool,
+    *,
+    direction: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    invoice_id, request = _invoice_request(
+        direction, command_type, aggregate_id, body, actor_id, idempotency_key
+    )
+    aggregate_type = INVOICE_COMMAND_AGGREGATES[direction]
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored invoice command receipt has no result")
+        return {"command": existing, "invoice": result, "idempotent_replay": True}
+    current = _invoice_command_projection_rows(pool, direction, 1, invoice_id)
+    imported = any(
+        _report_text(row["payload"], "invoice_guid", row["record_id"]) == invoice_id
+        for row in _raw_source_rows(
+            pool, "invoice_" + direction, 500, INVOICE_SOURCE_TABLES
+        )
+    )
+    if command_type == "create":
+        if current or imported:
+            raise CommandRejected("invoice already exists", 409)
+        next_revision = 1
+        next_state = str(request["state"])
+    else:
+        if not current:
+            if imported:
+                raise CommandRejected("imported invoice is read-only; create a local invoice first", 409)
+            raise CommandRejected("invoice not found", 404)
+        payload = current[0]["payload"]
+        if payload.get("principal_id") != request["principal_id"]:
+            raise CommandRejected("invoice principal does not match", 403)
+        if payload.get("scope") != request["scope"]:
+            raise CommandRejected("invoice scope does not match", 403)
+        next_revision = int(current[0]["revision"]) + 1
+        next_state = "deleted"
+    event_id = f"invoice:{direction}:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "invoice",
+            "direction": direction,
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": invoice_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    projection_request = dict(request)
+    projection_request.pop("authority", None)
+    request_json = json.dumps(
+        projection_request,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    sql = f"""
+    BEGIN;
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_payload jsonb;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+        AND p.aggregate_id = {sql_literal(invoice_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(command_type == 'create').lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'invoice already exists'; END IF;
+        next_payload := {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'source_kind', 'command', 'state', {sql_literal(next_state)},
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'invoice not found'; END IF;
+        next_payload := current_payload || jsonb_build_object(
+          'source_kind', 'command', 'state', 'deleted',
+          'event_id', {sql_literal(event_id)}, 'updated_by', {sql_literal(actor_id)});
+      END IF;
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ({sql_literal(aggregate_type)}, {sql_literal(invoice_id)}, {next_revision},
+        next_payload, {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object('audit_id', {sql_literal(audit_id)}, 'action',
+          'invoice.' || {sql_literal(direction)} || '.' || {sql_literal(command_type)},
+          'aggregate_type', {sql_literal(aggregate_type)}, 'aggregate_id', {sql_literal(invoice_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', {sql_literal(next_state)}, 'revision', {next_revision}),
+        {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object('invoiceGuid', {sql_literal(invoice_id)},
+        'direction', {sql_literal(direction)}, 'state', {sql_literal(next_state)},
+        'revision', {next_revision}, 'event_id', {sql_literal(event_id)},
+        'audit_id', {sql_literal(audit_id)}, 'actor_id', {sql_literal(actor_id)});
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("invoice command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected invoice command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid invoice command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("invoice command receipt has no result")
+    return {"command": receipt, "invoice": result, "idempotent_replay": not created}
 
 
 def _sales_command_text(
@@ -17884,6 +18294,14 @@ def handler_factory(
                     command_family = "loan"
                     command_type = "create"
                     aggregate_id = None
+                elif parsed.path in {
+                    "/api/company/source/invoice/in",
+                    "/api/company/source/invoice/out",
+                }:
+                    command_family = "invoice"
+                    command_type = "create"
+                    aggregate_id = None
+                    body["_invoice_direction"] = parsed.path.rsplit("/", 1)[-1]
                 elif parsed.path == "/api/company/tender-splits":
                     command_family = "contract_split"
                     command_type = "create"
@@ -18104,6 +18522,17 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "invoice":
+                    direction = str(body.pop("_invoice_direction", ""))
+                    result = _invoice_command(
+                        pool,
+                        direction=direction,
+                        command_type=command_type,
+                        aggregate_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 elif command_family == "loan":
                     result = loan_command(
                         pool,
@@ -18135,6 +18564,43 @@ def handler_factory(
                 response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
+
+        def _invoice_method_alias(self, method: str) -> bool:
+            if method != "DELETE":
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/source/invoice/(in|out)/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = _invoice_command(
+                    pool,
+                    direction=match.group(1),
+                    command_type="delete",
+                    aggregate_id=match.group(2),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
 
         def _marketing_method_alias(self, method: str) -> bool:
             parsed = urlparse(self.path)
@@ -18201,8 +18667,9 @@ def handler_factory(
                 self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
-            if not self._marketing_method_alias("DELETE"):
-                self._loan_method_alias("DELETE")
+            if not self._invoice_method_alias("DELETE"):
+                if not self._marketing_method_alias("DELETE"):
+                    self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

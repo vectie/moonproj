@@ -422,6 +422,16 @@ commands stay visibly separate from imported ERP data. Provider execution,
 CBS/spend consumption, accounting/tax, attribution, production identity, and
 owner acceptance remain gates.
 
+The invoice action register now has a bounded local command boundary alongside
+the source reads. `POST /api/company/source/invoice/in` and `/out` register
+authority-checked PostgreSQL projections with deterministic invoice identity,
+tax-amount calculation, idempotent receipts, aggregate revisions, and audit
+events; the matching `DELETE` paths tombstone only local projections. The
+source-shaped invoice reads and monthly tax ledger merge those command rows as
+`sourceKind=command` while preserving imported coverage separately. OCR and
+verification, tax filing, accounting posting, cash settlement, production
+identity, and finance-owner acceptance remain gates.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -815,7 +825,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Marketing local command cohort now has authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence; continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
+| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence; continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the

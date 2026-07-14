@@ -2883,8 +2883,8 @@
       "browser_route_paths": [
         "/invoice"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_invoice_command",
+      "required_next": "accept_browser_invoice_command_scenario_and_finance_owner"
     },
     {
       "module": "invoice",
@@ -2893,8 +2893,8 @@
       "browser_route_paths": [
         "/invoice"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_invoice_command",
+      "required_next": "accept_browser_invoice_command_scenario_and_finance_owner"
     },
     {
       "module": "invoice",
@@ -2913,8 +2913,8 @@
       "browser_route_paths": [
         "/invoice"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_invoice_command",
+      "required_next": "accept_browser_invoice_command_scenario_and_finance_owner"
     },
     {
       "module": "invoice",
@@ -2923,8 +2923,8 @@
       "browser_route_paths": [
         "/invoice"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_invoice_command",
+      "required_next": "accept_browser_invoice_command_scenario_and_finance_owner"
     },
     {
       "module": "invoice",

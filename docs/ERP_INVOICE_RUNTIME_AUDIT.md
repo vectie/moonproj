@@ -19,15 +19,22 @@ The authenticated service and read-model adapter expose:
 - `/api/company/source/invoice/out?projGuid=<guid>`;
 - `/api/company/source/invoice/tax-ledger?projGuid=<guid>`.
 
+The same source-shaped paths also accept bounded local commands:
+
+- `POST /api/company/source/invoice/in` and `/out` register a local invoice;
+- `DELETE /api/company/source/invoice/in/:guid` and `/out/:guid` tombstone a
+  local invoice.
+
 The first two preserve the source invoice fields and compatibility fields used
 by Rabbita. The tax-ledger response preserves `{ data: { rows } }` with period,
-input/output totals, tax, and net-tax fields. Every response carries source
-coverage and `authorizing=false`, `persisted=false`, and
-`provider_execution=false`.
+input/output totals, tax, and net-tax fields. Imported rows remain read-only;
+local command projections appear with `sourceKind=command`, deterministic
+idempotency, aggregate revisions, and audit receipts. Every response carries
+source coverage and `authorizing=false`; provider execution remains disabled.
 
 ## Current evidence
 
-- `invoice_in` and `invoice_out` both return zero rows for `proj-0001`.
+- `invoice_in` and `invoice_out` both return zero imported rows for `proj-0001`.
 - The tax-ledger read returns zero monthly rows while preserving its source
   shape.
 - Rabbita `/invoice` chains incoming, outgoing, and tax-ledger reads and shows
@@ -35,11 +42,12 @@ coverage and `authorizing=false`, `persisted=false`, and
 - `scripts/company_postgres_source_read_smoke.py` verifies all three reads
   without mutating PostgreSQL.
 - The parity matrix marks source `GET /in`, `/out`, and `/tax-ledger` as
-  `connected_invoice_source_read`.
+  `connected_invoice_source_read`, and invoice POST/DELETE actions as
+  `connected_invoice_command` with a finance-owner acceptance gate.
 
 ## Open gates
 
-Invoice creation/deletion, OCR/verification, tax filing, accounting posting,
-cash settlement, production identity, browser acceptance, and finance-owner
-reconciliation remain separate gates. No invoice rows are seeded from fixture
-data by this read-only slice.
+OCR/verification, tax filing, accounting posting, cash settlement, production
+identity, browser acceptance, and finance-owner reconciliation remain separate
+gates. No invoice rows are seeded from fixture data; local command rows are
+explicitly separate from imported source rows.

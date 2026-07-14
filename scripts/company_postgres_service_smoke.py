@@ -156,6 +156,7 @@ def main() -> int:
             or "supplier_signature_boundary_read" not in payload.get("capabilities", [])
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
+            or "invoice_command" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, source_schema_coverage_payload = request(
@@ -2007,6 +2008,165 @@ def main() -> int:
             "channel": marketing_channel_delete_payload.get("channel", {}).get("state"),
             "material": marketing_material_delete_payload.get("material", {}).get("state"),
         }
+        invoice_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
+        invoice_principal = "co-invoice-smoke"
+        invoice_scope = "project:proj-0001"
+
+        def invoice_authority(direction: str, command_type: str, max_amount_minor: int = 0) -> dict[str, Any]:
+            return {
+                "active": True,
+                "principal_id": invoice_principal,
+                "actor_id": invoice_actor,
+                "capability": f"invoice:{direction}:{command_type}",
+                "scope": invoice_scope,
+                "max_amount_minor": max_amount_minor,
+            }
+
+        invoice_in_create_key = "invoice-in-create-" + nonce
+        invoice_in_id = "INV-IN-" + invoice_in_create_key
+        invoice_in_payload = {
+            "invoiceNo": "INV-IN-SMOKE-" + nonce,
+            "projGuid": "proj-0001",
+            "contractGuid": "ht-tj-001",
+            "providerName": "invoice provider smoke",
+            "invoiceDate": "2026-07-14",
+            "totalAmount": "123.45",
+            "taxRate": "0.13",
+            "principal_id": invoice_principal,
+            "scope": invoice_scope,
+            "authority": invoice_authority("in", "create", 20000),
+        }
+        status, invoice_in_create_payload = request(
+            args.port,
+            "/api/company/source/invoice/in",
+            token=token,
+            method="POST",
+            payload=invoice_in_payload,
+            idempotency_key=invoice_in_create_key,
+        )
+        if (
+            status != 201
+            or invoice_in_create_payload is None
+            or invoice_in_create_payload.get("invoice", {}).get("invoiceGuid") != invoice_in_id
+            or invoice_in_create_payload.get("invoice", {}).get("state") != "received"
+        ):
+            raise SmokeError(f"invoice in create failed: {status} {invoice_in_create_payload}")
+        status, invoice_in_replay_payload = request(
+            args.port,
+            "/api/company/source/invoice/in",
+            token=token,
+            method="POST",
+            payload=invoice_in_payload,
+            idempotency_key=invoice_in_create_key,
+        )
+        if status != 200 or invoice_in_replay_payload is None or invoice_in_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"invoice in idempotency failed: {status} {invoice_in_replay_payload}")
+
+        invoice_out_id = "INV-OUT-SMOKE-" + nonce
+        status, invoice_out_create_payload = request(
+            args.port,
+            "/api/company/source/invoice/out",
+            token=token,
+            method="POST",
+            payload={
+                "invoiceGuid": invoice_out_id,
+                "invoiceNo": "INV-OUT-SMOKE-" + nonce,
+                "projGuid": "proj-0001",
+                "customerName": "invoice customer smoke",
+                "invoiceDate": "2026-07-14",
+                "totalAmount": "200.00",
+                "taxRate": "0.06",
+                "principal_id": invoice_principal,
+                "scope": invoice_scope,
+                "authority": invoice_authority("out", "create", 30000),
+            },
+            idempotency_key="invoice-out-create-" + nonce,
+        )
+        if status != 201 or invoice_out_create_payload is None or invoice_out_create_payload.get("invoice", {}).get("state") != "issued":
+            raise SmokeError(f"invoice out create failed: {status} {invoice_out_create_payload}")
+        status, invoice_in_readback_payload = request(
+            args.port,
+            "/api/company/source/invoice/in?projGuid=proj-0001",
+            token=token,
+        )
+        status_out, invoice_out_readback_payload = request(
+            args.port,
+            "/api/company/source/invoice/out?projGuid=proj-0001",
+            token=token,
+        )
+        invoice_in_rows = (invoice_in_readback_payload or {}).get("data", [])
+        invoice_out_rows = (invoice_out_readback_payload or {}).get("data", [])
+        if (
+            status != 200
+            or status_out != 200
+            or not any(
+                isinstance(row, dict)
+                and row.get("invoiceGuid") == invoice_in_id
+                and row.get("sourceKind") == "command"
+                for row in invoice_in_rows
+            )
+            or not any(
+                isinstance(row, dict)
+                and row.get("invoiceGuid") == invoice_out_id
+                and row.get("sourceKind") == "command"
+                for row in invoice_out_rows
+            )
+        ):
+            raise SmokeError(
+                f"invoice source-shaped readback failed: in={status} out={status_out} "
+                f"{invoice_in_readback_payload} {invoice_out_readback_payload}"
+            )
+        status, invoice_tax_payload = request(
+            args.port,
+            "/api/company/source/invoice/tax-ledger?projGuid=proj-0001",
+            token=token,
+        )
+        invoice_tax_rows = (invoice_tax_payload or {}).get("data", {}).get("rows", [])
+        if (
+            status != 200
+            or invoice_tax_payload is None
+            or not any(
+                isinstance(row, dict)
+                and row.get("period") == "2026-07"
+                and row.get("totalIn") == 123.45
+                and row.get("totalOut") == 200.0
+                for row in invoice_tax_rows
+            )
+        ):
+            raise SmokeError(f"invoice tax ledger readback failed: {status} {invoice_tax_payload}")
+        status, invoice_in_delete_payload = request(
+            args.port,
+            f"/api/company/source/invoice/in/{invoice_in_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "principal_id": invoice_principal,
+                "scope": invoice_scope,
+                "authority": invoice_authority("in", "delete"),
+            },
+            idempotency_key="invoice-in-delete-" + nonce,
+        )
+        if status != 200 or invoice_in_delete_payload is None or invoice_in_delete_payload.get("invoice", {}).get("state") != "deleted":
+            raise SmokeError(f"invoice in delete failed: {status} {invoice_in_delete_payload}")
+        status, invoice_out_delete_payload = request(
+            args.port,
+            f"/api/company/source/invoice/out/{invoice_out_id}",
+            token=token,
+            method="DELETE",
+            payload={
+                "principal_id": invoice_principal,
+                "scope": invoice_scope,
+                "authority": invoice_authority("out", "delete"),
+            },
+            idempotency_key="invoice-out-delete-" + nonce,
+        )
+        if status != 200 or invoice_out_delete_payload is None or invoice_out_delete_payload.get("invoice", {}).get("state") != "deleted":
+            raise SmokeError(f"invoice out delete failed: {status} {invoice_out_delete_payload}")
+        invoice_command_states = {
+            "in": invoice_in_delete_payload.get("invoice", {}).get("state"),
+            "out": invoice_out_delete_payload.get("invoice", {}).get("state"),
+            "tax_period": "2026-07",
+        }
         loan_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
         loan_id = "LOAN-SMOKE-" + nonce
         loan_payload = {
@@ -3014,6 +3174,7 @@ def main() -> int:
                     "marketing_channel_rows": len(marketing_payloads["/api/company/marketing/channels"].get("data", [])),
                     "marketing_material_rows": len(marketing_payloads["/api/company/marketing/materials?projGuid=proj-0001"].get("data", [])),
                     "marketing_command_states": marketing_command_states,
+                    "invoice_command_states": invoice_command_states,
                     "ai_intake_rows": ai_kpi.get("intakeTotal"),
                     "ai_query_rows": ai_kpi.get("queryTotal"),
                     "ai_skip_rows": ai_kpi.get("skipTotal"),
