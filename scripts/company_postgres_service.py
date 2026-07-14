@@ -21,6 +21,8 @@ The bounded service exposes these endpoints:
 * ``/api/company/budget/expenses`` (GET, source-compatible imported list)
 * ``/api/company/budget/expenses/<guid>`` (GET, source-compatible imported detail)
 * ``/api/company/budget-check`` (POST, non-authorizing budget headroom preview)
+* ``/api/company/fund/{plans,dispatches}`` (GET plus bounded local plan/dispatch
+  commands; cash, accounting, and tax effects remain separate)
 * ``/api/company/expenses`` (POST create draft)
 * ``/api/company/expenses/<id>/{submit,submit-for-approval,approve,reject,resubmit,void}`` (POST)
 * ``/api/company/expenses/<id>`` (PUT update draft, DELETE void draft/rejected)
@@ -491,6 +493,8 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "ai_analytics_read",
             "ai_hub_read",
             "cost_dashboard_read",
+            "fund_read",
+            "fund_command",
             "dashboard_v2_read",
             "admin_health_full_read",
             "admin_backup_boundary_read",
@@ -548,6 +552,8 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "audit_receipt",
             "ai_hub_read",
             "cost_dashboard_read",
+            "fund_read",
+            "fund_command",
             "dashboard_v2_read",
             "admin_health_full_read",
             "admin_backup_boundary_read",
@@ -12126,13 +12132,72 @@ def _cbs_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
 
 def _fund_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
     return {
-        "source_kind": "imported_or_empty",
+        "source_kind": "imported_or_command",
         "source_coverage": coverage,
         "missing_or_empty_source_tables": [
             table for table, count in coverage.items() if count == 0
         ],
         "authorizing": False,
+        "command_projection": True,
+        "cash_effect": False,
+        "accounting_effect": False,
+        "tax_effect": False,
     }
+
+
+def _fund_projection_rows(
+    pool: PsqlPool,
+    aggregate_type: str,
+    max_rows: int,
+    aggregate_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Read the latest PostgreSQL-owned fund projections only."""
+
+    if aggregate_type not in {"fund_plan", "fund_dispatch"}:
+        raise ValueError("unsupported fund aggregate type")
+    if aggregate_id is not None and not IDENTIFIER.fullmatch(aggregate_id):
+        raise ValueError("invalid fund aggregate id")
+    where = ""
+    if aggregate_id is not None:
+        where = "AND aggregate_id = " + sql_literal(aggregate_id)
+    query = f"""
+    SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_id)
+             aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE aggregate_type = {sql_literal(aggregate_type)}
+        AND payload->>'source_kind' = 'command'
+        {where}
+      ORDER BY aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_id
+    LIMIT {max(1, max_rows)}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 4:
+            raise ServiceError("unexpected fund projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[2]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid fund projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("fund projection payload is not an object")
+        result.append(
+            {
+                "record_id": decode_hex(fields[0]),
+                "revision": int(fields[1]),
+                "payload": payload,
+                "source_id": decode_hex(fields[3]),
+                "source_kind": "command",
+            }
+        )
+    return result
 
 
 def _warning_source_metadata(coverage: dict[str, int]) -> dict[str, Any]:
@@ -13097,7 +13162,8 @@ def fund_source_plans(
         if not row["payload"].get("deleted_at")
     }
     result = []
-    for row in rows["fund_plan"]:
+    all_plan_rows = rows["fund_plan"] + _fund_projection_rows(pool, "fund_plan", max_rows)
+    for row in all_plan_rows:
         payload = row["payload"]
         if payload.get("deleted_at"):
             continue
@@ -13123,6 +13189,8 @@ def fund_source_plans(
                 "actual_amount": _report_float(payload, "actual_amount"),
                 "remark": _report_text(payload, "remark"),
                 "created_at": _report_text(payload, "created_at"),
+                "state": _report_text(payload, "state", "source_read_only"),
+                "sourceKind": str(payload.get("source_kind") or row.get("source_kind") or "imported"),
             }
         )
     result.sort(key=lambda value: (value["plan_period"], value["direction"], value["plan_code"]))
@@ -13136,7 +13204,8 @@ def fund_source_gap_analysis(
         raise ValueError("invalid proj_guid")
     coverage, rows = _fund_rows_and_coverage(pool, max_rows)
     grouped: dict[str, dict[str, float]] = {}
-    for row in rows["fund_plan"]:
+    all_plan_rows = rows["fund_plan"] + _fund_projection_rows(pool, "fund_plan", max_rows)
+    for row in all_plan_rows:
         payload = row["payload"]
         if payload.get("deleted_at") or str(payload.get("proj_guid") or "") != proj_guid:
             continue
@@ -13177,7 +13246,8 @@ def fund_source_gap_analysis(
 def fund_source_dispatches(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
     coverage, rows = _fund_rows_and_coverage(pool, max_rows)
     result = []
-    for row in rows["fund_dispatch"]:
+    all_dispatch_rows = rows["fund_dispatch"] + _fund_projection_rows(pool, "fund_dispatch", max_rows)
+    for row in all_dispatch_rows:
         payload = row["payload"]
         if payload.get("deleted_at"):
             continue
@@ -13194,10 +13264,445 @@ def fund_source_dispatches(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
                 "dispatch_date": _report_text(payload, "dispatch_date"),
                 "state": _report_text(payload, "state"),
                 "created_at": _report_text(payload, "created_at"),
+                "sourceKind": str(payload.get("source_kind") or row.get("source_kind") or "imported"),
             }
         )
     result.sort(key=lambda value: value["created_at"], reverse=True)
     return {"success": True, "code": 0, "data": result, **_fund_source_metadata(coverage)}
+
+
+def _fund_text(
+    body: dict[str, Any],
+    key: str,
+    *,
+    aliases: tuple[str, ...] = (),
+    identifier: bool = False,
+) -> str:
+    value = body.get(key)
+    if value is None:
+        for alias in aliases:
+            value = body.get(alias)
+            if value is not None:
+                break
+    if not isinstance(value, str) or not value.strip():
+        raise CommandRejected(f"{key} is required", 422)
+    value = value.strip()
+    if identifier and not IDENTIFIER.fullmatch(value):
+        raise CommandRejected(f"{key} contains unsupported characters", 422)
+    return value
+
+
+def _fund_amount_minor(body: dict[str, Any], key: str = "amount_minor") -> int:
+    value = body.get(key)
+    if value is None and key == "amount_minor":
+        value = body.get("amount")
+        if value is not None:
+            try:
+                value = int((Decimal(str(value)) * 100).quantize(Decimal("1")))
+            except (InvalidOperation, TypeError, ValueError) as error:
+                raise CommandRejected("amount must be a decimal number", 422) from error
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise CommandRejected(f"{key} must be a positive integer amount in minor units", 422)
+    return value
+
+
+def _fund_authority(
+    body: dict[str, Any],
+    *,
+    actor_id: str,
+    project_id: str,
+    capability: str,
+    amount_minor: int,
+) -> dict[str, Any]:
+    value = body.get("authority")
+    if not isinstance(value, dict):
+        raise CommandRejected("authority grant is required", 403)
+    if value.get("active") is not True:
+        raise CommandRejected("authority grant is inactive", 403)
+    principal_id = value.get("principal_id")
+    if not isinstance(principal_id, str) or not IDENTIFIER.fullmatch(principal_id):
+        raise CommandRejected("authority grant principal_id is required", 403)
+    if value.get("actor_id") != actor_id:
+        raise CommandRejected("authority grant actor does not match signed actor", 403)
+    if value.get("capability") != capability:
+        raise CommandRejected(f"authority grant must allow {capability}", 403)
+    if value.get("scope") != f"project:{project_id}":
+        raise CommandRejected("authority grant scope must be project-scoped", 403)
+    try:
+        max_amount = int(value.get("max_amount_minor"))
+    except (TypeError, ValueError) as error:
+        raise CommandRejected("authority grant max_amount_minor is required", 403) from error
+    if max_amount < amount_minor:
+        raise CommandRejected("authority grant amount is exceeded", 403)
+    return {
+        "active": True,
+        "principal_id": principal_id,
+        "actor_id": actor_id,
+        "capability": capability,
+        "scope": f"project:{project_id}",
+        "max_amount_minor": max_amount,
+    }
+
+
+def _fund_request(
+    pool: PsqlPool,
+    *,
+    resource: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> tuple[str, dict[str, Any], bool, dict[str, Any] | None]:
+    if resource not in {"plan", "dispatch"}:
+        raise CommandRejected("unsupported fund resource", 404)
+    allowed = {
+        "plan": {"create", "update", "delete"},
+        "dispatch": {"create", "approve"},
+    }[resource]
+    if command_type not in allowed:
+        raise CommandRejected("unsupported fund command", 404)
+    aggregate_type = "fund_plan" if resource == "plan" else "fund_dispatch"
+    current_rows = []
+    current: dict[str, Any] | None = None
+    if command_type != "create":
+        if aggregate_id is None or not IDENTIFIER.fullmatch(aggregate_id):
+            raise CommandRejected(f"{resource}_id is required", 422)
+        current_rows = _fund_projection_rows(pool, aggregate_type, 1, aggregate_id)
+        if current_rows:
+            current = current_rows[0]["payload"]
+        else:
+            imported = _raw_source_rows(pool, "fund_plan" if resource == "plan" else "fund_dispatch", 500, FUND_SOURCE_TABLES)
+            if any(
+                str(row["payload"].get("plan_guid" if resource == "plan" else "dispatch_guid") or row["record_id"])
+                == aggregate_id
+                for row in imported
+            ):
+                raise CommandRejected(f"imported {resource} is read-only; create a local planning projection first", 409)
+            raise CommandRejected(f"{resource} not found", 404)
+    project_id = ""
+    if resource == "plan":
+        if command_type == "create":
+            value = body.get("plan_id") or body.get("plan_guid")
+            aggregate_id = value.strip() if isinstance(value, str) and value.strip() else "FP-" + idempotency_key
+            if not IDENTIFIER.fullmatch(aggregate_id):
+                raise CommandRejected("plan_id contains unsupported characters", 422)
+            project_id = _fund_text(body, "project_id", aliases=("proj_guid", "projGuid"), identifier=True)
+            source_projects = _raw_source_rows(pool, "ep_project", 500, FUND_SOURCE_TABLES)
+            if not any(str(row["payload"].get("proj_guid") or row["record_id"]) == project_id for row in source_projects):
+                raise CommandRejected("fund plan requires an imported project identity", 409)
+            amount_minor = _fund_amount_minor(body, "plan_amount_minor")
+            authority = _fund_authority(
+                body,
+                actor_id=actor_id,
+                project_id=project_id,
+                capability="fund:plan:create",
+                amount_minor=amount_minor,
+            )
+            period = _fund_text(body, "plan_period", aliases=("period",))
+            direction = _fund_text(body, "direction")
+            if direction not in {"in", "out"}:
+                raise CommandRejected("direction must be in or out", 422)
+            plan_code = body.get("plan_code")
+            if plan_code is None:
+                plan_code = "FP-" + idempotency_key[:12].upper()
+            if not isinstance(plan_code, str) or not IDENTIFIER.fullmatch(plan_code.strip()):
+                raise CommandRejected("plan_code contains unsupported characters", 422)
+            request = {
+                "command_type": command_type,
+                "plan_id": aggregate_id,
+                "plan_guid": aggregate_id,
+                "plan_code": plan_code.strip(),
+                "proj_guid": project_id,
+                "plan_period": period,
+                "direction": direction,
+                "category": str(body.get("category") or "").strip(),
+                "r_code": str(body.get("r_code", body.get("rCode", "")) or "").strip(),
+                "plan_amount": round(amount_minor / 100, 2),
+                "actual_amount": 0.0,
+                "remark": str(body.get("remark") or "").strip(),
+                "created_by": actor_id,
+                "authority": authority,
+            }
+            return aggregate_id, request, True, None
+        assert current is not None
+        project_id = _fund_text(current, "proj_guid", identifier=True)
+        if command_type in {"update", "delete"} and str(current.get("created_by") or "") != actor_id:
+            raise CommandRejected("only the fund-plan creator may change this plan", 403)
+        if command_type == "update":
+            changes: dict[str, Any] = {}
+            if "plan_amount_minor" in body or "amount" in body:
+                changes["plan_amount"] = round(_fund_amount_minor(body, "plan_amount_minor") / 100, 2)
+            if "actual_amount_minor" in body:
+                changes["actual_amount"] = round(_fund_amount_minor(body, "actual_amount_minor") / 100, 2)
+            if "remark" in body:
+                if not isinstance(body["remark"], str):
+                    raise CommandRejected("remark must be text", 422)
+                changes["remark"] = body["remark"].strip()
+            if not changes:
+                raise CommandRejected("update requires a plan_amount_minor, actual_amount_minor, or remark", 422)
+            request = {"command_type": command_type, "plan_id": aggregate_id, "changes": changes, "actor_id": actor_id}
+        else:
+            request = {
+                "command_type": command_type,
+                "plan_id": aggregate_id,
+                "actor_id": actor_id,
+                "reason": str(body.get("reason") or "").strip(),
+            }
+        return aggregate_id, request, False, current
+    if command_type == "create":
+        value = body.get("dispatch_id") or body.get("dispatch_guid")
+        aggregate_id = value.strip() if isinstance(value, str) and value.strip() else "FD-" + idempotency_key
+        if not IDENTIFIER.fullmatch(aggregate_id):
+            raise CommandRejected("dispatch_id contains unsupported characters", 422)
+        project_id = _fund_text(body, "project_id", aliases=("proj_guid", "projGuid"), identifier=True)
+        source_projects = _raw_source_rows(pool, "ep_project", 500, FUND_SOURCE_TABLES)
+        if not any(str(row["payload"].get("proj_guid") or row["record_id"]) == project_id for row in source_projects):
+            raise CommandRejected("fund dispatch requires an imported project identity", 409)
+        amount_minor = _fund_amount_minor(body)
+        authority = _fund_authority(
+            body,
+            actor_id=actor_id,
+            project_id=project_id,
+            capability="fund:dispatch:create",
+            amount_minor=amount_minor,
+        )
+        dispatch_code = body.get("dispatch_code")
+        if dispatch_code is None:
+            dispatch_code = "FD-" + idempotency_key[:12].upper()
+        if not isinstance(dispatch_code, str) or not IDENTIFIER.fullmatch(dispatch_code.strip()):
+            raise CommandRejected("dispatch_code contains unsupported characters", 422)
+        request = {
+            "command_type": command_type,
+            "dispatch_id": aggregate_id,
+            "dispatch_guid": aggregate_id,
+            "dispatch_code": dispatch_code.strip(),
+            "proj_guid": project_id,
+            "from_proj": str(body.get("from_proj", body.get("from_project_id", "")) or "").strip(),
+            "to_proj": str(body.get("to_proj", body.get("to_project_id", "")) or "").strip(),
+            "amount": round(amount_minor / 100, 2),
+            "reason": str(body.get("reason") or "").strip(),
+            "dispatch_date": str(body.get("dispatch_date") or date.today().isoformat()),
+            "created_by": actor_id,
+            "authority": authority,
+        }
+        return aggregate_id, request, True, None
+    assert current is not None
+    project_id = _fund_text(current, "proj_guid", identifier=True)
+    amount_minor = int((Decimal(str(current.get("amount") or 0)) * 100).quantize(Decimal("1")))
+    authority = _fund_authority(
+        body,
+        actor_id=actor_id,
+        project_id=project_id,
+        capability="fund:dispatch:approve",
+        amount_minor=amount_minor,
+    )
+    request = {
+        "command_type": command_type,
+        "dispatch_id": aggregate_id,
+        "actor_id": actor_id,
+        "authority": authority,
+    }
+    return aggregate_id, request, False, current
+
+
+def fund_command(
+    pool: PsqlPool,
+    *,
+    resource: str,
+    command_type: str,
+    aggregate_id: str | None,
+    body: dict[str, Any],
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    aggregate_id, request, create_mode, _current = _fund_request(
+        pool,
+        resource=resource,
+        command_type=command_type,
+        aggregate_id=aggregate_id,
+        body=body,
+        actor_id=actor_id,
+        idempotency_key=idempotency_key,
+    )
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        if existing.get("request") != request:
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored fund command receipt has no result")
+        return {"command": existing, resource: result, "idempotent_replay": True}
+    aggregate_type = "fund_plan" if resource == "plan" else "fund_dispatch"
+    imported_table = aggregate_type
+    imported = _raw_source_rows(pool, imported_table, 500, FUND_SOURCE_TABLES)
+    if create_mode and any(
+        str(row["payload"].get("plan_guid" if resource == "plan" else "dispatch_guid") or row["record_id"]) == aggregate_id
+        for row in imported
+    ):
+        raise CommandRejected(f"imported {resource} is read-only; use a distinct local identity", 409)
+    event_id = f"fund:{resource}:{command_type}:{idempotency_key}"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "fund",
+            "resource": resource,
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    result_id_key = "plan_id" if resource == "plan" else "dispatch_id"
+    next_create_state = "planned" if resource == "plan" else "pending"
+    state_guard = ""
+    if resource == "plan" and command_type == "update":
+        state_guard = "IF current_state NOT IN ('planned', 'updated') THEN RAISE EXCEPTION 'invalid fund plan state'; END IF;"
+    elif resource == "plan" and command_type == "delete":
+        state_guard = "IF current_state NOT IN ('planned', 'updated') THEN RAISE EXCEPTION 'invalid fund plan state'; END IF;"
+    elif resource == "dispatch" and command_type == "approve":
+        state_guard = "IF current_state <> 'pending' THEN RAISE EXCEPTION 'invalid fund dispatch state'; END IF;"
+    if command_type == "update":
+        next_payload_expr = "current_payload || coalesce(request_json->'changes', '{}'::jsonb)"
+    elif command_type == "delete":
+        next_payload_expr = "current_payload || jsonb_build_object('deleted_at', event_id)"
+    else:
+        next_payload_expr = "current_payload"
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal(aggregate_type + ':' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      request_json jsonb := {sql_literal(request_json)}::jsonb;
+      next_payload jsonb;
+      current_state text;
+      next_state text;
+      next_revision integer;
+      result jsonb;
+      event_id text := {sql_literal(event_id)};
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+        AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      IF {str(create_mode).lower()} THEN
+        IF current_payload IS NOT NULL THEN RAISE EXCEPTION 'fund aggregate already exists'; END IF;
+        next_revision := 1;
+        next_state := {sql_literal(next_create_state)};
+        next_payload := request_json || jsonb_build_object(
+          'state', next_state,
+          'source_kind', 'command',
+          'event_id', event_id,
+          'updated_by', {sql_literal(actor_id)});
+      ELSE
+        IF current_payload IS NULL THEN RAISE EXCEPTION 'fund aggregate not found'; END IF;
+        current_state := current_payload->>'state';
+        {state_guard}
+        IF {sql_literal(command_type)} = 'approve' THEN
+          next_state := 'approved';
+        ELSIF {sql_literal(command_type)} = 'delete' THEN
+          next_state := 'deleted';
+        ELSE
+          next_state := 'updated';
+        END IF;
+        next_payload := {next_payload_expr} || jsonb_build_object(
+          'state', next_state,
+          'source_kind', 'command',
+          'event_id', event_id,
+          'updated_by', {sql_literal(actor_id)});
+        IF {sql_literal(command_type)} = 'delete' THEN
+          next_payload := next_payload || jsonb_build_object('deleted_at', event_id);
+        END IF;
+        SELECT coalesce(max(p.revision), 0) + 1 INTO next_revision
+        FROM company_aggregate_projection p
+        WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+          AND p.aggregate_id = {sql_literal(aggregate_id)};
+      END IF;
+      INSERT INTO company_aggregate_projection(
+        aggregate_type, aggregate_id, revision, payload, source_event_id
+      ) VALUES (
+        {sql_literal(aggregate_type)}, {sql_literal(aggregate_id)}, next_revision,
+        next_payload, event_id
+      );
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES (
+        'company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)},
+          'action', 'fund.' || {sql_literal(resource)} || '.' || {sql_literal(command_type)},
+          'aggregate_type', {sql_literal(aggregate_type)},
+          'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)},
+          'event_id', event_id,
+          'state', next_state,
+          'revision', next_revision,
+          'cash_effect', false,
+          'accounting_effect', false,
+          'tax_effect', false
+        ),
+        {sql_literal('moonproj:audit:' + event_id)}
+      );
+      result := jsonb_build_object(
+        {sql_literal(result_id_key)}, {sql_literal(aggregate_id)},
+        'state', next_state,
+        'revision', next_revision,
+        'event_id', event_id,
+        'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)},
+        'cash_effect', false,
+        'accounting_effect', false,
+        'tax_effect', false
+      );
+      UPDATE company_record
+      SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("fund command did not return a command receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected fund command receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid fund command receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("fund command receipt has no result")
+    return {"command": receipt, resource: result, "idempotent_replay": not created}
 
 
 def _warning_rows_and_coverage(
@@ -18664,6 +19169,7 @@ def handler_factory(
                 if not idempotency_key:
                     raise CommandRejected("Idempotency-Key is required", 400)
                 command_family = "expense"
+                fund_resource: str | None = None
                 if parsed.path == "/api/company/expenses":
                     command_type = "create"
                     aggregate_id = None
@@ -18685,6 +19191,16 @@ def handler_factory(
                     aggregate_id = None
                 elif parsed.path == "/api/company/loans":
                     command_family = "loan"
+                    command_type = "create"
+                    aggregate_id = None
+                elif parsed.path == "/api/company/fund/plans":
+                    command_family = "fund"
+                    fund_resource = "plan"
+                    command_type = "create"
+                    aggregate_id = None
+                elif parsed.path == "/api/company/fund/dispatches":
+                    command_family = "fund"
+                    fund_resource = "dispatch"
                     command_type = "create"
                     aggregate_id = None
                 elif parsed.path in {
@@ -18761,6 +19277,14 @@ def handler_factory(
                         r"/api/company/loans/([A-Za-z0-9_.:-]{1,128})/(submit-for-approval|offset|sync-from-workflow|update|void)",
                         parsed.path,
                     )
+                    fund_dispatch_match = re.fullmatch(
+                        r"/api/company/fund/dispatches/([A-Za-z0-9_.:-]{1,128})/approve",
+                        parsed.path,
+                    )
+                    fund_plan_delete_match = re.fullmatch(
+                        r"/api/company/fund/plans/([A-Za-z0-9_.:-]{1,128})/delete",
+                        parsed.path,
+                    )
                     sales_match = re.fullmatch(
                         r"/api/company/sales/(customers|subscriptions|contracts|mortgages|refunds|revenues)/([A-Za-z0-9_.:-]{1,128})/(update|block|archive|convert|cancel|fulfill|open_receivable|approve|release|pay|reject|delete|confirm-received)",
                         parsed.path,
@@ -18801,6 +19325,16 @@ def handler_factory(
                             "submit-for-approval": "submit",
                             "sync-from-workflow": "sync_from_workflow",
                         }.get(loan_match.group(2), loan_match.group(2))
+                    elif fund_dispatch_match is not None:
+                        command_family = "fund"
+                        fund_resource = "dispatch"
+                        aggregate_id = fund_dispatch_match.group(1)
+                        command_type = "approve"
+                    elif fund_plan_delete_match is not None:
+                        command_family = "fund"
+                        fund_resource = "plan"
+                        aggregate_id = fund_plan_delete_match.group(1)
+                        command_type = "delete"
                     elif sales_match is not None:
                         command_family = "sales"
                         aggregate_id = sales_match.group(2)
@@ -18940,6 +19474,16 @@ def handler_factory(
                         actor_id=actor,
                         idempotency_key=idempotency_key,
                     )
+                elif command_family == "fund":
+                    result = fund_command(
+                        pool,
+                        resource=fund_resource or "",
+                        command_type=command_type,
+                        aggregate_id=aggregate_id,
+                        body=body,
+                        actor_id=actor,
+                        idempotency_key=idempotency_key,
+                    )
                 else:
                     result = expense_command(
                         pool,
@@ -18962,6 +19506,43 @@ def handler_factory(
                 response(self, error.status, {"error": str(error)}, origin)
             except (OSError, ServiceError, ValueError) as error:
                 response(self, 503, {"error": str(error)}, origin)
+
+        def _fund_method_alias(self, method: str) -> bool:
+            if method not in {"PUT", "DELETE"}:
+                return False
+            parsed = urlparse(self.path)
+            match = re.fullmatch(
+                r"/api/company/fund/plans/([A-Za-z0-9_.:-]{1,128})",
+                parsed.path,
+            )
+            if match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                body = self._json_body() if self.headers.get("Content-Length") else {}
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = fund_command(
+                    pool,
+                    resource="plan",
+                    command_type="update" if method == "PUT" else "delete",
+                    aggregate_id=match.group(1),
+                    body=body,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, result, origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
 
         def _invoice_method_alias(self, method: str) -> bool:
             if method != "DELETE":
@@ -19136,17 +19717,19 @@ def handler_factory(
             return True
 
         def do_PUT(self) -> None:  # noqa: N802
-            if not self._expense_method_alias("PUT"):
-                if not self._sales_method_alias("PUT"):
-                    if not self._marketing_method_alias("PUT"):
-                        self._loan_method_alias("PUT")
+            if not self._fund_method_alias("PUT"):
+                if not self._expense_method_alias("PUT"):
+                    if not self._sales_method_alias("PUT"):
+                        if not self._marketing_method_alias("PUT"):
+                            self._loan_method_alias("PUT")
 
         def do_DELETE(self) -> None:  # noqa: N802
-            if not self._expense_method_alias("DELETE"):
-                if not self._invoice_method_alias("DELETE"):
-                    if not self._marketing_method_alias("DELETE"):
-                        if not self._sales_method_alias("DELETE"):
-                            self._loan_method_alias("DELETE")
+            if not self._fund_method_alias("DELETE"):
+                if not self._expense_method_alias("DELETE"):
+                    if not self._invoice_method_alias("DELETE"):
+                        if not self._marketing_method_alias("DELETE"):
+                            if not self._sales_method_alias("DELETE"):
+                                self._loan_method_alias("DELETE")
 
         def log_message(self, format: str, *values: object) -> None:
             sys.stderr.write("company-service: " + (format % values) + "\n")

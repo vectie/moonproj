@@ -7,7 +7,8 @@ establishes an in-memory HttpOnly session, signs its actor assertion, converts
 a JSON ``idempotency_key`` field into the required ``Idempotency-Key`` header,
 and forwards only the company
 read/expense (including draft update/void)/contract/payment-application/tender/supplier/supplier-provider/supplier-risk/split/sales/delivery/
-loan/reports paths.
+loan/fund/reports paths. Fund commands are local planning projections only;
+cash release, accounting, and tax effects remain separate.
 The default fixture mode is development-only. An opt-in trusted-upstream mode
 accepts a short-lived HMAC-signed identity assertion, verifies that the source
 PostgreSQL profile exists and is enabled, and binds the session actor to that
@@ -50,6 +51,7 @@ SALES_PATH_PREFIX = "/api/company/sales"
 RECEIVABLE_PATH_PREFIX = "/api/company/receivables"
 DELIVERY_PATH_PREFIX = "/api/company/delivery"
 LOAN_PATH_PREFIX = "/api/company/loans"
+FUND_PATH_PREFIX = "/api/company/fund"
 MARKETING_PATH_PREFIX = "/api/company/marketing"
 INVOICE_PATH_PREFIX = "/api/company/source/invoice"
 READ_PATH_PREFIX = "/api/"
@@ -341,6 +343,10 @@ def handler_factory(
                     r"/api/company/sales/revenues/[A-Za-z0-9_.:-]{1,128}",
                     parsed.path,
                 )
+                or re.fullmatch(
+                    r"/api/company/fund/plans/[A-Za-z0-9_.:-]{1,128}",
+                    parsed.path,
+                )
             ):
                 response(self, 404, {"error": "development gateway command is not allow-listed"})
                 return
@@ -465,6 +471,8 @@ def handler_factory(
                 or parsed.path.startswith(DELIVERY_PATH_PREFIX + "/")
                 or parsed.path == LOAN_PATH_PREFIX
                 or parsed.path.startswith(LOAN_PATH_PREFIX + "/")
+                or parsed.path == FUND_PATH_PREFIX
+                or parsed.path.startswith(FUND_PATH_PREFIX + "/")
                 or parsed.path == MARKETING_PATH_PREFIX
                 or parsed.path.startswith(MARKETING_PATH_PREFIX + "/")
                 or parsed.path == INVOICE_PATH_PREFIX

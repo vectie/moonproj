@@ -384,13 +384,18 @@ but no CBS dictionary/version/rule rows, so empty and covered-not-found states
 are preserved. CBS writes, budget reservation, accounting, cash, tax,
 production identity, and owner acceptance remain gates.
 
-Fund planning is now a connected read family after CBS: `/fund/plan` loads
-source-compatible project/period plans, gap analysis, and dispatch evidence
-from `/api/company/fund/{plans,gap-analysis,dispatches}`. The current export
-has no fund rows, so planned cash, gaps, and dispatches are shown as empty
-source state instead of designer numbers after a successful read. Creating
-plans, approving dispatches, releasing cash, accounting, tax, production
-identity, and owner acceptance remain gates.
+Fund planning is now a connected read-and-local-command family after CBS:
+`/fund/plan` loads source-compatible project/period plans, gap analysis, and
+dispatch evidence from `/api/company/fund/{plans,gap-analysis,dispatches}`.
+The current export has no fund rows, so planned cash, gaps, and dispatches are
+shown as empty source state instead of designer numbers after a successful
+read. PostgreSQL now owns bounded plan create/update/delete and dispatch
+create/approve projections with signed actor/capability/scope checks,
+idempotent receipts, aggregate revisions, audit events, and source-shaped
+`sourceKind=command` readback. Imported rows remain read-only and every local
+result is explicitly cash/accounting/tax-neutral. Browser finance-owner
+acceptance, production identity, cash release, settlement, accounting, tax,
+and owner acceptance remain gates.
 
 The warning center is now an observed source-quality read family. `/warning`
 and `/warning-rules` load `/api/company/warning/badge`, the filtered list, and
@@ -465,6 +470,15 @@ marks the response calculation-only, non-authorizing, non-persisting, and
 non-consuming. No receipt, reservation, auto-offset, workflow transition,
 cash movement, accounting entry, or tax effect is created; production
 identity and finance-owner browser acceptance remain open.
+
+The fund action register now maps plan create/update/delete and dispatch
+create/approve to the local PostgreSQL planning command runtime. Each command
+is authority-checked, idempotent, revisioned, and audited; imported
+`fund_plan`/`fund_dispatch` rows remain immutable source evidence, while local
+projections are merged into the source-shaped reads with explicit command
+provenance. The command boundary does not reserve budget, release cash, post
+accounting, calculate/file tax, or synchronize workflow. Browser interaction,
+production identity, and finance-owner acceptance remain open.
 
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
@@ -859,7 +873,7 @@ than raw route count:
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary and populated-provider procurement gate are connected; bind provider credentials, risk calculation parity, timeout/retry, and audit trail before returning a decision | Procurement/security owner approval and a real provider test contract |
-| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
+| P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, and confirmation actions are now explicitly registered against the existing evidence-gated command runtime; source progress deletion remains gated because no target tombstone command exists. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
 GET/HEAD boundaries are explicit gates, not a reason to broaden the
@@ -875,7 +889,7 @@ identity, source reconciliation, browser interaction, and named-owner gates.
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise bounded expense,
    contract, payment-application, procurement, sales/receivables, invoice,
-   core-report, and employee-loan read/command slices. Procurement covers supplier
+   fund planning, core-report, and employee-loan read/command slices. Procurement covers supplier
    lifecycle/risk reads, tender planning/award, and contract splits; sales
    covers customer, reservation, agreement, mortgage, refund, receivable, and
    revenue evidence reads; employee loans preserve source balances and offset

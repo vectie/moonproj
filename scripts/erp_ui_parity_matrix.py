@@ -316,6 +316,8 @@ def required_next(target_function: str | None, target_state: str) -> str:
         return "accept_browser_payment_application_scenario_and_production_identity"
     if target_state == "connected_tender_command_form":
         return "accept_browser_tender_scenario_and_production_identity"
+    if target_state == "connected_fund_command_form":
+        return "accept_browser_fund_command_scenario_and_finance_owner"
     if target_state == "connected_supplier_read":
         return "accept_browser_supplier_scenario_and_production_identity"
     if target_state == "connected_supplier_command_form":
@@ -697,6 +699,14 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         and handler["path"] == "/budget-check"
     ):
         return "connected_budget_check_read", "accept_browser_budget_check_scenario_and_finance_owner"
+    if (
+        handler["module"] == "fund"
+        and (
+            (handler["method"] == "POST" and handler["path"] in {"/plans", "/dispatches", "/dispatches/:guid/approve"})
+            or (handler["method"] in {"PUT", "DELETE"} and handler["path"] == "/plans/:guid")
+        )
+    ):
+        return "connected_fund_command_form", "accept_browser_fund_command_scenario_and_finance_owner"
     if (
         handler["module"] == "investment"
         and handler["method"] == "GET"

@@ -4,7 +4,7 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, bounded expense/sales/marketing/invoice commands, and stale-
+binding, bounded expense/sales/marketing/invoice/fund commands, and stale-
 assertion rejection.
 No secret value is printed.
 """
@@ -569,6 +569,104 @@ def main() -> int:
             or invoice_delete_payload.get("invoice", {}).get("state") != "deleted"
         ):
             raise SmokeError(f"trusted invoice command delete failed: {status}")
+        fund_plan_id = "FP-GW-SMOKE-" + smoke_suffix
+        fund_plan_create = {
+            "plan_id": fund_plan_id,
+            "plan_code": "FP-GW-CODE-" + smoke_suffix,
+            "project_id": "proj-0001",
+            "plan_period": "2026-08",
+            "direction": "out",
+            "category": "construction",
+            "plan_amount_minor": 1200000,
+            "authority": {
+                "active": True,
+                "principal_id": "co-gateway-fund-smoke",
+                "actor_id": user_code,
+                "capability": "fund:plan:create",
+                "scope": "project:proj-0001",
+                "max_amount_minor": 1200000,
+            },
+            "idempotency_key": "fund-gateway-plan-create-" + smoke_suffix,
+        }
+        status, _headers, fund_plan_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/fund/plans",
+            headers={"Cookie": cookie},
+            payload=fund_plan_create,
+        )
+        if status != 201 or not isinstance(fund_plan_payload, dict) or fund_plan_payload.get("plan", {}).get("state") != "planned":
+            raise SmokeError(f"trusted fund plan create failed: {status}")
+        status, _headers, fund_plan_update_payload = request(
+            args.gateway_port,
+            "PUT",
+            f"/api/company/fund/plans/{fund_plan_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "remark": "gateway fund update smoke",
+                "idempotency_key": "fund-gateway-plan-update-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(fund_plan_update_payload, dict) or fund_plan_update_payload.get("plan", {}).get("state") != "updated":
+            raise SmokeError(f"trusted fund plan update failed: {status}")
+        status, _headers, fund_plan_delete_payload = request(
+            args.gateway_port,
+            "DELETE",
+            f"/api/company/fund/plans/{fund_plan_id}",
+            headers={"Cookie": cookie},
+            payload={
+                "reason": "gateway fund delete smoke",
+                "idempotency_key": "fund-gateway-plan-delete-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(fund_plan_delete_payload, dict) or fund_plan_delete_payload.get("plan", {}).get("state") != "deleted":
+            raise SmokeError(f"trusted fund plan delete failed: {status}")
+        fund_dispatch_id = "FD-GW-SMOKE-" + smoke_suffix
+        status, _headers, fund_dispatch_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/fund/dispatches",
+            headers={"Cookie": cookie},
+            payload={
+                "dispatch_id": fund_dispatch_id,
+                "dispatch_code": "FD-GW-CODE-" + smoke_suffix,
+                "project_id": "proj-0001",
+                "from_project_id": "proj-0002",
+                "to_project_id": "proj-0001",
+                "amount_minor": 500000,
+                "reason": "gateway fund dispatch smoke",
+                "authority": {
+                    "active": True,
+                    "principal_id": "co-gateway-fund-smoke",
+                    "actor_id": user_code,
+                    "capability": "fund:dispatch:create",
+                    "scope": "project:proj-0001",
+                    "max_amount_minor": 500000,
+                },
+                "idempotency_key": "fund-gateway-dispatch-create-" + smoke_suffix,
+            },
+        )
+        if status != 201 or not isinstance(fund_dispatch_payload, dict) or fund_dispatch_payload.get("dispatch", {}).get("state") != "pending":
+            raise SmokeError(f"trusted fund dispatch create failed: {status}")
+        status, _headers, fund_dispatch_approve_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/fund/dispatches/{fund_dispatch_id}/approve",
+            headers={"Cookie": cookie},
+            payload={
+                "authority": {
+                    "active": True,
+                    "principal_id": "co-gateway-fund-smoke",
+                    "actor_id": user_code,
+                    "capability": "fund:dispatch:approve",
+                    "scope": "project:proj-0001",
+                    "max_amount_minor": 500000,
+                },
+                "idempotency_key": "fund-gateway-dispatch-approve-" + smoke_suffix,
+            },
+        )
+        if status != 200 or not isinstance(fund_dispatch_approve_payload, dict) or fund_dispatch_approve_payload.get("dispatch", {}).get("state") != "approved" or fund_dispatch_approve_payload.get("dispatch", {}).get("cash_effect") is not False:
+            raise SmokeError(f"trusted fund dispatch approval failed: {status}")
         stale_headers = identity_headers(user_code, identity_secret, int(time.time()) - 61)
         status, _headers, payload = request(
             args.gateway_port,

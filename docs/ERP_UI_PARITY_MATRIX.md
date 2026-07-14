@@ -220,13 +220,13 @@ are attached. The JSON output contains all 338 handler rows.
 | `dashboard` | `GET` | `/v3/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `export` | `POST` | `/excel` | — | `not_connected` | `implement_authenticated_command_and_audit` |
 | `fund` | `GET` | `/plans` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
-| `fund` | `POST` | `/plans` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `fund` | `PUT` | `/plans/:guid` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `fund` | `DELETE` | `/plans/:guid` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `fund` | `POST` | `/plans` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |
+| `fund` | `PUT` | `/plans/:guid` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |
+| `fund` | `DELETE` | `/plans/:guid` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |
 | `fund` | `GET` | `/gap-analysis` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
 | `fund` | `GET` | `/dispatches` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
-| `fund` | `POST` | `/dispatches` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `fund` | `POST` | `/dispatches/:guid/approve` | `/fund/plan` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `fund` | `POST` | `/dispatches` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |
+| `fund` | `POST` | `/dispatches/:guid/approve` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |
 | `import` | `GET` | `/:bizType/template` | — | `connected_import_template_read` | `accept_import_template_read_and_production_identity` |
 | `import` | `POST` | `/:bizType` | — | `not_connected` | `implement_authenticated_command_and_audit` |
 | `investment` | `GET` | `/projects/:projGuid/versions` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |

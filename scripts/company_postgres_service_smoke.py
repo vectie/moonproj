@@ -157,6 +157,7 @@ def main() -> int:
             or "source_schema_inventory_read" not in payload.get("capabilities", [])
             or "marketing_command" not in payload.get("capabilities", [])
             or "invoice_command" not in payload.get("capabilities", [])
+            or "fund_command" not in payload.get("capabilities", [])
         ):
             raise SmokeError(f"summary failed: {status} {payload}")
         status, source_schema_coverage_payload = request(
@@ -824,7 +825,10 @@ def main() -> int:
         if (
             status != 200
             or fund_plans_payload is None
-            or fund_plans_payload.get("data") != []
+            or any(
+                isinstance(row, dict) and row.get("sourceKind") != "command"
+                for row in fund_plans_payload.get("data", [])
+            )
             or fund_plans_payload.get("source_coverage", {}).get("fund_plan") != 0
             or fund_plans_payload.get("authorizing") is not False
         ):
@@ -848,11 +852,154 @@ def main() -> int:
         if (
             status != 200
             or fund_dispatch_payload is None
-            or fund_dispatch_payload.get("data") != []
+            or any(
+                isinstance(row, dict) and row.get("sourceKind") != "command"
+                for row in fund_dispatch_payload.get("data", [])
+            )
             or fund_dispatch_payload.get("source_coverage", {}).get("fund_dispatch") != 0
             or fund_dispatch_payload.get("authorizing") is not False
         ):
             raise SmokeError(f"source fund dispatch read failed: {status} {fund_dispatch_payload}")
+        fund_actor = environment.get("MOONPROJ_ACTOR_ID", "service-operator")
+        fund_nonce = uuid.uuid4().hex[:10]
+        fund_plan_id = "FP-SMOKE-" + fund_nonce
+        fund_plan_authority = {
+            "active": True,
+            "principal_id": "principal-fund-smoke",
+            "actor_id": fund_actor,
+            "capability": "fund:plan:create",
+            "scope": "project:proj-0001",
+            "max_amount_minor": 1200000,
+        }
+        fund_plan_create_payload = {
+            "plan_id": fund_plan_id,
+            "plan_code": "FP-SMOKE-CODE-" + fund_nonce,
+            "project_id": "proj-0001",
+            "plan_period": "2026-08",
+            "direction": "out",
+            "category": "construction",
+            "r_code": "R0",
+            "plan_amount_minor": 1200000,
+            "remark": "service fund command smoke",
+            "authority": fund_plan_authority,
+        }
+        status, fund_plan_create_result = request(
+            args.port,
+            "/api/company/fund/plans",
+            token=token,
+            method="POST",
+            payload=fund_plan_create_payload,
+            idempotency_key="fund-plan-create-" + fund_nonce,
+        )
+        if (
+            status != 201
+            or fund_plan_create_result is None
+            or fund_plan_create_result.get("plan", {}).get("state") != "planned"
+            or fund_plan_create_result.get("plan", {}).get("cash_effect") is not False
+        ):
+            raise SmokeError(f"fund plan create failed: {status} {fund_plan_create_result}")
+        status, fund_plan_replay_result = request(
+            args.port,
+            "/api/company/fund/plans",
+            token=token,
+            method="POST",
+            payload=fund_plan_create_payload,
+            idempotency_key="fund-plan-create-" + fund_nonce,
+        )
+        if status != 200 or fund_plan_replay_result is None or fund_plan_replay_result.get("idempotent_replay") is not True:
+            raise SmokeError(f"fund plan idempotency failed: {status} {fund_plan_replay_result}")
+        status, fund_plan_update_result = request(
+            args.port,
+            f"/api/company/fund/plans/{fund_plan_id}",
+            token=token,
+            method="PUT",
+            payload={"remark": "updated fund command smoke"},
+            idempotency_key="fund-plan-update-" + fund_nonce,
+        )
+        if status != 200 or fund_plan_update_result is None or fund_plan_update_result.get("plan", {}).get("state") != "updated":
+            raise SmokeError(f"fund plan update failed: {status} {fund_plan_update_result}")
+        status, fund_plan_delete_result = request(
+            args.port,
+            f"/api/company/fund/plans/{fund_plan_id}/delete",
+            token=token,
+            method="POST",
+            payload={"reason": "service fund command smoke cleanup"},
+            idempotency_key="fund-plan-delete-" + fund_nonce,
+        )
+        if status != 200 or fund_plan_delete_result is None or fund_plan_delete_result.get("plan", {}).get("state") != "deleted":
+            raise SmokeError(f"fund plan delete failed: {status} {fund_plan_delete_result}")
+        fund_dispatch_id = "FD-SMOKE-" + fund_nonce
+        fund_dispatch_create_payload = {
+            "dispatch_id": fund_dispatch_id,
+            "dispatch_code": "FD-SMOKE-CODE-" + fund_nonce,
+            "project_id": "proj-0001",
+            "from_project_id": "proj-0002",
+            "to_project_id": "proj-0001",
+            "amount_minor": 500000,
+            "reason": "service fund dispatch smoke",
+            "dispatch_date": "2026-08-01",
+            "authority": {
+                "active": True,
+                "principal_id": "principal-fund-smoke",
+                "actor_id": fund_actor,
+                "capability": "fund:dispatch:create",
+                "scope": "project:proj-0001",
+                "max_amount_minor": 500000,
+            },
+        }
+        status, fund_dispatch_create_result = request(
+            args.port,
+            "/api/company/fund/dispatches",
+            token=token,
+            method="POST",
+            payload=fund_dispatch_create_payload,
+            idempotency_key="fund-dispatch-create-" + fund_nonce,
+        )
+        if status != 201 or fund_dispatch_create_result is None or fund_dispatch_create_result.get("dispatch", {}).get("state") != "pending":
+            raise SmokeError(f"fund dispatch create failed: {status} {fund_dispatch_create_result}")
+        status, fund_dispatch_approve_result = request(
+            args.port,
+            f"/api/company/fund/dispatches/{fund_dispatch_id}/approve",
+            token=token,
+            method="POST",
+            payload={
+                "authority": {
+                    "active": True,
+                    "principal_id": "principal-fund-smoke",
+                    "actor_id": fund_actor,
+                    "capability": "fund:dispatch:approve",
+                    "scope": "project:proj-0001",
+                    "max_amount_minor": 500000,
+                }
+            },
+            idempotency_key="fund-dispatch-approve-" + fund_nonce,
+        )
+        if status != 200 or fund_dispatch_approve_result is None or fund_dispatch_approve_result.get("dispatch", {}).get("state") != "approved":
+            raise SmokeError(f"fund dispatch approve failed: {status} {fund_dispatch_approve_result}")
+        status, fund_plan_command_readback = request(
+            args.port,
+            "/api/company/fund/plans?projGuid=proj-0001",
+            token=token,
+        )
+        status_dispatch_readback, fund_dispatch_command_readback = request(
+            args.port, "/api/company/fund/dispatches", token=token,
+        )
+        if (
+            status != 200
+            or fund_plan_command_readback is None
+            or any(row.get("plan_guid") == fund_plan_id for row in fund_plan_command_readback.get("data", []))
+            or fund_plan_command_readback.get("command_projection") is not True
+            or status_dispatch_readback != 200
+            or fund_dispatch_command_readback is None
+            or not any(
+                row.get("dispatch_guid") == fund_dispatch_id and row.get("state") == "approved"
+                for row in fund_dispatch_command_readback.get("data", [])
+            )
+        ):
+            raise SmokeError(
+                f"fund command readback failed: {status} {fund_plan_command_readback}; "
+                f"{status_dispatch_readback} {fund_dispatch_command_readback}"
+            )
         status, warning_badge_payload = request(
             args.port, "/api/company/warning/badge", token=token,
         )
@@ -3396,6 +3543,9 @@ def main() -> int:
                     "fund_plan_rows": len(fund_plans_payload.get("data", [])),
                     "fund_gap_series_rows": len(fund_gap_payload.get("data", {}).get("series", [])),
                     "fund_dispatch_rows": len(fund_dispatch_payload.get("data", [])),
+                    "fund_plan_command_deleted_state": fund_plan_delete_result.get("plan", {}).get("state"),
+                    "fund_dispatch_command_state": fund_dispatch_approve_result.get("dispatch", {}).get("state"),
+                    "fund_command_cash_effect": fund_dispatch_approve_result.get("dispatch", {}).get("cash_effect"),
                     "warning_open_rows": warning_badge_data.get("openTotal"),
                     "warning_rule_rows": len(warning_rules_data.get("data", [])),
                     "supplier_risk_source_high_rows": len(supplier_risk_data.get("highRisk", [])),

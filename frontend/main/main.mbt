@@ -820,6 +820,10 @@ struct Model {
   fund_gap_series_count : String
   fund_dispatch_count : String
   fund_note : String
+  fund_plan_id : String
+  fund_dispatch_id : String
+  fund_command_state : String
+  fund_command_note : String
   warnings_loaded : Bool
   warning_rows : Array[WarningRow]
   warning_rule_count : String
@@ -1129,6 +1133,13 @@ enum Msg {
   FundGapLoadFailed
   FundDispatchLoaded(String)
   FundDispatchLoadFailed
+  CreateFundPlan
+  UpdateFundPlan
+  DeleteFundPlan
+  CreateFundDispatch
+  ApproveFundDispatch
+  FundCommandFinished(String)
+  FundCommandFailed
   WarningsLoaded(String)
   WarningsLoadFailed
   WarningRulesLoaded(String)
@@ -1409,6 +1420,10 @@ fn initial_model() -> Model {
     fund_gap_series_count: "0",
     fund_dispatch_count: "0",
     fund_note: "资金计划读模型尚未加载 · 使用设计快照",
+    fund_plan_id: "",
+    fund_dispatch_id: "",
+    fund_command_state: "idle",
+    fund_command_note: "资金计划命令尚未运行",
     warnings_loaded: false,
     warning_rows: [],
     warning_rule_count: "0",
@@ -5502,6 +5517,81 @@ fn load_fund_dispatches(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn fund_authority_json(
+  model : Model,
+  capability : String,
+  amount_minor : String,
+) -> String {
+  "{\"active\":true,\"principal_id\":\"principal-rabbita\",\"actor_id\":\"" +
+  model.user_code +
+  "\",\"capability\":\"" +
+  capability +
+  "\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":" +
+  amount_minor +
+  "}"
+}
+
+///|
+fn fund_command_body(model : Model, command_type : String) -> String {
+  if command_type == "create_plan" {
+    "{\"idempotency_key\":\"rabbita-fund-plan-create-v1\",\"plan_id\":\"FP-RABBITA-LOCAL\",\"plan_code\":\"FP-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"plan_period\":\"2026-08\",\"direction\":\"out\",\"category\":\"construction\",\"r_code\":\"R0\",\"plan_amount_minor\":1200000,\"remark\":\"Rabbita 资金计划命令演示\",\"authority\":" +
+    fund_authority_json(model, "fund:plan:create", "1200000") +
+    "}"
+  } else if command_type == "update_plan" {
+    "{\"idempotency_key\":\"rabbita-fund-plan-update-v1\",\"remark\":\"Rabbita 资金计划已复核\"}"
+  } else if command_type == "delete_plan" {
+    "{\"idempotency_key\":\"rabbita-fund-plan-delete-v1\",\"reason\":\"Rabbita 资金计划命令演示撤回\"}"
+  } else if command_type == "create_dispatch" {
+    "{\"idempotency_key\":\"rabbita-fund-dispatch-create-v1\",\"dispatch_id\":\"FD-RABBITA-LOCAL\",\"dispatch_code\":\"FD-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"from_project_id\":\"proj-0002\",\"to_project_id\":\"proj-0001\",\"amount_minor\":500000,\"reason\":\"Rabbita 资金调度命令演示\",\"dispatch_date\":\"2026-08-01\",\"authority\":" +
+    fund_authority_json(model, "fund:dispatch:create", "500000") +
+    "}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-fund-dispatch-approve-v1\",\"authority\":" +
+    fund_authority_json(model, "fund:dispatch:approve", "500000") +
+    "}"
+  }
+}
+
+///|
+fn issue_fund_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create_plan" {
+    "/api/company/fund/plans"
+  } else if command_type == "update_plan" {
+    "/api/company/fund/plans/" + model.fund_plan_id
+  } else if command_type == "delete_plan" {
+    "/api/company/fund/plans/" + model.fund_plan_id + "/delete"
+  } else if command_type == "create_dispatch" {
+    "/api/company/fund/dispatches"
+  } else {
+    "/api/company/fund/dispatches/" + model.fund_dispatch_id + "/approve"
+  }
+  let body = fund_command_body(model, command_type)
+  if command_type == "update_plan" {
+    @http.put(path)
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(FundCommandFinished(value))
+        Err(_) => emit(FundCommandFailed)
+      }
+    })
+  } else {
+    @http.post(path)
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(FundCommandFinished(value))
+        Err(_) => emit(FundCommandFailed)
+      }
+    })
+  }
+}
+
+///|
 fn load_warnings(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/warning?status=open").expect_text(result => {
     match result {
@@ -8288,6 +8378,124 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, fund_dispatch_count: if loaded { count } else { "0" } })
     }
     FundDispatchLoadFailed => (none, { ..model, fund_dispatch_count: "0" })
+    CreateFundPlan =>
+      if model.fund_plan_id != "" {
+        (none, model)
+      } else {
+        (
+          issue_fund_command(emit, model, "create_plan"),
+          {
+            ..model,
+            fund_command_state: "pending",
+            fund_command_note: "正在创建资金计划草稿…",
+          },
+        )
+      }
+    UpdateFundPlan =>
+      if model.fund_plan_id == "" || model.fund_command_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_fund_command(emit, model, "update_plan"),
+          {
+            ..model,
+            fund_command_state: "pending",
+            fund_command_note: "正在更新资金计划草稿…",
+          },
+        )
+      }
+    DeleteFundPlan =>
+      if model.fund_plan_id == "" || model.fund_command_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_fund_command(emit, model, "delete_plan"),
+          {
+            ..model,
+            fund_command_state: "pending",
+            fund_command_note: "正在作废资金计划草稿…",
+          },
+        )
+      }
+    CreateFundDispatch =>
+      if model.fund_dispatch_id != "" {
+        (none, model)
+      } else {
+        (
+          issue_fund_command(emit, model, "create_dispatch"),
+          {
+            ..model,
+            fund_command_state: "pending",
+            fund_command_note: "正在创建资金调度申请…",
+          },
+        )
+      }
+    ApproveFundDispatch =>
+      if model.fund_dispatch_id == "" || model.fund_command_state == "pending" {
+        (none, model)
+      } else {
+        (
+          issue_fund_command(emit, model, "approve_dispatch"),
+          {
+            ..model,
+            fund_command_state: "pending",
+            fund_command_note: "正在审批资金调度申请…",
+          },
+        )
+      }
+    FundCommandFinished(body) => {
+      let is_plan = body.contains("FP-RABBITA-LOCAL")
+      let is_dispatch = body.contains("FD-RABBITA-LOCAL")
+      let next_state = if body.contains("\"state\":\"planned\"") {
+        "planned"
+      } else if body.contains("\"state\":\"updated\"") {
+        "updated"
+      } else if body.contains("\"state\":\"deleted\"") {
+        "deleted"
+      } else if body.contains("\"state\":\"pending\"") {
+        "pending"
+      } else if body.contains("\"state\":\"approved\"") {
+        "approved"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (
+          none,
+          { ..model, fund_command_state: "error", fund_command_note: body },
+        )
+      } else {
+        (
+          load_fund(emit),
+          {
+            ..model,
+            fund_plan_id: if is_plan && next_state == "deleted" {
+              ""
+            } else if is_plan {
+              "FP-RABBITA-LOCAL"
+            } else {
+              model.fund_plan_id
+            },
+            fund_dispatch_id: if is_dispatch {
+              "FD-RABBITA-LOCAL"
+            } else {
+              model.fund_dispatch_id
+            },
+            fund_command_state: next_state,
+            fund_command_note: "已写入 PostgreSQL 资金命令投影 · 现金/会计/税务仍未触发",
+          },
+        )
+      }
+    }
+    FundCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          fund_command_state: "error",
+          fund_command_note: "资金命令请求失败 · 保持源记录只读",
+        },
+      )
     WarningsLoaded(body) => {
       let (loaded, rows, missing_table_count) = warnings_from_body(body)
       (
@@ -13307,14 +13515,59 @@ fn fund_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn fund_plan_view(model : Model) -> @html.Html {
+fn fund_actions(emit : @rabbita.Emit[Msg], model : Model) -> Array[@html.Html] {
+  let actions : Array[@html.Html] = [
+    button(
+      class="erp-primary-btn",
+      on_click=emit(CreateFundPlan),
+      "＋ 编制计划",
+    ),
+  ]
+  if model.fund_plan_id != "" && model.fund_command_state != "pending" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(UpdateFundPlan),
+        "更新计划草稿",
+      ),
+    )
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(DeleteFundPlan),
+        "作废计划草稿",
+      ),
+    )
+  }
+  if model.fund_dispatch_id == "" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateFundDispatch),
+        "＋ 申请资金调度",
+      ),
+    )
+  } else if model.fund_command_state == "pending" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ApproveFundDispatch),
+        "审批资金调度",
+      ),
+    )
+  }
+  actions
+}
+
+///|
+fn fund_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let plan_outflow = if model.fund_loaded { "—" } else { "¥3,860 万" }
   let gap = if model.fund_loaded { "—" } else { "¥620 万" }
   page_shell(
     "资金计划",
     "FINANCE / FUND PLAN",
     "统筹项目回款、融资、付款与资金缺口，形成月度和滚动资金计划。",
-    [button(class="erp-primary-btn", "＋ 编制计划")],
+    fund_actions(emit, model),
     div <| [
       div(class="erp-runtime-banner", [
         strong(
@@ -13325,6 +13578,7 @@ fn fund_plan_view(model : Model) -> @html.Html {
           },
         ),
         span(" · " + model.fund_note),
+        span(" · " + model.fund_command_note),
       ]),
       div(class="erp-stat-grid") <| [
         metric(
@@ -16972,7 +17226,7 @@ fn business_view(
       "/cbs/versions" => cbs_view(model, path)
       "/cbs/r0-queue" => cbs_view(model, path)
       "/cbs/approval-config" => cbs_view(model, path)
-      "/fund/plan" => fund_plan_view(model)
+      "/fund/plan" => fund_plan_view(emit, model)
       "/invoice" => invoice_view(model)
       "/expenses" => expenses_view(emit, model)
       "/expenses/new" => expense_editor_view(emit, model, false)
