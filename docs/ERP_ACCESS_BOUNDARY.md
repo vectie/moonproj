@@ -40,3 +40,11 @@ explicit role/permission mappings, user-to-principal identity, scope mapping,
 system-role review, and owner approval before real authority is transferred.
 Authentication remains provider-owned and role migration does not grant
 workflow approval, cash movement, or accounting posting by itself.
+
+The PostgreSQL adapter's `/api/company/rbac/me` is an observation endpoint for
+source identity/role coverage only. It returns `authorizing=false` and treats
+missing `sys_role`/`sys_user_role` rows as `NO_SOURCE_ROWS`; it never derives
+permissions from the imported `is_super_user` flag. `/api/company/auth/prefs`
+similarly reports imported preference values when available and an explicit
+empty source state otherwise. Neither endpoint replaces the production token,
+role directory, or reviewed access-plan import.

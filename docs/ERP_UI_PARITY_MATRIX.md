@@ -138,7 +138,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `auth` | `POST` | `/change-password` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `PUT` | `/profile` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `GET` | `/my-initiated` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
-| `auth` | `GET` | `/prefs` | `/login`, `/profile` | `not_connected` | `connect_authenticated_read_api` |
+| `auth` | `GET` | `/prefs` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `auth` | `PUT` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `auth` | `DELETE` | `/prefs/:key` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `budget` | `GET` | `/dict/cost-subjects` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_read` | `accept_browser_budget_scenario_and_production_identity` |
@@ -326,7 +326,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `progress` | `GET` | `/outputs` | `/project/progress` | `connected_delivery_source_read` | `accept_browser_delivery_source_scenario_and_production_identity` |
 | `progress` | `POST` | `/outputs` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `progress` | `POST` | `/outputs/:guid/confirm` | `/project/progress` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `rbac` | `GET` | `/me` | `/users` | `not_connected` | `connect_authenticated_read_api` |
+| `rbac` | `GET` | `/me` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `GET` | `/roles` | `/users` | `not_connected` | `connect_authenticated_read_api` |
 | `rbac` | `GET` | `/roles/:code` | `/users` | `not_connected` | `connect_authenticated_read_api` |
 | `rbac` | `GET` | `/users` | `/users` | `connected_rbac_user_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |

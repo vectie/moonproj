@@ -1175,6 +1175,42 @@ def main() -> int:
             or profile_payload.get("source_coverage", {}).get("mu_business_unit") != 7
         ):
             raise SmokeError(f"auth profile read failed: {status} {profile_payload}")
+        status, prefs_payload = request(
+            args.port,
+            "/api/company/auth/prefs?userCode=admin",
+            token=token,
+        )
+        if (
+            status != 200
+            or prefs_payload is None
+            or prefs_payload.get("data") != {}
+            or prefs_payload.get("source_coverage", {}).get("sys_user") != 5
+            or prefs_payload.get("source_coverage", {}).get("sys_user_pref") != 0
+            or "sys_user_pref" not in prefs_payload.get("missing_or_empty_source_tables", [])
+            or prefs_payload.get("authorizing") is not False
+            or prefs_payload.get("persisted") is not False
+        ):
+            raise SmokeError(f"auth preference read failed: {status} {prefs_payload}")
+        status, rbac_me_payload = request(
+            args.port,
+            "/api/company/rbac/me?userCode=admin",
+            token=token,
+        )
+        rbac_me_data = (rbac_me_payload or {}).get("data", {})
+        if (
+            status != 200
+            or rbac_me_payload is None
+            or rbac_me_data.get("userId") != "user-admin-0001"
+            or rbac_me_data.get("userCode") != "admin"
+            or rbac_me_data.get("roles") != []
+            or rbac_me_data.get("permissions") != []
+            or rbac_me_data.get("rolesSourceStatus") != "NO_SOURCE_ROWS"
+            or rbac_me_payload.get("source_coverage", {}).get("sys_user") != 5
+            or rbac_me_payload.get("source_coverage", {}).get("sys_role") != 0
+            or rbac_me_payload.get("source_coverage", {}).get("sys_user_role") != 0
+            or rbac_me_payload.get("authorizing") is not False
+        ):
+            raise SmokeError(f"RBAC current-user read failed: {status} {rbac_me_payload}")
         status, missing_profile_payload = request(
             args.port,
             "/api/company/auth/me?userCode=missing-user",
@@ -2355,6 +2391,9 @@ def main() -> int:
                     "rbac_role_source_status": user_rows[0].get("rolesSourceStatus"),
                     "profile_user_code": profile_data.get("userCode"),
                     "profile_source_kind": profile_data.get("sourceKind"),
+                    "profile_preference_rows": len((prefs_payload or {}).get("data", {})),
+                    "rbac_me_roles": len(rbac_me_data.get("roles", [])),
+                    "rbac_me_role_source_status": rbac_me_data.get("rolesSourceStatus"),
                     "profile_initiated_expenses": len(initiated_data.get("expenses", [])),
                     "profile_initiated_loans": len(initiated_data.get("loans", [])),
                     "profile_initiated_applies": len(initiated_data.get("applies", [])),

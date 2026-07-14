@@ -113,6 +113,10 @@ The bounded service exposes these endpoints:
 * ``/api/company/warning/{badge,'',rules,scans,custom-rules,rule-templates,tickets/mine}``
   (GET, observed source-quality reads)
 * ``/api/company/rbac/users`` (GET, source-backed identity roster read)
+* ``/api/company/rbac/me`` (GET, source identity/role observation; never an
+  authority decision)
+* ``/api/company/auth/prefs`` (GET, source preference observation; preference
+  writes remain gated)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -396,6 +400,9 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "project_read",
             "loan_read",
             "loan_command",
+            "profile_observation_read",
+            "preference_observation_read",
+            "rbac_observation_read",
             "audit_receipt",
             "attachment_metadata_read",
             "notification_metadata_read",
@@ -446,6 +453,9 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "project_read",
             "loan_read",
             "loan_command",
+            "profile_observation_read",
+            "preference_observation_read",
+            "rbac_observation_read",
             "audit_receipt",
             "ai_hub_read",
             "cost_dashboard_read",
@@ -6314,6 +6324,99 @@ def admin_rbac_users(
     }
 
 
+def rbac_current_user(
+    pool: PsqlPool,
+    user_code: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read the source ``GET /rbac/me`` shape without making it an authority."""
+
+    profile = auth_current_user(pool, user_code, max_rows)
+    if profile is None:
+        return None
+    profile_data = profile["data"]
+    users = _raw_source_rows(pool, "sys_user", max(max_rows, 100), ADMIN_RBAC_SOURCE_TABLES)
+    selected = next(
+        (
+            row
+            for row in users
+            if str(row["payload"].get("user_code") or "") == user_code
+        ),
+        None,
+    )
+    if selected is None:
+        return None
+    user_id = str(selected["payload"].get("user_id") or selected["record_id"])
+    roles = _raw_source_rows(pool, "sys_role", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES)
+    assignments = _raw_source_rows(pool, "sys_user_role", max(max_rows, 500), ADMIN_RBAC_SOURCE_TABLES)
+    role_by_code = {
+        str(row["payload"].get("role_code") or row["record_id"]): row["payload"]
+        for row in roles
+    }
+    role_codes: list[str] = []
+    role_names: list[str] = []
+    permissions: list[str] = []
+    data_scope = "self"
+    for assignment in assignments:
+        payload = assignment["payload"]
+        if str(payload.get("user_id") or "") != user_id:
+            continue
+        role_code = str(payload.get("role_code") or "")
+        if not role_code or role_code in role_codes:
+            continue
+        role_codes.append(role_code)
+        role = role_by_code.get(role_code, {})
+        role_name = str(role.get("role_name") or "")
+        if role_name:
+            role_names.append(role_name)
+        scope = str(role.get("data_scope") or "")
+        if scope:
+            data_scope = scope
+        raw_permissions = role.get("permissions", [])
+        if isinstance(raw_permissions, str):
+            try:
+                raw_permissions = json.loads(raw_permissions)
+            except json.JSONDecodeError:
+                raw_permissions = []
+        if isinstance(raw_permissions, list):
+            for permission in raw_permissions:
+                value = str(permission)
+                if value and value not in permissions:
+                    permissions.append(value)
+    coverage = {
+        "sys_user": len(users),
+        "sys_role": len(roles),
+        "sys_user_role": len(assignments),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": {
+            "userId": profile_data["userId"],
+            "userCode": profile_data["userCode"],
+            "empName": profile_data["empName"],
+            "buGuid": profile_data["buGuid"],
+            "isSuperUser": profile_data["isSuperUser"],
+            "roles": role_codes,
+            "roleNames": role_names,
+            "permissions": permissions,
+            "dataScope": data_scope,
+            "rolesSourceStatus": (
+                "NO_SOURCE_ROWS"
+                if coverage["sys_role"] == 0 or coverage["sys_user_role"] == 0
+                else "IMPORTED"
+            ),
+            "sourceKind": "imported",
+        },
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+    }
+
+
 def auth_current_user(
     pool: PsqlPool,
     user_code: str,
@@ -6369,6 +6472,66 @@ def auth_current_user(
             "sys_user": len(users),
             "mu_business_unit": len(units),
         },
+    }
+
+
+def auth_preferences(
+    pool: PsqlPool,
+    user_code: str,
+    max_rows: int,
+) -> dict[str, Any] | None:
+    """Read source ``GET /auth/prefs`` without enabling preference writes."""
+
+    if not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    users = _raw_source_rows(pool, "sys_user", max(max_rows, 100), AUTH_PREF_SOURCE_TABLES)
+    selected = next(
+        (
+            row
+            for row in users
+            if str(row["payload"].get("user_code") or "") == user_code
+        ),
+        None,
+    )
+    if selected is None:
+        return None
+    user_id = str(selected["payload"].get("user_id") or selected["record_id"])
+    raw_preferences = _raw_source_rows(
+        pool,
+        "sys_user_pref",
+        max(max_rows, 100),
+        AUTH_PREF_SOURCE_TABLES,
+    )
+    values: dict[str, Any] = {}
+    for row in raw_preferences:
+        payload = row["payload"]
+        if str(payload.get("user_id") or "") != user_id:
+            continue
+        key = str(payload.get("pref_key") or "")
+        if not key:
+            continue
+        value = payload.get("pref_value")
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                pass
+        values[key] = value
+    coverage = {
+        "sys_user": len(users),
+        "sys_user_pref": len(raw_preferences),
+    }
+    return {
+        "success": True,
+        "code": 0,
+        "data": values,
+        "source_kind": "imported_or_empty",
+        "source_coverage": coverage,
+        "missing_or_empty_source_tables": [
+            table for table, count in coverage.items() if count == 0
+        ],
+        "authorizing": False,
+        "persisted": False,
     }
 
 
@@ -8213,6 +8376,11 @@ AUTH_SOURCE_TABLES = {
     "vcb_expense",
     "vcb_loan_simple",
     "cb_htfk_apply",
+}
+
+AUTH_PREF_SOURCE_TABLES = {
+    "sys_user",
+    "sys_user_pref",
 }
 
 ADMIN_QUALITY_SOURCE_TABLES = {
@@ -13547,6 +13715,13 @@ def handler_factory(
                         response(self, 404, {"error": "user not found"}, origin)
                     else:
                         response(self, 200, result, origin)
+                elif parsed.path == "/api/company/auth/prefs":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = auth_preferences(pool, user_code, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/auth/my-initiated":
                     user_code = parse_qs(parsed.query).get("userCode", [""])[0]
                     result = auth_my_initiated(pool, user_code, max_response_rows)
@@ -14402,6 +14577,13 @@ def handler_factory(
                         ),
                         origin,
                     )
+                elif parsed.path == "/api/company/rbac/me":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = rbac_current_user(pool, user_code, max_response_rows)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"}, origin)
+                    else:
+                        response(self, 200, result, origin)
                 elif parsed.path == "/api/company/admin/dict/options":
                     group_name = parse_qs(parsed.query).get("groupName", [None])[0]
                     response(self, 200, admin_dict_options(pool, group_name, max_response_rows), origin)

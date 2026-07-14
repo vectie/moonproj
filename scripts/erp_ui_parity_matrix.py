@@ -550,6 +550,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_rbac_user_read", "accept_browser_user_roster_scenario_and_super_user_owner"
     if (
+        handler["module"] == "rbac"
+        and handler["method"] == "GET"
+        and handler["path"] == "/me"
+    ):
+        return "connected_rbac_observation_read", "accept_browser_user_roster_scenario_and_super_user_owner"
+    if (
         handler["module"] == "dashboard"
         and handler["method"] == "GET"
         and handler["path"]
@@ -566,6 +572,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
         handler["module"] == "auth"
         and handler["method"] == "GET"
         and handler["path"] in {"/me", "/my-initiated"}
+    ):
+        return "connected_profile_read", "accept_browser_profile_scenario_and_production_identity"
+    if (
+        handler["module"] == "auth"
+        and handler["method"] == "GET"
+        and handler["path"] == "/prefs"
     ):
         return "connected_profile_read", "accept_browser_profile_scenario_and_production_identity"
     if (

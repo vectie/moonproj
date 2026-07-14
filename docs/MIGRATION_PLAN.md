@@ -637,6 +637,17 @@ identity/provider/operational authorization. This is browser evidence for the
 bounded read wave, not production acceptance or a claim that the remaining
 operational handlers are implemented.
 
+**Identity observation checkpoint (2026-07-14).** The service and development
+read-model now expose fixed PostgreSQL reads for source `GET /auth/prefs` and
+`GET /rbac/me`. The imported `admin` identity returns an empty preference map
+with zero `sys_user_pref` coverage, and the RBAC observation returns the
+imported identity with empty roles/permissions and `NO_SOURCE_ROWS` for
+`sys_role`/`sys_user_role`. Both responses explicitly report
+`authorizing=false`; preference writes, role administration, token binding,
+and production authorization remain gated. The parity matrix and service
+smoke now cover these routes, making the missing role/preference export a
+measurable source gate rather than an unimplemented HTTP hole.
+
 1. **Visual UI port, not final UI parity.** Rabbita has the source login,
    navigation, dashboard, major route families, and representative forms, but
    many views are fixture-backed/read-only and no page-by-page screenshot,

@@ -11,7 +11,7 @@ report-builder metadata/template,
 employee-loan, dynamic-cost, source contract/payment, invoice/tax-ledger,
 budget scope/loan balance, workflow instance observation, investment,
 admin-quality, attachment metadata,
-non-secret profile, AI analytics, AI Hub observation, and webhook configuration
+ non-secret profile/preferences, RBAC observation, AI analytics, AI Hub observation, and webhook configuration
 reads.
 OCR status and error-log metadata reads redact secrets, IP addresses, and
 stacks; they never execute a provider or expose a mutation path.
@@ -154,6 +154,8 @@ from company_postgres_service import (
     admin_audit_actions as service_admin_audit_actions,
     admin_health_tables as service_admin_health_tables,
     admin_health_bpm_pool as service_admin_health_bpm_pool,
+    auth_preferences as service_auth_preferences,
+    rbac_current_user as service_rbac_current_user,
     workflow_source_tasks_mine as service_workflow_source_tasks_mine,
     workflow_source_tasks_initiated as service_workflow_source_tasks_initiated,
     workflow_source_history as service_workflow_source_history,
@@ -202,6 +204,14 @@ def summary(args: argparse.Namespace) -> dict[str, Any]:
 
 def auth_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
     return service_auth_current_user(_ReadModelPool(args), user_code, 500)
+
+
+def auth_preferences(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
+    return service_auth_preferences(_ReadModelPool(args), user_code, 500)
+
+
+def rbac_current_user(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
+    return service_rbac_current_user(_ReadModelPool(args), user_code, 500)
 
 
 def auth_my_initiated(args: argparse.Namespace, user_code: str) -> dict[str, Any] | None:
@@ -1093,6 +1103,14 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                 if parsed.path == "/api/company/auth/me":
                     user_code = parse_qs(parsed.query).get("userCode", [""])[0]
                     result = auth_current_user(args, user_code)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"})
+                    else:
+                        response(self, 200, result)
+                    return
+                if parsed.path == "/api/company/auth/prefs":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = auth_preferences(args, user_code)
                     if result is None:
                         response(self, 404, {"error": "user not found"})
                     else:
@@ -2046,6 +2064,14 @@ def handler_factory(args: argparse.Namespace, public_dir: Path | None):
                             query.get("enabled", [None])[0],
                         ),
                     )
+                    return
+                if parsed.path == "/api/company/rbac/me":
+                    user_code = parse_qs(parsed.query).get("userCode", [""])[0]
+                    result = rbac_current_user(args, user_code)
+                    if result is None:
+                        response(self, 404, {"error": "user not found"})
+                    else:
+                        response(self, 200, result)
                     return
                 if parsed.path == "/api/company/admin/dict/groups":
                     response(self, 200, admin_dict_groups(args))
