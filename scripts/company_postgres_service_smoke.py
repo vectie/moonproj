@@ -510,6 +510,9 @@ def main() -> int:
             token=token,
         )
         notification_messages_data = (notification_messages_payload or {}).get("data", {})
+        notification_message_has_command_projection = bool(
+            (notification_messages_payload or {}).get("command_projection")
+        )
         if (
             status != 200
             or notification_messages_payload is None
@@ -518,7 +521,20 @@ def main() -> int:
             or notification_messages_payload.get("source_coverage", {}).get("sys_message") != 0
             or notification_messages_payload.get("source_coverage", {}).get("sys_user") != 5
             or notification_messages_payload.get("authorizing") is not False
-            or notification_messages_payload.get("persisted") is not False
+            or (
+                not notification_message_has_command_projection
+                and (
+                    notification_messages_payload.get("source_kind") != "imported_or_empty"
+                    or notification_messages_payload.get("persisted") is not False
+                )
+            )
+            or (
+                notification_message_has_command_projection
+                and (
+                    notification_messages_payload.get("source_kind") != "imported_or_command"
+                    or notification_messages_payload.get("persisted") is not True
+                )
+            )
         ):
             raise SmokeError(f"source notification message read failed: {status} {notification_messages_payload}")
         status, notification_unread_payload = request(

@@ -4,7 +4,7 @@
 The smoke starts the authenticated PostgreSQL service and gateway with
 credential-shaped values held only in the child environments. It verifies a
 short-lived signed source identity, enabled-user lookup, HttpOnly session
-binding, bounded expense/sales/marketing/invoice/fund/tender source-alias commands, and stale-
+binding, bounded expense/sales/marketing/invoice/fund/tender source-alias commands, notification subscription/message commands, and stale-
 assertion rejection.
 No secret value is printed.
 """
@@ -321,6 +321,54 @@ def main() -> int:
         subscription_rows = (subscription_deleted_read or {}).get("data", []) if isinstance(subscription_deleted_read, dict) else []
         if status != 200 or any(row.get("subId") == subscription_id for row in subscription_rows if isinstance(row, dict)):
             raise SmokeError(f"trusted notification subscription tombstone readback failed: {status}")
+        message_suffix = str(time.time_ns())
+        message_guid = "missing-msg-0001"
+        status, _headers, message_read_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/source/notify/messages/{message_guid}/read",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "notification-message-read-" + message_suffix},
+        )
+        if (
+            status != 200
+            or not isinstance(message_read_payload, dict)
+            or message_read_payload.get("data", {}).get("msgGuid") != message_guid
+            or message_read_payload.get("data", {}).get("isRead") is not True
+            or message_read_payload.get("delivery_effect") is not False
+        ):
+            raise SmokeError(f"trusted notification message read failed: {status}")
+        status, _headers, message_read_replay_payload = request(
+            args.gateway_port,
+            "POST",
+            f"/api/company/source/notify/messages/{message_guid}/read",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "notification-message-read-" + message_suffix},
+        )
+        if status != 200 or not isinstance(message_read_replay_payload, dict) or message_read_replay_payload.get("idempotent_replay") is not True:
+            raise SmokeError(f"trusted notification message replay failed: {status}")
+        status, _headers, message_read_all_payload = request(
+            args.gateway_port,
+            "POST",
+            "/api/company/source/notify/messages/read-all",
+            headers={"Cookie": cookie},
+            payload={"idempotency_key": "notification-message-read-all-" + message_suffix},
+        )
+        if (
+            status != 200
+            or not isinstance(message_read_all_payload, dict)
+            or message_read_all_payload.get("data", {}).get("readAll") is not True
+            or message_read_all_payload.get("data", {}).get("count") != 0
+        ):
+            raise SmokeError(f"trusted notification read-all failed: {status}")
+        status, _headers, message_read_all_readback = request(
+            args.gateway_port,
+            "GET",
+            "/api/company/notify/messages?userCode=admin&status=unread",
+            headers={"Cookie": cookie},
+        )
+        if status != 200 or not isinstance(message_read_all_readback, dict) or message_read_all_readback.get("data", {}).get("rows") != [] or message_read_all_readback.get("command_projection") is not True:
+            raise SmokeError(f"trusted notification message read-state readback failed: {status}")
         status, _headers, budget_check_payload = request(
             args.gateway_port,
             "POST",

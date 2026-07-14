@@ -195,6 +195,9 @@ The bounded service exposes these endpoints:
 * ``/api/company/source/notify/subscriptions`` (POST) and
   ``/api/company/source/notify/subscriptions/<id>`` (PATCH/DELETE, signed-user
   subscription commands; notification delivery remains disabled)
+* ``/api/company/source/notify/messages/<guid>/read`` and
+  ``/api/company/source/notify/messages/read-all`` (POST, signed-user read-state
+  commands; imported message rows remain immutable)
 * ``/api/company/projects/<id>/tasks``, ``/api/company/tasks/<id>`` and
   ``/api/company/projects/<id>/{lifecycle,plan-summary}`` and
   ``/api/company/tasks/<id>/delay-impact`` (GET, source-compatible project reads)
@@ -536,6 +539,7 @@ def summary(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "attachment_metadata_read",
             "notification_metadata_read",
             "notification_subscription_command",
+            "notification_message_command",
             "ocr_status_read",
             "error_log_metadata_read",
             "ai_analytics_read",
@@ -609,6 +613,7 @@ def health(pool: PsqlPool, expected_schema_version: int) -> dict[str, Any]:
             "audit_receipt",
             "ai_hub_read",
             "notification_subscription_command",
+            "notification_message_command",
             "cost_dashboard_read",
             "fund_read",
             "fund_command",
@@ -18733,6 +18738,55 @@ def _notification_user_id(
     return user_code
 
 
+def _latest_notification_message_command_rows(
+    pool: PsqlPool,
+    user_code: str | None,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    if user_code is not None and user_code != "" and not IDENTIFIER.fullmatch(user_code):
+        raise ValueError("invalid user_code")
+    where = "aggregate_type IN ('notification_message_read', 'notification_message_read_all')"
+    if user_code:
+        where += f" AND payload->>'user_code' = {sql_literal(user_code)}"
+    query = f"""
+    SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'),
+           encode(convert_to(aggregate_id, 'UTF8'), 'hex'),
+           revision::text,
+           encode(convert_to(payload::text, 'UTF8'), 'hex'),
+           encode(convert_to(source_event_id, 'UTF8'), 'hex')
+    FROM (
+      SELECT DISTINCT ON (aggregate_type, aggregate_id)
+             aggregate_type, aggregate_id, revision, payload, source_event_id
+      FROM company_aggregate_projection
+      WHERE {where}
+      ORDER BY aggregate_type, aggregate_id, revision DESC
+    ) latest
+    ORDER BY aggregate_type, aggregate_id
+    LIMIT {max_rows}
+    """
+    result: list[dict[str, Any]] = []
+    for line in query_lines(pool, query):
+        fields = line.split("|")
+        if len(fields) != 5:
+            raise ServiceError("unexpected notification message projection shape")
+        try:
+            payload = json.loads(decode_hex(fields[3]))
+        except json.JSONDecodeError as error:
+            raise ServiceError("invalid notification message projection JSON") from error
+        if not isinstance(payload, dict):
+            raise ServiceError("notification message projection payload is not an object")
+        result.append(
+            {
+                "aggregate_type": decode_hex(fields[0]),
+                "aggregate_id": decode_hex(fields[1]),
+                "revision": int(fields[2]),
+                "payload": payload,
+                "source_event_id": decode_hex(fields[4]),
+            }
+        )
+    return result
+
+
 def notification_source_messages(
     pool: PsqlPool,
     user_code: str | None,
@@ -18749,11 +18803,32 @@ def notification_source_messages(
         raise ValueError("invalid notification pagination")
     coverage = _notification_source_coverage(pool, max_rows)
     user_id = _notification_user_id(pool, user_code, max_rows)
+    command_rows = _latest_notification_message_command_rows(
+        pool, user_code, max(max_rows, 500)
+    )
+    read_at_by_guid: dict[str, str] = {}
+    read_all_guids: set[str] = set()
+    for command_row in command_rows:
+        payload = command_row["payload"]
+        read_at = _notification_text(payload, "read_at", "readAt")
+        if command_row["aggregate_type"] == "notification_message_read":
+            msg_guid = _notification_text(payload, "msg_guid", "msgGuid")
+            if msg_guid:
+                read_at_by_guid[msg_guid] = read_at
+        elif command_row["aggregate_type"] == "notification_message_read_all":
+            message_guids = payload.get("message_guids")
+            if isinstance(message_guids, list):
+                read_all_guids.update(str(value) for value in message_guids if value)
+                for value in message_guids:
+                    if value:
+                        read_at_by_guid[str(value)] = read_at
     result: list[dict[str, Any]] = []
     for source in _raw_source_rows(pool, "sys_message", max(max_rows, 500), NOTIFICATION_SOURCE_TABLES):
         payload = source["payload"]
         current_user = _notification_text(payload, "user_id", "userId")
-        is_read = _notification_bool(payload, "is_read", "isRead")
+        msg_guid = _notification_text(payload, "msg_guid", "msgGuid", fallback=source["record_id"])
+        command_read = msg_guid in read_at_by_guid or msg_guid in read_all_guids
+        is_read = _notification_bool(payload, "is_read", "isRead") or command_read
         if user_id and current_user != user_id:
             continue
         if status == "unread" and is_read:
@@ -18762,7 +18837,7 @@ def notification_source_messages(
             continue
         result.append(
             {
-                "msgGuid": _notification_text(payload, "msg_guid", "msgGuid", fallback=source["record_id"]),
+                "msgGuid": msg_guid,
                 "userId": current_user,
                 "msgType": _notification_text(payload, "msg_type", "msgType"),
                 "title": _notification_text(payload, "title"),
@@ -18772,8 +18847,8 @@ def notification_source_messages(
                 "severity": _notification_text(payload, "severity"),
                 "createdAt": _notification_text(payload, "created_at", "createdAt"),
                 "isRead": is_read,
-                "readAt": _notification_text(payload, "read_at", "readAt"),
-                "sourceKind": "imported",
+                "readAt": read_at_by_guid.get(msg_guid) or _notification_text(payload, "read_at", "readAt"),
+                "sourceKind": "command" if command_read else "imported",
             }
         )
     result.sort(key=lambda item: (str(item["createdAt"]), str(item["msgGuid"])), reverse=True)
@@ -18783,7 +18858,12 @@ def notification_source_messages(
         "code": 0,
         "data": {"total": total, "rows": result[offset : offset + min(limit, max_rows)]},
         "user_code": user_code or "",
-        **_notification_source_metadata(coverage),
+        **{
+            **_notification_source_metadata(coverage),
+            "source_kind": "imported_or_command" if command_rows else "imported_or_empty",
+            "command_projection": bool(command_rows),
+            "persisted": bool(command_rows),
+        },
     }
 
 
@@ -19226,6 +19306,207 @@ def notification_subscription_command(
     if not isinstance(result, dict):
         raise ServiceError("notification subscription receipt has no result")
     return {"command": receipt, "subscription": result, "idempotent_replay": not created}
+
+
+def _notification_message_command_result(result: dict[str, Any]) -> dict[str, Any]:
+    command_result = result.get("message")
+    if not isinstance(command_result, dict):
+        raise ServiceError("notification message command result is missing message data")
+    command_type = str(command_result.get("command_type") or "read")
+    if command_type == "read_all":
+        data = {
+            "readAll": True,
+            "count": len(command_result.get("message_guids") or []),
+        }
+    else:
+        data = {
+            "msgGuid": str(command_result.get("msg_guid") or ""),
+            "isRead": True,
+        }
+    return {
+        "success": True,
+        "code": 0,
+        "data": data,
+        "message": command_result,
+        "command": result.get("command"),
+        "idempotent_replay": result.get("idempotent_replay") is True,
+        "source_kind": "command",
+        "authorizing": False,
+        "persisted": True,
+        "provider_execution": False,
+        "delivery_effect": False,
+        "accounting_effect": False,
+        "cash_effect": False,
+        "tax_effect": False,
+    }
+
+
+def notification_message_command(
+    pool: PsqlPool,
+    *,
+    command_type: str,
+    user_code: str,
+    msg_guid: str | None,
+    actor_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    if command_type not in {"read", "read_all"}:
+        raise CommandRejected("unsupported notification message command", 404)
+    if not IDENTIFIER.fullmatch(idempotency_key):
+        raise CommandRejected("Idempotency-Key contains unsupported characters", 422)
+    if not IDENTIFIER.fullmatch(user_code) or actor_id != user_code:
+        raise CommandRejected("notification messages must be scoped to the signed user", 403)
+    profile = auth_current_user(pool, user_code, 100)
+    if profile is None or profile.get("data", {}).get("enabled") is not True:
+        raise CommandRejected("user not found or disabled", 403)
+    existing = _existing_command(pool, idempotency_key)
+    if existing is not None:
+        stored_request = existing.get("request")
+        if (
+            not isinstance(stored_request, dict)
+            or stored_request.get("user_code") != user_code
+            or stored_request.get("command_type") != command_type
+        ):
+            raise CommandRejected("Idempotency-Key was already used for another request", 409)
+        result = existing.get("result")
+        if not isinstance(result, dict):
+            raise ServiceError("stored notification message command has no result")
+        return {"command": existing, "message": result, "idempotent_replay": True}
+    user_id = _notification_user_id(pool, user_code, 500) or user_code
+    if command_type == "read":
+        if msg_guid is None or not IDENTIFIER.fullmatch(msg_guid):
+            raise CommandRejected("message guid is invalid", 422)
+        message_guids = [msg_guid]
+        aggregate_id = user_code + ":" + msg_guid
+    else:
+        source_messages = _raw_source_rows(pool, "sys_message", 5000, NOTIFICATION_SOURCE_TABLES)
+        message_guids = sorted(
+            {
+                _notification_text(row["payload"], "msg_guid", "msgGuid", fallback=row["record_id"])
+                for row in source_messages
+                if _notification_text(row["payload"], "user_id", "userId") == user_id
+            }
+        )
+        aggregate_id = user_code
+        previous = next(
+            (
+                row
+                for row in _latest_notification_message_command_rows(pool, user_code, 5000)
+                if row["aggregate_type"] == "notification_message_read_all"
+                and row["aggregate_id"] == user_code
+            ),
+            None,
+        )
+        if previous is not None and isinstance(previous["payload"].get("message_guids"), list):
+            message_guids = sorted(set(message_guids).union(str(value) for value in previous["payload"]["message_guids"] if value))
+    read_at = date.today().isoformat()
+    request: dict[str, Any] = {
+        "user_code": user_code,
+        "user_id": user_id,
+        "command_type": command_type,
+        "read_at": read_at,
+        "message_guids": message_guids,
+    }
+    if command_type == "read":
+        request["msg_guid"] = msg_guid
+    event_id = f"notification:message:{command_type}:{idempotency_key}"
+    aggregate_type = "notification_message_read" if command_type == "read" else "notification_message_read_all"
+    command_source = f"moonproj:command:{idempotency_key}"
+    audit_id = event_id + ":audit"
+    request_json = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    command_json = json.dumps(
+        {
+            "kind": "company_command",
+            "command_family": "notification_message",
+            "command_type": command_type,
+            "idempotency_key": idempotency_key,
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
+            "actor_id": actor_id,
+            "request": request,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    result_msg_guid = f"'msg_guid', {sql_literal(msg_guid)}," if msg_guid is not None else "'msg_guid', NULL,"
+    sql = f"""
+    BEGIN;
+    SELECT pg_advisory_xact_lock(hashtext({sql_literal(aggregate_type + ':' + aggregate_id)}));
+    CREATE TEMP TABLE command_attempt(created boolean) ON COMMIT DROP;
+    WITH inserted AS (
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_command', {sql_literal(event_id)}, 4,
+        {sql_literal(command_json)}::jsonb, {sql_literal(command_source)})
+      ON CONFLICT (source_id) DO NOTHING
+      RETURNING 1
+    )
+    INSERT INTO command_attempt(created) SELECT EXISTS (SELECT 1 FROM inserted);
+    DO $$
+    DECLARE
+      is_new boolean;
+      current_payload jsonb;
+      next_revision integer;
+      result jsonb;
+    BEGIN
+      SELECT created INTO is_new FROM command_attempt LIMIT 1;
+      IF NOT is_new THEN RETURN; END IF;
+      SELECT p.payload INTO current_payload
+      FROM company_aggregate_projection p
+      WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+        AND p.aggregate_id = {sql_literal(aggregate_id)}
+      ORDER BY p.revision DESC LIMIT 1;
+      next_revision := coalesce((SELECT max(p.revision) + 1 FROM company_aggregate_projection p
+        WHERE p.aggregate_type = {sql_literal(aggregate_type)}
+          AND p.aggregate_id = {sql_literal(aggregate_id)}), 1);
+      INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id)
+      VALUES ({sql_literal(aggregate_type)}, {sql_literal(aggregate_id)}, next_revision,
+        {sql_literal(request_json)}::jsonb || jsonb_build_object(
+          'state', 'read', 'source_kind', 'command', 'event_id', {sql_literal(event_id)},
+          'updated_by', {sql_literal(actor_id)}), {sql_literal(event_id)});
+      INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id)
+      VALUES ('company_audit_event', {sql_literal(audit_id)}, 4,
+        jsonb_build_object(
+          'audit_id', {sql_literal(audit_id)}, 'action', 'notification.message.' || {sql_literal(command_type)},
+          'aggregate_type', {sql_literal(aggregate_type)}, 'aggregate_id', {sql_literal(aggregate_id)},
+          'actor_id', {sql_literal(actor_id)}, 'event_id', {sql_literal(event_id)},
+          'state', 'read', 'revision', next_revision,
+          'delivery_effect', false, 'accounting_effect', false, 'cash_effect', false, 'tax_effect', false
+        ), {sql_literal('moonproj:audit:' + event_id)});
+      result := jsonb_build_object(
+        'user_code', {sql_literal(user_code)}, 'user_id', {sql_literal(user_id)},
+        'command_type', {sql_literal(command_type)}, {result_msg_guid}
+        'message_guids', {sql_literal(json.dumps(message_guids, ensure_ascii=False))}::jsonb,
+        'read_at', {sql_literal(read_at)}, 'state', 'read', 'revision', next_revision,
+        'event_id', {sql_literal(event_id)}, 'audit_id', {sql_literal(audit_id)},
+        'actor_id', {sql_literal(actor_id)}, 'source_kind', 'command',
+        'delivery_effect', false, 'accounting_effect', false, 'cash_effect', false, 'tax_effect', false
+      );
+      UPDATE company_record SET payload = payload || jsonb_build_object('result', result)
+      WHERE source_id = {sql_literal(command_source)};
+    END $$;
+    SELECT coalesce((SELECT created::text FROM command_attempt LIMIT 1), 'false')
+      || '|' || encode(convert_to(payload::text, 'UTF8'), 'hex')
+    FROM company_record WHERE source_id = {sql_literal(command_source)};
+    COMMIT;
+    """
+    lines = query_lines(pool, sql)
+    if len(lines) != 1:
+        raise ServiceError("notification message command did not return a receipt")
+    fields = lines[0].split("|", 1)
+    if len(fields) != 2:
+        raise ServiceError("unexpected notification message receipt shape")
+    created = fields[0] == "true"
+    try:
+        receipt = json.loads(decode_hex(fields[1]))
+    except json.JSONDecodeError as error:
+        raise ServiceError("invalid notification message receipt JSON") from error
+    if not created and receipt.get("request") != request:
+        raise CommandRejected("Idempotency-Key was already used for another request", 409)
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ServiceError("notification message receipt has no result")
+    return {"command": receipt, "message": result, "idempotent_replay": not created}
 
 
 def notification_source_config(pool: PsqlPool, max_rows: int) -> dict[str, Any]:
@@ -23250,6 +23531,8 @@ def handler_factory(
                 response(self, 503, {"error": str(error)}, origin)
 
         def do_POST(self) -> None:  # noqa: N802
+            if self._notification_message_method_alias("POST"):
+                return
             if self._notification_subscription_method_alias("POST"):
                 return
             origin = self._origin()
@@ -24428,6 +24711,44 @@ def handler_factory(
                     idempotency_key=idempotency_key,
                 )
                 response(self, 200, _notification_subscription_command_result(result), origin)
+            except PoolExhausted as error:
+                response(self, 503, {"error": str(error)}, origin)
+            except CommandRejected as error:
+                response(self, error.status, {"error": str(error)}, origin)
+            except (OSError, ServiceError, ValueError) as error:
+                response(self, 503, {"error": str(error)}, origin)
+            return True
+
+        def _notification_message_method_alias(self, method: str) -> bool:
+            if method != "POST":
+                return False
+            parsed = urlparse(self.path)
+            read_all = parsed.path == "/api/company/source/notify/messages/read-all"
+            read_match = re.fullmatch(
+                r"/api/company/source/notify/messages/([A-Za-z0-9_.:-]{1,128})/read",
+                parsed.path,
+            )
+            if not read_all and read_match is None:
+                return False
+            origin = self._origin()
+            if not self._authorize(origin):
+                return True
+            try:
+                if self.headers.get("Content-Length"):
+                    self._json_body()
+                idempotency_key = self.headers.get("Idempotency-Key", "").strip()
+                if not idempotency_key:
+                    raise CommandRejected("Idempotency-Key is required", 400)
+                actor = self._request_actor_id()
+                result = notification_message_command(
+                    pool,
+                    command_type="read_all" if read_all else "read",
+                    user_code=actor,
+                    msg_guid=read_match.group(1) if read_match is not None else None,
+                    actor_id=actor,
+                    idempotency_key=idempotency_key,
+                )
+                response(self, 200, _notification_message_command_result(result), origin)
             except PoolExhausted as error:
                 response(self, 503, {"error": str(error)}, origin)
             except CommandRejected as error:

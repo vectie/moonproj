@@ -6,9 +6,9 @@ The source ERP notification surface is broader than the designer inbox. Its
 read routes cover user-scoped sys_message rows and unread counts,
 sys_warning_subscription, parameterized sys_param configuration,
 sys_email_outbox metadata, digest preview/log evidence, and LLM-provider
-discovery. Delivery, provider calls, and message acknowledgement are separate
-authority-bearing actions. Self-scoped subscription mutations have a bounded
-local command seam; they do not deliver notifications or change company
+discovery. Delivery and provider calls are separate authority-bearing actions.
+Self-scoped subscription mutations and message acknowledgement have bounded
+local command seams; they do not deliver notifications or change company
 configuration.
 
 ## Connected read boundary
@@ -41,6 +41,13 @@ read-only. Command responses explicitly report `authorizing=false`,
 or tax effect. Trusted-gateway create/replay/read/update/delete evidence is
 covered by the PostgreSQL smoke.
 
+`POST /api/company/source/notify/messages/:guid/read` and
+`POST /api/company/source/notify/messages/read-all` persist signed-user
+read-state overlays. The overlay keeps imported `sys_message` rows immutable,
+does not synthesize missing messages, and merges read state into the source
+observation only when a matching imported message exists. Replay and empty
+source read-all behavior are covered by the trusted-gateway smoke.
+
 The current PostgreSQL export has no imported rows for sys_message,
 sys_warning_subscription, sys_param, sys_email_outbox, or
 sys_warning_digest_log. It has five imported sys_user rows, which are
@@ -53,8 +60,6 @@ and always reports provider_execution=false.
 
 The following source actions remain explicitly outside this read slice:
 
-- marking one/all messages read;
-- message acknowledgement;
 - configuration writes and webhook tests;
 - digest dispatch, email test/redelivery, and provider test calls;
 - notification outbox delivery, retry/consent policy, and workflow effects;

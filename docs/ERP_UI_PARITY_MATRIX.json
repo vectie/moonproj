@@ -3258,8 +3258,8 @@
         "/inbox",
         "/notify-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_notification_message_command",
+      "required_next": "accept_browser_notification_message_scenario_and_security_owner"
     },
     {
       "module": "notify",
@@ -3269,8 +3269,8 @@
         "/inbox",
         "/notify-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_notification_message_command",
+      "required_next": "accept_browser_notification_message_scenario_and_security_owner"
     },
     {
       "module": "notify",

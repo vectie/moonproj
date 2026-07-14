@@ -65,6 +65,7 @@ SOURCE_COST_MILESTONE_PATH_PREFIX = "/api/company/source/cost/milestones"
 SOURCE_MDM_PROJECT_PATH_PREFIX = "/api/company/source/mdm/projects"
 SOURCE_AUTH_PREFERENCE_PATH_PREFIX = "/api/company/source/auth/prefs"
 SOURCE_NOTIFICATION_SUBSCRIPTION_PATH_PREFIX = "/api/company/source/notify/subscriptions"
+SOURCE_NOTIFICATION_MESSAGES_PATH_PREFIX = "/api/company/source/notify/messages"
 READ_PATH_PREFIX = "/api/"
 SESSION_COOKIE = "moonproj_session"
 TRUSTED_IDENTITY_HEADER = "X-Moonproj-Identity"
@@ -567,6 +568,11 @@ def handler_factory(
                     parsed.path,
                 )
                 or parsed.path == SOURCE_NOTIFICATION_SUBSCRIPTION_PATH_PREFIX
+                or parsed.path == SOURCE_NOTIFICATION_MESSAGES_PATH_PREFIX + "/read-all"
+                or re.fullmatch(
+                    r"/api/company/source/notify/messages/[A-Za-z0-9_.:-]{1,128}/read",
+                    parsed.path,
+                )
                 or re.fullmatch(
                     r"/api/company/source/cost/contracts/[A-Za-z0-9_.:-]{1,128}/milestones",
                     parsed.path,

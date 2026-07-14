@@ -918,6 +918,12 @@ def api_action_state(handler: dict[str, str]) -> tuple[str, str]:
     ):
         return "connected_notification_subscription_command", "accept_browser_notification_subscription_scenario_and_security_owner"
     if (
+        handler["module"] == "notify"
+        and handler["method"] == "POST"
+        and handler["path"] in {"/messages/:guid/read", "/messages/read-all"}
+    ):
+        return "connected_notification_message_command", "accept_browser_notification_message_scenario_and_security_owner"
+    if (
         handler["module"] == "admin"
         and handler["method"] == "GET"
         and handler["path"] in {"/ocr/status", "/error-log"}
