@@ -1990,11 +1990,13 @@ async fn admin_health_full_response(
   let tables = admin_health_tables()
   let coverage = observation_coverage(tables)
   let rows = admin_health_tables_response()
+  let bpm = admin_bpm_pool_response()
   observation_envelope(
     Json::object({
       "runtimeMetricsAvailable": Json::boolean(false),
       "tables": json_field(rows, "data").unwrap_or(Json::array([])),
-      "bpm": Json::object({ "available": Json::boolean(false) }),
+      "workflow": json_field(bpm, "data").unwrap_or(Json::object({})),
+      "bpm": json_field(bpm, "data").unwrap_or(Json::object({})),
       "db": Json::object({ "name": Json::string(database) }),
     }),
     coverage,
@@ -2003,15 +2005,138 @@ async fn admin_health_full_response(
 
 ///|
 async fn admin_bpm_pool_response() -> Json raise CompanyServiceError {
+  let definitions = raw_source_rows("wf_process_def", 500)
+  let instances = raw_source_rows("wf_process_instance", 500)
+  let coverage = observation_coverage([
+    "wf_process_instance", "wf_process_def", "wf_step_action",
+  ])
+  let process_names : Map[String, String] = {}
+  for source in definitions {
+    process_names.set(
+      json_text(source.payload, "process_guid", source.record_id),
+      json_text(
+        source.payload,
+        "process_name",
+        json_text(source.payload, "process_key", ""),
+      ),
+    )
+  }
+  let by_status : Map[String, Int] = {}
+  let by_biz_type : Map[String, Int] = {}
+  let recent : Array[Json] = []
+  for source in instances {
+    let payload = source.payload
+    let status = json_text(payload, "status", "")
+    let biz_type = json_text(
+      payload,
+      "biz_type",
+      json_text(payload, "bizType", ""),
+    )
+    by_status.set(status, by_status.get_or_default(status, 0) + 1)
+    let biz_key = biz_type + "\u0000" + status
+    by_biz_type.set(biz_key, by_biz_type.get_or_default(biz_key, 0) + 1)
+    let process_guid = json_text(
+      payload,
+      "process_guid",
+      json_text(payload, "processGuid", ""),
+    )
+    recent.push(
+      Json::object({
+        "piGuid": Json::string(
+          json_text(
+            payload,
+            "process_instance_guid",
+            json_text(payload, "processInstanceGuid", source.record_id),
+          ),
+        ),
+        "processName": Json::string(
+          process_names.get_or_default(process_guid, ""),
+        ),
+        "bizType": Json::string(biz_type),
+        "bizDataGuid": Json::string(
+          json_text(
+            payload,
+            "biz_data_guid",
+            json_text(payload, "bizDataGuid", ""),
+          ),
+        ),
+        "status": Json::string(status),
+        "currentStepOrder": json_field(payload, "current_step_order").unwrap_or(
+          json_field(payload, "currentStepOrder").unwrap_or(Json::null()),
+        ),
+        "initiatedAt": Json::string(
+          json_text(
+            payload,
+            "initiated_at",
+            json_text(payload, "initiatedAt", ""),
+          ),
+        ),
+        "completedAt": Json::string(
+          json_text(
+            payload,
+            "completed_at",
+            json_text(payload, "completedAt", ""),
+          ),
+        ),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  let status_rows : Array[Json] = []
+  for status, count in by_status {
+    status_rows.push(
+      Json::object({
+        "status": Json::string(status),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  status_rows.sort_by(fn(left, right) {
+    json_text(left, "status", "").lexical_compare(
+      json_text(right, "status", ""),
+    )
+  })
+  let biz_rows : Array[Json] = []
+  for key, count in by_biz_type {
+    let parts = key.split("\u0000").to_array()
+    biz_rows.push(
+      Json::object({
+        "bizType": Json::string(parts[0].to_owned()),
+        "status": Json::string(parts[1].to_owned()),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  biz_rows.sort_by(fn(left, right) {
+    let order = json_text(left, "bizType", "").lexical_compare(
+      json_text(right, "bizType", ""),
+    )
+    if order == 0 {
+      json_text(left, "status", "").lexical_compare(
+        json_text(right, "status", ""),
+      )
+    } else {
+      order
+    }
+  })
+  recent.sort_by(fn(left, right) {
+    json_text(right, "initiatedAt", "").lexical_compare(
+      json_text(left, "initiatedAt", ""),
+    )
+  })
   observation_envelope(
     Json::object({
-      "available": Json::boolean(false),
-      "instances": Json::array([]),
-      "definitions": Json::array([]),
+      "byStatus": Json::array(status_rows),
+      "byBizType": Json::array(biz_rows),
+      "recent": Json::array(
+        if recent.length() > 20 {
+          recent[0:20].to_owned()
+        } else {
+          recent
+        },
+      ),
     }),
-    observation_coverage([
-      "wf_process_instance", "wf_process_def", "wf_step_action",
-    ]),
+    coverage,
   )
 }
 
