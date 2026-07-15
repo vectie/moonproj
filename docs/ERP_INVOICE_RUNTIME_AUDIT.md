@@ -19,7 +19,7 @@ The authenticated service and read-model adapter expose:
 - `/api/company/source/invoice/out?projGuid=<guid>`;
 - `/api/company/source/invoice/tax-ledger?projGuid=<guid>`.
 
-The same source-shaped paths also accept bounded local commands:
+The same source-shaped paths now accept bounded native local commands:
 
 - `POST /api/company/source/invoice/in` and `/out` register a local invoice;
 - `DELETE /api/company/source/invoice/in/:guid` and `/out/:guid` tombstone a
@@ -39,8 +39,11 @@ source coverage and `authorizing=false`; provider execution remains disabled.
   shape.
 - Rabbita `/invoice` chains incoming, outgoing, and tax-ledger reads and shows
   the source observation alongside the existing designer layout.
-- `scripts/company_postgres_source_read_smoke.py` verifies all three reads
+- `scripts/company_postgres_source_read_smoke.sh` verifies all three reads
   without mutating PostgreSQL.
+- `scripts/company_postgres_invoice_smoke.sh` verifies authority validation,
+  fallback identity, replay/collision, tax-ledger readback, and tombstones;
+  the native gateway smoke verifies trusted forwarding for create/delete.
 - The parity matrix marks source `GET /in`, `/out`, and `/tax-ledger` as
   `connected_invoice_source_read`, and invoice POST/DELETE actions as
   `connected_invoice_command` with a finance-owner acceptance gate.

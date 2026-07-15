@@ -224,6 +224,44 @@ test "native company service normalizes contract milestone requests" {
 }
 
 ///|
+test "native company service maps invoice command paths" {
+  assert_true(
+    invoice_command_spec(@http.Post, "/api/company/source/invoice/in")
+    is Some(("in", "create", None)),
+  )
+  assert_true(
+    invoice_command_spec(@http.Post, "/api/company/source/invoice/out")
+    is Some(("out", "create", None)),
+  )
+  assert_true(
+    invoice_command_spec(@http.Delete, "/api/company/source/invoice/out/INV-1")
+    is Some(("out", "delete", Some("INV-1"))),
+  )
+  assert_true(
+    invoice_command_spec(@http.Delete, "/api/company/source/invoice/out/INV/1")
+    is None,
+  )
+}
+
+///|
+test "native company service normalizes invoice authority and tax" {
+  let body = @json.parse(
+    "{\"invoiceNo\":\"INV-1\",\"projGuid\":\"P-1\",\"totalAmount\":\"123.45\",\"taxRate\":\"0.13\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"invoice:in:create\",\"max_amount_minor\":20000}}",
+  ) catch {
+    _ => Json::null()
+  }
+  let request = invoice_create_request("in", body, "actor-1", "invoice-key")
+  assert_eq(json_text(request, "total_amount", ""), "123.45")
+  assert_eq(json_text(request, "tax_rate", ""), "0.13")
+  assert_eq(json_text(request, "tax_amount", ""), "14.20")
+  assert_eq(json_text(request, "state", ""), "received")
+  assert_eq(
+    json_int(json_field(request, "authority").unwrap(), "max_amount_minor", 0),
+    20000,
+  )
+}
+
+///|
 test "native company service maps supplier command paths" {
   assert_true(
     supplier_command_spec(@http.Post, "/api/company/suppliers")

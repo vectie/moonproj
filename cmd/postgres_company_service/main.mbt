@@ -7361,6 +7361,516 @@ async fn invoice_tax_ledger_response(
 }
 
 ///|
+fn invoice_required_text(
+  body : Json,
+  key : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = json_text(body, key, "").trim().to_owned()
+  if value.is_empty() {
+    raise reject(422, key + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, key + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn invoice_optional_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let field = match json_field(body, primary) {
+    Some(value) => Some(value)
+    None => json_field(body, fallback)
+  }
+  let value = match field {
+    None | Some(Null) => ""
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if identifier && !value.is_empty() && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn invoice_numeric_minor(
+  value : Json,
+  key : String,
+  minimum : Int,
+) -> Int raise CompanyServiceError {
+  let number = match value {
+    Number(number, ..) => number
+    String(text) => {
+      let cleaned = text.trim().to_owned()
+      if cleaned.is_empty() {
+        raise reject(422, key + " must be a decimal number")
+      }
+      parse_number(cleaned)
+    }
+    _ => raise reject(422, key + " must be a decimal number")
+  }
+  if number < minimum.to_double() {
+    raise reject(422, key + " must be a positive decimal number")
+  }
+  let minor = (number * 100.0 + 0.5).to_int()
+  if minor < minimum * 100 {
+    raise reject(422, key + " must be a positive decimal number")
+  }
+  minor
+}
+
+///|
+fn invoice_body_minor(
+  body : Json,
+  primary : String,
+  fallback : String,
+  default : Int,
+  minimum : Int,
+) -> Int raise CompanyServiceError {
+  match json_field(body, primary) {
+    Some(value) => invoice_numeric_minor(value, primary, minimum)
+    None =>
+      match json_field(body, fallback) {
+        Some(value) => invoice_numeric_minor(value, primary, minimum)
+        None => default
+      }
+  }
+}
+
+///|
+fn invoice_minor_text(minor : Int) -> String {
+  let negative = minor < 0
+  let value = if negative { -minor } else { minor }
+  let whole = value / 100
+  let cents = value % 100
+  let cents_text = if cents < 10 {
+    "0" + cents.to_string()
+  } else {
+    cents.to_string()
+  }
+  (if negative { "-" } else { "" }) + whole.to_string() + "." + cents_text
+}
+
+///|
+fn invoice_authority(
+  body : Json,
+  actor_id : String,
+  principal_id : String,
+  scope : String,
+  capability : String,
+  amount_minor : Int,
+) -> Json raise CompanyServiceError {
+  let grant = match json_field(body, "authority") {
+    Some(Object(_)) => json_field(body, "authority").unwrap()
+    _ => raise reject(403, "active invoice authority grant is required")
+  }
+  if !json_bool(grant, "active", false) {
+    raise reject(403, "active invoice authority grant is required")
+  }
+  if json_text(grant, "principal_id", "") != principal_id {
+    raise reject(403, "invoice authority principal does not match")
+  }
+  if json_text(grant, "actor_id", "") != actor_id {
+    raise reject(403, "invoice authority actor does not match signed actor")
+  }
+  if json_text(grant, "scope", "") != scope {
+    raise reject(403, "invoice authority scope does not match")
+  }
+  if json_text(grant, "capability", "") != capability {
+    raise reject(403, "invoice authority must allow " + capability)
+  }
+  let max_amount_minor = match json_field(grant, "max_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(String(text)) => parse_decimal(text.trim().to_owned())
+    _ => raise reject(403, "invoice authority max_amount_minor is required")
+  }
+  if max_amount_minor < amount_minor {
+    raise reject(403, "invoice authority amount is exceeded")
+  }
+  Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string(principal_id),
+    "actor_id": Json::string(actor_id),
+    "scope": Json::string(scope),
+    "capability": Json::string(capability),
+    "max_amount_minor": Json::number(max_amount_minor.to_double()),
+  })
+}
+
+///|
+fn invoice_create_request(
+  direction : String,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let requested_id = invoice_optional_text(
+    body, "invoiceGuid", "invoice_guid", true,
+  )
+  let generated_id = "INV-" + direction.to_upper() + "-" + idempotency_key
+  let invoice_id = if requested_id.is_empty() {
+    if generated_id.length() > 128 {
+      generated_id[:128].to_owned()
+    } else {
+      generated_id
+    }
+  } else {
+    requested_id
+  }
+  let invoice_no = invoice_required_text(body, "invoiceNo", false)
+  let total_minor = invoice_body_minor(
+    body, "totalAmount", "total_amount", 0, 1,
+  )
+  let tax_rate_minor = invoice_body_minor(body, "taxRate", "tax_rate", 0, 0)
+  let total = total_minor.to_double() / 100.0
+  let tax_rate = tax_rate_minor.to_double() / 100.0
+  let tax_minor = (round_places(total * tax_rate / (1.0 + tax_rate), 2) * 100.0 +
+  0.5).to_int()
+  let principal_id = invoice_required_text(body, "principal_id", true)
+  let scope = invoice_required_text(body, "scope", true)
+  let authority = invoice_authority(
+    body,
+    actor_id,
+    principal_id,
+    scope,
+    "invoice:" + direction + ":create",
+    total_minor,
+  )
+  Json::object({
+    "invoice_guid": Json::string(invoice_id),
+    "invoice_no": Json::string(invoice_no),
+    "proj_guid": Json::string(
+      invoice_optional_text(body, "projGuid", "proj_guid", true),
+    ),
+    "bu_guid": Json::string(
+      invoice_optional_text(body, "buGuid", "bu_guid", true),
+    ),
+    "contract_guid": Json::string(
+      invoice_optional_text(body, "contractGuid", "contract_guid", true),
+    ),
+    "provider_name": Json::string(
+      invoice_optional_text(body, "providerName", "provider_name", false),
+    ),
+    "customer_name": Json::string(
+      invoice_optional_text(body, "customerName", "customer_name", false),
+    ),
+    "scontract_guid": Json::string(
+      invoice_optional_text(body, "scontractGuid", "scontract_guid", true),
+    ),
+    "revenue_guid": Json::string(
+      invoice_optional_text(body, "revenueGuid", "revenue_guid", true),
+    ),
+    "invoice_date": Json::string(
+      invoice_optional_text(body, "invoiceDate", "invoice_date", false),
+    ),
+    "total_amount": Json::string(invoice_minor_text(total_minor)),
+    "tax_amount": Json::string(invoice_minor_text(tax_minor)),
+    "tax_rate": Json::string(invoice_minor_text(tax_rate_minor)),
+    "invoice_type": Json::string(
+      if invoice_optional_text(body, "invoiceType", "invoice_type", false).is_empty() {
+        if direction == "in" {
+          "增值税专用发票"
+        } else {
+          "增值税普通发票"
+        }
+      } else {
+        invoice_optional_text(body, "invoiceType", "invoice_type", false)
+      },
+    ),
+    "remark": Json::string(
+      invoice_optional_text(body, "remark", "remark", false),
+    ),
+    "principal_id": Json::string(principal_id),
+    "scope": Json::string(scope),
+    "actor_id": Json::string(actor_id),
+    "command_type": Json::string("create"),
+    "direction": Json::string(direction),
+    "authority": authority,
+    "state": Json::string(if direction == "in" { "received" } else { "issued" }),
+  })
+}
+
+///|
+fn invoice_delete_request(
+  direction : String,
+  invoice_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(invoice_id) {
+    raise reject(422, "invoice_id is required")
+  }
+  let principal_id = invoice_required_text(body, "principal_id", true)
+  let scope = invoice_required_text(body, "scope", true)
+  let authority = invoice_authority(
+    body,
+    actor_id,
+    principal_id,
+    scope,
+    "invoice:" + direction + ":delete",
+    0,
+  )
+  Json::object({
+    "invoice_guid": Json::string(invoice_id),
+    "principal_id": Json::string(principal_id),
+    "scope": Json::string(scope),
+    "actor_id": Json::string(actor_id),
+    "command_type": Json::string("delete"),
+    "direction": Json::string(direction),
+    "authority": authority,
+  })
+}
+
+///|
+async fn latest_invoice_payload(
+  direction : String,
+  invoice_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let aggregate_type = "invoice_" + direction
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    " AND aggregate_id = " +
+    @postgres.sql_literal(invoice_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid invoice projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn invoice_imported_exists(
+  direction : String,
+  invoice_id : String,
+) -> Bool raise CompanyServiceError {
+  let rows = raw_source_rows("invoice_" + direction, 500)
+  for row in rows {
+    if json_text(row.payload, "invoice_guid", row.record_id) == invoice_id &&
+      json_text(row.payload, "deleted_at", "").is_empty() &&
+      json_text(row.payload, "state", "") != "deleted" {
+      return true
+    }
+  }
+  false
+}
+
+///|
+async fn invoice_command(
+  direction : String,
+  command_type : String,
+  invoice_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if (direction != "in" && direction != "out") ||
+    (command_type != "create" && command_type != "delete") {
+    raise reject(404, "unsupported invoice command")
+  }
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let (id, request) = if command_type == "create" {
+    let request = invoice_create_request(
+      direction, body, actor_id, idempotency_key,
+    )
+    (json_text(request, "invoice_guid", ""), request)
+  } else {
+    let id = match invoice_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, "invoice_id is required")
+    }
+    (id, invoice_delete_request(direction, id, body, actor_id))
+  }
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "invoice": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_invoice_payload(direction, id)
+  let imported = invoice_imported_exists(direction, id)
+  let aggregate_type = "invoice_" + direction
+  if command_type == "create" {
+    if current is Some(_) || imported {
+      raise reject(409, "invoice already exists")
+    }
+  } else {
+    match current {
+      None => {
+        if imported {
+          raise reject(
+            409, "imported invoice is read-only; create a local invoice first",
+          )
+        }
+        raise reject(404, "invoice not found")
+      }
+      Some((payload, _)) => {
+        if json_text(payload, "principal_id", "") !=
+          json_text(request, "principal_id", "") {
+          raise reject(403, "invoice principal does not match")
+        }
+        if json_text(payload, "scope", "") != json_text(request, "scope", "") {
+          raise reject(403, "invoice scope does not match")
+        }
+        if json_text(payload, "state", "") == "deleted" {
+          raise reject(409, "invoice is already deleted")
+        }
+      }
+    }
+  }
+  let event_id = "invoice:" +
+    direction +
+    ":" +
+    command_type +
+    ":" +
+    idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    if direction == "in" {
+      "received"
+    } else {
+      "issued"
+    }
+  } else {
+    "deleted"
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let result = Json::object({
+    "invoiceGuid": Json::string(id),
+    "direction": Json::string(direction),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("invoice"),
+    "direction": Json::string(direction),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string(aggregate_type),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    "(" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'authority') || jsonb_build_object('source_kind', 'command', 'state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('source_kind', 'command', 'state', 'deleted', 'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("invoice." + direction + "." + command_type),
+    "aggregate_type": Json::string(aggregate_type),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES (" +
+    @postgres.sql_literal(aggregate_type) +
+    ", " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "invoice": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 fn sales_source_metadata(coverage : Json) -> Json {
   let missing : Array[Json] = []
   for
@@ -9892,6 +10402,31 @@ fn milestone_command_spec(
 }
 
 ///|
+fn invoice_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String, String?)? {
+  if request_method is @http.Post {
+    if path == "/api/company/source/invoice/in" {
+      return Some(("in", "create", None))
+    }
+    if path == "/api/company/source/invoice/out" {
+      return Some(("out", "create", None))
+    }
+  }
+  let prefix = "/api/company/source/invoice/"
+  if request_method is @http.Delete && path.has_prefix(prefix) {
+    let rest = path[prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 &&
+      (rest[0].to_owned() == "in" || rest[0].to_owned() == "out") &&
+      valid_identifier(rest[1].to_owned()) {
+      return Some((rest[0].to_owned(), "delete", Some(rest[1].to_owned())))
+    }
+  }
+  None
+}
+
+///|
 fn supplier_command_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -10222,6 +10757,8 @@ async fn route(
             Json::string("source_dynamic_cost_command"),
             Json::string("contract_milestone_command"),
             Json::string("source_contract_milestone_command"),
+            Json::string("invoice_command"),
+            Json::string("source_invoice_command"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -10362,6 +10899,43 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match invoice_command_spec(request.meth, path) {
+    Some((direction, command_type, invoice_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = invoice_command(
+        direction, command_type, invoice_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   match supplier_command_spec(request.meth, path) {
     Some((command_type, supplier_guid)) => {

@@ -149,6 +149,31 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.providerGuid == "'"$gateway_supplier_id"'" and .provider.sourceKind == "command"' \
   "$TMP_DIR/supplier-create.json" >/dev/null
 
+gateway_invoice_suffix=$(/bin/date +%s)
+gateway_invoice_id="INV-GW-SMOKE-$gateway_invoice_suffix"
+gateway_invoice_principal="co-gateway-invoice-smoke"
+gateway_invoice_scope="project:proj-0001"
+gateway_invoice_body="{\"invoiceGuid\":\"$gateway_invoice_id\",\"invoiceNo\":\"INV-GW-SMOKE-$gateway_invoice_suffix\",\"projGuid\":\"proj-0001\",\"customerName\":\"gateway invoice smoke\",\"invoiceDate\":\"2026-07-15\",\"totalAmount\":\"5.00\",\"taxRate\":\"0.06\",\"principal_id\":\"$gateway_invoice_principal\",\"scope\":\"$gateway_invoice_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_invoice_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_invoice_scope\",\"capability\":\"invoice:out:create\",\"max_amount_minor\":500}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/invoice-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-invoice-create-$gateway_invoice_suffix" \
+  --data "$gateway_invoice_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/invoice/out")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.invoice.invoiceGuid == "'"$gateway_invoice_id"'" and .invoice.state == "issued" and .idempotent_replay == false' \
+  "$TMP_DIR/invoice-create.json" >/dev/null
+gateway_invoice_delete_body="{\"principal_id\":\"$gateway_invoice_principal\",\"scope\":\"$gateway_invoice_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_invoice_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_invoice_scope\",\"capability\":\"invoice:out:delete\",\"max_amount_minor\":0}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/invoice-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-invoice-delete-$gateway_invoice_suffix" \
+  --data "$gateway_invoice_delete_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/invoice/out/$gateway_invoice_id")
+test "$status" = 200
+/usr/bin/jq -e '.invoice.state == "deleted"' "$TMP_DIR/invoice-delete.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"

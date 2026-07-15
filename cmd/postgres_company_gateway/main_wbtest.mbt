@@ -12,6 +12,9 @@ test "native gateway validates identifiers and path boundaries" {
       "/api/company/source/srm/providers/SUP-1",
     ),
   )
+  assert_true(
+    command_path_allowed(@http.Delete, "/api/company/source/invoice/out/INV-1"),
+  )
 }
 
 ///|

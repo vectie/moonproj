@@ -191,12 +191,12 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
 /usr/bin/jq -e '.error == "receivable not found"' "$TMP_DIR/receivable_missing.json" >/dev/null
 /usr/bin/jq -e '(.items | length) == 0' "$TMP_DIR/invoices.json" >/dev/null
 /usr/bin/jq -e '
-  .success == true and (.data | length) == 0 and
+  .success == true and (.data | map(select(.sourceKind == "imported")) | length) == 0 and
   .source_coverage.invoice_in == 0 and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/invoice_in.json" >/dev/null
 /usr/bin/jq -e '
-  .success == true and (.data | length) == 0 and
+  .success == true and (.data | map(select(.sourceKind == "imported")) | length) == 0 and
   .source_coverage.invoice_out == 0 and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/invoice_out.json" >/dev/null
