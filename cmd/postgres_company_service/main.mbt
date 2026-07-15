@@ -3496,6 +3496,348 @@ async fn invoice_tax_ledger_response(
 }
 
 ///|
+fn sales_source_metadata(coverage : Json) -> Json {
+  let missing : Array[Json] = []
+  for
+    table in [
+      "sale_contract", "sale_customer", "sale_mortgage", "sale_refund", "sale_revenue",
+      "sale_subscription",
+    ] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+  })
+}
+
+///|
+fn sales_source_amount_display(payload : Json, key : String) -> String {
+  match json_field(payload, key) {
+    Some(Number(value, ..)) => invoice_money_display(value)
+    Some(String(value)) if !value.is_empty() =>
+      invoice_money_display(parse_number(value))
+    _ => "—"
+  }
+}
+
+///|
+fn set_default_field(
+  fields : Map[String, Json],
+  key : String,
+  value : Json,
+) -> Unit {
+  if fields.get(key) is None {
+    fields.set(key, value)
+  }
+}
+
+///|
+fn sales_source_identity(
+  payload : Json,
+  family : String,
+  fallback : String,
+) -> String {
+  let primary = match family {
+    "customers" => json_text(payload, "customer_guid", "")
+    "subscriptions" => json_text(payload, "sub_guid", "")
+    "contracts" => json_text(payload, "scontract_guid", "")
+    "mortgages" => json_text(payload, "mortgage_guid", "")
+    "refunds" => json_text(payload, "refund_guid", "")
+    _ => json_text(payload, "revenue_guid", "")
+  }
+  if !primary.is_empty() {
+    return primary
+  }
+  if family == "subscriptions" {
+    let value = json_text(payload, "subscription_guid", "")
+    if !value.is_empty() {
+      return value
+    }
+  }
+  if family == "contracts" {
+    let value = json_text(payload, "contract_guid", "")
+    if !value.is_empty() {
+      return value
+    }
+  }
+  fallback
+}
+
+///|
+fn sales_source_item(
+  row : SourceRow,
+  family : String,
+  source_kind : String,
+) -> Json {
+  let payload = row.payload
+  let table = match family {
+    "customers" => "sale_customer"
+    "subscriptions" => "sale_subscription"
+    "contracts" => "sale_contract"
+    "mortgages" => "sale_mortgage"
+    "refunds" => "sale_refund"
+    _ => "sale_revenue"
+  }
+  let aggregate_type = match family {
+    "customers" => "customer"
+    "subscriptions" => "subscription"
+    "contracts" => "sales_agreement"
+    "mortgages" => "mortgage"
+    "refunds" => "refund"
+    _ => "sale_revenue"
+  }
+  let identity = sales_source_identity(payload, family, row.record_id)
+  let source_id = if row.source_id.is_empty() {
+    row.record_id
+  } else {
+    row.source_id
+  }
+  let amount_key = if family == "subscriptions" || family == "contracts" {
+    "total_price"
+  } else if family == "mortgages" {
+    "loan_amount"
+  } else if family == "refunds" {
+    "refund_amount"
+  } else {
+    "amount"
+  }
+  match payload {
+    Object(fields) => {
+      set_default_field(fields, "source_id", Json::string(source_id))
+      set_default_field(fields, "source_kind", Json::string(source_kind))
+      set_default_field(fields, "source_table", Json::string(table))
+      fields.set("aggregate_type", Json::string(aggregate_type))
+      fields.set("aggregate_id", Json::string(identity))
+      if family == "customers" {
+        set_default_field(fields, "customer_id", Json::string(identity))
+        set_default_field(
+          fields,
+          "name",
+          Json::string(json_text(payload, "customer_name", identity)),
+        )
+        set_default_field(
+          fields,
+          "contact_reference",
+          Json::string(json_text(payload, "phone", "")),
+        )
+        set_default_field(fields, "state", Json::string("active"))
+      } else if family == "subscriptions" {
+        set_default_field(fields, "subscription_id", Json::string(identity))
+        let building = json_text(payload, "building_no", "")
+        let unit = json_text(payload, "unit_no", "")
+        let unit_reference = if !building.is_empty() && !unit.is_empty() {
+          building + "-" + unit
+        } else if !building.is_empty() {
+          building
+        } else {
+          unit
+        }
+        set_default_field(
+          fields,
+          "unit_reference",
+          Json::string(unit_reference),
+        )
+        set_default_field(fields, "state", Json::string("reserved"))
+      } else if family == "contracts" {
+        set_default_field(fields, "agreement_id", Json::string(identity))
+        set_default_field(fields, "state", Json::string("draft"))
+      } else if family == "mortgages" {
+        set_default_field(fields, "mortgage_id", Json::string(identity))
+        set_default_field(
+          fields,
+          "bank_reference",
+          Json::string(json_text(payload, "bank_name", "")),
+        )
+        set_default_field(fields, "state", Json::string("applying"))
+      } else if family == "refunds" {
+        set_default_field(fields, "refund_id", Json::string(identity))
+        set_default_field(fields, "state", Json::string("requested"))
+      } else {
+        set_default_field(fields, "revenue_id", Json::string(identity))
+        set_default_field(fields, "status", Json::string("expected"))
+        set_default_field(
+          fields,
+          "state",
+          Json::string(json_text(payload, "status", "expected")),
+        )
+      }
+      set_default_field(
+        fields,
+        "amount_display",
+        Json::string(sales_source_amount_display(payload, amount_key)),
+      )
+      Json::object(fields)
+    }
+    _ => payload
+  }
+}
+
+///|
+fn sales_source_matches(
+  payload : Json,
+  family : String,
+  proj_guid : String?,
+  state : String?,
+  keyword : String?,
+) -> Bool {
+  if !json_text(payload, "deleted_at", "").is_empty() ||
+    json_text(payload, "state", "") == "deleted" ||
+    json_text(payload, "status", "") == "deleted" {
+    return false
+  }
+  if proj_guid is Some(value) && json_text(payload, "proj_guid", "") != value {
+    return false
+  }
+  let row_state = if family == "revenues" {
+    json_text(payload, "status", "")
+  } else {
+    json_text(payload, "state", "")
+  }
+  if state is Some(value) && row_state != value {
+    return false
+  }
+  match keyword {
+    Some(value) => payload.stringify().to_lower().contains(value.to_lower())
+    None => true
+  }
+}
+
+///|
+fn sales_source_sort_date(payload : Json) -> String {
+  let created = json_text(payload, "created_at", "")
+  if !created.is_empty() {
+    return created
+  }
+  let received = json_text(payload, "receive_date", "")
+  if !received.is_empty() {
+    return received
+  }
+  json_text(payload, "signed_date", "")
+}
+
+///|
+async fn sales_revenue_command_rows() -> Array[SourceRow] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, source_event_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'sale_revenue' AND payload->>'source_kind' = 'command' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Array[SourceRow] = []
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 3)
+      let payload = @json.parse(decode_hex(row[2])) catch {
+        _ => raise fail("invalid sales revenue projection JSON")
+      }
+      match payload {
+        Object(_) =>
+          result.push({
+            record_id: decode_hex(row[0]),
+            source_id: decode_hex(row[1]),
+            payload,
+          })
+        _ => raise fail("sales revenue projection payload is not an object")
+      }
+    }
+  }
+  result
+}
+
+///|
+async fn sales_source_response(
+  family : String,
+  proj_guid : String?,
+  state : String?,
+  keyword : String?,
+) -> Json raise CompanyServiceError {
+  if ![
+      "customers", "subscriptions", "contracts", "mortgages", "refunds", "revenues",
+    ].contains(family) {
+    raise fail("unsupported sales source family")
+  }
+  for value in [proj_guid, state, keyword] {
+    match value {
+      Some(text) if text.length() > 128 =>
+        raise fail("sales filter is too long")
+      _ => ()
+    }
+  }
+  let customers = raw_source_rows("sale_customer", 500)
+  let subscriptions = raw_source_rows("sale_subscription", 500)
+  let contracts = raw_source_rows("sale_contract", 500)
+  let mortgages = raw_source_rows("sale_mortgage", 500)
+  let refunds = raw_source_rows("sale_refund", 500)
+  let revenues = raw_source_rows("sale_revenue", 500)
+  let revenue_commands = if family == "revenues" {
+    sales_revenue_command_rows()
+  } else {
+    []
+  }
+  let coverage = Json::object({
+    "sale_contract": Json::number(contracts.length().to_double()),
+    "sale_customer": Json::number(customers.length().to_double()),
+    "sale_mortgage": Json::number(mortgages.length().to_double()),
+    "sale_refund": Json::number(refunds.length().to_double()),
+    "sale_revenue": Json::number(revenues.length().to_double()),
+    "sale_subscription": Json::number(subscriptions.length().to_double()),
+  })
+  let raw = match family {
+    "customers" => customers
+    "subscriptions" => subscriptions
+    "contracts" => contracts
+    "mortgages" => mortgages
+    "refunds" => refunds
+    _ => revenues
+  }
+  let result : Array[Json] = []
+  for row in raw {
+    if sales_source_matches(row.payload, family, proj_guid, state, keyword) {
+      result.push(sales_source_item(row, family, "imported"))
+    }
+  }
+  if family == "revenues" {
+    for row in revenue_commands {
+      if sales_source_matches(row.payload, family, proj_guid, state, keyword) {
+        result.push(sales_source_item(row, family, "command"))
+      }
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(right, "created_at", "").lexical_compare(
+      json_text(left, "created_at", ""),
+    )
+    let left_date = sales_source_sort_date(left)
+    let right_date = sales_source_sort_date(right)
+    let date_order = right_date.lexical_compare(left_date)
+    if date_order != 0 {
+      date_order
+    } else if order != 0 {
+      order
+    } else {
+      json_text(right, "aggregate_id", "").lexical_compare(
+        json_text(left, "aggregate_id", ""),
+      )
+    }
+  })
+  match sales_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid sales source metadata")
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -4062,6 +4404,14 @@ async fn route(
     let project_id = query_alias_decoded(query, "projGuid", "proj_guid")
     return (200, invoice_tax_ledger_response(project_id))
   }
+  let sales_source_prefix = "/api/company/source/sales/"
+  if path.has_prefix(sales_source_prefix) {
+    let family = path[sales_source_prefix.length():].to_owned()
+    let project_id = query_alias_decoded(query, "projGuid", "proj_guid")
+    let state = query_alias_decoded(query, "state", "status")
+    let keyword = query_decoded(query, "keyword")
+    return (200, sales_source_response(family, project_id, state, keyword))
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -4164,6 +4514,7 @@ async fn route(
             Json::string("delivery_observation_read"),
             Json::string("receivable_read"),
             Json::string("invoice_observation_read"),
+            Json::string("sales_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),

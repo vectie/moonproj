@@ -77,6 +77,12 @@ request invoices /api/company/invoices
 request invoice_in '/api/company/source/invoice/in'
 request invoice_out '/api/company/source/invoice/out'
 request invoice_tax '/api/company/source/invoice/tax-ledger'
+request sales_customers '/api/company/source/sales/customers'
+request sales_subscriptions '/api/company/source/sales/subscriptions'
+request sales_contracts '/api/company/source/sales/contracts'
+request sales_mortgages '/api/company/source/sales/mortgages'
+request sales_refunds '/api/company/source/sales/refunds'
+request sales_revenues '/api/company/source/sales/revenues'
 
 /usr/bin/jq -e '
   .success == true and
@@ -183,5 +189,35 @@ request invoice_tax '/api/company/source/invoice/tax-ledger'
   .source_coverage.invoice_out == 0 and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/invoice_tax.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.sale_customer == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/sales_customers.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.sale_subscription == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/sales_subscriptions.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.sale_contract == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/sales_contracts.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.sale_mortgage == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/sales_mortgages.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.sale_refund == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/sales_refunds.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.sale_revenue == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/sales_revenues.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales read smoke passed"

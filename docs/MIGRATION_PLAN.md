@@ -827,6 +827,14 @@ frozen Python bridge, and the shell-only source-read smoke covers the whole
 slice. This is still observation-only: invoice registration, OCR/verification,
 tax filing, accounting, cash, and production identity remain gated.
 
+The six ERP sales source families are native as well: customers,
+subscriptions, contracts, mortgages, refunds, and revenues. Their source
+filters, identity/default mapping, amount display, coverage metadata, empty
+states, and command-owned revenue readback now run in MoonBit/PostgreSQL and
+match the frozen bridge under the shell-only smoke. Revenue lifecycle writes,
+cash/accounting/tax effects, production identity, and sales-owner acceptance
+remain separate gates.
+
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
 assets, and the in-app browser completed a real fixture-login and navigation
