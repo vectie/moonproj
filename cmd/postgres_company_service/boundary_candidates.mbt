@@ -157,9 +157,6 @@ fn cbs_mutation_boundary_spec(
       return Some(rest)
     }
   }
-  if request_method is @http.Delete && rest == "demo/clear" {
-    return Some(rest)
-  }
   None
 }
 

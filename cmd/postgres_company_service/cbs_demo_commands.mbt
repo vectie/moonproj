@@ -31,6 +31,18 @@ fn cbs_demo_legacy_command_spec(
 }
 
 ///|
+fn cbs_demo_clear_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Delete &&
+  (
+    path == "/api/company/cbs/demo/clear" ||
+    path == "/api/company/source/cbs/demo/clear"
+  )
+}
+
+///|
 fn cbs_demo_contract_state_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -495,4 +507,121 @@ async fn cbs_demo_legacy_command(
     "legacy": Json::boolean(true),
   })
   cbs_demo_contract_command(source_body, actor_id, idempotency_key)
+}
+
+///|
+async fn cbs_demo_clear_command(
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let request = Json::object({
+    "command_type": Json::string("clear"),
+    "actor_id": Json::string(actor_id),
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let result = json_field(existing, "result").unwrap_or(Json::null())
+      return (
+        200,
+        Json::object({
+          "success": Json::boolean(true),
+          "code": Json::number(0),
+          "data": result,
+          "command": existing,
+          "idempotent_replay": Json::boolean(true),
+          "source_kind": Json::string("command"),
+          "authorizing": Json::boolean(false),
+          "persisted": Json::boolean(true),
+          "budget_consumption": Json::boolean(false),
+          "cash_effect": Json::boolean(false),
+          "accounting_effect": Json::boolean(false),
+          "tax_effect": Json::boolean(false),
+        }),
+      )
+    }
+    None => ()
+  }
+  let count_output = run_sql(
+    "SELECT count(*) FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id,payload FROM company_aggregate_projection WHERE aggregate_type='cbs_demo_contract' ORDER BY aggregate_id,revision DESC) latest WHERE coalesce(payload->>'state','') <> 'deleted' AND (coalesce(payload->>'contract_code','') LIKE 'DEMO-%' OR coalesce(payload->>'contract_code','') LIKE 'LEGACY-%')",
+  )
+  let deleted_count = parse_decimal(count_output.trim().to_owned())
+  let event_id = "cbs_demo_clear:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "deleted": Json::number(deleted_count.to_double()),
+    "commandOwnedOnly": Json::boolean(true),
+    "importedProtected": Json::boolean(true),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("cbs_demo_contract"),
+    "command_type": Json::string("clear"),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("cbs_demo_contract"),
+    "aggregate_id": Json::string("demo-clear"),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("cbs.demo.clear"),
+    "aggregate_type": Json::string("cbs_demo_contract"),
+    "aggregate_id": Json::string("demo-clear"),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "deleted": Json::number(deleted_count.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_command'," +
+    @postgres.sql_literal(event_id) +
+    ",4," +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type,aggregate_id,revision,payload,source_event_id) SELECT 'cbs_demo_contract',aggregate_id,revision+1,payload || jsonb_build_object('state','deleted','cb_state','deleted','deleted_at'," +
+    @postgres.sql_literal(event_id) +
+    ",'source_kind','command','event_id'," +
+    @postgres.sql_literal(event_id) +
+    ",'updated_by'," +
+    @postgres.sql_literal(actor_id) +
+    ")," +
+    @postgres.sql_literal(event_id) +
+    " FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id,revision,payload FROM company_aggregate_projection WHERE aggregate_type='cbs_demo_contract' ORDER BY aggregate_id,revision DESC) latest WHERE coalesce(payload->>'state','') <> 'deleted' AND (coalesce(payload->>'contract_code','') LIKE 'DEMO-%' OR coalesce(payload->>'contract_code','') LIKE 'LEGACY-%') ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_audit_event'," +
+    @postgres.sql_literal(audit_id) +
+    ",4," +
+    @postgres.sql_literal(audit.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    200,
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": result,
+      "command": command_payload,
+      "idempotent_replay": Json::boolean(false),
+      "source_kind": Json::string("command"),
+      "authorizing": Json::boolean(false),
+      "persisted": Json::boolean(true),
+      "budget_consumption": Json::boolean(false),
+      "cash_effect": Json::boolean(false),
+      "accounting_effect": Json::boolean(false),
+      "tax_effect": Json::boolean(false),
+    }),
+  )
 }

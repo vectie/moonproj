@@ -538,6 +538,16 @@ test "native company service maps CBS demo contract command paths" {
     cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/demo/legacy")
     is None,
   )
+  assert_true(
+    cbs_demo_clear_command_spec(
+      @http.Delete,
+      "/api/company/source/cbs/demo/clear",
+    ),
+  )
+  assert_true(
+    cbs_mutation_boundary_spec(@http.Delete, "/api/company/cbs/demo/clear")
+    is None,
+  )
 }
 
 ///|

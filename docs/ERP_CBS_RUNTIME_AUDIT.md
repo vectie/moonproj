@@ -60,4 +60,7 @@ with revisions and audit receipts; they remain non-authorizing. Legacy
 backfill is also native at `POST /api/company/cbs/demo/legacy` (and the
 `/source` alias), creating deterministic `LEGACY-*` command projections with
 the same imported protection and no financial effects. Clear/delete, contract
-approval/payment, and change applications remain explicit candidates.
+approval/payment, and change applications remain explicit candidates. The
+`DELETE /api/company/cbs/demo/clear` route now tombstones only command-owned
+`DEMO-*`/`LEGACY-*` projections and reports the deleted count; imported
+contracts are never removed.
