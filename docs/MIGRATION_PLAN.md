@@ -801,6 +801,12 @@ on the live PostgreSQL target. This removes Python from the supported runtime
 path for this vertical; Python is retained only as historical comparison
 evidence until the remaining service/gateway surfaces are ported.
 
+The same native service now owns `/api/company/source/budget/users-in-bu` and
+`/api/company/source/budget/my-loan-balance`, including hierarchical BU/department
+scope, explicit user resolution, loan-state filtering, coverage, and the
+non-authorizing scope markers. The four-user BU scope and 3,500.00 loan
+observation are parsed-equal to the bridge and covered by the shell-only smoke.
+
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
 assets, and the in-app browser completed a real fixture-login and navigation

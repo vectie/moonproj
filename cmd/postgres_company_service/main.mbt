@@ -1514,6 +1514,257 @@ async fn source_payment_list(
 }
 
 ///|
+struct BudgetSourceRows {
+  users : Array[SourceRow]
+  units : Array[SourceRow]
+  loans : Array[SourceRow]
+  projects : Array[SourceRow]
+}
+
+///|
+async fn budget_source_rows() -> BudgetSourceRows raise CompanyServiceError {
+  let users = raw_source_rows("sys_user", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let loans = raw_source_rows("vcb_loan_simple", 500)
+  let projects = raw_source_rows("ep_project", 500)
+  { users, units, loans, projects }
+}
+
+///|
+fn budget_source_coverage(rows : BudgetSourceRows) -> Json {
+  Json::object({
+    "ep_project": Json::number(rows.projects.length().to_double()),
+    "mu_business_unit": Json::number(rows.units.length().to_double()),
+    "sys_user": Json::number(rows.users.length().to_double()),
+    "vcb_loan_simple": Json::number(rows.loans.length().to_double()),
+  })
+}
+
+///|
+fn budget_source_missing(rows : BudgetSourceRows) -> Array[Json] {
+  let missing : Array[Json] = []
+  if rows.projects.is_empty() {
+    missing.push(Json::string("ep_project"))
+  }
+  if rows.units.is_empty() {
+    missing.push(Json::string("mu_business_unit"))
+  }
+  if rows.users.is_empty() {
+    missing.push(Json::string("sys_user"))
+  }
+  if rows.loans.is_empty() {
+    missing.push(Json::string("vcb_loan_simple"))
+  }
+  missing
+}
+
+///|
+fn budget_source_metadata(
+  rows : BudgetSourceRows,
+  scope_applied : Bool,
+) -> Json {
+  Json::object({
+    "source_kind": Json::string("imported_or_empty"),
+    "source_coverage": budget_source_coverage(rows),
+    "missing_or_empty_source_tables": Json::array(budget_source_missing(rows)),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+    "scope_applied": Json::boolean(scope_applied),
+    "scope_required": Json::boolean(!scope_applied),
+  })
+}
+
+///|
+fn budget_unit_hierarchy(rows : Array[SourceRow], bu_guid : String) -> String {
+  match source_payload(rows, "bu_guid", bu_guid) {
+    Some(payload) => json_text(payload, "hierarchy_code", "")
+    None => ""
+  }
+}
+
+///|
+fn budget_unit_allowed(
+  rows : Array[SourceRow],
+  selected_guid : String,
+  user_bu : String,
+  user_dept : String,
+) -> Bool {
+  if selected_guid.is_empty() {
+    return true
+  }
+  let selected_hierarchy = budget_unit_hierarchy(rows, selected_guid)
+  for row in rows {
+    let guid = json_text(row.payload, "bu_guid", row.record_id)
+    let hierarchy = json_text(row.payload, "hierarchy_code", "")
+    if guid == selected_guid ||
+      (
+        !selected_hierarchy.is_empty() &&
+        hierarchy.has_prefix(selected_hierarchy + ".")
+      ) {
+      if user_bu == guid || user_dept == guid {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+async fn budget_source_users(
+  bu_guid : String?,
+) -> Json raise CompanyServiceError {
+  match bu_guid {
+    Some(value) if !valid_identifier(value) => raise fail("invalid bu_guid")
+    _ => ()
+  }
+  let rows = budget_source_rows()
+  let selected_guid = bu_guid.unwrap_or("")
+  let result : Array[Json] = []
+  for row in rows.users {
+    let payload = row.payload
+    if json_bool(payload, "enabled", false) {
+      let user_bu = json_text(payload, "bu_guid", "")
+      let user_dept = json_text(payload, "dept_guid", "")
+      if budget_unit_allowed(rows.units, selected_guid, user_bu, user_dept) {
+        result.push(
+          Json::object({
+            "userId": Json::string(json_text(payload, "user_id", row.record_id)),
+            "empName": Json::string(
+              json_text(
+                payload,
+                "emp_name",
+                json_text(payload, "user_name", ""),
+              ),
+            ),
+            "deptGuid": Json::string(user_dept),
+            "buGuid": Json::string(user_bu),
+            "sourceKind": Json::string("imported"),
+            "sourceId": Json::string("erp:sys_user:" + row.record_id),
+          }),
+        )
+      }
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(left, "empName", "").lexical_compare(
+      json_text(right, "empName", ""),
+    )
+    if order == 0 {
+      json_text(left, "userId", "").lexical_compare(
+        json_text(right, "userId", ""),
+      )
+    } else {
+      order
+    }
+  })
+  match budget_source_metadata(rows, !selected_guid.is_empty()) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid budget metadata")
+  }
+}
+
+///|
+async fn budget_source_loan_balance(
+  user_code : String?,
+  user_id : String?,
+) -> (Int, Json) raise CompanyServiceError {
+  match user_code {
+    Some(value) if !valid_identifier(value) => raise fail("invalid user_code")
+    _ => ()
+  }
+  match user_id {
+    Some(value) if !valid_identifier(value) => raise fail("invalid user_id")
+    _ => ()
+  }
+  let rows = budget_source_rows()
+  let mut selected_id = user_id.unwrap_or("")
+  match user_code {
+    Some(code) =>
+      match find_user(rows.users, code) {
+        Some(row) =>
+          selected_id = json_text(row.payload, "user_id", row.record_id)
+        None =>
+          return (
+            404,
+            Json::object({
+              "success": Json::boolean(false),
+              "code": Json::number(43001),
+              "message": Json::string("用户不存在"),
+            }),
+          )
+      }
+    None => ()
+  }
+  let result : Array[Json] = []
+  for row in rows.loans {
+    let payload = row.payload
+    let applied_by = json_text(payload, "applied_by", "")
+    let apply_state = json_text(payload, "apply_state", "")
+    let remain = json_double(payload, "remain_amount", 0.0)
+    if (selected_id.is_empty() || applied_by == selected_id) &&
+      (
+        apply_state == "Approved" ||
+        apply_state == "已审核" ||
+        apply_state == "approved"
+      ) &&
+      remain > 0.0 &&
+      json_field(payload, "deleted_at") is None {
+      result.push(
+        Json::object({
+          "loanGuid": Json::string(
+            json_text(payload, "loan_guid", row.record_id),
+          ),
+          "loanCode": Json::string(json_text(payload, "loan_code", "")),
+          "subject": Json::string(json_text(payload, "subject", "")),
+          "remainAmount": Json::number(remain),
+          "loanAmount": Json::number(json_double(payload, "loan_amount", 0.0)),
+          "applyDate": Json::string(json_text(payload, "apply_date", "")),
+          "sourceKind": Json::string("imported"),
+          "sourceId": Json::string("erp:vcb_loan_simple:" + row.record_id),
+        }),
+      )
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(left, "applyDate", "").lexical_compare(
+      json_text(right, "applyDate", ""),
+    )
+    if order == 0 {
+      json_text(left, "loanGuid", "").lexical_compare(
+        json_text(right, "loanGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let total = result.fold(init=0.0, fn(sum, item) {
+    sum + json_double(item, "remainAmount", 0.0)
+  })
+  match budget_source_metadata(rows, !selected_id.is_empty()) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set(
+        "data",
+        Json::object({
+          "total": Json::number(total),
+          "loans": Json::array(result),
+        }),
+      )
+      (200, Json::object(metadata))
+    }
+    _ =>
+      (500, Json::object({ "error": Json::string("invalid budget metadata") }))
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -2003,6 +2254,15 @@ async fn route(
   query : String,
   expected_schema_version : Int,
 ) -> (Int, Json) raise CompanyServiceError {
+  if path == "/api/company/source/budget/users-in-bu" {
+    let bu_guid = query_alias_decoded(query, "buGuid", "bu_guid")
+    return (200, budget_source_users(bu_guid))
+  }
+  if path == "/api/company/source/budget/my-loan-balance" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return budget_source_loan_balance(user_code, user_id)
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -2089,6 +2349,7 @@ async fn route(
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),
             Json::string("initiated_document_observation_read"),
+            Json::string("budget_scope_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),

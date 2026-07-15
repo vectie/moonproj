@@ -58,6 +58,8 @@ request detail /api/company/source/cost/contracts/ht-tj-001
 request milestones /api/company/source/cost/contracts/ht-tj-001/milestones
 request payments '/api/company/source/cost/payment-applies?view=all'
 request keyword '/api/company/source/cost/contracts?keyword=%E5%B9%95%E5%A2%99'
+request budget_users '/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001'
+request budget_loan '/api/company/source/budget/my-loan-balance?userCode=limingjin'
 
 /usr/bin/jq -e '
   .success == true and
@@ -87,5 +89,16 @@ request keyword '/api/company/source/cost/contracts?keyword=%E5%B9%95%E5%A2%99'
   .success == true and (.data | length) == 1 and
   .data[0].contractGuid == "ht-tj-002"
 ' "$TMP_DIR/keyword.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 4 and
+  .source_coverage.sys_user == 5 and
+  .scope_applied == true and .authorizing == false
+' "$TMP_DIR/budget_users.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and .data.total == 3500 and
+  (.data.loans | length) == 1 and
+  .source_coverage.vcb_loan_simple == 1 and
+  .scope_applied == true and .authorizing == false
+' "$TMP_DIR/budget_loan.json" >/dev/null
 
-echo "native source contract/payment read smoke passed"
+echo "native source contract/payment/budget read smoke passed"
