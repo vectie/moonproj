@@ -67,6 +67,12 @@ allow-listed, redacted projection with idempotent replay and audit evidence;
 cash/tax effects remain false. The smoke script covers candidate write,
 replay, readback, and secret redaction.
 
+Signed super-user `POST /digest/dispatch` (and the `/source` alias) now
+records an idempotent digest-dispatch candidate from imported warning and
+recipient evidence. It returns bounded warning rows and recipient/count
+metadata with `dryRun=true`, `sent=false`, and `delivery_effect=false`; it
+does not enqueue in-app/email delivery or write source digest logs.
+
 ## Not yet connected
 
 The following source actions remain explicitly outside this read slice:
@@ -74,7 +80,8 @@ The following source actions remain explicitly outside this read slice:
 - webhook tests; managed credential binding and provider configuration remain
   gated even though the redacted notification-config candidate write is
   connected;
-- digest dispatch, email test/redelivery, and provider test calls;
+- email test/redelivery and provider test calls; digest dispatch is now a
+  persisted dry-run candidate;
 - notification outbox delivery, retry/consent policy, and workflow effects;
 - production identity, browser acceptance, and owner reconciliation.
 

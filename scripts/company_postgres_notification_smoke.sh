@@ -18,6 +18,7 @@ READ_KEY="notify-message-read-$SUFFIX"
 READ_ALL_KEY="notify-message-all-$SUFFIX"
 MESSAGE_GUID="imported-message-$SUFFIX"
 CONFIG_KEY="notify-config-$SUFFIX"
+DISPATCH_KEY="notify-digest-dispatch-$SUFFIX"
 
 psql() {
   PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
@@ -27,7 +28,7 @@ psql() {
 cleanup() {
   if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; fi
   psql -v ON_ERROR_STOP=0 -c \
-    "DELETE FROM company_record WHERE source_id LIKE '%notification:%$SUFFIX%' OR source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$DELETE_KEY%' OR source_id LIKE '%$READ_KEY%' OR source_id LIKE '%$READ_ALL_KEY%' OR source_id = 'notification-source-$SUFFIX' OR source_id LIKE '%$CONFIG_KEY%'; DELETE FROM company_aggregate_projection WHERE aggregate_id LIKE '%$SUFFIX%' OR source_event_id = 'notification:config_update:$CONFIG_KEY';" \
+    "DELETE FROM company_record WHERE source_id LIKE '%notification:%$SUFFIX%' OR source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$DELETE_KEY%' OR source_id LIKE '%$READ_KEY%' OR source_id LIKE '%$READ_ALL_KEY%' OR source_id = 'notification-source-$SUFFIX' OR source_id = 'notification-subscription-source-$SUFFIX' OR source_id LIKE '%$CONFIG_KEY%' OR source_id LIKE '%$DISPATCH_KEY%'; DELETE FROM company_aggregate_projection WHERE aggregate_id LIKE '%$SUFFIX%' OR source_event_id = 'notification:config_update:$CONFIG_KEY' OR source_event_id LIKE '%notification:digest_dispatch:$DISPATCH_KEY%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -44,7 +45,7 @@ for i in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_message', 'notify-source-record-$SUFFIX', 1, '{\"msg_guid\":\"$MESSAGE_GUID\",\"user_id\":\"user-admin-0001\",\"title\":\"Native notification\",\"is_read\":false}'::jsonb, 'notification-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING;" >/dev/null
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_message', 'notify-source-record-$SUFFIX', 1, '{\"msg_guid\":\"$MESSAGE_GUID\",\"user_id\":\"user-admin-0001\",\"title\":\"Native notification\",\"is_read\":false}'::jsonb, 'notification-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_warning_subscription', 'notify-subscription-source-record-$SUFFIX', 1, '{\"sub_id\":\"$SUFFIX\",\"user_id\":\"user-admin-0001\",\"channels\":\"email\",\"enabled\":true}'::jsonb, 'notification-subscription-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING;" >/dev/null
 
 SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$SECRET" -hex | /usr/bin/sed 's/^.*= //')
 curl_common() {
@@ -96,6 +97,14 @@ test "$status" = 200
 
 curl_common "http://127.0.0.1:$PORT/api/company/source/notify/config" >"$TMP_DIR/config-read.json"
 /usr/bin/jq -e '(.data.configured | any(.[]; .key == "ai.llm.key" and .redacted == true and .value == null)) and (.data.configured | any(.[]; .key == "notify.email.enabled" and .value == "true")) and (.data | tostring | contains("super-secret") | not)' "$TMP_DIR/config-read.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/dispatch.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $DISPATCH_KEY" --data '{}' "http://127.0.0.1:$PORT/api/company/notify/digest/dispatch")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.sent == false and .data.dryRun == true and .data.userCount == 1 and .data.providerExecution == false and .data.delivery_effect == false' "$TMP_DIR/dispatch.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/dispatch-replay.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $DISPATCH_KEY" --data '{}' "http://127.0.0.1:$PORT/api/company/source/notify/digest/dispatch")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.userCount == 1 and .data.sent == false' "$TMP_DIR/dispatch-replay.json" >/dev/null
 
 status=$(curl_common -o "$TMP_DIR/invalid.json" -w '%{http_code}' -X POST -H "Idempotency-Key: notify-invalid-$SUFFIX" --data '{"channels":["sms"]}' "http://127.0.0.1:$PORT/api/company/notify/subscriptions")
 test "$status" = 400
