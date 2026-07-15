@@ -1897,6 +1897,16 @@ Execute the remainder in this order:
     principal rows, reports missing/extra/mismatched event IDs, and keeps cash
     release and period posting false. SQLite parity and the broader
     reconciliation/reporting helpers remain explicit follow-up ports.
+
+3a.5. **PostgreSQL accounting reconciliation utility (2026-07-16).**
+    `cmd/postgres_accounting_reconciliation` and
+    `scripts/company_postgres_accounting_reconciliation.sh` now replace the
+    supported PostgreSQL reconciliation helper. The native command validates
+    domain, accounting-plan, and accounting-receipt identities, checks
+    principal/amount/currency continuity and durable event links, and writes a
+    reconciled report without posting journals, releasing cash, or authorizing
+    period close. SQLite and cross-domain reconciliation remain explicit next
+    ports.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
