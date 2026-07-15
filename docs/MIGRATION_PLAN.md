@@ -1241,6 +1241,19 @@ mutation, accounting, cash, tax, browser identity, and owner acceptance are
 still separate gates; the controlled export currently has no imported CBS
 version or subject rows.
 
+**Budget expense command checkpoint (2026-07-15).** Native MoonBit now
+translates the source-shaped budget expense mutation boundary: create a Draft
+expense with detail and four-dimension split rows, edit Draft fields, submit a
+Draft for approval, and void Draft/Rejected expenses. Local expense, detail,
+and split aggregates use immutable revisions, signed enabled-user checks,
+request-equal idempotency, audit receipts, imported-row protection, and
+source-shaped merged list/detail readback. The boundary is explicitly
+expense-only: `budget_effect`, `budget_consumption`, automatic loan offset,
+cash, accounting, tax, and workflow-engine synchronization remain false or
+gated. `scripts/company_postgres_budget_expense_smoke.sh` proves create,
+replay, readback, update, submit, and void; the controlled export still has
+zero imported expense rows.
+
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
 visible Rabbita navigation group through sidebar actions (not direct URL
@@ -1432,8 +1445,11 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    hierarchy (seven imported rows); legal-principal ownership and organization
    mutations remain gated. See [`ERP_MDM_RUNTIME_AUDIT.md`](ERP_MDM_RUNTIME_AUDIT.md).
    The available budget dictionaries are now source-compatible reads as well
-   (five cost-subject options and three proceedings); expense and dictionary
-   writes remain gated. See [`ERP_BUDGET_RUNTIME_AUDIT.md`](ERP_BUDGET_RUNTIME_AUDIT.md).
+   (five cost-subject options and three proceedings); source-shaped expense
+   create/update/submit/void commands are locally connected with detail/split
+   readback, while dictionary mutation, budget reservation/consumption,
+   automatic offset, and workflow synchronization remain gated. See
+   [`ERP_BUDGET_RUNTIME_AUDIT.md`](ERP_BUDGET_RUNTIME_AUDIT.md).
    Investment feasibility reads are also connected for the available cohort
    (one version, 26 indices, five dimensions, and profit summary); import,
    activation, valuation, cash, accounting, and tax remain gated. See

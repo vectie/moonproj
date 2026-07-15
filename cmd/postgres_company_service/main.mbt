@@ -520,6 +520,7 @@ async fn summary(
       Json::string("rbac_command"),
       Json::string("investment_command"),
       Json::string("cbs_command"),
+      Json::string("budget_expense_command"),
       Json::string("initiated_document_observation_read"),
       Json::string("contract_read"),
       Json::string("payment_application_read"),
@@ -790,7 +791,7 @@ fn expense_list_item(
       json_text(payload, "process_instance_guid", ""),
     ),
     "createdAt": Json::string(json_text(payload, "created_at", "")),
-    "sourceKind": Json::string("imported"),
+    "sourceKind": Json::string(json_text(payload, "source_kind", "imported")),
   })
 }
 
@@ -906,6 +907,26 @@ async fn budget_expenses_response(
     }
     result.push(expense_list_item(row, rows.users, rows.units))
   }
+  let local_expenses = budget_local_source_rows("budget_expense")
+  for row in local_expenses {
+    let payload = row.payload
+    if !json_text(payload, "deleted_at", "").is_empty() {
+      continue
+    }
+    let id = expense_id(row)
+    if expense_guid is Some(id_filter) && id != id_filter {
+      continue
+    }
+    if selected_user_id is Some(user_id) &&
+      json_text(payload, "applied_by", "") != user_id {
+      continue
+    }
+    if apply_state is Some(state) &&
+      json_text(payload, "apply_state", "") != state {
+      continue
+    }
+    result.push(expense_list_item(row, rows.users, rows.units))
+  }
   result.sort_by(fn(left, right) {
     let date_order = json_text(right, "createdAt", "").lexical_compare(
       json_text(left, "createdAt", ""),
@@ -923,7 +944,16 @@ async fn budget_expenses_response(
       "success": Json::boolean(true),
       "code": Json::number(0),
       "data": Json::array(result),
-      "source_kind": Json::string("imported_or_empty"),
+      "source_kind": Json::string(
+        if local_expenses.is_empty() {
+          "imported_or_empty"
+        } else {
+          "imported_or_command"
+        },
+      ),
+      "command_projection": Json::boolean(!local_expenses.is_empty()),
+      "persisted": Json::boolean(!local_expenses.is_empty()),
+      "authorizing": Json::boolean(false),
       "source_coverage": expense_list_coverage(rows),
       "missing_or_empty_source_tables": Json::array(expense_list_missing(rows)),
     }),
@@ -980,6 +1010,7 @@ async fn budget_expense_detail_response(
     raise fail("invalid expense_guid")
   }
   let rows = expense_source_rows()
+  let local_expenses = budget_local_source_rows("budget_expense")
   let list = budget_expenses_response(Some(expense_guid), user_code, None)
   let expense = match list {
     None => return None
@@ -991,6 +1022,21 @@ async fn budget_expense_detail_response(
   }
   let details : Array[Json] = []
   for row in rows.details {
+    if json_text(row.payload, "expense_guid", "") == expense_guid {
+      details.push(
+        Json::object({
+          "detailGuid": Json::string(
+            json_text(row.payload, "detail_guid", row.record_id),
+          ),
+          "summary": Json::string(json_text(row.payload, "summary", "")),
+          "amount": Json::number(json_number(row.payload, "amount", 0.0)),
+          "occurDate": Json::string(json_text(row.payload, "occur_date", "")),
+        }),
+      )
+    }
+  }
+  let local_details = budget_local_source_rows("budget_expense_detail")
+  for row in local_details {
     if json_text(row.payload, "expense_guid", "") == expense_guid {
       details.push(
         Json::object({
@@ -1018,6 +1064,20 @@ async fn budget_expense_detail_response(
       )
     }
   }
+  let local_splits = budget_local_source_rows("budget_expense_split")
+  for row in local_splits {
+    if json_text(row.payload, "expense_guid", "") == expense_guid {
+      splits.push(
+        expense_detail_item(
+          row,
+          rows.users,
+          rows.units,
+          rows.options,
+          rows.proceedings,
+        ),
+      )
+    }
+  }
   Some(
     Json::object({
       "success": Json::boolean(true),
@@ -1027,11 +1087,18 @@ async fn budget_expense_detail_response(
         "details": Json::array(details),
         "splits": Json::array(splits),
       }),
-      "source_kind": Json::string("imported_or_empty"),
+      "source_kind": Json::string(
+        if local_expenses.is_empty() {
+          "imported_or_empty"
+        } else {
+          "imported_or_command"
+        },
+      ),
+      "command_projection": Json::boolean(!local_expenses.is_empty()),
       "source_coverage": expense_coverage(rows),
       "missing_or_empty_source_tables": Json::array(expense_missing(rows)),
       "authorizing": Json::boolean(false),
-      "persisted": Json::boolean(false),
+      "persisted": Json::boolean(!local_expenses.is_empty()),
       "provider_execution": Json::boolean(false),
     }),
   )
@@ -15946,6 +16013,43 @@ async fn handle(
         }
       }
       let result = cbs_command(command_type, body, actor, idempotency_key) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match budget_command_spec(request.meth, path) {
+    Some((command_type, expense_guid)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = budget_command(
+        command_type, expense_guid, body, actor, idempotency_key,
+      ) catch {
         error => service_error_response(error)
       }
       send_json(conn, request.meth, result.0, result.1, false)
