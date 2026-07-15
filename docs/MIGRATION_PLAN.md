@@ -1926,6 +1926,16 @@ Execute the remainder in this order:
     allow-list validation, and the exact tax-filing plan envelope. Filing
     promotion remains a separate native domain boundary; payment, accounting,
     cash, period close, and external authority effects remain disabled.
+
+3a.8. **Native bank-statement map planner (2026-07-16).**
+    `cmd/bank_statement_plan` and `scripts/erp_bank_statement_plan.sh` now
+    replace the Python bank-statement map compiler in the PostgreSQL cohort
+    path. The native planner preserves reviewed-input gating, recursive
+    secret-shaped-key rejection, source/statement/line uniqueness, positive
+    line amounts, direction validation, and the exact bank-statement plan
+    envelope. Statement import remains a separate native domain boundary;
+    movement matching, ledger reconciliation, accounting, cash, period close,
+    and provider effects remain disabled.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

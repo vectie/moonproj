@@ -298,7 +298,7 @@ if [ -n "$TAX_FILING_MAPPING" ]; then
 fi
 
 if [ -n "$BANK_STATEMENT_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_bank_statement_plan.py" \
+  "$SCRIPT_DIR/erp_bank_statement_plan.sh" \
     "$BANK_STATEMENT_MAPPING" "$WORK_DIR/bank-statement-plan.json"
   moon run --target native cmd/bank_statement -- \
     "$WORK_DIR/bank-statement-plan.json" "$WORK_DIR/bank-statement-receipt.json"
