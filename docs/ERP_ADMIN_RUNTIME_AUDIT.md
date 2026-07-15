@@ -13,7 +13,8 @@ login audit rows, and enough project/contract/payment/cost/task/loan/user rows
 to evaluate eight quality rules. Four rules remain explicitly unavailable
 because expense, workflow, or supplier source rows are empty or absent.
 
-The target now exposes source-compatible read boundaries:
+The target now exposes source-compatible read boundaries plus a bounded
+configuration candidate:
 
 | Source surface | Target endpoint | Target state |
 |---|---|---|
@@ -28,6 +29,7 @@ The target now exposes source-compatible read boundaries:
 | OCR provider status | `/api/company/admin/ocr/status` | metadata-only read; provider execution gated |
 | Error log metadata | `/api/company/admin/error-log` | bounded read; IP/stack redacted |
 | Database backup export | `/api/company/admin/backup/db` | PostgreSQL target-format boundary; export gated |
+| Generic `sys_param` write | `/api/company/admin/sys-param` and `/api/company/source/admin/sys-param` | signed super-user candidate; values are digest-only and never provider-bound |
 
 The Rabbita `/system-health` screen now calls both health endpoints through the
 read-only PostgreSQL adapter. When the responses arrive it shows the 29-table
@@ -62,7 +64,7 @@ the `login × 2` action aggregate through the read-only adapter. It keeps the
 source IP redaction and append-only presentation; filtering, retention,
 deletion, and export authority remain separate gates.
 The target does not expose audit deletion, role changes, or super-user
-elevation. Dictionary create/update is available only through the bounded
+elevation. Dictionary create/update and generic `sys_param` writes are available only through the bounded
 authenticated service/gateway overlay described above; it does not promote or
 rewrite imported rows. OCR status never executes a provider or returns secret
 values; error-log reads never return raw IP addresses or stack traces. The
@@ -84,6 +86,9 @@ render explicit empty-source/definition states after successful reads.
 - The parity matrix marks the nine connected source admin GET handlers as
   `connected_admin_read` and the source dictionary POST/PATCH handlers as
   `connected_admin_dictionary_command`.
+- The parity matrix marks `POST /sys-param` as
+  `connected_admin_sys_param_command_candidate`; the dedicated smoke verifies
+  replay, digest-only value handling, and no provider/cash/accounting/tax effect.
 - The parity matrix marks the source `GET /rbac/users` roster as
   `connected_rbac_user_read`; role and permission endpoints remain gated.
 - The parity matrix marks `/users` as `connected_rbac_user_read`; the
