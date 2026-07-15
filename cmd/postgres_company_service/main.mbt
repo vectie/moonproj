@@ -15163,10 +15163,14 @@ async fn route(
   if path == "/api/company/notify/digest/preview" {
     return (200, notification_digest_preview_response())
   }
-  if path == "/api/company/notify/email-outbox" ||
-    path == "/api/company/notify/digest/log" ||
-    path == "/api/company/notify/llm-providers" {
-    return (200, notification_empty_rows_response())
+  if path == "/api/company/notify/email-outbox" {
+    return (200, notification_email_outbox_response())
+  }
+  if path == "/api/company/notify/digest/log" {
+    return (200, notification_digest_log_response())
+  }
+  if path == "/api/company/notify/llm-providers" {
+    return (200, notification_llm_providers_response())
   }
   if path == "/api/company/admin/ocr/status" {
     return (200, admin_ocr_response())

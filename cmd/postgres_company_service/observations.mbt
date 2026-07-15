@@ -1396,17 +1396,155 @@ fn notification_tables() -> Array[String] {
 }
 
 ///|
-async fn notification_empty_rows_response() -> Json raise CompanyServiceError {
+async fn notification_digest_preview_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(notification_tables())
+  let rows : Array[Json] = []
+  for source in raw_source_rows("sys_warning", 500) {
+    let payload = source.payload
+    let status = json_text(payload, "status", "")
+    if !status.is_empty() && status != "open" {
+      continue
+    }
+    rows.push(
+      Json::object({
+        "warningGuid": Json::string(
+          json_text(
+            payload,
+            "warning_guid",
+            json_text(payload, "warningGuid", source.record_id),
+          ),
+        ),
+        "ruleCode": Json::string(
+          json_text(payload, "rule_code", json_text(payload, "ruleCode", "")),
+        ),
+        "title": Json::string(json_text(payload, "title", "")),
+        "severity": Json::string(json_text(payload, "severity", "")),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
   observation_envelope(
-    Json::array([]),
-    observation_coverage(notification_tables()),
+    Json::object({
+      "total": Json::number(rows.length().to_double()),
+      "rows": Json::array(rows),
+      "new": Json::number(rows.length().to_double()),
+    }),
+    coverage,
   )
 }
 
 ///|
-async fn notification_digest_preview_response() -> Json raise CompanyServiceError {
+async fn notification_email_outbox_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(notification_tables())
+  let rows : Array[Json] = []
+  for source in raw_source_rows("sys_email_outbox", 500) {
+    let payload = source.payload
+    rows.push(
+      Json::object({
+        "eid": Json::string(json_text(payload, "eid", source.record_id)),
+        "toAddr": Json::string(
+          json_text(payload, "to_addr", json_text(payload, "toAddr", "")),
+        ),
+        "subject": Json::string(json_text(payload, "subject", "")),
+        "createdAt": Json::string(
+          json_text(payload, "created_at", json_text(payload, "createdAt", "")),
+        ),
+        "sentAt": Json::string(
+          json_text(payload, "sent_at", json_text(payload, "sentAt", "")),
+        ),
+        "status": Json::string(json_text(payload, "status", "")),
+        "error": Json::string(json_text(payload, "error", "")),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let order = json_text(right, "createdAt", "").lexical_compare(
+      json_text(left, "createdAt", ""),
+    )
+    if order == 0 {
+      json_text(right, "eid", "").lexical_compare(json_text(left, "eid", ""))
+    } else {
+      order
+    }
+  })
+  observation_envelope(Json::array(rows), coverage)
+}
+
+///|
+async fn notification_digest_log_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(notification_tables())
+  let rows : Array[Json] = []
+  for source in raw_source_rows("sys_warning_digest_log", 500) {
+    let payload = source.payload
+    let log_id = json_int(payload, "log_id", json_int(payload, "logId", 0))
+    rows.push(
+      Json::object({
+        "logId": if log_id > 0 {
+          Json::number(log_id.to_double())
+        } else {
+          Json::string(source.record_id)
+        },
+        "digestDate": Json::string(
+          json_text(
+            payload,
+            "digest_date",
+            json_text(payload, "digestDate", ""),
+          ),
+        ),
+        "triggeredAt": Json::string(
+          json_text(
+            payload,
+            "triggered_at",
+            json_text(payload, "triggeredAt", ""),
+          ),
+        ),
+        "userCount": Json::number(
+          json_int(payload, "user_count", json_int(payload, "userCount", 0)).to_double(),
+        ),
+        "errorCount": Json::number(
+          json_int(payload, "error_count", json_int(payload, "errorCount", 0)).to_double(),
+        ),
+        "warningCount": Json::number(
+          json_int(
+            payload,
+            "warning_count",
+            json_int(payload, "warningCount", 0),
+          ).to_double(),
+        ),
+        "newCount": Json::number(
+          json_int(payload, "new_count", json_int(payload, "newCount", 0)).to_double(),
+        ),
+        "triggeredBy": Json::string(
+          json_text(
+            payload,
+            "triggered_by",
+            json_text(payload, "triggeredBy", ""),
+          ),
+        ),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let order = json_text(right, "triggeredAt", "").lexical_compare(
+      json_text(left, "triggeredAt", ""),
+    )
+    if order == 0 {
+      json_text(right, "logId", "").lexical_compare(
+        json_text(left, "logId", ""),
+      )
+    } else {
+      order
+    }
+  })
+  observation_envelope(Json::array(rows), coverage)
+}
+
+///|
+async fn notification_llm_providers_response() -> Json raise CompanyServiceError {
   observation_envelope(
-    Json::object({ "total": Json::number(0), "rows": Json::array([]) }),
+    Json::array([]),
     observation_coverage(notification_tables()),
   )
 }
