@@ -125,7 +125,7 @@ fn cbs_mutation_boundary_spec(
   }
   let rest = path[prefix.length():].to_owned()
   if request_method is @http.Post {
-    if rest == "demo/legacy" || rest == "changes" {
+    if rest == "changes" {
       return Some(rest)
     }
     let parts = rest.split("/").to_array()

@@ -57,5 +57,7 @@ read, protects imported contracts, and reports `budgetCheckPending=true` with
 no budget, workflow, accounting, cash, or tax effect. Forward-only local state
 transitions (`draft` → `approving` → `signed` → `paid`) are also persisted
 with revisions and audit receipts; they remain non-authorizing. Legacy
-backfill, clear/delete, contract approval/payment, and change applications
-remain explicit candidates.
+backfill is also native at `POST /api/company/cbs/demo/legacy` (and the
+`/source` alias), creating deterministic `LEGACY-*` command projections with
+the same imported protection and no financial effects. Clear/delete, contract
+approval/payment, and change applications remain explicit candidates.

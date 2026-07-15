@@ -528,6 +528,16 @@ test "native company service maps CBS demo contract command paths" {
     )
     is None,
   )
+  assert_true(
+    cbs_demo_legacy_command_spec(
+      @http.Post,
+      "/api/company/source/cbs/demo/legacy",
+    ),
+  )
+  assert_true(
+    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/demo/legacy")
+    is None,
+  )
 }
 
 ///|

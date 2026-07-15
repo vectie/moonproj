@@ -19,6 +19,18 @@ fn cbs_demo_contract_command_spec(
 }
 
 ///|
+fn cbs_demo_legacy_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Post &&
+  (
+    path == "/api/company/cbs/demo/legacy" ||
+    path == "/api/company/source/cbs/demo/legacy"
+  )
+}
+
+///|
 fn cbs_demo_contract_state_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -94,7 +106,11 @@ fn cbs_demo_contract_request(
       body, "contract_guid", "contractGuid", false, true,
     )
     if value.is_empty() {
-      "demo-" + idempotency_key
+      if json_bool(body, "legacy", false) {
+        "legacy-" + idempotency_key
+      } else {
+        "demo-" + idempotency_key
+      }
     } else {
       value
     }
@@ -104,7 +120,11 @@ fn cbs_demo_contract_request(
       body, "contract_code", "contractCode", false, true,
     )
     if value.is_empty() {
-      "DEMO-" + idempotency_key
+      if json_bool(body, "legacy", false) {
+        "LEGACY-" + idempotency_key
+      } else {
+        "DEMO-" + idempotency_key
+      }
     } else {
       value
     }
@@ -460,4 +480,19 @@ async fn cbs_demo_contract_command(
       "tax_effect": Json::boolean(false),
     }),
   )
+}
+
+///|
+async fn cbs_demo_legacy_command(
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  let source_body = Json::object({
+    "name": Json::string("Legacy contract backfill"),
+    "amount": Json::number(8.2),
+    "projGuid": Json::string("proj-0001"),
+    "rCode": Json::string("R0"),
+    "legacy": Json::boolean(true),
+  })
+  cbs_demo_contract_command(source_body, actor_id, idempotency_key)
 }
