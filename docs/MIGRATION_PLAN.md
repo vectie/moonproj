@@ -507,6 +507,13 @@ gate, so no Excel index is inserted or updated and no audit/provider/cash,
 accounting, or tax effect occurs. Browser acceptance, workbook data, formula
 reconciliation, and the durable upsert transaction remain open.
 
+The adjacent source `POST /excel-imports/:importGuid/plan-lines/import` handler
+now has the same native treatment. Default dry-run responses preserve the
+source summary and expose `replaceExisting`, `inserted`, `replaced`, and
+`wouldInsert`; `dryRun=false` is rejected until an investment owner accepts
+the durable line write/replace transaction. Missing imports retain the source
+404 and no provider, audit, financial, or tax effect is created.
+
 The marketing screen is now a bounded source/read-command family. `/marketing`
 loads `/api/company/marketing/{campaigns,placements,channels,materials}` with
 project/state filters and explicit source-table coverage. Imported source rows

@@ -564,6 +564,108 @@ async fn investment_index_upsert_candidate(
 }
 
 ///|
+fn investment_plan_line_import_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  if request_method is @http.Post {
+    let suffix = "/plan-lines/import"
+    let prefix = "/api/company/investment/excel-imports/"
+    let source_prefix = "/api/company/source/investment/excel-imports/"
+    if path.has_prefix(prefix) && path.has_suffix(suffix) {
+      return Some(
+        path[prefix.length():path.length() - suffix.length()].to_owned(),
+      )
+    }
+    if path.has_prefix(source_prefix) && path.has_suffix(suffix) {
+      return Some(
+        path[source_prefix.length():path.length() - suffix.length()].to_owned(),
+      )
+    }
+  }
+  None
+}
+
+///|
+async fn investment_plan_line_import_candidate(
+  import_id : String,
+  body : Json,
+) -> (Int, Json) raise CompanyServiceError {
+  let dry_run = match json_field(body, "dryRun") {
+    Some(False) => false
+    _ => true
+  }
+  let replace_existing = json_bool(body, "replaceExisting", false)
+  if !dry_run {
+    return (
+      409,
+      Json::object({
+        "success": Json::boolean(false),
+        "code": Json::number(46002),
+        "message": Json::string(
+          "Excel 计划行导入需要投资负责人确认；当前 native 服务仅提供 dry-run。",
+        ),
+        "source_kind": Json::string(
+          "investment_excel_plan_line_import_candidate",
+        ),
+        "dry_run": Json::boolean(false),
+        "replace_existing": Json::boolean(replace_existing),
+        "provider_execution": Json::boolean(false),
+        "persisted": Json::boolean(false),
+        "authorizing": Json::boolean(false),
+        "cash_effect": Json::boolean(false),
+        "accounting_effect": Json::boolean(false),
+        "tax_effect": Json::boolean(false),
+      }),
+    )
+  }
+  let preview = investment_plan_line_preview_response(import_id)
+  if preview.0 != 200 {
+    return preview
+  }
+  match preview.1 {
+    Object(fields) => {
+      fields.set(
+        "source_kind",
+        Json::string("investment_excel_plan_line_import_candidate"),
+      )
+      fields.set("dry_run", Json::boolean(true))
+      fields.set("replace_existing", Json::boolean(replace_existing))
+      fields.set("provider_execution", Json::boolean(false))
+      fields.set("persisted", Json::boolean(false))
+      fields.set("authorizing", Json::boolean(false))
+      fields.set("cash_effect", Json::boolean(false))
+      fields.set("accounting_effect", Json::boolean(false))
+      fields.set("tax_effect", Json::boolean(false))
+      match fields.get("data") {
+        Some(Object(data_fields)) => {
+          data_fields.set("dryRun", Json::boolean(true))
+          data_fields.set("replaceExisting", Json::boolean(replace_existing))
+          data_fields.set("inserted", Json::number(0))
+          data_fields.set("replaced", Json::number(0))
+          let lines_total = match data_fields.get("summary") {
+            Some(Object(summary)) =>
+              summary.get("linesTotal").unwrap_or(Json::number(0))
+            _ => Json::number(0)
+          }
+          match data_fields.get("summary") {
+            Some(Object(summary)) => {
+              summary.set("inserted", Json::number(0))
+              summary.set("replaced", Json::number(0))
+              summary.set("wouldInsert", lines_total)
+            }
+            _ => ()
+          }
+        }
+        _ => ()
+      }
+      (200, Json::object(fields))
+    }
+    _ => preview
+  }
+}
+
+///|
 async fn investment_profit_table_response(
   import_id : String,
 ) -> (Int, Json) raise CompanyServiceError {
