@@ -515,6 +515,7 @@ async fn summary(
       Json::string("read_model"),
       Json::string("profile_observation_read"),
       Json::string("preference_observation_read"),
+      Json::string("preference_command"),
       Json::string("initiated_document_observation_read"),
       Json::string("contract_read"),
       Json::string("payment_application_read"),
@@ -15531,6 +15532,7 @@ async fn route(
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),
+            Json::string("preference_command"),
             Json::string("initiated_document_observation_read"),
             Json::string("budget_scope_observation_read"),
             Json::string("workflow_observation_read"),
@@ -15665,6 +15667,43 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match preference_command_spec(request.meth, path) {
+    Some((command_type, pref_key)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = preference_command(
+        command_type, actor, pref_key, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   match warning_command_spec(request.meth, path) {
     Some((command_type, warning_guid)) => {

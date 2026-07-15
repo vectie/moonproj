@@ -1587,7 +1587,8 @@ Execute the remainder in this order:
     `cmd/postgres_accounting_link_apply` cover the raw, aggregate, and
     accounting traceability transactions with replay-hash parity. Continue the
     port with `cmd/postgres_company_service`'s authenticated native slice
-    (health, summary, receipts, projections, profile, preferences,
+    (health, summary, receipts, projections, profile, preferences and signed
+    preference set/delete commands,
     initiated-document, source-shaped contract/payment, and payment
     observations plus the native expense, contract, payment-application,
     contract-milestone, dynamic-cost, invoice, sales-revenue, tender,
