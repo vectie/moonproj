@@ -396,7 +396,45 @@ async fn cbs_approval_rules_response(
       )
     }
   }
-  cbs_envelope(Json::array(items), coverage)
+  let local_rows = cbs_projection_payloads("cbs_approval_rule")
+  for payload in local_rows {
+    if json_text(payload, "state", "active") != "deleted" &&
+      (match biz_type {
+        Some(value) => json_text(payload, "biz_type", "") == value
+        None => true
+      }) {
+      items.push(
+        Json::object({
+          "rule_guid": Json::string(json_text(payload, "rule_guid", "")),
+          "biz_type": Json::string(json_text(payload, "biz_type", "")),
+          "threshold": Json::number(json_number(payload, "threshold", 0.0)),
+          "actor_user_id": Json::string(json_text(payload, "actor_user_id", "")),
+          "description": Json::string(json_text(payload, "description", "")),
+          "display_order": Json::number(
+            json_number(payload, "display_order", 0.0),
+          ),
+        }),
+      )
+    }
+  }
+  let envelope = cbs_envelope(Json::array(items), coverage)
+  match envelope {
+    Object(fields) => {
+      fields.set("command_projection", Json::boolean(!local_rows.is_empty()))
+      fields.set(
+        "source_kind",
+        Json::string(
+          if local_rows.is_empty() {
+            "imported_or_empty"
+          } else {
+            "imported_or_command"
+          },
+        ),
+      )
+      Json::object(fields)
+    }
+    _ => envelope
+  }
 }
 
 ///|
@@ -408,7 +446,66 @@ async fn cbs_approval_pick_response(
     raise reject(422, "invalid biz_type")
   }
   let rows = cbs_rows()
-  cbs_envelope(Json::null(), cbs_coverage(rows))
+  let candidates : Array[Json] = []
+  for row in rows.get_or_default("wf_approval_rule", []) {
+    if json_field(row.payload, "deleted_at") is None &&
+      report_text(row.payload, "biz_type", "") == biz_type &&
+      report_amount(row.payload, "threshold") <= amount {
+      candidates.push(
+        Json::object({
+          "actor_user_id": Json::string(
+            report_text(row.payload, "actor_user_id", ""),
+          ),
+          "threshold": Json::number(report_amount(row.payload, "threshold")),
+          "description": Json::string(
+            report_text(row.payload, "description", ""),
+          ),
+        }),
+      )
+    }
+  }
+  let local_rows = cbs_projection_payloads("cbs_approval_rule")
+  for payload in local_rows {
+    if json_text(payload, "state", "active") != "deleted" &&
+      json_text(payload, "biz_type", "") == biz_type &&
+      json_number(payload, "threshold", 0.0) <= amount {
+      candidates.push(
+        Json::object({
+          "actor_user_id": Json::string(json_text(payload, "actor_user_id", "")),
+          "threshold": Json::number(json_number(payload, "threshold", 0.0)),
+          "description": Json::string(json_text(payload, "description", "")),
+        }),
+      )
+    }
+  }
+  candidates.sort_by(fn(left, right) {
+    json_number(right, "threshold", 0.0).compare(
+      json_number(left, "threshold", 0.0),
+    )
+  })
+  let selected = if candidates.is_empty() {
+    Json::null()
+  } else {
+    candidates[0]
+  }
+  let envelope = cbs_envelope(selected, cbs_coverage(rows))
+  match envelope {
+    Object(fields) => {
+      fields.set("command_projection", Json::boolean(!local_rows.is_empty()))
+      fields.set(
+        "source_kind",
+        Json::string(
+          if local_rows.is_empty() {
+            "imported_or_empty"
+          } else {
+            "imported_or_command"
+          },
+        ),
+      )
+      Json::object(fields)
+    }
+    _ => envelope
+  }
 }
 
 ///|

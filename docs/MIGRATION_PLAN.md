@@ -423,6 +423,18 @@ but no CBS dictionary/version/rule rows, so empty and covered-not-found states
 are preserved. CBS writes, budget reservation, accounting, cash, tax,
 production identity, and owner acceptance remain gates.
 
+The next CBS command checkpoint is now native as well. Signed
+`POST /api/company/cbs/approval-rules` plus `PUT`/`DELETE` on a rule GUID
+persist a local approval-configuration projection with immutable revisions,
+audit receipts, request-equal idempotent replay, imported-row protection, and
+merged list/pick readback. The pick surface chooses the highest configured
+threshold at or below the requested amount. This slice is deliberately
+configuration-only: it does not authorize a business action, synchronize
+workflow steps, reserve or consume budget, or create cash/accounting/tax
+effects. A source-backed shell smoke covers create, replay, list, pick, update,
+and tombstone behavior; populated-source authorization and workflow ownership
+remain separate migration gates.
+
 Fund planning is now a connected read-and-local-command family after CBS:
 `/fund/plan` loads source-compatible project/period plans, gap analysis, and
 dispatch evidence from `/api/company/fund/{plans,gap-analysis,dispatches}`.

@@ -10,7 +10,8 @@ async fn cbs_projection_payloads(
   aggregate_type : String,
 ) -> Array[Json] raise CompanyServiceError {
   if aggregate_type != "cbs_plan_version" &&
-    aggregate_type != "cbs_subject_dict" {
+    aggregate_type != "cbs_subject_dict" &&
+    aggregate_type != "cbs_approval_rule" {
     raise fail("unsupported CBS projection type")
   }
   let output = run_sql(
