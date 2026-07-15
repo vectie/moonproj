@@ -2156,6 +2156,15 @@ Execute the remainder in this order:
     dependency conflicts, and the undecided review envelope. It remains
     evidence-only: task-state mutation, dependency repair, authority, cash,
     accounting, and cutover approval remain separate gates.
+3a.32. **Native user and audit promotion planners (2026-07-16).**
+    `cmd/user_promotion_plan` and `cmd/audit_promotion_plan`, exposed by their
+    shell wrappers, now replace the Python user-directory and audit-record
+    compilers in the typed-cohort rehearsal. The native planners preserve
+    principal/business-unit/department mapping, enabled-state and redacted
+    privilege boundaries, explicit audit target/outcome mapping, deterministic
+    quarantine reasons, and the exact promotion envelopes. Credential import,
+    privilege grants, network-field recovery, and audit policy remain separate
+    gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

@@ -121,8 +121,8 @@ INVESTMENT_EVALUATION_REPLAY="$WORK_DIR/investment-evaluation-projection-replay.
 echo "investment_evaluation_projection_replay=$INVESTMENT_EVALUATION_REPLAY"
 
 run_cohort payment erp_payment_promotion_plan.py
-run_cohort users erp_user_promotion_plan.py
-run_cohort audit erp_audit_promotion_plan.py
+run_cohort users erp_user_promotion_plan.sh
+run_cohort audit erp_audit_promotion_plan.sh
 run_cohort parameter erp_parameter_promotion_plan.py
 
 echo "typed_cohort_work_dir=$WORK_DIR"

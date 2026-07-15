@@ -206,13 +206,15 @@ reviewed access boundary. The native importer creates one exact-scope
 segregation-of-duties validation; it never imports passwords or source
 super-user privilege.
 
-The user cohort uses `scripts/erp_user_promotion_plan.py`. It promotes the five
+The user cohort uses `scripts/erp_user_promotion_plan.sh` (native
+`cmd/user_promotion_plan`). It promotes the five
 credential-free user identities with explicit business-unit principal mappings,
 department references, and enabled state. Password hashes, login-network data,
 authentication timestamps, and the legacy `super_user` bit are not imported;
 the latter remains evidence and grants no target privilege.
 
-The audit cohort uses `scripts/erp_audit_promotion_plan.py`. Because the source
+The audit cohort uses `scripts/erp_audit_promotion_plan.sh` (native
+`cmd/audit_promotion_plan`). Because the source
 login rows have no target identity, each audit row requires an explicit target
 and outcome mapping plus an actor-scoped `audit:append` grant. The current
 fixture promotes 2 audit records; redacted network fields remain excluded.

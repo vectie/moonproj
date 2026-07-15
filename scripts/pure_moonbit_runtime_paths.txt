@@ -71,3 +71,5 @@ scripts/erp_sales_cohort_plan.sh
 scripts/erp_mapping_variant.sh
 scripts/erp_task_state_promotion_plan.sh
 scripts/erp_task_state_exception_review.sh
+scripts/erp_user_promotion_plan.sh
+scripts/erp_audit_promotion_plan.sh

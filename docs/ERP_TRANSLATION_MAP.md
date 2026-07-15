@@ -416,11 +416,11 @@ the fixture maps two performed contracts and one employee advance to balanced
 journals, and the native receipt is persisted as three durable links. The link
 is traceability only; it does not post a journal to an accounting book or
 recognize cash.
-`scripts/erp_user_promotion_plan.py` promotes five safe user identities through
+The native `scripts/erp_user_promotion_plan.sh` promotes five safe user identities through
 `foundation.UserDirectory` and `import_users`; credentials, network data,
 authentication timestamps, and legacy super-user privilege remain excluded or
 evidence-only.
-`scripts/erp_audit_promotion_plan.py` promotes two audit records only after an
+The native `scripts/erp_audit_promotion_plan.sh` promotes two audit records only after an
 explicit target/outcome interpretation and actor-scoped append grant; missing
 target mappings remain quarantined and redacted network fields stay excluded.
 `scripts/erp_parameter_promotion_plan.py` promotes the original 5-option
