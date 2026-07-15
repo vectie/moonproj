@@ -61,6 +61,7 @@
     "connected_admin_read": 1,
     "connected_ai_hub_read": 1,
     "connected_ai_stats_read": 1,
+    "connected_ai_stats_badge_batch_read": 1,
     "connected_attachment_read": 1,
     "connected_cashflow_read": 1,
     "connected_cbs_read": 4,
@@ -1334,8 +1335,8 @@
       "browser_route_paths": [
         "/ai-stats"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_ai_stats_badge_batch_read",
+      "required_next": "accept_browser_ai_stats_batch_scenario_and_production_identity"
     },
     {
       "module": "attachment",

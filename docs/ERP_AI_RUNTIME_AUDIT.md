@@ -14,11 +14,14 @@ The PostgreSQL service and read-model adapter expose:
 - `/api/company/ai-stats/overview?period=today|week|month`
 - `/api/company/ai-stats/activity?limit=...`
 - `/api/company/ai-stats/badge?bizType=...&bizGuid=...`
+- `POST /api/company/ai-stats/badge/batch` (and the `/source` alias)
 
 Rabbita `/ai-stats` loads the overview and activity reads. Successful empty
 responses render explicit `无源记录` states; designer analytics remain a
 transport-failure fallback only. Badge reads preserve the source shape and
-return `byAi=false` when no confirmed source draft matches.
+return `byAi=false` when no confirmed source draft matches. Batch badge reads
+preserve the source map shape, select only confirmed imported drafts, and
+return an empty map for missing/invalid request fields.
 
 The current PostgreSQL export has no rows for `ai_draft`, `ai_query_log`,
 `ai_correction_log`, `wf_step_action`, or `wf_process_instance`; it has five

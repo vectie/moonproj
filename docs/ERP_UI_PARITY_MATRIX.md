@@ -124,7 +124,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `ai-stats` | `GET` | `/overview` | `/ai-stats` | `connected_ai_stats_read` | `accept_browser_ai_stats_scenario_and_production_identity` |
 | `ai-stats` | `GET` | `/activity` | `/ai-stats` | `connected_ai_stats_read` | `accept_browser_ai_stats_scenario_and_production_identity` |
 | `ai-stats` | `GET` | `/badge` | `/ai-stats` | `connected_ai_stats_read` | `accept_browser_ai_stats_scenario_and_production_identity` |
-| `ai-stats` | `POST` | `/badge/batch` | `/ai-stats` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `ai-stats` | `POST` | `/badge/batch` | `/ai-stats` | `connected_ai_stats_badge_batch_read` | `accept_browser_ai_stats_batch_scenario_and_production_identity` |
 | `attachment` | `POST` | `/upload` | `/attachments` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `attachment` | `GET` | `/list` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
 | `attachment` | `GET` | `/download/:guid` | `/attachments` | `connected_attachment_boundary` | `accept_binary_storage_and_production_identity` |

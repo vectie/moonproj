@@ -174,6 +174,86 @@ async fn ai_stats_badge_response(
 }
 
 ///|
+/// Batch AI badges used by list pages. This is an imported read only; it does
+/// not invoke an LLM, promote a draft, or persist a query.
+async fn ai_stats_badge_batch_response(
+  body : Json,
+) -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(ai_stats_tables())
+  let fields : Map[String, Json] = match body {
+    Object(values) => values
+    _ => return observation_envelope(Json::object({}), coverage)
+  }
+  let biz_type = match fields.get("bizType") {
+    Some(String(value)) => value
+    _ => ""
+  }
+  let raw_guids = match fields.get("bizGuids") {
+    Some(Array(values)) => values
+    _ => []
+  }
+  let guids : Array[String] = []
+  for value in raw_guids {
+    match value {
+      String(text) if text.length() < 100 => guids.push(text)
+      _ => ()
+    }
+    if guids.length() >= 500 {
+      break
+    }
+  }
+  if biz_type.is_empty() || guids.is_empty() {
+    return observation_envelope(Json::object({}), coverage)
+  }
+  let result : Map[String, Json] = {}
+  let confirmed_at : Map[String, String] = {}
+  for row in raw_source_rows("ai_draft", 500) {
+    let payload = row.payload
+    if json_text(payload, "status", "") == "confirmed" &&
+      json_text(payload, "biz_type", json_text(payload, "bizType", "")) ==
+      biz_type {
+      let guid = json_text(
+        payload,
+        "result_biz_guid",
+        json_text(payload, "resultBizGuid", ""),
+      )
+      if guids.contains(guid) && !guid.is_empty() {
+        let at = json_text(
+          payload,
+          "confirmed_at",
+          json_text(payload, "confirmedAt", ""),
+        )
+        let newer = match confirmed_at.get(guid) {
+          Some(previous) => at >= previous
+          None => true
+        }
+        if newer {
+          confirmed_at.set(guid, at)
+          result.set(
+            guid,
+            Json::object({
+              "byAi": Json::boolean(true),
+              "confidence": Json::number(
+                json_number(payload, "confidence", 0.0),
+              ),
+              "llmProvider": Json::string(
+                json_text(
+                  payload,
+                  "llm_provider",
+                  json_text(payload, "llmProvider", ""),
+                ),
+              ),
+              "confirmedAt": Json::string(at),
+            }),
+          )
+        }
+      }
+    }
+  }
+  observation_envelope(Json::object(result), coverage)
+}
+
+///|
 /// AI hub.
 fn ai_hub_tables() -> Array[String] {
   [

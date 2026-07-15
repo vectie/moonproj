@@ -15739,6 +15739,7 @@ async fn route(
             Json::string("webhook_config_command_candidate"),
             Json::string("webhook_overdue_preview_read"),
             Json::string("ai_analytics_read"),
+            Json::string("ai_stats_badge_batch_read"),
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
             Json::string("webhook_config_read"),
@@ -15927,6 +15928,28 @@ async fn handle(
       }
     }
     let result = budget_check_response(body) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, result, false)
+    return
+  }
+  if request.meth is @http.Post &&
+    (
+      path == "/api/company/ai-stats/badge/batch" ||
+      path == "/api/company/source/ai-stats/badge/batch"
+    ) {
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = ai_stats_badge_batch_response(body) catch {
       error => {
         let response = service_error_response(error)
         send_json(conn, request.meth, response.0, response.1, false)
