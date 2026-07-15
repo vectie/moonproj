@@ -8,6 +8,7 @@ frontend/main
 scripts/company_postgres_accounting_link_apply.sh
 scripts/company_postgres_accounting_link_parity.sh
 scripts/company_postgres_accounting_reconciliation.sh
+scripts/company_postgres_accounting_cohort_rehearsal.sh
 scripts/company_postgres_contract_smoke.sh
 scripts/company_postgres_dynamic_cost_smoke.sh
 scripts/company_postgres_expense_smoke.sh
@@ -42,3 +43,4 @@ scripts/erp_snapshot_export.sh
 scripts/erp_snapshot_inventory.sh
 scripts/erp_snapshot_stage_raw.sh
 scripts/erp_source_export_request.sh
+scripts/erp_accounting_link_plan.sh

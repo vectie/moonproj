@@ -19,7 +19,7 @@ mkdir -p "$WORK_DIR"
 PLAN="$WORK_DIR/accounting-link-plan.json"
 RECEIPT="$WORK_DIR/accounting-link-receipt.json"
 
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$DOMAIN_RECEIPT" "$MAPPING_PATH" "$PLAN"
 moon run --target native cmd/accounting_link -- "$PLAN" "$RECEIPT"
 

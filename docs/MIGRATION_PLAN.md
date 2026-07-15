@@ -1907,6 +1907,15 @@ Execute the remainder in this order:
     reconciled report without posting journals, releasing cash, or authorizing
     period close. SQLite and cross-domain reconciliation remain explicit next
     ports.
+
+3a.6. **Native accounting-link planner (2026-07-16).**
+    `cmd/accounting_link_plan` and `scripts/erp_accounting_link_plan.sh` now
+    replace the Python planner in the PostgreSQL accounting-cohort path. The
+    native planner preserves the allow-list, target-specific mapping lookup,
+    fixed-point amount/currency/principal checks, specialized event identity
+    checks, quarantine reasons, and plan envelope consumed by
+    `cmd/accounting_link`. The broader SQLite rehearsal still remains a
+    historical comparison path until its database adapter is ported.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
