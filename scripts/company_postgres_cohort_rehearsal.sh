@@ -285,7 +285,7 @@ if [ -n "$OPENING_CONTROL_MAPPING" ]; then
 fi
 
 if [ -n "$TAX_FILING_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_tax_filing_plan.py" \
+  "$SCRIPT_DIR/erp_tax_filing_plan.sh" \
     "$TAX_FILING_MAPPING" "$WORK_DIR/tax-filing-plan.json"
   moon run --target native cmd/tax_filing -- \
     "$WORK_DIR/tax-filing-plan.json" "$WORK_DIR/tax-filing-receipt.json"

@@ -22,7 +22,7 @@ PG_USER=${PGUSER:-moonproj}
 mkdir -p "$WORK_DIR"
 rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 
-python3 "$SCRIPT_DIR/erp_tax_filing_plan.py" \
+"$SCRIPT_DIR/erp_tax_filing_plan.sh" \
   "$TAX_MAPPING" "$WORK_DIR/tax-filing-plan.json"
 python3 "$SCRIPT_DIR/erp_tax_accounting_plan.py" \
   "$WORK_DIR/tax-filing-plan.json" "$TAX_ACCOUNTING_MAPPING" \

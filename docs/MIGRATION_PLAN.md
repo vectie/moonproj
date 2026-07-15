@@ -1916,6 +1916,16 @@ Execute the remainder in this order:
     checks, quarantine reasons, and plan envelope consumed by
     `cmd/accounting_link`. The broader SQLite rehearsal still remains a
     historical comparison path until its database adapter is ported.
+
+3a.7. **Native tax-filing map planner (2026-07-16).**
+    `cmd/tax_filing_plan` and `scripts/erp_tax_filing_plan.sh` now replace the
+    Python tax-filing map compiler in the PostgreSQL cohort path (and the
+    standalone tax/financing rehearsal's first step). The native planner
+    preserves reviewed-input gating, recursive secret-shaped-key rejection,
+    source/filing uniqueness, fixed-point amount/rate bounds, final-state
+    allow-list validation, and the exact tax-filing plan envelope. Filing
+    promotion remains a separate native domain boundary; payment, accounting,
+    cash, period close, and external authority effects remain disabled.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
