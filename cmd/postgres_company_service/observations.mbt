@@ -362,6 +362,82 @@ fn ai_stats_tables() -> Array[String] {
 }
 
 ///|
+fn ai_stat_date(payload : Json, first : String, second : String) -> String {
+  let value = json_text(payload, first, json_text(payload, second, ""))
+  if value.length() >= 10 {
+    value[0:10].to_owned()
+  } else {
+    value
+  }
+}
+
+///|
+fn ai_stat_day_number(value : String) -> Int {
+  if value.length() < 10 {
+    return -1
+  }
+  let year = parse_number(value[0:4].to_owned()).to_int()
+  let month = parse_number(value[5:7].to_owned()).to_int()
+  let day = parse_number(value[8:10].to_owned()).to_int()
+  if year < 1 || month < 1 || month > 12 || day < 1 || day > 31 {
+    return -1
+  }
+  let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+  let month_days = [
+    31,
+    if leap {
+      29
+    } else {
+      28
+    },
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ]
+  if day > month_days[month - 1] {
+    return -1
+  }
+  let mut total = 365 * (year - 1) +
+    (year - 1) / 4 -
+    (year - 1) / 100 +
+    (year - 1) / 400
+  for index in 0..<(month - 1) {
+    total += month_days[index]
+  }
+  total + day
+}
+
+///|
+fn ai_stat_period_match(
+  payload : Json,
+  first : String,
+  second : String,
+  period : String,
+) -> Bool {
+  let date = ai_stat_day_number(ai_stat_date(payload, first, second))
+  if date < 0 {
+    return false
+  }
+  let now = @env.now().to_string()
+  let today = ai_stat_day_number(now[0:10].to_owned())
+  let age = today - date
+  if period == "today" {
+    age == 0
+  } else if period == "week" {
+    age >= 0 && age < 7
+  } else {
+    age >= 0 && age < 30
+  }
+}
+
+///|
 async fn ai_stats_overview_response(
   period : String,
 ) -> Json raise CompanyServiceError {
@@ -371,25 +447,209 @@ async fn ai_stats_overview_response(
   } else {
     "month"
   }
+  let drafts = raw_source_rows("ai_draft", 500).filter(fn(row) {
+    json_text(row.payload, "status", "") == "confirmed" &&
+    ai_stat_period_match(row.payload, "created_at", "createdAt", selected)
+  })
+  let queries = raw_source_rows("ai_query_log", 500).filter(fn(row) {
+    ai_stat_period_match(row.payload, "created_at", "createdAt", selected)
+  })
+  let corrections = raw_source_rows("ai_correction_log", 500).filter(fn(row) {
+    ai_stat_period_match(row.payload, "created_at", "createdAt", selected)
+  })
+  let skips = raw_source_rows("wf_step_action", 500).filter(fn(row) {
+    json_text(row.payload, "decision", "") == "AUTO_SKIPPED" &&
+    ai_stat_period_match(row.payload, "action_time", "actionTime", selected)
+  })
+  let mut successful_queries = 0
+  let mut duration_total = 0
+  for row in queries {
+    if json_text(row.payload, "error", "").is_empty() {
+      successful_queries += 1
+      duration_total += json_int(
+        row.payload,
+        "duration_ms",
+        json_int(row.payload, "durationMs", 0),
+      )
+    }
+  }
+  let by_biz : Map[String, Int] = {}
+  let by_provider_count : Map[String, Int] = {}
+  let by_provider_confidence : Map[String, Double] = {}
+  let corrected_fields : Map[String, Int] = {}
+  let timeseries : Map[String, Map[String, Int]] = {}
+  let mut confidence_total = 0.0
+  for row in drafts {
+    let biz = json_text(
+      row.payload,
+      "biz_type",
+      json_text(row.payload, "bizType", "unknown"),
+    )
+    by_biz.set(biz, by_biz.get(biz).unwrap_or(0) + 1)
+    let provider = json_text(
+      row.payload,
+      "llm_provider",
+      json_text(row.payload, "llmProvider", "(none)"),
+    )
+    by_provider_count.set(
+      provider,
+      by_provider_count.get(provider).unwrap_or(0) + 1,
+    )
+    let confidence = json_number(row.payload, "confidence", 0.0)
+    by_provider_confidence.set(
+      provider,
+      by_provider_confidence.get(provider).unwrap_or(0.0) + confidence,
+    )
+    confidence_total += confidence
+    let date = ai_stat_date(row.payload, "created_at", "createdAt")
+    if !date.is_empty() {
+      let series = timeseries.get(date).unwrap_or({})
+      series.set("intake", series.get("intake").unwrap_or(0) + 1)
+      if series.get("query") is None {
+        series.set("query", 0)
+      }
+      timeseries.set(date, series)
+    }
+  }
+  for row in corrections {
+    let key = json_text(
+        row.payload,
+        "biz_type",
+        json_text(row.payload, "bizType", "unknown"),
+      ) +
+      "\u0000" +
+      json_text(
+        row.payload,
+        "field_name",
+        json_text(row.payload, "fieldName", "unknown"),
+      )
+    corrected_fields.set(key, corrected_fields.get(key).unwrap_or(0) + 1)
+  }
+  for row in queries {
+    let date = ai_stat_date(row.payload, "created_at", "createdAt")
+    if !date.is_empty() {
+      let series = timeseries.get(date).unwrap_or({})
+      if series.get("intake") is None {
+        series.set("intake", 0)
+      }
+      series.set("query", series.get("query").unwrap_or(0) + 1)
+      timeseries.set(date, series)
+    }
+  }
+  let by_biz_json : Array[Json] = []
+  for biz, count in by_biz {
+    by_biz_json.push(
+      Json::object({
+        "bizType": Json::string(biz),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  by_biz_json.sort_by(fn(left, right) {
+    json_int(right, "count", 0) - json_int(left, "count", 0)
+  })
+  let by_provider_json : Array[Json] = []
+  for provider, count in by_provider_count {
+    by_provider_json.push(
+      Json::object({
+        "provider": Json::string(provider),
+        "count": Json::number(count.to_double()),
+        "avgConfidence": Json::number(
+          by_provider_confidence.get(provider).unwrap_or(0.0) /
+          count.to_double() *
+          100.0,
+        ),
+      }),
+    )
+  }
+  by_provider_json.sort_by(fn(left, right) {
+    json_int(right, "count", 0) - json_int(left, "count", 0)
+  })
+  let corrected_json : Array[Json] = []
+  for key, count in corrected_fields {
+    let parts = key.split("\u0000").to_array()
+    corrected_json.push(
+      Json::object({
+        "bizType": Json::string(parts[0].to_owned()),
+        "field": Json::string(parts[1].to_owned()),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  corrected_json.sort_by(fn(left, right) {
+    json_int(right, "count", 0) - json_int(left, "count", 0)
+  })
+  let corrected_limit = if corrected_json.length() < 5 {
+    corrected_json.length()
+  } else {
+    5
+  }
+  let timeseries_json : Array[Json] = []
+  for date, values in timeseries {
+    timeseries_json.push(
+      Json::object({
+        "date": Json::string(date),
+        "intake": Json::number(values.get("intake").unwrap_or(0).to_double()),
+        "query": Json::number(values.get("query").unwrap_or(0).to_double()),
+      }),
+    )
+  }
+  timeseries_json.sort_by(fn(left, right) {
+    json_text(left, "date", "").lexical_compare(json_text(right, "date", ""))
+  })
+  let draft_total = drafts.length()
+  let query_total = queries.length()
+  let correction_total = corrections.length()
+  let skip_total = skips.length()
+  let saved_minutes = draft_total * 5 + query_total + skip_total * 3
   observation_envelope(
     Json::object({
       "period": Json::string(selected),
       "kpi": Json::object({
-        "intakeTotal": Json::number(0),
-        "queryTotal": Json::number(0),
-        "skipTotal": Json::number(0),
-        "correctionTotal": Json::number(0),
-        "accuracy": Json::number(100),
-        "avgConfidence": Json::number(0),
-        "querySuccessRate": Json::number(100),
-        "avgQueryDurationMs": Json::number(0),
-        "savedMinutes": Json::number(0),
-        "savedHours": Json::number(0),
+        "intakeTotal": Json::number(draft_total.to_double()),
+        "queryTotal": Json::number(query_total.to_double()),
+        "skipTotal": Json::number(skip_total.to_double()),
+        "correctionTotal": Json::number(correction_total.to_double()),
+        "accuracy": Json::number(
+          if draft_total == 0 {
+            100.0
+          } else {
+            (100.0 -
+            correction_total.to_double() *
+            100.0 /
+            (draft_total.to_double() * 8.0)).max(0.0)
+          },
+        ),
+        "avgConfidence": Json::number(
+          if draft_total == 0 {
+            0.0
+          } else {
+            confidence_total / draft_total.to_double() * 100.0
+          },
+        ),
+        "querySuccessRate": Json::number(
+          if query_total == 0 {
+            100.0
+          } else {
+            successful_queries.to_double() / query_total.to_double() * 100.0
+          },
+        ),
+        "avgQueryDurationMs": Json::number(
+          if successful_queries == 0 {
+            0.0
+          } else {
+            duration_total.to_double() / successful_queries.to_double()
+          },
+        ),
+        "savedMinutes": Json::number(saved_minutes.to_double()),
+        "savedHours": Json::number(saved_minutes.to_double() / 60.0),
       }),
-      "byBizType": Json::array([]),
-      "byProvider": Json::array([]),
-      "topCorrectedFields": Json::array([]),
-      "timeseries": Json::array([]),
+      "byBizType": Json::array(by_biz_json),
+      "byProvider": Json::array(by_provider_json),
+      "topCorrectedFields": Json::array(
+        corrected_json[0:corrected_limit].to_owned(),
+      ),
+      "timeseries": Json::array(timeseries_json),
     }),
     coverage,
   )
@@ -402,7 +662,124 @@ async fn ai_stats_activity_response(
   if limit < 1 || limit > 100 {
     raise reject(422, "invalid AI activity limit")
   }
-  observation_envelope(Json::array([]), observation_coverage(ai_stats_tables()))
+  let users = raw_source_rows("sys_user", 500)
+  let items : Array[Json] = []
+  for row in raw_source_rows("ai_draft", 500) {
+    if json_text(row.payload, "status", "") == "confirmed" {
+      let confidence = json_number(row.payload, "confidence", 0.0)
+      let user_id = json_text(
+        row.payload,
+        "user_id",
+        json_text(row.payload, "userId", ""),
+      )
+      let user = match source_payload(users, "user_id", user_id) {
+        Some(value) =>
+          json_text(value, "emp_name", json_text(value, "user_name", "系统"))
+        None => "系统"
+      }
+      let biz = json_text(
+        row.payload,
+        "biz_type",
+        json_text(row.payload, "bizType", "unknown"),
+      )
+      items.push(
+        Json::object({
+          "type": Json::string("intake"),
+          "time": Json::string(
+            json_text(
+              row.payload,
+              "confirmed_at",
+              json_text(
+                row.payload,
+                "confirmedAt",
+                json_text(row.payload, "created_at", ""),
+              ),
+            ),
+          ),
+          "icon": Json::string("intake"),
+          "title": Json::string("AI 起单 " + biz),
+          "detail": Json::string(
+            "置信度 " +
+            (confidence * 100.0).to_int().to_string() +
+            "% · 由 " +
+            user +
+            " 确认",
+          ),
+          "sourceKind": Json::string("imported"),
+        }),
+      )
+    }
+  }
+  for row in raw_source_rows("ai_query_log", 500) {
+    let time = json_text(
+      row.payload,
+      "created_at",
+      json_text(row.payload, "createdAt", ""),
+    )
+    if !time.is_empty() {
+      let question = json_text(row.payload, "question", "AI 查询")
+      let query_detail = if json_text(row.payload, "error", "").is_empty() {
+        json_int(row.payload, "row_count", json_int(row.payload, "rowCount", 0)).to_string() +
+        " 行"
+      } else {
+        "失败"
+      }
+      let detail = question + " · " + query_detail
+      items.push(
+        Json::object({
+          "type": Json::string("query"),
+          "time": Json::string(time),
+          "icon": Json::string("query"),
+          "title": Json::string("AI 智能问答"),
+          "detail": Json::string(detail),
+          "sourceKind": Json::string("imported"),
+        }),
+      )
+    }
+  }
+  for row in raw_source_rows("wf_step_action", 500) {
+    if json_text(row.payload, "decision", "") == "AUTO_SKIPPED" {
+      let time = json_text(
+        row.payload,
+        "action_time",
+        json_text(row.payload, "actionTime", ""),
+      )
+      if !time.is_empty() {
+        items.push(
+          Json::object({
+            "type": Json::string("skip"),
+            "time": Json::string(time),
+            "icon": Json::string("skip"),
+            "title": Json::string("AI 自动跳过审批步"),
+            "detail": Json::string(
+              json_text(
+                row.payload,
+                "step_name",
+                json_text(row.payload, "stepName", "审批步骤"),
+              ) +
+              " — " +
+              json_text(row.payload, "comment", ""),
+            ),
+            "sourceKind": Json::string("imported"),
+          }),
+        )
+      }
+    }
+  }
+  items.sort_by(fn(left, right) {
+    json_text(right, "time", "").lexical_compare(json_text(left, "time", ""))
+  })
+  let limited : Array[Json] = []
+  for index in 0..<items.length() {
+    if index >= limit {
+      break
+    }
+    limited.push(items[index])
+  }
+  observation_envelope(
+    Json::array(limited),
+    observation_coverage(ai_stats_tables()),
+  )
 }
 
 ///|
@@ -413,10 +790,72 @@ async fn ai_stats_badge_response(
   if !valid_identifier(biz_type) || !valid_identifier(biz_guid) {
     raise reject(422, "invalid AI badge identifiers")
   }
-  observation_envelope(
-    Json::object({ "byAi": Json::boolean(false) }),
-    observation_coverage(ai_stats_tables()),
-  )
+  let matches : Array[SourceRow] = []
+  for row in raw_source_rows("ai_draft", 500) {
+    if json_text(row.payload, "status", "") == "confirmed" &&
+      json_text(row.payload, "biz_type", json_text(row.payload, "bizType", "")) ==
+      biz_type &&
+      json_text(
+        row.payload,
+        "result_biz_guid",
+        json_text(row.payload, "resultBizGuid", ""),
+      ) ==
+      biz_guid {
+      matches.push(row)
+    }
+  }
+  matches.sort_by(fn(left, right) {
+    json_text(
+      right.payload,
+      "confirmed_at",
+      json_text(right.payload, "confirmedAt", ""),
+    ).lexical_compare(
+      json_text(
+        left.payload,
+        "confirmed_at",
+        json_text(left.payload, "confirmedAt", ""),
+      ),
+    )
+  })
+  let data = if matches.is_empty() {
+    Json::object({ "byAi": Json::boolean(false) })
+  } else {
+    let row = matches[0]
+    Json::object({
+      "byAi": Json::boolean(true),
+      "draftId": Json::string(
+        json_text(
+          row.payload,
+          "draft_id",
+          json_text(row.payload, "draftId", row.record_id),
+        ),
+      ),
+      "confidence": Json::number(json_number(row.payload, "confidence", 0.0)),
+      "llmProvider": Json::string(
+        json_text(
+          row.payload,
+          "llm_provider",
+          json_text(row.payload, "llmProvider", ""),
+        ),
+      ),
+      "llmModel": Json::string(
+        json_text(
+          row.payload,
+          "llm_model",
+          json_text(row.payload, "llmModel", ""),
+        ),
+      ),
+      "confirmedAt": Json::string(
+        json_text(
+          row.payload,
+          "confirmed_at",
+          json_text(row.payload, "confirmedAt", ""),
+        ),
+      ),
+      "fieldsHint": Json::array([]),
+    })
+  }
+  observation_envelope(data, observation_coverage(ai_stats_tables()))
 }
 
 ///|
