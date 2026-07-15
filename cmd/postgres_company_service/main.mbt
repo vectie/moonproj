@@ -15948,6 +15948,7 @@ async fn route(
             Json::string("ai_stats_badge_batch_read"),
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
+            Json::string("attachment_re_extract_candidate"),
             Json::string("webhook_config_read"),
             Json::string("rbac_observation_read"),
             Json::string("report_template_read"),
@@ -16191,6 +16192,28 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, ai_hub_explain_response(body), false)
     return
+  }
+  match attachment_reextract_spec(request.meth, path) {
+    Some(attachment_guid) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let _ = actor
+      let result = attachment_reextract_response(attachment_guid) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   if request.meth is @http.Post && path == "/api/company/export/excel" {
     let body = read_json_body(body_reader) catch {

@@ -479,7 +479,11 @@ PostgreSQL export has no attachment rows, so the screen shows an empty source
 state after a successful read rather than designer files. Upload, binary
 download now has a source-compatible missing-record boundary, while real
 binary serving, deletion, OCR re-extraction, production identity, and owner
-acceptance remain separate gates.
+acceptance remain separate gates. Signed `POST /api/company/attachments/re-extract/:guid`
+and `/source` now preserve the source missing-record response and expose a
+dry-run OCR candidate for imported rows; no binary is read, no OCR provider is
+called, and no attachment metadata is persisted. Provider-backed extraction,
+binary ownership, and attachment-owner acceptance remain gates.
 
 **AI explanation candidate checkpoint (2026-07-16).** Native MoonBit now
 translates the source cashflow and investment `POST /ai-explain` handlers behind
