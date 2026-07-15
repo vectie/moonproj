@@ -838,14 +838,19 @@ approval-draft, global-ask, query-session, and command routes remain gated;
 provider/LLM/OCR execution, draft promotion, prompt retention, and AI-owner
 acceptance are not inferred from a successful read.
 
-Webhook configuration is now a bounded notification read family. `/webhook-config`
+Webhook configuration is now a bounded notification family. `/webhook-config`
 loads `/api/company/webhook/config` over the three source `sys_param` platform
-names, enabled flags, and redacted URL/secret status. The export has no
-`sys_param` rows, so successful reads show explicit empty-source metadata while
-preserving `authorizing=false`, `persisted=false`, and
-`provider_execution=false`. Configuration writes, test delivery, overdue scans,
-credential ownership, production identity, and notification-owner acceptance
-remain separate gates.
+names, enabled flags, and redacted URL/secret status. Signed super-user
+`PUT /api/company/webhook/config/:platform` (and `/source`) candidates preserve
+optional URL/secret and `__keep__` semantics with idempotent redacted
+projections and audit receipts; they never bind credentials or deliver.
+The export has no `sys_param` rows, so successful reads show explicit
+empty-source metadata while preserving `authorizing=false`,
+`persisted=false`, and `provider_execution=false`. Managed credential
+ownership, test delivery, overdue scans, production identity, and
+notification-owner acceptance remain separate gates. The pure-shell
+`scripts/company_postgres_webhook_smoke.sh` covers create/replay/update,
+source aliases, redaction, and invalid-platform rejection.
 
 The report builder is now a bounded reporting vertical. `/report-builder` loads
 the source table/column/operator whitelist and saved-template list through

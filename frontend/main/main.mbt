@@ -4880,7 +4880,7 @@ fn webhook_config_from_body(
                   } else {
                     "未设置"
                   },
-                  "imported",
+                  json_object_text(row, "sourceKind", "imported"),
                 ])
               _ => ()
             }

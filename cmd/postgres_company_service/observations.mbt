@@ -259,32 +259,6 @@ async fn ai_hub_corrections_response(
 }
 
 ///|
-/// Webhook.
-async fn webhook_config_response() -> Json raise CompanyServiceError {
-  let coverage = observation_coverage(["sys_param"])
-  observation_envelope(
-    Json::object({
-      "feishu": Json::object({
-        "enabled": Json::boolean(false),
-        "url": Json::string(""),
-        "hasSecret": Json::boolean(false),
-      }),
-      "dingtalk": Json::object({
-        "enabled": Json::boolean(false),
-        "url": Json::string(""),
-        "hasSecret": Json::boolean(false),
-      }),
-      "wecom": Json::object({
-        "enabled": Json::boolean(false),
-        "url": Json::string(""),
-        "hasSecret": Json::boolean(false),
-      }),
-    }),
-    coverage,
-  )
-}
-
-///|
 /// Notifications.
 fn notification_tables() -> Array[String] {
   [

@@ -409,7 +409,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `warning` | `PATCH` | `/tickets/:id/reassign` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `warning` | `PATCH` | `/tickets/:id/extend` | `/warning`, `/warning-rules` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `webhook` | `GET` | `/config` | `/webhook-config` | `connected_webhook_read` | `accept_browser_webhook_scenario_and_production_identity` |
-| `webhook` | `PUT` | `/config/:platform` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `webhook` | `PUT` | `/config/:platform` | `/webhook-config` | `connected_webhook_config_command_candidate` | `accept_browser_webhook_config_candidate_and_security_owner` |
 | `webhook` | `POST` | `/test/:platform` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `webhook` | `POST` | `/scan-overdue/preview` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `webhook` | `POST` | `/scan-overdue` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
