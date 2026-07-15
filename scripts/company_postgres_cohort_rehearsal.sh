@@ -389,7 +389,7 @@ if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
 fi
 
 if [ -n "$CONTRACT_MILESTONE_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_contract_milestone_plan.py" \
+  "$SCRIPT_DIR/erp_contract_milestone_plan.sh" \
     "$CONTRACT_MILESTONE_MAPPING" "$WORK_DIR/contract-milestone-plan.json"
   moon run --target native cmd/contract_milestone -- \
     "$WORK_DIR/contract-milestone-plan.json" \

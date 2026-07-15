@@ -1955,6 +1955,15 @@ Execute the remainder in this order:
     tolerances, and the exact opening-control plan envelope. The native
     shadow-control importer remains reconciliation evidence only; it does not
     infer balances or authorize posting, cash, tax, period close, or ownership.
+
+3a.11. **Native contract-milestone cohort planner (2026-07-16).**
+    `cmd/contract_milestone_plan` and `scripts/erp_contract_milestone_plan.sh`
+    now replace the Python reviewed cohort compiler in the PostgreSQL path.
+    The native planner preserves source-table and identity checks, commitment →
+    milestone → settlement continuity, lifecycle-state allow-lists, amount,
+    currency, trigger, and percentage bounds, and the exact cohort-plan
+    envelope. Domain promotion remains separate from payment, cash,
+    accounting, and period-close effects.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
