@@ -93,9 +93,11 @@ native service exposes:
   command-owned splits.
 
 The direct `/api/company/tenders` and `/api/company/tender-splits` GET
-list/detail shapes remain follow-up parity items; the Rabbita tender page
-currently uses the source-compatible reads above, while native tender
-lifecycle writes are available on the direct command paths.
+list/detail shapes now read the latest PostgreSQL projections with the ERP
+fixed-point amount/percent fields, display values, source provenance, and
+not-found behavior. The Rabbita tender page continues to use the
+source-compatible reads above, while native tender lifecycle writes remain
+available on the direct command paths.
 
 Each command requires an idempotency key, persists an immutable tender
 revision, a command receipt, and an audit record. Imported tender projections

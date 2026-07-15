@@ -15816,6 +15816,31 @@ async fn route(
   if path == "/api/company/fund/dispatches" {
     return (200, fund_source_response("dispatches", None, None, None))
   }
+  if path == "/api/company/tenders" {
+    return (
+      200,
+      tender_read_response(query_alias_decoded(query, "tenderId", "tender_id")),
+    )
+  }
+  let tender_read_prefix = "/api/company/tenders/"
+  if path.has_prefix(tender_read_prefix) {
+    let tender_id = path[tender_read_prefix.length():].to_owned()
+    return tender_detail_response(tender_id)
+  }
+  if path == "/api/company/tender-splits" {
+    return (
+      200,
+      tender_split_read_response(
+        query_alias_decoded(query, "splitId", "split_id"),
+        query_alias_decoded(query, "parentContractId", "parent_contract_id"),
+      ),
+    )
+  }
+  let tender_split_read_prefix = "/api/company/tender-splits/"
+  if path.has_prefix(tender_split_read_prefix) {
+    let split_id = path[tender_split_read_prefix.length():].to_owned()
+    return tender_split_detail_response(split_id)
+  }
   let tender_source_prefix = "/api/company/source/tender/"
   if path.has_prefix(tender_source_prefix) {
     let family = path[tender_source_prefix.length():].to_owned()
@@ -15862,6 +15887,24 @@ async fn route(
   }
   if path == "/api/company/supplier-risk-board" {
     return (200, supplier_command_risk_board_response())
+  }
+  if path == "/api/company/suppliers" {
+    return (
+      200,
+      supplier_direct_read_response(
+        query_alias_decoded(query, "supplierId", "supplier_id"),
+      ),
+    )
+  }
+  let supplier_read_prefix = "/api/company/suppliers/"
+  if path.has_prefix(supplier_read_prefix) && path.has_suffix("/risk") {
+    let supplier_id = path[supplier_read_prefix.length():path.length() -
+    "/risk".length()].to_owned()
+    return supplier_direct_risk_response(supplier_id)
+  }
+  if path.has_prefix(supplier_read_prefix) {
+    let supplier_id = path[supplier_read_prefix.length():].to_owned()
+    return supplier_direct_detail_response(supplier_id)
   }
   let supplier_prefix = "/api/company/srm/providers/"
   if path.has_prefix(supplier_prefix) && path.has_suffix("/risk") {

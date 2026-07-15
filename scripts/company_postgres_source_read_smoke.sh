@@ -195,6 +195,8 @@ request sales_revenues '/api/company/source/sales/revenues'
 request tender_plans '/api/company/source/tender/tenders'
 request tender_awards '/api/company/source/tender/awards'
 request tender_splits '/api/company/source/tender/splits'
+request tenders '/api/company/tenders'
+request tender_splits_direct '/api/company/tender-splits'
 request marketing_campaigns '/api/company/marketing/campaigns?projGuid=proj-0001'
 request marketing_placements '/api/company/marketing/placements'
 request marketing_channels '/api/company/marketing/channels'
@@ -210,6 +212,18 @@ request supplier_stats '/api/company/srm/stats/overview'
 request supplier_risk_board '/api/company/srm/risk-board'
 request supplier_command_risk_board '/api/company/supplier-risk-board'
 request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f8d3f5b34'
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/suppliers" >"$TMP_DIR/suppliers.json"
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/suppliers/SUP-SOURCE-SMOKE-4f8d3f5b34" >"$TMP_DIR/supplier_detail.json"
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/suppliers/SUP-SOURCE-SMOKE-4f8d3f5b34/risk" >"$TMP_DIR/supplier_risk.json"
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
   -H 'X-Forwarded-Proto: https' \
@@ -445,6 +459,14 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/tender_splits.json" >/dev/null
 /usr/bin/jq -e '
+  (.items | type) == "array" and
+  (all(.items[]; has("tender_id") and has("estimated_amount_minor") and has("estimated_amount_display")))
+' "$TMP_DIR/tenders.json" >/dev/null
+/usr/bin/jq -e '
+  (.items | type) == "array" and
+  (all(.items[]; has("split_id") and has("split_amount_minor") and has("split_pct_display")))
+' "$TMP_DIR/tender_splits_direct.json" >/dev/null
+/usr/bin/jq -e '
   .success == true and
   .source_coverage.mkt_campaign == 0 and
   ((.data | map(select(.sourceKind == "command")) | length) == (.data | length)) and
@@ -514,6 +536,18 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   (.data.distribution | type) == "array" and .authorizing == false
 ' "$TMP_DIR/supplier_risk_board.json" >/dev/null
 /usr/bin/jq -e '(.items | type) == "array"' "$TMP_DIR/supplier_command_risk_board.json" >/dev/null
+/usr/bin/jq -e '
+  (.items | type) == "array" and
+  (all(.items[]; has("supplier_id") and has("evaluation") and has("source_kind")))
+' "$TMP_DIR/suppliers.json" >/dev/null
+/usr/bin/jq -e '
+  .supplier_id == "SUP-SOURCE-SMOKE-4f8d3f5b34" and
+  has("state") and has("source_kind")
+' "$TMP_DIR/supplier_detail.json" >/dev/null
+/usr/bin/jq -e '
+  .supplier_id == "SUP-SOURCE-SMOKE-4f8d3f5b34" and
+  has("score") and has("rating") and (.tags | type) == "array"
+' "$TMP_DIR/supplier_risk.json" >/dev/null
 /usr/bin/jq -e '
   .success == true and .data.provider.providerGuid == "SUP-SOURCE-SMOKE-4f8d3f5b34" and
   .data.provider.sourceKind == "command" and .authorizing == false
