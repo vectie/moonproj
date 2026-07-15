@@ -50,7 +50,8 @@ authoritative ERP table definitions, 26 present in this fixture, and 49
 schema-only tables requiring later cohorts. The 2026-07-14 audit has now
 completed the bounded page-by-page sidebar/read wave, connected the
 evidence-ready PostgreSQL service/read-model paths, and verified local command
-runtimes through contract milestones. The next hard gates are managed
+runtimes through expense, contract, and payment-application lifecycles. The
+next hard gates are managed
 production identity, the complete credential-safe source export, source-backed
 golden workflows, and named-owner acceptance of the remaining external effects.
 The existing technical gates will be reused and extended only when they
@@ -1418,8 +1419,8 @@ Execute the remainder in this order:
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
     observations plus the native expense and contract list/detail,
-    budget-check preview, and idempotent expense/contract create/update/
-    submit/reject/resubmit/approve/void lifecycles, with the bounded
+    budget-check preview, and idempotent expense/contract/payment-application
+    create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
     service commands, gateway allow-list parity, rehearsal planners/parity
@@ -1447,10 +1448,30 @@ Execute the remainder in this order:
     dual-runtime mode is planned.
 
     The current native gateway/session boundary and bounded company service
-    (including the expense command lifecycle) are partial completion of this
+    (including the expense, contract, and payment-application command
+    lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation
     still require their own MoonBit implementation and parity evidence.
+
+3a.2. **Executable runtime manifest (approved plan update, 2026-07-15).**
+    `scripts/pure_moonbit_runtime_paths.txt` is the allow-list for supported
+    runtime paths. `scripts/company_no_python_runtime_gate.sh` scans every
+    listed MoonBit package and shell wrapper and fails closed on Python
+    interpreter/module invocations. It is a release prerequisite and must run
+    before browser start, smoke, deployment, or cutover checks. Shell wrappers
+    may invoke compiled MoonBit binaries and explicitly documented PostgreSQL
+    tools such as `psql`; they may not invoke a `.py` file or embed business
+    logic. Legacy rehearsal shells that still call Python are quarantined and
+    cannot be used to certify a cohort; each must be ported to MoonBit plus a
+    shell wrapper before it can be added to the manifest.
+
+    The current manifest covers the native PostgreSQL target/apply/read/service/
+    gateway boundaries, expense/contract/payment smoke paths, source-export
+    inventory commands, all `cmd` packages, and the Rabbita frontend package.
+    The gate passing proves only that these paths are Python-free; it does not
+    imply that the remaining ERP routes, external effects, managed identity,
+    or owner acceptance are complete.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

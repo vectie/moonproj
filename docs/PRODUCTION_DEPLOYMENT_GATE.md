@@ -26,13 +26,15 @@ The manifest must identify:
 - named operations, security, and finance approvals, each with an actor,
   decision timestamp, rationale, and evidence reference.
 
-`scripts/company_production_deployment_check.py` validates this PostgreSQL-only
-contract and
-fails closed on raw DSNs, secret-shaped fields, unsupported engines, missing
-backup/restore controls, unsafe TLS, invalid pool bounds, or missing structured
-approval records. A role-name list alone cannot authorize deployment. It writes
-a credential-free gate artifact. A structurally complete manifest without all
-three approvals is `ready_for_owner_review`, not `deployment_authorized`.
+The former `scripts/company_production_deployment_check.py` and
+`scripts/company_production_service_check.py` describe and validate this
+contract as frozen comparison evidence. They must not be executed by a
+supported build or deployment. Their checks fail closed on raw DSNs,
+secret-shaped fields, unsupported engines, missing backup/restore controls,
+unsafe TLS, invalid pool bounds, or missing structured approval records. A
+native MoonBit deployment-gate command and shell wrapper still have to be
+ported; until then managed deployment is blocked. A role-name list alone
+cannot authorize deployment.
 
 The checked-in
 `scripts/fixtures/production_deployment_manifest.example.json` is intentionally
@@ -41,28 +43,17 @@ authorizing deployment.
 
 ## Run
 
-```text
-scripts/company_production_deployment_check.py \
-  scripts/fixtures/production_deployment_manifest.example.json \
-  /controlled/production-deployment-gate.json
-```
-
-The resulting artifact is an input to the operational and cutover review. It
-does not replace provider-level provisioning, security review, restore
-execution, capacity testing, or named business acceptance.
+There is no supported deployment-gate command until the native MoonBit port is
+complete. The checked-in manifest is a specification fixture only. The future
+shell wrapper must produce a credential-free gate artifact for operational and
+cutover review; it will not replace provider-level provisioning, security
+review, restore execution, capacity testing, or named business acceptance.
 
 ## Production service boundary
 
-The database gate is paired with a separate service manifest. Run:
-
-```text
-scripts/company_production_service_check.py \
-  scripts/fixtures/production_service_manifest.example.json \
-  /controlled/production-deployment-gate.json \
-  /controlled/production-service-gate.json
-```
-
-This second gate requires connection reuse with bounded in-flight work and
+The database gate is paired with a separate service manifest. The future
+native MoonBit service-gate command must require connection reuse with bounded
+in-flight work and
 fail-closed exhaustion, schema-matched readiness, private binding behind a TLS
 gateway, authenticated requests, explicit HTTPS CORS origins, fixed read-only
 endpoints, no arbitrary SQL, no mutation routes, and metrics/audit/alert/trace
@@ -71,24 +62,25 @@ the service while the database deployment gate lacks named approvals. The
 local command-capable expense service is a separate runtime rehearsal; it is
 not silently treated as an approved production command gateway.
 
-The current bridge runtime (temporary migration evidence) is:
+The supported local runtime is the native MoonBit service, started through its
+shell wrapper:
 
 ```text
 MOONCOMPANY_SERVICE_TOKEN=<secret-from-the-gateway> \
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
-python3 scripts/company_postgres_service.py \
+scripts/company_postgres_service.sh \
   --token-env MOONCOMPANY_SERVICE_TOKEN \
   --require-forwarded-tls
 ```
 
-It keeps bounded reusable `psql` sessions, requires `Authorization: Bearer`
-and `X-Forwarded-Proto: https`, checks schema version 4 before reporting
-healthy, and exposes the four fixed reads plus the locally rehearsed expense
-command lifecycle. The local `company_postgres_service_smoke.py` proves the
-positive read/command path, idempotency, audit receipt, missing-token, and
-missing-TLS behavior. This runtime is an executable contract and rehearsal;
-the managed deployment must still provide a MoonBit runtime and real gateway,
-issuer/audience verification, TLS certificates, observability, and approved
-capacity/restore controls before commands are enabled in production. Porting
-the bridge to MoonBit and deleting Python from the supported build/deployment
-path is a mandatory production gate.
+The native MoonBit service keeps bounded reusable PostgreSQL access, requires
+`Authorization: Bearer` and `X-Forwarded-Proto: https`, checks schema version 4
+before reporting healthy, and exposes the fixed reads plus the locally
+rehearsed expense, contract, and payment-application command lifecycles.
+Shell-only native smoke checks prove the positive read/command path,
+idempotency, audit receipts, missing-token, and missing-TLS behavior. The
+managed deployment must still provide the real gateway, issuer/audience
+verification, TLS certificates, observability, and approved capacity/restore
+controls before commands are enabled in production. Run
+`scripts/company_no_python_runtime_gate.sh` as a prerequisite; no Python
+fallback or dual-runtime deployment is authorized.

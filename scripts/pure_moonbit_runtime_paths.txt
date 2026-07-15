@@ -1,0 +1,29 @@
+# Supported Moonproj runtime paths.
+#
+# Keep this manifest limited to compiled MoonBit packages and shell wrappers
+# that are allowed to run them. Legacy Python rehearsal files are deliberately
+# not listed; they remain immutable comparison evidence until ported.
+cmd
+frontend/main
+scripts/company_postgres_accounting_link_apply.sh
+scripts/company_postgres_contract_smoke.sh
+scripts/company_postgres_expense_smoke.sh
+scripts/company_postgres_gateway.sh
+scripts/company_postgres_gateway_smoke.sh
+scripts/company_postgres_payment_smoke.sh
+scripts/company_postgres_projection_apply.sh
+scripts/company_postgres_read_model.sh
+scripts/company_postgres_read_model_server.sh
+scripts/company_postgres_service.sh
+scripts/company_postgres_source_read_smoke.sh
+scripts/company_postgres_target_apply.sh
+scripts/erp_export_contract.sh
+scripts/erp_route_inventory.sh
+scripts/erp_schema_cohort_mapping.sh
+scripts/erp_schema_cohort_plan.sh
+scripts/erp_schema_gap_report.sh
+scripts/erp_schema_inventory.sh
+scripts/erp_snapshot_export.sh
+scripts/erp_snapshot_inventory.sh
+scripts/erp_snapshot_stage_raw.sh
+scripts/erp_source_export_request.sh

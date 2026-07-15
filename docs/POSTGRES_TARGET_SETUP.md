@@ -91,7 +91,8 @@ The native authenticated company service is available through
 supports `--require-forwarded-tls`, and currently serves only the capability
 list documented in `IMPLEMENTATION_STATUS.md`, including imported expense
 list/detail for expenses and contracts, calculation-only budget-check, and the
-idempotent native expense and contract command lifecycles. Set
+idempotent native expense, contract, and payment-application command
+lifecycles. Set
 `MOONPROJ_ACTOR_SIGNING_SECRET` (shared with the native gateway) before enabling
 command routes; unsigned actor assertions fail closed.
 The broad
@@ -117,11 +118,22 @@ source-shaped detail, and void tombstone behavior.
 The shell-only `scripts/company_postgres_payment_smoke.sh` verifies native
 source-field payment create/replay, auto-submit, update, reject/resubmit/
 approve, imported-row protection, and void behavior.
-The credential-free `company_production_service_check.py` now validates the
-service boundary separately: bounded reusable pool, schema-matched readiness,
-private TLS-terminated binding, authentication, fixed read endpoints, and no
-arbitrary SQL or mutation routes. Its example remains owner-review evidence,
-not a live deployment.
+The former credential-free `company_production_service_check.py` is frozen
+comparison evidence only. Its service-boundary requirements (bounded reusable
+pool, schema-matched readiness, private TLS-terminated binding,
+authentication, fixed read endpoints, and no arbitrary SQL or mutation routes)
+must be ported to a native MoonBit deployment check before managed deployment;
+the Python checker is not a supported build, test, or release dependency.
+
+Run the current shell-only runtime gate before any local browser, smoke, or
+deployment rehearsal:
+
+```text
+scripts/company_no_python_runtime_gate.sh
+```
+
+It checks the allow-listed MoonBit packages and native shell wrappers in
+`scripts/pure_moonbit_runtime_paths.txt` and rejects Python invocations.
 
 For a reviewed receipt, use the same PostgreSQL credential mechanism:
 
