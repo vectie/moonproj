@@ -12,8 +12,10 @@ PostgreSQL transaction. `/api/company/projects` merges those projections into
 the existing read model, and replay returns the original result without new
 rows. Dry runs validate and normalize without persistence.
 
-Contract batches remain an explicit `409` `import_batch_candidate` gate with
-`rowsAccepted=0`, `persisted=false`, and no accounting, cash, tax, provider, or
-authorization effect. The next acceptance gate is a contract-row transaction
-that can share source validation and an operations owner; template reads remain
-separate.
+Contract batches now use the same native command boundary: project and business
+unit references are resolved, contract rows are normalized, and command-owned
+contract projections plus audit receipts commit in one transaction. The source
+contract list merges these rows and idempotent replay returns the original
+result. The remaining acceptance work is production identity and owner review;
+template reads remain separate. Neither import path posts accounting, releases
+cash, invokes providers, or calculates tax.

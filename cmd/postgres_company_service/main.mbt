@@ -16323,6 +16323,10 @@ async fn handle(
         import_project_batch_command(body, actor, idempotency_key) catch {
           error => service_error_response(error)
         }
+      } else if biz_type == "contract" {
+        import_contract_batch_command(body, actor, idempotency_key) catch {
+          error => service_error_response(error)
+        }
       } else {
         import_batch_gate(biz_type)
       }

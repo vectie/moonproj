@@ -2643,7 +2643,7 @@
       "path": "/:bizType",
       "browser_route_paths": [],
       "action_state": "connected_import_batch_command_candidate",
-      "required_next": "implement_contract_batch_transaction_and_accept_import_owner"
+      "required_next": "accept_import_operations_owner_and_production_identity"
     },
     {
       "module": "investment",

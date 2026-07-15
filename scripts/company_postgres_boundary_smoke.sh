@@ -61,14 +61,19 @@ test "$status" = 200
   "http://127.0.0.1:$PORT/api/company/projects?keyword=$PROJECT_CODE" \
   | /usr/bin/jq -e --arg code "$PROJECT_CODE" '.command_projection == true and any(.items[]; .project_code == $code and .source_kind == "command")' >/dev/null
 
+CONTRACT_CODE="BOUNDARY-CONTRACT-$SMOKE_SUFFIX"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import-contract.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
   -H 'Content-Type: application/json' -H "Idempotency-Key: boundary-import-contract-$SMOKE_SUFFIX" \
-  --data "{\"rows\":[{\"contractCode\":\"BOUNDARY-CONTRACT-$SMOKE_SUFFIX\",\"contractName\":\"Boundary Contract\",\"projCode\":\"$PROJECT_CODE\",\"htAmount\":1}],\"dryRun\":false}" \
+  --data "{\"rows\":[{\"contractCode\":\"$CONTRACT_CODE\",\"contractName\":\"Boundary Contract\",\"projCode\":\"$PROJECT_CODE\",\"buCode\":\"TJGS\",\"signDate\":\"2026-07-16\",\"htAmount\":1}],\"dryRun\":false}" \
   "http://127.0.0.1:$PORT/api/company/import/contract")
-test "$status" = 409
-/usr/bin/jq -e '.code == 46001 and .source_kind == "import_batch_candidate" and .persisted == false' "$TMP_DIR/import-contract.json" >/dev/null
+test "$status" = 200
+/usr/bin/jq -e '.data.mode == "commit" and .data.rowsAccepted == 1 and .data.persisted == true and .idempotent_replay == false' "$TMP_DIR/import-contract.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "keyword=$CONTRACT_CODE" \
+  "http://127.0.0.1:$PORT/api/company/source/cost/contracts" \
+  | /usr/bin/jq -e --arg code "$CONTRACT_CODE" 'any(.data[]; .contractCode == $code and .sourceKind == "command")' >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
