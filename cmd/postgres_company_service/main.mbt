@@ -4217,6 +4217,408 @@ fn supplier_definition_response(values : Array[String]) -> Json {
 }
 
 ///|
+fn supplier_source_metadata(coverage : Json) -> Json {
+  let missing : Array[Json] = []
+  for
+    table in [
+      "cb_contract", "mu_business_unit", "srm_category", "srm_provider", "srm_provider_bu",
+    ] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn supplier_command_items() -> Array[Json] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(" +
+    "'providerGuid', aggregate_id, " +
+    "'providerCode', coalesce(payload->>'supplier_code', aggregate_id), " +
+    "'providerName', coalesce(payload->>'name', aggregate_id), " +
+    "'shortName', coalesce(payload->>'short_name', ''), " +
+    "'legalPerson', coalesce(payload->>'legal_person', ''), " +
+    "'registerCapital', CASE WHEN coalesce(payload->>'register_capital', '') = '' THEN NULL ELSE coalesce(payload->>'register_capital', '')::numeric END, " +
+    "'businessScope', coalesce(payload->>'business_scope', payload->>'scope', ''), " +
+    "'mainCategory', jsonb_build_object('code', coalesce(payload->>'category_code', ''), 'name', coalesce(payload->>'category_code', '')), " +
+    "'evalResult', CASE coalesce(payload->>'evaluation', 'unrated') WHEN 'unrated' THEN '未定级' WHEN 'reviewed' THEN '已评审' WHEN 'qualified' THEN '合格' WHEN 'unqualified' THEN '不合格' WHEN 'strategic' THEN '战略' ELSE coalesce(payload->>'evaluation', '未定级') END, " +
+    "'inspectState', '', 'auditState', coalesce(payload->>'state', 'draft'), " +
+    "'source', coalesce(payload->>'source', '内部收集'), " +
+    "'contactPerson', coalesce(payload->>'contact_person', ''), 'contactPhone', coalesce(payload->>'contact_phone', ''), " +
+    "'address', coalesce(payload->>'address', ''), " +
+    "'enabled', CASE WHEN coalesce(payload->>'state', 'draft') IN ('voided', 'blacklisted') THEN false ELSE coalesce((payload->>'enabled')::boolean, true) END, " +
+    "'buCount', 0, 'contractCount', 0, 'sourceKind', 'command', 'source_kind', 'command', 'commandProjection', true, " +
+    "'authorizing', false, 'persisted', true, 'providerExecution', false, 'cashEffect', false, 'accountingEffect', false, 'taxEffect', false, " +
+    "'sourceId', 'moonproj:command:supplier:' || aggregate_id, 'aggregate_type', 'supplier', 'aggregate_id', aggregate_id" +
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'supplier' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', 'draft') NOT IN ('voided', 'blacklisted')",
+  )
+  json_array_output(output)
+}
+
+///|
+fn supplier_raw_item(
+  row : SourceRow,
+  categories : Array[SourceRow],
+  links : Array[SourceRow],
+  contracts : Array[SourceRow],
+) -> Json {
+  let payload = row.payload
+  let provider_guid = json_text(payload, "provider_guid", row.record_id)
+  let provider_name = json_text(payload, "provider_name", "")
+  let short_name = json_text(payload, "short_name", "")
+  let category_code = json_text(payload, "main_category_code", "")
+  let category_name = match
+    source_payload(categories, "category_code", category_code) {
+    Some(value) => json_text(value, "category_name", "")
+    None => ""
+  }
+  let bu_count = links.fold(init=0, fn(count, link) {
+    if json_text(link.payload, "provider_guid", "") == provider_guid {
+      count + 1
+    } else {
+      count
+    }
+  })
+  let contract_count = contracts.fold(init=0, fn(count, contract) {
+    let name = json_text(contract.payload, "yf_provider_name", "")
+    if json_text(contract.payload, "deleted_at", "").is_empty() &&
+      (
+        name == provider_name ||
+        (short_name != "" && (name == short_name || name.contains(short_name)))
+      ) {
+      count + 1
+    } else {
+      count
+    }
+  })
+  let source_id = if row.source_id.is_empty() {
+    row.record_id
+  } else {
+    row.source_id
+  }
+  Json::object({
+    "providerGuid": Json::string(provider_guid),
+    "providerCode": Json::string(json_text(payload, "provider_code", "")),
+    "providerName": Json::string(provider_name),
+    "shortName": Json::string(short_name),
+    "legalPerson": Json::string(json_text(payload, "legal_person", "")),
+    "registerCapital": json_field(payload, "register_capital").unwrap_or(
+      Json::null(),
+    ),
+    "businessScope": Json::string(json_text(payload, "business_scope", "")),
+    "mainCategory": Json::object({
+      "code": Json::string(category_code),
+      "name": Json::string(category_name),
+    }),
+    "evalResult": Json::string(json_text(payload, "eval_result", "未定级")),
+    "inspectState": Json::string(json_text(payload, "inspect_state", "")),
+    "auditState": Json::string(json_text(payload, "audit_state", "")),
+    "source": Json::string(json_text(payload, "source", "")),
+    "contactPerson": Json::string(json_text(payload, "contact_person", "")),
+    "contactPhone": Json::string(json_text(payload, "contact_phone", "")),
+    "enabled": Json::boolean(json_bool(payload, "enabled", true)),
+    "buCount": Json::number(bu_count.to_double()),
+    "contractCount": Json::number(contract_count.to_double()),
+    "sourceKind": Json::string("imported"),
+    "source_id": Json::string(source_id),
+    "source_kind": Json::string("imported"),
+  })
+}
+
+///|
+async fn supplier_source_list_response() -> Json raise CompanyServiceError {
+  let providers = raw_source_rows("srm_provider", 500)
+  let links = raw_source_rows("srm_provider_bu", 500)
+  let categories = raw_source_rows("srm_category", 500)
+  let contracts = raw_source_rows("cb_contract", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let coverage = Json::object({
+    "cb_contract": Json::number(contracts.length().to_double()),
+    "mu_business_unit": Json::number(units.length().to_double()),
+    "srm_category": Json::number(categories.length().to_double()),
+    "srm_provider": Json::number(providers.length().to_double()),
+    "srm_provider_bu": Json::number(links.length().to_double()),
+  })
+  let result : Array[Json] = []
+  for row in providers {
+    if json_text(row.payload, "deleted_at", "").is_empty() {
+      result.push(supplier_raw_item(row, categories, links, contracts))
+    }
+  }
+  for item in supplier_command_items() {
+    result.push(item)
+  }
+  result.sort_by(fn(left, right) {
+    let eval_order = json_text(right, "evalResult", "").lexical_compare(
+      json_text(left, "evalResult", ""),
+    )
+    if eval_order == 0 {
+      json_text(right, "providerCode", "").lexical_compare(
+        json_text(left, "providerCode", ""),
+      )
+    } else {
+      eval_order
+    }
+  })
+  match supplier_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid supplier metadata")
+  }
+}
+
+///|
+async fn supplier_command_principal(
+  provider_guid : String,
+) -> String raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT coalesce(payload->>'principal_id', '') FROM (SELECT DISTINCT ON (aggregate_id) payload FROM company_aggregate_projection WHERE aggregate_type = 'supplier' AND aggregate_id = " +
+    @postgres.sql_literal(provider_guid) +
+    " ORDER BY aggregate_id, revision DESC) latest LIMIT 1",
+  )
+  output.trim().to_owned()
+}
+
+///|
+async fn supplier_detail_response(
+  provider_guid : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(provider_guid) {
+    raise fail("invalid provider_guid")
+  }
+  let list = supplier_source_list_response()
+  let selected : Json? = match json_field(list, "data") {
+    Some(Array(items)) => {
+      let mut found : Json? = None
+      for item in items {
+        if json_text(item, "providerGuid", "") == provider_guid {
+          found = Some(item)
+          break
+        }
+      }
+      found
+    }
+    _ => None
+  }
+  match selected {
+    Some(item) if json_text(item, "sourceKind", "") == "command" => {
+      let provider = Json::object({
+        "providerGuid": Json::string(
+          json_text(item, "providerGuid", provider_guid),
+        ),
+        "providerCode": Json::string(
+          json_text(item, "providerCode", provider_guid),
+        ),
+        "providerName": Json::string(
+          json_text(item, "providerName", provider_guid),
+        ),
+        "shortName": Json::string(json_text(item, "shortName", "")),
+        "legalPerson": Json::string(json_text(item, "legalPerson", "")),
+        "businessLicense": Json::string(""),
+        "registerCapital": json_field(item, "registerCapital").unwrap_or(
+          Json::null(),
+        ),
+        "businessScope": Json::string(json_text(item, "businessScope", "")),
+        "mainCategory": json_field(item, "mainCategory").unwrap_or(
+          Json::object({}),
+        ),
+        "evalResult": Json::string(json_text(item, "evalResult", "未定级")),
+        "inspectState": Json::string(json_text(item, "inspectState", "")),
+        "auditState": Json::string(json_text(item, "auditState", "")),
+        "source": Json::string(json_text(item, "source", "")),
+        "contactPerson": Json::string(json_text(item, "contactPerson", "")),
+        "contactPhone": Json::string(json_text(item, "contactPhone", "")),
+        "address": Json::string(""),
+        "qualifications": Json::string(""),
+        "enabled": Json::boolean(json_bool(item, "enabled", true)),
+        "createdBy": Json::string(supplier_command_principal(provider_guid)),
+        "createdAt": Json::string(""),
+        "processInstanceGuid": Json::string(""),
+        "sourceKind": Json::string("command"),
+      })
+      match list {
+        Object(fields) => {
+          fields.set(
+            "data",
+            Json::object({
+              "provider": provider,
+              "serviceBus": Json::array([]),
+              "contracts": Json::array([]),
+            }),
+          )
+          (200, Json::object(fields))
+        }
+        _ =>
+          (
+            500,
+            Json::object({ "error": Json::string("invalid supplier metadata") }),
+          )
+      }
+    }
+    Some(_) =>
+      (404, Json::object({ "error": Json::string("供应商不存在") }))
+    None =>
+      match list {
+        Object(fields) => {
+          fields.set("success", Json::boolean(false))
+          fields.set("code", Json::number(43001))
+          fields.set("message", Json::string("供应商不存在"))
+          fields.set("data", Json::null())
+          (404, Json::object(fields))
+        }
+        _ =>
+          (404, Json::object({ "error": Json::string("供应商不存在") }))
+      }
+  }
+}
+
+///|
+async fn supplier_risk_response(
+  provider_guid : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(provider_guid) {
+    raise fail("invalid provider_guid")
+  }
+  let providers = raw_source_rows("srm_provider", 500)
+  let provider_links = raw_source_rows("srm_provider_bu", 500)
+  let categories = raw_source_rows("srm_category", 500)
+  let contracts = raw_source_rows("cb_contract", 500)
+  let milestones = raw_source_rows("cb_contract_milestone", 500)
+  let coverage = Json::object({
+    "cb_contract": Json::number(contracts.length().to_double()),
+    "cb_contract_milestone": Json::number(milestones.length().to_double()),
+    "srm_category": Json::number(categories.length().to_double()),
+    "srm_provider": Json::number(providers.length().to_double()),
+    "srm_provider_bu": Json::number(provider_links.length().to_double()),
+  })
+  let missing : Array[Json] = []
+  for
+    table in [
+      "cb_contract_milestone", "srm_category", "srm_provider", "srm_provider_bu",
+    ] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  let metadata = Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+  let selected = source_payload(providers, "provider_guid", provider_guid)
+  match selected {
+    None =>
+      match metadata {
+        Object(fields) => {
+          fields.set("success", Json::boolean(false))
+          fields.set("code", Json::number(43001))
+          fields.set("message", Json::string("供应商不存在"))
+          fields.set("data", Json::null())
+          (404, Json::object(fields))
+        }
+        _ =>
+          (404, Json::object({ "error": Json::string("供应商不存在") }))
+      }
+    Some(payload) => {
+      let state = json_text(payload, "state", "")
+      let evaluation = json_text(
+        payload,
+        "evaluation",
+        json_text(payload, "eval_result", ""),
+      )
+      let score = if state == "voided" ||
+        state == "blacklisted" ||
+        evaluation == "unqualified" {
+        0
+      } else if state == "active" && evaluation == "strategic" {
+        95
+      } else if state == "active" && evaluation == "qualified" {
+        85
+      } else if state == "pending_review" {
+        60
+      } else if state == "suspended" {
+        35
+      } else {
+        50
+      }
+      let rating = if score >= 95 {
+        "A"
+      } else if score >= 85 {
+        "B"
+      } else if score == 0 {
+        "E"
+      } else if score == 35 {
+        "D"
+      } else {
+        "C"
+      }
+      let tags : Array[Json] = []
+      if state == "pending_review" {
+        tags.push(Json::string("pending_review"))
+      }
+      if state == "suspended" {
+        tags.push(Json::string("suspended"))
+      }
+      if state == "blacklisted" {
+        tags.push(Json::string("blacklist"))
+      }
+      if evaluation == "unqualified" {
+        tags.push(Json::string("unqualified"))
+      }
+      match metadata {
+        Object(fields) => {
+          fields.set("success", Json::boolean(true))
+          fields.set("code", Json::number(0))
+          fields.set(
+            "data",
+            Json::object({
+              "supplier_id": Json::string(provider_guid),
+              "score": Json::number(score.to_double()),
+              "rating": Json::string(rating),
+              "tags": Json::array(tags),
+              "state": Json::string(state),
+              "evaluation": Json::string(evaluation),
+              "source_kind": Json::string("imported"),
+            }),
+          )
+          (200, Json::object(fields))
+        }
+        _ =>
+          (
+            500,
+            Json::object({
+              "error": Json::string("invalid supplier risk metadata"),
+            }),
+          )
+      }
+    }
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -4826,6 +5228,19 @@ async fn route(
       ]),
     )
   }
+  if path == "/api/company/srm/providers" {
+    return (200, supplier_source_list_response())
+  }
+  let supplier_prefix = "/api/company/srm/providers/"
+  if path.has_prefix(supplier_prefix) && path.has_suffix("/risk") {
+    let provider_guid = path[supplier_prefix.length():path.length() -
+    "/risk".length()].to_owned()
+    return supplier_risk_response(provider_guid)
+  }
+  if path.has_prefix(supplier_prefix) {
+    let provider_guid = path[supplier_prefix.length():].to_owned()
+    return supplier_detail_response(provider_guid)
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -4931,6 +5346,7 @@ async fn route(
             Json::string("sales_observation_read"),
             Json::string("tender_observation_read"),
             Json::string("supplier_dictionary_observation_read"),
+            Json::string("supplier_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),

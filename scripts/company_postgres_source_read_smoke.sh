@@ -89,6 +89,16 @@ request tender_splits '/api/company/source/tender/splits'
 request supplier_categories '/api/company/source/srm/categories'
 request supplier_eval '/api/company/source/srm/dict/eval-results'
 request supplier_sources '/api/company/source/srm/dict/sources'
+request supplier_providers '/api/company/srm/providers'
+request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f8d3f5b34'
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/srm/providers/SUP-SOURCE-SMOKE-4f8d3f5b34/risk" >"$TMP_DIR/supplier_provider_risk.json"
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/srm/providers/does-not-exist/risk" >"$TMP_DIR/supplier_provider_missing_risk.json"
 
 /usr/bin/jq -e '
   .success == true and
@@ -255,5 +265,32 @@ request supplier_sources '/api/company/source/srm/dict/sources'
   .success == true and (.data | length) == 4 and
   .source_kind == "definition" and .authorizing == false
 ' "$TMP_DIR/supplier_sources.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 91 and
+  .source_coverage.srm_provider == 0 and
+  .data[0].sourceKind == "command" and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/supplier_providers.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and .data.provider.providerGuid == "SUP-SOURCE-SMOKE-4f8d3f5b34" and
+  .data.provider.sourceKind == "command" and .authorizing == false
+' "$TMP_DIR/supplier_provider_detail.json" >/dev/null
+/usr/bin/jq -e '
+  .success == false and .code == 43001 and .data == null and
+  .source_kind == "imported_or_command" and
+  .source_coverage.cb_contract == 2 and
+  .source_coverage.srm_provider == 0 and
+  (.missing_or_empty_source_tables | index("srm_provider")) != null and
+  .provider_execution == false and .cash_effect == false and
+  .accounting_effect == false and .tax_effect == false
+' "$TMP_DIR/supplier_provider_missing_risk.json" >/dev/null
+/usr/bin/jq -e '
+  .success == false and .code == 43001 and .data == null and
+  .source_kind == "imported_or_command" and
+  .source_coverage.cb_contract == 2 and
+  .source_coverage.srm_provider == 0 and
+  (.missing_or_empty_source_tables | index("srm_provider")) != null and
+  .provider_execution == false
+' "$TMP_DIR/supplier_provider_risk.json" >/dev/null
 
 echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/supplier read smoke passed"

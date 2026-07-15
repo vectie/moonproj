@@ -841,7 +841,11 @@ source filters and provenance, and keeps procurement/cash/accounting/tax
 effects disabled. Supplier category, evaluation-result, and source dictionaries
 also run natively with explicit empty-table/definition metadata. Tender and
 supplier writes, signature/qualification decisions, provider execution,
-production identity, and owner acceptance remain gated.
+production identity, and owner acceptance remain gated. The native provider
+list/detail/risk observations now preserve the active command-owned supplier
+cohort, imported-row provenance, source coverage, and missing-provider
+semantics; provider CRUD and populated-source risk/signature parity remain the
+next supplier gate.
 
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
@@ -1119,7 +1123,9 @@ relationship audit pass, and the generated empty-table handoff contains 49
 pending entries with `promotion_authorized=false` and
 `cutover_authorized=false`. This strengthens the handoff evidence but does not
 clear the source-export gate; the next valid input is still the redacted
-MySQL/JSON export or a fully owner-approved disposition artifact.
+source JSON/NDJSON export or a fully owner-approved disposition artifact. Any
+MySQL extraction step belongs to the ERP source boundary only; it is not part
+of the Moonproj target runtime.
 
 The export contract now also checks every non-empty row for a non-null,
 unique declared primary-key value before reporting content verification. This
@@ -1339,8 +1345,10 @@ Execute the remainder in this order:
    source response is an
    accepted read result only when the owner accepts the source coverage; it is
    not permission to seed fixture rows.
-3. Obtain and validate the missing 49-table credential-safe MySQL/JSON export
-   before opening another broad surface. The export must include empty tables,
+3. Obtain and validate the missing 49-table credential-safe source export
+   (JSON/NDJSON) before opening another broad surface. If the working ERP
+   produces that export from its MySQL database, MySQL remains source-only and
+   is never a Moonproj runtime or deployment dependency. The export must include empty tables,
    primary-key metadata, hashes, redaction results, and an owner-approved
    disposition for any still-empty workflow or supplier tables. Do not promote
    or fabricate approval, supplier, risk, or expense rows from the current
@@ -1358,7 +1366,10 @@ Execute the remainder in this order:
     depend on Python. Existing Python services/smokes are frozen comparison
     artifacts only; no new Python path may be added. Continue canonical
     response/receipt/replay comparisons while each slice is ported, then
-    archive the Python entry points before managed deployment.
+    archive the Python entry points before managed deployment. A release build
+    must fail if a supported command, test, smoke, or deployment manifest
+    invokes Python; the only supported runtime binaries are compiled MoonBit
+    programs plus explicitly listed PostgreSQL tools invoked by shell.
     Native `cmd/postgres_read_model` covers the first three fixed read
     contracts, and native `cmd/postgres_read_model_server` now serves the first
     bounded HTTP read surface (`health`, `summary`, `receipts`, and filtered

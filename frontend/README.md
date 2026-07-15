@@ -216,56 +216,34 @@ moon install moonbit-community/warren
 warren dev frontend/main --public-dir frontend/public
 ```
 
-To exercise the PostgreSQL-backed read model and serve the built browser
-surface from one local origin:
+To exercise the native MoonBit PostgreSQL read model (the browser static
+server/gateway port is a later migration gate):
 
 ```sh
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
-  python3 scripts/company_postgres_read_model_server.py \
-  --public-dir /path/to/warren/dist
+  scripts/company_postgres_read_model_server.sh --host 127.0.0.1 --port 4173
 ```
 
-To exercise the connected expense, contract, payment-application, tender,
-supplier, supplier-risk, sales, or employee-loan lifecycle paths, keep the service token
-on the server side and put the local gateway in front of the browser bundle:
+The native authenticated service is also launched through its shell wrapper:
 
 ```sh
 export MOONPROJ_SERVICE_TOKEN=choose-a-local-token
 export PGPASSWORD=your-local-password
-export MOONPROJ_DEV_USER=chengyuzhe
-export MOONPROJ_DEV_PASSWORD=123456
-export MOONPROJ_ACTOR_SIGNING_SECRET=choose-a-local-signing-secret
-python3 scripts/company_postgres_service.py --database moonproj \
-  --port 4174 --require-forwarded-tls \
-  --actor-signing-secret-env MOONPROJ_ACTOR_SIGNING_SECRET
-python3 scripts/company_postgres_dev_gateway.py \
-  --public-dir /path/to/warren/dist --port 4173 --service-port 4174
+scripts/company_postgres_service.sh --port 4174 --require-forwarded-tls
 ```
 
-Open `http://127.0.0.1:4173`. The gateway establishes an in-memory HttpOnly
-session from the configured local credentials, forwards `/api/` requests with
-the bearer token and HTTPS-forwarding marker, and signs the session actor
-assertion before forwarding it to the service. It also translates the Rabbita
-form's JSON `idempotency_key` into the command header required by the service.
-It is intentionally a local development adapter: it binds to loopback and
-only allow-lists the connected expense, contract, payment-application, tender,
-supplier, split, and sales POST commands; it is not the production deployment.
+The Python service and gateway commands that used to appear here are frozen
+comparison artifacts and are not supported build, test, or deployment
+dependencies. The native MoonBit gateway/session boundary must be completed
+before a one-origin browser acceptance run is authorized.
 
-For an identity-bound rehearsal, use the gateway's opt-in trusted-upstream
-mode instead of fixture credentials. The upstream gateway must send
-`X-Moonproj-Identity`, `X-Moonproj-Identity-Timestamp`, and
-`X-Moonproj-Identity-Signature`, where the signature is an HMAC-SHA256 over
-`<user_code>:<unix_timestamp>` using the environment named by
-`--trusted-identity-secret-env`. The gateway accepts assertions only within
-60 seconds, verifies the enabled source `sys_user` through PostgreSQL, and
-binds the HttpOnly session actor to that source user:
+Identity-bound browser rehearsal is a pending native gateway gate. The target
+contract remains an upstream `X-Moonproj-Identity` assertion verified against
+PostgreSQL, with a persistent HttpOnly session and rollback-safe token
+rotation; no Python gateway fallback is authorized:
 
-```sh
-export MOONPROJ_UPSTREAM_IDENTITY_SECRET=choose-a-reviewed-upstream-secret
-python3 scripts/company_postgres_dev_gateway.py \
-  --public-dir /path/to/warren/dist --port 4173 --service-port 4174 \
-  --trusted-identity-secret-env MOONPROJ_UPSTREAM_IDENTITY_SECRET
-```
+The native MoonBit gateway/session port is pending; do not use the frozen
+Python gateway as a supported runtime.
 
 This is an integration seam for the managed identity gateway, not a claim
 that the local in-memory session store, issuer/audience validation, rotation,
