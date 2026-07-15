@@ -1993,6 +1993,17 @@ Execute the remainder in this order:
     uniqueness, payment/state consistency, positive amounts, and the exact
     invoice-subledger plan envelope. Domain import remains separate from cash
     release, revenue/expense posting, tax settlement, and period close.
+
+3a.15. **Native treasury plan/dispatch planner (2026-07-16).**
+    `cmd/treasury_plan_dispatch_plan` and
+    `scripts/erp_treasury_plan_dispatch_plan.sh` now replace the Python
+    cash-plan/dispatch compiler in the PostgreSQL cohort path. The native
+    planner preserves reviewed-input gating, recursive secret-shaped-key
+    rejection, plan/dispatch uniqueness, direction and lifecycle allow-lists,
+    planned/actual amount bounds, project separation, and the exact treasury
+    plan envelope. Native promotion remains planning evidence only; bank
+    movement, cash release, settlement, accounting, tax, and period close stay
+    disabled.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

@@ -337,7 +337,7 @@ if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
 fi
 
 if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_treasury_plan_dispatch_plan.py" \
+  "$SCRIPT_DIR/erp_treasury_plan_dispatch_plan.sh" \
     "$TREASURY_PLAN_DISPATCH_MAPPING" "$WORK_DIR/treasury-plan-dispatch-plan.json"
   moon run --target native cmd/treasury_plan_dispatch -- \
     "$WORK_DIR/treasury-plan-dispatch-plan.json" "$WORK_DIR/treasury-plan-dispatch-receipt.json"
