@@ -54,14 +54,22 @@ Subscription writes now have a bounded local command boundary:
 Conversion does not create a sales contract or revenue row yet; those remain
 separate downstream command effects.
 
+Mortgage writes now have a bounded local lifecycle:
+
+- `POST /api/company/sales/mortgages` and its `/source` alias create an
+  `applying` projection;
+- `POST .../mortgages/:id/approve` advances it to `approved`;
+- `POST .../mortgages/:id/release` advances it to `released` and reports
+  `revenue_pending=true` without updating revenue or cash.
+
 The former Python service remains frozen comparison evidence only. All native
 commands require the signed actor assertion, an active principal/scope/
 capability grant, and an `Idempotency-Key`.
 
 Local commands use the same idempotent company-command and immutable revision
-boundary for customer create/update, subscription create/convert, and revenue
-create/update/confirm-received/delete. Sales-agreement, mortgage, and refund
-commands remain separate next-wave boundaries.
+boundary for customer create/update, subscription create/convert, mortgage
+create/approve/release, and revenue create/update/confirm-received/delete.
+Sales-agreement and refund commands remain separate next-wave boundaries.
 
 Imported projections are read-only. A fulfilled agreement opens a receivable
 only through an explicit command; collections, refund cash, revenue
@@ -114,12 +122,14 @@ identity/session deployment remain required.
 ## Source action reconciliation
 
 The parity matrix maps customer create/update, subscription create/convert,
-and revenue create/update/delete/confirm-received to local command runtimes.
-Customer and subscription commands require a signed actor and idempotency,
+mortgage create/approve/release, and revenue create/update/delete/confirm-
+received to local command runtimes. Customer, subscription, and mortgage
+commands require a signed actor and idempotency,
 while revenue commands also require authority, idempotency, and actor/scope
 matching; all only create local projections and never release cash or post
-accounting. Sales-agreement, mortgage, and refund writes remain explicit
-authenticated candidates until their command projections are ported.
+accounting. Sales-agreement and refund writes remain explicit authenticated
+candidates until their command projections are ported. Mortgage release leaves
+downstream revenue recognition pending.
 Subscription conversion currently leaves downstream contract/revenue creation
 pending. The source customer delete action now
 returns an authenticated `sales_customer_delete_candidate` 409 boundary

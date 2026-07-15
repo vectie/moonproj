@@ -408,6 +408,49 @@ test "native company service maps sales subscription command paths" {
 }
 
 ///|
+test "native company service maps sales mortgage command paths" {
+  assert_true(
+    sales_mortgage_command_spec(
+      @http.Post,
+      "/api/company/source/sales/mortgages",
+    )
+    is Some(("create", None)),
+  )
+  assert_true(
+    sales_mortgage_command_spec(
+      @http.Post,
+      "/api/company/sales/mortgages/MTG-1/approve",
+    )
+    is Some(("approve", Some("MTG-1"))),
+  )
+  assert_true(
+    sales_mortgage_command_spec(
+      @http.Post,
+      "/api/company/source/sales/mortgages/MTG-1/release",
+    )
+    is Some(("release", Some("MTG-1"))),
+  )
+  assert_true(
+    sales_mortgage_command_spec(
+      @http.Post,
+      "/api/company/sales/mortgages/MTG-1/unknown",
+    )
+    is None,
+  )
+  let request = sales_mortgage_create_request(
+    @json.parse(
+      "{\"scontractGuid\":\"SCT-1\",\"bankName\":\"Native Bank\",\"loanAmount\":100000}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+    "mortgage-test-key",
+  )
+  assert_eq(json_text(request, "state", ""), "applying")
+  assert_true(json_number(request, "loan_amount", 0.0) == 100000.0)
+}
+
+///|
 test "native company service maps tender and split command paths" {
   assert_true(
     tender_command_spec(@http.Post, "/api/company/tenders")

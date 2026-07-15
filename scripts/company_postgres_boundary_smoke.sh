@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -126,6 +126,36 @@ test "$status" = 200
   --data-urlencode "keyword=$SUBSCRIPTION_CODE" \
   "http://127.0.0.1:$PORT/api/company/source/sales/subscriptions" \
   | /usr/bin/jq -e --arg id "$SUBSCRIPTION_ID" '.data | any(.[]; .sub_guid == $id and .state == "converted" and .source_kind == "command")' >/dev/null
+
+MORTGAGE_KEY="boundary-mortgage-$SMOKE_SUFFIX"
+MORTGAGE_CODE="MTG-BOUNDARY-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/mortgage-create.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $MORTGAGE_KEY" \
+  --data "{\"mortgageCode\":\"$MORTGAGE_CODE\",\"scontractGuid\":\"SCT-BOUNDARY-$SMOKE_SUFFIX\",\"bankName\":\"Native Boundary Bank\",\"loanAmount\":100000}" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/mortgages")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$MORTGAGE_CODE" '.success == true and .mortgage.mortgageCode == $code and .mortgage.state == "applying" and .persisted == true' "$TMP_DIR/mortgage-create.json" >/dev/null
+MORTGAGE_ID=$(/usr/bin/jq -r '.mortgage.mortgageGuid' "$TMP_DIR/mortgage-create.json")
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/mortgage-approve.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: mortgage-approve-$SMOKE_SUFFIX" \
+  --data '{}' "http://127.0.0.1:$PORT/api/company/source/sales/mortgages/$MORTGAGE_ID/approve")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .mortgage.state == "approved"' "$TMP_DIR/mortgage-approve.json" >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/mortgage-release.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: mortgage-release-$SMOKE_SUFFIX" \
+  --data '{}' "http://127.0.0.1:$PORT/api/company/source/sales/mortgages/$MORTGAGE_ID/release")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .mortgage.state == "released" and .mortgage.revenue_pending == true and .mortgage.revenue_updated == false and .cash_effect == false' "$TMP_DIR/mortgage-release.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "keyword=$MORTGAGE_CODE" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/mortgages" \
+  | /usr/bin/jq -e --arg id "$MORTGAGE_ID" '.data | any(.[]; .mortgage_guid == $id and .state == "released" and .source_kind == "command")' >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
