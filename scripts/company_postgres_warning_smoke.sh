@@ -106,6 +106,14 @@ test "$status" = 200
   "http://127.0.0.1:$PORT/api/company/warning/rules" >"$TMP_DIR/rules.json"
 /usr/bin/jq -e '.data | any(.[]; .ruleCode == "W005" and .enabled == false and .commandProjection == true and .sourceKind == "command")' "$TMP_DIR/rules.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/scan-preview.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' --data '{}' \
+  "http://127.0.0.1:$PORT/api/company/source/warning/scan")
+test "$status" = 200
+/usr/bin/jq -e '.data.dryRun == true and .data.rulesRun == 12 and .data.persisted == false and .data.providerExecution == false and .data.queryExecution == false and .data.notificationsSent == 0 and .authorizing == false' "$TMP_DIR/scan-preview.json" >/dev/null
+
 custom_body="{\"ruleCode\":\"$CUSTOM_CODE\",\"ruleName\":\"Smoke custom rule\",\"severity\":\"warning\",\"bizType\":\"project\",\"sqlTemplate\":\"SELECT 1\",\"enabled\":true}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-create.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \

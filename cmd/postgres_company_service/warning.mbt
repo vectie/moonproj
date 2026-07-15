@@ -169,6 +169,48 @@ fn warning_rule_command_spec(
 }
 
 ///|
+fn warning_scan_preview_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Post &&
+  (
+    path == "/api/company/warning/scan" ||
+    path == "/api/company/source/warning/scan"
+  )
+}
+
+///|
+async fn warning_scan_preview_response() -> Json raise CompanyServiceError {
+  let rows = warning_context()
+  let coverage = warning_coverage(rows)
+  let findings = warning_findings(rows)
+  let states = warning_command_states()
+  let configs = warning_rule_config_states()
+  warning_envelope(
+    Json::object({
+      "scanId": Json::string("native-preview"),
+      "startedAt": Json::null(),
+      "finishedAt": Json::null(),
+      "durationMs": Json::number(0),
+      "rulesRun": Json::number(12),
+      "findingsTotal": Json::number(findings.length().to_double()),
+      "newCount": Json::number(findings.length().to_double()),
+      "resolvedCount": Json::number(0),
+      "error": Json::null(),
+      "dryRun": Json::boolean(true),
+      "persisted": Json::boolean(false),
+      "providerExecution": Json::boolean(false),
+      "queryExecution": Json::boolean(false),
+      "notificationsSent": Json::number(0),
+      "sourceKind": Json::string("observed_imported_or_empty"),
+    }),
+    coverage,
+    states.length() + configs.length(),
+  )
+}
+
+///|
 fn warning_builtin_rule_code(code : String) -> Bool {
   [
     "W001", "W002", "W003", "W004", "W005", "W006", "W007", "W008", "W009", "W010",

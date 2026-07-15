@@ -19,8 +19,10 @@ and audit event; built-in rule enable/disable writes a separate
 `warning_rule_config` candidate, and custom-rule create/delete writes a
 `warning_custom_rule` candidate with the same replay/audit guarantees. Custom
 SQL is validated as a single read-only SELECT/WITH statement and retained only
-as a digest. These commands do not create `sys_warning` rows, run scans, send
-notifications, or create/modify tickets.
+as a digest. These commands do not create `sys_warning` rows, run provider
+scans, send notifications, or create/modify tickets. The signed `/scan` path
+is a deterministic dry-run preview that returns rule/finding totals and source
+coverage without persisting findings or dispatching notifications.
 
 In the controlled export, one W005 observation is present: a project lacks an
 imported dynamic-cost end subject. Workflow, supplier, expense, and warning
@@ -35,3 +37,4 @@ Bounded command paths:
 - `POST /api/company/warning/:guid/ignore`
 - `PATCH /api/company/warning/rules/:code` (and `/api/company/source` alias)
 - `POST/DELETE /api/company/warning/custom-rules[/:code]` (and `/source` aliases)
+- `POST /api/company/warning/scan` (dry-run; and `/source` alias)
