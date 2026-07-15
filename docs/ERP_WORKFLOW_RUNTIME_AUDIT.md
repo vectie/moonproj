@@ -27,9 +27,10 @@ remain read-only; local commands never claim to be a source-engine promotion.
 | Instance detail | `/api/company/source/workflow/instances/:piGuid` | source-compatible 404 |
 | Local instance start | `POST /api/company/source/workflow/instances` and `/api/company/workflow/instances` | signed command-owned projection |
 | Local approve/reject | `POST .../instances/:piGuid/{approve,reject}` | signed local-owner action projection |
+| Local cosign/transfer | `POST .../instances/:piGuid/{cosigners,transfer}` | signed local-owner action projection |
 | Canonical aliases | `/api/company/workflow/tasks/*` and `/api/company/workflow/instances/*` | source-compatible read aliases |
 
-Local start/approve/reject commands persist immutable `workflow_instance` and
+Local start/approve/reject/cosign/transfer commands persist immutable `workflow_instance` and
 `workflow_action` projections, command receipts, and audit events. They expose
 `workflow_effect=true` but keep provider, cash, accounting, and tax effects
 false. Full source-engine assignment/delegation, business hooks, and imported
@@ -56,11 +57,11 @@ workflow mutation remain gated.
 - `scripts/company_postgres_source_read_smoke.sh` verifies the three empty list
   reads, a null by-business lookup, and the source-compatible 43001 detail 404.
 - `scripts/company_postgres_workflow_smoke.sh` verifies signed local start,
-  idempotent replay, pending-task readback, approval, rejection, canonical
-  aliases, detail actions, and cleanup without Python.
+  idempotent replay, pending-task readback, approval, rejection, cosign,
+  transfer, canonical aliases, detail actions, and cleanup without Python.
 - The parity matrix marks the two definition GET handlers as
   `connected_workflow_definition_read` and the five instance/task GET handlers
-  as `connected_workflow_observation_read`; local start/approve/reject commands
+  as `connected_workflow_observation_read`; local start/approve/reject/cosign/transfer commands
   are registered as a separate command-owned boundary.
 
 ## Remaining gate

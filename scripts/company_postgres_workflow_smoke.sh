@@ -8,6 +8,10 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-workflow-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-admin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-workflow-actor-secret}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-workflow.XXXXXX")
 SERVICE_PID=""
 SMOKE_SUFFIX=$(/bin/date +%s)
@@ -15,16 +19,21 @@ START_KEY="workflow-start-$SMOKE_SUFFIX"
 APPROVE_KEY="workflow-approve-$SMOKE_SUFFIX"
 REJECT_START_KEY="workflow-reject-start-$SMOKE_SUFFIX"
 REJECT_KEY="workflow-reject-$SMOKE_SUFFIX"
+COSIGN_START_KEY="workflow-cosign-start-$SMOKE_SUFFIX"
+COSIGN_KEY="workflow-cosign-$SMOKE_SUFFIX"
+TRANSFER_KEY="workflow-transfer-$SMOKE_SUFFIX"
 APPROVE_BIZ="WF-SMOKE-$SMOKE_SUFFIX"
 REJECT_BIZ="WF-REJECT-$SMOKE_SUFFIX"
+COSIGN_BIZ="WF-COSIGN-$SMOKE_SUFFIX"
 
 cleanup() {
   if [ -n "$SERVICE_PID" ]; then
     kill "$SERVICE_PID" 2>/dev/null || true
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
-  "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE aggregate_type IN ('workflow_instance', 'workflow_action') AND (aggregate_id LIKE 'wf-$START_KEY%' OR aggregate_id LIKE 'wf-$REJECT_START_KEY%' OR aggregate_id LIKE 'wf-action-$START_KEY%' OR aggregate_id LIKE 'wf-action-$APPROVE_KEY%' OR aggregate_id LIKE 'wf-action-$REJECT_START_KEY%' OR aggregate_id LIKE 'wf-action-$REJECT_KEY%'); DELETE FROM company_record WHERE source_id LIKE 'moonproj:command:workflow-%$SMOKE_SUFFIX' OR source_id LIKE 'moonproj:audit:workflow:%$SMOKE_SUFFIX%';" \
+  PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
+    "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
+    "DELETE FROM company_aggregate_projection WHERE aggregate_type IN ('workflow_instance', 'workflow_action') AND (aggregate_id LIKE 'wf-$START_KEY%' OR aggregate_id LIKE 'wf-$REJECT_START_KEY%' OR aggregate_id LIKE 'wf-$COSIGN_START_KEY%' OR aggregate_id LIKE 'wf-action-$START_KEY%' OR aggregate_id LIKE 'wf-action-$APPROVE_KEY%' OR aggregate_id LIKE 'wf-action-$REJECT_START_KEY%' OR aggregate_id LIKE 'wf-action-$REJECT_KEY%' OR aggregate_id LIKE 'wf-action-$COSIGN_START_KEY%' OR aggregate_id LIKE 'wf-action-$COSIGN_KEY%' OR aggregate_id LIKE 'wf-action-$TRANSFER_KEY%'); DELETE FROM company_record WHERE source_id LIKE 'moonproj:command:workflow-%$SMOKE_SUFFIX' OR source_id LIKE 'moonproj:audit:workflow:%$SMOKE_SUFFIX%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -33,6 +42,7 @@ trap cleanup EXIT INT TERM
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
 MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SIGNING_SECRET" \
 PSQL_BIN="$PSQL_BIN" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$PORT" \
   --database "$DATABASE" \
@@ -141,4 +151,44 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/reject.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.workflow.status == "Rejected" and .workflow.decision == "REJECTED" and .workflow.tax_effect == false' "$TMP_DIR/reject.json" >/dev/null
 
-echo "native MoonBit workflow start/approve/reject/idempotency/readback smoke passed"
+cosign_start_body="{\"processKey\":\"expense-approval\",\"bizType\":\"Expense\",\"bizDataGuid\":\"$COSIGN_BIZ\"}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cosign-start.json" -w '%{http_code}' \
+  -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $COSIGN_START_KEY" \
+  --data "$cosign_start_body" \
+  "http://127.0.0.1:$PORT/api/company/workflow/instances")
+test "$status" = 201
+COSIGN_INSTANCE_ID=$(/usr/bin/jq -r '.workflow.processInstanceGuid' "$TMP_DIR/cosign-start.json")
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cosign.json" -w '%{http_code}' \
+  -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $COSIGN_KEY" \
+  --data '{"cosigners":["admin"]}' \
+  "http://127.0.0.1:$PORT/api/company/source/workflow/instances/$COSIGN_INSTANCE_ID/cosigners")
+test "$status" = 200
+/usr/bin/jq -e '.workflow.status == "Running" and .workflow.decision == "COSIGNED" and .workflow.workflow_effect == true and .workflow.provider_execution == false' "$TMP_DIR/cosign.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/transfer.json" -w '%{http_code}' \
+  -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $TRANSFER_KEY" \
+  --data '{"toUserId":"admin"}' \
+  "http://127.0.0.1:$PORT/api/company/workflow/instances/$COSIGN_INSTANCE_ID/transfer")
+test "$status" = 200
+/usr/bin/jq -e '.workflow.status == "Running" and .workflow.decision == "TRANSFERRED" and .workflow.workflow_effect == true and .workflow.provider_execution == false' "$TMP_DIR/transfer.json" >/dev/null
+
+echo "native MoonBit workflow start/approve/reject/cosign/transfer/idempotency/readback smoke passed"

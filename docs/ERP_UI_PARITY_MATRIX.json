@@ -56,6 +56,7 @@
     "connected_warning_read": 1,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
+    "connected_workflow_command_candidate": 5,
     "public": 1,
     "read_only_public": 1
   },
@@ -117,6 +118,7 @@
     "connected_webhook_overdue_preview_read": 1,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
+    "connected_workflow_command_candidate": 5,
     "read_only_fixture_no_source_api": 2
   },
   "routes": [
@@ -4675,8 +4677,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_workflow_command_candidate",
+      "required_next": "accept_browser_workflow_command_candidate_and_operations_owner"
     },
     {
       "module": "workflow",
@@ -4685,8 +4687,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_workflow_command_candidate",
+      "required_next": "accept_browser_workflow_command_candidate_and_operations_owner"
     },
     {
       "module": "workflow",
@@ -4725,8 +4727,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_workflow_command_candidate",
+      "required_next": "accept_browser_workflow_command_candidate_and_operations_owner"
     },
     {
       "module": "workflow",
@@ -4735,8 +4737,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_workflow_command_candidate",
+      "required_next": "accept_browser_workflow_command_candidate_and_operations_owner"
     },
     {
       "module": "workflow",
@@ -4745,8 +4747,8 @@
       "browser_route_paths": [
         "/tasks"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_workflow_command_candidate",
+      "required_next": "accept_browser_workflow_command_candidate_and_operations_owner"
     }
   ],
   "state": "functional_parity_incomplete",
