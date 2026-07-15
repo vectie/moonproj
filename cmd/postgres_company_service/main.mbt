@@ -14453,6 +14453,130 @@ async fn route(
     }
     return (200, dynamic_cost_response(project_id))
   }
+  if path == "/api/company/delivery/progress" {
+    return (
+      200,
+      delivery_progress_runtime_response(
+        query_alias_decoded(query, "progressGuid", "progress_id"),
+        query_alias_decoded(query, "projGuid", "project_id"),
+      ),
+    )
+  }
+  let delivery_progress_prefix = "/api/company/delivery/progress/"
+  if path.has_prefix(delivery_progress_prefix) {
+    let progress_id = path[delivery_progress_prefix.length():].to_owned()
+    if !valid_identifier(progress_id) {
+      return (
+        404,
+        Json::object({ "error": Json::string("delivery progress not found") }),
+      )
+    }
+    let response = delivery_progress_runtime_response(Some(progress_id), None)
+    let items = json_field(response, "items").unwrap_or(Json::array([]))
+    return match items {
+      Array(values) if !values.is_empty() => (200, values[0])
+      _ =>
+        (
+          404,
+          Json::object({ "error": Json::string("delivery progress not found") }),
+        )
+    }
+  }
+  if path == "/api/company/delivery/outputs" {
+    return (
+      200,
+      delivery_outputs_runtime_response(
+        query_alias_decoded(query, "outputGuid", "output_id"),
+        query_alias_decoded(query, "projGuid", "project_id"),
+        query_decoded(query, "period"),
+        query_decoded(query, "state"),
+      ),
+    )
+  }
+  let delivery_output_prefix = "/api/company/delivery/outputs/"
+  if path.has_prefix(delivery_output_prefix) {
+    let output_id = path[delivery_output_prefix.length():].to_owned()
+    if !valid_identifier(output_id) {
+      return (
+        404,
+        Json::object({ "error": Json::string("delivery output not found") }),
+      )
+    }
+    let response = delivery_outputs_runtime_response(
+      Some(output_id),
+      None,
+      None,
+      None,
+    )
+    let items = json_field(response, "items").unwrap_or(Json::array([]))
+    return match items {
+      Array(values) if !values.is_empty() => (200, values[0])
+      _ =>
+        (
+          404,
+          Json::object({ "error": Json::string("delivery output not found") }),
+        )
+    }
+  }
+  if path == "/api/company/delivery/tasks" {
+    return (
+      200,
+      delivery_tasks_runtime_response(
+        query_alias_decoded(query, "projGuid", "project_id"),
+        query_alias_decoded(query, "taskGuid", "task_id"),
+      ),
+    )
+  }
+  let delivery_task_prefix = "/api/company/delivery/tasks/"
+  if path.has_prefix(delivery_task_prefix) {
+    let task_id = path[delivery_task_prefix.length():].to_owned()
+    if !valid_identifier(task_id) {
+      return (
+        404,
+        Json::object({ "error": Json::string("delivery task not found") }),
+      )
+    }
+    let response = delivery_tasks_runtime_response(None, Some(task_id))
+    let items = json_field(response, "items").unwrap_or(Json::array([]))
+    return match items {
+      Array(values) if !values.is_empty() => {
+        let reports = delivery_task_report_items(
+          None,
+          Some(json_text(values[0], "task_id", "")),
+        )
+        (
+          200,
+          Json::object({ "task": values[0], "reports": Json::array(reports) }),
+        )
+      }
+      _ =>
+        (
+          404,
+          Json::object({ "error": Json::string("delivery task not found") }),
+        )
+    }
+  }
+  if path == "/api/company/delivery/task-reports" {
+    return (
+      200,
+      delivery_reports_runtime_response(
+        query_alias_decoded(query, "reportGuid", "report_id"),
+        query_alias_decoded(query, "taskGuid", "task_id"),
+      ),
+    )
+  }
+  if path == "/api/company/delivery/plan-summary" {
+    let project_id = query_alias_decoded(query, "projGuid", "project_id").unwrap_or(
+      "",
+    )
+    return (200, delivery_plan_summary_response(project_id))
+  }
+  if path == "/api/company/delivery/overview" {
+    let project_id = query_alias_decoded(query, "projGuid", "project_id").unwrap_or(
+      "",
+    )
+    return (200, delivery_overview_response(project_id))
+  }
   if path == "/api/company/source/delivery/progress" {
     let project_id = query_alias_decoded(query, "projGuid", "project_id")
     return (200, delivery_progress_response(project_id))
@@ -14708,6 +14832,8 @@ async fn route(
             Json::string("marketing_observation_read"),
             Json::string("fund_command"),
             Json::string("fund_observation_read"),
+            Json::string("delivery_command"),
+            Json::string("delivery_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -15066,6 +15192,43 @@ async fn handle(
       }
       let result = fund_command(
         resource, command_type, resource_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match delivery_command_spec(request.meth, path) {
+    Some((family, command_type, aggregate_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = delivery_command(
+        family, command_type, aggregate_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }

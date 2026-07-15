@@ -750,6 +750,19 @@ lifecycles. Bank settlement, cash release, accounting, tax, production
 identity, browser acceptance, and finance-owner approval remain separate gates;
 the Python bridge is comparison evidence only.
 
+**Native delivery/progress command checkpoint (2026-07-15).** The native
+MoonBit company service now serves merged `/api/company/delivery/{progress,
+outputs,tasks,task-reports,plan-summary,overview}` reads alongside the
+source-only progress/output observations. Progress create/report/accept/reject/
+delete, output create/confirm, and evidence-gated task-report commands persist
+idempotent PostgreSQL receipts, immutable revisions, and audit events while
+remaining delivery/cash/accounting/tax neutral; imported ERP rows remain
+read-only. Native service, delivery, source-read, and trusted-gateway shell
+smokes cover replay, state transitions, merged readback, and tombstoning. A
+credential-safe source `proj_progress`/`proj_output` cohort, browser acceptance,
+production identity, and operations-owner approval remain separate gates; the
+Python bridge is comparison evidence only.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -1313,7 +1326,7 @@ identity, source reconciliation, browser interaction, and named-owner gates.
 2. **Connected local slices, not accepted production workflows.** The local
    PostgreSQL service and Rabbita gateway now exercise bounded expense,
    contract, payment-application, procurement, sales/receivables, invoice,
-   fund planning, project-plan task, core-report, and employee-loan read/command slices. Procurement covers supplier
+   fund planning, delivery/progress, project-plan task, core-report, and employee-loan read/command slices. Procurement covers supplier
    lifecycle/risk reads, tender planning/award, and contract splits; sales
    covers customer, reservation, agreement, mortgage, refund, receivable, and
    revenue evidence reads; employee loans preserve source balances and offset
@@ -1561,7 +1574,7 @@ Execute the remainder in this order:
     browser start command. The migration backlog is therefore explicit:
     (a) finish the remaining authenticated company-service reads and command
     lifecycles in `cmd/postgres_company_service` (invoice, sales-revenue,
-    tender/contract-split, marketing, fund-plan/dispatch, and supplier/provider commands are now native
+    tender/contract-split, marketing, fund-plan/dispatch, delivery/progress/output/task-report, and supplier/provider commands are now native
     checkpoints; populated-source qualification,
     signature, and external effects remain separate gates),
     (b) port the remaining source-export, cohort-planner, parity, acceptance,
@@ -1577,7 +1590,8 @@ Execute the remainder in this order:
     The current native gateway/session boundary and bounded company service
     (including the expense, contract, payment-application, contract-milestone,
     dynamic-cost, invoice, sales-revenue, tender, contract-split, marketing,
-    and fund-plan/dispatch command lifecycles) are partial completion of this
+    fund-plan/dispatch, and delivery/progress/output/task-report command
+    lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation
     still require their own MoonBit implementation and parity evidence.
@@ -1639,7 +1653,7 @@ Execute the remainder in this order:
    editor now emits the local create/submit/update/void commands; browser
    acceptance through production identity remains open.
 6. Finish delivery/progress acceptance before opening another broad surface.
-   The local PostgreSQL reads, evidence- and authority-checked
+   The local PostgreSQL reads, signed-actor/evidence-checked
    progress/output/task-report commands, gateway forwarding, and Rabbita
    `/project/progress` and `/project-plan` states now work and pass smoke/replay.
    Obtain source `proj_progress`/`proj_output` rows (or an owner-approved

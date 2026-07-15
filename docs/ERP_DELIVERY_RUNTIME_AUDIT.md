@@ -7,7 +7,8 @@ Target: this repository
 ## Finding
 
 The target has a real delivery domain and now has a bounded local PostgreSQL
-delivery runtime. The native
+delivery runtime. The compiled `cmd/postgres_company_service` binary, started
+by `scripts/company_postgres_service.sh`, owns the supported HTTP boundary. The native
 `operations/delivery` package validates evidence-backed progress,
 deliverable acceptance/remediation, cost-forecast input, and a separate
 pending-posting recognition link. The `cmd/delivery_progress` and
@@ -72,7 +73,7 @@ delivery parity until their source joins and calculations are reproduced.
   create/update/delete at `/api/company/plan/tasks`, while plan task reports
   reuse the evidence-gated task-report projection.
 - Imported rows are source-preserving and read-only. Local commands require
-  explicit evidence, scope, currency/value, and idempotency keys; each command
+  a signed actor plus explicit evidence, scope, currency/value, and idempotency keys; each command
   persists an immutable projection revision and audit receipt.
 - The parity matrix marks the two browser pages and their command groups as
   `connected_delivery_command_form` / `connected_delivery_command`, and now
@@ -98,7 +99,7 @@ Therefore the delivery migration state is:
 ```text
 domain model                  implemented and tested
 typed draft/recognition       replayable evidence cohorts
-local runtime reads/commands  connected and PostgreSQL-smoke verified
+local runtime reads/commands  native MoonBit and PostgreSQL-smoke verified
 source-row coverage           explicitly observed empty; promotion blocked until a reviewed cohort exists
 browser acceptance            pending real session/production identity
 production ownership          not authorized
@@ -107,7 +108,7 @@ production ownership          not authorized
 ## Revised execution slice
 
 The first local runtime slice, including the empty-safe source progress/output
-read boundary, is complete. Its remaining acceptance work is:
+read boundary and the merged native delivery command boundary, is complete. Its remaining acceptance work is:
 
 1. Obtain a credential-safe export containing real `proj_progress` and
    `proj_output` rows (or an explicitly redacted, owner-approved cohort), then

@@ -358,6 +358,7 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/invoice/in/", path) ||
       path_with_identifier("/api/company/source/invoice/out/", path) ||
       path_with_identifier("/api/company/sales/revenues/", path) ||
+      path_with_identifier("/api/company/delivery/progress/", path) ||
       path_with_identifier("/api/company/source/srm/providers/", path) ||
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||
       path_with_identifier("/api/company/marketing/campaigns/", path) ||

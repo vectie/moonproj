@@ -423,6 +423,39 @@ test "native company service maps fund command paths" {
 }
 
 ///|
+test "native company service maps delivery command paths" {
+  assert_true(
+    delivery_command_spec(@http.Post, "/api/company/delivery/progress")
+    is Some(("progress", "create", None)),
+  )
+  assert_true(
+    delivery_command_spec(
+      @http.Post,
+      "/api/company/delivery/progress/PR-1/accept",
+    )
+    is Some(("progress", "accept", Some("PR-1"))),
+  )
+  assert_true(
+    delivery_command_spec(@http.Delete, "/api/company/delivery/progress/PR-1")
+    is Some(("progress", "delete", Some("PR-1"))),
+  )
+  assert_true(
+    delivery_command_spec(
+      @http.Post,
+      "/api/company/delivery/outputs/OUT-1/confirm",
+    )
+    is Some(("output", "confirm", Some("OUT-1"))),
+  )
+  assert_true(
+    delivery_command_spec(
+      @http.Post,
+      "/api/company/delivery/tasks/TASK-1/report",
+    )
+    is Some(("task_report", "report", Some("TASK-1"))),
+  )
+}
+
+///|
 test "native company service normalizes sales revenue authority and amount" {
   let body = @json.parse(
     "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",

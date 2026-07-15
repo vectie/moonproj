@@ -68,6 +68,7 @@ request dynamic '/api/company/cost/dynamic-cost?projGuid=proj-0001'
 request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
 request delivery_progress '/api/company/source/delivery/progress?projGuid=proj-0001'
 request delivery_outputs '/api/company/source/delivery/outputs?projGuid=proj-0001'
+request delivery_overview '/api/company/delivery/overview?project_id=proj-0001'
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -190,6 +191,11 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .source_coverage.cb_contract == 2 and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/delivery_outputs.json" >/dev/null
+/usr/bin/jq -e '
+  (.tasks | length) >= 1 and (.reports | length) >= 1 and
+  .authorizing == false and .cash_effect == false and
+  .accounting_effect == false and .tax_effect == false
+' "$TMP_DIR/delivery_overview.json" >/dev/null
 /usr/bin/jq -e '
   (.items | length) == 84 and
   .items[0].aggregate_type == "receivable" and

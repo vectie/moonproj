@@ -298,6 +298,26 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/fund-delete.json" -w '%{htt
 test "$status" = 200
 /usr/bin/jq -e '.plan.state == "deleted" and .plan.cash_effect == false' "$TMP_DIR/fund-delete.json" >/dev/null
 
+gateway_delivery_suffix=$(/bin/date +%s)
+gateway_delivery_id="PR-GW-SMOKE-$gateway_delivery_suffix"
+gateway_delivery_body="{\"progress_id\":\"$gateway_delivery_id\",\"project_id\":\"proj-0001\",\"principal_id\":\"co-gateway-delivery\",\"project_scope\":\"project:proj-0001\",\"stage\":\"主体结构\",\"plan_pct\":60,\"completed_value_minor\":100000,\"currency\":\"CNY\",\"evidence_ids\":[\"gateway:delivery:evidence-001\"]}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/delivery-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-delivery-create-$gateway_delivery_suffix" \
+  --data "$gateway_delivery_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/delivery/progress")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_delivery_id" \
+  '.progress.aggregate_id == $id and .progress.state == "draft" and .idempotent_replay == false' \
+  "$TMP_DIR/delivery-create.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/delivery-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-delivery-delete-$gateway_delivery_suffix" \
+  --data '{"reason":"gateway delivery tombstone smoke"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/delivery/progress/$gateway_delivery_id")
+test "$status" = 200
+/usr/bin/jq -e '.progress.state == "deleted" and .progress.delivery_effect == false' "$TMP_DIR/delivery-delete.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"
