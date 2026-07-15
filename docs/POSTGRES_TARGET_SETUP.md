@@ -84,8 +84,8 @@ The native runtime slice is available without Python through
 `psql`, inherits PostgreSQL connection settings (`PGHOST`, `PGPORT`, `PGUSER`,
 `PGDATABASE`, and `PGPASSWORD`), and has been shadow-compared against the
 development HTTP adapter. The native read-model HTTP server and CLI are
-intentionally read-only and bounded; they do not replace the complete
-authenticated service or gateway yet.
+intentionally read-only and bounded; the authenticated boundary is supplied
+separately by the native company service and gateway.
 The native authenticated read slice is available through
 `scripts/company_postgres_service.sh`. It requires `MOONPROJ_SERVICE_TOKEN`,
 supports `--require-forwarded-tls`, and currently serves only the capability
@@ -97,13 +97,14 @@ token from an environment variable and forwarded TLS, exposes the four fixed
 reads, and provides the local expense, contract, and payment-application
 command verticals documented in `ERP_EXPENSE_RUNTIME_VERTICAL.md`,
 `ERP_CONTRACT_RUNTIME_VERTICAL.md`, and
-`ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. Put
-`scripts/company_postgres_dev_gateway.py` in front of the browser to establish
-the local HttpOnly session and signed actor assertion. Run
-`scripts/company_postgres_service_smoke.py` against the local target to verify
-the lifecycle, idempotency, audit, missing-token, and forwarded-TLS contract;
-managed provider deployment and token issuer/audience validation remain
-separate gates.
+`ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. Put the native
+`scripts/company_postgres_gateway.sh` in front of the browser to establish the
+local HttpOnly session, serve the Warren bundle, and sign the actor assertion;
+`scripts/company_postgres_gateway_smoke.sh` verifies development login/logout,
+native forwarding, command allow-list rejection, and trusted-upstream identity
+against PostgreSQL. The Python gateway and service smokes remain frozen bridge
+evidence only; managed provider deployment and token issuer/audience
+validation remain separate gates.
 The credential-free `company_production_service_check.py` now validates the
 service boundary separately: bounded reusable pool, schema-matched readiness,
 private TLS-terminated binding, authentication, fixed read endpoints, and no

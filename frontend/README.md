@@ -22,9 +22,10 @@ connected. It is a visual and interaction migration, not a claim that a button
 already mutates company data. Representative project, contract, expense,
 loan, and supplier detail/new flows now open as source-shaped forms with
 explicit return/save/submit boundaries. The dashboard now reads the
-PostgreSQL projection summary through the fixed read-only development adapter
-`scripts/company_postgres_read_model_server.py`. The authenticated bounded
-runtime is available separately as `scripts/company_postgres_service.py`. The
+PostgreSQL projection summary through the fixed read-only native MoonBit
+adapter `scripts/company_postgres_read_model_server.sh`. The authenticated
+bounded runtime is available separately as `scripts/company_postgres_service.sh`
+plus the native gateway wrapper. The
 dashboard group overview, stage funnel, and top-anomaly panels now load the
 bounded source-backed cockpit reads in sequence, followed by a separate
 read-only v2 KPI/payment-trend/stage/warning panel; `/dashboard-v3` also
@@ -216,34 +217,40 @@ moon install moonbit-community/warren
 warren dev frontend/main --public-dir frontend/public
 ```
 
-To exercise the native MoonBit PostgreSQL read model (the browser static
-server/gateway port is a later migration gate):
+To exercise the native MoonBit PostgreSQL read model directly:
 
 ```sh
 PGHOST=/tmp PGPORT=5432 PGUSER=moonproj PGDATABASE=moonproj \
   scripts/company_postgres_read_model_server.sh --host 127.0.0.1 --port 4173
 ```
 
-The native authenticated service is also launched through its shell wrapper:
+The native authenticated service and session gateway can be run together for
+a one-origin Rabbita rehearsal:
 
 ```sh
 export MOONPROJ_SERVICE_TOKEN=choose-a-local-token
+export MOONPROJ_ACTOR_SIGNING_SECRET=choose-a-local-signing-secret
+export MOONPROJ_SESSION_SECRET=choose-a-local-session-secret
+export MOONPROJ_DEV_USER=choose-a-local-user
+export MOONPROJ_DEV_PASSWORD=choose-a-local-password
 export PGPASSWORD=your-local-password
-scripts/company_postgres_service.sh --port 4174 --require-forwarded-tls
+scripts/company_postgres_service.sh --port 4174 --require-forwarded-tls &
+scripts/company_postgres_gateway.sh \
+  --public-dir /path/to/warren/dist --port 4173 --service-port 4174
 ```
 
-The Python service and gateway commands that used to appear here are frozen
-comparison artifacts and are not supported build, test, or deployment
-dependencies. The native MoonBit gateway/session boundary must be completed
-before a one-origin browser acceptance run is authorized.
+The native gateway keeps the bearer token server-side, establishes an
+HttpOnly session, signs the actor assertion, forwards only allow-listed
+company paths, and serves the Warren bundle with SPA fallback. The Python
+service and gateway commands that used to appear here are frozen comparison
+artifacts and are not supported build, test, or deployment dependencies.
 
-Identity-bound browser rehearsal is a pending native gateway gate. The target
-contract remains an upstream `X-Moonproj-Identity` assertion verified against
-PostgreSQL, with a persistent HttpOnly session and rollback-safe token
-rotation; no Python gateway fallback is authorized:
-
-The native MoonBit gateway/session port is pending; do not use the frozen
-Python gateway as a supported runtime.
+Identity-bound browser rehearsal uses the native gateway's optional
+`--trusted-identity-secret-env` mode. It verifies the short-lived
+`X-Moonproj-Identity`, timestamp, and HMAC signature against the native
+PostgreSQL profile before creating a secure session cookie. Managed persistent
+session storage, issuer/audience validation, rotation, production deployment,
+and owner approval remain open; no Python gateway fallback is authorized.
 
 This is an integration seam for the managed identity gateway, not a claim
 that the local in-memory session store, issuer/audience validation, rotation,

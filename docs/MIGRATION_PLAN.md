@@ -489,8 +489,9 @@ delete boundary is now verified end to end. The service smoke creates a local
 progress projection, deletes it with an idempotency key, replays the same
 request, and confirms the tombstone is absent from the progress readback; the
 trusted gateway smoke repeats the same boundary through the Rabbita-facing
-gateway. Bridge syntax checks, `moon test` (252 portable / 256 native tests), source-read smoke, and
-the route-parity regeneration all pass. This closes only local progress
+gateway. Shell-only native gateway/source-read smoke, `moon test` (252
+portable / 261 native tests), and the route-parity regeneration all pass. This
+closes only local progress
 projection deletion: imported ERP progress remains immutable, and delivery
 recognition, workflow, cash, accounting, tax, production identity, browser
 interaction, and operations-owner acceptance remain gated.
@@ -990,18 +991,19 @@ list/catalog routes and 404 for an unknown role detail. Role writes, assignments
 production identity/token binding, owner reconciliation, and the complete
 credential-safe export remain open gates.
 
-**Trusted-upstream identity rehearsal checkpoint (2026-07-14).** The local
-gateway now has an opt-in identity-bound mode for the production integration
+**Trusted-upstream identity rehearsal checkpoint (2026-07-15).** The native
+MoonBit gateway now has an opt-in identity-bound mode for the production integration
 seam. It accepts `X-Moonproj-Identity`, a Unix timestamp, and an HMAC-SHA256
 signature over `user_code:timestamp`; assertions older than 60 seconds or with
 invalid signatures are rejected. Before creating the HttpOnly session, the
 gateway calls the authenticated PostgreSQL profile read and requires the
 asserted `sys_user` to exist and be enabled. The resulting session actor is
-the source `user_code`, not the former fixed `rabbita-user` fixture. A dedicated
-smoke verifies valid login/forwarding, stale-assertion rejection, and missing
-session rejection. This materially improves the identity seam, but the local
-session store is still in-memory and the managed issuer/audience, token
-rotation, deployment, and security-owner approval gates remain open.
+the source `user_code`, not the former fixed `rabbita-user` fixture. The
+shell-only native gateway smoke verifies valid login/forwarding, secure trusted
+login, command allow-list rejection, logout, and missing-session rejection.
+This materially improves the identity seam, but the local session store is
+still in-memory and the managed issuer/audience, token rotation, deployment,
+and security-owner approval gates remain open.
 
 **Dashboard/admin observation checkpoint (2026-07-14).** The authenticated
 PostgreSQL service now exposes the source cockpit v2 scope (`buGuid`/`projGuid`)
@@ -1313,7 +1315,15 @@ the live target. The native authenticated service slice
 forwarded-TLS checks plus exact live parity for the profile, preference,
 initiated-document, contract, payment-application, and payment-eligibility
 observations; it remains capability-limited and read-only,
-not yet the complete service or gateway. The raw PostgreSQL target-apply boundary is now also native
+not yet the complete company service. The native gateway/session boundary is now
+also available as `cmd/postgres_company_gateway`, invoked through
+`scripts/company_postgres_gateway.sh`: it keeps the bearer token private,
+establishes an HttpOnly session, signs the actor assertion, forwards the
+allow-listed paths, serves the Warren bundle with SPA fallback, and verifies
+the trusted-upstream HMAC identity against the native PostgreSQL profile. Its
+shell-only smoke covers development login/logout, native read forwarding,
+command allow-list rejection, secure trusted login, and missing-session paths.
+The raw PostgreSQL target-apply boundary is now also native
 MoonBit (`cmd/postgres_target_apply` plus
 `scripts/company_postgres_target_apply.sh`): it validates the staging manifest,
 applies the catalog/receipt transaction through `psql`, and has native replay
@@ -1381,11 +1391,37 @@ Execute the remainder in this order:
     port with `cmd/postgres_company_service`'s authenticated native slice
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
-    observations), then the
-    remaining HTTP routes, gateway,
+    observations), with the bounded gateway/session boundary now ported as
+    `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
+    service commands, gateway allow-list parity,
     rehearsal planners/parity tools, and shadow/replay checks before treating
     this convergence step as complete; Python remains bridge evidence only and
     is not an accepted build, test, or deployment dependency.
+
+3a.1. **No-Python execution gate (approved plan update, 2026-07-15).**
+    From this checkpoint forward, every new or changed operational path must
+    be implemented as a compiled MoonBit command/service and exposed through a
+    small shell wrapper. Python files may be read as frozen comparison
+    material, but they must not be imported, executed, or required by a local
+    check, CI job, smoke test, release artifact, deployment manifest, or
+    browser start command. The migration backlog is therefore explicit:
+    (a) finish the remaining authenticated company-service reads and command
+    lifecycles in `cmd/postgres_company_service`,
+    (b) port the remaining source-export, cohort-planner, parity, acceptance,
+    and shadow/replay commands to MoonBit, and
+    (c) replace each Python call in the legacy rehearsal drivers with the
+    corresponding shell wrapper before that driver is admitted to the
+    supported path. A release gate must scan executable scripts/manifests for
+    `python`, `python3`, and Python module entry points and fail closed. The
+    only permitted non-MoonBit executable in the target path is an explicitly
+    documented PostgreSQL client/tool invoked by shell; no Python fallback or
+    dual-runtime mode is planned.
+
+    The current native gateway/session boundary and read-only service are
+    partial completion of this gate, not completion of the convergence step:
+    remaining routes, command writes, provider/accounting/tax effects, and
+    managed identity/rotation still require their own MoonBit implementation
+    and parity evidence.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
