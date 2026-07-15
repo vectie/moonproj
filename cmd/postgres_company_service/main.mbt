@@ -14845,6 +14845,29 @@ async fn route(
   if path == "/api/company/reports/templates/run" {
     return report_template_run_response()
   }
+  if path == "/api/company/warning" {
+    return (
+      200,
+      warning_list_response(
+        query_decoded(query, "status"),
+        query_alias_decoded(query, "ruleCode", "rule_code"),
+        query_decoded(query, "severity"),
+        query_alias_decoded(query, "bizType", "biz_type"),
+      ),
+    )
+  }
+  if path == "/api/company/warning/badge" {
+    return (200, warning_badge_response())
+  }
+  if path == "/api/company/warning/rules" {
+    return (200, warning_rules_response())
+  }
+  if path == "/api/company/warning/scans" ||
+    path == "/api/company/warning/custom-rules" ||
+    path == "/api/company/warning/rule-templates" ||
+    path == "/api/company/warning/tickets/mine" {
+    return (200, warning_empty_response(path))
+  }
   if path == "/api/company/reports/overview" {
     return (200, reports_overview_response())
   }
@@ -15441,6 +15464,7 @@ async fn route(
             Json::string("webhook_config_read"),
             Json::string("rbac_observation_read"),
             Json::string("report_template_read"),
+            Json::string("warning_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),

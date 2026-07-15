@@ -146,6 +146,11 @@ request rbac_me '/api/company/rbac/me?userCode=admin'
 request rbac_roles /api/company/rbac/roles
 request rbac_catalog /api/company/rbac/permission-catalog
 request report_templates /api/company/reports/templates
+request warning_badge /api/company/warning/badge
+request warning_list '/api/company/warning?status=all'
+request warning_rules /api/company/warning/rules
+request warning_scans /api/company/warning/scans
+request warning_custom /api/company/warning/custom-rules
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -583,5 +588,10 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
 /usr/bin/jq -e '.data == [] and .source_coverage.sys_role == 0 and .source_coverage.sys_user == 5' "$TMP_DIR/rbac_roles.json" >/dev/null
 /usr/bin/jq -e '(.data | length) == 11 and .data[0].module == "驾驶舱"' "$TMP_DIR/rbac_catalog.json" >/dev/null
 /usr/bin/jq -e '.data == [] and .source_coverage.sys_report_template == 0 and .persisted == false' "$TMP_DIR/report_templates.json" >/dev/null
+/usr/bin/jq -e '.data.openTotal == 1 and .data.top[0].ruleCode == "W005" and .authorizing == false and .persisted == false' "$TMP_DIR/warning_badge.json" >/dev/null
+/usr/bin/jq -e '.data.total == 1 and .data.rows[0].ruleCode == "W005" and .source_coverage.ep_project == 2 and .authorizing == false' "$TMP_DIR/warning_list.json" >/dev/null
+/usr/bin/jq -e '(.data | length) == 12 and ([.data[] | select(.ruleCode == "W005")][0].openCount) == 1 and .persisted == false' "$TMP_DIR/warning_rules.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .authorizing == false and .persisted == false' "$TMP_DIR/warning_scans.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .authorizing == false and .persisted == false' "$TMP_DIR/warning_custom.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment/warning read smoke passed"
