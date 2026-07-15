@@ -4,6 +4,10 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PORT=${PORT:-4243}
 DATABASE=${DATABASE:-moonproj}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
 TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-tender-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-limingjin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-tender-actor-secret}
@@ -29,6 +33,7 @@ trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
 MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SIGNING_SECRET" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 PSQL_BIN="$PSQL_BIN" \
 "$ROOT/scripts/company_postgres_service.sh" --port "$PORT" --database "$DATABASE" \
   --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
@@ -49,7 +54,7 @@ if [ "$ready" -ne 1 ]; then
   /bin/cat "$TMP_DIR/service.log"
   exit 1
 fi
-/usr/bin/jq -e '.capabilities | index("tender_command") and index("source_tender_command") and index("contract_split_command") and index("source_contract_split_command")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("tender_command") and index("source_tender_command") and index("source_tender_state_command") and index("source_tender_award_command") and index("contract_split_command") and index("source_contract_split_command")' "$TMP_DIR/health.json" >/dev/null
 
 request() {
   name=$1
@@ -106,7 +111,7 @@ request split_replay POST /api/company/tender-splits 200 "$split_body" "split-cr
 request split_read GET '/api/company/source/tender/splits?parentContractGuid=ht-tj-001' 200
 /usr/bin/jq -e --arg id "$SPLIT_ID" 'any(.data[]; .split_guid == $id and .source_kind == "command" and .split_amount_minor == 123450 and .split_pct_bps == 1000)' "$TMP_DIR/split_read.json" >/dev/null
 
-source_tender_body="{\"tenderGuid\":\"$SOURCE_TENDER_ID\",\"projGuid\":\"$PROJECT_ID\",\"tenderName\":\"source tender smoke\",\"category\":\"construction\",\"estimatedAmount\":\"12345.67\",\"planPublishDate\":\"2026-07-14\",\"planAwardDate\":\"2026-08-01\",\"remark\":\"source tender alias smoke\"}"
+source_tender_body="{\"tenderGuid\":\"$SOURCE_TENDER_ID\",\"projGuid\":\"$PROJECT_ID\",\"tenderName\":\"source tender smoke\",\"category\":\"construction\",\"estimatedAmount\":\"12345.67\",\"planPublishDate\":\"2026-07-14\",\"planAwardDate\":\"2026-08-01\",\"remark\":\"source tender alias smoke\",\"bids\":[{\"supplierId\":\"$SUPPLIER_ID\",\"amount_minor\":1200000}]}"
 source_tender_key="source-tender-create-$SMOKE_SUFFIX"
 request source_tender_create POST /api/company/source/tender/tenders 201 "$source_tender_body" "$source_tender_key"
 /usr/bin/jq -e --arg id "$SOURCE_TENDER_ID" '.success == true and .data.tenderGuid == $id and .source_kind == "command"' "$TMP_DIR/source_tender_create.json" >/dev/null
@@ -114,6 +119,13 @@ request source_tender_replay POST /api/company/source/tender/tenders 200 "$sourc
 /usr/bin/jq -e '.idempotent_replay == true' "$TMP_DIR/source_tender_replay.json" >/dev/null
 request source_tender_read GET "/api/company/source/tender/tenders?projGuid=$PROJECT_ID" 200
 /usr/bin/jq -e --arg id "$SOURCE_TENDER_ID" 'any(.data[]; .tender_guid == $id and .source_kind == "command" and .plan_publish_date == "2026-07-14" and .estimated_amount_minor == 1234567)' "$TMP_DIR/source_tender_read.json" >/dev/null
+request source_state_publish PUT "/api/company/source/tender/tenders/$SOURCE_TENDER_ID/state" 200 '{"state":"publishing"}' "source-tender-publish-$SMOKE_SUFFIX"
+request source_state_bidding PUT "/api/company/source/tender/tenders/$SOURCE_TENDER_ID/state" 200 '{"state":"bidding"}' "source-tender-bidding-$SMOKE_SUFFIX"
+source_award_body="{\"tenderGuid\":\"$SOURCE_TENDER_ID\",\"providerGuid\":\"$SUPPLIER_ID\",\"providerName\":\"tender qualified supplier\",\"awardAmount\":\"12000.00\",\"awardDate\":\"2026-07-15\",\"remark\":\"source award alias smoke\"}"
+request source_award POST /api/company/source/tender/awards 200 "$source_award_body" "source-tender-award-$SMOKE_SUFFIX"
+/usr/bin/jq -e --arg id "$SOURCE_TENDER_ID" '.success == true and .data.tenderGuid == $id and .data.providerGuid != "" and .data.awardAmount == 12000' "$TMP_DIR/source_award.json" >/dev/null
+request source_award_read GET "/api/company/source/tender/awards?tenderGuid=$SOURCE_TENDER_ID" 200
+/usr/bin/jq -e --arg id "$SOURCE_TENDER_ID" 'any(.data[]; .tender_guid == $id and .source_kind == "command" and .award_amount == 12000 and .state == "awarded")' "$TMP_DIR/source_award_read.json" >/dev/null
 request source_tender_delete DELETE "/api/company/source/tender/tenders/$SOURCE_TENDER_ID" 200 '{"reason":"source tender tombstone smoke"}' "source-tender-delete-$SMOKE_SUFFIX"
 /usr/bin/jq -e '.success == true and .tender.state == "deleted"' "$TMP_DIR/source_tender_delete.json" >/dev/null
 

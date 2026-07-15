@@ -582,13 +582,12 @@ merge command projections into source-shaped reads with provenance, and pass
 service/gateway replay smoke. `DELETE /tenders/:guid` now maps to an idempotent
 local tombstone for command-owned tenders only; imported projections remain
 read-only and disappear from target/source-shaped readback after deletion.
-The remaining two source mutations are still policy gates: `POST /awards`
-creates a standalone source award while the target award is a state transition
-with bid evidence, and `PUT /tenders/:guid/state` permits arbitrary source
-state writes while the target enforces the transition graph. Service and
-trusted-gateway smoke cover target and source-alias deletion, replay, and
-readback filtering. Browser and procurement-owner acceptance of the command
-aliases remains open.
+Source-compatible `POST /awards` and `PUT /tenders/:guid/state` aliases now
+reuse the native award evidence and forward-only state graph; command-owned
+awards merge into source-shaped readback. Arbitrary state overwrite, hard
+delete, award-to-commitment, and production owner acceptance remain policy
+gates. Service smoke covers source state/award alias replay and readback in
+addition to target/source deletion and filtering.
 
 **Contract mutation checkpoint (2026-07-14).** The source cost contract
 `POST /api/company/source/cost/contracts`, `PUT .../:guid`, and `DELETE .../:guid`

@@ -4,6 +4,10 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PORT=${PORT:-4187}
 DATABASE=${DATABASE:-moonproj}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
 TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-source-read-smoke-token}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-source-read.XXXXXX")
@@ -19,6 +23,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 PSQL_BIN="$PSQL_BIN" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$PORT" \

@@ -8816,10 +8816,79 @@ fn tender_transition_request(
       _ => raise reject(422, "awarded_amount_minor must be a positive integer")
     }
     request.set("awarded_amount_minor", Json::number(amount.to_double()))
+    let provider_name = tender_text(
+      body, "providerName", "provider_name", false, true,
+    )
+    if !provider_name.is_empty() {
+      request.set("awarded_supplier_name", Json::string(provider_name))
+    }
   }
   let reason = tender_text(body, "reason", "", false, true)
   request.set("reason", Json::string(reason))
   Json::object(request)
+}
+
+///|
+/// Translate the ERP tender award body into the native, qualification-gated
+/// award command.  The source route permits a provider name without a
+/// provider identity; the native boundary requires the identity so it can
+/// prove an active qualified supplier projection before changing state.
+fn tender_source_award_request(
+  body : Json,
+  actor_id : String,
+) -> (String, Json) raise CompanyServiceError {
+  let tender_id = tender_text(body, "tenderGuid", "tender_guid", true, false)
+  let supplier_id = tender_text(
+    body, "providerGuid", "provider_guid", true, false,
+  )
+  let amount_minor = tender_decimal_minor(
+    body, "awardAmount", "award_amount", -1, false,
+  )
+  let request : Map[String, Json] = {}
+  request.set("awarded_supplier_id", Json::string(supplier_id))
+  request.set("awarded_amount_minor", Json::number(amount_minor.to_double()))
+  request.set("actor_id", Json::string(actor_id))
+  let provider_name = tender_text(
+    body, "providerName", "provider_name", false, true,
+  )
+  if !provider_name.is_empty() {
+    request.set("awarded_supplier_name", Json::string(provider_name))
+  }
+  let award_date = tender_text(body, "awardDate", "award_date", false, true)
+  if !award_date.is_empty() {
+    request.set("award_date", Json::string(award_date))
+  }
+  let remark = tender_text(body, "remark", "", false, true)
+  if !remark.is_empty() {
+    request.set("reason", Json::string(remark))
+  }
+  (tender_id, Json::object(request))
+}
+
+///|
+fn tender_source_state_command(
+  body : Json,
+  actor_id : String,
+) -> (String, Json) raise CompanyServiceError {
+  let state = tender_text(body, "state", "", false, false)
+  if state == "planning" {
+    raise reject(
+      409, "source tender state cannot move a command tender backwards",
+    )
+  }
+  if state == "publishing" {
+    return ("publish", body)
+  }
+  if state == "bidding" {
+    return ("open_bidding", body)
+  }
+  if state == "completed" {
+    return ("complete", body)
+  }
+  if state == "awarded" {
+    return tender_source_award_request(body, actor_id)
+  }
+  raise reject(422, "unsupported source tender state")
 }
 
 ///|
@@ -9074,8 +9143,16 @@ async fn tender_command(
     ")"
   } else {
     let award_fields = if command_type == "award" {
+      ", 'award_guid', " +
+      @postgres.sql_literal("AW-" + idempotency_key) +
+      ", 'award_code', " +
+      @postgres.sql_literal("AW-" + idempotency_key) +
       ", 'awarded_supplier_id', " +
       @postgres.sql_literal(json_text(request, "awarded_supplier_id", "")) +
+      ", 'provider_guid', " +
+      @postgres.sql_literal(json_text(request, "awarded_supplier_id", "")) +
+      ", 'provider_name', " +
+      @postgres.sql_literal(json_text(request, "awarded_supplier_name", "")) +
       ", 'awarded_amount_minor', " +
       json_int(request, "awarded_amount_minor", 0).to_string()
     } else {
@@ -9165,6 +9242,57 @@ fn source_tender_alias_result(result : Json) -> Json {
     "data": Json::object({
       "tenderGuid": Json::string(tender_id),
       "tenderCode": Json::string(tender_code),
+    }),
+    "tender": tender,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn source_tender_award_alias_result(
+  result : Json,
+  idempotency_key : String,
+) -> Json {
+  let tender = json_field(result, "tender").unwrap_or(Json::null())
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let request = json_field(command, "request").unwrap_or(Json::null())
+  let tender_id = json_text(tender, "tender_id", "")
+  let award_id = "AW-" + idempotency_key
+  let award_code = award_id
+  let amount_minor = json_int(request, "awarded_amount_minor", 0)
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "awardGuid": Json::string(award_id),
+      "awardCode": Json::string(award_code),
+      "tenderGuid": Json::string(tender_id),
+      "providerGuid": Json::string(
+        json_text(request, "awarded_supplier_id", ""),
+      ),
+      "awardAmount": Json::number(amount_minor.to_double() / 100.0),
+    }),
+    "award": Json::object({
+      "award_guid": Json::string(award_id),
+      "award_code": Json::string(award_code),
+      "tender_guid": Json::string(tender_id),
+      "provider_guid": Json::string(
+        json_text(request, "awarded_supplier_id", ""),
+      ),
+      "award_amount_minor": Json::number(amount_minor.to_double()),
+      "award_amount": Json::number(amount_minor.to_double() / 100.0),
+      "state": Json::string("awarded"),
+      "source_kind": Json::string("command"),
     }),
     "tender": tender,
     "command": command,
@@ -9900,6 +10028,34 @@ async fn tender_command_items() -> Array[Json] raise CompanyServiceError {
 }
 
 ///|
+/// Expose command-owned awards through the same source-shaped family as
+/// imported `tender_award` rows.  Award creation remains qualification-gated;
+/// this readback only merges the durable tender projection and has no cash or
+/// commitment effect.
+async fn tender_command_award_items() -> Array[Json] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(" +
+    "'award_guid', coalesce(payload->>'award_guid', 'AW-' || aggregate_id), " +
+    "'award_id', coalesce(payload->>'award_guid', 'AW-' || aggregate_id), " +
+    "'award_code', coalesce(payload->>'award_code', 'AW-' || aggregate_id), " +
+    "'tender_guid', aggregate_id, 'tender_id', aggregate_id, " +
+    "'provider_guid', coalesce(payload->>'provider_guid', payload->>'awarded_supplier_id', ''), " +
+    "'provider_id', coalesce(payload->>'provider_guid', payload->>'awarded_supplier_id', ''), " +
+    "'provider_name', coalesce(payload->>'provider_name', ''), " +
+    "'award_amount_minor', coalesce(payload->>'awarded_amount_minor', '0')::bigint, " +
+    "'award_amount', (coalesce(payload->>'awarded_amount_minor', '0')::numeric / 100), " +
+    "'award_date', coalesce(payload->>'award_date', payload->>'plan_award_date', ''), " +
+    "'remark', coalesce(payload->>'reason', ''), 'state', 'awarded', " +
+    "'source_kind', 'command', 'command_projection', true, 'authorizing', false, 'persisted', true, " +
+    "'provider_execution', false, 'cash_effect', false, 'accounting_effect', false, 'tax_effect', false, " +
+    "'aggregate_type', 'tender_award', 'aggregate_id', coalesce(payload->>'award_guid', 'AW-' || aggregate_id), " +
+    "'source_id', 'moonproj:command:tender-award:' || aggregate_id, 'source_table', 'tender_award'" +
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'tender' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', '') <> 'deleted' AND coalesce(payload->>'award_guid', '') <> ''",
+  )
+  json_array_output(output)
+}
+
+///|
 async fn split_command_items() -> Array[Json] raise CompanyServiceError {
   let output = run_sql(
     "SELECT coalesce(jsonb_agg(jsonb_build_object(" +
@@ -10014,6 +10170,14 @@ async fn tender_source_response(
     }
   } else if family == "splits" {
     for item in split_command_items() {
+      if tender_source_matches(
+          item, family, proj_guid, state, tender_guid, parent_contract_guid,
+        ) {
+        result.push(item)
+      }
+    }
+  } else if family == "awards" {
+    for item in tender_command_award_items() {
       if tender_source_matches(
           item, family, proj_guid, state, tender_guid, parent_contract_guid,
         ) {
@@ -14349,6 +14513,9 @@ fn tender_command_spec(
     if path == "/api/company/source/tender/splits" {
       return Some(("source-split-create", None))
     }
+    if path == "/api/company/source/tender/awards" {
+      return Some(("source-award", None))
+    }
   }
   let tender_prefix = "/api/company/tenders/"
   if request_method is @http.Delete && path.has_prefix(tender_prefix) {
@@ -14362,6 +14529,14 @@ fn tender_command_spec(
     let id = path[source_prefix.length():].to_owned()
     if valid_identifier(id) {
       return Some(("source-delete", Some(id)))
+    }
+  }
+  if request_method is @http.Put &&
+    path.has_prefix(source_prefix) &&
+    path.has_suffix("/state") {
+    let id = path[source_prefix.length():path.length() - "/state".length()].to_owned()
+    if valid_identifier(id) {
+      return Some(("source-state", Some(id)))
     }
   }
   if request_method is @http.Post && path.has_prefix(tender_prefix) {
@@ -15732,6 +15907,8 @@ async fn route(
             Json::string("source_sales_revenue_command"),
             Json::string("tender_command"),
             Json::string("source_tender_command"),
+            Json::string("source_tender_state_command"),
+            Json::string("source_tender_award_command"),
             Json::string("contract_split_command"),
             Json::string("source_contract_split_command"),
             Json::string("marketing_command"),
@@ -17057,28 +17234,47 @@ async fn handle(
       }
       let source_alias = command_type == "source-create" ||
         command_type == "source-delete"
-      let native_command = if source_alias {
-        if command_type == "source-create" {
-          "create"
+      let award_alias = command_type == "source-award"
+      let state_alias = command_type == "source-state"
+      let (native_command, resolved_tender_id, canonical_body) = if award_alias {
+        let award = tender_source_award_request(body, actor)
+        ("award", Some(award.0), award.1)
+      } else if state_alias {
+        let transition = tender_source_state_command(body, actor)
+        (transition.0, tender_id, transition.1)
+      } else {
+        let native = if source_alias {
+          if command_type == "source-create" {
+            "create"
+          } else {
+            "delete"
+          }
         } else {
-          "delete"
+          command_type
         }
-      } else {
-        command_type
-      }
-      let canonical_body = if command_type == "source-create" {
-        tender_create_request(body, actor, true, idempotency_key)
-      } else if command_type == "create" {
-        tender_create_request(body, actor, false, idempotency_key)
-      } else {
-        body
+        let canonical = if command_type == "source-create" {
+          tender_create_request(body, actor, true, idempotency_key)
+        } else if command_type == "create" {
+          tender_create_request(body, actor, false, idempotency_key)
+        } else {
+          body
+        }
+        (native, tender_id, canonical)
       }
       let result = tender_command(
-        native_command, tender_id, canonical_body, actor, idempotency_key,
+        native_command, resolved_tender_id, canonical_body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }
-      if source_alias && result.0 < 400 {
+      if award_alias && result.0 < 400 {
+        send_json(
+          conn,
+          request.meth,
+          result.0,
+          source_tender_award_alias_result(result.1, idempotency_key),
+          false,
+        )
+      } else if (source_alias || state_alias) && result.0 < 400 {
         send_json(
           conn,
           request.meth,

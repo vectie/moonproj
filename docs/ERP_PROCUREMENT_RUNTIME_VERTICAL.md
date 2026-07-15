@@ -34,6 +34,10 @@ native service exposes:
 - `DELETE /api/company/tenders/<id>` for a command-owned tender tombstone;
 - `POST /api/company/source/tender/tenders` and
   `POST /api/company/source/tender/splits` for source-field create aliases;
+- `PUT /api/company/source/tender/tenders/<id>/state` for a forward-only
+  source-state alias that reuses the native lifecycle checks;
+- `POST /api/company/source/tender/awards` for a source-field award alias that
+  requires matching bid and qualified-supplier evidence;
 - `DELETE /api/company/source/tender/tenders/<id>` for a command-owned source
   tender tombstone;
 - `POST /api/company/suppliers` to create a local supplier draft;
@@ -137,18 +141,17 @@ aid and never a signature or provider call.
 
 The tender command runtime is not an exact proxy for every legacy tender
 mutation. Local create and lifecycle commands enforce a forward-only state
-machine, while the legacy API also exposes arbitrary state replacement,
-hard-delete, standalone award insertion, and a split payload under different
-field names. Source-compatible create and split aliases now translate those
-field names at `/api/company/source/tender/tenders` and
-`/api/company/source/tender/splits`; their command projections are visible in
-source-shaped reads with explicit provenance, and service/gateway replay smoke
-passes. `DELETE /api/company/source/tender/tenders/:guid` and the native
-`/api/company/tenders/:guid` now use an idempotent tombstone for command-owned
+machine, while the legacy API also exposes arbitrary state replacement and
+hard-delete semantics. Source-compatible create, state, and award aliases now
+translate the source field family at `/api/company/source/tender/tenders` and
+`/api/company/source/tender/awards`; state transitions still reuse the native
+graph, and awards still require matching bid/qualified-supplier evidence.
+Command-owned awards merge into the source-shaped awards read with explicit
+provenance. `DELETE /api/company/source/tender/tenders/:guid` and the native
+`/api/company/tenders/:guid` use an idempotent tombstone for command-owned
 tenders only; imported tender rows remain read-only and are never deleted.
-The parity matrix keeps arbitrary source state overwrite and standalone award
-insertion as policy gates. Browser and procurement-owner acceptance of the
-aliases is still open.
+Arbitrary source-state overwrite, hard-delete, award-to-commitment, and
+procurement-owner acceptance remain gates.
 
 The source tender boundary is:
 
@@ -156,6 +159,10 @@ The source tender boundary is:
 - `GET /api/company/source/tender/awards` over `tender_award`;
 - `GET /api/company/source/tender/splits` over `contract_split`.
 - `POST /api/company/source/tender/tenders` as a source-field create alias;
+- `PUT /api/company/source/tender/tenders/:guid/state` as a forward-only
+  source-state alias;
+- `POST /api/company/source/tender/awards` as a qualification-gated award
+  alias, merged into command-owned award readback;
 - `DELETE /api/company/source/tender/tenders/:guid` as a command-owned
   tombstone alias;
 - `POST /api/company/source/tender/splits` as a source-field split alias.

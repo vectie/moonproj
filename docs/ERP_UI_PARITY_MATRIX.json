@@ -114,6 +114,8 @@
     "connected_warning_ticket_transition_candidate": 3,
     "connected_warning_scan_preview_read": 1,
     "connected_admin_sys_param_command_candidate": 1,
+    "connected_tender_state_candidate": 1,
+    "connected_tender_award_candidate": 1,
     "connected_webhook_config_command_candidate": 1,
     "connected_webhook_test_delivery_candidate": 1,
     "connected_webhook_overdue_scan_candidate": 1,
@@ -4333,8 +4335,8 @@
       "browser_route_paths": [
         "/tender"
       ],
-      "action_state": "not_connected",
-      "required_next": "preserve_tender_state_machine_and_decide_source_overwrite_policy"
+      "action_state": "connected_tender_state_candidate",
+      "required_next": "accept_browser_tender_state_scenario_and_procurement_owner"
     },
     {
       "module": "tender",
@@ -4363,8 +4365,8 @@
       "browser_route_paths": [
         "/tender"
       ],
-      "action_state": "not_connected",
-      "required_next": "reconcile_tender_award_evidence_and_owner_acceptance"
+      "action_state": "connected_tender_award_candidate",
+      "required_next": "accept_browser_tender_award_scenario_and_procurement_owner"
     },
     {
       "module": "tender",
