@@ -5,9 +5,15 @@ validates each row, and commits the batch transactionally. Native PostgreSQL
 now recognizes the source-compatible `/api/company/import/project` and
 `/api/company/import/contract` POST boundaries after signed actor validation.
 
-The current response is an explicit `409` `import_batch_candidate` gate:
+Project batches now have a native command path. A signed project batch validates
+business-unit ownership, duplicate project codes, row limits, and idempotency,
+then commits command and immutable `project_import` projections in one
+PostgreSQL transaction. `/api/company/projects` merges those projections into
+the existing read model, and replay returns the original result without new
+rows. Dry runs validate and normalize without persistence.
+
+Contract batches remain an explicit `409` `import_batch_candidate` gate with
 `rowsAccepted=0`, `persisted=false`, and no accounting, cash, tax, provider, or
-authorization effect. This keeps import behavior visible without pretending
-that the MoonBit service has implemented CSV/row validation and transactional
-project/contract writes. The next acceptance gate is reviewed rows plus an
-operations owner; template reads remain separate.
+authorization effect. The next acceptance gate is a contract-row transaction
+that can share source validation and an operations owner; template reads remain
+separate.

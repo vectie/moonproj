@@ -515,6 +515,7 @@ async fn summary(
       Json::string("read_model"),
       Json::string("profile_observation_read"),
       Json::string("auth_profile_command"),
+      Json::string("import_project_command"),
       Json::string("preference_observation_read"),
       Json::string("preference_command"),
       Json::string("workflow_command"),
@@ -15974,6 +15975,7 @@ async fn route(
             Json::string("expense_detail_read"),
             Json::string("expense_workflow_sync_candidate"),
             Json::string("import_batch_candidate"),
+            Json::string("import_project_command"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
             Json::string("auth_profile_command"),
@@ -16292,6 +16294,17 @@ async fn handle(
   }
   match import_batch_spec(request.meth, path) {
     Some(biz_type) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
       let actor = command_actor(request, actor_signing_secret) catch {
         error => {
           let response = service_error_response(error)
@@ -16299,8 +16312,20 @@ async fn handle(
           return
         }
       }
-      let _ = actor
-      let result = import_batch_gate(biz_type)
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = if biz_type == "project" {
+        import_project_batch_command(body, actor, idempotency_key) catch {
+          error => service_error_response(error)
+        }
+      } else {
+        import_batch_gate(biz_type)
+      }
       send_json(conn, request.meth, result.0, result.1, false)
       return
     }

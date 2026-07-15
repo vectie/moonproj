@@ -46,6 +46,38 @@ async fn plan_task_projection_rows(
 }
 
 ///|
+async fn project_import_projection_rows() -> Array[SourceRow] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, source_event_id, revision FROM company_aggregate_projection WHERE aggregate_type = 'project_import' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', '') <> 'deleted' ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Array[SourceRow] = []
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 4)
+      let payload = @json.parse(decode_hex(row[1])) catch {
+        _ => raise fail("invalid project-import projection JSON")
+      }
+      match payload {
+        Object(values) => {
+          values.set(
+            "__revision",
+            Json::number(parse_decimal(row[3]).to_double()),
+          )
+          result.push({
+            record_id: decode_hex(row[0]),
+            source_id: decode_hex(row[2]),
+            payload: Json::object(values),
+          })
+        }
+        _ => raise fail("project-import projection payload is not an object")
+      }
+    }
+  }
+  result
+}
+
+///|
 fn project_task_user_name(users : Array[SourceRow], user_id : String) -> String {
   if user_id.is_empty() {
     return ""
@@ -280,7 +312,9 @@ async fn project_plan_project_item(
         "planned_end": Json::string(planned_end),
         "actual_start": Json::string(actual_start),
         "actual_end": Json::string(actual_end),
-        "source_kind": Json::string("imported"),
+        "source_kind": Json::string(
+          json_text(payload, "source_kind", "imported"),
+        ),
       }),
     )
   }
@@ -331,7 +365,7 @@ async fn project_plan_project_item(
     "lifecycle": Json::array(lifecycle),
     "tasks": Json::array(tasks),
     "reports": Json::array(reports),
-    "source_kind": Json::string("imported"),
+    "source_kind": Json::string(json_text(payload, "source_kind", "imported")),
     "source_id": Json::string(
       if row.source_id.is_empty() {
         "erp:ep_project:" + row.record_id
@@ -364,6 +398,10 @@ async fn project_plan_project_items(
     _ => ()
   }
   let raw_projects = raw_source_rows("ep_project", 500)
+  let command_projects = project_import_projection_rows()
+  for row in command_projects {
+    raw_projects.push(row)
+  }
   let units = raw_source_rows("mu_business_unit", 500)
   let stages = raw_source_rows("proj_lifecycle_stage", 500)
   let instances = raw_source_rows("proj_lifecycle_instance", 500)
@@ -411,6 +449,7 @@ async fn project_runtime_response(
   keyword : String?,
 ) -> Json raise CompanyServiceError {
   let items = project_plan_project_items(project_id, status, keyword)
+  let command_projects = project_import_projection_rows()
   let coverage = Json::object({
     "ep_project": Json::number(
       raw_source_rows("ep_project", 500).length().to_double(),
@@ -430,11 +469,18 @@ async fn project_runtime_response(
     "jd_task_report": Json::number(
       raw_source_rows("jd_task_report", 500).length().to_double(),
     ),
+    "project_import": Json::number(command_projects.length().to_double()),
   })
   Json::object({
     "items": Json::array(items),
-    "source_kind": Json::string("imported"),
-    "command_projection": Json::boolean(false),
+    "source_kind": Json::string(
+      if command_projects.is_empty() {
+        "imported"
+      } else {
+        "imported_or_command"
+      },
+    ),
+    "command_projection": Json::boolean(!command_projects.is_empty()),
     "authorizing": Json::boolean(false),
     "source_coverage": coverage,
     "missing_source_tables": Json::array(

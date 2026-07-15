@@ -1368,9 +1368,11 @@ explicit authenticated candidates for every remaining source mutation family.
 `POST /api/company/budget/expenses/:guid/sync-from-workflow` returns a 409 until
 workflow source rows exist. CBS R0 resolution, demo contracts, contract
 approval/payment, and change writes return a `cbs_mutation_boundary_candidate`
-409 with no persistence or financial effect. Project/contract batch imports
-return an `import_batch_candidate` 409 until row validation and transactional
-commit are implemented. Destructive sales-customer delete returns a
+409 with no persistence or financial effect. Project batch import now validates
+and commits command-owned project projections with project-list readback and
+idempotent replay; contract batch imports remain an `import_batch_candidate`
+409 until row validation and transactional commit are implemented. Destructive
+sales-customer delete returns a
 `sales_customer_delete_candidate` 409 because the product policy is archive,
 not hard delete. Auth logout/profile now persist signed local command
 projections and overlay `/auth/me` readback; login/password writes return an

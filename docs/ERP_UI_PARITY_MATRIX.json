@@ -101,7 +101,7 @@
     "investment_plan_line_update_candidate": 1,
     "investment_excel_upload_candidate": 1,
     "connected_invoice_read": 1,
-    "import_batch_candidate": 1,
+    "connected_import_batch_command_candidate": 1,
     "connected_loan_command": 2,
     "connected_loan_workflow_sync_candidate": 1,
     "connected_loan_read": 1,
@@ -2642,8 +2642,8 @@
       "method": "POST",
       "path": "/:bizType",
       "browser_route_paths": [],
-      "action_state": "import_batch_candidate",
-      "required_next": "accept_import_rows_and_operations_owner"
+      "action_state": "connected_import_batch_command_candidate",
+      "required_next": "implement_contract_batch_transaction_and_accept_import_owner"
     },
     {
       "module": "investment",

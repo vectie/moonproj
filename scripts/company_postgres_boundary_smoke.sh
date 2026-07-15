@@ -12,6 +12,8 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-boundary-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-admin}
 SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-boundary-smoke-secret}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+SMOKE_SUFFIX=$(/bin/date +%s)-$$
+PROJECT_CODE="BOUNDARY-PROJECT-$SMOKE_SUFFIX"
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-boundary.XXXXXX")
 SERVICE_PID=""
 
@@ -50,11 +52,23 @@ SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: boundary-import' \
-  --data '{"rows":[],"dryRun":true}' \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: boundary-import-$SMOKE_SUFFIX" \
+  --data "{\"rows\":[{\"projCode\":\"$PROJECT_CODE\",\"projName\":\"Boundary Project\",\"buCode\":\"TJGS\",\"projStatus\":\"initiation\"}],\"dryRun\":false}" \
   "http://127.0.0.1:$PORT/api/company/import/project")
+test "$status" = 200
+/usr/bin/jq -e '.data.mode == "commit" and .data.rowsAccepted == 1 and .data.persisted == true and .idempotent_replay == false' "$TMP_DIR/import.json" >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/projects?keyword=$PROJECT_CODE" \
+  | /usr/bin/jq -e --arg code "$PROJECT_CODE" '.command_projection == true and any(.items[]; .project_code == $code and .source_kind == "command")' >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/import-contract.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: boundary-import-contract-$SMOKE_SUFFIX" \
+  --data "{\"rows\":[{\"contractCode\":\"BOUNDARY-CONTRACT-$SMOKE_SUFFIX\",\"contractName\":\"Boundary Contract\",\"projCode\":\"$PROJECT_CODE\",\"htAmount\":1}],\"dryRun\":false}" \
+  "http://127.0.0.1:$PORT/api/company/import/contract")
 test "$status" = 409
-/usr/bin/jq -e '.code == 46001 and .source_kind == "import_batch_candidate" and .persisted == false' "$TMP_DIR/import.json" >/dev/null
+/usr/bin/jq -e '.code == 46001 and .source_kind == "import_batch_candidate" and .persisted == false' "$TMP_DIR/import-contract.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -83,7 +97,7 @@ test "$status" = 409
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/profile.json" -w '%{http_code}' -X PUT \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: boundary-profile' \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: boundary-profile-$SMOKE_SUFFIX" \
   --data '{"empName":"Native Boundary Profile"}' \
   "http://127.0.0.1:$PORT/api/company/auth/profile")
 test "$status" = 200
@@ -95,7 +109,7 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/logout.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
-  -H 'Idempotency-Key: boundary-logout' \
+  -H "Idempotency-Key: boundary-logout-$SMOKE_SUFFIX" \
   "http://127.0.0.1:$PORT/api/company/auth/logout")
 test "$status" = 200
 /usr/bin/jq -e '.auth.sessionRevoked == true and .auth.persisted == true and .idempotent_replay == false' "$TMP_DIR/logout.json" >/dev/null
