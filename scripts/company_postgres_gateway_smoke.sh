@@ -6,6 +6,7 @@ SERVICE_PORT=${SERVICE_PORT:-4194}
 GATEWAY_PORT=${GATEWAY_PORT:-4193}
 TRUSTED_GATEWAY_PORT=${TRUSTED_GATEWAY_PORT:-4195}
 TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-gateway-smoke-token}
+ACTOR_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-gateway-smoke-actor-secret}
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-gateway.XXXXXX")
 SERVICE_PID=""
 GATEWAY_PID=""
@@ -29,6 +30,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
+MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
 PSQL_BIN="${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$SERVICE_PORT" \
@@ -37,7 +39,7 @@ PSQL_BIN="${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}" \
 SERVICE_PID=$!
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
-MOONPROJ_ACTOR_SIGNING_SECRET="gateway-smoke-actor-secret" \
+MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
 MOONPROJ_SESSION_SECRET="gateway-smoke-session-secret" \
 MOONPROJ_DEV_USER="gateway-smoke-user" \
 MOONPROJ_DEV_PASSWORD="gateway-smoke-password" \
@@ -92,13 +94,26 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/not_allowed.json" -w '%{htt
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary")
 test "$status" = 404
 
+gateway_expense_suffix=$(/bin/date +%s)
+gateway_expense_id="EXP-GW-SMOKE-$gateway_expense_suffix"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/expense-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-expense-create-$gateway_expense_suffix" \
+  --data "{\"expense_id\":\"$gateway_expense_id\",\"employee_id\":\"rabbita-user\",\"summary\":\"gateway smoke expense\",\"amount_minor\":3210,\"currency\":\"CNY\"}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/expenses")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.idempotent_replay == false and .expense.expense_id == "'"$gateway_expense_id"'" and .expense.state == "draft"' \
+  "$TMP_DIR/expense-create.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" -c "$TMP_DIR/cookies.txt" \
   -X POST "http://127.0.0.1:$GATEWAY_PORT/api/session/logout" >"$TMP_DIR/logout.json"
 /usr/bin/jq -e '.authenticated == false' "$TMP_DIR/logout.json" >/dev/null
 
 IDENTITY_SECRET="gateway-smoke-identity-secret"
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
-MOONPROJ_ACTOR_SIGNING_SECRET="gateway-smoke-actor-secret" \
+MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
 MOONPROJ_SESSION_SECRET="gateway-smoke-session-secret" \
 MOONPROJ_UPSTREAM_IDENTITY_SECRET="$IDENTITY_SECRET" \
 "$ROOT/scripts/company_postgres_gateway.sh" \

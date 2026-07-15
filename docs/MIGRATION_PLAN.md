@@ -24,13 +24,15 @@ scripts may compose compiled MoonBit commands, set environment/credentials,
 start local processes, and run external PostgreSQL operational tools; they must
 not contain business rules or replace the product runtime.
 
-Python is not part of the target architecture. The existing Python migration
-rehearsals, PostgreSQL service, gateway, source probes, and smoke tests are
-temporary bridge evidence only. Freeze them to maintenance status, implement
-MoonBit equivalents behind the same contracts, run both implementations in
-shadow until receipts, response envelopes, authorization, and replay behavior
-match, then remove Python from the supported build, test, and deployment path.
-No new Python runtime surface may be added.
+Python is not part of the target architecture or active migration execution.
+The existing Python migration rehearsals, PostgreSQL service, gateway, source
+probes, and smoke tests are frozen historical/comparison artifacts only. Do not
+import or execute them. Implement MoonBit equivalents behind the same
+contracts, and compare their receipts, response envelopes, authorization, and
+replay behavior against immutable fixtures or previously recorded evidence.
+There is no dual-runtime shadow phase. No new Python runtime surface may be
+added, and Python must be removed from the supported build, test, deployment,
+and browser-start paths before production identity is enabled.
 
 Current execution baseline: the repository has translated the institutional,
 finance, operational, investment, evidence, warning, and migration foundations;
@@ -507,10 +509,13 @@ Cash release, accounting/tax effects, source identity mapping, browser
 acceptance, and sales/finance-owner approval remain open.
 
 The expense action register now maps source-equivalent create, draft update,
-submit-for-approval, and draft/rejected void actions to the existing
-PostgreSQL expense command runtime. The service preserves the source alias,
-requires the signed actor to match the local applicant for update/void, and
-keeps imported source rows, workflow synchronization, budget checks, cash,
+submit-for-approval, reject, resubmit, approve, and draft/rejected void
+actions to the native MoonBit PostgreSQL expense command runtime. The native
+service also serves the imported expense list/detail and calculation-only
+budget preview; `scripts/company_postgres_expense_smoke.sh` proves replay and
+the full local lifecycle. The service preserves the source alias, requires
+the actor assertion to match the local applicant for update/void, and keeps
+imported source rows, workflow synchronization, budget checks, cash,
 accounting, tax, and finance-owner acceptance separate.
 
 The budget action register now maps `POST /api/company/budget-check` to a
@@ -1374,12 +1379,12 @@ Execute the remainder in this order:
     may select binaries, pass PostgreSQL environment/credentials, start
     processes, and invoke `psql`, but it must not contain business logic or
     depend on Python. Existing Python services/smokes are frozen comparison
-    artifacts only; no new Python path may be added. Continue canonical
-    response/receipt/replay comparisons while each slice is ported, then
-    archive the Python entry points before managed deployment. A release build
-    must fail if a supported command, test, smoke, or deployment manifest
-    invokes Python; the only supported runtime binaries are compiled MoonBit
-    programs plus explicitly listed PostgreSQL tools invoked by shell.
+    artifacts only; no new Python path may be added or run. Compare native
+    responses/receipts/replay against immutable fixtures or previously recorded
+    evidence while each slice is ported. A release build must fail if a
+    supported command, test, smoke, or deployment manifest invokes Python; the
+    only supported runtime binaries are compiled MoonBit programs plus
+    explicitly listed PostgreSQL tools invoked by shell.
     Native `cmd/postgres_read_model` covers the first three fixed read
     contracts, and native `cmd/postgres_read_model_server` now serves the first
     bounded HTTP read surface (`health`, `summary`, `receipts`, and filtered
@@ -1391,12 +1396,14 @@ Execute the remainder in this order:
     port with `cmd/postgres_company_service`'s authenticated native slice
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
-    observations), with the bounded gateway/session boundary now ported as
+    observations plus the native expense list/detail, budget-check preview,
+    and idempotent expense create/update/submit/reject/resubmit/approve
+    lifecycle, with the bounded gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
-    service commands, gateway allow-list parity,
-    rehearsal planners/parity tools, and shadow/replay checks before treating
-    this convergence step as complete; Python remains bridge evidence only and
-    is not an accepted build, test, or deployment dependency.
+    service commands, gateway allow-list parity, rehearsal planners/parity
+    tools, and fixture/replay checks before treating this convergence step as
+    complete. Python remains historical evidence only and is not an accepted
+    build, test, or deployment dependency.
 
 3a.1. **No-Python execution gate (approved plan update, 2026-07-15).**
     From this checkpoint forward, every new or changed operational path must
@@ -1417,11 +1424,11 @@ Execute the remainder in this order:
     documented PostgreSQL client/tool invoked by shell; no Python fallback or
     dual-runtime mode is planned.
 
-    The current native gateway/session boundary and read-only service are
-    partial completion of this gate, not completion of the convergence step:
-    remaining routes, command writes, provider/accounting/tax effects, and
-    managed identity/rotation still require their own MoonBit implementation
-    and parity evidence.
+    The current native gateway/session boundary and bounded company service
+    (including the expense command lifecycle) are partial completion of this
+    gate, not completion of the convergence step: remaining routes, command
+    writes, provider/accounting/tax effects, and managed identity/rotation
+    still require their own MoonBit implementation and parity evidence.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

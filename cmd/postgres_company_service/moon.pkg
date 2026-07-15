@@ -1,11 +1,13 @@
 import {
   "moonbitlang/async",
   "moonbitlang/async/http",
+  "moonbitlang/async/io",
   "moonbitlang/async/socket",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8" @encoding/utf8,
   "moonbitlang/x/sys",
+  "moonbitlang/x/crypto",
   "vectie/moonproj/persistence/postgres",
 }
 

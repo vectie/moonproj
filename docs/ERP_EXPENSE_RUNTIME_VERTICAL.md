@@ -5,9 +5,10 @@ PostgreSQL catalog without inventing a second database schema.
 
 ## Contract
 
-The authenticated local service is
-`scripts/company_postgres_service.py`. Every request requires the configured
-bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
+The authenticated local service is the native MoonBit binary launched by
+`scripts/company_postgres_service.sh`. Every request requires the configured
+bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`; the
+native gateway supplies the actor assertion.
 
 | Operation | Endpoint | Result |
 |---|---|---|
@@ -27,8 +28,9 @@ bearer token, forwarded HTTPS, and (for commands) an `Idempotency-Key`.
 
 The command body is JSON. Creation requires `expense_id`, `employee_id`,
 `summary`, positive integer `amount_minor`, and a three-letter `currency`; it
-may also carry `project_id` and `cost_subject`. The service actor is taken
-from service configuration, never trusted from the request body. Draft updates
+may also carry `project_id` and `cost_subject`. The service verifies the
+gateway-signed actor assertion and never trusts an actor value from the request
+body. Draft updates
 accept a bounded subject, amount, project, or cost-subject change; update and
 void require the signed actor to match the local applicant projection. Imported
 source rows remain read-only, and no workflow, budget reservation, cash,
@@ -47,20 +49,18 @@ state transition, returns `409`; missing/invalid fields return `4xx`.
 
 ## Evidence
 
-`scripts/company_postgres_service_smoke.py` creates a unique claim, replays
-creation, exercises the source `submit-for-approval` alias, rejects,
-resubmits, approves, and replays approval. It also creates a second draft,
-updates it through the PUT boundary, voids it through DELETE, reads the final
-`approved` projection, and verifies an invalid transition is rejected. The
-trusted gateway smoke repeats the create/update/submit/reject/resubmit/approve
-path and a draft void, while both smokes retain identity, missing-token, and
-forwarded-TLS checks. They also verify the `CB-101` budget preview through
-service and gateway without creating a command receipt or consuming budget.
+`scripts/company_postgres_expense_smoke.sh` creates a unique claim, replays
+creation, updates it through the PUT boundary, exercises the source
+`submit-for-approval` alias, rejects, resubmits, approves, reads the final
+`approved` projection, and verifies the `CB-101` budget preview without
+creating a command receipt or consuming budget. The gateway smoke separately
+verifies session, actor signing, trusted identity, and command allow-list
+behavior. The former Python service smoke is frozen comparison evidence only.
 
 ## Rabbita local path
 
 The new-expense Rabbita form now exercises the complete local command loop
-through `scripts/company_postgres_dev_gateway.py`: create/update draft, submit,
+through the native `scripts/company_postgres_gateway.sh`: create/update draft, submit,
 reject, resubmit, approve, and void. The gateway serves the browser bundle and
 proxies same-origin `/api/` calls to the authenticated service, keeping
 `MOONPROJ_SERVICE_TOKEN` server-side and converting the form's JSON

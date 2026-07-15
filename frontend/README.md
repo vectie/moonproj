@@ -39,10 +39,10 @@ local command verticals include the expense lifecycle documented in
 documented in `docs/ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`, and the
 procurement/tender lifecycle documented in
 `docs/ERP_PROCUREMENT_RUNTIME_VERTICAL.md`. The
-new-expense and contract routes are wired to local
+new-expense and contract routes are wired to the native local
 create/submit/reject/resubmit/approve loops, while `/payment-applies` also
 loads real application rows and exposes edit/void plus milestone eligibility
-controls through the local-only development gateway below; `/tender` now loads
+controls through the native local gateway below; `/tender` now loads
 tender projections and exposes local planning/publish/bidding/cancellation
 controls, including award/complete validation against a qualified supplier.
 Imported tender rows remain read-only. `/srm/providers` now loads the separate

@@ -3,18 +3,24 @@
 ///
 /// This is the first service slice in the Python-to-MoonBit migration. It
 /// keeps the bearer-token and forwarded-TLS boundary, then exposes fixed
-/// read-only contracts for health, summary, receipts, projections, imported
-/// profile/preferences/initiated-document observations, and the source-shaped
-/// cost contract/payment observations. Commands and the wider ERP route
+/// fixed contracts for health, summary, receipts, projections, imported
+/// profile/preferences/initiated-document observations, source-shaped cost
+/// observations, and the expense read/command boundary. The wider ERP route
 /// families remain separate migration gates.
 pub(all) suberror CompanyServiceError {
   InvalidInput(String)
+  CommandRejected(Int, String)
   Database(@postgres.PostgresError)
 } derive(Debug)
 
 ///|
 fn fail(message : String) -> CompanyServiceError {
   CompanyServiceError::InvalidInput(message)
+}
+
+///|
+fn reject(status : Int, message : String) -> CompanyServiceError {
+  CompanyServiceError::CommandRejected(status, message)
 }
 
 ///|
@@ -666,6 +672,953 @@ fn json_number(value : Json, key : String, fallback : Double) -> Double {
     Some(String(text)) => parse_number(text)
     _ => fallback
   }
+}
+
+///|
+struct ExpenseSourceRows {
+  expenses : Array[SourceRow]
+  details : Array[SourceRow]
+  splits : Array[SourceRow]
+  users : Array[SourceRow]
+  units : Array[SourceRow]
+  options : Array[SourceRow]
+  proceedings : Array[SourceRow]
+}
+
+///|
+async fn expense_source_rows() -> ExpenseSourceRows raise CompanyServiceError {
+  {
+    expenses: raw_source_rows("vcb_expense", 500),
+    details: raw_source_rows("cb_expense_detail", 500),
+    splits: raw_source_rows("cb_expense_split", 500),
+    users: raw_source_rows("sys_user", 500),
+    units: raw_source_rows("mu_business_unit", 500),
+    options: raw_source_rows("my_biz_param_option", 500),
+    proceedings: raw_source_rows("vys_proceeding", 500),
+  }
+}
+
+///|
+fn expense_id(row : SourceRow) -> String {
+  json_text(row.payload, "expense_guid", row.record_id)
+}
+
+///|
+fn expense_user_name(users : Array[SourceRow], user_id : String) -> String {
+  for row in users {
+    if json_text(row.payload, "user_id", row.record_id) == user_id {
+      return json_text(
+        row.payload,
+        "emp_name",
+        json_text(row.payload, "user_name", user_id),
+      )
+    }
+  }
+  user_id
+}
+
+///|
+fn expense_unit_name(units : Array[SourceRow], unit_id : String) -> String {
+  if unit_id.is_empty() {
+    return ""
+  }
+  for row in units {
+    if json_text(row.payload, "bu_guid", row.record_id) == unit_id {
+      return json_text(row.payload, "bu_name", unit_id)
+    }
+  }
+  unit_id
+}
+
+///|
+fn expense_option_name(options : Array[SourceRow], code : String) -> String {
+  for option in options {
+    if json_text(option.payload, "param_name", "") == "cost_subject" &&
+      json_text(option.payload, "param_code", "") == code {
+      return json_text(option.payload, "param_value", code)
+    }
+  }
+  code
+}
+
+///|
+fn expense_proceeding_name(
+  proceedings : Array[SourceRow],
+  proceeding_id : String,
+) -> String {
+  for proceeding in proceedings {
+    if proceeding.record_id == proceeding_id ||
+      json_text(proceeding.payload, "proceeding_guid", "") == proceeding_id {
+      return json_text(proceeding.payload, "proceeding_name", proceeding_id)
+    }
+  }
+  proceeding_id
+}
+
+///|
+fn expense_list_item(
+  row : SourceRow,
+  users : Array[SourceRow],
+  units : Array[SourceRow],
+) -> Json {
+  let payload = row.payload
+  let applied_by = json_text(payload, "applied_by", "")
+  let apply_dept = json_text(
+    payload,
+    "apply_dept_guid",
+    json_text(payload, "dept_guid", ""),
+  )
+  Json::object({
+    "expenseGuid": Json::string(expense_id(row)),
+    "expenseCode": Json::string(json_text(payload, "expense_code", "")),
+    "subject": Json::string(json_text(payload, "subject", "")),
+    "applyState": Json::string(json_text(payload, "apply_state", "")),
+    "payState": Json::string(json_text(payload, "pay_state", "")),
+    "expenseAmount": Json::number(json_number(payload, "expense_amount", 0.0)),
+    "offsetAmount": Json::number(json_number(payload, "offset_amount", 0.0)),
+    "payAmount": Json::number(json_number(payload, "pay_amount", 0.0)),
+    "appliedByName": Json::string(expense_user_name(users, applied_by)),
+    "applyDeptName": Json::string(expense_unit_name(units, apply_dept)),
+    "applyDate": Json::string(json_text(payload, "apply_date", "")),
+    "payUnit": Json::string(json_text(payload, "pay_unit", "")),
+    "processInstanceGuid": Json::string(
+      json_text(payload, "process_instance_guid", ""),
+    ),
+    "createdAt": Json::string(json_text(payload, "created_at", "")),
+    "sourceKind": Json::string("imported"),
+  })
+}
+
+///|
+fn expense_coverage(rows : ExpenseSourceRows) -> Json {
+  Json::object({
+    "vcb_expense": Json::number(rows.expenses.length().to_double()),
+    "cb_expense_detail": Json::number(rows.details.length().to_double()),
+    "cb_expense_split": Json::number(rows.splits.length().to_double()),
+    "sys_user": Json::number(rows.users.length().to_double()),
+    "mu_business_unit": Json::number(rows.units.length().to_double()),
+    "my_biz_param_option": Json::number(rows.options.length().to_double()),
+    "vys_proceeding": Json::number(rows.proceedings.length().to_double()),
+  })
+}
+
+///|
+fn expense_list_coverage(rows : ExpenseSourceRows) -> Json {
+  Json::object({
+    "vcb_expense": Json::number(rows.expenses.length().to_double()),
+    "cb_expense_detail": Json::number(rows.details.length().to_double()),
+    "cb_expense_split": Json::number(rows.splits.length().to_double()),
+    "sys_user": Json::number(rows.users.length().to_double()),
+    "mu_business_unit": Json::number(rows.units.length().to_double()),
+  })
+}
+
+///|
+fn expense_list_missing(rows : ExpenseSourceRows) -> Array[Json] {
+  let missing : Array[Json] = []
+  if rows.expenses.is_empty() {
+    missing.push(Json::string("vcb_expense"))
+  }
+  if rows.details.is_empty() {
+    missing.push(Json::string("cb_expense_detail"))
+  }
+  if rows.splits.is_empty() {
+    missing.push(Json::string("cb_expense_split"))
+  }
+  if rows.users.is_empty() {
+    missing.push(Json::string("sys_user"))
+  }
+  if rows.units.is_empty() {
+    missing.push(Json::string("mu_business_unit"))
+  }
+  missing
+}
+
+///|
+fn expense_missing(rows : ExpenseSourceRows) -> Array[Json] {
+  let missing : Array[Json] = []
+  if rows.expenses.is_empty() {
+    missing.push(Json::string("vcb_expense"))
+  }
+  if rows.details.is_empty() {
+    missing.push(Json::string("cb_expense_detail"))
+  }
+  if rows.splits.is_empty() {
+    missing.push(Json::string("cb_expense_split"))
+  }
+  if rows.users.is_empty() {
+    missing.push(Json::string("sys_user"))
+  }
+  if rows.units.is_empty() {
+    missing.push(Json::string("mu_business_unit"))
+  }
+  if rows.options.is_empty() {
+    missing.push(Json::string("my_biz_param_option"))
+  }
+  if rows.proceedings.is_empty() {
+    missing.push(Json::string("vys_proceeding"))
+  }
+  missing
+}
+
+///|
+async fn budget_expenses_response(
+  expense_guid : String?,
+  user_code : String?,
+  apply_state : String?,
+) -> Json? raise CompanyServiceError {
+  let rows = expense_source_rows()
+  let selected_user_id = match user_code {
+    None => None
+    Some(value) if value.is_empty() => None
+    Some(value) => {
+      if !valid_identifier(value) {
+        raise fail("invalid user_code")
+      }
+      match find_user(rows.users, value) {
+        Some(user) => Some(json_text(user.payload, "user_id", user.record_id))
+        None => return None
+      }
+    }
+  }
+  let result : Array[Json] = []
+  for row in rows.expenses {
+    let payload = row.payload
+    if !json_text(payload, "deleted_at", "").is_empty() {
+      continue
+    }
+    let id = expense_id(row)
+    if expense_guid is Some(id_filter) && id != id_filter {
+      continue
+    }
+    if selected_user_id is Some(user_id) &&
+      json_text(payload, "applied_by", "") != user_id {
+      continue
+    }
+    if apply_state is Some(state) &&
+      json_text(payload, "apply_state", "") != state {
+      continue
+    }
+    result.push(expense_list_item(row, rows.users, rows.units))
+  }
+  result.sort_by(fn(left, right) {
+    let date_order = json_text(right, "createdAt", "").lexical_compare(
+      json_text(left, "createdAt", ""),
+    )
+    if date_order == 0 {
+      json_text(right, "expenseGuid", "").lexical_compare(
+        json_text(left, "expenseGuid", ""),
+      )
+    } else {
+      date_order
+    }
+  })
+  Some(
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": Json::array(result),
+      "source_kind": Json::string("imported_or_empty"),
+      "source_coverage": expense_list_coverage(rows),
+      "missing_or_empty_source_tables": Json::array(expense_list_missing(rows)),
+    }),
+  )
+}
+
+///|
+fn expense_detail_item(
+  row : SourceRow,
+  users : Array[SourceRow],
+  units : Array[SourceRow],
+  options : Array[SourceRow],
+  proceedings : Array[SourceRow],
+) -> Json {
+  let payload = row.payload
+  let user_id = json_text(payload, "user_guid", "")
+  let dept_id = json_text(payload, "dept_guid", "")
+  let cost_code = json_text(payload, "cost_subject_code", "")
+  let proceeding_id = json_text(payload, "proceeding_guid", "")
+  let cost_name = expense_option_name(options, cost_code)
+  let proceeding_name = expense_proceeding_name(proceedings, proceeding_id)
+  Json::object({
+    "splitGuid": Json::string(json_text(payload, "split_guid", row.record_id)),
+    "user": Json::object({
+      "userGuid": Json::string(user_id),
+      "userName": Json::string(expense_user_name(users, user_id)),
+    }),
+    "dept": Json::object({
+      "deptGuid": Json::string(dept_id),
+      "deptName": Json::string(expense_unit_name(units, dept_id)),
+    }),
+    "costSubject": Json::object({
+      "code": Json::string(cost_code),
+      "name": Json::string(cost_name),
+    }),
+    "proceeding": if proceeding_id.is_empty() {
+      Json::null()
+    } else {
+      Json::object({
+        "guid": Json::string(proceeding_id),
+        "name": Json::string(proceeding_name),
+      })
+    },
+    "amount": Json::number(json_number(payload, "amount", 0.0)),
+  })
+}
+
+///|
+async fn budget_expense_detail_response(
+  expense_guid : String,
+  user_code : String?,
+) -> Json? raise CompanyServiceError {
+  if !valid_identifier(expense_guid) {
+    raise fail("invalid expense_guid")
+  }
+  let rows = expense_source_rows()
+  let list = budget_expenses_response(Some(expense_guid), user_code, None)
+  let expense = match list {
+    None => return None
+    Some(value) =>
+      match json_field(value, "data") {
+        Some(Array(values)) if values.length() > 0 => Some(values[0])
+        _ => None
+      }
+  }
+  let details : Array[Json] = []
+  for row in rows.details {
+    if json_text(row.payload, "expense_guid", "") == expense_guid {
+      details.push(
+        Json::object({
+          "detailGuid": Json::string(
+            json_text(row.payload, "detail_guid", row.record_id),
+          ),
+          "summary": Json::string(json_text(row.payload, "summary", "")),
+          "amount": Json::number(json_number(row.payload, "amount", 0.0)),
+          "occurDate": Json::string(json_text(row.payload, "occur_date", "")),
+        }),
+      )
+    }
+  }
+  let splits : Array[Json] = []
+  for row in rows.splits {
+    if json_text(row.payload, "expense_guid", "") == expense_guid {
+      splits.push(
+        expense_detail_item(
+          row,
+          rows.users,
+          rows.units,
+          rows.options,
+          rows.proceedings,
+        ),
+      )
+    }
+  }
+  Some(
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": Json::object({
+        "expense": expense.unwrap_or(Json::null()),
+        "details": Json::array(details),
+        "splits": Json::array(splits),
+      }),
+      "source_kind": Json::string("imported_or_empty"),
+      "source_coverage": expense_coverage(rows),
+      "missing_or_empty_source_tables": Json::array(expense_missing(rows)),
+      "authorizing": Json::boolean(false),
+      "persisted": Json::boolean(false),
+      "provider_execution": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+async fn expense_projection_items(
+  expense_guid : String?,
+  max_rows : Int,
+) -> Array[Json] raise CompanyServiceError {
+  let query = if expense_guid is None {
+    "SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'), encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_type, aggregate_id, revision, payload, source_event_id FROM company_aggregate_projection WHERE aggregate_type = 'expense_claim' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT " +
+    max_rows.to_string()
+  } else {
+    let value = expense_guid.unwrap()
+    if !valid_identifier(value) {
+      raise fail("invalid expense_id")
+    }
+    "SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'), encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'expense_claim' AND aggregate_id = " +
+    @postgres.sql_literal(value) +
+    " ORDER BY revision DESC LIMIT " +
+    max_rows.to_string()
+  }
+  let result : Array[Json] = []
+  for line_view in run_sql(query).split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 5)
+      let payload = @json.parse(decode_hex(row[3])) catch {
+        _ => raise fail("invalid expense projection JSON")
+      }
+      result.push(
+        Json::object({
+          "aggregate_type": Json::string(decode_hex(row[0])),
+          "expense_id": Json::string(decode_hex(row[1])),
+          "revision": Json::number(parse_decimal(row[2]).to_double()),
+          "payload": payload,
+          "source_event_id": Json::string(decode_hex(row[4])),
+        }),
+      )
+    }
+  }
+  result
+}
+
+///|
+async fn expense_projection_response(
+  expense_guid : String?,
+) -> (Int, Json) raise CompanyServiceError {
+  let items = expense_projection_items(expense_guid, 500)
+  match expense_guid {
+    None => (200, Json::object({ "items": Json::array(items) }))
+    Some(_) if items.is_empty() =>
+      (404, Json::object({ "error": Json::string("expense not found") }))
+    Some(_) => (200, items[0])
+  }
+}
+
+///|
+fn budget_check_amount(value : Json) -> Double raise CompanyServiceError {
+  match value {
+    Number(number, ..) => number
+    String(text) => parse_number(text)
+    _ => raise reject(422, "split amount must be a decimal number")
+  }
+}
+
+///|
+async fn budget_check_response(body : Json) -> Json raise CompanyServiceError {
+  let splits = match json_field(body, "splits") {
+    Some(Array(values)) => values
+    _ => raise reject(422, "splits must be an array")
+  }
+  let raw = raw_source_rows("cb_cost", 500)
+  let data : Array[Json] = []
+  for split in splits {
+    let code = json_text(
+      split,
+      "costSubjectCode",
+      json_text(split, "cost_subject", ""),
+    )
+    if code.trim().is_empty() {
+      raise reject(422, "costSubjectCode is required")
+    }
+    let amount = match json_field(split, "amount") {
+      Some(value) => budget_check_amount(value)
+      None => {
+        let amount_minor = json_int(split, "amount_minor", -1)
+        if amount_minor < 0 {
+          raise reject(422, "split amount must be non-negative")
+        }
+        amount_minor.to_double() / 100.0
+      }
+    }
+    if amount < 0.0 {
+      raise reject(422, "split amount must be non-negative")
+    }
+    let mut matched : SourceRow? = None
+    for row in raw {
+      let cost_code = json_text(
+        row.payload,
+        "cost_code",
+        json_text(row.payload, "costCode", ""),
+      )
+      let match_prefix = if code.length() < 6 {
+        code
+      } else {
+        code[:6].to_owned()
+      }
+      if cost_code == code || cost_code.has_prefix(match_prefix) {
+        matched = Some(row)
+        break
+      }
+    }
+    match matched {
+      None =>
+        data.push(
+          Json::object({
+            "code": Json::string(code),
+            "amount": Json::number(amount),
+            "matched": Json::boolean(false),
+          }),
+        )
+      Some(row) => {
+        let target = json_number(row.payload, "target_cost", 0.0)
+        let used = json_number(row.payload, "zt_cost", 0.0) +
+          json_number(row.payload, "ht_alter_amount", 0.0) +
+          json_number(row.payload, "dfs_budget", 0.0)
+        let remain = target - used
+        let over = amount > remain
+        data.push(
+          Json::object({
+            "code": Json::string(code),
+            "amount": Json::number(amount),
+            "matched": Json::boolean(true),
+            "costGuid": Json::string(json_text(row.payload, "cost_guid", "")),
+            "costName": Json::string(json_text(row.payload, "cost_name", "")),
+            "target": Json::number(target),
+            "used": Json::number(used),
+            "remain": Json::number(remain),
+            "willOver": Json::boolean(over),
+            "overAmount": Json::number(if over { amount - remain } else { 0.0 }),
+          }),
+        )
+      }
+    }
+  }
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::array(data),
+    "source_kind": Json::string("imported_or_empty"),
+    "source_coverage": Json::object({
+      "cb_cost": Json::number(raw.length().to_double()),
+    }),
+    "missing_or_empty_source_tables": Json::array(
+      if raw.is_empty() {
+        [Json::string("cb_cost")]
+      } else {
+        []
+      },
+    ),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "calculation_only": Json::boolean(true),
+    "budget_consumption": Json::boolean(false),
+  })
+}
+
+///|
+fn expense_required_text(
+  body : Json,
+  key : String,
+  free_text : Bool,
+) -> String raise CompanyServiceError {
+  let value = json_text(body, key, "").trim().to_owned()
+  if value.is_empty() {
+    raise reject(422, key + " is required")
+  }
+  if !free_text && !valid_identifier(value) {
+    raise reject(422, key + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn expense_optional_identifier(
+  body : Json,
+  key : String,
+) -> Json raise CompanyServiceError {
+  match json_field(body, key) {
+    None | Some(Null) => Json::null()
+    Some(String(value)) => {
+      if !value.is_empty() && !valid_identifier(value) {
+        raise reject(422, key + " contains unsupported characters")
+      }
+      Json::string(value)
+    }
+    _ => raise reject(422, key + " must be text")
+  }
+}
+
+///|
+fn expense_positive_amount(body : Json) -> Int raise CompanyServiceError {
+  match json_field(body, "amount_minor") {
+    Some(Number(number, ..)) =>
+      if number > 0.0 && number == number.to_int().to_double() {
+        number.to_int()
+      } else {
+        raise reject(422, "amount_minor must be a positive integer")
+      }
+    _ => raise reject(422, "amount_minor must be a positive integer")
+  }
+}
+
+///|
+fn expense_command_request(
+  command_type : String,
+  expense_guid : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (String, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  if command_type == "create" {
+    let requested_id = json_text(body, "expense_id", "").trim().to_owned()
+    let id = if requested_id.is_empty() {
+      "EXP-" + idempotency_key
+    } else {
+      requested_id
+    }
+    if !valid_identifier(id) {
+      raise reject(422, "expense_id contains unsupported characters")
+    }
+    let employee_id = expense_required_text(body, "employee_id", false)
+    let summary = expense_required_text(body, "summary", true)
+    let currency = expense_required_text(body, "currency", false).to_upper()
+    if currency.length() != 3 {
+      raise reject(422, "currency must be a three-letter code")
+    }
+    for char in currency.iter() {
+      if char < 'A' || char > 'Z' {
+        raise reject(422, "currency must be a three-letter code")
+      }
+    }
+    let amount_minor = expense_positive_amount(body)
+    let request = Json::object({
+      "command_type": Json::string(command_type),
+      "expense_id": Json::string(id),
+      "employee_id": Json::string(employee_id),
+      "summary": Json::string(summary),
+      "amount_minor": Json::number(amount_minor.to_double()),
+      "currency": Json::string(currency),
+      "project_id": expense_optional_identifier(body, "project_id"),
+      "cost_subject": expense_optional_identifier(body, "cost_subject"),
+      "actor_id": Json::string(actor_id),
+    })
+    return (id, request)
+  }
+  let id = match expense_guid {
+    Some(value) if valid_identifier(value) => value
+    _ => raise reject(422, "expense_id is required")
+  }
+  let changes : Map[String, Json] = {}
+  match json_field(body, "subject") {
+    Some(String(value)) if !value.trim().is_empty() =>
+      changes.set("summary", Json::string(value.trim().to_owned()))
+    Some(_) => raise reject(422, "subject must be non-empty text")
+    None =>
+      match json_field(body, "summary") {
+        Some(String(value)) if !value.trim().is_empty() =>
+          changes.set("summary", Json::string(value.trim().to_owned()))
+        Some(_) => raise reject(422, "summary must be non-empty text")
+        None => ()
+      }
+  }
+  match json_field(body, "amount_minor") {
+    Some(Number(number, ..)) =>
+      if number > 0.0 && number == number.to_int().to_double() {
+        changes.set("amount_minor", Json::number(number.to_int().to_double()))
+      } else {
+        raise reject(422, "amount_minor must be a positive integer")
+      }
+    Some(_) => raise reject(422, "amount_minor must be a positive integer")
+    None => ()
+  }
+  for key in ["project_id", "cost_subject"] {
+    match json_field(body, key) {
+      None => ()
+      Some(Null) => changes.set(key, Json::null())
+      Some(String(value)) => {
+        if !value.is_empty() && !valid_identifier(value) {
+          raise reject(422, key + " contains unsupported characters")
+        }
+        changes.set(key, Json::string(value))
+      }
+      Some(_) => raise reject(422, key + " must be text")
+    }
+  }
+  if command_type == "update" && changes.is_empty() {
+    raise reject(422, "expense update requires a mutable field")
+  }
+  let request = Json::object({
+    "command_type": Json::string(command_type),
+    "expense_id": Json::string(id),
+    "reason": Json::string(json_text(body, "reason", "")),
+    "actor_id": Json::string(actor_id),
+    "changes": Json::object(changes),
+  })
+  (id, request)
+}
+
+///|
+async fn existing_expense_command(
+  idempotency_key : String,
+) -> Json? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_record WHERE record_type = 'company_command' AND source_id = " +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    " LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  Some(
+    @json.parse(decode_hex(value)) catch {
+      _ => raise fail("invalid stored company command receipt")
+    },
+  )
+}
+
+///|
+async fn latest_expense_payload(
+  expense_guid : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'expense_claim' AND aggregate_id = " +
+    @postgres.sql_literal(expense_guid) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid expense projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+fn json_equal(left : Json, right : Json) -> Bool {
+  match (left, right) {
+    (Null, Null) => true
+    (True, True) => true
+    (False, False) => true
+    (String(left), String(right)) => left == right
+    (Number(left, ..), Number(right, ..)) => left == right
+    (Array(left), Array(right)) =>
+      if left.length() != right.length() {
+        false
+      } else {
+        let mut equal = true
+        for index in 0..<left.length() {
+          if !json_equal(left[index], right[index]) {
+            equal = false
+          }
+        }
+        equal
+      }
+    (Object(left), Object(right)) =>
+      if left.length() != right.length() {
+        false
+      } else {
+        let mut equal = true
+        left.each((key, value) => {
+          match right.get(key) {
+            Some(other) if json_equal(value, other) => ()
+            _ => equal = false
+          }
+        })
+        equal
+      }
+    _ => false
+  }
+}
+
+///|
+async fn expense_command(
+  command_type : String,
+  expense_guid : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  let (id, request) = expense_command_request(
+    command_type, expense_guid, body, actor_id, idempotency_key,
+  )
+  match existing_expense_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let result = json_field(existing, "result").unwrap_or(Json::null())
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "expense": result,
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_expense_payload(id)
+  if command_type == "create" && current is Some(_) {
+    raise reject(409, "expense already exists")
+  }
+  let (current_payload, current_revision) = match current {
+    Some(value) => value
+    None if command_type != "create" => raise reject(404, "expense not found")
+    None => (Json::null(), 0)
+  }
+  if command_type != "create" {
+    let current_state = json_text(current_payload, "state", "")
+    let expected = if command_type == "update" || command_type == "submit" {
+      "draft"
+    } else if command_type == "approve" || command_type == "reject" {
+      "submitted"
+    } else if command_type == "resubmit" {
+      "rejected"
+    } else {
+      "draft,rejected"
+    }
+    let state_ok = current_state == expected ||
+      (
+        command_type == "void" &&
+        (current_state == "draft" || current_state == "rejected")
+      )
+    if !state_ok {
+      raise reject(
+        409,
+        "expense transition " +
+        command_type +
+        " requires " +
+        expected +
+        ", found " +
+        current_state,
+      )
+    }
+    if command_type == "update" || command_type == "void" {
+      let owner = json_text(current_payload, "employee_id", "")
+      if !owner.is_empty() && owner != actor_id {
+        raise reject(
+          403, "only the expense applicant may update or void this expense",
+        )
+      }
+    }
+  }
+  let event_id = "expense:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let next_state = if command_type == "create" || command_type == "update" {
+    "draft"
+  } else if command_type == "submit" || command_type == "resubmit" {
+    "submitted"
+  } else if command_type == "approve" {
+    "approved"
+  } else if command_type == "reject" {
+    "rejected"
+  } else {
+    "voided"
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let result = Json::object({
+    "expense_id": Json::string(id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "expense_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    @postgres.sql_literal(request_json) +
+    "::jsonb || jsonb_build_object('state', 'draft', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "update" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || (" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb->'changes') || jsonb_build_object('state', 'draft', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  } else if command_type == "void" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', 'voided', 'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("expense." + command_type),
+    "aggregate_type": Json::string("expense_claim"),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('expense_claim', " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "expense": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
 }
 
 ///|
@@ -5103,11 +6056,157 @@ async fn send_json(
 }
 
 ///|
+async fn read_json_body(body : &@io.Reader) -> Json raise CompanyServiceError {
+  let bytes = body.read_all() catch {
+    _ => raise reject(400, "unable to read request body")
+  }
+  let data = bytes.binary()
+  if data.length() > 128 * 1024 {
+    raise reject(413, "request body is too large")
+  }
+  if data.is_empty() {
+    return Json::object({})
+  }
+  @json.parse(@encoding/utf8.decode(data)) catch {
+    _ => raise reject(400, "request body must be valid JSON")
+  }
+}
+
+///|
+fn actor_hmac_hex(secret : String, actor : String) -> String {
+  @crypto.bytes_to_hex_string(
+    @crypto.hmac(
+      @crypto.SHA256::new(),
+      @encoding/utf8.encode(secret),
+      @encoding/utf8.encode(actor),
+    ),
+  )
+}
+
+///|
+fn constant_time_equal(left : String, right : String) -> Bool {
+  if left.length() != right.length() {
+    return false
+  }
+  let mut difference = 0
+  for index in 0..<left.length() {
+    difference = difference |
+      (
+        left.get_char(index).unwrap_or('\u0000').to_int() ^
+        right.get_char(index).unwrap_or('\u0000').to_int()
+      )
+  }
+  difference == 0
+}
+
+///|
+fn command_actor(
+  request : @http.Request,
+  actor_signing_secret : String,
+) -> String raise CompanyServiceError {
+  let actor = header(request, "X-Moonproj-Actor")
+  let signature = header(request, "X-Moonproj-Actor-Signature")
+  if !valid_identifier(actor) ||
+    actor_signing_secret.is_empty() ||
+    !constant_time_equal(signature, actor_hmac_hex(actor_signing_secret, actor)) {
+    raise reject(403, "signed actor assertion is required")
+  }
+  actor
+}
+
+///|
+fn expense_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post && path == "/api/company/expenses" {
+    return Some(("create", None))
+  }
+  let prefix = "/api/company/expenses/"
+  if request_method is @http.Put && path.has_prefix(prefix) {
+    let id = path[prefix.length():].to_owned()
+    if valid_identifier(id) {
+      return Some(("update", Some(id)))
+    }
+  }
+  if request_method is @http.Delete && path.has_prefix(prefix) {
+    let id = path[prefix.length():].to_owned()
+    if valid_identifier(id) {
+      return Some(("void", Some(id)))
+    }
+  }
+  if request_method is @http.Post && path.has_prefix(prefix) {
+    let rest = path[prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 && valid_identifier(rest[0].to_owned()) {
+      let command = match rest[1].to_owned() {
+        "submit" | "submit-for-approval" => "submit"
+        "approve" => "approve"
+        "reject" => "reject"
+        "resubmit" => "resubmit"
+        "void" => "void"
+        _ => ""
+      }
+      if !command.is_empty() {
+        return Some((command, Some(rest[0].to_owned())))
+      }
+    }
+  }
+  None
+}
+
+///|
+fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
+  match error {
+    CompanyServiceError::CommandRejected(status, message) =>
+      (status, Json::object({ "error": Json::string(message) }))
+    CompanyServiceError::InvalidInput(message) =>
+      (400, Json::object({ "error": Json::string(message) }))
+    CompanyServiceError::Database(_) =>
+      (
+        503,
+        Json::object({ "error": Json::string("company service query failed") }),
+      )
+  }
+}
+
+///|
 async fn route(
   path : String,
   query : String,
   expected_schema_version : Int,
 ) -> (Int, Json) raise CompanyServiceError {
+  if path == "/api/company/expenses" {
+    let expense_guid = query_alias_decoded(query, "expenseGuid", "expense_id")
+    return expense_projection_response(expense_guid)
+  }
+  let expense_prefix = "/api/company/expenses/"
+  if path.has_prefix(expense_prefix) {
+    let expense_guid = path[expense_prefix.length():].to_owned()
+    return expense_projection_response(Some(expense_guid))
+  }
+  if path == "/api/company/budget/expenses" {
+    let result = budget_expenses_response(
+      query_alias_decoded(query, "expenseGuid", "expense_guid"),
+      query_alias_decoded(query, "userCode", "user_code"),
+      query_alias_decoded(query, "applyState", "apply_state"),
+    )
+    return match result {
+      Some(value) => (200, value)
+      None => (404, Json::object({ "error": Json::string("user not found") }))
+    }
+  }
+  let budget_expense_prefix = "/api/company/budget/expenses/"
+  if path.has_prefix(budget_expense_prefix) {
+    let expense_guid = path[budget_expense_prefix.length():].to_owned()
+    let result = budget_expense_detail_response(
+      expense_guid,
+      query_alias_decoded(query, "userCode", "user_code"),
+    )
+    return match result {
+      Some(value) => (200, value)
+      None => (404, Json::object({ "error": Json::string("user not found") }))
+    }
+  }
   if path == "/api/company/source/budget/users-in-bu" {
     let bu_guid = query_alias_decoded(query, "buGuid", "bu_guid")
     return (200, budget_source_users(bu_guid))
@@ -5331,9 +6430,12 @@ async fn route(
         Json::object({
           "ok": Json::boolean(true),
           "target": Json::string("postgresql"),
-          "read_only": Json::boolean(true),
+          "read_only": Json::boolean(false),
           "capabilities": Json::array([
             Json::string("read_model"),
+            Json::string("expense_command"),
+            Json::string("expense_detail_read"),
+            Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),
             Json::string("initiated_document_observation_read"),
@@ -5408,25 +6510,15 @@ async fn route(
 ///|
 async fn handle(
   request : @http.Request,
+  body_reader : &@io.Reader,
   conn : @http.ServerConnection,
   token : String,
+  actor_signing_secret : String,
   require_forwarded_tls : Bool,
   expected_schema_version : Int,
 ) -> Unit {
   if request.meth is @http.Options {
     send_json(conn, request.meth, 204, Json::null(), false)
-    return
-  }
-  if !(request.meth is @http.Get) && !(request.meth is @http.Head) {
-    send_json(
-      conn,
-      request.meth,
-      405,
-      Json::object({
-        "error": Json::string("read-only authenticated GET surface"),
-      }),
-      false,
-    )
     return
   }
   let authorization_status = auth_status(request, token, require_forwarded_tls)
@@ -5448,20 +6540,86 @@ async fn handle(
     )
     return
   }
-  let result = route(
-    path_only(request.path),
-    request.path,
-    expected_schema_version,
-  ) catch {
-    error => {
-      println("company native service request failed: \{to_repr(error)}")
-      (
-        500,
-        Json::object({ "error": Json::string("company service query failed") }),
-      )
+  let path = path_only(request.path)
+  if request.meth is @http.Get || request.meth is @http.Head {
+    let result = route(path, request.path, expected_schema_version) catch {
+      error => service_error_response(error)
     }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
   }
-  send_json(conn, request.meth, result.0, result.1, false)
+  if request.meth is @http.Post && path == "/api/company/budget-check" {
+    let _ = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let result = service_error_response(error)
+        send_json(conn, request.meth, result.0, result.1, false)
+        return
+      }
+    }
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let result = service_error_response(error)
+        send_json(conn, request.meth, result.0, result.1, false)
+        return
+      }
+    }
+    let result = budget_check_response(body) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, result, false)
+    return
+  }
+  match expense_command_spec(request.meth, path) {
+    Some((command_type, expense_guid)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let result = service_error_response(error)
+          send_json(conn, request.meth, result.0, result.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let result = service_error_response(error)
+          send_json(conn, request.meth, result.0, result.1, false)
+          return
+        }
+      }
+      let result = expense_command(
+        command_type, expense_guid, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+    }
+    None =>
+      send_json(
+        conn,
+        request.meth,
+        405,
+        Json::object({
+          "error": Json::string(
+            "authenticated company command is not implemented",
+          ),
+        }),
+        false,
+      )
+  }
 }
 
 ///|
@@ -5518,6 +6676,12 @@ async fn main {
     println("company service token environment variable is not set")
     @sys.exit(2)
   }
+  let actor_signing_secret_env = option(args, "--actor-signing-secret-env").unwrap_or(
+    "MOONPROJ_ACTOR_SIGNING_SECRET",
+  )
+  let actor_signing_secret = @env.get_env_var(actor_signing_secret_env).unwrap_or(
+    "",
+  )
   let host = option(args, "--host").unwrap_or(
     @env.get_env_var("COMPANY_SERVICE_HOST").unwrap_or("127.0.0.1"),
   )
@@ -5546,8 +6710,11 @@ async fn main {
   }
   println("company MoonBit service listening on http://" + host + ":" + port)
   server.run_forever(
-    (request, _body, conn) => {
-      handle(request, conn, token, require_forwarded_tls, schema_version)
+    (request, body, conn) => {
+      handle(
+        request, body, conn, token, actor_signing_secret, require_forwarded_tls,
+        schema_version,
+      )
     },
     allow_failure=true,
   )

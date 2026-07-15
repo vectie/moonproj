@@ -86,16 +86,20 @@ The native runtime slice is available without Python through
 development HTTP adapter. The native read-model HTTP server and CLI are
 intentionally read-only and bounded; the authenticated boundary is supplied
 separately by the native company service and gateway.
-The native authenticated read slice is available through
+The native authenticated company service is available through
 `scripts/company_postgres_service.sh`. It requires `MOONPROJ_SERVICE_TOKEN`,
 supports `--require-forwarded-tls`, and currently serves only the capability
-list documented in `IMPLEMENTATION_STATUS.md`. The broad
+list documented in `IMPLEMENTATION_STATUS.md`, including imported expense
+list/detail, calculation-only budget-check, and the idempotent native expense
+command lifecycle. Set `MOONPROJ_ACTOR_SIGNING_SECRET` (shared with the native
+gateway) before enabling command routes; unsigned actor assertions fail closed.
+The broad
 `scripts/company_postgres_service.py` remains frozen bridge evidence while its
 remaining routes and command lifecycles are ported. The frozen Python bridge
 keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a bearer
-token from an environment variable and forwarded TLS, exposes the four fixed
-reads, and provides the local expense, contract, and payment-application
-command verticals documented in `ERP_EXPENSE_RUNTIME_VERTICAL.md`,
+token from an environment variable and forwarded TLS, and provides the
+remaining comparison-only contract and payment-application command verticals
+documented in `ERP_EXPENSE_RUNTIME_VERTICAL.md`,
 `ERP_CONTRACT_RUNTIME_VERTICAL.md`, and
 `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. Put the native
 `scripts/company_postgres_gateway.sh` in front of the browser to establish the
@@ -105,6 +109,9 @@ native forwarding, command allow-list rejection, and trusted-upstream identity
 against PostgreSQL. The Python gateway and service smokes remain frozen bridge
 evidence only; managed provider deployment and token issuer/audience
 validation remain separate gates.
+The shell-only `scripts/company_postgres_expense_smoke.sh` verifies native
+expense reads, replay, lifecycle transitions, and the non-persisting budget
+preview.
 The credential-free `company_production_service_check.py` now validates the
 service boundary separately: bounded reusable pool, schema-matched readiness,
 private TLS-terminated binding, authentication, fixed read endpoints, and no
