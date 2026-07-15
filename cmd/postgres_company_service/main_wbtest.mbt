@@ -352,7 +352,7 @@ test "native company service maps sales customer command paths" {
       @http.Delete,
       "/api/company/sales/customers/CUS-1",
     )
-    is None,
+    is Some(("delete", Some("CUS-1"))),
   )
   let request = sales_customer_create_request(
     @json.parse(

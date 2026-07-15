@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_candidate") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_command") and index("source_sales_customer_delete_command") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -209,10 +209,17 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
-  -H 'Idempotency-Key: boundary-customer-delete' \
-  "http://127.0.0.1:$PORT/api/company/sales/customers/customer-boundary-1")
-test "$status" = 409
-/usr/bin/jq -e '.code == 48001 and .source_kind == "sales_customer_delete_candidate" and .data.deleted == false' "$TMP_DIR/customer.json" >/dev/null
+  -H "Idempotency-Key: boundary-customer-delete-$SMOKE_SUFFIX" \
+  "http://127.0.0.1:$PORT/api/company/sales/customers/$CUSTOMER_ID")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .customer.deleted == true and .customer.state == "deleted" and .persisted == true and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/customer.json" >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer-replay-delete.json" -w '%{http_code}' -X DELETE \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H "Idempotency-Key: boundary-customer-delete-$SMOKE_SUFFIX" \
+  "http://127.0.0.1:$PORT/api/company/sales/customers/$CUSTOMER_ID")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .customer.deleted == true' "$TMP_DIR/customer-replay-delete.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \

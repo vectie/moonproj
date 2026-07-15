@@ -40,8 +40,10 @@ Customer writes now have the same signed local command boundary:
 - `PUT /api/company/sales/customers/:id` and its `/source` alias update mutable
   customer fields and merge source-shaped readback.
 
-Imported customer rows remain read-only, and destructive customer deletion is
-still an explicit 409 policy gate.
+Imported customer rows remain read-only. `DELETE
+/api/company/sales/customers/:id` and its `/source` alias now tombstone
+command-owned customers with signed replay/audit evidence; imported customer
+deletion remains rejected and never mutates source data.
 
 Subscription writes now have a bounded local command boundary:
 
@@ -137,9 +139,8 @@ idempotency, while revenue commands also require authority, idempotency, and
 actor/scope matching; all only create local projections and never release cash
 or post accounting. Sales-agreement writes remain explicit authenticated
 candidates until their command projection is ported. Subscription conversion,
-mortgage release, and refund approval leave downstream contract/revenue
-reconciliation pending. The source customer delete action now
-returns an authenticated `sales_customer_delete_candidate` 409 boundary
-because the target deliberately exposes archive rather than destructive
-deletion. These command mappings are local evidence only: source identity
+ mortgage release, and refund approval leave downstream contract/revenue
+reconciliation pending. The source customer delete action now maps to a
+command-owned tombstone with imported-row protection. These command mappings
+are local evidence only: source identity
 mapping, browser acceptance, and sales/finance owner approval remain open.

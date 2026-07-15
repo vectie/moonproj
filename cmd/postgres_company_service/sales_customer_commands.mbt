@@ -21,6 +21,12 @@ fn sales_customer_command_spec(
     "/api/company/sales/customers/", "/api/company/source/sales/customers/",
   ]
   for prefix in prefixes {
+    if request_method is @http.Delete && path.has_prefix(prefix) {
+      let id = path[prefix.length():].to_owned()
+      if valid_identifier(id) {
+        return Some(("delete", Some(id)))
+      }
+    }
     if request_method is @http.Put && path.has_prefix(prefix) {
       let id = path[prefix.length():].to_owned()
       if valid_identifier(id) {
@@ -197,7 +203,9 @@ async fn sales_customer_command(
   actor_id : String,
   idempotency_key : String,
 ) -> (Int, Json) raise CompanyServiceError {
-  if command_type != "create" && command_type != "update" {
+  if command_type != "create" &&
+    command_type != "update" &&
+    command_type != "delete" {
     raise reject(404, "unsupported sales customer command")
   }
   if !valid_identifier(idempotency_key) {
@@ -205,12 +213,27 @@ async fn sales_customer_command(
   }
   let request = if command_type == "create" {
     sales_customer_create_request(body, actor_id, idempotency_key)
-  } else {
+  } else if command_type == "update" {
     let id = match customer_id {
       Some(value) => value
       None => raise reject(422, "customer_guid is required")
     }
     sales_customer_update_request(id, body, actor_id)
+  } else {
+    let id = match customer_id {
+      Some(value) => value
+      None => raise reject(422, "customer_guid is required")
+    }
+    if !valid_identifier(id) {
+      raise reject(422, "customer_guid is required")
+    }
+    Json::object({
+      "command_type": Json::string("delete"),
+      "customer_guid": Json::string(id),
+      "state": Json::string("deleted"),
+      "deleted_at": Json::string("pending"),
+      "actor_id": Json::string(actor_id),
+    })
   }
   let id = json_text(request, "customer_guid", "")
   match existing_company_command(idempotency_key) {
@@ -285,7 +308,7 @@ async fn sales_customer_command(
     ",'updated_by'," +
     @postgres.sql_literal(actor_id) +
     ",'state','active')"
-  } else {
+  } else if command_type == "update" {
     @postgres.sql_literal(current_payload.stringify()) +
     "::jsonb || " +
     @postgres.sql_literal(request.stringify()) +
@@ -296,6 +319,15 @@ async fn sales_customer_command(
     ") || coalesce(" +
     @postgres.sql_literal(request.stringify()) +
     "::jsonb->'changes','{}'::jsonb)"
+  } else {
+    @postgres.sql_literal(current_payload.stringify()) +
+    "::jsonb || jsonb_build_object('state','deleted','deleted_at'," +
+    @postgres.sql_literal(event_id) +
+    ",'source_kind','command','event_id'," +
+    @postgres.sql_literal(event_id) +
+    ",'updated_by'," +
+    @postgres.sql_literal(actor_id) +
+    ")"
   }
   let result = Json::object({
     "customerGuid": Json::string(id),
@@ -307,7 +339,14 @@ async fn sales_customer_command(
       },
     ),
     "aggregate_id": Json::string(id),
-    "state": Json::string("active"),
+    "state": Json::string(
+      if command_type == "delete" {
+        "deleted"
+      } else {
+        "active"
+      },
+    ),
+    "deleted": Json::boolean(command_type == "delete"),
     "revision": Json::number(next_revision.to_double()),
     "event_id": Json::string(event_id),
     "audit_id": Json::string(audit_id),
