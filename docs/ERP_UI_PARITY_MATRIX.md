@@ -218,7 +218,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `dashboard` | `GET` | `/project/:projGuid/anomalies` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/v2/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
 | `dashboard` | `GET` | `/v3/group` | `/dashboard`, `/dashboard-v3`, `/cockpit` | `connected_dashboard_read` | `accept_browser_dashboard_scenario_and_production_identity` |
-| `export` | `POST` | `/excel` | — | `not_connected` | `implement_authenticated_command_and_audit` |
+| `export` | `POST` | `/excel` | `/api/company/export/excel` | `connected_report_export` | `accept_browser_report_export_scenario_and_owner` |
 | `fund` | `GET` | `/plans` | `/fund/plan` | `connected_fund_read` | `accept_browser_fund_scenario_and_production_identity` |
 | `fund` | `POST` | `/plans` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |
 | `fund` | `PUT` | `/plans/:guid` | `/fund/plan` | `connected_fund_command_form` | `accept_browser_fund_command_scenario_and_finance_owner` |

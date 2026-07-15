@@ -13986,6 +13986,29 @@ async fn send_json(
 }
 
 ///|
+async fn send_bytes(
+  conn : @http.ServerConnection,
+  request_method : @http.RequestMethod,
+  status : Int,
+  payload : Bytes,
+  content_type : String,
+  content_disposition : String,
+) -> Unit {
+  conn.send_response(status, status_reason(status), extra_headers={
+    "Content-Type": content_type,
+    "Content-Disposition": content_disposition,
+    "Content-Length": payload.length().to_string(),
+    "Cache-Control": "no-store",
+  })
+  if request_method is @http.Head {
+    conn.end_response()
+    return
+  }
+  conn.write(payload)
+  conn.end_response()
+}
+
+///|
 async fn read_json_body(body : &@io.Reader) -> Json raise CompanyServiceError {
   let bytes = body.read_all() catch {
     _ => raise reject(400, "unable to read request body")
@@ -15709,6 +15732,7 @@ async fn route(
             Json::string("report_template_read"),
             Json::string("report_template_command"),
             Json::string("report_template_run"),
+            Json::string("report_export_xlsx"),
             Json::string("report_share_command"),
             Json::string("report_share_public_read"),
             Json::string("warning_observation_read"),
@@ -15833,6 +15857,31 @@ async fn handle(
         ),
       }),
       authorization_status == 401,
+    )
+    return
+  }
+  if request.meth is @http.Post && path == "/api/company/export/excel" {
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = xlsx_export(body) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_bytes(
+      conn,
+      request.meth,
+      200,
+      result.1,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "attachment; filename=\"" + result.0 + "\"",
     )
     return
   }

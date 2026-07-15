@@ -849,8 +849,12 @@ and delete now use command-owned `report_template` projections with
 idempotency/audit receipts; template run validates the same whitelist and
 evaluates imported JSON envelopes in memory with `sql_executed=false`. Imported
 templates remain read-only and no report command changes provider, cash,
-accounting, or tax state. Export, production identity, browser acceptance, and
-report-owner approval remain separate gates.
+accounting, or tax state. Native `POST /api/company/export/excel` now emits a
+source-compatible multi-sheet XLSX with sanitized names, bounded 20-sheet / one
+million-cell / 32KB-cell limits, and a pure MoonBit ZIP/XML writer; the shell
+export smoke validates headers, ZIP integrity, Unicode values, and rejection of
+empty sheets. PDF export, production identity, browser acceptance, managed
+serving, and report-owner approval remain separate gates.
 
 **Next-wave source audit (2026-07-14).** The route register initially had 56
 source `GET`/`HEAD` handlers that were not marked connected. After the
@@ -1284,8 +1288,10 @@ same table/field/operator allow-list and filters imported JSON envelopes in
 memory, returning `sql_executed=false` and explicit source coverage. The
 shell-only `scripts/company_postgres_report_template_smoke.sh` proves
 metadata, create/replay, merged readback, filtered execution, delete, and
-tombstone behavior. CSV/PDF export, production identity, browser acceptance,
-and report-owner approval remain separate gates.
+tombstone behavior. Native XLSX export is covered by
+`scripts/company_postgres_report_export_smoke.sh`; PDF export, production
+identity, browser acceptance, managed serving, and report-owner approval remain
+separate gates.
 
 **Report-share command checkpoint (2026-07-15).** Native MoonBit now ports the
 bounded share lifecycle from `share.js`: signed create/list/revoke commands
@@ -1414,7 +1420,7 @@ actions, Excel upload/import activation, CBS budget-reservation/
 mutation surfaces, warning scans/provider actions, attachment binary/OCR
 operations, notification/provider actions, RBAC password/identity writes and
 production authorization binding, source workflow-engine
-synchronization/full delegation semantics, report-builder export and production
+synchronization/full delegation semantics, report-builder PDF export and production
 share-credential/managed-serving policy, and the remaining investment/cash/
 provider effects.
 Those surfaces stay explicitly gated rather than being represented by

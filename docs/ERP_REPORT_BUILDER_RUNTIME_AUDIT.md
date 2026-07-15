@@ -30,7 +30,14 @@ validates the same table/column/operator whitelist and evaluates imported JSON
 envelopes in memory with `sql_executed=false`; it never accepts raw SQL,
 invokes a provider, changes budget/accounting/cash/tax state, or persists
 report results. The pure-shell PostgreSQL smoke covers create, replay, run,
-delete, and tombstone readback. CSV/PDF export, production identity, browser
+delete, and tombstone readback. Native `POST /api/company/export/excel` accepts
+the source-shaped `filename`/`sheets`/`columns`/`rows` contract and emits a
+valid multi-sheet XLSX with a pure MoonBit ZIP/XML writer. It enforces 20
+sheets, one million cells, and 32KB cell limits, sanitizes workbook/sheet
+names, preserves text/numeric values and basic styles, and has no SQL,
+provider, cash, accounting, or tax effect. The export smoke validates headers,
+ZIP integrity, workbook parts, Unicode/text/numeric content, and empty-sheet
+rejection. PDF export, production identity, managed serving, browser
 acceptance, and report-owner acceptance remain separate gates.
 
 Command paths:
@@ -38,3 +45,4 @@ Command paths:
 - `POST /api/company/reports/templates`
 - `POST /api/company/reports/templates/run`
 - `DELETE /api/company/reports/templates/:id`
+- `POST /api/company/export/excel`
