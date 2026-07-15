@@ -20,12 +20,12 @@ mkdir -p "$WORK_DIR"
 rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 
 EVIDENCE_MAPPING="$WORK_DIR/task-state-evidence-mapping.json"
-python3 "$SCRIPT_DIR/erp_mapping_variant.py" \
+"$SCRIPT_DIR/erp_mapping_variant.sh" \
   "$MAPPING_PATH" "$EVIDENCE_MAPPING" \
   "task-state-exception-evidence-v1-review-001" >/dev/null
-python3 "$SCRIPT_DIR/erp_task_state_promotion_plan.py" \
+"$SCRIPT_DIR/erp_task_state_promotion_plan.sh" \
   "$EXPORT_DIR" "$EVIDENCE_MAPPING" "$WORK_DIR/task-state-plan.json"
-python3 "$SCRIPT_DIR/erp_task_state_exception_review.py" \
+"$SCRIPT_DIR/erp_task_state_exception_review.sh" \
   "$WORK_DIR/task-state-plan.json" "$WORK_DIR/task-state-exception-review.json"
 moon run --target native cmd/task_state_evidence -- \
   "$WORK_DIR/task-state-exception-review.json" \

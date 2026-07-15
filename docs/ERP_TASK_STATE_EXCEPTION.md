@@ -8,7 +8,7 @@ The source fixture reports two child task states for `proj-0001` that depend on
 completed or progressing target tasks would violate the target dependency
 invariant.
 
-`scripts/erp_task_state_exception_review.py` consumes the full task-state plan
+`scripts/erp_task_state_exception_review.sh` consumes the full task-state plan
 and emits `task-state-exception-review.json` with the observed rows, exact
 dependency conflicts, and empty decision fields. The allowed decisions are:
 

@@ -400,7 +400,7 @@ history is not compatible with the target dependency invariant and remains
 typed evidence until an explicit exception mapping is approved.
 The full task-state plan now also emits a review-only exception artifact with
 the two `proj-0001` dependency conflicts and empty owner decision fields;
-`scripts/erp_task_state_exception_review.py` never repairs or authorizes those
+the native `scripts/erp_task_state_exception_review.sh` review never repairs or authorizes those
 states automatically. See [ERP_TASK_STATE_EXCEPTION.md](ERP_TASK_STATE_EXCEPTION.md).
 `scripts/erp_investment_promotion_plan.py` now promotes the fixture's one
 investment model and 26 indexes through `import_investment_models`, keeping
@@ -428,7 +428,7 @@ target mappings remain quarantined and redacted network fields stay excluded.
 `expense_proceeding` catalog through the local parameter API under explicit
 principal/scope grants; values remain opaque until a later CBS/accounting or
 expense-domain map, and proceeding metadata remains source evidence.
-`scripts/erp_task_state_promotion_plan.py` simulates dependency completion:
+the native `scripts/erp_task_state_promotion_plan.sh` simulates dependency completion:
 the full fixture quarantines two child states for `proj-0001`, while a clean
 `proj-0002` plan replays its two task states through the authority-bearing
 importer.
@@ -443,7 +443,7 @@ importer.
 | `proj_lifecycle_stage` | Lifecycle-stage catalog evidence | `migration/erp` + `cmd/promote` + `persistence/store` | Seven source catalog rows are preserved as typed evidence; target lifecycle semantics remain governed by the explicit stage map. |
 | project and task-plan snapshots | Project persistence | `operations/project` + `persistence/store` | Lifecycle, task, dependency, planned-cost, and progress snapshots serialize as revisioned projections. |
 | `jd_task`, `jd_task_report` | Project plan, task dependencies, and progress | `operations/project` + `operations/delivery` + `migration/erp` + `cmd/promote` | The real fixture promotes 7/2 dependency-ordered task structures; all 9 source task snapshots and the report are also preserved as typed evidence. Clean `proj-0002` replays 2 states, while two `proj-0001` child states remain quarantined because their parent is still in progress; the separate task-state evidence cohort durably preserves that exception without target mutation. |
-| `jd_task` task-state exception | Observed dependency conflict evidence | `scripts/erp_task_state_promotion_plan.py` + `scripts/erp_task_state_exception_review.py` + `cmd/task_state_evidence` + `persistence/store` | One undecided `proj-0001` exception becomes a `project_task_state_observation` projection containing all observed rows and exact parent conflicts. `decision_required=true` and `target_state_mutated=false`; owner repair or acceptance remains separate. |
+| `jd_task` task-state exception | Observed dependency conflict evidence | `scripts/erp_task_state_promotion_plan.sh` + `cmd/task_state_promotion_plan` + `scripts/erp_task_state_exception_review.sh` + `cmd/task_state_exception_review` + `cmd/task_state_evidence` + `persistence/store` | One undecided `proj-0001` exception becomes a `project_task_state_observation` projection containing all observed rows and exact parent conflicts. `decision_required=true` and `target_state_mutated=false`; owner repair or acceptance remains separate. |
 | `jd_task_report` | Task progress report evidence and draft delivery intake | `operations/delivery` + `migration/erp` + `cmd/delivery_progress` + `cmd/delivery_recognition` + `persistence/store` | One redacted report remains a `typed_evidence` projection and, only with an explicit project/principal/value/evidence map, becomes one `Draft` `progress_report` projection. A separate reviewed acceptance cohort can create a pending-posting `delivery_recognition` projection with acceptance evidence; posting, cash, tax, and task-state mutation remain separate. |
 | Reconciled domain sections | Consolidated management/reporting control totals | `finance/reconciliation` + `finance/reporting` + `cmd/consolidated_report` + `persistence/store` | Balanced section reports sharing one currency and source snapshot combine into one `consolidated_report` projection with section totals and explicit non-posting cash/period/tax controls. |
 | `proj_progress`, `proj_output` | Evidence-backed progress and delivery acceptance | `operations/delivery` | Progress submission/acceptance and deliverable remediation states implemented. |

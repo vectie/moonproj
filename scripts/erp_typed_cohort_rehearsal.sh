@@ -23,7 +23,7 @@ run_cohort() {
   apply="$WORK_DIR/$label-projection-apply.json"
   parity="$WORK_DIR/$label-projection-parity.json"
 
-  "$SCRIPT_DIR/erp_mapping_variant.py" \
+  "$SCRIPT_DIR/erp_mapping_variant.sh" \
     "$MAPPING_PATH" "$variant" "erp-typed-$label-v1-review-001" >/dev/null
   "$SCRIPT_DIR/$planner" "$EXPORT_DIR" "$variant" "$plan"
   echo "${label}_plan=$plan"
@@ -50,9 +50,9 @@ run_task_state_clean() {
   apply="$WORK_DIR/$label-projection-apply.json"
   parity="$WORK_DIR/$label-projection-parity.json"
 
-  "$SCRIPT_DIR/erp_mapping_variant.py" \
+  "$SCRIPT_DIR/erp_mapping_variant.sh" \
     "$MAPPING_PATH" "$variant" "erp-typed-task-state-project2-v1-review-001" >/dev/null
-  "$SCRIPT_DIR/erp_task_state_promotion_plan.py" \
+  "$SCRIPT_DIR/erp_task_state_promotion_plan.sh" \
     "$EXPORT_DIR" "$variant" "$plan" --project-id proj-0002
   echo "${label}_plan=$plan"
   moon run --target native cmd/promote -- "$plan" "$receipt"
@@ -72,15 +72,15 @@ run_task_state_clean
 # state remains untouched, but the undecided conflict is durably preserved as
 # non-authorizing evidence so the migration does not lose the source context.
 TASK_STATE_EVIDENCE_MAPPING="$WORK_DIR/task-state-exception-evidence-mapping.json"
-"$SCRIPT_DIR/erp_mapping_variant.py" \
+  "$SCRIPT_DIR/erp_mapping_variant.sh" \
   "$MAPPING_PATH" "$TASK_STATE_EVIDENCE_MAPPING" \
   "erp-typed-task-state-exception-evidence-v1-review-001" >/dev/null
 TASK_STATE_REVIEW_PLAN="$WORK_DIR/task-state-review-plan.json"
-"$SCRIPT_DIR/erp_task_state_promotion_plan.py" \
+  "$SCRIPT_DIR/erp_task_state_promotion_plan.sh" \
   "$EXPORT_DIR" "$TASK_STATE_EVIDENCE_MAPPING" "$TASK_STATE_REVIEW_PLAN"
 echo "task_state_review_plan=$TASK_STATE_REVIEW_PLAN"
 TASK_STATE_EXCEPTION_REVIEW="$WORK_DIR/task-state-exception-review.json"
-"$SCRIPT_DIR/erp_task_state_exception_review.py" \
+  "$SCRIPT_DIR/erp_task_state_exception_review.sh" \
   "$TASK_STATE_REVIEW_PLAN" "$TASK_STATE_EXCEPTION_REVIEW"
 echo "task_state_exception_review=$TASK_STATE_EXCEPTION_REVIEW"
 TASK_STATE_EVIDENCE_RECEIPT="$WORK_DIR/task-state-exception-evidence-promotion.json"

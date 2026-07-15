@@ -19,9 +19,11 @@ source task rows
 
 ## Executable boundary
 
-- `scripts/erp_task_state_promotion_plan.py` derives the full mixed plan and
+- `scripts/erp_task_state_promotion_plan.sh` (native `cmd/task_state_promotion_plan`)
+  derives the full mixed plan and
   retains the two project-1 dependency conflicts as quarantined items.
-- `scripts/erp_task_state_exception_review.py` turns those conflicts into a
+- `scripts/erp_task_state_exception_review.sh` (native
+  `cmd/task_state_exception_review`) turns those conflicts into a
   review artifact with observed rows and empty decision fields.
 - `cmd/task_state_evidence` accepts only that undecided, cutover-disabled
   review artifact and emits a native domain receipt with one

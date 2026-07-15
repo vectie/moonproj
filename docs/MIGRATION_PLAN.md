@@ -2146,6 +2146,16 @@ Execute the remainder in this order:
     secret-key rejection, and the exact sales-cohort plan envelope. Collection,
     refund cash, revenue recognition, accounting, and period close remain
     separate gates.
+3a.31. **Native task-state exception planners (2026-07-16).**
+    `cmd/mapping_variant`, `cmd/task_state_promotion_plan`, and
+    `cmd/task_state_exception_review`, exposed by their shell wrappers, now
+    replace the Python mapping-variant, dependency-plan, and exception-review
+    steps in the typed/task-state rehearsals. The native path preserves source
+    snapshot identity, half-even progress normalization, deterministic task
+    ordering, dependency/status quarantine reasons, observed rows, exact
+    dependency conflicts, and the undecided review envelope. It remains
+    evidence-only: task-state mutation, dependency repair, authority, cash,
+    accounting, and cutover approval remain separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

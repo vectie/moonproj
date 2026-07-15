@@ -228,7 +228,7 @@ options plus an `expense_proceeding` dictionary with 3 options sourced from
 treated as CBS subjects, accounts, tax codes, expense state, or authority
 rules; proceeding manager/department/cost metadata remains source evidence.
 
-Task-state replay uses `scripts/erp_task_state_promotion_plan.py`. It simulates
+Task-state replay uses `scripts/erp_task_state_promotion_plan.sh`. It simulates
 target dependency completion before promotion. The full fixture quarantines
 `proj-0001` because `task-003-1` and `task-003-2` report completion/progress
 while `task-003` remains in progress. The clean `proj-0002` cohort replays 2
