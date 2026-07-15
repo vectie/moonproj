@@ -1213,6 +1213,19 @@ panels; attachment download,
 PostgreSQL backup export, and supplier signature checking have explicit
 boundaries. None is an accepted production capability.
 
+**Investment lifecycle command checkpoint (2026-07-15).** Native MoonBit now
+translates the low-risk investment version/index lifecycle handlers: create,
+activate, and delete local versions plus create, update, and delete local
+indices. Commands require a signed enabled user, use request-equal idempotent
+company-command receipts, immutable aggregate revisions, audit events, and
+source-shaped readback. Imported `tzsy_version`/`tzsy_plan_index` rows are
+protected as read-only; local projections merge into versions, grouped indices,
+profit summary, and sensitivity reads. The lifecycle smoke proves create,
+replay, current-version readback, index update/tombstone, and non-current
+version deletion, with investment-only and no-provider/cash/accounting/tax
+effects. Excel upload/import activation, actual-profit simulation, valuation,
+browser identity, and investment-owner acceptance remain separate gates.
+
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
 visible Rabbita navigation group through sidebar actions (not direct URL
@@ -1316,13 +1329,15 @@ start/approve/reject commands, and investment versions/indices/profit/
 cost-dashboard/Excel-import/plan-line/subject-mapping/cockpit reads, cashflow forecast/inflow/detail/net/gap/v3, CBS observation reads, and
 the native admin/notification/AI/attachment/webhook/RBAC/warning observation
 reads plus warning resolve/ignore state commands and local RBAC role/assignment
-authority-candidate commands.
+authority-candidate commands, plus local investment version/index lifecycle
+commands.
 `scripts/company_postgres_source_read_smoke.sh` and
 `scripts/company_postgres_dashboard_smoke.sh` exercise these boundaries with
 PostgreSQL only. The gateway's GET forwarding is not proof of service coverage;
 a path can be allow-listed and still return a native 404. The remaining
 browser-visible families without native MoonBit service ownership are
-actual-profit simulation/mutations, AI explain/provider actions, CBS budget-reservation/
+actual-profit simulation/mutations, AI explain/provider actions, Excel upload/import
+activation, CBS budget-reservation/
 mutation surfaces, warning scans/provider actions, attachment binary/OCR
 operations, notification/provider actions, RBAC password/identity writes and
 production authorization binding, source workflow-engine

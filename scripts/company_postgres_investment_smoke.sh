@@ -1,0 +1,161 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+PORT=${PORT:-4242}
+DATABASE=${DATABASE:-moonproj}
+TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-investment-smoke-token}
+ACTOR=${MOONPROJ_ACTOR_ID:-admin}
+ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-investment-actor-secret}
+PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-investment.XXXXXX")
+SERVICE_PID=""
+SMOKE_SUFFIX=$(/bin/date +%s)
+PROJECT_ID=proj-0001
+VERSION_ID="investment-smoke-version-$SMOKE_SUFFIX"
+SECOND_VERSION_ID="investment-smoke-delete-version-$SMOKE_SUFFIX"
+INDEX_ID="investment-smoke-index-$SMOKE_SUFFIX"
+VERSION_KEY="investment-smoke-version-$SMOKE_SUFFIX"
+SECOND_VERSION_KEY="investment-smoke-second-version-$SMOKE_SUFFIX"
+INDEX_KEY="investment-smoke-index-$SMOKE_SUFFIX"
+INDEX_UPDATE_KEY="investment-smoke-index-update-$SMOKE_SUFFIX"
+ACTIVATE_KEY="investment-smoke-activate-$SMOKE_SUFFIX"
+INDEX_DELETE_KEY="investment-smoke-index-delete-$SMOKE_SUFFIX"
+SECOND_DELETE_KEY="investment-smoke-second-delete-$SMOKE_SUFFIX"
+
+cleanup() {
+  if [ -n "$SERVICE_PID" ]; then
+    kill "$SERVICE_PID" 2>/dev/null || true
+    wait "$SERVICE_PID" 2>/dev/null || true
+  fi
+  "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'investment_version' AND aggregate_id IN ('$VERSION_ID', '$SECOND_VERSION_ID')) OR (aggregate_type = 'investment_index' AND aggregate_id = '$INDEX_ID'); DELETE FROM company_record WHERE source_id LIKE 'moonproj:command:investment-smoke-%$SMOKE_SUFFIX' OR source_id LIKE 'moonproj:audit:investment:%investment-smoke-%$SMOKE_SUFFIX%';" \
+    >/dev/null 2>&1 || true
+  /bin/rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT INT TERM
+
+MOONPROJ_SERVICE_TOKEN="$TOKEN" \
+MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SIGNING_SECRET" \
+PSQL_BIN="$PSQL_BIN" \
+"$ROOT/scripts/company_postgres_service.sh" \
+  --port "$PORT" \
+  --database "$DATABASE" \
+  --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
+SERVICE_PID=$!
+
+signature=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/sed 's/^.*= //')
+ready=0
+i=0
+while [ "$i" -lt 30 ]; do
+  if /usr/bin/curl -fsS \
+    -H "Authorization: Bearer $TOKEN" \
+    -H 'X-Forwarded-Proto: https' \
+    "http://127.0.0.1:$PORT/api/health" >"$TMP_DIR/health.json" 2>/dev/null; then
+    ready=1
+    break
+  fi
+  i=$((i + 1))
+  /bin/sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+  /bin/cat "$TMP_DIR/service.log"
+  exit 1
+fi
+
+version_body="{\"versionGuid\":\"$VERSION_ID\",\"versionName\":\"Native Investment Smoke\",\"remark\":\"local command projection\",\"activate\":true}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/version.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $VERSION_KEY" \
+  --data "$version_body" \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions")
+test "$status" = 201
+/usr/bin/jq -e '.idempotent_replay == false and .investment.versionGuid == "'$VERSION_ID'" and .investment.investment_effect == true and .investment.authorizing == false and .investment.cash_effect == false and .investment.accounting_effect == false and .investment.tax_effect == false' "$TMP_DIR/version.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/version-replay.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $VERSION_KEY" \
+  --data "$version_body" \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .investment.versionGuid == "'$VERSION_ID'"' "$TMP_DIR/version-replay.json" >/dev/null
+
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions" >"$TMP_DIR/versions.json"
+/usr/bin/jq -e '.command_projection == true and (.data | any(.[]; .versionGuid == "'$VERSION_ID'" and .sourceKind == "command" and .isCurrent == true))' "$TMP_DIR/versions.json" >/dev/null
+
+index_body="{\"indexGuid\":\"$INDEX_ID\",\"dimension\":\"investment\",\"fullCode\":\"Inv.Smoke\",\"indexName\":\"Smoke Investment\",\"unit\":\"万元\",\"indexValue\":123.45,\"remark\":\"created\"}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/index.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $INDEX_KEY" \
+  --data "$index_body" \
+  "http://127.0.0.1:$PORT/api/company/investment/versions/$VERSION_ID/indices")
+test "$status" = 201
+/usr/bin/jq -e '.idempotent_replay == false and .investment.indexGuid == "'$INDEX_ID'" and .investment.investment_effect == true and .investment.authorizing == false' "$TMP_DIR/index.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/index-replay.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $INDEX_KEY" \
+  --data "$index_body" \
+  "http://127.0.0.1:$PORT/api/company/investment/versions/$VERSION_ID/indices")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .investment.indexGuid == "'$INDEX_ID'"' "$TMP_DIR/index-replay.json" >/dev/null
+
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/investment/versions/$VERSION_ID/indices" >"$TMP_DIR/indices.json"
+/usr/bin/jq -e '.command_projection == true and (.data | map(.items[]) | any(.indexGuid == "'$INDEX_ID'" and .sourceKind == "command" and .indexValue == 123.45))' "$TMP_DIR/indices.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/index-update.json" -w '%{http_code}' \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $INDEX_UPDATE_KEY" \
+  --data '{"indexValue":234.56,"remark":"updated"}' \
+  "http://127.0.0.1:$PORT/api/company/investment/indices/$INDEX_ID")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .investment.indexGuid == "'$INDEX_ID'" and .investment.investment_effect == true' "$TMP_DIR/index-update.json" >/dev/null
+
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/investment/versions/$VERSION_ID/indices" >"$TMP_DIR/indices-updated.json"
+/usr/bin/jq -e '.data | map(.items[]) | any(.indexGuid == "'$INDEX_ID'" and .indexValue == 234.56 and .remark == "updated")' "$TMP_DIR/indices-updated.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/activate.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $ACTIVATE_KEY" \
+  --data '{}' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions/$VERSION_ID/activate")
+test "$status" = 200
+/usr/bin/jq -e '.investment.versionGuid == "'$VERSION_ID'" and .investment.isCurrent == true' "$TMP_DIR/activate.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/index-delete.json" -w '%{http_code}' \
+  -X DELETE -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $INDEX_DELETE_KEY" \
+  --data '{}' \
+  "http://127.0.0.1:$PORT/api/company/investment/indices/$INDEX_ID")
+test "$status" = 200
+/usr/bin/jq -e '.investment.state == "deleted" and .investment.investment_effect == true' "$TMP_DIR/index-delete.json" >/dev/null
+
+second_body="{\"versionGuid\":\"$SECOND_VERSION_ID\",\"versionName\":\"Delete Smoke\",\"activate\":false}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/second-version.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $SECOND_VERSION_KEY" \
+  --data "$second_body" \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions")
+test "$status" = 201
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/second-delete.json" -w '%{http_code}' \
+  -X DELETE -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $SECOND_DELETE_KEY" \
+  --data '{}' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions/$SECOND_VERSION_ID")
+test "$status" = 200
+/usr/bin/jq -e '.investment.state == "deleted" and .investment.versionGuid == "'$SECOND_VERSION_ID'"' "$TMP_DIR/second-delete.json" >/dev/null
+
+echo "native MoonBit investment version/index lifecycle/idempotency/readback smoke passed"
