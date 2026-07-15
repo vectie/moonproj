@@ -19,6 +19,14 @@ response carries `source_coverage`, `missing_or_empty_source_tables`,
 `source_kind`, and `authorizing=false`. No CBS mutation, budget reservation,
 contract approval, or R0 resolution is authorized by this boundary.
 
+The native command boundary now also covers draft-only local configuration:
+`POST /api/company/cbs/dict` adds a leaf, and
+`POST /api/company/cbs/dict/batch-adjust` applies the source percentage
+adjustment to every matching command-owned leaf. Clone/freeze/activate and
+approval-rule commands use the same signed actor, replay, revision, and audit
+receipt contract. Imported CBS versions and dictionary rows remain read-only;
+the adjustment reports `cbs_effect=true` and `budget_consumption=false`.
+
 The controlled export contains two `cb_contract` rows, both without CBS
 classification, and no `cb_r_master`, `cb_subject_dict`, `cb_plan_version`,
 `cb_expense_split`, `vcb_expense`, `wf_approval_rule`, or `cb_change_apply`
@@ -27,5 +35,6 @@ explicit empty or covered-not-found state, while R0 queue returns the two
 unclassified source contracts. The Rabbita CBS pages display this provenance
 and keep the designer snapshot only as a transport-failure fallback.
 
-CBS writes, budget ownership, accounting posting, cash release, tax, browser
-production identity, and owner acceptance remain separate migration gates.
+Budget ownership/reservation, contract approval, R0 resolution, accounting
+posting, cash release, tax, browser production identity, and owner acceptance
+remain separate migration gates.

@@ -1245,17 +1245,18 @@ acceptance remain separate gates.
 **CBS version command checkpoint (2026-07-15).** Native MoonBit now translates
 the source CBS draft/version lifecycle that can be safely owned locally:
 `POST /api/company/cbs/versions/clone`, `freeze`, and `activate`, plus
-`POST /api/company/cbs/dict` for adding a draft leaf. Clone copies the
-source-shaped subject dictionary into command-owned projections; freeze and
-activate create immutable revisions and activation de-overlays; dictionary
-and version reads merge those projections and expose command provenance.
-Signed enabled-user checks, request-equal idempotency, audit receipts, and
-explicit `cbs_effect=true`/`budget_consumption=false` markers are covered by
-`scripts/company_postgres_cbs_smoke.sh`. Imported CBS rows remain read-only.
-Batch percentage adjustment, budget reservation/consumption, contract/R0
-mutation, accounting, cash, tax, browser identity, and owner acceptance are
-still separate gates; the controlled export currently has no imported CBS
-version or subject rows.
+`POST /api/company/cbs/dict` for adding a draft leaf, and
+`POST /api/company/cbs/dict/batch-adjust` for the source percentage adjustment.
+Clone copies the source-shaped subject dictionary into command-owned
+projections; freeze, activate, and adjustment create immutable revisions and
+activation de-overlays; dictionary and version reads merge those projections
+and expose command provenance. Signed enabled-user checks, request-equal
+idempotency, audit receipts, imported-row guards, two-decimal adjustment
+rounding, and explicit `cbs_effect=true`/`budget_consumption=false` markers are
+covered by `scripts/company_postgres_cbs_smoke.sh`. Imported CBS rows remain
+read-only. Budget reservation/consumption, contract/R0 mutation, accounting,
+cash, tax, browser identity, and owner acceptance are still separate gates;
+the controlled export currently has no imported CBS version or subject rows.
 
 **Budget expense command checkpoint (2026-07-15).** Native MoonBit now
 translates the source-shaped budget expense mutation boundary: create a Draft

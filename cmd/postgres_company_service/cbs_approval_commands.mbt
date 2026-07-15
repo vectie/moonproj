@@ -342,6 +342,6 @@ async fn cbs_approval_command(
     } else {
       200
     },
-    cbs_approval_envelope(result_data, command, false),
+    cbs_approval_envelope(result, command, false),
   )
 }

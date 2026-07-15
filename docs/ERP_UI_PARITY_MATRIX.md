@@ -163,13 +163,13 @@ are attached. The JSON output contains all 338 handler rows.
 | `cashflow` | `POST` | `/ai-explain` | `/cashflow` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cbs` | `GET` | `/r-master` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
 | `cbs` | `GET` | `/dict` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
-| `cbs` | `POST` | `/dict` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cbs` | `POST` | `/dict/batch-adjust` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `cbs` | `POST` | `/dict` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `cbs` | `POST` | `/dict/batch-adjust` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
 | `cbs` | `GET` | `/dict/f-balance` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
 | `cbs` | `GET` | `/versions` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
-| `cbs` | `POST` | `/versions/clone` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cbs` | `POST` | `/versions/freeze` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cbs` | `POST` | `/versions/activate` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `cbs` | `POST` | `/versions/clone` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `cbs` | `POST` | `/versions/freeze` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `cbs` | `POST` | `/versions/activate` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
 | `cbs` | `GET` | `/versions/compare` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
 | `cbs` | `GET` | `/r0/queue` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
 | `cbs` | `POST` | `/r0/resolve` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
@@ -188,9 +188,9 @@ are attached. The JSON output contains all 338 handler rows.
 | `cbs` | `POST` | `/changes` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cbs` | `POST` | `/changes/:id/submit-approval` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `cbs` | `POST` | `/changes/:id/approve` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cbs` | `POST` | `/approval-rules` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cbs` | `PUT` | `/approval-rules/:guid` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `cbs` | `DELETE` | `/approval-rules/:guid` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `cbs` | `POST` | `/approval-rules` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `cbs` | `PUT` | `/approval-rules/:guid` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `cbs` | `DELETE` | `/approval-rules/:guid` | `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, `/cbs/approval-config` | `connected_cbs_command` | `accept_browser_cbs_command_scenario_and_finance_owner` |
 | `cost` | `GET` | `/contracts` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `GET` | `/contracts/:guid` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |
 | `cost` | `GET` | `/payment-applies` | `/contracts`, `/contracts/:guid`, `/payment-applies`, `/dynamic-cost`, `/cost-dashboard-v3` | `connected_cost_source_read` | `accept_browser_cost_source_scenario_and_production_identity` |

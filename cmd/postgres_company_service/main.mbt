@@ -16048,8 +16048,14 @@ async fn handle(
           return
         }
       }
-      let result = cbs_command(command_type, body, actor, idempotency_key) catch {
-        error => service_error_response(error)
+      let result = if command_type == "dict_batch_adjust" {
+        cbs_batch_adjust_command(body, actor, idempotency_key) catch {
+          error => service_error_response(error)
+        }
+      } else {
+        cbs_command(command_type, body, actor, idempotency_key) catch {
+          error => service_error_response(error)
+        }
       }
       send_json(conn, request.meth, result.0, result.1, false)
       return

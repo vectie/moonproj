@@ -82,6 +82,10 @@ fn cbs_command_spec(
   request_method : @http.RequestMethod,
   path : String,
 ) -> String? {
+  if path == "/api/company/cbs/dict/batch-adjust" &&
+    request_method is @http.Post {
+    return Some("dict_batch_adjust")
+  }
   if path == "/api/company/cbs/dict" && request_method is @http.Post {
     return Some("dict_add")
   }
