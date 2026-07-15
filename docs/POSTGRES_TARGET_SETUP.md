@@ -96,12 +96,10 @@ idempotent native expense and contract command lifecycles. Set
 command routes; unsigned actor assertions fail closed.
 The broad
 `scripts/company_postgres_service.py` remains frozen bridge evidence while its
-remaining routes and command lifecycles are ported. The frozen Python bridge
-keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a bearer
-token from an environment variable and forwarded TLS, and provides the
-remaining comparison-only contract and payment-application command verticals
-documented in `ERP_EXPENSE_RUNTIME_VERTICAL.md`,
-`ERP_CONTRACT_RUNTIME_VERTICAL.md`, and
+remaining routes and command lifecycles are ported. The frozen Python bridge is
+comparison material only and is not needed for the native expense, contract, or
+payment-application command verticals documented in
+`ERP_EXPENSE_RUNTIME_VERTICAL.md`, `ERP_CONTRACT_RUNTIME_VERTICAL.md`, and
 `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. Put the native
 `scripts/company_postgres_gateway.sh` in front of the browser to establish the
 local HttpOnly session, serve the Warren bundle, and sign the actor assertion;
@@ -116,6 +114,9 @@ preview.
 The shell-only `scripts/company_postgres_contract_smoke.sh` verifies native
 source-field contract create/replay, update, submit/reject/resubmit/approve,
 source-shaped detail, and void tombstone behavior.
+The shell-only `scripts/company_postgres_payment_smoke.sh` verifies native
+source-field payment create/replay, auto-submit, update, reject/resubmit/
+approve, imported-row protection, and void behavior.
 The credential-free `company_production_service_check.py` now validates the
 service boundary separately: bounded reusable pool, schema-matched readiness,
 private TLS-terminated binding, authentication, fixed read endpoints, and no

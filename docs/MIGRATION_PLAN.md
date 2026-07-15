@@ -634,6 +634,16 @@ imported-row edits, browser acceptance, production identity, and finance-owner
 approval remain separate gates; milestone create/update/trigger/void now has
 its own cash/accounting/tax-neutral checkpoint above.
 
+**Native payment command checkpoint (2026-07-15).** The payment-application
+command family is now implemented in `cmd/postgres_company_service` rather than
+the frozen bridge. Native MoonBit preserves direct create/submit/reject/
+resubmit/approve/update/void transitions, source-field create auto-submit,
+deterministic replay, imported-row protection, immutable revisions, audit
+receipts, and signed gateway forwarding. The shell-only
+`scripts/company_postgres_payment_smoke.sh` proves the full local lifecycle and
+no-cash/accounting/tax markers. Payment release, provider effects, production
+identity, and finance-owner acceptance remain gated.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,

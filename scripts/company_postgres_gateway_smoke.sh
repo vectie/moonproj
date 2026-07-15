@@ -121,6 +121,20 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.contractGuid == "'"$gateway_contract_id"'" and .contract.state == "draft"' \
   "$TMP_DIR/contract-create.json" >/dev/null
 
+gateway_payment_suffix=$(/bin/date +%s)
+gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
+gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/payment-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-payment-create-$gateway_payment_suffix" \
+  --data "$gateway_payment_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/cost/payment-applies")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == false and .data.htfkApplyGuid == "'"$gateway_payment_id"'" and .payment_application.state == "submitted"' \
+  "$TMP_DIR/payment-create.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" -c "$TMP_DIR/cookies.txt" \
   -X POST "http://127.0.0.1:$GATEWAY_PORT/api/session/logout" >"$TMP_DIR/logout.json"
 /usr/bin/jq -e '.authenticated == false' "$TMP_DIR/logout.json" >/dev/null

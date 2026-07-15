@@ -5,8 +5,8 @@
 /// keeps the bearer-token and forwarded-TLS boundary, then exposes fixed
 /// fixed contracts for health, summary, receipts, projections, imported
 /// profile/preferences/initiated-document observations, source-shaped cost
-/// observations, and the expense/contract read/command boundaries. The wider
-/// ERP route families remain separate migration gates.
+/// observations, and the expense/contract/payment-application read/command
+/// boundaries. The wider ERP route families remain separate migration gates.
 pub(all) suberror CompanyServiceError {
   InvalidInput(String)
   CommandRejected(Int, String)
@@ -2367,6 +2367,605 @@ async fn source_contract_alias_result(
       "contractCode": Json::string(resolved_code),
     }),
     "contract": source_contract,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn payment_required_text(
+  body : Json,
+  key : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = json_text(body, key, "").trim().to_owned()
+  if value.is_empty() {
+    raise reject(422, key + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, key + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn payment_currency(body : Json) -> String raise CompanyServiceError {
+  let value = payment_required_text(body, "currency", false).to_upper()
+  if value.length() != 3 {
+    raise reject(422, "currency must be a three-letter code")
+  }
+  for char in value.iter() {
+    if char < 'A' || char > 'Z' {
+      raise reject(422, "currency must be a three-letter code")
+    }
+  }
+  value
+}
+
+///|
+fn payment_positive_amount(body : Json) -> Int raise CompanyServiceError {
+  match json_field(body, "amount_minor") {
+    Some(Number(number, ..)) =>
+      if number > 0.0 && number == number.to_int().to_double() {
+        number.to_int()
+      } else {
+        raise reject(422, "amount_minor must be a positive integer")
+      }
+    _ => raise reject(422, "amount_minor must be a positive integer")
+  }
+}
+
+///|
+fn payment_optional_text(
+  body : Json,
+  key : String,
+  request : Map[String, Json],
+) -> Unit raise CompanyServiceError {
+  match json_field(body, key) {
+    None | Some(Null) => ()
+    Some(String(value)) =>
+      request.set(key, Json::string(value.trim().to_owned()))
+    _ => raise reject(422, key + " must be text")
+  }
+}
+
+///|
+async fn payment_create_request(
+  body : Json,
+  actor_id : String,
+) -> (String, Json) raise CompanyServiceError {
+  let requested_id = json_text(body, "apply_id", "").trim().to_owned()
+  let apply_id = if requested_id.is_empty() {
+    "PAY-" +
+    actor_id +
+    "-" +
+    @crypto.bytes_to_hex_string(
+      @crypto.sha256(@encoding/utf8.encode(body.stringify())),
+    )[:20].to_owned()
+  } else {
+    requested_id
+  }
+  if !valid_identifier(apply_id) {
+    raise reject(422, "apply_id contains unsupported characters")
+  }
+  let apply_code = payment_required_text(body, "apply_code", true)
+  let contract_id = payment_required_text(body, "contract_id", true)
+  let subject = payment_required_text(body, "subject", false)
+  let amount_minor = payment_positive_amount(body)
+  let currency = payment_currency(body)
+  let contracts = contract_items(Some(contract_id))
+  if contracts.is_empty() {
+    raise reject(404, "contract not found")
+  }
+  let contract_amount = json_int(contracts[0], "amount_minor", 0)
+  if contract_amount <= 0 {
+    raise reject(409, "contract has no payable amount")
+  }
+  let raw_applies = raw_source_rows("cb_htfk_apply", 500)
+  let mut existing_amount = 0
+  for row in raw_applies {
+    if json_text(row.payload, "contract_guid", "") == contract_id &&
+      json_text(row.payload, "apply_state", "") != "已驳回" {
+      existing_amount += (json_double(row.payload, "apply_amount", 0.0) * 100.0).to_int()
+    }
+  }
+  if existing_amount + amount_minor > contract_amount {
+    raise reject(409, "payment application exceeds contract amount")
+  }
+  let plan_id = json_text(body, "plan_id", "").trim().to_owned()
+  if !plan_id.is_empty() {
+    let plans = raw_source_rows("cb_htfkplan", 500)
+    let belongs = plans.any(fn(row) {
+      row.record_id == plan_id &&
+      json_text(row.payload, "contract_guid", "") == contract_id
+    })
+    if !belongs {
+      raise reject(422, "plan_id does not belong to contract")
+    }
+  }
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("create"))
+  request.set("apply_id", Json::string(apply_id))
+  request.set("apply_code", Json::string(apply_code))
+  request.set("contract_id", Json::string(contract_id))
+  request.set("plan_id", Json::string(plan_id))
+  request.set(
+    "apply_class",
+    Json::number(json_int(body, "apply_class", 0).to_double()),
+  )
+  request.set(
+    "apply_type_code",
+    Json::string(json_text(body, "apply_type_code", "WORK_PROGRESS")),
+  )
+  request.set("subject", Json::string(subject))
+  request.set("amount_minor", Json::number(amount_minor.to_double()))
+  request.set("currency", Json::string(currency))
+  request.set("apply_date", Json::string(json_text(body, "apply_date", "")))
+  request.set("applied_by", Json::string(actor_id))
+  request.set(
+    "project_id",
+    Json::string(json_text(contracts[0], "project_id", "")),
+  )
+  for key in ["milestone_id", "early_pay_reason"] {
+    payment_optional_text(body, key, request)
+  }
+  match json_field(body, "force_early") {
+    None | Some(False) => ()
+    Some(True) => request.set("force_early", Json::boolean(true))
+    _ => raise reject(422, "force_early must be boolean")
+  }
+  (apply_id, Json::object(request))
+}
+
+///|
+fn payment_update_request(
+  apply_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(apply_id) {
+    raise reject(422, "apply_id is required")
+  }
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("update"))
+  request.set("apply_id", Json::string(apply_id))
+  request.set("actor_id", Json::string(actor_id))
+  let mut changed = false
+  match json_field(body, "subject") {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() => {
+      request.set("subject", Json::string(value.trim().to_owned()))
+      changed = true
+    }
+    _ => raise reject(422, "subject must be non-empty text")
+  }
+  match json_field(body, "amount_minor") {
+    None | Some(Null) => ()
+    Some(_) => {
+      request.set(
+        "amount_minor",
+        Json::number(payment_positive_amount(body).to_double()),
+      )
+      changed = true
+    }
+  }
+  match json_field(body, "apply_type_code") {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() => {
+      request.set("apply_type_code", Json::string(value.trim().to_owned()))
+      changed = true
+    }
+    _ => raise reject(422, "apply_type_code must be non-empty text")
+  }
+  if !changed {
+    raise reject(
+      422, "update requires subject, amount_minor, or apply_type_code",
+    )
+  }
+  Json::object(request)
+}
+
+///|
+fn payment_transition_request(
+  command_type : String,
+  apply_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(apply_id) {
+    raise reject(422, "apply_id is required")
+  }
+  match json_field(body, "reason") {
+    None | Some(String(_)) => ()
+    _ => raise reject(422, "reason must be text")
+  }
+  Json::object({
+    "command_type": Json::string(command_type),
+    "apply_id": Json::string(apply_id),
+    "reason": Json::string(json_text(body, "reason", "").trim().to_owned()),
+    "actor_id": Json::string(actor_id),
+  })
+}
+
+///|
+fn source_payment_create_request(
+  body : Json,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let apply_id_value = json_text(body, "htfkApplyGuid", "").trim().to_owned()
+  let apply_id = if apply_id_value.is_empty() {
+    "PAY-SRC-" + idempotency_key
+  } else {
+    apply_id_value
+  }
+  let apply_code = payment_required_text(body, "applyCode", true)
+  let contract_id = payment_required_text(body, "contractGuid", true)
+  let amount_minor = source_decimal_minor(body, "applyAmount", 1)
+  let subject = if json_text(body, "subject", "").trim().is_empty() {
+    apply_code
+  } else {
+    json_text(body, "subject", "").trim().to_owned()
+  }
+  let canonical : Map[String, Json] = {}
+  canonical.set("apply_id", Json::string(apply_id))
+  canonical.set("apply_code", Json::string(apply_code))
+  canonical.set("contract_id", Json::string(contract_id))
+  canonical.set(
+    "plan_id",
+    Json::string(json_text(body, "htfkPlanGuid", "").trim().to_owned()),
+  )
+  canonical.set(
+    "milestone_id",
+    Json::string(json_text(body, "milestoneGuid", "").trim().to_owned()),
+  )
+  canonical.set(
+    "apply_class",
+    Json::number(json_int(body, "applyClass", 0).to_double()),
+  )
+  canonical.set(
+    "apply_type_code",
+    Json::string(json_text(body, "applyTypeCode", "WORK_PROGRESS")),
+  )
+  canonical.set("subject", Json::string(subject))
+  canonical.set("amount_minor", Json::number(amount_minor.to_double()))
+  canonical.set(
+    "currency",
+    Json::string(
+      if json_field(body, "currency") is Some(_) {
+        payment_currency(body)
+      } else {
+        "CNY"
+      },
+    ),
+  )
+  canonical.set("apply_date", Json::string(json_text(body, "applyDate", "")))
+  match json_field(body, "earlyPayReason") {
+    None | Some(Null) => ()
+    Some(String(value)) =>
+      canonical.set("early_pay_reason", Json::string(value.trim().to_owned()))
+    _ => raise reject(422, "earlyPayReason must be text")
+  }
+  match json_field(body, "forceEarly") {
+    None | Some(False) => ()
+    Some(True) => canonical.set("force_early", Json::boolean(true))
+    _ => raise reject(422, "forceEarly must be boolean")
+  }
+  Json::object(canonical)
+}
+
+///|
+fn source_payment_update_request(
+  apply_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let canonical : Map[String, Json] = {}
+  match json_field(body, "subject") {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() =>
+      canonical.set("subject", Json::string(value.trim().to_owned()))
+    _ => raise reject(422, "subject must be non-empty text")
+  }
+  match json_field(body, "applyAmount") {
+    None | Some(Null) => ()
+    Some(_) =>
+      canonical.set(
+        "amount_minor",
+        Json::number(source_decimal_minor(body, "applyAmount", 1).to_double()),
+      )
+  }
+  match json_field(body, "applyTypeCode") {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() =>
+      canonical.set("apply_type_code", Json::string(value.trim().to_owned()))
+    _ => raise reject(422, "applyTypeCode must be non-empty text")
+  }
+  payment_update_request(apply_id, Json::object(canonical), actor_id)
+}
+
+///|
+async fn latest_payment_payload(
+  apply_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'payment_application_command' AND aggregate_id = " +
+    @postgres.sql_literal(apply_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid payment application projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn payment_command(
+  command_type : String,
+  apply_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let (id, request) = if command_type == "create" {
+    payment_create_request(body, actor_id)
+  } else {
+    let id = match apply_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, "apply_id is required")
+    }
+    let request = if command_type == "update" {
+      payment_update_request(id, body, actor_id)
+    } else {
+      payment_transition_request(command_type, id, body, actor_id)
+    }
+    (id, request)
+  }
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "payment_application": json_field(existing, "result").unwrap_or(
+            Json::null(),
+          ),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_payment_payload(id)
+  let visible = payment_items(Some(id), "all")
+  if command_type == "create" {
+    if current is Some(_) || !visible.is_empty() {
+      raise reject(409, "payment application already exists")
+    }
+  } else {
+    match current {
+      None => {
+        if !visible.is_empty() {
+          raise reject(
+            409, "source payment application is read-only; create a local command draft first",
+          )
+        }
+        raise reject(404, "payment application not found")
+      }
+      Some((payload, _)) => {
+        let state = json_text(payload, "state", "")
+        let payment_payload = json_field(payload, "payment_application").unwrap_or(
+          Json::object({}),
+        )
+        let pay_state = json_text(payment_payload, "pay_state", "未支付")
+        if command_type == "update" {
+          if state != "submitted" {
+            raise reject(
+              409,
+              "payment application transition update requires submitted, found " +
+              state,
+            )
+          }
+        } else if command_type == "void" {
+          if pay_state != "未支付" {
+            raise reject(409, "paid payment application cannot be voided")
+          }
+          if state == "voided" {
+            raise reject(409, "payment application is already voided")
+          }
+        } else {
+          let expected = if command_type == "submit" {
+            "draft"
+          } else if command_type == "approve" || command_type == "reject" {
+            "submitted"
+          } else if command_type == "resubmit" {
+            "rejected"
+          } else {
+            ""
+          }
+          if expected.is_empty() || state != expected {
+            raise reject(
+              409,
+              "payment application transition " +
+              command_type +
+              " requires " +
+              expected +
+              ", found " +
+              state,
+            )
+          }
+        }
+      }
+    }
+  }
+  let event_id = "payment-application:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    "draft"
+  } else if command_type == "submit" || command_type == "resubmit" {
+    "submitted"
+  } else if command_type == "approve" {
+    "approved"
+  } else if command_type == "reject" {
+    "rejected"
+  } else if command_type == "void" {
+    "voided"
+  } else {
+    "submitted"
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let result = Json::object({
+    "apply_id": Json::string(id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "apply_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    "jsonb_build_object('format', 'moonproj.company.payment-application-command.v1', 'state', 'draft', 'payment_application', " +
+    @postgres.sql_literal(request_json) +
+    "::jsonb, 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "update" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', 'submitted', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'payment_application', (" +
+    @postgres.sql_literal(current_json) +
+    "::jsonb->'payment_application') || (" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'command_type' - 'apply_id' - 'actor_id'))"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("payment_application." + command_type),
+    "aggregate_type": Json::string("payment_application"),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('payment_application_command', " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "payment_application": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+fn source_payment_alias_result(result : Json, apply_code : String?) -> Json {
+  let payment = json_field(result, "payment_application").unwrap_or(
+    Json::null(),
+  )
+  let apply_id = json_text(payment, "apply_id", "")
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let request = json_field(command, "request").unwrap_or(Json::null())
+  let resolved_code = apply_code.unwrap_or(
+    json_text(request, "apply_code", apply_id),
+  )
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "htfkApplyGuid": Json::string(apply_id),
+      "applyCode": Json::string(resolved_code),
+    }),
+    "payment_application": payment,
     "command": command,
     "idempotent_replay": Json::boolean(
       json_bool(result, "idempotent_replay", false),
@@ -6959,6 +7558,51 @@ fn contract_command_spec(
 }
 
 ///|
+fn payment_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post && path == "/api/company/payment-applies" {
+    return Some(("create", None))
+  }
+  if request_method is @http.Post &&
+    path == "/api/company/source/cost/payment-applies" {
+    return Some(("source-create", None))
+  }
+  let prefix = "/api/company/payment-applies/"
+  if request_method is @http.Post && path.has_prefix(prefix) {
+    let rest = path[prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 && valid_identifier(rest[0].to_owned()) {
+      let command = match rest[1].to_owned() {
+        "submit" => "submit"
+        "approve" => "approve"
+        "reject" => "reject"
+        "resubmit" => "resubmit"
+        "update" => "update"
+        "void" => "void"
+        _ => ""
+      }
+      if !command.is_empty() {
+        return Some((command, Some(rest[0].to_owned())))
+      }
+    }
+  }
+  let source_prefix = "/api/company/source/cost/payment-applies/"
+  if path.has_prefix(source_prefix) {
+    let id = path[source_prefix.length():].to_owned()
+    if valid_identifier(id) {
+      if request_method is @http.Put {
+        return Some(("source-update", Some(id)))
+      }
+      if request_method is @http.Delete {
+        return Some(("source-void", Some(id)))
+      }
+    }
+  }
+  None
+}
+
+///|
 fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
   match error {
     CompanyServiceError::CommandRejected(status, message) =>
@@ -7240,6 +7884,8 @@ async fn route(
             Json::string("expense_command"),
             Json::string("contract_command"),
             Json::string("source_contract_command"),
+            Json::string("payment_application_command"),
+            Json::string("source_payment_application_command"),
             Json::string("expense_detail_read"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
@@ -7378,6 +8024,121 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match payment_command_spec(request.meth, path) {
+    Some((command_type, apply_guid)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let source_alias = command_type.has_prefix("source-")
+      let native_command = if command_type == "source-create" {
+        "create"
+      } else if command_type == "source-update" {
+        "update"
+      } else if command_type == "source-void" {
+        "void"
+      } else {
+        command_type
+      }
+      let canonical_body = if command_type == "source-create" {
+        source_payment_create_request(body, idempotency_key)
+      } else if command_type == "source-update" {
+        source_payment_update_request(apply_guid.unwrap(), body, actor)
+      } else if command_type == "source-void" {
+        payment_transition_request("void", apply_guid.unwrap(), body, actor)
+      } else {
+        body
+      }
+      let apply_code = if command_type == "source-update" ||
+        command_type == "source-void" {
+        match apply_guid {
+          Some(id) => {
+            let current = payment_items(Some(id), "all")
+            if current.is_empty() {
+              None
+            } else {
+              Some(json_text(current[0], "apply_code", ""))
+            }
+          }
+          None => None
+        }
+      } else {
+        None
+      }
+      let result = payment_command(
+        native_command, apply_guid, canonical_body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      if source_alias && command_type == "source-create" && result.0 < 400 {
+        let created_payment = json_field(result.1, "payment_application").unwrap_or(
+          Json::null(),
+        )
+        let created_id = json_text(created_payment, "apply_id", "")
+        let submit_key = "source-payment-submit-" +
+          @crypto.bytes_to_hex_string(
+            @crypto.sha256(@encoding/utf8.encode(idempotency_key)),
+          )[:32].to_owned()
+        let submitted = payment_command(
+          "submit",
+          Some(created_id),
+          Json::object({}),
+          actor,
+          submit_key,
+        ) catch {
+          error => service_error_response(error)
+        }
+        if submitted.0 >= 400 {
+          send_json(conn, request.meth, submitted.0, submitted.1, false)
+          return
+        }
+        let combined = Json::object({
+          "command": json_field(result.1, "command").unwrap_or(Json::null()),
+          "submit_command": json_field(submitted.1, "command").unwrap_or(
+            Json::null(),
+          ),
+          "payment_application": json_field(submitted.1, "payment_application").unwrap_or(
+            Json::null(),
+          ),
+          "idempotent_replay": json_field(result.1, "idempotent_replay").unwrap_or(
+            Json::boolean(false),
+          ),
+        })
+        let source_result = source_payment_alias_result(combined, None)
+        send_json(conn, request.meth, result.0, source_result, false)
+        return
+      }
+      if source_alias && result.0 < 400 {
+        let source_result = source_payment_alias_result(result.1, apply_code)
+        send_json(conn, request.meth, result.0, source_result, false)
+      } else {
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
+      return
+    }
+    None => ()
   }
   match contract_command_spec(request.meth, path) {
     Some((command_type, contract_guid)) => {

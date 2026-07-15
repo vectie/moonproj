@@ -30,7 +30,8 @@ local command projection:
 
 ## Connected API
 
-`scripts/company_postgres_service.py` exposes:
+The native MoonBit service exposed by `scripts/company_postgres_service.sh`
+exposes:
 
 - `GET /api/company/payment-applies` with `all`, `approving`, `approved`, and
   `fullpaid` views;
@@ -50,7 +51,7 @@ local command projection:
   as source-shaped update/void aliases for command-owned applications.
   Imported applications remain read-only.
 
-The read-only development adapter exposes the same GET surface. The
+The native read-only adapter exposes the same GET surface. The native
 loopback-only gateway allow-lists the POST family, establishes its in-memory
 HttpOnly session, and signs the actor assertion before the service accepts a
 command, including the source payment aliases. Rabbita `/payment-applies`
@@ -59,13 +60,12 @@ buttons.
 
 ## Acceptance evidence
 
-The local service probe read all three imported rows, checked a real payment
-plan for early-payment and over-payment conditions, created a temporary
-payment application, replayed the idempotency key, ran submit/update/reject/
-resubmit/approve/void, and read the result back. The source-shaped alias probe
-created, replayed, updated, voided, and read back a command-owned application;
-all responses carried explicit no-cash/accounting/tax markers. The gateway
-HTTP probe repeated the source alias lifecycle as `rabbita-user`.
+The shell-only native payment smoke creates a local contract, creates and
+replays a source-shaped payment application (auto-submitting it), updates it,
+checks imported-row protection, runs reject/resubmit/approve, and voids the
+local application. All responses carry explicit no-cash/accounting/tax
+markers. The native gateway HTTP smoke repeats source payment creation with a
+signed `rabbita-user` assertion.
 
 ## Remaining gate
 

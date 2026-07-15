@@ -104,3 +104,32 @@ test "native company service validates contract request fields" {
   assert_eq(json_int(request, "amount_minor", 0), 12345)
   assert_eq(json_text(request, "actor_id", ""), "actor-1")
 }
+
+///|
+test "native company service maps payment command paths" {
+  assert_true(
+    payment_command_spec(@http.Post, "/api/company/payment-applies")
+    is Some(("create", None)),
+  )
+  assert_true(
+    payment_command_spec(
+      @http.Post,
+      "/api/company/payment-applies/PAY-1/reject",
+    )
+    is Some(("reject", Some("PAY-1"))),
+  )
+  assert_true(
+    payment_command_spec(
+      @http.Put,
+      "/api/company/source/cost/payment-applies/PAY-1",
+    )
+    is Some(("source-update", Some("PAY-1"))),
+  )
+  assert_true(
+    payment_command_spec(
+      @http.Delete,
+      "/api/company/source/cost/payment-applies/PAY-1",
+    )
+    is Some(("source-void", Some("PAY-1"))),
+  )
+}
