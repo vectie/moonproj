@@ -376,7 +376,7 @@ if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
 fi
 
 if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_investment_performance_plan.py" \
+  "$SCRIPT_DIR/erp_investment_performance_plan.sh" \
     "$INVESTMENT_PERFORMANCE_MAPPING" "$WORK_DIR/investment-performance-plan.json"
   moon run --target native cmd/investment_performance -- \
     "$WORK_DIR/investment-performance-plan.json" "$WORK_DIR/investment-performance-receipt.json"

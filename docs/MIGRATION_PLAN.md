@@ -1964,6 +1964,16 @@ Execute the remainder in this order:
     currency, trigger, and percentage bounds, and the exact cohort-plan
     envelope. Domain promotion remains separate from payment, cash,
     accounting, and period-close effects.
+
+3a.12. **Native investment-performance planner (2026-07-16).**
+    `cmd/investment_performance_plan` and
+    `scripts/erp_investment_performance_plan.sh` now replace the Python
+    portfolio/quote/benchmark compiler in the PostgreSQL cohort path. The
+    native planner preserves reviewed-input gating, recursive secret-shaped-key
+    rejection, exposure and position/quote bounds, currency continuity,
+    benchmark-observation identity, and the exact investment-performance plan
+    envelope. Analytics remain read-only evidence; trading, provider feeds,
+    cash, accounting, and period-close effects remain disabled.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
