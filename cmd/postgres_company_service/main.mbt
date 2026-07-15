@@ -16089,10 +16089,14 @@ async fn handle(
           return
         }
       }
-      let result = budget_command(
-        command_type, expense_guid, body, actor, idempotency_key,
-      ) catch {
-        error => service_error_response(error)
+      let result = if command_type == "auto_offset" {
+        budget_auto_offset_command(expense_guid, actor, idempotency_key) catch {
+          error => service_error_response(error)
+        }
+      } else {
+        budget_command(command_type, expense_guid, body, actor, idempotency_key) catch {
+          error => service_error_response(error)
+        }
       }
       send_json(conn, request.meth, result.0, result.1, false)
       return

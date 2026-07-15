@@ -22,6 +22,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('legacy/raw/vcb_loan_simple','budget-smoke-loan',1,'{\"loan_guid\":\"budget-smoke-loan\",\"loan_code\":\"SMOKE-LOAN\",\"applied_by\":\"user-admin-0001\",\"apply_state\":\"Approved\",\"loan_amount\":80,\"balance_amount\":0,\"remain_amount\":80,\"apply_date\":\"2026-07-01\"}'::jsonb,'budget-smoke:loan')" >/dev/null
+
 PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" PGPASSWORD=${PGPASSWORD:-520825} PSQL_BIN="$PSQL_BIN" MOONPROJ_SERVICE_TOKEN="$TOKEN" MOONPROJ_ACTOR_SIGNING_SECRET="$SECRET" "$ROOT/scripts/company_postgres_service.sh" --port "$PORT" --database "$DATABASE" --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
 PID=$!
 for i in $(seq 1 30); do
@@ -45,6 +47,10 @@ test "$status" = 200
 
 /usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' "http://127.0.0.1:$PORT/api/company/budget/expenses?expenseGuid=budget-expense-smoke" | /usr/bin/jq -e '.command_projection == true and .data[0].sourceKind == "command" and .data[0].expenseAmount == 100' >/dev/null
 /usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke" | /usr/bin/jq -e '.command_projection == true and .data.details[0].summary == "Desk materials" and .data.splits[0].amount == 90' >/dev/null
+
+curl_common -fsS -X POST -H 'Idempotency-Key: budget-smoke-auto-offset' --data '{}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke/auto-offset" | /usr/bin/jq -e '.data.expenseGuid == "budget-expense-smoke" and .data.totalOffset == 80 and .data.payAmount == 20 and (.data.offsetPlan | length) == 1 and .data.offsetPlan[0].loanGuid == "budget-smoke-loan" and .loan_balance_effect == false and .budget_consumption == false' >/dev/null
+curl_common -fsS -X POST -H 'Idempotency-Key: budget-smoke-auto-offset' --data '{}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke/auto-offset" | /usr/bin/jq -e '.idempotent_replay == true and .data.totalOffset == 80' >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' "http://127.0.0.1:$PORT/api/company/budget/expenses?expenseGuid=budget-expense-smoke" | /usr/bin/jq -e '.data[0].offsetAmount == 80 and .data[0].payAmount == 20' >/dev/null
 
 curl_common -fsS -X PUT -H 'Idempotency-Key: budget-smoke-update' --data '{"subject":"Updated Office Expense","expenseAmount":110,"offsetAmount":20,"payUnit":"CNY"}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke" | /usr/bin/jq -e '.data.expenseGuid == "budget-expense-smoke" and .data.applyState == "Draft" and .budget_consumption == false' >/dev/null
 curl_common -fsS -X POST -H 'Idempotency-Key: budget-smoke-submit' --data '{}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke/submit-for-approval" | /usr/bin/jq -e '.data.expenseGuid == "budget-expense-smoke" and .data.applyState == "Approving" and .workflow_synchronization == false' >/dev/null

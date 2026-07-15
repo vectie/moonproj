@@ -1264,12 +1264,14 @@ expense with detail and four-dimension split rows, edit Draft fields, submit a
 Draft for approval, and void Draft/Rejected expenses. Local expense, detail,
 and split aggregates use immutable revisions, signed enabled-user checks,
 request-equal idempotency, audit receipts, imported-row protection, and
-source-shaped merged list/detail readback. The boundary is explicitly
-expense-only: `budget_effect`, `budget_consumption`, automatic loan offset,
-cash, accounting, tax, and workflow-engine synchronization remain false or
-gated. `scripts/company_postgres_budget_expense_smoke.sh` proves create,
-replay, readback, update, submit, and void; the controlled export still has
-zero imported expense rows.
+source-shaped merged list/detail readback. `POST
+/api/company/budget/expenses/:guid/auto-offset` now computes the source FIFO
+approved-loan plan and updates only a command-owned Draft expense; loan
+balances remain unchanged until a later workflow-authorized step. The boundary
+still keeps `budget_effect`, `budget_consumption`, cash, accounting, tax, and
+workflow-engine synchronization false or gated. The budget-expense smoke
+proves create, replay, readback, auto-offset/replay, update, submit, and void;
+the controlled export still has zero imported expense rows.
 
 **Report-builder command checkpoint (2026-07-15).** The report-builder
 boundary is now native MoonBit rather than a Python-only comparison surface.

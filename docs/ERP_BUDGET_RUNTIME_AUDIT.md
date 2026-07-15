@@ -20,13 +20,15 @@ The target now exposes source-compatible read boundaries:
 | Users in business-unit scope | `/api/company/source/budget/users-in-bu?buGuid=<guid>` | bounded source observation |
 | Current user's approved loan balance | `/api/company/source/budget/my-loan-balance?userCode=<code>` | bounded source observation |
 | Budget headroom preview | `/api/company/budget-check` | non-authorizing calculation-only read |
+| Expense auto-offset | `/api/company/budget/expenses/:guid/auto-offset` | command-owned Draft writeback with FIFO loan plan |
 
 Each response preserves source field names (`code`, `name`, and `guid` where
 applicable) and marks rows `sourceKind=imported`. The budget-check response
 preserves the source `matched`, `target`, `used`, `remain`, `willOver`, and
 `overAmount` fields while explicitly returning `authorizing=false`,
 `persisted=false`, and `budget_consumption=false`. No dictionary, reservation,
-or expense mutation is enabled by this slice.
+or imported-row mutation is enabled by this read slice. The local expense
+command boundary separately supports a bounded auto-offset writeback.
 
 The evidence-ready scope batch now also reads four enabled users under
 `bu-tjgs-0001` and the imported `limingjin` balance of `3500.00` through the
@@ -39,16 +41,17 @@ list and new-expense surfaces.
 
 - PostgreSQL service smoke returns five cost-subject rows ordered by source
   `display_order` and three proceedings ordered by source code.
-- `scripts/company_postgres_source_read_smoke.py` verifies the four-user BU
+- `scripts/company_postgres_source_read_smoke.sh` verifies the four-user BU
   scope and 3,500.00 loan-balance read without mutations.
 - The service and trusted-gateway smokes verify a matched `CB-101` budget
   preview and its non-authorizing/no-consumption markers without an
   idempotency receipt.
 - The parity matrix marks the source budget `GET /dict/cost-subjects` and
   `GET /proceedings` handlers as `connected_budget_read`.
-- Expense create/update/approval, auto-offset, and browser production
-  identity remain separate boundaries; the new budget-check preview is
-  observation-only and does not grant authority.
+- Expense create/update/approval and auto-offset are covered by the native
+  command boundary; the auto-offset smoke proves FIFO planning, replay,
+  command-owned expense readback, and `loan_balance_effect=false`. The
+  budget-check preview remains observation-only and does not grant authority.
 
 ## Remaining gate
 

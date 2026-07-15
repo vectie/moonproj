@@ -153,7 +153,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `budget` | `DELETE` | `/expenses/:guid` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_command` | `accept_browser_expense_command_scenario_and_finance_owner` |
 | `budget` | `GET` | `/my-loan-balance` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_scope_read` | `accept_browser_budget_scope_scenario_and_production_identity` |
 | `budget` | `POST` | `/budget-check` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_budget_check_read` | `accept_browser_budget_check_scenario_and_finance_owner` |
-| `budget` | `POST` | `/expenses/:guid/auto-offset` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `budget` | `POST` | `/expenses/:guid/auto-offset` | `/expenses`, `/expenses/new`, `/expenses/:guid` | `connected_expense_command` | `accept_browser_expense_command_scenario_and_finance_owner` |
 | `cashflow` | `GET` | `/forecast` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
 | `cashflow` | `GET` | `/forecast-v3` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |
 | `cashflow` | `GET` | `/forecast/detail` | `/cashflow` | `connected_cashflow_read` | `accept_browser_cashflow_scenario_and_production_identity` |

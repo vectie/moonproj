@@ -297,6 +297,12 @@ fn budget_command_spec(
       rest[1].to_owned() == "submit-for-approval" {
       return Some(("submit", Some(rest[0].to_owned())))
     }
+    if request_method is @http.Post &&
+      rest.length() == 2 &&
+      valid_identifier(rest[0].to_owned()) &&
+      rest[1].to_owned() == "auto-offset" {
+      return Some(("auto_offset", Some(rest[0].to_owned())))
+    }
   }
   None
 }
