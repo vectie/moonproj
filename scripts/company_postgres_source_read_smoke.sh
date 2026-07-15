@@ -99,6 +99,18 @@ request investment_indices /api/company/investment/versions/tzsy-ver-tjhjy-v1/in
 request investment_profit /api/company/investment/projects/proj-0001/profit-summary
 request investment_sensitivity /api/company/investment/projects/proj-0001/sensitivity
 request investment_cost_dashboard '/api/company/investment/projects/proj-0001/profit-actual-v2?planVersion=baseline'
+request investment_imports /api/company/investment/projects/proj-0001/excel-imports
+request investment_plan_lines '/api/company/investment/projects/proj-0001/plan-lines?keyword=cost'
+request investment_subject_mappings /api/company/investment/projects/proj-0001/subject-mappings
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/proj-0001/profit-cockpit" >"$TMP_DIR/investment_profit_cockpit.json"
+request_allow_error investment_import_detail '/api/company/investment/excel-imports/missing-import'
+request_allow_error investment_bridge_plan '/api/company/investment/excel-imports/missing-import/bridge-plan'
+request_allow_error investment_index_preview '/api/company/investment/excel-imports/missing-import/index-upsert-preview'
+request_allow_error investment_profit_table '/api/company/investment/excel-imports/missing-import/profit-table'
+request_allow_error investment_plan_preview '/api/company/investment/excel-imports/missing-import/plan-line-preview'
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
   -H 'X-Forwarded-Proto: https' \
@@ -595,5 +607,14 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
 /usr/bin/jq -e '.data == [] and .authorizing == false and .persisted == false' "$TMP_DIR/warning_scans.json" >/dev/null
 /usr/bin/jq -e '.data == [] and .authorizing == false and .persisted == false' "$TMP_DIR/warning_custom.json" >/dev/null
 /usr/bin/jq -e '.success == true and .data.rows == [] and .data.summary.targetCost == 0 and .data.counts.leaves == 0 and .source_coverage.cb_subject_dict == 0 and .source_coverage.cb_plan_version == 0 and (.missing_or_empty_source_tables | index("cb_subject_dict")) != null and .authorizing == false' "$TMP_DIR/investment_cost_dashboard.json" >/dev/null
+/usr/bin/jq -e '.success == true and .data == [] and .source_coverage.tzsy_excel_import == 0 and .authorizing == false' "$TMP_DIR/investment_imports.json" >/dev/null
+/usr/bin/jq -e '.success == true and .data.lines == [] and .data.summary.count == 0 and .source_coverage.tzsy_plan_line == 0 and .authorizing == false' "$TMP_DIR/investment_plan_lines.json" >/dev/null
+/usr/bin/jq -e '.success == true and .data.groups == {} and .source_coverage.tzsy_subject_mapping == 0 and .authorizing == false' "$TMP_DIR/investment_subject_mappings.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 41002 and .authorizing == false' "$TMP_DIR/investment_profit_cockpit.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001' "$TMP_DIR/investment_import_detail.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001' "$TMP_DIR/investment_bridge_plan.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001' "$TMP_DIR/investment_index_preview.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001' "$TMP_DIR/investment_profit_table.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001' "$TMP_DIR/investment_plan_preview.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment/warning/investment-cost-dashboard read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment/warning/investment/cost-dashboard read smoke passed"

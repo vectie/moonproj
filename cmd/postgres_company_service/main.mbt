@@ -14892,6 +14892,37 @@ async fn route(
       "/versions".length()].to_owned()
       return (200, investment_versions_response(project_id))
     }
+    if path.has_suffix("/excel-imports") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/excel-imports".length()].to_owned()
+      return (200, investment_imports_response(project_id))
+    }
+    if path.has_suffix("/plan-lines") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/plan-lines".length()].to_owned()
+      return (
+        200,
+        investment_plan_lines_response(
+          project_id,
+          query_decoded(query, "versionGuid"),
+          query_decoded(query, "moduleCode"),
+          query_decoded(query, "sheet"),
+          query_decoded(query, "department"),
+          query_decoded(query, "status"),
+          query_decoded(query, "keyword"),
+        ),
+      )
+    }
+    if path.has_suffix("/subject-mappings") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/subject-mappings".length()].to_owned()
+      return investment_subject_mappings_response(project_id)
+    }
+    if path.has_suffix("/profit-cockpit") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/profit-cockpit".length()].to_owned()
+      return investment_profit_cockpit_response(project_id)
+    }
     if path.has_suffix("/profit-summary") {
       let project_id = path[investment_project_prefix.length():path.length() -
       "/profit-summary".length()].to_owned()
@@ -14907,6 +14938,27 @@ async fn route(
       "/profit-actual".length()].to_owned()
       return investment_profit_actual_response(project_id)
     }
+  }
+  let investment_import_prefix = "/api/company/investment/excel-imports/"
+  if path.has_prefix(investment_import_prefix) {
+    let rest = path[investment_import_prefix.length():].to_owned()
+    if rest.has_suffix("/bridge-plan") {
+      let import_id = rest[:rest.length() - "/bridge-plan".length()].to_owned()
+      return investment_import_bridge_plan_response(import_id)
+    }
+    if rest.has_suffix("/index-upsert-preview") {
+      let import_id = rest[:rest.length() - "/index-upsert-preview".length()].to_owned()
+      return investment_index_upsert_preview_response(import_id)
+    }
+    if rest.has_suffix("/profit-table") {
+      let import_id = rest[:rest.length() - "/profit-table".length()].to_owned()
+      return investment_profit_table_response(import_id)
+    }
+    if rest.has_suffix("/plan-line-preview") {
+      let import_id = rest[:rest.length() - "/plan-line-preview".length()].to_owned()
+      return investment_plan_line_preview_response(import_id)
+    }
+    return investment_import_detail_response(rest)
   }
   let investment_indices_prefix = "/api/company/investment/versions/"
   if path.has_prefix(investment_indices_prefix) && path.has_suffix("/indices") {
