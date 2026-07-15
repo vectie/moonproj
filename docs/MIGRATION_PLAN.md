@@ -497,6 +497,16 @@ retention, financial mutation, browser action, or owner authorization is
 enabled. Browser/finance-owner acceptance and any provider integration remain
 open migration gates.
 
+**Investment Excel index-upsert checkpoint (2026-07-16).** Native MoonBit now
+translates the source `POST /excel-imports/:importGuid/index-upsert` handler
+and its `/source` alias as a signed, PostgreSQL-backed dry-run candidate. The
+default response preserves the imported preview plan and adds `dryRun`,
+`force`, `wouldInsert`, and `wouldUpdate` markers; a missing import keeps the
+source 404. `dryRun=false` returns an explicit investment-owner acceptance
+gate, so no Excel index is inserted or updated and no audit/provider/cash,
+accounting, or tax effect occurs. Browser acceptance, workbook data, formula
+reconciliation, and the durable upsert transaction remain open.
+
 The marketing screen is now a bounded source/read-command family. `/marketing`
 loads `/api/company/marketing/{campaigns,placements,channels,materials}` with
 project/state filters and explicit source-table coverage. Imported source rows

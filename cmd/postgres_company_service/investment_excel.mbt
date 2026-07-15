@@ -470,6 +470,100 @@ async fn investment_index_upsert_preview_response(
 }
 
 ///|
+/// Native candidate for the source POST /excel-imports/:id/index-upsert route.
+///
+/// The ERP defaults this operation to dry-run and only writes when
+/// `dryRun=false`. Native MoonBit exposes the same deterministic plan shape;
+/// real index insertion/update remains an explicit owner-acceptance gate.
+fn investment_index_upsert_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  if request_method is @http.Post {
+    let prefix = "/api/company/investment/excel-imports/"
+    let source_prefix = "/api/company/source/investment/excel-imports/"
+    if path.has_prefix(prefix) && path.has_suffix("/index-upsert") {
+      return Some(
+        path[prefix.length():path.length() - "/index-upsert".length()].to_owned(),
+      )
+    }
+    if path.has_prefix(source_prefix) && path.has_suffix("/index-upsert") {
+      return Some(
+        path[source_prefix.length():path.length() - "/index-upsert".length()].to_owned(),
+      )
+    }
+  }
+  None
+}
+
+///|
+async fn investment_index_upsert_candidate(
+  import_id : String,
+  body : Json,
+) -> (Int, Json) raise CompanyServiceError {
+  let dry_run = match json_field(body, "dryRun") {
+    Some(False) => false
+    _ => true
+  }
+  let force = json_bool(body, "force", false)
+  if !dry_run {
+    return (
+      409,
+      Json::object({
+        "success": Json::boolean(false),
+        "code": Json::number(46001),
+        "message": Json::string(
+          "Excel 指标 upsert 需要投资负责人确认；当前 native 服务仅提供 dry-run。",
+        ),
+        "source_kind": Json::string("investment_excel_index_upsert_candidate"),
+        "dry_run": Json::boolean(false),
+        "force": Json::boolean(force),
+        "provider_execution": Json::boolean(false),
+        "persisted": Json::boolean(false),
+        "authorizing": Json::boolean(false),
+        "cash_effect": Json::boolean(false),
+        "accounting_effect": Json::boolean(false),
+        "tax_effect": Json::boolean(false),
+      }),
+    )
+  }
+  let preview = investment_index_upsert_preview_response(import_id)
+  if preview.0 != 200 {
+    return preview
+  }
+  match preview.1 {
+    Object(fields) => {
+      fields.set(
+        "source_kind",
+        Json::string("investment_excel_index_upsert_candidate"),
+      )
+      fields.set("dry_run", Json::boolean(true))
+      fields.set("force", Json::boolean(force))
+      fields.set("provider_execution", Json::boolean(false))
+      fields.set("persisted", Json::boolean(false))
+      fields.set("authorizing", Json::boolean(false))
+      fields.set("cash_effect", Json::boolean(false))
+      fields.set("accounting_effect", Json::boolean(false))
+      fields.set("tax_effect", Json::boolean(false))
+      match fields.get("data") {
+        Some(Object(data_fields)) => {
+          data_fields.set("dryRun", Json::boolean(true))
+          data_fields.set("force", Json::boolean(force))
+          data_fields.set("inserted", Json::number(0))
+          data_fields.set("updated", Json::number(0))
+          data_fields.set("skipped", Json::number(0))
+          data_fields.set("wouldInsert", Json::number(0))
+          data_fields.set("wouldUpdate", Json::number(0))
+        }
+        _ => ()
+      }
+      (200, Json::object(fields))
+    }
+    _ => preview
+  }
+}
+
+///|
 async fn investment_profit_table_response(
   import_id : String,
 ) -> (Int, Json) raise CompanyServiceError {

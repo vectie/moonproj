@@ -68,6 +68,7 @@ if [ "$ready" -ne 1 ]; then
   /bin/cat "$TMP_DIR/service.log"
   exit 1
 fi
+/usr/bin/jq -e '.capabilities | index("investment_excel_index_upsert_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 
 version_body="{\"versionGuid\":\"$VERSION_ID\",\"versionName\":\"Native Investment Smoke\",\"remark\":\"local command projection\",\"activate\":true}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/version.json" -w '%{http_code}' \
@@ -163,5 +164,22 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/second-delete.json" -w '%{http_code}' \
   "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/versions/$SECOND_VERSION_ID")
 test "$status" = 200
 /usr/bin/jq -e '.investment.state == "deleted" and .investment.versionGuid == "'$SECOND_VERSION_ID'"' "$TMP_DIR/second-delete.json" >/dev/null
+
+MISSING_IMPORT_ID="investment-smoke-missing-import-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/index-upsert-missing.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{}' \
+  "http://127.0.0.1:$PORT/api/company/investment/excel-imports/$MISSING_IMPORT_ID/index-upsert")
+test "$status" = 404
+/usr/bin/jq -e '.code == 43001 and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/index-upsert-missing.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/index-upsert-write-gate.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{"dryRun":false,"force":true}' \
+  "http://127.0.0.1:$PORT/api/company/investment/excel-imports/$MISSING_IMPORT_ID/index-upsert")
+test "$status" = 409
+/usr/bin/jq -e '.code == 46001 and .dry_run == false and .force == true and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/index-upsert-write-gate.json" >/dev/null
 
 echo "native MoonBit investment version/index lifecycle/idempotency/readback smoke passed"

@@ -26,6 +26,7 @@ The target now exposes source-compatible read boundaries:
 | Profit cockpit | `/api/company/investment/projects/:id/profit-cockpit` | source-style missing-data boundary |
 | Actual-vs-plan profit | `/api/company/investment/projects/:id/profit-actual` | bounded imported-real plus explicitly simulated sparse-plan read |
 | Version/index lifecycle | signed local `POST`/`PUT`/`DELETE` command routes | command-owned candidate projections; imported rows remain read-only |
+| Excel index upsert | signed `POST /api/company/investment/excel-imports/:id/index-upsert` and `/source` alias | deterministic dry-run candidate; real insert/update is owner-gated |
 | AI explanation | signed `POST /api/company/investment/projects/:id/ai-explain` and `/source` alias | deterministic analytics candidate over the current PostgreSQL version/profit summary; no provider, prompt persistence, or financial effect |
 
 Rows preserve source field names and are marked `sourceKind=imported`. Local
@@ -64,6 +65,10 @@ fallback.
   explanation candidate returns the live `revenue`, `netProfit`, provider/model
   markers, and explicit `provider_execution=false`, `persisted=false`, and
   `authorizing=false` flags without an external model.
+- `scripts/company_postgres_investment_smoke.sh` now proves the signed Excel
+  index-upsert candidate preserves the source 404 for a missing import and
+  rejects `dryRun=false` with an explicit owner-acceptance gate; neither path
+  invokes a provider or persists an index.
 - Existing native investment valuation, performance, and benchmark boundaries
   remain separate reviewed analytics gates; they do not authorize source-row
   ownership or cash/accounting effects.
@@ -95,7 +100,8 @@ remains the explicit empty-CBS observation.
    identity, including project scope and version ownership.
 2. Obtain the missing investment/source export rows and owner-approved formula
    reconciliation before accepting actual-profit values as target-owned.
-3. Keep Excel upload/import, valuation, cash release, accounting, tax, and
-   period-close actions separately authorized; the explanation candidate still
+3. Keep Excel upload/import, non-dry-run index upsert, valuation, cash release,
+   accounting, tax, and period-close actions separately authorized; the
+   explanation candidate still
    needs browser/investment-owner acceptance before production enablement and
    any provider-backed explanation requires a separate security/finance gate.
