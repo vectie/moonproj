@@ -20,6 +20,9 @@ MESSAGE_GUID="imported-message-$SUFFIX"
 CONFIG_KEY="notify-config-$SUFFIX"
 DISPATCH_KEY="notify-digest-dispatch-$SUFFIX"
 WEBHOOK_TEST_KEY="notify-webhook-test-$SUFFIX"
+EMAIL_TEST_KEY="notify-email-test-$SUFFIX"
+EMAIL_REDELIVER_KEY="notify-email-redeliver-$SUFFIX"
+EMAIL_EID="email-outbox-$SUFFIX"
 
 psql() {
   PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
@@ -29,7 +32,7 @@ psql() {
 cleanup() {
   if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; fi
   psql -v ON_ERROR_STOP=0 -c \
-    "DELETE FROM company_record WHERE source_id LIKE '%notification:%$SUFFIX%' OR source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$DELETE_KEY%' OR source_id LIKE '%$READ_KEY%' OR source_id LIKE '%$READ_ALL_KEY%' OR source_id = 'notification-source-$SUFFIX' OR source_id = 'notification-subscription-source-$SUFFIX' OR source_id = 'notification-webhook-param-$SUFFIX' OR source_id LIKE '%$CONFIG_KEY%' OR source_id LIKE '%$DISPATCH_KEY%' OR source_id LIKE '%$WEBHOOK_TEST_KEY%'; DELETE FROM company_aggregate_projection WHERE aggregate_id LIKE '%$SUFFIX%' OR source_event_id = 'notification:config_update:$CONFIG_KEY' OR source_event_id LIKE '%notification:digest_dispatch:$DISPATCH_KEY%' OR source_event_id LIKE '%notification:webhook_test:$WEBHOOK_TEST_KEY%';" \
+    "DELETE FROM company_record WHERE source_id LIKE '%notification:%$SUFFIX%' OR source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$DELETE_KEY%' OR source_id LIKE '%$READ_KEY%' OR source_id LIKE '%$READ_ALL_KEY%' OR source_id = 'notification-source-$SUFFIX' OR source_id = 'notification-subscription-source-$SUFFIX' OR source_id = 'notification-webhook-param-$SUFFIX' OR source_id = 'notification-email-outbox-$SUFFIX' OR source_id LIKE '%$CONFIG_KEY%' OR source_id LIKE '%$DISPATCH_KEY%' OR source_id LIKE '%$WEBHOOK_TEST_KEY%' OR source_id LIKE '%$EMAIL_TEST_KEY%' OR source_id LIKE '%$EMAIL_REDELIVER_KEY%'; DELETE FROM company_aggregate_projection WHERE aggregate_id LIKE '%$SUFFIX%' OR source_event_id = 'notification:config_update:$CONFIG_KEY' OR source_event_id LIKE '%notification:digest_dispatch:$DISPATCH_KEY%' OR source_event_id LIKE '%notification:webhook_test:$WEBHOOK_TEST_KEY%' OR source_event_id LIKE '%notification:email_test:$EMAIL_TEST_KEY%' OR source_event_id LIKE '%notification:email_redeliver:$EMAIL_REDELIVER_KEY%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -46,7 +49,7 @@ for i in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_message', 'notify-source-record-$SUFFIX', 1, '{\"msg_guid\":\"$MESSAGE_GUID\",\"user_id\":\"user-admin-0001\",\"title\":\"Native notification\",\"is_read\":false}'::jsonb, 'notification-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_warning_subscription', 'notify-subscription-source-record-$SUFFIX', 1, '{\"sub_id\":\"$SUFFIX\",\"user_id\":\"user-admin-0001\",\"channels\":\"email\",\"enabled\":true}'::jsonb, 'notification-subscription-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_param', 'notify-webhook-param-record-$SUFFIX', 1, '{\"pk\":\"notify.webhook.url\",\"pv\":\"https://example.invalid/webhook\"}'::jsonb, 'notification-webhook-param-$SUFFIX') ON CONFLICT (source_id) DO NOTHING;" >/dev/null
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_message', 'notify-source-record-$SUFFIX', 1, '{\"msg_guid\":\"$MESSAGE_GUID\",\"user_id\":\"user-admin-0001\",\"title\":\"Native notification\",\"is_read\":false}'::jsonb, 'notification-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_warning_subscription', 'notify-subscription-source-record-$SUFFIX', 1, '{\"sub_id\":\"$SUFFIX\",\"user_id\":\"user-admin-0001\",\"channels\":\"email\",\"enabled\":true}'::jsonb, 'notification-subscription-source-$SUFFIX') ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_param', 'notify-webhook-param-record-$SUFFIX', 1, '{\"pk\":\"notify.webhook.url\",\"pv\":\"https://example.invalid/webhook\"}'::jsonb, 'notification-webhook-param-$SUFFIX') ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_email_outbox', 'notify-email-outbox-record-$SUFFIX', 1, '{\"eid\":\"$EMAIL_EID\",\"to_addr\":\"owner@example.com\",\"status\":\"failed\",\"subject\":\"Native source email\"}'::jsonb, 'notification-email-outbox-$SUFFIX') ON CONFLICT (source_id) DO NOTHING;" >/dev/null
 
 SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$SECRET" -hex | /usr/bin/sed 's/^.*= //')
 curl_common() {
@@ -114,6 +117,16 @@ test "$status" = 200
 status=$(curl_common -o "$TMP_DIR/webhook-test-replay.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $WEBHOOK_TEST_KEY" --data '{"title":"Native test","content":"dry-run"}' "http://127.0.0.1:$PORT/api/company/source/notify/config/test-webhook")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .data.wouldSend == true and .data.ok == false' "$TMP_DIR/webhook-test-replay.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/email-test.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $EMAIL_TEST_KEY" --data '{"to":"owner@example.com"}' "http://127.0.0.1:$PORT/api/company/notify/email-outbox/test")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.queued == false and .data.wouldQueue == true and .data.dryRun == true and .data.toConfigured == true and .data.providerExecution == false and .data.delivery_effect == false' "$TMP_DIR/email-test.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/email-redeliver.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $EMAIL_REDELIVER_KEY" --data '{}' "http://127.0.0.1:$PORT/api/company/source/notify/email-outbox/$EMAIL_EID/redeliver")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.found == true and .data.status == "failed" and .data.queued == false and .data.wouldRedeliver == true and .data.reason == "provider_execution_disabled" and .data.providerExecution == false and .data.delivery_effect == false' "$TMP_DIR/email-redeliver.json" >/dev/null
+source_status=$(psql -At -c "SELECT payload->>'status' FROM company_record WHERE source_id = 'notification-email-outbox-$SUFFIX'")
+test "$source_status" = failed
 
 status=$(curl_common -o "$TMP_DIR/invalid.json" -w '%{http_code}' -X POST -H "Idempotency-Key: notify-invalid-$SUFFIX" --data '{"channels":["sms"]}' "http://127.0.0.1:$PORT/api/company/notify/subscriptions")
 test "$status" = 400

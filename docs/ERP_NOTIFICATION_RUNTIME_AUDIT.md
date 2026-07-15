@@ -79,6 +79,14 @@ records an idempotent webhook-test candidate using the effective redacted
 reason, but never exposes the URL, calls a provider, or creates a delivery
 record.
 
+Signed super-user `POST /email-outbox/test` and
+`POST /email-outbox/:eid/redeliver` (including `/source` aliases) now record
+idempotent email command candidates. Test candidates report a redacted
+recipient and `wouldQueue=true`; redelivery candidates verify the imported
+outbox status and report `wouldRedeliver` without changing that source row.
+Neither operation inserts/updates `sys_email_outbox`, opens SMTP, or marks a
+message delivered.
+
 ## Not yet connected
 
 The following source actions remain explicitly outside this read slice:
@@ -86,8 +94,8 @@ The following source actions remain explicitly outside this read slice:
 - webhook tests; managed credential binding and provider configuration remain
   gated even though the redacted notification-config candidate write is
   connected;
-- email test/redelivery and LLM provider test calls; digest dispatch and the
-  generic webhook test are now persisted dry-run candidates;
+- LLM provider test calls remain gated; digest dispatch, generic webhook test,
+  and email test/redelivery are now persisted dry-run candidates;
 - notification outbox delivery, retry/consent policy, and workflow effects;
 - production identity, browser acceptance, and owner reconciliation.
 
