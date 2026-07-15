@@ -26,6 +26,7 @@ The target now exposes source-compatible read boundaries:
 | Profit cockpit | `/api/company/investment/projects/:id/profit-cockpit` | source-style missing-data boundary |
 | Actual-vs-plan profit | `/api/company/investment/projects/:id/profit-actual` | bounded imported-real plus explicitly simulated sparse-plan read |
 | Version/index lifecycle | signed local `POST`/`PUT`/`DELETE` command routes | command-owned candidate projections; imported rows remain read-only |
+| AI explanation | signed `POST /api/company/investment/projects/:id/ai-explain` and `/source` alias | deterministic analytics candidate over the current PostgreSQL version/profit summary; no provider, prompt persistence, or financial effect |
 
 Rows preserve source field names and are marked `sourceKind=imported`. Local
 version/index lifecycle commands are explicitly marked `sourceKind=command_candidate`;
@@ -59,6 +60,10 @@ fallback.
 - The lifecycle smoke covers signed version create/activate/delete and index
   create/update/delete with idempotent replay and command-owned readback; the
   parity matrix records six `connected_investment_command_candidate` handlers.
+- `scripts/company_postgres_ai_explain_smoke.sh` proves the investment
+  explanation candidate returns the live `revenue`, `netProfit`, provider/model
+  markers, and explicit `provider_execution=false`, `persisted=false`, and
+  `authorizing=false` flags without an external model.
 - Existing native investment valuation, performance, and benchmark boundaries
   remain separate reviewed analytics gates; they do not authorize source-row
   ownership or cash/accounting effects.
@@ -91,5 +96,6 @@ remains the explicit empty-CBS observation.
 2. Obtain the missing investment/source export rows and owner-approved formula
    reconciliation before accepting actual-profit values as target-owned.
 3. Keep Excel upload/import, valuation, cash release, accounting, tax, and
-   period-close actions separately authorized; lifecycle candidates still need
-   browser and investment-owner acceptance before production enablement.
+   period-close actions separately authorized; the explanation candidate still
+   needs browser/investment-owner acceptance before production enablement and
+   any provider-backed explanation requires a separate security/finance gate.

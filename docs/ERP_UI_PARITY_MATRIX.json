@@ -73,6 +73,7 @@
     "connected_ai_stats_badge_batch_read": 1,
     "connected_attachment_read": 1,
     "connected_cashflow_read": 1,
+    "connected_cashflow_ai_explain_candidate": 1,
     "connected_cbs_read": 4,
     "connected_contract_command": 2,
     "connected_cost_dashboard_read": 1,
@@ -84,6 +85,7 @@
     "connected_expense_read": 1,
     "connected_fund_read": 1,
     "connected_investment_read": 1,
+    "connected_investment_ai_explain_candidate": 1,
     "connected_invoice_read": 1,
     "connected_loan_command": 2,
     "connected_loan_read": 1,
@@ -1758,8 +1760,8 @@
       "browser_route_paths": [
         "/cashflow"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_cashflow_ai_explain_candidate",
+      "required_next": "accept_browser_cashflow_ai_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2796,8 +2798,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_ai_explain_candidate",
+      "required_next": "accept_browser_investment_ai_scenario_and_investment_owner"
     },
     {
       "module": "investment",

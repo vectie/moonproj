@@ -15926,6 +15926,8 @@ async fn route(
             Json::string("workflow_definition_read"),
             Json::string("investment_observation_read"),
             Json::string("cashflow_observation_read"),
+            Json::string("cashflow_ai_explain_candidate"),
+            Json::string("investment_ai_explain_candidate"),
             Json::string("cbs_observation_read"),
             Json::string("admin_observation_read"),
             Json::string("notification_observation_read"),
@@ -16083,6 +16085,37 @@ async fn handle(
       authorization_status == 401,
     )
     return
+  }
+  match ai_explain_spec(request.meth, path) {
+    Some((kind, project_id)) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = if kind == "cashflow" {
+        (200, cashflow_ai_explain(body))
+      } else {
+        investment_ai_explain_status(project_id.unwrap()) catch {
+          error => service_error_response(error)
+        }
+      }
+      // The actor is intentionally used only to enforce the signed request;
+      // explanation candidates do not persist or authorize anything.
+      let _ = actor
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   if request.meth is @http.Post && path == "/api/company/export/excel" {
     let body = read_json_body(body_reader) catch {

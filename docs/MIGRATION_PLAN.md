@@ -409,9 +409,12 @@ authenticated service/read-model adapter exposes `/forecast-v3`,
 reads reproduce ERP payment-plan/application, expense/loan, revenue,
 milestone, and v3 CBS semantics from imported envelopes and carry explicit
 coverage; empty source tables contribute zero rather than fixture cash. This
-is read-only liquidity evidence. Cash release, accounting, tax, bank
-settlement, AI explanation, browser production identity, and owner acceptance
-remain separate gates.
+is read-only liquidity evidence. A signed `/api/company/cashflow/ai-explain`
+candidate (and `/source` alias) now produces a deterministic native summary of
+supplied series/gap evidence; it never calls a provider, persists prompts, or
+creates cash/accounting/tax effects. Cash release, accounting, tax, bank
+settlement, provider-backed explanation, browser production identity, and
+finance-owner acceptance remain separate gates.
 
 CBS is the next connected finance master-data family. The service and
 read-model adapter now expose source-compatible R master, dictionary,
@@ -470,6 +473,18 @@ state after a successful read rather than designer files. Upload, binary
 download now has a source-compatible missing-record boundary, while real
 binary serving, deletion, OCR re-extraction, production identity, and owner
 acceptance remain separate gates.
+
+**AI explanation candidate checkpoint (2026-07-16).** Native MoonBit now
+translates the source cashflow and investment `POST /ai-explain` handlers behind
+the signed PostgreSQL service. Cashflow explanations summarize supplied series
+and gap evidence; investment explanations summarize the current imported
+version/profit read model. Both preserve a source-compatible envelope and
+explicitly report `provider_execution=false`, `persisted=false`, and
+`authorizing=false`; the dedicated shell smoke proves the live PostgreSQL
+boundary. This is an analytics candidate only: no LLM/provider call, prompt
+retention, financial mutation, browser action, or owner authorization is
+enabled. Browser/finance-owner acceptance and any provider integration remain
+open migration gates.
 
 The marketing screen is now a bounded source/read-command family. `/marketing`
 loads `/api/company/marketing/{campaigns,placements,channels,materials}` with

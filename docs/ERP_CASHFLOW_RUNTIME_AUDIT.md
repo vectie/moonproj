@@ -41,8 +41,12 @@ dependencies.
 
 The page keeps the designer snapshot as a transport-failure fallback while
 showing the live monthly table, inflow metric, and source provenance banner
-when the reads succeed. AI explanation, cash release, accounting posting, tax,
-bank settlement, and production identity remain separate migration gates. The
+when the reads succeed. `POST /api/company/cashflow/ai-explain` (and its
+`/source` alias) is now a signed, deterministic analytics candidate: it
+summarizes supplied series/gap evidence, returns the source envelope, and
+explicitly performs no provider call, prompt persistence, cash release,
+accounting posting, or tax effect. Browser/finance-owner acceptance and any
+real provider integration remain separate migration gates. The
 current controlled export has no `sale_revenue`, milestone, or v3 CBS rows, so
 those endpoints truthfully return empty series/coverage instead of fabricated
 cash.
