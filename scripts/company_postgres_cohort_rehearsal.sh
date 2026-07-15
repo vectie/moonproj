@@ -363,7 +363,7 @@ if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
 fi
 
 if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_procurement_cohort_plan.py" \
+  "$SCRIPT_DIR/erp_procurement_cohort_plan.sh" \
     "$PROCUREMENT_COHORT_MAPPING" "$WORK_DIR/procurement-cohort-plan.json"
   moon run --target native cmd/procurement_cohort -- \
     "$WORK_DIR/procurement-cohort-plan.json" "$WORK_DIR/procurement-cohort-receipt.json"

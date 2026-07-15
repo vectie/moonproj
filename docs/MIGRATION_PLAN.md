@@ -2004,6 +2004,16 @@ Execute the remainder in this order:
     plan envelope. Native promotion remains planning evidence only; bank
     movement, cash release, settlement, accounting, tax, and period close stay
     disabled.
+
+3a.16. **Native procurement cohort planner (2026-07-16).**
+    `cmd/procurement_cohort_plan` and `scripts/erp_procurement_cohort_plan.sh`
+    now replace the Python supplier/tender/commitment compiler in the
+    PostgreSQL cohort path. The native planner preserves reviewed-input gating,
+    recursive secret-shaped-key rejection, supplier/tender/commitment
+    uniqueness, supplier lifecycle/evaluation allow-lists, bid count/currency/
+    amount checks, award-to-bid continuity, and the exact procurement cohort
+    envelope. Procurement promotion remains separate from cash, accounting,
+    settlement, tax, and period-close effects.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
