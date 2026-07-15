@@ -198,7 +198,7 @@ fi
 
 if [ -n "$OPENING_CONTROL_MAPPING" ]; then
   OPENING_CONTROL_PLAN="$WORK_DIR/opening-control-plan.json"
-  python3 "$SCRIPT_DIR/erp_opening_control_plan.py" \
+  "$SCRIPT_DIR/erp_opening_control_plan.sh" \
     "$OPENING_CONTROL_MAPPING" "$OPENING_CONTROL_PLAN"
   echo "opening_control_plan=$OPENING_CONTROL_PLAN"
   OPENING_CONTROL_RECEIPT="$WORK_DIR/opening-control-receipt.json"
@@ -222,7 +222,7 @@ fi
 
 if [ -n "$TAX_FILING_MAPPING" ]; then
   TAX_FILING_PLAN="$WORK_DIR/tax-filing-plan.json"
-  python3 "$SCRIPT_DIR/erp_tax_filing_plan.py" \
+  "$SCRIPT_DIR/erp_tax_filing_plan.sh" \
     "$TAX_FILING_MAPPING" "$TAX_FILING_PLAN"
   echo "tax_filing_plan=$TAX_FILING_PLAN"
   TAX_FILING_RECEIPT="$WORK_DIR/tax-filing-receipt.json"
@@ -246,7 +246,7 @@ fi
 
 if [ -n "$BANK_STATEMENT_MAPPING" ]; then
   BANK_STATEMENT_PLAN="$WORK_DIR/bank-statement-plan.json"
-  python3 "$SCRIPT_DIR/erp_bank_statement_plan.py" \
+  "$SCRIPT_DIR/erp_bank_statement_plan.sh" \
     "$BANK_STATEMENT_MAPPING" "$BANK_STATEMENT_PLAN"
   echo "bank_statement_plan=$BANK_STATEMENT_PLAN"
   BANK_STATEMENT_RECEIPT="$WORK_DIR/bank-statement-receipt.json"
@@ -270,7 +270,7 @@ fi
 
 if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
   FINANCING_FACILITY_PLAN="$WORK_DIR/financing-facility-plan.json"
-  python3 "$SCRIPT_DIR/erp_financing_facility_plan.py" \
+  "$SCRIPT_DIR/erp_financing_facility_plan.sh" \
     "$FINANCING_FACILITY_MAPPING" "$FINANCING_FACILITY_PLAN"
   echo "financing_facility_plan=$FINANCING_FACILITY_PLAN"
   FINANCING_FACILITY_RECEIPT="$WORK_DIR/financing-facility-receipt.json"
@@ -294,7 +294,7 @@ fi
 
 if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
   ASSET_LIFECYCLE_PLAN="$WORK_DIR/asset-lifecycle-plan.json"
-  python3 "$SCRIPT_DIR/erp_asset_lifecycle_plan.py" \
+  "$SCRIPT_DIR/erp_asset_lifecycle_plan.sh" \
     "$ASSET_LIFECYCLE_MAPPING" "$ASSET_LIFECYCLE_PLAN"
   echo "asset_lifecycle_plan=$ASSET_LIFECYCLE_PLAN"
   ASSET_LIFECYCLE_RECEIPT="$WORK_DIR/asset-lifecycle-receipt.json"
@@ -318,7 +318,7 @@ fi
 
 if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
   TREASURY_PLAN_DISPATCH_PLAN="$WORK_DIR/treasury-plan-dispatch-plan.json"
-  python3 "$SCRIPT_DIR/erp_treasury_plan_dispatch_plan.py" \
+  "$SCRIPT_DIR/erp_treasury_plan_dispatch_plan.sh" \
     "$TREASURY_PLAN_DISPATCH_MAPPING" "$TREASURY_PLAN_DISPATCH_PLAN"
   echo "treasury_plan_dispatch_plan=$TREASURY_PLAN_DISPATCH_PLAN"
   TREASURY_PLAN_DISPATCH_RECEIPT="$WORK_DIR/treasury-plan-dispatch-receipt.json"
@@ -342,7 +342,7 @@ fi
 
 if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
   INVOICE_SUBLEDGER_PLAN="$WORK_DIR/invoice-subledger-plan.json"
-  python3 "$SCRIPT_DIR/erp_invoice_subledger_plan.py" \
+  "$SCRIPT_DIR/erp_invoice_subledger_plan.sh" \
     "$INVOICE_SUBLEDGER_MAPPING" "$INVOICE_SUBLEDGER_PLAN"
   echo "invoice_subledger_plan=$INVOICE_SUBLEDGER_PLAN"
   INVOICE_SUBLEDGER_RECEIPT="$WORK_DIR/invoice-subledger-receipt.json"
@@ -366,7 +366,7 @@ fi
 
 if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
   PROCUREMENT_COHORT_PLAN="$WORK_DIR/procurement-cohort-plan.json"
-  python3 "$SCRIPT_DIR/erp_procurement_cohort_plan.py" \
+  "$SCRIPT_DIR/erp_procurement_cohort_plan.sh" \
     "$PROCUREMENT_COHORT_MAPPING" "$PROCUREMENT_COHORT_PLAN"
   echo "procurement_cohort_plan=$PROCUREMENT_COHORT_PLAN"
   PROCUREMENT_COHORT_RECEIPT="$WORK_DIR/procurement-cohort-receipt.json"
@@ -390,7 +390,7 @@ fi
 
 if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
   INVESTMENT_PERFORMANCE_PLAN="$WORK_DIR/investment-performance-plan.json"
-  python3 "$SCRIPT_DIR/erp_investment_performance_plan.py" \
+  "$SCRIPT_DIR/erp_investment_performance_plan.sh" \
     "$INVESTMENT_PERFORMANCE_MAPPING" "$INVESTMENT_PERFORMANCE_PLAN"
   echo "investment_performance_plan=$INVESTMENT_PERFORMANCE_PLAN"
   INVESTMENT_PERFORMANCE_RECEIPT="$WORK_DIR/investment-performance-receipt.json"
