@@ -431,60 +431,7 @@ async fn investment_sensitivity_response(
 async fn investment_profit_actual_response(
   project_id : String,
 ) -> (Int, Json) raise CompanyServiceError {
-  if !valid_identifier(project_id) {
-    raise reject(422, "invalid project_id")
-  }
-  let tables = [
-    "ep_project", "sys_user", "tzsy_version", "tzsy_excel_import", "tzsy_excel_sheet",
-    "tzsy_profit_table", "tzsy_plan_line", "tzsy_subject_mapping",
-  ]
-  let coverage : Map[String, Int] = {}
-  for table in tables {
-    coverage.set(table, raw_source_rows(table, 5000).length())
-  }
-  let missing : Array[Json] = []
-  for table, count in coverage {
-    if count == 0 {
-      missing.push(Json::string(table))
-    }
-  }
-  missing.sort_by(fn(left, right) {
-    left.stringify().compare(right.stringify())
-  })
-  let project_exists = raw_source_rows("ep_project", 500).any(fn(row) {
-    report_text(row.payload, "proj_guid", row.record_id) == project_id
-  })
-  if !project_exists {
-    return (
-      404,
-      Json::object({
-        "success": Json::boolean(false),
-        "code": Json::number(41001),
-        "message": Json::string("项目不存在"),
-        "source_coverage": report_coverage(coverage),
-        "missing_or_empty_source_tables": Json::array(missing),
-        "authorizing": Json::boolean(false),
-        "persisted": Json::boolean(false),
-        "provider_execution": Json::boolean(false),
-        "simulation": Json::boolean(false),
-      }),
-    )
-  }
-  (
-    404,
-    Json::object({
-      "success": Json::boolean(false),
-      "code": Json::number(41002),
-      "message": Json::string("该项目暂无测算数据,无法对比"),
-      "projectId": Json::string(project_id),
-      "source_coverage": report_coverage(coverage),
-      "missing_or_empty_source_tables": Json::array(missing),
-      "authorizing": Json::boolean(false),
-      "persisted": Json::boolean(false),
-      "provider_execution": Json::boolean(false),
-      "simulation": Json::boolean(false),
-    }),
-  )
+  investment_actual_response_native(project_id)
 }
 
 ///|

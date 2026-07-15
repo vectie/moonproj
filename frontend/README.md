@@ -182,7 +182,8 @@ Investment read evidence is available at
 separately gated.
 The `/investment` screen loads the imported current version, 26 grouped
 indices, profit summary, sensitivity scenarios, and the source-compatible
-`profit-actual` missing-plan/approval boundary through the read-only adapter;
+`profit-actual` imported-real/simulated comparison through the read-only
+adapter. When the source plan is absent it preserves the missing-plan boundary;
 its designer comparison table remains an offline fallback.
 The `/dynamic-cost` screen loads the seven imported `cb_cost` rows and source
 A/B/C/D/E/F/G/H calculation for `proj-0001`; cost writes and downstream

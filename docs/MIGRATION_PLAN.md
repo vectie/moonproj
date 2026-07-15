@@ -884,9 +884,11 @@ groups are now explicit:
   boundaries. The current export has zero `tzsy_excel_import`, sheet, profit,
   plan-line, and mapping rows, so these routes return explicit empty data or
   source-style 404s with coverage rather than showing designer workbooks. The
-  profit-actual now has a source-compatible missing-plan boundary; the actual
-  calculation remains gated because it would apply simulation semantics to
-  sparse source evidence.
+  profit-actual now ports the source comparison when a plan exists: imported
+  receipts/payments/expenses/contracts/loans are aggregated and sparse plan
+  subjects are explicitly marked simulated. The current export still returns
+  the source-style missing-plan boundary, and the seeded shell smoke proves the
+  successful calculation without mutating finance state.
 * **Defined-but-empty or absent source reads:** workflow instance/task views
   now have an empty-safe observation adapter over defined
   `wf_process_instance`/`wf_step_action` tables, but still zero rows;
@@ -1091,12 +1093,13 @@ plan-line/subject-mapping and profit-cockpit handlers depend on absent
 profit-cockpit itself returns `41002` when no imported profit table exists; the
 migration keeps that covered boundary rather than substituting designer values.
 The source profit-actual route additionally simulates sparse sales/expense/CBS
-inputs. Its target boundary now returns source-style `41002` when no imported
-profit plan exists and an explicit approval gate if one does, rather than
-running that simulation. The next investment wave therefore requires the
-missing export and owner-approved calculation semantics; the current
-26-index/version/sensitivity plus empty import-history/actual-plan observations
-are the complete evidence-backed slice.
+inputs. Native MoonBit now ports that calculation as an observation: real
+receipts, paid applications, expenses, contracts, and loans are distinguished
+from progress/mapping fallback values with `simulated=true`; no plan still
+returns source-style `41002`. `scripts/company_postgres_investment_actual_smoke.sh`
+proves the populated path. The missing export, formula reconciliation, and
+owner acceptance remain open; the current 26-index/version/sensitivity plus
+empty import-history/actual-plan observations remain the production evidence.
 
 The browser pass also found an inherited source-contract inconsistency that
 must be reconciled before investment acceptance: the investment summary card
@@ -1218,10 +1221,10 @@ rows in PostgreSQL, detail/bridge/preview/profit/cockpit requests return the
 source-style missing-record boundary, while plan-line and mapping reads return
 empty data with coverage metadata. Smoke evidence covers all of these paths
 without upload, write, provider execution, or designer fixture substitution.
-Profit-actual remains gated because the source route simulates sparse actuals;
-dashboard v3 and investment profit-actual are now bounded observations, with
-the v3 aggregate and investment actual-profit boundary mounted as read-only
-panels; attachment download,
+Profit-actual now runs through the native bounded imported-real/simulated read;
+dashboard v3 and investment actual-profit are mounted as read-only panels, and
+the seeded shell smoke proves the calculation. Formula reconciliation,
+production identity, owner acceptance, attachment download,
 PostgreSQL backup export, and supplier signature checking have explicit
 boundaries. None is an accepted production capability.
 
@@ -1235,8 +1238,9 @@ protected as read-only; local projections merge into versions, grouped indices,
 profit summary, and sensitivity reads. The lifecycle smoke proves create,
 replay, current-version readback, index update/tombstone, and non-current
 version deletion, with investment-only and no-provider/cash/accounting/tax
-effects. Excel upload/import activation, actual-profit simulation, valuation,
-browser identity, and investment-owner acceptance remain separate gates.
+effects. Excel upload/import activation, formula/owner acceptance of
+actual-profit simulation, valuation, browser identity, and investment-owner
+acceptance remain separate gates.
 
 **CBS version command checkpoint (2026-07-15).** Native MoonBit now translates
 the source CBS draft/version lifecycle that can be safely owned locally:
@@ -1402,8 +1406,8 @@ commands.
 PostgreSQL only. The gateway's GET forwarding is not proof of service coverage;
 a path can be allow-listed and still return a native 404. The remaining
 browser-visible families without native MoonBit service ownership are
-actual-profit simulation/mutations, AI explain/provider actions, Excel upload/import
-activation, CBS budget-reservation/
+actual-profit formula/owner acceptance and mutations, AI explain/provider
+actions, Excel upload/import activation, CBS budget-reservation/
 mutation surfaces, warning scans/provider actions, attachment binary/OCR
 operations, notification/provider actions, RBAC password/identity writes and
 production authorization binding, source workflow-engine
@@ -1432,7 +1436,7 @@ authorization false; the owner-filled artifact is still required.
 | --- | --- | --- | --- |
 | P0 | Production identity and shadow operation for connected reads | Managed issuer/audience, token rotation, persistent session/rollback, named owner acceptance, and a read-only shadow comparison | Security/operations owner approval and a complete credential-safe source export |
 | P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; runtime `/api/company/source/migration/schema-coverage` evidence; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
-| P2 | Dashboard v3 and investment actual acceptance | The v3 observation and profit-actual missing-plan/approval boundary are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
+| P2 | Dashboard v3 and investment actual acceptance | The v3 observation and native profit-actual imported-real/simulated read are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
 | P4 | Supplier provider signature decision | The missing-provider boundary, populated-provider procurement gate, and non-authorizing command-owned derived preview are connected; bind provider credentials, imported-row risk calculation parity, timeout/retry, and audit trail before returning an imported-provider decision | Procurement/security owner approval and a real provider test contract |
 | P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, confirmation, and command-owned progress tombstone actions are now explicitly registered against the evidence-gated command runtime; imported progress remains read-only. Sales customer/subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes, and expense create/update/submit/void now maps to the source budget mutation boundary, while destructive customer deletion remains gated. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Signed local workflow start/approve/reject commands now persist command-owned instance/action projections, owner checks, replay/audit evidence, and workflow-only effect markers; imported workflow rows and source-engine synchronization/delegation remain gated. MDM project create/update/delete aliases now use a command-owned project projection with lifecycle initialization, imported-project protection, source-shaped readback, replay, and tombstone evidence; task/workflow/budget/accounting/cash/tax effects remain gated. Tender planning/lifecycle commands, command-owned tender tombstone/delete, and contract-split commands are locally verified, and source tender create/split/delete aliases now return source-shaped readback with command provenance; arbitrary state overwrite, imported deletion, and standalone award semantics remain policy gates. Supplier source provider POST/PATCH/PUT/DELETE aliases now translate the ERP provider field family into command-owned supplier projections and merge source-shaped list/detail readback with replay evidence; imported providers remain read-only and qualification/signature/rescore/external effects remain gated. Payment-application source create/update/void aliases now reuse the native command projection, translate source fields, enter the submitted approval state, and preserve no-cash/accounting/tax markers. Contract source create/update/void aliases now reuse the native command projection, preserve BU/project/provider/amount/CBS fields, and return source-shaped readback with imported-row protection and tombstone semantics. Dynamic-cost source create/update/void aliases and contract-milestone create/update/trigger/void aliases now use the same command projection pattern with imported-row protection and source-shaped readback. Authenticated preference set/delete aliases now use a signed-user-scoped command projection with replay/audit evidence while imported preferences remain read-only and no identity, authorization, provider, accounting, cash, and tax effects are enabled. Notification subscription create/update/delete and message read/read-all aliases now use signed-user-scoped command projections with source-shaped readback, replay/audit evidence, tombstones, and imported-message overlays while imported notification rows remain read-only and delivery/provider/accounting/cash/tax effects remain false. Report-builder template create/delete commands now use command-owned revisions and report run evaluates only the source field whitelist without executing raw SQL; imported templates remain read-only and report exports remain gated. CBS/budget enforcement, payment execution, and external effects remain gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
