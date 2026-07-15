@@ -46,6 +46,7 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 /usr/bin/jq -e '.capabilities | index("ai_hub_explain_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("ai_hub_command_candidate")' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/curl -fsS -o "$TMP_DIR/explain.json" -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
@@ -53,4 +54,10 @@ fi
   --data '{"title":"成本分析","table":[{"month":"2026-08","amount":100},{"month":"2026-09","amount":120}],"focus":"异常增长"}' \
   "http://127.0.0.1:$PORT/api/company/ai-hub/explain"
 /usr/bin/jq -e '.success == true and .data.provider == "native-deterministic" and .data.rowCount == 2 and .data.providerExecution == false and .persisted == false and .authorizing == false and .source_kind == "ai_hub_explain_candidate"' "$TMP_DIR/explain.json" >/dev/null
-echo "native PostgreSQL AI Hub explanation candidate smoke passed"
+/usr/bin/curl -sS -o "$TMP_DIR/query-gate.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{}' \
+  "http://127.0.0.1:$PORT/api/company/ai-hub/query" | /usr/bin/grep -q '^409$'
+/usr/bin/jq -e '.code == 47001 and .data.command == "query" and .query_execution == false and .persisted == false and .authorizing == false and .source_kind == "ai_hub_command_candidate"' "$TMP_DIR/query-gate.json" >/dev/null
+echo "native PostgreSQL AI Hub explanation/command-gate candidate smoke passed"

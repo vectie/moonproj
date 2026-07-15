@@ -56,11 +56,18 @@ the source `explain/provider/model` fields plus row count, but never invokes an
 LLM, persists prompt data, or authorizes a business action. The dedicated
 PostgreSQL smoke proves the boundary.
 
+The nine AI Hub mutation routes (`intake`, `confirm`, `discard`, `query`,
+`rule-from-nl`, `approval-draft`, `global-ask`, `query-session`, and
+`command`) now have a signed command-gate candidate, including `/source`
+aliases. The gate reports the requested command while keeping provider/query
+execution, draft persistence, workflow authority, and financial effects false;
+it does not consume or store the request body.
+
 ## Remaining gates
 
-- AI intake, confirm, discard, query, rule, approval-draft, and
-  command routes remain unconnected mutations, as do query-session and
-  global-ask routes.
+- AI intake, confirm, discard, query, rule, approval-draft, global-ask,
+  query-session, and command routes remain explicit owner-gated candidates;
+  durable mutations and provider execution are still disabled.
 - Provider-backed AI Hub explanation remains gated behind browser and AI-owner
   acceptance; the current explanation route is deterministic only.
 - LLM/OCR execution, remote provider credentials, prompt/data retention,

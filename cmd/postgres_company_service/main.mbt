@@ -15945,6 +15945,7 @@ async fn route(
             Json::string("webhook_overdue_preview_read"),
             Json::string("ai_analytics_read"),
             Json::string("ai_hub_explain_candidate"),
+            Json::string("ai_hub_command_candidate"),
             Json::string("ai_stats_badge_batch_read"),
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
@@ -16197,6 +16198,22 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, ai_hub_explain_response(body), false)
     return
+  }
+  match ai_hub_command_spec(request.meth, path) {
+    Some(command) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let _ = actor
+      let result = ai_hub_command_gate(command)
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   match investment_index_upsert_spec(request.meth, path) {
     Some(import_id) => {

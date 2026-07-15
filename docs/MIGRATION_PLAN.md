@@ -900,7 +900,10 @@ explicit empty-source history and usage counts while preserving the designer
 workbench. Intake, confirm, discard, natural-language query, explain, rule,
 approval-draft, global-ask, query-session, and command routes remain gated;
 provider/LLM/OCR execution, draft promotion, prompt retention, and AI-owner
-acceptance are not inferred from a successful read.
+acceptance are not inferred from a successful read. The nine mutation routes
+now return a signed `ai_hub_command_candidate` gate with no request-body
+consumption, provider/query execution, draft persistence, workflow authority,
+or financial effect; durable AI-owner acceptance remains open.
 
 Webhook configuration is now a bounded notification family. `/webhook-config`
 loads `/api/company/webhook/config` over the three source `sys_param` platform
