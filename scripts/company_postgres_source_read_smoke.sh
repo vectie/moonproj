@@ -66,6 +66,8 @@ request workflow_history '/api/company/source/workflow/tasks/my-history?userId=u
 request workflow_biz '/api/company/source/workflow/instances/by-biz?bizType=contract&bizDataGuid=ht-tj-001'
 request dynamic '/api/company/cost/dynamic-cost?projGuid=proj-0001'
 request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
+request delivery_progress '/api/company/source/delivery/progress?projGuid=proj-0001'
+request delivery_outputs '/api/company/source/delivery/outputs?projGuid=proj-0001'
 
 /usr/bin/jq -e '
   .success == true and
@@ -138,5 +140,16 @@ request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
   .source_coverage.cb_cost == 7 and
   .persisted == false and .authorizing == false
 ' "$TMP_DIR/dynamic_remarks.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.proj_progress == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/delivery_progress.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.proj_output == 0 and
+  .source_coverage.cb_contract == 2 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/delivery_outputs.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery read smoke passed"

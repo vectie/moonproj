@@ -814,6 +814,9 @@ The native service also owns the dynamic-cost read and source remark boundary,
 including the seven-row A/B/C/D/E/F/G/H calculation, command projection merge,
 rounded summary metrics, and missing-subject 404. These are read-only and do
 not reserve budget, mutate CBS, post accounting, release cash, or write tax.
+Delivery progress/output observations are native too, with project/period/state
+filters and explicit empty `proj_progress`/`proj_output` coverage; they remain
+read-only and separate from local delivery command projections.
 
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita

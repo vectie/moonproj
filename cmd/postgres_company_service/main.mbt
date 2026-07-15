@@ -2725,6 +2725,232 @@ async fn dynamic_cost_remarks_response(
 }
 
 ///|
+fn delivery_source_metadata(coverage : Json, missing : Array[Json]) -> Json {
+  Json::object({
+    "source_kind": Json::string("imported_or_empty"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+  })
+}
+
+///|
+fn delivery_progress_item(row : SourceRow) -> Json {
+  let payload = row.payload
+  let progress_id = row.record_id
+  let project_id = json_text(payload, "proj_guid", "")
+  let value : Map[String, Json] = {
+    "progress_id": Json::string(progress_id),
+    "project_id": Json::string(project_id),
+    "building_no": Json::string(json_text(payload, "building_no", "")),
+    "stage": Json::string(json_text(payload, "stage", "")),
+    "plan_date": Json::string(json_text(payload, "plan_date", "")),
+    "plan_pct": Json::string(json_text(payload, "plan_pct", "0")),
+    "actual_pct": Json::string(json_text(payload, "actual_pct", "0")),
+    "actual_date": Json::string(json_text(payload, "actual_date", "")),
+    "contract_id": Json::string(json_text(payload, "contract_guid", "")),
+    "milestone_id": Json::string(json_text(payload, "milestone_guid", "")),
+    "state": Json::string(json_text(payload, "state", "pending")),
+    "remark": Json::string(json_text(payload, "remark", "")),
+    "reported_by": Json::string(json_text(payload, "reported_by", "")),
+    "evidence_ids": Json::array([]),
+    "completed_value_minor": Json::number(0),
+    "source_kind": Json::string("imported"),
+    "source_id": Json::string("erp:proj_progress:" + row.record_id),
+    "source_table": Json::string("proj_progress"),
+  }
+  value.set("progress_guid", Json::string(progress_id))
+  value.set("proj_guid", Json::string(project_id))
+  value.set("bu_guid", Json::string(""))
+  value.set("progressGuid", Json::string(progress_id))
+  value.set("projGuid", Json::string(project_id))
+  value.set("planDate", Json::string(json_text(payload, "plan_date", "")))
+  value.set("planPct", Json::string(json_text(payload, "plan_pct", "0")))
+  value.set("actualPct", Json::string(json_text(payload, "actual_pct", "0")))
+  value.set("actualDate", Json::string(json_text(payload, "actual_date", "")))
+  value.set(
+    "contractGuid",
+    Json::string(json_text(payload, "contract_guid", "")),
+  )
+  value.set(
+    "milestoneGuid",
+    Json::string(json_text(payload, "milestone_guid", "")),
+  )
+  Json::object(value)
+}
+
+///|
+fn delivery_output_item(row : SourceRow, contract_name : String) -> Json {
+  let payload = row.payload
+  let output_id = row.record_id
+  let project_id = json_text(payload, "proj_guid", "")
+  let contract_id = json_text(payload, "contract_guid", "")
+  let value : Map[String, Json] = {
+    "output_id": Json::string(output_id),
+    "output_code": Json::string(json_text(payload, "output_code", "")),
+    "project_id": Json::string(project_id),
+    "contract_id": Json::string(contract_id),
+    "period": Json::string(json_text(payload, "period", "")),
+    "output_amount": Json::string(json_text(payload, "output_amount", "0")),
+    "confirm_amount": Json::string(json_text(payload, "confirm_amount", "0")),
+    "state": Json::string(json_text(payload, "state", "reported")),
+    "remark": Json::string(json_text(payload, "remark", "")),
+    "confirmed_by": Json::string(json_text(payload, "confirmed_by", "")),
+    "confirmed_at": Json::string(json_text(payload, "confirmed_at", "")),
+    "evidence_ids": Json::array([]),
+    "source_kind": Json::string("imported"),
+    "source_id": Json::string("erp:proj_output:" + row.record_id),
+    "source_table": Json::string("proj_output"),
+    "contract_name": Json::string(contract_name),
+  }
+  value.set("output_guid", Json::string(output_id))
+  value.set("proj_guid", Json::string(project_id))
+  value.set("contract_guid", Json::string(contract_id))
+  value.set("outputGuid", Json::string(output_id))
+  value.set("outputCode", Json::string(json_text(payload, "output_code", "")))
+  value.set("projGuid", Json::string(project_id))
+  value.set("contractGuid", Json::string(contract_id))
+  value.set(
+    "outputAmount",
+    Json::string(json_text(payload, "output_amount", "0")),
+  )
+  value.set(
+    "confirmAmount",
+    Json::string(json_text(payload, "confirm_amount", "0")),
+  )
+  Json::object(value)
+}
+
+///|
+async fn delivery_progress_response(
+  project_id : String?,
+) -> Json raise CompanyServiceError {
+  match project_id {
+    Some(value) if !valid_identifier(value) => raise fail("invalid project_id")
+    _ => ()
+  }
+  let raw = raw_source_rows("proj_progress", 500)
+  let result : Array[Json] = []
+  for row in raw {
+    let item = delivery_progress_item(row)
+    if project_id is None ||
+      json_text(item, "project_id", "") == project_id.unwrap() {
+      result.push(item)
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(left, "plan_date", "").lexical_compare(
+      json_text(right, "plan_date", ""),
+    )
+    if order == 0 {
+      json_text(left, "progress_id", "").lexical_compare(
+        json_text(right, "progress_id", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let missing : Array[Json] = []
+  if raw.is_empty() {
+    missing.push(Json::string("proj_progress"))
+  }
+  match
+    delivery_source_metadata(
+      Json::object({ "proj_progress": Json::number(raw.length().to_double()) }),
+      missing,
+    ) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid delivery metadata")
+  }
+}
+
+///|
+async fn delivery_outputs_response(
+  project_id : String?,
+  period : String?,
+  state : String?,
+) -> Json raise CompanyServiceError {
+  match project_id {
+    Some(value) if !valid_identifier(value) => raise fail("invalid project_id")
+    _ => ()
+  }
+  match period {
+    Some(value) if value.length() > 64 => raise fail("invalid period")
+    _ => ()
+  }
+  match state {
+    Some(value) if value.length() > 64 => raise fail("invalid state")
+    _ => ()
+  }
+  let raw = raw_source_rows("proj_output", 500)
+  let contracts = raw_source_rows("cb_contract", 500)
+  let result : Array[Json] = []
+  for row in raw {
+    let item_project = json_text(row.payload, "proj_guid", "")
+    let item_period = json_text(row.payload, "period", "")
+    let item_state = json_text(row.payload, "state", "reported")
+    let project_ok = match project_id {
+      Some(value) => item_project == value
+      None => true
+    }
+    let period_ok = match period {
+      Some(value) => item_period == value
+      None => true
+    }
+    let state_ok = match state {
+      Some(value) => item_state == value
+      None => true
+    }
+    if project_ok && period_ok && state_ok {
+      let contract_id = json_text(row.payload, "contract_guid", "")
+      let contract_name = match
+        source_payload(contracts, "contract_guid", contract_id) {
+        Some(payload) =>
+          json_text(payload, "contract_name", json_text(payload, "ht_name", ""))
+        None => ""
+      }
+      result.push(delivery_output_item(row, contract_name))
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(right, "period", "").lexical_compare(
+      json_text(left, "period", ""),
+    )
+    if order == 0 {
+      json_text(right, "output_id", "").lexical_compare(
+        json_text(left, "output_id", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let missing : Array[Json] = []
+  if raw.is_empty() {
+    missing.push(Json::string("proj_output"))
+  }
+  let coverage = Json::object({
+    "proj_output": Json::number(raw.length().to_double()),
+    "cb_contract": Json::number(contracts.length().to_double()),
+  })
+  match delivery_source_metadata(coverage, missing) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid delivery metadata")
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -3268,6 +3494,16 @@ async fn route(
     }
     return (200, dynamic_cost_response(project_id))
   }
+  if path == "/api/company/source/delivery/progress" {
+    let project_id = query_alias_decoded(query, "projGuid", "project_id")
+    return (200, delivery_progress_response(project_id))
+  }
+  if path == "/api/company/source/delivery/outputs" {
+    let project_id = query_alias_decoded(query, "projGuid", "project_id")
+    let period = query_decoded(query, "period")
+    let state = query_decoded(query, "state")
+    return (200, delivery_outputs_response(project_id, period, state))
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -3357,6 +3593,7 @@ async fn route(
             Json::string("budget_scope_observation_read"),
             Json::string("workflow_observation_read"),
             Json::string("dynamic_cost_observation_read"),
+            Json::string("delivery_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),
