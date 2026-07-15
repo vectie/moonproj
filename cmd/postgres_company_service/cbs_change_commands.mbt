@@ -18,6 +18,28 @@ fn cbs_change_command_spec(
 }
 
 ///|
+fn cbs_change_action_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String)? {
+  let prefixes = [
+    "/api/company/cbs/changes/", "/api/company/source/cbs/changes/",
+  ]
+  for prefix in prefixes {
+    if request_method is @http.Post && path.has_prefix(prefix) {
+      let parts = path[prefix.length():].to_owned().split("/").to_array()
+      if parts.length() == 2 && valid_identifier(parts[0].to_owned()) {
+        let action = parts[1].to_owned()
+        if action == "submit-approval" || action == "approve" {
+          return Some((action, parts[0].to_owned()))
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
 fn cbs_change_text(
   body : Json,
   primary : String,
@@ -193,6 +215,173 @@ async fn cbs_change_command(
     ",'updated_by'," +
     @postgres.sql_literal(actor_id) +
     ",'workflow_pending',true)," +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_audit_event'," +
+    @postgres.sql_literal(audit_id) +
+    ",4," +
+    @postgres.sql_literal(audit.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    200,
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": result,
+      "change": result,
+      "command": command_payload,
+      "idempotent_replay": Json::boolean(false),
+      "source_kind": Json::string("command"),
+      "authorizing": Json::boolean(false),
+      "persisted": Json::boolean(true),
+      "workflow_effect": Json::boolean(false),
+      "budget_consumption": Json::boolean(false),
+      "cash_effect": Json::boolean(false),
+      "accounting_effect": Json::boolean(false),
+      "tax_effect": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+async fn cbs_change_action_command(
+  action : String,
+  change_id : String,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(change_id) {
+    raise reject(422, "change id is invalid")
+  }
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  if action != "submit-approval" && action != "approve" {
+    raise reject(404, "unsupported change action")
+  }
+  let comment = json_text(body, "comment", json_text(body, "remark", ""))
+  let request = Json::object({
+    "command_type": Json::string("state"),
+    "change_guid": Json::string(change_id),
+    "action": Json::string(action),
+    "comment": Json::string(comment),
+    "actor_id": Json::string(actor_id),
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let result = json_field(existing, "result").unwrap_or(Json::null())
+      return (
+        200,
+        Json::object({
+          "success": Json::boolean(true),
+          "code": Json::number(0),
+          "data": result,
+          "change": result,
+          "command": existing,
+          "idempotent_replay": Json::boolean(true),
+          "source_kind": Json::string("command"),
+          "authorizing": Json::boolean(false),
+          "persisted": Json::boolean(true),
+          "workflow_effect": Json::boolean(false),
+          "budget_consumption": Json::boolean(false),
+          "cash_effect": Json::boolean(false),
+          "accounting_effect": Json::boolean(false),
+          "tax_effect": Json::boolean(false),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = match cbs_latest_projection("cbs_change", change_id) {
+    Some((payload, revision)) => (payload, revision)
+    None => {
+      let mut imported = false
+      for row in raw_source_rows("cb_change_apply", 500) {
+        if report_text(row.payload, "change_guid", row.record_id) == change_id {
+          imported = true
+        }
+      }
+      if imported {
+        raise reject(409, "imported CBS change is read-only")
+      }
+      raise reject(404, "change not found")
+    }
+  }
+  let from_state = json_text(current.0, "state", "estimated")
+  let to_state = if action == "submit-approval" {
+    "approving"
+  } else {
+    "confirmed"
+  }
+  if (action == "submit-approval" && from_state != "estimated") ||
+    (action == "approve" && from_state != "approving") {
+    raise reject(400, "invalid CBS change state transition")
+  }
+  let event_id = "cbs_change:" + action + ":" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let fields = cbs_copy_fields(current.0)
+  fields.set("state", Json::string(to_state))
+  fields.set("source_kind", Json::string("command"))
+  fields.set("event_id", Json::string(event_id))
+  fields.set("updated_by", Json::string(actor_id))
+  fields.set("comment", Json::string(comment))
+  fields.set("workflow_pending", Json::boolean(true))
+  let next_payload = Json::object(fields)
+  let result = Json::object({
+    "changeGuid": Json::string(change_id),
+    "fromState": Json::string(from_state),
+    "toState": Json::string(to_state),
+    "comment": Json::string(comment),
+    "workflowPending": Json::boolean(true),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("cbs_change"),
+    "command_type": Json::string("state"),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("cbs_change"),
+    "aggregate_id": Json::string(change_id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("cbs.change." + action),
+    "aggregate_type": Json::string("cbs_change"),
+    "aggregate_id": Json::string(change_id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "from_state": Json::string(from_state),
+    "to_state": Json::string(to_state),
+  })
+  let next_revision = current.1 + 1
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_command'," +
+    @postgres.sql_literal(event_id) +
+    ",4," +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type,aggregate_id,revision,payload,source_event_id) VALUES ('cbs_change'," +
+    @postgres.sql_literal(change_id) +
+    "," +
+    next_revision.to_string() +
+    "," +
+    @postgres.sql_literal(next_payload.stringify()) +
+    "::jsonb," +
     @postgres.sql_literal(event_id) +
     ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_audit_event'," +
     @postgres.sql_literal(audit_id) +

@@ -567,7 +567,28 @@ test "native company service maps CBS demo contract command paths" {
     cbs_change_command_spec(@http.Post, "/api/company/source/cbs/changes"),
   )
   assert_true(
+    cbs_change_action_spec(
+      @http.Post,
+      "/api/company/source/cbs/changes/change-1/submit-approval",
+    )
+    is Some(("submit-approval", "change-1")),
+  )
+  assert_true(
+    cbs_change_action_spec(
+      @http.Post,
+      "/api/company/cbs/changes/change-1/approve",
+    )
+    is Some(("approve", "change-1")),
+  )
+  assert_true(
     cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/changes") is None,
+  )
+  assert_true(
+    cbs_mutation_boundary_spec(
+      @http.Post,
+      "/api/company/cbs/changes/change-1/approve",
+    )
+    is None,
   )
 }
 

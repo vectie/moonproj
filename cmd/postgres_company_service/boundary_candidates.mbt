@@ -130,18 +130,6 @@ fn cbs_mutation_boundary_spec(
       if parts[0].to_owned() == "contracts" {
         return Some("contracts/" + parts[1].to_owned())
       }
-      if parts[0].to_owned() == "changes" {
-        return Some("changes/" + parts[1].to_owned())
-      }
-    }
-    if parts.length() == 3 &&
-      valid_identifier(parts[1].to_owned()) &&
-      parts[0].to_owned() == "changes" &&
-      (
-        parts[2].to_owned() == "submit-approval" ||
-        parts[2].to_owned() == "approve"
-      ) {
-      return Some(rest)
     }
   }
   None

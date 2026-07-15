@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_command") and index("source_sales_customer_delete_command") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_demo_legacy_command") and index("source_cbs_demo_legacy_command") and index("cbs_demo_clear_command") and index("source_cbs_demo_clear_command") and index("cbs_change_command") and index("source_cbs_change_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_command") and index("source_sales_customer_delete_command") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_demo_legacy_command") and index("source_cbs_demo_legacy_command") and index("cbs_demo_clear_command") and index("source_cbs_demo_clear_command") and index("cbs_change_command") and index("source_cbs_change_command") and index("cbs_change_action_command") and index("source_cbs_change_action_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -294,6 +294,26 @@ CHANGE_ID=$(/usr/bin/jq -r '.change.changeGuid' "$TMP_DIR/cbs-change.json")
   --data-urlencode "contractGuid=$DEMO_ID" \
   "http://127.0.0.1:$PORT/api/company/cbs/changes" \
   | /usr/bin/jq -e --arg id "$CHANGE_ID" 'any(.data[]; .changeGuid == $id and .state == "estimated" and .source_kind == "command")' >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-change-submit.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: ${CHANGE_KEY}-submit" \
+  --data '{"comment":"Boundary smoke submit"}' \
+  "http://127.0.0.1:$PORT/api/company/source/cbs/changes/$CHANGE_ID/submit-approval")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .change.fromState == "estimated" and .change.toState == "approving" and .change.workflowPending == true and .workflow_effect == false and .budget_consumption == false' "$TMP_DIR/cbs-change-submit.json" >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-change-approve.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: ${CHANGE_KEY}-approve" \
+  --data '{"comment":"Boundary smoke approve"}' \
+  "http://127.0.0.1:$PORT/api/company/cbs/changes/$CHANGE_ID/approve")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .change.fromState == "approving" and .change.toState == "confirmed" and .change.workflowPending == true and .workflow_effect == false and .budget_consumption == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-change-approve.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "contractGuid=$DEMO_ID" \
+  "http://127.0.0.1:$PORT/api/company/cbs/changes" \
+  | /usr/bin/jq -e --arg id "$CHANGE_ID" 'any(.data[]; .changeGuid == $id and .state == "confirmed" and .source_kind == "command")' >/dev/null
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-clear.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \

@@ -73,5 +73,7 @@ Change registration is now native at `POST /api/company/cbs/changes` (and the
 persists an auditable `cbs_change` projection with idempotent replay, and
 returns `state=estimated` plus `workflowPending=true`. Imported contracts are
 protected and the registration has no workflow, budget, cash, accounting, or
-tax effect. Approval/finalization of a change remains a separate candidate
-boundary.
+tax effect. Change lifecycle aliases now persist the bounded local transitions
+`estimated → approving → confirmed`, still reporting `workflow_effect=false`
+and retaining `workflowPending=true`; the external workflow engine, budget,
+cash, accounting, and tax remain separate effects.
