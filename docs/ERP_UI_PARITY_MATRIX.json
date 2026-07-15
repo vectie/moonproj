@@ -35,6 +35,8 @@
     "connected_loan_read": 1,
     "connected_marketing_read": 1,
     "connected_notification_read": 2,
+    "connected_notification_config_command_candidate": 1,
+    "connected_notification_webhook_test_candidate": 1,
     "connected_notification_digest_dispatch_candidate": 1,
     "connected_payment_application_command_form": 1,
     "connected_profile_read": 1,
@@ -82,6 +84,8 @@
     "connected_loan_read": 1,
     "connected_marketing_read": 1,
     "connected_notification_read": 2,
+    "connected_notification_config_command_candidate": 1,
+    "connected_notification_webhook_test_candidate": 1,
     "connected_notification_digest_dispatch_candidate": 1,
     "connected_payment_application_command": 1,
     "connected_profile_read": 1,
@@ -3352,8 +3356,8 @@
         "/inbox",
         "/notify-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_notification_config_command_candidate",
+      "required_next": "accept_browser_notification_config_candidate_and_security_owner"
     },
     {
       "module": "notify",
@@ -3363,8 +3367,8 @@
         "/inbox",
         "/notify-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_notification_webhook_test_candidate",
+      "required_next": "accept_browser_notification_webhook_test_candidate_and_security_owner"
     },
     {
       "module": "notify",
