@@ -15102,14 +15102,25 @@ async fn route(
     return (200, ai_hub_usage_response())
   }
   if path == "/api/company/ai-hub/drafts" {
-    return (200, ai_hub_drafts_response())
+    return (
+      200,
+      ai_hub_drafts_response(
+        query_alias_decoded(query, "userCode", "user_code"),
+      ),
+    )
   }
   let ai_draft_prefix = "/api/company/ai-hub/drafts/"
   if path.has_prefix(ai_draft_prefix) {
-    return ai_hub_draft_response(path[ai_draft_prefix.length():].to_owned())
+    return ai_hub_draft_response(
+      path[ai_draft_prefix.length():].to_owned(),
+      query_alias_decoded(query, "userCode", "user_code"),
+    )
   }
   if path == "/api/company/ai-hub/query-log" {
-    return (200, ai_hub_query_response())
+    return (
+      200,
+      ai_hub_query_response(query_alias_decoded(query, "userCode", "user_code")),
+    )
   }
   if path == "/api/company/ai-hub/correction-stats" {
     return (200, ai_hub_correction_stats_response())
@@ -15119,6 +15130,9 @@ async fn route(
       200,
       ai_hub_corrections_response(
         parse_decimal(query_decoded(query, "limit").unwrap_or("50")),
+        query_decoded(query, "bizType"),
+        query_decoded(query, "field"),
+        query_alias_decoded(query, "userCode", "user_code"),
       ),
     )
   }

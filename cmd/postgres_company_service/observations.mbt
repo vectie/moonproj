@@ -948,33 +948,231 @@ fn ai_hub_tables() -> Array[String] {
 }
 
 ///|
+fn ai_hub_text(
+  payload : Json,
+  snake : String,
+  camel : String,
+  fallback : String,
+) -> String {
+  json_text(payload, snake, json_text(payload, camel, fallback))
+}
+
+///|
+fn ai_hub_trim(value : String, limit : Int) -> String {
+  if value.length() > limit {
+    value[0:limit].to_owned()
+  } else {
+    value
+  }
+}
+
+///|
+fn ai_hub_user_matches(
+  payload : Json,
+  user_code : String?,
+  users : Array[SourceRow],
+) -> Bool {
+  match user_code {
+    None => true
+    Some(value) if value.is_empty() => true
+    Some(value) => {
+      let payload_user = ai_hub_text(payload, "user_id", "userId", "")
+      let payload_code = ai_hub_text(payload, "user_code", "userCode", "")
+      if payload_user == value || payload_code == value {
+        true
+      } else {
+        let mut matched_id = ""
+        for user in users {
+          if ai_hub_text(user.payload, "user_code", "userCode", "") == value {
+            matched_id = ai_hub_text(
+              user.payload,
+              "user_id",
+              "userId",
+              user.record_id,
+            )
+          }
+        }
+        !matched_id.is_empty() && payload_user == matched_id
+      }
+    }
+  }
+}
+
+///|
+async fn ai_hub_usage_count(
+  table : String,
+  action : String,
+  month_only : Bool,
+) -> Int raise CompanyServiceError {
+  let mut count = 0
+  let rows = raw_source_rows(table, 500)
+  for row in rows {
+    let row_action = json_text(row.payload, "action", "")
+    if (
+        action.is_empty() ||
+        row_action == action ||
+        (action == "AI_QUERY" && row_action.has_prefix("AI_QUERY"))
+      ) &&
+      (
+        !month_only ||
+        ai_stat_period_match(row.payload, "created_at", "createdAt", "month")
+      ) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
 async fn ai_hub_usage_response() -> Json raise CompanyServiceError {
+  let intake_month = ai_hub_usage_count("audit_log", "AI_INTAKE_CONFIRM", true)
+  let query_month = ai_hub_usage_count("audit_log", "AI_QUERY", true)
+  let session_month = ai_hub_usage_count("ai_query_turn", "", true)
+  let intake_total = ai_hub_usage_count("audit_log", "AI_INTAKE_CONFIRM", false)
   observation_envelope(
     Json::object({
-      "monthlyTotalCalls": Json::number(0),
-      "intakeMonth": Json::number(0),
-      "queryMonth": Json::number(0),
-      "sessionTurnMonth": Json::number(0),
-      "intakeTotal": Json::number(0),
-      "minutesSaved": Json::number(0),
+      "monthlyTotalCalls": Json::number(
+        (intake_month + query_month + session_month).to_double(),
+      ),
+      "intakeMonth": Json::number(intake_month.to_double()),
+      "queryMonth": Json::number(query_month.to_double()),
+      "sessionTurnMonth": Json::number(session_month.to_double()),
+      "intakeTotal": Json::number(intake_total.to_double()),
+      "minutesSaved": Json::number(
+        (intake_month * 5 + query_month * 3 + session_month * 2).to_double(),
+      ),
     }),
     observation_coverage(ai_hub_tables()),
   )
 }
 
 ///|
-async fn ai_hub_drafts_response() -> Json raise CompanyServiceError {
-  observation_envelope(Json::array([]), observation_coverage(ai_hub_tables()))
+async fn ai_hub_drafts_response(
+  user_code : String?,
+) -> Json raise CompanyServiceError {
+  let users = raw_source_rows("sys_user", 500)
+  let rows : Array[Json] = []
+  for source in raw_source_rows("ai_draft", 500) {
+    if ai_hub_user_matches(source.payload, user_code, users) {
+      rows.push(
+        Json::object({
+          "draftId": Json::string(
+            ai_hub_text(source.payload, "draft_id", "draftId", source.record_id),
+          ),
+          "bizType": Json::string(
+            ai_hub_text(source.payload, "biz_type", "bizType", ""),
+          ),
+          "description": Json::string(
+            ai_hub_trim(json_text(source.payload, "description", ""), 300),
+          ),
+          "confidence": Json::number(
+            json_number(source.payload, "confidence", 0.0),
+          ),
+          "status": Json::string(json_text(source.payload, "status", "")),
+          "createdAt": Json::string(
+            ai_hub_text(source.payload, "created_at", "createdAt", ""),
+          ),
+          "confirmedAt": Json::string(
+            ai_hub_text(source.payload, "confirmed_at", "confirmedAt", ""),
+          ),
+          "resultBizGuid": Json::string(
+            ai_hub_text(source.payload, "result_biz_guid", "resultBizGuid", ""),
+          ),
+          "llmProvider": Json::string(
+            ai_hub_text(source.payload, "llm_provider", "llmProvider", ""),
+          ),
+          "llmModel": Json::string(
+            ai_hub_text(source.payload, "llm_model", "llmModel", ""),
+          ),
+          "sourceKind": Json::string("imported"),
+        }),
+      )
+    }
+  }
+  rows.sort_by(fn(left, right) {
+    json_text(right, "createdAt", "").lexical_compare(
+      json_text(left, "createdAt", ""),
+    )
+  })
+  let limited = if rows.length() > 30 { rows[0:30].to_owned() } else { rows }
+  observation_envelope(
+    Json::array(limited),
+    observation_coverage(ai_hub_tables()),
+  )
 }
 
 ///|
 async fn ai_hub_draft_response(
   draft_id : String,
+  user_code : String?,
 ) -> (Int, Json) raise CompanyServiceError {
   if !valid_identifier(draft_id) {
     raise reject(422, "invalid AI Hub draftId")
   }
+  let users = raw_source_rows("sys_user", 500)
   let coverage = observation_coverage(ai_hub_tables())
+  for source in raw_source_rows("ai_draft", 500) {
+    if ai_hub_text(source.payload, "draft_id", "draftId", source.record_id) ==
+      draft_id &&
+      ai_hub_user_matches(source.payload, user_code, users) {
+      let fields_hint : Array[Json] = []
+      match json_field(source.payload, "fields") {
+        Some(Object(values)) =>
+          for key, _ in values {
+            if fields_hint.length() >= 30 {
+              break
+            }
+            fields_hint.push(Json::string(key))
+          }
+        _ => ()
+      }
+      return (
+        200,
+        observation_envelope(
+          Json::object({
+            "draftId": Json::string(draft_id),
+            "bizType": Json::string(
+              ai_hub_text(source.payload, "biz_type", "bizType", ""),
+            ),
+            "bizName": Json::string(
+              ai_hub_text(
+                source.payload,
+                "biz_name",
+                "bizName",
+                ai_hub_text(source.payload, "biz_type", "bizType", ""),
+              ),
+            ),
+            "bizFieldSpec": Json::array([]),
+            "description": Json::string(
+              ai_hub_trim(json_text(source.payload, "description", ""), 300),
+            ),
+            "fields": Json::object({}),
+            "fieldsHint": Json::array(fields_hint),
+            "confidence": Json::number(
+              json_number(source.payload, "confidence", 0.0),
+            ),
+            "status": Json::string(json_text(source.payload, "status", "")),
+            "attGuid": Json::string(
+              ai_hub_text(source.payload, "att_guid", "attGuid", ""),
+            ),
+            "ocrText": Json::string("已脱敏；源服务未导入 OCR 文本"),
+            "llm": Json::object({
+              "provider": Json::string(
+                ai_hub_text(source.payload, "llm_provider", "llmProvider", ""),
+              ),
+              "model": Json::string(
+                ai_hub_text(source.payload, "llm_model", "llmModel", ""),
+              ),
+            }),
+            "reasoning": Json::string(
+              "从导入历史草稿恢复；字段值已脱敏",
+            ),
+          }),
+          coverage,
+        ),
+      )
+    }
+  }
   (
     404,
     Json::object({
@@ -996,18 +1194,115 @@ async fn ai_hub_draft_response(
 }
 
 ///|
-async fn ai_hub_query_response() -> Json raise CompanyServiceError {
-  observation_envelope(Json::array([]), observation_coverage(ai_hub_tables()))
+async fn ai_hub_query_response(
+  user_code : String?,
+) -> Json raise CompanyServiceError {
+  let users = raw_source_rows("sys_user", 500)
+  let rows : Array[Json] = []
+  for source in raw_source_rows("ai_query_log", 500) {
+    if ai_hub_user_matches(source.payload, user_code, users) {
+      rows.push(
+        Json::object({
+          "qid": Json::string(
+            ai_hub_text(source.payload, "qid", "qid", source.record_id),
+          ),
+          "question": Json::string(
+            ai_hub_trim(json_text(source.payload, "question", ""), 300),
+          ),
+          "sql": if json_field(source.payload, "sql") is Some(_) {
+            Json::string("已脱敏（源查询文本未导入）")
+          } else {
+            Json::null()
+          },
+          "explanation": Json::string(
+            ai_hub_trim(json_text(source.payload, "explanation", ""), 300),
+          ),
+          "rowCount": Json::number(
+            json_int(
+              source.payload,
+              "row_count",
+              json_int(source.payload, "rowCount", 0),
+            ).to_double(),
+          ),
+          "durationMs": Json::number(
+            json_int(
+              source.payload,
+              "duration_ms",
+              json_int(source.payload, "durationMs", 0),
+            ).to_double(),
+          ),
+          "llmProvider": Json::string(
+            ai_hub_text(source.payload, "llm_provider", "llmProvider", ""),
+          ),
+          "llmModel": Json::string(
+            ai_hub_text(source.payload, "llm_model", "llmModel", ""),
+          ),
+          "error": Json::string(json_text(source.payload, "error", "")),
+          "createdAt": Json::string(
+            ai_hub_text(source.payload, "created_at", "createdAt", ""),
+          ),
+          "sourceKind": Json::string("imported"),
+        }),
+      )
+    }
+  }
+  rows.sort_by(fn(left, right) {
+    json_text(right, "createdAt", "").lexical_compare(
+      json_text(left, "createdAt", ""),
+    )
+  })
+  let limited = if rows.length() > 50 { rows[0:50].to_owned() } else { rows }
+  observation_envelope(
+    Json::array(limited),
+    observation_coverage(ai_hub_tables()),
+  )
 }
 
 ///|
 async fn ai_hub_correction_stats_response() -> Json raise CompanyServiceError {
+  let corrections = raw_source_rows("ai_correction_log", 500)
+  let by_field : Map[String, Int] = {}
+  for row in corrections {
+    let key = ai_hub_text(row.payload, "biz_type", "bizType", "") +
+      "\u0000" +
+      ai_hub_text(row.payload, "field_name", "fieldName", "")
+    by_field.set(key, by_field.get(key).unwrap_or(0) + 1)
+  }
+  let fields : Array[Json] = []
+  for key, count in by_field {
+    let parts = key.split("\u0000").to_array()
+    fields.push(
+      Json::object({
+        "bizType": Json::string(parts[0].to_owned()),
+        "fieldName": Json::string(parts[1].to_owned()),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  fields.sort_by(fn(left, right) {
+    json_int(right, "count", 0) - json_int(left, "count", 0)
+  })
+  let confirmed = raw_source_rows("ai_draft", 500)
+    .filter(fn(row) { json_text(row.payload, "status", "") == "confirmed" })
+    .length()
   observation_envelope(
     Json::object({
-      "byField": Json::array([]),
-      "total": Json::number(0),
-      "drafts": Json::number(0),
-      "correctionRate": Json::number(0),
+      "byField": Json::array(
+        if fields.length() > 20 {
+          fields[0:20].to_owned()
+        } else {
+          fields
+        },
+      ),
+      "total": Json::number(corrections.length().to_double()),
+      "drafts": Json::number(confirmed.to_double()),
+      "correctionRate": Json::number(
+        if confirmed == 0 {
+          0.0
+        } else {
+          corrections.length().to_double() / confirmed.to_double()
+        },
+      ),
     }),
     observation_coverage(ai_hub_tables()),
   )
@@ -1016,11 +1311,79 @@ async fn ai_hub_correction_stats_response() -> Json raise CompanyServiceError {
 ///|
 async fn ai_hub_corrections_response(
   limit : Int,
+  biz_type : String?,
+  field : String?,
+  user_code : String?,
 ) -> Json raise CompanyServiceError {
   if limit < 1 || limit > 500 {
     raise reject(422, "invalid AI Hub limit")
   }
-  observation_envelope(Json::array([]), observation_coverage(ai_hub_tables()))
+  let users = raw_source_rows("sys_user", 500)
+  let rows : Array[Json] = []
+  for source in raw_source_rows("ai_correction_log", 500) {
+    let row_biz_type = ai_hub_text(source.payload, "biz_type", "bizType", "")
+    let row_field = ai_hub_text(source.payload, "field_name", "fieldName", "")
+    if biz_type is Some(value) && row_biz_type != value {
+      continue
+    }
+    if field is Some(value) && row_field != value {
+      continue
+    }
+    if !ai_hub_user_matches(source.payload, user_code, users) {
+      continue
+    }
+    rows.push(
+      Json::object({
+        "cid": Json::string(
+          ai_hub_text(source.payload, "cid", "cid", source.record_id),
+        ),
+        "draftId": Json::string(
+          ai_hub_text(source.payload, "draft_id", "draftId", ""),
+        ),
+        "userId": Json::string(
+          ai_hub_text(source.payload, "user_id", "userId", ""),
+        ),
+        "bizType": Json::string(row_biz_type),
+        "fieldName": Json::string(row_field),
+        "llmValue": Json::string(
+          ai_hub_text(source.payload, "llm_value", "llmValue", ""),
+        ),
+        "userValue": Json::string(
+          ai_hub_text(source.payload, "user_value", "userValue", ""),
+        ),
+        "descriptionSnippet": Json::string(
+          ai_hub_trim(
+            ai_hub_text(
+              source.payload,
+              "description_snippet",
+              "descriptionSnippet",
+              "",
+            ),
+            200,
+          ),
+        ),
+        "createdAt": Json::string(
+          ai_hub_text(source.payload, "created_at", "createdAt", ""),
+        ),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    json_text(right, "createdAt", "").lexical_compare(
+      json_text(left, "createdAt", ""),
+    )
+  })
+  observation_envelope(
+    Json::array(
+      if rows.length() > limit {
+        rows[0:limit].to_owned()
+      } else {
+        rows
+      },
+    ),
+    observation_coverage(ai_hub_tables()),
+  )
 }
 
 ///|
