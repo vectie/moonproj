@@ -1160,9 +1160,13 @@ zero `sys_role`/`sys_user_role` rows, so the Users/Roles screen displays an
 explicit `NO_SOURCE_ROWS` role state rather than inventing the former design
 roles. The permission catalog preserves the source-defined 11 modules and
 their permission counts as definition metadata only; it does not grant local
-authority. The browser pass and service smoke both observe HTTP 200 for the
-list/catalog routes and 404 for an unknown role detail. Role writes, assignments,
-production identity/token binding, owner reconciliation, and the complete
+authority. Signed native role upsert/delete and imported-user role assignment
+commands now persist command-owned authority candidates, enforce enabled
+super-user actors, replay idempotently, and merge into role/user/me reads;
+`scripts/company_postgres_rbac_smoke.sh` covers the full local slice. These
+commands deliberately set `authorization_candidate=true` while retaining
+`authorizing=false`; password writes, production identity/token binding,
+provider-backed authorization, owner reconciliation, and the complete
 credential-safe export remain open gates.
 
 **Trusted-upstream identity rehearsal checkpoint (2026-07-15).** The native
@@ -1311,7 +1315,8 @@ GET reads, workflow definition/preview plus signed local workflow
 start/approve/reject commands, and investment versions/indices/profit/
 cost-dashboard/Excel-import/plan-line/subject-mapping/cockpit reads, cashflow forecast/inflow/detail/net/gap/v3, CBS observation reads, and
 the native admin/notification/AI/attachment/webhook/RBAC/warning observation
-reads plus warning resolve/ignore state commands.
+reads plus warning resolve/ignore state commands and local RBAC role/assignment
+authority-candidate commands.
 `scripts/company_postgres_source_read_smoke.sh` and
 `scripts/company_postgres_dashboard_smoke.sh` exercise these boundaries with
 PostgreSQL only. The gateway's GET forwarding is not proof of service coverage;
@@ -1319,7 +1324,8 @@ a path can be allow-listed and still return a native 404. The remaining
 browser-visible families without native MoonBit service ownership are
 actual-profit simulation/mutations, AI explain/provider actions, CBS budget-reservation/
 mutation surfaces, warning scans/provider actions, attachment binary/OCR
-operations, notification/provider actions, RBAC writes, source workflow-engine
+operations, notification/provider actions, RBAC password/identity writes and
+production authorization binding, source workflow-engine
 synchronization/full delegation semantics, report-builder template/share commands, and the remaining
 investment/cash/provider effects.
 Those surfaces stay explicitly gated rather than being represented by
@@ -1424,7 +1430,7 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    vertical also preserves the source user's initiated-document rows (zero
    expenses, one loan, and three payment applications for the imported
    `limingjin` identity); super-user
-   scope, audit/role writes, retention, source completeness, and
+   scope, password/identity writes, audit/role retention, source completeness, and
    security-owner acceptance remain gated. See
    [`ERP_ADMIN_RUNTIME_AUDIT.md`](ERP_ADMIN_RUNTIME_AUDIT.md).
    The expense list now has a separate source-compatible read over

@@ -627,11 +627,121 @@ async fn admin_quality_response() -> Json raise CompanyServiceError {
 
 ///|
 /// RBAC.
+fn rbac_envelope(
+  data : Json,
+  coverage : Map[String, Int],
+  command_count : Int,
+) -> Json {
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": data,
+    "source_kind": Json::string(
+      if command_count > 0 {
+        "imported_or_command"
+      } else {
+        "imported_or_empty"
+      },
+    ),
+    "source_coverage": report_coverage(coverage),
+    "missing_or_empty_source_tables": Json::array(observation_missing(coverage)),
+    "command_projection": Json::boolean(command_count > 0),
+    "command_projection_count": Json::number(command_count.to_double()),
+    "authorizing": Json::boolean(false),
+    "authorization_candidate": Json::boolean(command_count > 0),
+    "persisted": Json::boolean(command_count > 0),
+    "provider_execution": Json::boolean(false),
+    "query_execution": Json::boolean(false),
+    "secret_values_redacted": Json::boolean(true),
+  })
+}
+
+///|
+fn rbac_role_item(
+  payload : Json,
+  record_id : String,
+  source_kind : String,
+  user_count : Int,
+) -> Json {
+  let role_code = report_text(payload, "role_code", record_id)
+  Json::object({
+    "roleCode": Json::string(role_code),
+    "roleName": Json::string(report_text(payload, "role_name", role_code)),
+    "description": Json::string(report_text(payload, "description", "")),
+    "dataScope": Json::string(report_text(payload, "data_scope", "self")),
+    "permissions": rbac_permissions(payload),
+    "isSystem": Json::boolean(json_bool(payload, "is_system", false)),
+    "userCount": Json::number(user_count.to_double()),
+    "sourceKind": Json::string(source_kind),
+    "commandProjection": Json::boolean(source_kind == "command"),
+  })
+}
+
+///|
+fn rbac_role_codes_for_user(
+  user_id : String,
+  assignments : Array[SourceRow],
+  command_assignments : Array[Json],
+) -> (Array[Json], Bool) {
+  let roles : Array[Json] = []
+  for row in assignments {
+    if json_text(row.payload, "user_id", "") == user_id {
+      let role_code = json_text(row.payload, "role_code", "")
+      if !role_code.is_empty() {
+        roles.push(Json::string(role_code))
+      }
+    }
+  }
+  let mut command_override = false
+  for payload in command_assignments {
+    if json_text(payload, "user_id", "") == user_id {
+      command_override = true
+      roles.clear()
+      match json_field(payload, "role_codes") {
+        Some(Array(values)) =>
+          for role_code in values {
+            roles.push(role_code)
+          }
+        _ => ()
+      }
+    }
+  }
+  (roles, command_override)
+}
+
+///|
+fn rbac_role_user_count(
+  role_code : String,
+  assignments : Array[SourceRow],
+  command_assignments : Array[Json],
+) -> Int {
+  let users : Map[String, Bool] = {}
+  for row in assignments {
+    if json_text(row.payload, "role_code", "") == role_code {
+      users.set(json_text(row.payload, "user_id", row.record_id), true)
+    }
+  }
+  for payload in command_assignments {
+    match json_field(payload, "role_codes") {
+      Some(Array(values)) if values.any(fn(value) {
+          match value {
+            String(code) => code == role_code
+            _ => false
+          }
+        }) => users.set(json_text(payload, "user_id", ""), true)
+      _ => ()
+    }
+  }
+  users.length()
+}
+
+///|
 async fn rbac_users_response() -> Json raise CompanyServiceError {
   let users = raw_source_rows("sys_user", 500)
   let units = raw_source_rows("mu_business_unit", 500)
   let roles = raw_source_rows("sys_role", 500)
   let assignments = raw_source_rows("sys_user_role", 500)
+  let command_assignments = rbac_active_assignment_payloads()
   let coverage : Map[String, Int] = {
     "sys_user": users.length(),
     "mu_business_unit": units.length(),
@@ -641,11 +751,15 @@ async fn rbac_users_response() -> Json raise CompanyServiceError {
   let items : Array[Json] = []
   for row in users {
     let payload = row.payload
+    let user_id = report_text(payload, "user_id", row.record_id)
     let bu_guid = report_text(payload, "bu_guid", "")
     let dept_guid = report_text(payload, "dept_guid", "")
+    let (role_codes, command_override) = rbac_role_codes_for_user(
+      user_id, assignments, command_assignments,
+    )
     items.push(
       Json::object({
-        "userId": Json::string(report_text(payload, "user_id", row.record_id)),
+        "userId": Json::string(user_id),
         "userCode": Json::string(report_text(payload, "user_code", "")),
         "empName": Json::string(
           report_text(
@@ -660,15 +774,24 @@ async fn rbac_users_response() -> Json raise CompanyServiceError {
         "buName": Json::string(unit_name(units, bu_guid)),
         "deptGuid": Json::string(dept_guid),
         "deptName": Json::string(unit_name(units, dept_guid)),
-        "roles": Json::array([]),
+        "roles": Json::array(role_codes),
         "rolesSourceStatus": Json::string(
-          if roles.is_empty() || assignments.is_empty() {
+          if command_override {
+            "COMMAND_PROJECTION"
+          } else if roles.is_empty() || assignments.is_empty() {
             "NO_SOURCE_ROWS"
           } else {
-            "NOT_MAPPED"
+            "IMPORTED"
           },
         ),
-        "sourceKind": Json::string("imported"),
+        "sourceKind": Json::string(
+          if command_override {
+            "imported_or_command"
+          } else {
+            "imported"
+          },
+        ),
+        "commandProjection": Json::boolean(command_override),
       }),
     )
   }
@@ -677,7 +800,11 @@ async fn rbac_users_response() -> Json raise CompanyServiceError {
       report_text(right, "userCode", ""),
     )
   })
-  observation_envelope(Json::array(items), coverage)
+  rbac_envelope(
+    Json::array(items),
+    coverage,
+    command_assignments.length() + rbac_active_role_payloads().length(),
+  )
 }
 
 ///|
@@ -691,22 +818,73 @@ async fn rbac_me_response(
       let rows = raw_source_rows("sys_user", 500)
       let roles = raw_source_rows("sys_role", 500)
       let assignments = raw_source_rows("sys_user_role", 500)
+      let command_roles = rbac_active_role_payloads()
+      let command_assignments = rbac_active_assignment_payloads()
       let data = json_field(value, "data").unwrap_or(Json::object({}))
+      let user_id = json_text(data, "userId", "")
+      let (role_codes, command_override) = rbac_role_codes_for_user(
+        user_id, assignments, command_assignments,
+      )
+      let permissions : Array[Json] = []
+      let permission_seen : Map[String, Bool] = {}
+      for role_json in role_codes {
+        let role_code = match role_json {
+          String(text) => text
+          _ => ""
+        }
+        for role_row in roles {
+          if json_text(role_row.payload, "role_code", role_row.record_id) ==
+            role_code {
+            match rbac_permissions(role_row.payload) {
+              Array(values) =>
+                for permission in values {
+                  match permission {
+                    String(code) if !permission_seen.contains(code) => {
+                      permission_seen.set(code, true)
+                      permissions.push(Json::string(code))
+                    }
+                    _ => ()
+                  }
+                }
+              _ => ()
+            }
+          }
+        }
+        for role_payload in command_roles {
+          if json_text(role_payload, "role_code", "") == role_code {
+            match rbac_permissions(role_payload) {
+              Array(values) =>
+                for permission in values {
+                  match permission {
+                    String(code) if !permission_seen.contains(code) => {
+                      permission_seen.set(code, true)
+                      permissions.push(Json::string(code))
+                    }
+                    _ => ()
+                  }
+                }
+              _ => ()
+            }
+          }
+        }
+      }
       (
         200,
-        observation_envelope(
+        rbac_envelope(
           Json::object({
             "userId": json_field(data, "userId").unwrap_or(Json::string("")),
             "userCode": json_field(data, "userCode").unwrap_or(
               Json::string(user_code),
             ),
-            "roles": Json::array([]),
-            "permissions": Json::array([]),
+            "roles": Json::array(role_codes),
+            "permissions": Json::array(permissions),
             "rolesSourceStatus": Json::string(
-              if roles.is_empty() || assignments.is_empty() {
+              if command_override {
+                "COMMAND_PROJECTION"
+              } else if roles.is_empty() || assignments.is_empty() {
                 "NO_SOURCE_ROWS"
               } else {
-                "NOT_MAPPED"
+                "IMPORTED"
               },
             ),
           }),
@@ -715,6 +893,7 @@ async fn rbac_me_response(
             "sys_role": roles.length(),
             "sys_user_role": assignments.length(),
           },
+          command_roles.length() + command_assignments.length(),
         ),
       )
     }
@@ -723,10 +902,104 @@ async fn rbac_me_response(
 
 ///|
 async fn rbac_roles_response() -> Json raise CompanyServiceError {
-  observation_envelope(
-    Json::array([]),
-    observation_coverage(["sys_role", "sys_user_role", "sys_user"]),
+  let roles = raw_source_rows("sys_role", 500)
+  let assignments = raw_source_rows("sys_user_role", 500)
+  let command_roles = rbac_active_role_payloads()
+  let command_assignments = rbac_active_assignment_payloads()
+  let coverage : Map[String, Int] = {
+    "sys_role": roles.length(),
+    "sys_user_role": assignments.length(),
+    "sys_user": raw_source_rows("sys_user", 500).length(),
+  }
+  let items : Array[Json] = []
+  for row in roles {
+    items.push(
+      rbac_role_item(
+        row.payload,
+        row.record_id,
+        "imported",
+        rbac_role_user_count(
+          report_text(row.payload, "role_code", row.record_id),
+          assignments,
+          command_assignments,
+        ),
+      ),
+    )
+  }
+  for payload in command_roles {
+    items.push(
+      rbac_role_item(
+        payload,
+        report_text(payload, "role_code", ""),
+        "command",
+        rbac_role_user_count(
+          report_text(payload, "role_code", ""),
+          assignments,
+          command_assignments,
+        ),
+      ),
+    )
+  }
+  items.sort_by(fn(left, right) {
+    report_text(left, "roleCode", "").compare(
+      report_text(right, "roleCode", ""),
+    )
+  })
+  rbac_envelope(
+    Json::array(items),
+    coverage,
+    command_roles.length() + command_assignments.length(),
   )
+}
+
+///|
+async fn rbac_role_detail_response(
+  role_code : String,
+) -> (Int, Json) raise CompanyServiceError {
+  let roles = raw_source_rows("sys_role", 500)
+  let assignments = raw_source_rows("sys_user_role", 500)
+  let command_roles = rbac_active_role_payloads()
+  let command_assignments = rbac_active_assignment_payloads()
+  let coverage : Map[String, Int] = {
+    "sys_role": roles.length(),
+    "sys_user_role": assignments.length(),
+    "sys_user": raw_source_rows("sys_user", 500).length(),
+  }
+  for row in roles {
+    if json_text(row.payload, "role_code", row.record_id) == role_code {
+      return (
+        200,
+        rbac_envelope(
+          rbac_role_item(
+            row.payload,
+            row.record_id,
+            "imported",
+            rbac_role_user_count(role_code, assignments, command_assignments),
+          ),
+          coverage,
+          command_roles.length() + command_assignments.length(),
+        ),
+      )
+    }
+  }
+  for payload in command_roles {
+    if json_text(payload, "role_code", "") == role_code {
+      return (
+        200,
+        rbac_envelope(
+          rbac_role_item(
+            payload,
+            role_code,
+            "command",
+            rbac_role_user_count(role_code, assignments, command_assignments),
+          ),
+          coverage,
+          command_roles.length() + command_assignments.length(),
+        ),
+      )
+    }
+  }
+  (404, Json::object({ "error": Json::string("role not found") }))
 }
 
 ///|
