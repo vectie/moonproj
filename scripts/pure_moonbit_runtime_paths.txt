@@ -54,3 +54,4 @@ scripts/erp_asset_lifecycle_plan.sh
 scripts/erp_invoice_subledger_plan.sh
 scripts/erp_treasury_plan_dispatch_plan.sh
 scripts/erp_procurement_cohort_plan.sh
+scripts/erp_expense_advance_cohort_plan.sh

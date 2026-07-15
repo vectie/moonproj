@@ -399,7 +399,7 @@ if [ -n "$CONTRACT_MILESTONE_MAPPING" ]; then
 fi
 
 if [ -n "$EXPENSE_ADVANCE_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_expense_advance_cohort_plan.py" \
+  "$SCRIPT_DIR/erp_expense_advance_cohort_plan.sh" \
     "$EXPENSE_ADVANCE_MAPPING" "$WORK_DIR/expense-advance-plan.json"
   moon run --target native cmd/expense_advance_cohort -- \
     "$WORK_DIR/expense-advance-plan.json" \

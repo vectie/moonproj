@@ -2014,6 +2014,17 @@ Execute the remainder in this order:
     amount checks, award-to-bid continuity, and the exact procurement cohort
     envelope. Procurement promotion remains separate from cash, accounting,
     settlement, tax, and period-close effects.
+
+3a.17. **Native expense/advance cohort planner (2026-07-16).**
+    `cmd/expense_advance_cohort_plan` and
+    `scripts/erp_expense_advance_cohort_plan.sh` now replace the Python
+    employee advance/expense/offset compiler in the PostgreSQL cohort path.
+    The native planner preserves reviewed-input gating, recursive
+    secret-shaped-key rejection, source-table and target identity checks,
+    employee/principal/currency continuity, allocation totals, advance/offset
+    bounds, and the exact expense-advance plan envelope. The offset remains a
+    bounded balance mutation; cash, accounting, tax, and period-close effects
+    stay disabled.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
