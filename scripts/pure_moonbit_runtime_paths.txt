@@ -20,6 +20,7 @@ scripts/company_postgres_marketing_smoke.sh
 scripts/company_postgres_milestone_smoke.sh
 scripts/company_postgres_payment_smoke.sh
 scripts/company_postgres_projection_apply.sh
+scripts/company_postgres_projection_parity.sh
 scripts/company_postgres_read_model.sh
 scripts/company_postgres_read_model_server.sh
 scripts/company_postgres_service.sh

@@ -1877,6 +1877,17 @@ Execute the remainder in this order:
     The gate passing proves only that these paths are Python-free; it does not
     imply that the remaining ERP routes, external effects, managed identity,
     or owner acceptance are complete.
+
+3a.3. **PostgreSQL parity utility (2026-07-16).**
+    `cmd/postgres_projection_parity` and
+    `scripts/company_postgres_projection_parity.sh` now replace the supported
+    PostgreSQL projection-parity Python helper. The native command reopens
+    projections by source-snapshot/mapping identity, compares target/source
+    multiplicities, emits the same `shadow_verified`/`mismatch` envelope, and
+    fails closed with missing/extra identities. The SQLite parity helper and
+    broader cohort/accounting parity helpers remain frozen comparison evidence
+    until their corresponding native database-specific commands are ported;
+    this checkpoint does not claim the complete rehearsal is Python-free.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
