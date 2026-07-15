@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_candidate") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_candidate") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -233,6 +233,20 @@ test "$status" = 200
 /usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   "http://127.0.0.1:$PORT/api/company/cbs/r0/resolutions" \
   | /usr/bin/jq -e '(.command_projection == true) and any(.data[]; .ref_id == "contract-boundary-1" and .target_mutated == false)' >/dev/null
+
+DEMO_KEY="boundary-cbs-demo-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-demo.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $DEMO_KEY" \
+  --data '{"projGuid":"proj-0001","name":"Native CBS Demo Contract","rCode":"R0","amount":12.5}' \
+  "http://127.0.0.1:$PORT/api/company/cbs/demo/contracts")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .contract.rCode == "R0" and .contract.amount == 12.5 and .contract.state == "signed" and .contract.budgetCheckPending == true and .budget_consumption == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-demo.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode 'projGuid=proj-0001' \
+  "http://127.0.0.1:$PORT/api/company/cbs/demo/contracts" \
+  | /usr/bin/jq -e 'any(.data[]; (.code | tostring | startswith("DEMO-")))' >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/login.json" -w '%{http_code}' -X POST \
   -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' \

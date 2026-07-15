@@ -49,3 +49,11 @@ cash/accounting/tax effect. The resolution list is available at
 `GET /api/company/cbs/r0/resolutions`. Demo contracts, contract
 approval/payment, and change applications remain explicit authenticated
 `cbs_mutation_boundary_candidate` 409 boundaries.
+
+The demo-contract create form is also native at `POST
+/api/company/cbs/demo/contracts` (and the `/source` alias). It persists a
+command-owned `cbs_demo_contract` projection, merges it into the demo-contract
+read, protects imported contracts, and reports `budgetCheckPending=true` with
+no budget, workflow, accounting, cash, or tax effect. Demo state transitions,
+legacy backfill, clear/delete, contract approval/payment, and change
+applications remain explicit candidates.

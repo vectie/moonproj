@@ -530,5 +530,24 @@ async fn cbs_demo_contracts_response(
       items.push(row.payload)
     }
   }
+  let local_rows = cbs_projection_payloads("cbs_demo_contract")
+  for payload in local_rows {
+    if json_text(payload, "state", "draft") != "deleted" &&
+      cbs_filter_project(payload, proj_guid) {
+      let fields = cbs_copy_fields(payload)
+      fields.set("id", Json::string(json_text(payload, "contract_guid", "")))
+      fields.set("code", Json::string(json_text(payload, "contract_code", "")))
+      fields.set("name", Json::string(json_text(payload, "contract_name", "")))
+      fields.set("rCode", Json::string(json_text(payload, "r_code", "R0")))
+      fields.set("l3Code", Json::string(json_text(payload, "l3_code", "")))
+      fields.set(
+        "amount",
+        Json::number(json_number(payload, "ht_amount", 0.0) / 10000.0),
+      )
+      fields.set("state", Json::string(json_text(payload, "cb_state", "draft")))
+      fields.set("source_kind", Json::string("command"))
+      items.push(Json::object(fields))
+    }
+  }
   cbs_envelope(Json::array(items), coverage)
 }

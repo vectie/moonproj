@@ -497,6 +497,26 @@ test "native company service maps CBS R0 resolution command paths" {
 }
 
 ///|
+test "native company service maps CBS demo contract command paths" {
+  assert_true(
+    cbs_demo_contract_command_spec(
+      @http.Post,
+      "/api/company/cbs/demo/contracts",
+    ),
+  )
+  assert_true(
+    cbs_demo_contract_command_spec(
+      @http.Post,
+      "/api/company/source/cbs/demo/contracts",
+    ),
+  )
+  assert_true(
+    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/demo/contracts")
+    is None,
+  )
+}
+
+///|
 test "native company service maps tender and split command paths" {
   assert_true(
     tender_command_spec(@http.Post, "/api/company/tenders")
