@@ -295,7 +295,9 @@ fn command_path_allowed(
       path == "/api/company/loans" ||
       path.has_prefix("/api/company/loans/") ||
       path == "/api/company/fund/plans" ||
+      path.has_prefix("/api/company/fund/plans/") ||
       path == "/api/company/fund/dispatches" ||
+      path.has_prefix("/api/company/fund/dispatches/") ||
       path == "/api/company/plan/tasks" ||
       path.has_prefix("/api/company/plan/tasks/") ||
       path == "/api/company/marketing" ||

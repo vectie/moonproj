@@ -738,6 +738,18 @@ shell smoke. Provider execution, R19 budget-ledger consumption, attribution,
 cash, accounting, tax, production identity, and finance-owner acceptance remain
 separate gates; the Python bridge is comparison evidence only.
 
+**Native fund plan/dispatch command checkpoint (2026-07-15).** The native
+MoonBit company service now owns source-compatible fund plans, period gap
+analysis, and dispatch observations, plus local plan create/update/delete and
+dispatch create/approve commands. It preserves project/period/direction
+filters, imported project identity checks, fixed-point amounts, creator/state
+guards, immutable revisions, audit receipts, request-equal replay, imported-row
+protection, and explicit cash/accounting/tax-neutral markers. Native service,
+trusted gateway, source-read, and fund shell smokes cover the plan and dispatch
+lifecycles. Bank settlement, cash release, accounting, tax, production
+identity, browser acceptance, and finance-owner approval remain separate gates;
+the Python bridge is comparison evidence only.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -1531,7 +1543,7 @@ Execute the remainder in this order:
     list/detail/command boundaries,
     budget-check preview, and idempotent expense/contract/payment-application/
     contract-milestone/dynamic-cost/invoice/sales-revenue/tender/
-    contract-split/marketing/supplier
+    contract-split/marketing/fund-plan/fund-dispatch/supplier
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1549,7 +1561,7 @@ Execute the remainder in this order:
     browser start command. The migration backlog is therefore explicit:
     (a) finish the remaining authenticated company-service reads and command
     lifecycles in `cmd/postgres_company_service` (invoice, sales-revenue,
-    tender/contract-split, marketing, and supplier/provider commands are now native
+    tender/contract-split, marketing, fund-plan/dispatch, and supplier/provider commands are now native
     checkpoints; populated-source qualification,
     signature, and external effects remain separate gates),
     (b) port the remaining source-export, cohort-planner, parity, acceptance,
@@ -1564,8 +1576,8 @@ Execute the remainder in this order:
 
     The current native gateway/session boundary and bounded company service
     (including the expense, contract, payment-application, contract-milestone,
-    dynamic-cost, invoice, sales-revenue, tender, contract-split, and marketing
-    command lifecycles) are partial completion of this
+    dynamic-cost, invoice, sales-revenue, tender, contract-split, marketing,
+    and fund-plan/dispatch command lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation
     still require their own MoonBit implementation and parity evidence.

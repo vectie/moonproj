@@ -403,6 +403,26 @@ test "native company service normalizes marketing amounts and authority" {
 }
 
 ///|
+test "native company service maps fund command paths" {
+  assert_true(
+    fund_command_spec(@http.Post, "/api/company/fund/plans")
+    is Some(("plan", "create", None)),
+  )
+  assert_true(
+    fund_command_spec(@http.Put, "/api/company/fund/plans/FP-1")
+    is Some(("plan", "update", Some("FP-1"))),
+  )
+  assert_true(
+    fund_command_spec(@http.Post, "/api/company/fund/plans/FP-1/delete")
+    is Some(("plan", "delete", Some("FP-1"))),
+  )
+  assert_true(
+    fund_command_spec(@http.Post, "/api/company/fund/dispatches/FD-1/approve")
+    is Some(("dispatch", "approve", Some("FD-1"))),
+  )
+}
+
+///|
 test "native company service normalizes sales revenue authority and amount" {
   let body = @json.parse(
     "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",

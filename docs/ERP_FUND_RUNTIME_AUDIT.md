@@ -1,6 +1,8 @@
 # ERP fund-plan runtime audit
 
-The Rabbita `/fund/plan` route now has both a source-preserving read boundary
+The compiled `cmd/postgres_company_service` binary, started by
+`scripts/company_postgres_service.sh`, backs the Rabbita `/fund/plan` route with
+both a source-preserving read boundary
 and a bounded PostgreSQL-owned planning command boundary.
 
 Source-compatible reads are exposed at:
@@ -20,8 +22,7 @@ treasury integration:
 
 - `POST /api/company/fund/plans` creates a local plan;
 - `PUT /api/company/fund/plans/:guid` updates a plan created locally;
-- `POST /api/company/fund/plans/:guid/delete` (and the browser-safe `DELETE`
-  alias) tombstones a local plan;
+- `POST /api/company/fund/plans/:guid/delete` tombstones a local plan;
 - `POST /api/company/fund/dispatches` creates a pending local dispatch;
 - `POST /api/company/fund/dispatches/:guid/approve` approves that local
   dispatch.
@@ -39,4 +40,6 @@ plan and create/approve for a dispatch, including authority rejection paths and
 source-shaped readback. Browser interaction and finance-owner acceptance are
 still open. Bank settlement, cash release, accounting, tax, production
 identity, managed session operation, and owner sign-off remain separate
-migration gates.
+migration gates. The native `scripts/company_postgres_fund_smoke.sh` and
+`scripts/company_postgres_gateway_smoke.sh` are the supported evidence paths;
+the former Python service is comparison evidence only.

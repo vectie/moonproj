@@ -90,6 +90,9 @@ request marketing_campaigns '/api/company/marketing/campaigns?projGuid=proj-0001
 request marketing_placements '/api/company/marketing/placements'
 request marketing_channels '/api/company/marketing/channels'
 request marketing_materials '/api/company/marketing/materials?projGuid=proj-0001'
+request fund_plans '/api/company/fund/plans?projGuid=proj-0001'
+request fund_gap '/api/company/fund/gap-analysis?projGuid=proj-0001'
+request fund_dispatches '/api/company/fund/dispatches'
 request supplier_categories '/api/company/source/srm/categories'
 request supplier_eval '/api/company/source/srm/dict/eval-results'
 request supplier_sources '/api/company/source/srm/dict/sources'
@@ -282,6 +285,23 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/marketing_materials.json" >/dev/null
 /usr/bin/jq -e '
+  .success == true and
+  .source_coverage.fund_plan == 0 and
+  ((.data | map(select(.sourceKind != "command")) | length) == 0) and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/fund_plans.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data.series | type) == "array" and
+  .source_coverage.fund_plan == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/fund_gap.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and
+  .source_coverage.fund_dispatch == 0 and
+  ((.data | map(select(.sourceKind != "command")) | length) == 0) and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/fund_dispatches.json" >/dev/null
+/usr/bin/jq -e '
   .success == true and (.data | length) == 0 and
   .source_coverage.srm_category == 0 and
   .authorizing == false and .persisted == false
@@ -322,4 +342,4 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .provider_execution == false
 ' "$TMP_DIR/supplier_provider_risk.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/supplier read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier read smoke passed"

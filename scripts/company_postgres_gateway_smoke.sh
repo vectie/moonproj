@@ -276,6 +276,28 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/marketing-delete.json" -w '
 test "$status" = 200
 /usr/bin/jq -e '.campaign.state == "deleted"' "$TMP_DIR/marketing-delete.json" >/dev/null
 
+gateway_fund_suffix=$(/bin/date +%s)
+gateway_fund_id="FP-GW-SMOKE-$gateway_fund_suffix"
+gateway_fund_principal="co-gateway-fund-smoke"
+gateway_fund_scope="project:proj-0001"
+gateway_fund_body="{\"plan_id\":\"$gateway_fund_id\",\"plan_code\":\"FP-GW-$gateway_fund_suffix\",\"project_id\":\"proj-0001\",\"plan_period\":\"2026-08\",\"direction\":\"out\",\"plan_amount_minor\":300000,\"authority\":{\"active\":true,\"principal_id\":\"$gateway_fund_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_fund_scope\",\"capability\":\"fund:plan:create\",\"max_amount_minor\":300000}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/fund-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-fund-create-$gateway_fund_suffix" \
+  --data "$gateway_fund_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/fund/plans")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_fund_id" \
+  '.plan.plan_id == $id and .plan.state == "planned" and .idempotent_replay == false' \
+  "$TMP_DIR/fund-create.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/fund-delete.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-fund-delete-$gateway_fund_suffix" \
+  --data '{"reason":"gateway fund tombstone smoke"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/fund/plans/$gateway_fund_id/delete")
+test "$status" = 200
+/usr/bin/jq -e '.plan.state == "deleted" and .plan.cash_effect == false' "$TMP_DIR/fund-delete.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"

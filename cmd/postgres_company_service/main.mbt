@@ -11207,6 +11207,1003 @@ async fn marketing_command(
 }
 
 ///|
+fn fund_source_metadata(coverage : Json) -> Json {
+  let missing : Array[Json] = []
+  for table in ["ep_project", "fund_dispatch", "fund_plan", "mu_business_unit"] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn fund_command_rows(
+  resource : String,
+  include_deleted : Bool,
+) -> Array[SourceRow] raise CompanyServiceError {
+  let aggregate_type = if resource == "plan" {
+    "fund_plan"
+  } else if resource == "dispatch" {
+    "fund_dispatch"
+  } else {
+    raise fail("unsupported fund resource")
+  }
+  let deleted_clause = if include_deleted {
+    ""
+  } else {
+    " WHERE coalesce(payload->>'state', '') <> 'deleted'"
+  }
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), " +
+    "encode(convert_to(payload::text, 'UTF8'), 'hex'), " +
+    "encode(convert_to(source_event_id, 'UTF8'), 'hex') FROM (" +
+    "SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, source_event_id " +
+    "FROM company_aggregate_projection WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    " ORDER BY aggregate_id, revision DESC) latest" +
+    deleted_clause +
+    " ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Array[SourceRow] = []
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 3)
+      let payload = @json.parse(decode_hex(row[1])) catch {
+        _ => raise fail("invalid fund projection JSON")
+      }
+      match payload {
+        Object(_) =>
+          result.push({
+            record_id: decode_hex(row[0]),
+            source_id: decode_hex(row[2]),
+            payload,
+          })
+        _ => raise fail("fund projection payload is not an object")
+      }
+    }
+  }
+  result
+}
+
+///|
+fn fund_text(
+  value : Json,
+  primary : String,
+  fallback : String,
+  default : String,
+) -> String {
+  marketing_text(value, primary, fallback, default)
+}
+
+///|
+fn fund_number(
+  value : Json,
+  primary : String,
+  fallback : String,
+  default : Double,
+) -> Double {
+  marketing_number(value, primary, fallback, default)
+}
+
+///|
+fn fund_source_id(row : SourceRow) -> String {
+  if row.source_id.is_empty() {
+    row.record_id
+  } else {
+    row.source_id
+  }
+}
+
+///|
+fn fund_source_kind(row : SourceRow) -> String {
+  let value = fund_text(row.payload, "source_kind", "sourceKind", "")
+  if value.is_empty() {
+    "imported"
+  } else {
+    value
+  }
+}
+
+///|
+fn fund_plan_item(row : SourceRow, project_names : Map[String, String]) -> Json {
+  let payload = row.payload
+  let id = fund_text(payload, "plan_guid", "planGuid", row.record_id)
+  let project_id = fund_text(payload, "proj_guid", "projGuid", "")
+  let source_kind = fund_source_kind(row)
+  Json::object({
+    "plan_guid": Json::string(id),
+    "plan_code": Json::string(fund_text(payload, "plan_code", "planCode", "")),
+    "proj_guid": Json::string(project_id),
+    "proj_name": Json::string(project_names.get(project_id).unwrap_or("")),
+    "bu_guid": Json::string(fund_text(payload, "bu_guid", "buGuid", "")),
+    "plan_period": Json::string(fund_text(payload, "plan_period", "period", "")),
+    "direction": Json::string(fund_text(payload, "direction", "", "")),
+    "category": Json::string(fund_text(payload, "category", "", "")),
+    "r_code": Json::string(fund_text(payload, "r_code", "rCode", "")),
+    "plan_amount": Json::number(
+      fund_number(payload, "plan_amount", "planAmount", 0.0),
+    ),
+    "actual_amount": Json::number(
+      fund_number(payload, "actual_amount", "actualAmount", 0.0),
+    ),
+    "remark": Json::string(fund_text(payload, "remark", "", "")),
+    "created_at": Json::string(
+      fund_text(payload, "created_at", "createdAt", ""),
+    ),
+    "state": Json::string(fund_text(payload, "state", "", "source_read_only")),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(fund_source_id(row)),
+    "aggregate_type": Json::string("fund_plan"),
+    "aggregate_id": Json::string(id),
+    "source_kind": Json::string(source_kind),
+    "command_projection": Json::boolean(source_kind == "command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(source_kind == "command"),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn fund_dispatch_item(row : SourceRow) -> Json {
+  let payload = row.payload
+  let id = fund_text(payload, "dispatch_guid", "dispatchGuid", row.record_id)
+  let source_kind = fund_source_kind(row)
+  Json::object({
+    "dispatch_guid": Json::string(id),
+    "dispatch_code": Json::string(
+      fund_text(payload, "dispatch_code", "dispatchCode", ""),
+    ),
+    "proj_guid": Json::string(fund_text(payload, "proj_guid", "projGuid", "")),
+    "bu_guid": Json::string(fund_text(payload, "bu_guid", "buGuid", "")),
+    "from_proj": Json::string(
+      fund_text(payload, "from_proj", "fromProjectId", ""),
+    ),
+    "to_proj": Json::string(fund_text(payload, "to_proj", "toProjectId", "")),
+    "amount": Json::number(fund_number(payload, "amount", "amount_minor", 0.0)),
+    "dispatch_date": Json::string(
+      fund_text(payload, "dispatch_date", "dispatchDate", ""),
+    ),
+    "reason": Json::string(fund_text(payload, "reason", "", "")),
+    "state": Json::string(fund_text(payload, "state", "", "pending")),
+    "created_at": Json::string(
+      fund_text(payload, "created_at", "createdAt", ""),
+    ),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(fund_source_id(row)),
+    "aggregate_type": Json::string("fund_dispatch"),
+    "aggregate_id": Json::string(id),
+    "source_kind": Json::string(source_kind),
+    "command_projection": Json::boolean(source_kind == "command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(source_kind == "command"),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn fund_source_response(
+  resource : String,
+  proj_guid : String?,
+  period : String?,
+  direction : String?,
+) -> Json raise CompanyServiceError {
+  if resource != "plans" && resource != "dispatches" {
+    raise fail("unsupported fund source resource")
+  }
+  for value in [proj_guid, period, direction] {
+    match value {
+      Some(item) if item.is_empty() || item.length() > 128 =>
+        raise fail("invalid fund filter")
+      _ => ()
+    }
+  }
+  match direction {
+    Some(item) if item != "in" && item != "out" =>
+      raise fail("direction must be in or out")
+    _ => ()
+  }
+  let projects = raw_source_rows("ep_project", 500)
+  let plans = raw_source_rows("fund_plan", 500)
+  let dispatches = raw_source_rows("fund_dispatch", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let coverage = Json::object({
+    "ep_project": Json::number(projects.length().to_double()),
+    "fund_dispatch": Json::number(dispatches.length().to_double()),
+    "fund_plan": Json::number(plans.length().to_double()),
+    "mu_business_unit": Json::number(units.length().to_double()),
+  })
+  let project_names : Map[String, String] = {}
+  for row in projects {
+    let id = fund_text(row.payload, "proj_guid", "projGuid", row.record_id)
+    project_names[id] = fund_text(row.payload, "proj_name", "projName", "")
+  }
+  let result : Array[Json] = []
+  if resource == "plans" {
+    let rows = plans + fund_command_rows("plan", false)
+    for row in rows {
+      let item = fund_plan_item(row, project_names)
+      if (
+          proj_guid is None ||
+          json_text(item, "proj_guid", "") == proj_guid.unwrap()
+        ) &&
+        (
+          period is None ||
+          json_text(item, "plan_period", "") == period.unwrap()
+        ) &&
+        (
+          direction is None ||
+          json_text(item, "direction", "") == direction.unwrap()
+        ) &&
+        json_text(item, "state", "") != "deleted" {
+        result.push(item)
+      }
+    }
+    result.sort_by(fn(left, right) {
+      let period_order = json_text(left, "plan_period", "").lexical_compare(
+        json_text(right, "plan_period", ""),
+      )
+      if period_order == 0 {
+        json_text(left, "direction", "").lexical_compare(
+          json_text(right, "direction", ""),
+        )
+      } else {
+        period_order
+      }
+    })
+  } else {
+    let rows = dispatches + fund_command_rows("dispatch", false)
+    for row in rows {
+      result.push(fund_dispatch_item(row))
+    }
+    result.sort_by(fn(left, right) {
+      json_text(right, "created_at", "").lexical_compare(
+        json_text(left, "created_at", ""),
+      )
+    })
+  }
+  match fund_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid fund source metadata")
+  }
+}
+
+///|
+async fn fund_gap_response(
+  proj_guid : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(proj_guid) {
+    raise fail("invalid proj_guid")
+  }
+  let projects = raw_source_rows("ep_project", 500)
+  let plans = raw_source_rows("fund_plan", 500)
+  let dispatches = raw_source_rows("fund_dispatch", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let coverage = Json::object({
+    "ep_project": Json::number(projects.length().to_double()),
+    "fund_dispatch": Json::number(dispatches.length().to_double()),
+    "fund_plan": Json::number(plans.length().to_double()),
+    "mu_business_unit": Json::number(units.length().to_double()),
+  })
+  let rows = plans + fund_command_rows("plan", false)
+  let periods : Map[String, (Double, Double, Double, Double)] = {}
+  for row in rows {
+    let payload = row.payload
+    if json_text(payload, "proj_guid", json_text(payload, "projGuid", "")) ==
+      proj_guid {
+      let key = fund_text(payload, "plan_period", "period", "")
+      let current = periods.get(key).unwrap_or((0.0, 0.0, 0.0, 0.0))
+      let amount = fund_number(payload, "plan_amount", "planAmount", 0.0)
+      let actual = fund_number(payload, "actual_amount", "actualAmount", 0.0)
+      let direction = fund_text(payload, "direction", "", "")
+      periods[key] = if direction == "in" {
+        (current.0 + amount, current.1 + actual, current.2, current.3)
+      } else if direction == "out" {
+        (current.0, current.1, current.2 + amount, current.3 + actual)
+      } else {
+        current
+      }
+    }
+  }
+  let keys : Array[String] = []
+  for key in periods.keys() {
+    keys.push(key)
+  }
+  keys.sort()
+  let series : Array[Json] = []
+  let mut cumulative = 0.0
+  for key in keys {
+    let values = periods.get(key).unwrap()
+    let net = values.0 - values.2
+    cumulative += net
+    series.push(
+      Json::object({
+        "period": Json::string(key),
+        "planIn": Json::number(round_places(values.0, 2)),
+        "actualIn": Json::number(round_places(values.1, 2)),
+        "planOut": Json::number(round_places(values.2, 2)),
+        "actualOut": Json::number(round_places(values.3, 2)),
+        "net": Json::number(round_places(net, 2)),
+        "cumNet": Json::number(round_places(cumulative, 2)),
+        "gap": Json::number(
+          round_places(if cumulative < 0.0 { -cumulative } else { 0.0 }, 2),
+        ),
+      }),
+    )
+  }
+  match fund_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::object({ "series": Json::array(series) }))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid fund gap metadata")
+  }
+}
+
+///|
+fn fund_required_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => raise reject(422, primary + " is required")
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if value.is_empty() {
+    raise reject(422, primary + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn fund_optional_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => ""
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if identifier && !value.is_empty() && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn fund_amount_minor(
+  body : Json,
+  primary : String,
+  fallback : String,
+) -> Int raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => raise reject(422, primary + " is required")
+    Some(Number(number, ..)) => number
+    Some(String(text)) => parse_number(text.trim().to_owned())
+    _ => raise reject(422, primary + " must be a positive amount")
+  }
+  if value <= 0.0 || value != value {
+    raise reject(422, primary + " must be a positive amount")
+  }
+  let minor = if primary.has_suffix("_minor") {
+    if value != value.to_int().to_double() {
+      raise reject(422, primary + " must be an integer amount in minor units")
+    }
+    value.to_int()
+  } else {
+    (value * 100.0 + 0.5).to_int()
+  }
+  if minor <= 0 {
+    raise reject(422, primary + " must be a positive amount")
+  }
+  minor
+}
+
+///|
+fn fund_authority(
+  body : Json,
+  actor_id : String,
+  project_id : String,
+  capability : String,
+  amount_minor : Int,
+) -> Json raise CompanyServiceError {
+  let grant = match json_field(body, "authority") {
+    Some(Object(_)) => json_field(body, "authority").unwrap()
+    _ => raise reject(403, "authority grant is required")
+  }
+  if !json_bool(grant, "active", false) {
+    raise reject(403, "authority grant is inactive")
+  }
+  let principal_id = json_text(grant, "principal_id", "")
+  if !valid_identifier(principal_id) {
+    raise reject(403, "authority grant principal_id is required")
+  }
+  if json_text(grant, "actor_id", "") != actor_id {
+    raise reject(403, "authority grant actor does not match signed actor")
+  }
+  if json_text(grant, "capability", "") != capability {
+    raise reject(403, "authority grant must allow " + capability)
+  }
+  let expected_scope = "project:" + project_id
+  if json_text(grant, "scope", "") != expected_scope {
+    raise reject(403, "authority grant scope must be project-scoped")
+  }
+  let max_amount = match json_field(grant, "max_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(String(text)) => parse_decimal(text.trim().to_owned())
+    _ => raise reject(403, "authority grant max_amount_minor is required")
+  }
+  if max_amount < amount_minor {
+    raise reject(403, "authority grant amount is exceeded")
+  }
+  Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string(principal_id),
+    "actor_id": Json::string(actor_id),
+    "capability": Json::string(capability),
+    "scope": Json::string(expected_scope),
+    "max_amount_minor": Json::number(max_amount.to_double()),
+  })
+}
+
+///|
+async fn fund_project_exists(
+  project_id : String,
+) -> Bool raise CompanyServiceError {
+  let projects = raw_source_rows("ep_project", 500)
+  for row in projects {
+    if fund_text(row.payload, "proj_guid", "projGuid", row.record_id) ==
+      project_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+async fn fund_latest_payload(
+  resource : String,
+  resource_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let aggregate_type = if resource == "plan" {
+    "fund_plan"
+  } else {
+    "fund_dispatch"
+  }
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
+    "FROM company_aggregate_projection WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    " AND aggregate_id = " +
+    @postgres.sql_literal(resource_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid fund projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn fund_imported_exists(
+  resource : String,
+  resource_id : String,
+) -> Bool raise CompanyServiceError {
+  let table = if resource == "plan" { "fund_plan" } else { "fund_dispatch" }
+  let key = if resource == "plan" { "plan_guid" } else { "dispatch_guid" }
+  let alias_key = if resource == "plan" { "planGuid" } else { "dispatchGuid" }
+  for row in raw_source_rows(table, 500) {
+    if fund_text(row.payload, key, alias_key, row.record_id) == resource_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+async fn fund_command_request(
+  resource : String,
+  command_type : String,
+  resource_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+  current : Json?,
+) -> (String, Json) raise CompanyServiceError {
+  if resource == "plan" && command_type == "create" {
+    let requested = fund_optional_text(body, "plan_id", "plan_guid", true)
+    let id = if requested.is_empty() {
+      marketing_generated_id("FP", idempotency_key)
+    } else {
+      requested
+    }
+    let project_id = fund_required_text(body, "project_id", "proj_guid", true)
+    if !fund_project_exists(project_id) {
+      raise reject(409, "fund plan requires an imported project identity")
+    }
+    let amount_minor = fund_amount_minor(body, "plan_amount_minor", "amount")
+    let authority = fund_authority(
+      body, actor_id, project_id, "fund:plan:create", amount_minor,
+    )
+    let direction = fund_required_text(body, "direction", "", false)
+    if direction != "in" && direction != "out" {
+      raise reject(422, "direction must be in or out")
+    }
+    let plan_period = fund_required_text(body, "plan_period", "period", false)
+    let plan_code = marketing_default(
+      fund_optional_text(body, "plan_code", "planCode", false),
+      marketing_generated_id("FP", idempotency_key),
+    )
+    if !valid_identifier(plan_code) {
+      raise reject(422, "plan_code contains unsupported characters")
+    }
+    (
+      id,
+      Json::object({
+        "command_type": Json::string("create"),
+        "plan_id": Json::string(id),
+        "plan_guid": Json::string(id),
+        "plan_code": Json::string(plan_code),
+        "proj_guid": Json::string(project_id),
+        "plan_period": Json::string(plan_period),
+        "direction": Json::string(direction),
+        "category": Json::string(
+          fund_optional_text(body, "category", "", false),
+        ),
+        "r_code": Json::string(
+          fund_optional_text(body, "r_code", "rCode", true),
+        ),
+        "plan_amount": Json::string(invoice_minor_text(amount_minor)),
+        "plan_amount_minor": Json::number(amount_minor.to_double()),
+        "actual_amount": Json::string("0.00"),
+        "actual_amount_minor": Json::number(0.0),
+        "remark": Json::string(fund_optional_text(body, "remark", "", false)),
+        "created_by": Json::string(actor_id),
+        "authority": authority,
+      }),
+    )
+  } else if resource == "dispatch" && command_type == "create" {
+    let requested = fund_optional_text(
+      body, "dispatch_id", "dispatch_guid", true,
+    )
+    let id = if requested.is_empty() {
+      marketing_generated_id("FD", idempotency_key)
+    } else {
+      requested
+    }
+    let project_id = fund_required_text(body, "project_id", "proj_guid", true)
+    if !fund_project_exists(project_id) {
+      raise reject(409, "fund dispatch requires an imported project identity")
+    }
+    let amount_minor = fund_amount_minor(body, "amount_minor", "amount")
+    let authority = fund_authority(
+      body, actor_id, project_id, "fund:dispatch:create", amount_minor,
+    )
+    let dispatch_code = marketing_default(
+      fund_optional_text(body, "dispatch_code", "dispatchCode", false),
+      marketing_generated_id("FD", idempotency_key),
+    )
+    if !valid_identifier(dispatch_code) {
+      raise reject(422, "dispatch_code contains unsupported characters")
+    }
+    (
+      id,
+      Json::object({
+        "command_type": Json::string("create"),
+        "dispatch_id": Json::string(id),
+        "dispatch_guid": Json::string(id),
+        "dispatch_code": Json::string(dispatch_code),
+        "proj_guid": Json::string(project_id),
+        "from_proj": Json::string(
+          fund_optional_text(body, "from_proj", "from_project_id", true),
+        ),
+        "to_proj": Json::string(
+          fund_optional_text(body, "to_proj", "to_project_id", true),
+        ),
+        "amount": Json::string(invoice_minor_text(amount_minor)),
+        "amount_minor": Json::number(amount_minor.to_double()),
+        "reason": Json::string(fund_optional_text(body, "reason", "", false)),
+        "dispatch_date": Json::string(
+          marketing_default(
+            fund_optional_text(body, "dispatch_date", "dispatchDate", false),
+            "2026-01-01",
+          ),
+        ),
+        "created_by": Json::string(actor_id),
+        "authority": authority,
+      }),
+    )
+  } else {
+    let id = match resource_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, resource + "_id is required")
+    }
+    if resource == "plan" && command_type == "update" {
+      let changes : Map[String, Json] = {}
+      if marketing_lookup(body, "plan_amount_minor", "amount") is Some(_) {
+        let amount_minor = fund_amount_minor(
+          body, "plan_amount_minor", "amount",
+        )
+        changes.set(
+          "plan_amount",
+          Json::string(invoice_minor_text(amount_minor)),
+        )
+        changes.set("plan_amount_minor", Json::number(amount_minor.to_double()))
+      }
+      if json_field(body, "actual_amount_minor") is Some(_) {
+        let amount_minor = fund_amount_minor(body, "actual_amount_minor", "")
+        changes.set(
+          "actual_amount",
+          Json::string(invoice_minor_text(amount_minor)),
+        )
+        changes.set(
+          "actual_amount_minor",
+          Json::number(amount_minor.to_double()),
+        )
+      }
+      if json_field(body, "remark") is Some(value) {
+        match value {
+          String(text) =>
+            changes.set("remark", Json::string(text.trim().to_owned()))
+          _ => raise reject(422, "remark must be text")
+        }
+      }
+      if changes.is_empty() {
+        raise reject(
+          422, "update requires a plan amount, actual amount, or remark",
+        )
+      }
+      (
+        id,
+        Json::object({
+          "command_type": Json::string("update"),
+          "plan_id": Json::string(id),
+          "actor_id": Json::string(actor_id),
+          "changes": Json::object(changes),
+        }),
+      )
+    } else if resource == "plan" && command_type == "delete" {
+      (
+        id,
+        Json::object({
+          "command_type": Json::string("delete"),
+          "plan_id": Json::string(id),
+          "actor_id": Json::string(actor_id),
+          "reason": Json::string(fund_optional_text(body, "reason", "", false)),
+        }),
+      )
+    } else if resource == "dispatch" && command_type == "approve" {
+      let current_payload = match current {
+        Some(value) => value
+        None => raise reject(404, "dispatch not found")
+      }
+      let project_id = fund_required_text(
+        current_payload, "proj_guid", "projGuid", true,
+      )
+      let amount_minor = fund_amount_minor(
+        current_payload, "amount_minor", "amount",
+      )
+      let authority = fund_authority(
+        body, actor_id, project_id, "fund:dispatch:approve", amount_minor,
+      )
+      (
+        id,
+        Json::object({
+          "command_type": Json::string("approve"),
+          "dispatch_id": Json::string(id),
+          "actor_id": Json::string(actor_id),
+          "authority": authority,
+        }),
+      )
+    } else {
+      raise reject(404, "unsupported fund command")
+    }
+  }
+}
+
+///|
+async fn fund_command(
+  resource : String,
+  command_type : String,
+  resource_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !["plan", "dispatch"].contains(resource) {
+    raise reject(404, "unsupported fund resource")
+  }
+  if !["create", "update", "delete", "approve"].contains(command_type) {
+    raise reject(404, "unsupported fund command")
+  }
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let current = match resource_id {
+    Some(id) => fund_latest_payload(resource, id)
+    None => None
+  }
+  let (id, request) = fund_command_request(
+    resource,
+    command_type,
+    resource_id,
+    body,
+    actor_id,
+    idempotency_key,
+    match current {
+      Some((payload, _)) => Some(payload)
+      None => None
+    },
+  )
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored = json_field(existing, "request").unwrap_or(Json::null())
+      if !json_equal(stored, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let response = Json::object({
+        "command": existing,
+        "idempotent_replay": Json::boolean(true),
+      })
+      return match response {
+        Object(fields) => {
+          fields.set(
+            resource,
+            json_field(existing, "result").unwrap_or(Json::null()),
+          )
+          (200, response)
+        }
+        _ => raise fail("invalid fund replay response")
+      }
+    }
+    None => ()
+  }
+  let imported = fund_imported_exists(resource, id)
+  if command_type == "create" {
+    if current is Some(_) || imported {
+      raise reject(409, "fund resource already exists")
+    }
+  } else {
+    let current_payload = match current {
+      Some((payload, _)) => payload
+      None => {
+        if imported {
+          raise reject(
+            409, "imported fund resource is read-only; create a local projection first",
+          )
+        }
+        raise reject(404, "fund resource not found")
+      }
+    }
+    if json_text(current_payload, "source_kind", "") != "command" {
+      raise reject(409, "imported fund resource is read-only")
+    }
+    if command_type == "update" || command_type == "delete" {
+      if json_text(current_payload, "created_by", "") != actor_id {
+        raise reject(403, "only the fund-plan creator may change this plan")
+      }
+    }
+    let state = json_text(current_payload, "state", "")
+    if (
+        resource == "plan" &&
+        (command_type == "update" || command_type == "delete")
+      ) &&
+      state != "planned" &&
+      state != "updated" {
+      raise reject(409, "invalid fund plan state")
+    }
+    if resource == "dispatch" && command_type == "approve" && state != "pending" {
+      raise reject(409, "invalid fund dispatch state")
+    }
+  }
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    if resource == "plan" {
+      "planned"
+    } else {
+      "pending"
+    }
+  } else if command_type == "approve" {
+    "approved"
+  } else if command_type == "delete" {
+    "deleted"
+  } else {
+    "updated"
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let event_id = "fund:" + resource + ":" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result_key = if resource == "plan" { "plan_id" } else { "dispatch_id" }
+  let result = Json::object({
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+  match result {
+    Object(fields) => fields.set(result_key, Json::string(id))
+    _ => ()
+  }
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("fund"),
+    "resource": Json::string(resource),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string(
+      if resource == "plan" {
+        "fund_plan"
+      } else {
+        "fund_dispatch"
+      },
+    ),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let request_projection = "(" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'authority' - 'changes') || coalesce(" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb->'changes', '{}'::jsonb)"
+  let next_payload_sql = if command_type == "create" {
+    request_projection +
+    " || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "delete" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || " +
+    request_projection +
+    " || jsonb_build_object('state', 'deleted', 'source_kind', 'command', 'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || " +
+    request_projection +
+    " || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("fund." + resource + "." + command_type),
+    "aggregate_type": Json::string(
+      if resource == "plan" {
+        "fund_plan"
+      } else {
+        "fund_dispatch"
+      },
+    ),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES (" +
+    @postgres.sql_literal(
+      if resource == "plan" {
+        "fund_plan"
+      } else {
+        "fund_dispatch"
+      },
+    ) +
+    ", " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  let response = Json::object({
+    "command": command_payload,
+    "idempotent_replay": Json::boolean(false),
+  })
+  match response {
+    Object(fields) => {
+      fields.set(resource, result)
+      (if command_type == "create" { 201 } else { 200 }, response)
+    }
+    _ => raise fail("invalid fund response")
+  }
+}
+
+///|
 fn supplier_dictionary_metadata(coverage : Json, source_kind : String) -> Json {
   let missing : Array[Json] = []
   if source_kind == "imported_or_empty" &&
@@ -13267,6 +14264,46 @@ fn marketing_command_spec(
 }
 
 ///|
+fn fund_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String, String?)? {
+  if request_method is @http.Post {
+    if path == "/api/company/fund/plans" {
+      return Some(("plan", "create", None))
+    }
+    if path == "/api/company/fund/dispatches" {
+      return Some(("dispatch", "create", None))
+    }
+  }
+  let plan_prefix = "/api/company/fund/plans/"
+  if path.has_prefix(plan_prefix) {
+    let rest = path[plan_prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 1 &&
+      valid_identifier(rest[0].to_owned()) &&
+      request_method is @http.Put {
+      return Some(("plan", "update", Some(rest[0].to_owned())))
+    }
+    if rest.length() == 2 &&
+      rest[1].to_owned() == "delete" &&
+      valid_identifier(rest[0].to_owned()) &&
+      request_method is @http.Post {
+      return Some(("plan", "delete", Some(rest[0].to_owned())))
+    }
+  }
+  let dispatch_prefix = "/api/company/fund/dispatches/"
+  if request_method is @http.Post && path.has_prefix(dispatch_prefix) {
+    let rest = path[dispatch_prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 &&
+      rest[1].to_owned() == "approve" &&
+      valid_identifier(rest[0].to_owned()) {
+      return Some(("dispatch", "approve", Some(rest[0].to_owned())))
+    }
+  }
+  None
+}
+
+///|
 fn supplier_command_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -13483,6 +14520,32 @@ async fn route(
       ),
     )
   }
+  if path == "/api/company/fund/plans" {
+    return (
+      200,
+      fund_source_response(
+        "plans",
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+        query_alias_decoded(query, "period", "plan_period"),
+        query_decoded(query, "direction"),
+      ),
+    )
+  }
+  if path == "/api/company/fund/gap-analysis" {
+    let project_id = query_alias_decoded(query, "projGuid", "proj_guid").unwrap_or(
+      "",
+    )
+    if project_id.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("projGuid is required") }),
+      )
+    }
+    return (200, fund_gap_response(project_id))
+  }
+  if path == "/api/company/fund/dispatches" {
+    return (200, fund_source_response("dispatches", None, None, None))
+  }
   let tender_source_prefix = "/api/company/source/tender/"
   if path.has_prefix(tender_source_prefix) {
     let family = path[tender_source_prefix.length():].to_owned()
@@ -13643,6 +14706,8 @@ async fn route(
             Json::string("source_contract_split_command"),
             Json::string("marketing_command"),
             Json::string("marketing_observation_read"),
+            Json::string("fund_command"),
+            Json::string("fund_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -13963,6 +15028,43 @@ async fn handle(
         }
       }
       let result = marketing_command(
+        resource, command_type, resource_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match fund_command_spec(request.meth, path) {
+    Some((resource, command_type, resource_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = fund_command(
         resource, command_type, resource_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
