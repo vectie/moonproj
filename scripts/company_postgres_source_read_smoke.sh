@@ -237,9 +237,9 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/sales_revenues.json" >/dev/null
 /usr/bin/jq -e '
-  .success == true and (.data | length) == 87 and
+  .success == true and (.data | length) >= 1 and
   .source_coverage.tender_plan == 0 and
-  .data[0].source_kind == "command" and
+  ((.data | map(select(.source_kind == "command")) | length) == (.data | length)) and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/tender_plans.json" >/dev/null
 /usr/bin/jq -e '
@@ -248,9 +248,9 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/tender_awards.json" >/dev/null
 /usr/bin/jq -e '
-  .success == true and (.data | length) == 162 and
+  .success == true and (.data | length) >= 1 and
   .source_coverage.contract_split == 0 and
-  .data[0].source_kind == "command" and
+  ((.data | map(select(.source_kind == "command")) | length) == (.data | length)) and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/tender_splits.json" >/dev/null
 /usr/bin/jq -e '

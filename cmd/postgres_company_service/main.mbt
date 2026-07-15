@@ -8416,6 +8416,852 @@ async fn sales_revenue_command(
 }
 
 ///|
+fn tender_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+  allow_empty : Bool,
+) -> String raise CompanyServiceError {
+  let value = match json_field(body, primary) {
+    Some(value) => value
+    None => json_field(body, fallback).unwrap_or(Json::null())
+  }
+  let text = match value {
+    Null => ""
+    String(value) => value.trim().to_owned()
+    Number(value, ..) => value.to_string()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if !allow_empty && text.is_empty() {
+    raise reject(422, primary + " is required")
+  }
+  if identifier && !text.is_empty() && !valid_identifier(text) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  text
+}
+
+///|
+fn tender_decimal_minor(
+  body : Json,
+  primary : String,
+  fallback : String,
+  default : Int,
+  allow_zero : Bool,
+) -> Int raise CompanyServiceError {
+  let value = match json_field(body, primary) {
+    Some(value) => value
+    None => json_field(body, fallback).unwrap_or(Json::null())
+  }
+  let parsed = match value {
+    Null => {
+      if default >= 0 {
+        return default
+      }
+      raise reject(422, primary + " must be a decimal number")
+    }
+    Number(number, ..) => number
+    String(text) => parse_number(text.trim().to_owned())
+    _ => raise reject(422, primary + " must be a decimal number")
+  }
+  if parsed < 0.0 || (!allow_zero && parsed == 0.0) {
+    raise reject(422, primary + " is below the minimum")
+  }
+  let minor = (parsed * 100.0 + 0.5).to_int()
+  if !allow_zero && minor <= 0 {
+    raise reject(422, primary + " is below the minimum")
+  }
+  minor
+}
+
+///|
+fn tender_currency(
+  body : Json,
+  primary : String,
+  fallback : String,
+  default : String,
+) -> String raise CompanyServiceError {
+  let value = tender_text(body, primary, fallback, true, true)
+  let normalized = if value.is_empty() { default } else { value.to_upper() }
+  if normalized.length() != 3 {
+    raise reject(422, "currency must be a three-letter code")
+  }
+  for char in normalized.iter() {
+    if char < 'A' || char > 'Z' {
+      raise reject(422, "currency must be a three-letter code")
+    }
+  }
+  normalized
+}
+
+///|
+fn tender_bids(
+  body : Json,
+  estimated_amount_minor : Int,
+  currency : String,
+) -> Json raise CompanyServiceError {
+  match json_field(body, "bids") {
+    None | Some(Null) => Json::array([])
+    Some(Array(values)) => {
+      let result : Array[Json] = []
+      let seen : Array[String] = []
+      for value in values {
+        let supplier_id = tender_text(
+          value, "supplier_id", "supplierId", true, false,
+        )
+        if seen.contains(supplier_id) {
+          raise reject(422, "a supplier may bid only once")
+        }
+        let amount_minor = match json_field(value, "amount_minor") {
+          Some(Number(number, ..)) if number > 0.0 &&
+            number == number.to_int().to_double() => number.to_int()
+          _ => raise reject(422, "bid amount_minor must be a positive integer")
+        }
+        if amount_minor > estimated_amount_minor {
+          raise reject(422, "bid amount exceeds tender estimate")
+        }
+        seen.push(supplier_id)
+        result.push(
+          Json::object({
+            "supplier_id": Json::string(supplier_id),
+            "amount_minor": Json::number(amount_minor.to_double()),
+            "currency": Json::string(currency),
+          }),
+        )
+      }
+      Json::array(result)
+    }
+    Some(_) => raise reject(422, "bids must be an array")
+  }
+}
+
+///|
+fn tender_create_request(
+  body : Json,
+  actor_id : String,
+  source_alias : Bool,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let requested_id = tender_text(body, "tender_id", "tenderGuid", true, true)
+  let tender_id = if requested_id.is_empty() {
+    (if source_alias { "TD-SRC-" } else { "TD-" }) + idempotency_key
+  } else {
+    requested_id
+  }
+  if !valid_identifier(tender_id) {
+    raise reject(422, "tender_id contains unsupported characters")
+  }
+  let project_guid = if source_alias {
+    tender_text(body, "proj_guid", "projGuid", true, false)
+  } else {
+    ""
+  }
+  let project_scope = if source_alias {
+    if project_guid.is_empty() {
+      raise reject(422, "projGuid is required")
+    }
+    "project:" + project_guid
+  } else {
+    tender_text(body, "project_scope", "", true, false)
+  }
+  let name = tender_text(body, "name", "tenderName", false, false)
+  let category = tender_text(body, "category", "", false, source_alias)
+  let normalized_category = if category.is_empty() {
+    "uncategorized"
+  } else {
+    category
+  }
+  let estimated_amount_minor = match
+    json_field(body, "estimated_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(_) =>
+      raise reject(422, "estimated_amount_minor must be a non-negative integer")
+    None =>
+      tender_decimal_minor(
+        body,
+        "estimated_amount",
+        "estimatedAmount",
+        if source_alias {
+          0
+        } else {
+          -1
+        },
+        source_alias,
+      )
+  }
+  let currency = tender_currency(body, "currency", "", "CNY")
+  let tender_code_value = tender_text(
+    body, "tender_code", "tenderCode", true, true,
+  )
+  let tender_code = if tender_code_value.is_empty() {
+    let start = if tender_id.length() > 24 {
+      tender_id.length() - 24
+    } else {
+      0
+    }
+    "TD-" + tender_id[start:].to_owned()
+  } else {
+    tender_code_value
+  }
+  if !valid_identifier(tender_code) || tender_code.length() > 128 {
+    raise reject(422, "tenderCode is invalid")
+  }
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("create"))
+  request.set("tender_id", Json::string(tender_id))
+  request.set("tender_code", Json::string(tender_code))
+  request.set("project_scope", Json::string(project_scope))
+  request.set("name", Json::string(name))
+  request.set("category", Json::string(normalized_category))
+  request.set(
+    "estimated_amount_minor",
+    Json::number(estimated_amount_minor.to_double()),
+  )
+  request.set("currency", Json::string(currency))
+  request.set("bids", tender_bids(body, estimated_amount_minor, currency))
+  request.set("actor_id", Json::string(actor_id))
+  for
+    pair in [
+      ("plan_publish_date", "planPublishDate"),
+      ("plan_award_date", "planAwardDate"),
+      ("remark", "remark"),
+    ] {
+    let value = tender_text(body, pair.0, pair.1, false, true)
+    if !value.is_empty() {
+      if value.length() > 256 {
+        raise reject(422, pair.1 + " is too long")
+      }
+      request.set(pair.0, Json::string(value))
+    }
+  }
+  Json::object(request)
+}
+
+///|
+fn tender_transition_request(
+  command_type : String,
+  tender_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(tender_id) {
+    raise reject(422, "tender_id is required")
+  }
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string(command_type))
+  request.set("tender_id", Json::string(tender_id))
+  request.set("actor_id", Json::string(actor_id))
+  if command_type == "award" {
+    request.set(
+      "awarded_supplier_id",
+      Json::string(
+        tender_text(
+          body, "awarded_supplier_id", "awardedSupplierId", true, false,
+        ),
+      ),
+    )
+    let amount = match json_field(body, "awarded_amount_minor") {
+      Some(Number(number, ..)) if number > 0.0 &&
+        number == number.to_int().to_double() => number.to_int()
+      _ => raise reject(422, "awarded_amount_minor must be a positive integer")
+    }
+    request.set("awarded_amount_minor", Json::number(amount.to_double()))
+  }
+  let reason = tender_text(body, "reason", "", false, true)
+  request.set("reason", Json::string(reason))
+  Json::object(request)
+}
+
+///|
+async fn latest_tender_payload(
+  tender_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'tender' AND aggregate_id = " +
+    @postgres.sql_literal(tender_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid tender projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn tender_imported_exists(
+  tender_id : String,
+) -> Bool raise CompanyServiceError {
+  for row in raw_source_rows("tender_plan", 500) {
+    if json_text(row.payload, "tender_guid", row.record_id) == tender_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn tender_next_state(
+  command_type : String,
+  current_state : String,
+) -> String raise CompanyServiceError {
+  if command_type == "publish" {
+    if current_state != "planning" {
+      raise reject(
+        409,
+        "tender transition publish requires planning, found " + current_state,
+      )
+    }
+    "publishing"
+  } else if command_type == "open_bidding" {
+    if current_state != "publishing" {
+      raise reject(
+        409,
+        "tender transition open_bidding requires publishing, found " +
+        current_state,
+      )
+    }
+    "bidding"
+  } else if command_type == "award" {
+    if current_state != "bidding" {
+      raise reject(
+        409,
+        "tender transition award requires bidding, found " + current_state,
+      )
+    }
+    "awarded"
+  } else if command_type == "complete" {
+    if current_state != "awarded" {
+      raise reject(
+        409,
+        "tender transition complete requires awarded, found " + current_state,
+      )
+    }
+    "completed"
+  } else if command_type == "cancel" {
+    if !["planning", "publishing", "bidding"].contains(current_state) {
+      raise reject(
+        409,
+        "tender cancellation requires an active planning state, found " +
+        current_state,
+      )
+    }
+    "cancelled"
+  } else if command_type == "delete" {
+    if current_state == "deleted" {
+      raise reject(409, "tender is already deleted")
+    }
+    "deleted"
+  } else {
+    raise reject(404, "unsupported tender command")
+  }
+}
+
+///|
+fn tender_award_matches(payload : Json, request : Json) -> Bool {
+  let supplier_id = json_text(request, "awarded_supplier_id", "")
+  let amount = json_int(request, "awarded_amount_minor", 0)
+  match json_field(payload, "bids") {
+    Some(Array(bids)) =>
+      for bid in bids {
+        if json_text(bid, "supplier_id", "") == supplier_id &&
+          json_int(bid, "amount_minor", 0) == amount {
+          return true
+        }
+      }
+    _ => ()
+  }
+  false
+}
+
+///|
+async fn tender_supplier_qualified(
+  supplier_id : String,
+) -> Bool raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT CASE WHEN coalesce(payload->>'state', '') = 'active' AND coalesce(payload->>'evaluation', '') IN ('qualified', 'strategic') THEN 'true' ELSE 'false' END FROM (SELECT DISTINCT ON (aggregate_id) payload FROM company_aggregate_projection WHERE aggregate_type = 'supplier' AND aggregate_id = " +
+    @postgres.sql_literal(supplier_id) +
+    " ORDER BY aggregate_id, revision DESC) latest",
+  )
+  output.trim() == "true"
+}
+
+///|
+async fn tender_command(
+  command_type : String,
+  tender_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if ![
+      "create", "publish", "open_bidding", "award", "complete", "cancel", "delete",
+    ].contains(command_type) {
+    raise reject(404, "unsupported tender command")
+  }
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let (id, request) = if command_type == "create" {
+    let request = if json_text(body, "command_type", "") == "create" {
+      body
+    } else {
+      tender_create_request(body, actor_id, false, idempotency_key)
+    }
+    (json_text(request, "tender_id", ""), request)
+  } else {
+    let id = match tender_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, "tender_id is required")
+    }
+    (id, tender_transition_request(command_type, id, body, actor_id))
+  }
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "tender": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_tender_payload(id)
+  let imported = tender_imported_exists(id)
+  if command_type == "create" {
+    if current is Some(_) || imported {
+      raise reject(409, "tender already exists")
+    }
+  } else {
+    let payload = match current {
+      Some((payload, _)) => payload
+      None => {
+        if imported {
+          raise reject(
+            409, "imported tender is read-only; create a local planning draft first",
+          )
+        }
+        raise reject(404, "tender not found")
+      }
+    }
+    if json_text(payload, "source_kind", "") != "command" {
+      raise reject(
+        409, "imported tender is read-only; create a local planning draft first",
+      )
+    }
+    if command_type == "award" && !tender_award_matches(payload, request) {
+      raise reject(422, "award must match an existing bid")
+    }
+    if command_type == "award" &&
+      !tender_supplier_qualified(json_text(request, "awarded_supplier_id", "")) {
+      raise reject(
+        409, "award requires an active qualified supplier projection",
+      )
+    }
+  }
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let current_state = json_text(current_payload, "state", "planning")
+  let next_state = if command_type == "create" {
+    "planning"
+  } else {
+    tender_next_state(command_type, current_state)
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let event_id = "tender:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "tender_id": Json::string(id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "tender_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    @postgres.sql_literal(request_json) +
+    "::jsonb || jsonb_build_object('state', 'planning', 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    let award_fields = if command_type == "award" {
+      ", 'awarded_supplier_id', " +
+      @postgres.sql_literal(json_text(request, "awarded_supplier_id", "")) +
+      ", 'awarded_amount_minor', " +
+      json_int(request, "awarded_amount_minor", 0).to_string()
+    } else {
+      ""
+    }
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    award_fields +
+    (if command_type == "delete" {
+      ", 'deleted_at', " + @postgres.sql_literal(event_id)
+    } else {
+      ""
+    }) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("tender." + command_type),
+    "aggregate_type": Json::string("tender"),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('tender', " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; UPDATE company_record SET payload = payload || jsonb_build_object('result', " +
+    @postgres.sql_literal(result.stringify()) +
+    "::jsonb) WHERE source_id = " +
+    @postgres.sql_literal(command_source) +
+    "; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "tender": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+fn source_tender_alias_result(result : Json) -> Json {
+  let tender = json_field(result, "tender").unwrap_or(Json::null())
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let request = json_field(command, "request").unwrap_or(Json::null())
+  let tender_id = json_text(
+    tender,
+    "tender_id",
+    json_text(request, "tender_id", ""),
+  )
+  let tender_code = json_text(request, "tender_code", "TD-" + tender_id)
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "tenderGuid": Json::string(tender_id),
+      "tenderCode": Json::string(tender_code),
+    }),
+    "tender": tender,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn split_create_request(
+  body : Json,
+  actor_id : String,
+  source_alias : Bool,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let requested_id = tender_text(body, "split_id", "splitGuid", true, true)
+  let split_id = if requested_id.is_empty() {
+    (if source_alias { "SPLIT-SRC-" } else { "SPLIT-" }) + idempotency_key
+  } else {
+    requested_id
+  }
+  if !valid_identifier(split_id) {
+    raise reject(422, "splitGuid contains unsupported characters")
+  }
+  let parent_contract_id = tender_text(
+    body, "parent_contract_id", "parentContractGuid", true, false,
+  )
+  let split_name = tender_text(body, "split_name", "splitName", false, false)
+  let amount_minor = match json_field(body, "split_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(_) =>
+      raise reject(422, "split_amount_minor must be a non-negative integer")
+    None => tender_decimal_minor(body, "splitAmount", "splitAmount", 0, true)
+  }
+  let pct = match json_field(body, "split_pct_bps") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(_) => raise reject(422, "split_pct_bps must be a non-negative integer")
+    None => tender_decimal_minor(body, "splitPct", "splitPct", 0, true)
+  }
+  if pct > 10000 {
+    raise reject(422, "splitPct exceeds the maximum")
+  }
+  let scope = tender_text(body, "scope", "", false, true)
+  Json::object({
+    "command_type": Json::string("create"),
+    "split_id": Json::string(split_id),
+    "parent_contract_id": Json::string(parent_contract_id),
+    "split_name": Json::string(split_name),
+    "split_amount_minor": Json::number(amount_minor.to_double()),
+    "split_pct_bps": Json::number(pct.to_double()),
+    "scope": Json::string(scope),
+    "state": Json::string("planned"),
+    "actor_id": Json::string(actor_id),
+  })
+}
+
+///|
+async fn latest_split_payload(
+  split_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'contract_split' AND aggregate_id = " +
+    @postgres.sql_literal(split_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid contract split projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn split_imported_exists(
+  split_id : String,
+) -> Bool raise CompanyServiceError {
+  for row in raw_source_rows("contract_split", 500) {
+    if json_text(row.payload, "split_guid", row.record_id) == split_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+async fn split_command(
+  body : Json,
+  actor_id : String,
+  source_alias : Bool,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let request = split_create_request(
+    body, actor_id, source_alias, idempotency_key,
+  )
+  let id = json_text(request, "split_id", "")
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let result = Json::object({
+        "command": existing,
+        "split": json_field(existing, "result").unwrap_or(Json::null()),
+        "idempotent_replay": Json::boolean(true),
+      })
+      return (
+        200,
+        if source_alias {
+          source_split_alias_result(result)
+        } else {
+          result
+        },
+      )
+    }
+    None => ()
+  }
+  if latest_split_payload(id) is Some(_) || split_imported_exists(id) {
+    raise reject(409, "contract split already exists")
+  }
+  let parent_contract_id = json_text(request, "parent_contract_id", "")
+  if contract_items(Some(parent_contract_id)).is_empty() {
+    raise reject(404, "parent contract not found")
+  }
+  let event_id = "contract_split:create:" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "split_id": Json::string(id),
+    "parent_contract_id": Json::string(parent_contract_id),
+    "state": Json::string("planned"),
+    "revision": Json::number(1),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string("create"),
+    "idempotency_key": Json::string(idempotency_key),
+    "split_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("contract_split.create"),
+    "aggregate_type": Json::string("contract_split"),
+    "aggregate_id": Json::string(id),
+    "parent_contract_id": Json::string(parent_contract_id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string("planned"),
+    "revision": Json::number(1),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('contract_split', " +
+    @postgres.sql_literal(id) +
+    ", 1, " +
+    @postgres.sql_literal(request.stringify()) +
+    "::jsonb || jsonb_build_object('source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    "), " +
+    @postgres.sql_literal(event_id) +
+    "); INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    "); UPDATE company_record SET payload = payload || jsonb_build_object('result', " +
+    @postgres.sql_literal(result.stringify()) +
+    "::jsonb) WHERE source_id = " +
+    @postgres.sql_literal(command_source) +
+    "; COMMIT;"
+  let _ = run_sql(sql)
+  let response = Json::object({
+    "command": command_payload,
+    "split": result,
+    "idempotent_replay": Json::boolean(false),
+  })
+  (
+    201,
+    if source_alias {
+      source_split_alias_result(response)
+    } else {
+      response
+    },
+  )
+}
+
+///|
+fn source_split_alias_result(result : Json) -> Json {
+  let split = json_field(result, "split").unwrap_or(Json::null())
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let split_id = json_text(split, "split_id", "")
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({ "splitGuid": Json::string(split_id) }),
+    "split": split,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
 fn sales_source_metadata(coverage : Json) -> Json {
   let missing : Array[Json] = []
   for
@@ -11008,6 +11854,58 @@ fn sales_revenue_command_spec(
 }
 
 ///|
+fn tender_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post {
+    if path == "/api/company/tenders" {
+      return Some(("create", None))
+    }
+    if path == "/api/company/source/tender/tenders" {
+      return Some(("source-create", None))
+    }
+    if path == "/api/company/tender-splits" {
+      return Some(("split-create", None))
+    }
+    if path == "/api/company/source/tender/splits" {
+      return Some(("source-split-create", None))
+    }
+  }
+  let tender_prefix = "/api/company/tenders/"
+  if request_method is @http.Delete && path.has_prefix(tender_prefix) {
+    let id = path[tender_prefix.length():].to_owned()
+    if valid_identifier(id) {
+      return Some(("delete", Some(id)))
+    }
+  }
+  let source_prefix = "/api/company/source/tender/tenders/"
+  if request_method is @http.Delete && path.has_prefix(source_prefix) {
+    let id = path[source_prefix.length():].to_owned()
+    if valid_identifier(id) {
+      return Some(("source-delete", Some(id)))
+    }
+  }
+  if request_method is @http.Post && path.has_prefix(tender_prefix) {
+    let rest = path[tender_prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 && valid_identifier(rest[0].to_owned()) {
+      let command = match rest[1].to_owned() {
+        "publish" => "publish"
+        "open_bidding" => "open_bidding"
+        "award" => "award"
+        "complete" => "complete"
+        "cancel" => "cancel"
+        _ => ""
+      }
+      if !command.is_empty() {
+        return Some((command, Some(rest[0].to_owned())))
+      }
+    }
+  }
+  None
+}
+
+///|
 fn supplier_command_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -11342,6 +12240,10 @@ async fn route(
             Json::string("source_invoice_command"),
             Json::string("sales_revenue_command"),
             Json::string("source_sales_revenue_command"),
+            Json::string("tender_command"),
+            Json::string("source_tender_command"),
+            Json::string("contract_split_command"),
+            Json::string("source_contract_split_command"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -11553,6 +12455,83 @@ async fn handle(
         error => service_error_response(error)
       }
       send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match tender_command_spec(request.meth, path) {
+    Some((command_type, tender_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      if command_type == "split-create" || command_type == "source-split-create" {
+        let result = split_command(
+          body,
+          actor,
+          command_type == "source-split-create",
+          idempotency_key,
+        ) catch {
+          error => service_error_response(error)
+        }
+        send_json(conn, request.meth, result.0, result.1, false)
+        return
+      }
+      let source_alias = command_type == "source-create" ||
+        command_type == "source-delete"
+      let native_command = if source_alias {
+        if command_type == "source-create" {
+          "create"
+        } else {
+          "delete"
+        }
+      } else {
+        command_type
+      }
+      let canonical_body = if command_type == "source-create" {
+        tender_create_request(body, actor, true, idempotency_key)
+      } else if command_type == "create" {
+        tender_create_request(body, actor, false, idempotency_key)
+      } else {
+        body
+      }
+      let result = tender_command(
+        native_command, tender_id, canonical_body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      if source_alias && result.0 < 400 {
+        send_json(
+          conn,
+          request.meth,
+          result.0,
+          source_tender_alias_result(result.1),
+          false,
+        )
+      } else {
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
       return
     }
     None => ()

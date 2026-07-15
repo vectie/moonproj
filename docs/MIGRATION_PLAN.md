@@ -710,6 +710,21 @@ covers trusted forwarding. Revenue recognition, collection/cash, accounting,
 tax, production identity, and finance-owner acceptance remain separate gates;
 the Python bridge is comparison evidence only.
 
+**Native tender/contract-split command checkpoint (2026-07-15).** The native
+MoonBit company service now owns tender planning drafts, publish/open-bidding/
+award/complete/cancel/delete transitions, local contract-split creation, and
+the source-field tender/split aliases. It preserves fixed-point amount and
+percentage normalization, matching-bid evidence, immutable revisions, audit
+receipts, request-equal replay, imported-row protection, and the existing
+source-shaped tender/split response envelopes. `POST /api/company/source/
+tender/tenders`, `DELETE .../tenders/:id`, and `POST .../splits` now forward
+through the native gateway; the tender smoke covers lifecycle, replay, source
+readback, split creation, aliases, and tombstones, while the gateway smoke
+covers trusted forwarding. Award-to-commitment, arbitrary legacy state
+overwrite, standalone source-award insertion, cash, accounting, tax,
+production identity, and procurement-owner acceptance remain separate gates;
+the Python bridge is comparison evidence only.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -1498,10 +1513,12 @@ Execute the remainder in this order:
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
     observations plus the native expense, contract, payment-application,
-    contract-milestone, dynamic-cost, invoice, sales-revenue, and supplier/provider
+    contract-milestone, dynamic-cost, invoice, sales-revenue, tender,
+    contract-split, and supplier/provider
     list/detail/command boundaries,
     budget-check preview, and idempotent expense/contract/payment-application/
-    contract-milestone/dynamic-cost/invoice/sales-revenue/supplier
+    contract-milestone/dynamic-cost/invoice/sales-revenue/tender/
+    contract-split/supplier
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1518,8 +1535,9 @@ Execute the remainder in this order:
     check, CI job, smoke test, release artifact, deployment manifest, or
     browser start command. The migration backlog is therefore explicit:
     (a) finish the remaining authenticated company-service reads and command
-    lifecycles in `cmd/postgres_company_service` (invoice, sales-revenue, and
-    supplier/provider commands are now native checkpoints; populated-source qualification,
+    lifecycles in `cmd/postgres_company_service` (invoice, sales-revenue,
+    tender/contract-split, and supplier/provider commands are now native
+    checkpoints; populated-source qualification,
     signature, and external effects remain separate gates),
     (b) port the remaining source-export, cohort-planner, parity, acceptance,
     and shadow/replay commands to MoonBit, and
@@ -1533,7 +1551,7 @@ Execute the remainder in this order:
 
     The current native gateway/session boundary and bounded company service
     (including the expense, contract, payment-application, contract-milestone,
-    dynamic-cost, invoice, and sales-revenue
+    dynamic-cost, invoice, sales-revenue, tender, and contract-split
     command lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation

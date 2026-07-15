@@ -220,6 +220,39 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/sales-revenue-delete.json" 
 test "$status" = 200
 /usr/bin/jq -e '.revenue.state == "deleted"' "$TMP_DIR/sales-revenue-delete.json" >/dev/null
 
+gateway_tender_suffix=$(/bin/date +%s)
+gateway_tender_id="TD-GW-SMOKE-$gateway_tender_suffix"
+gateway_tender_body="{\"tenderGuid\":\"$gateway_tender_id\",\"projGuid\":\"CD-HJL\",\"tenderName\":\"gateway tender smoke\",\"category\":\"construction\",\"estimatedAmount\":\"123.45\",\"planPublishDate\":\"2026-07-15\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-tender-create-$gateway_tender_suffix" \
+  --data "$gateway_tender_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/tender/tenders")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_tender_id" \
+  '.success == true and .data.tenderGuid == $id and .source_kind == "command"' \
+  "$TMP_DIR/tender-create.json" >/dev/null
+
+gateway_split_id="SPLIT-GW-SMOKE-$gateway_tender_suffix"
+gateway_split_body="{\"splitGuid\":\"$gateway_split_id\",\"parentContractGuid\":\"ht-tj-001\",\"splitName\":\"gateway split smoke\",\"splitAmount\":\"12.34\",\"splitPct\":\"10.00\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-split-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-tender-split-create-$gateway_tender_suffix" \
+  --data "$gateway_split_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/tender/splits")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_split_id" \
+  '.success == true and .data.splitGuid == $id and .source_kind == "command"' \
+  "$TMP_DIR/tender-split-create.json" >/dev/null
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-tender-delete-$gateway_tender_suffix" \
+  --data '{"reason":"gateway tender tombstone smoke"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/tender/tenders/$gateway_tender_id")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .tender.state == "deleted"' "$TMP_DIR/tender-delete.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"

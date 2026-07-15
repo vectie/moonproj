@@ -20,9 +20,9 @@ started by `scripts/company_postgres_service.sh`; the Python service is a
 frozen comparison adapter and is not executed by the supported path. The
 native service exposes:
 
-- `GET /api/company/tenders` and `GET /api/company/tenders/<id>` for the latest
-  tender plan projection, including bids, award, commitment identity, source
-  kind, snapshot, and mapping metadata;
+- `GET /api/company/source/tender/tenders` (with `tenderGuid`/`projGuid`/
+  `state` filters) for the latest tender plan projection, including bids,
+  award, commitment identity, source kind, snapshot, and mapping metadata;
 - `GET /api/company/suppliers` and `GET /api/company/suppliers/<id>` for the
   latest supplier qualification, scope, and source metadata;
 - `POST /api/company/tenders` to create a local planning draft;
@@ -31,6 +31,11 @@ native service exposes:
 - `POST /api/company/tenders/<id>/cancel` to cancel an active local plan.
 - `POST /api/company/tenders/<id>/award` and `/complete` to finish a local
   tender after bid/supplier qualification checks;
+- `DELETE /api/company/tenders/<id>` for a command-owned tender tombstone;
+- `POST /api/company/source/tender/tenders` and
+  `POST /api/company/source/tender/splits` for source-field create aliases;
+- `DELETE /api/company/source/tender/tenders/<id>` for a command-owned source
+  tender tombstone;
 - `POST /api/company/suppliers` to create a local supplier draft;
 - `POST /api/company/suppliers/<id>/{update,submit_review,review,blacklist,void}`
   for the local supplier lifecycle;
@@ -74,8 +79,15 @@ native service exposes:
   envelope. It computes the source risk formula only from imported
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
   coverage/missing tables; it never falls back to local supplier projections;
-- `GET/POST /api/company/tender-splits` and
-  `GET /api/company/tender-splits/<id>` for explicit contract-split evidence.
+- `GET /api/company/source/tender/splits` (with
+  `parentContractGuid`/`state` filters) for explicit contract-split evidence;
+  `POST /api/company/tender-splits` and the source-field POST alias create
+  command-owned splits.
+
+The direct `/api/company/tenders` and `/api/company/tender-splits` GET
+list/detail shapes remain follow-up parity items; the Rabbita tender page
+currently uses the source-compatible reads above, while native tender
+lifecycle writes are available on the direct command paths.
 
 Each command requires an idempotency key, persists an immutable tender
 revision, a command receipt, and an audit record. Imported tender projections
@@ -113,7 +125,7 @@ source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
 
-The native supplier/provider smoke and gateway smoke cover create/replay,
+The native supplier/provider and tender/split smokes and gateway smoke cover create/replay,
 collision, source-shaped detail, update, review, blacklist, void, and trusted
 forwarding. The source supplier CRUD aliases follow the same rule: they translate the ERP
 field family into a local supplier command, but do not pretend that a local

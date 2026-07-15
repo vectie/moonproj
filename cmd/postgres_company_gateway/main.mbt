@@ -278,12 +278,14 @@ fn command_path_allowed(
       path.has_prefix("/api/company/payment-applies/") ||
       path == "/api/company/tenders" ||
       path.has_prefix("/api/company/tenders/") ||
+      path == "/api/company/source/tender/tenders" ||
       path.has_prefix("/api/company/source/tender/tenders/") ||
       path == "/api/company/source/srm/providers" ||
       path == "/api/company/suppliers" ||
       path.has_prefix("/api/company/suppliers/") ||
       path == "/api/company/tender-splits" ||
       path.has_prefix("/api/company/tender-splits/") ||
+      path == "/api/company/source/tender/splits" ||
       path == "/api/company/sales" ||
       path.has_prefix("/api/company/sales/") ||
       path == "/api/company/receivables" ||

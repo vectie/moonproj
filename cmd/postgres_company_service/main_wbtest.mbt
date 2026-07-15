@@ -295,6 +295,64 @@ test "native company service maps sales revenue command paths" {
 }
 
 ///|
+test "native company service maps tender and split command paths" {
+  assert_true(
+    tender_command_spec(@http.Post, "/api/company/tenders")
+    is Some(("create", None)),
+  )
+  assert_true(
+    tender_command_spec(@http.Post, "/api/company/source/tender/tenders")
+    is Some(("source-create", None)),
+  )
+  assert_true(
+    tender_command_spec(@http.Post, "/api/company/tenders/TD-1/open_bidding")
+    is Some(("open_bidding", Some("TD-1"))),
+  )
+  assert_true(
+    tender_command_spec(@http.Delete, "/api/company/source/tender/tenders/TD-1")
+    is Some(("source-delete", Some("TD-1"))),
+  )
+  assert_true(
+    tender_command_spec(@http.Post, "/api/company/tender-splits")
+    is Some(("split-create", None)),
+  )
+  assert_true(
+    tender_command_spec(@http.Post, "/api/company/source/tender/splits")
+    is Some(("source-split-create", None)),
+  )
+}
+
+///|
+test "native company service normalizes source tender and split fields" {
+  let tender = tender_create_request(
+    @json.parse(
+      "{\"projGuid\":\"P-1\",\"tenderName\":\"Build\",\"estimatedAmount\":\"12345.67\",\"planPublishDate\":\"2026-07-14\"}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+    true,
+    "source-tender-key",
+  )
+  assert_eq(json_text(tender, "project_scope", ""), "project:P-1")
+  assert_eq(json_int(tender, "estimated_amount_minor", 0), 1234567)
+  assert_eq(json_text(tender, "state", "planning"), "planning")
+  let split = split_create_request(
+    @json.parse(
+      "{\"parentContractGuid\":\"CT-1\",\"splitName\":\"Electrical\",\"splitAmount\":\"1234.50\",\"splitPct\":\"10.00\"}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+    true,
+    "source-split-key",
+  )
+  assert_eq(json_int(split, "split_amount_minor", 0), 123450)
+  assert_eq(json_int(split, "split_pct_bps", 0), 1000)
+  assert_eq(json_text(split, "state", ""), "planned")
+}
+
+///|
 test "native company service normalizes sales revenue authority and amount" {
   let body = @json.parse(
     "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",

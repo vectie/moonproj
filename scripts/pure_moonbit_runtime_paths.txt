@@ -21,6 +21,7 @@ scripts/company_postgres_service.sh
 scripts/company_postgres_sales_revenue_smoke.sh
 scripts/company_postgres_source_read_smoke.sh
 scripts/company_postgres_supplier_smoke.sh
+scripts/company_postgres_tender_smoke.sh
 scripts/company_postgres_target_apply.sh
 scripts/erp_export_contract.sh
 scripts/erp_route_inventory.sh
