@@ -83,6 +83,10 @@ native service exposes:
   envelope. It computes the source risk formula only from imported
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
   coverage/missing tables; it never falls back to local supplier projections;
+- `POST /api/company/source/srm/providers/rescore-all` (and the canonical alias)
+  for a signed supplier-risk rescore candidate. It reports the current supplier
+  population and would-update count without mutating imported or command-owned
+  rows, calling a provider, or changing ratings;
 - `GET /api/company/source/tender/splits` (with
   `parentContractGuid`/`state` filters) for explicit contract-split evidence;
   `POST /api/company/tender-splits` and the source-field POST alias create
@@ -123,8 +127,8 @@ keeping the designer detail layout and source provenance banner.
 The source parity audit also records the remaining differences. The
 `srm.js` signature-check endpoint now has a bounded missing-provider/gated
 boundary plus a local command-owned derived preview; imported populated-
-provider decisions still require procurement-owner approval. The external
-risk rescore job remains unconnected. The
+provider decisions still require procurement-owner approval. The native
+rescore-all route is now a dry-run candidate; it never mutates ratings. The
 source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
@@ -135,9 +139,9 @@ forwarding. The source supplier CRUD aliases follow the same rule: they translat
 field family into a local supplier command, but do not pretend that a local
 projection is an imported `srm_provider` row. List/detail readback is useful
 for the designer flow and carries provenance; source statistics, imported
-provider signature/risk decisions, and external rescore remain source-
-evidence and owner gates. A command-owned preview is only a local decision
-aid and never a signature or provider call.
+provider signature/risk decisions, and populated-source rescore remain source-
+evidence and owner gates. The native rescore candidate is only a local
+decision aid and never a rating write, signature, or provider call.
 
 The tender command runtime is not an exact proxy for every legacy tender
 mutation. Local create and lifecycle commands enforce a forward-only state
@@ -210,7 +214,7 @@ zero high-risk rows, two imported contracts, missing `srm_provider`,
 `srm_category`, and `cb_contract_milestone` coverage, and
 `authorizing=false`. It separately verifies the source supplier list returns no
 rows for the current snapshot, two imported contract envelopes, missing
-`srm_provider`/`srm_category` coverage, and `authorizing=false`; the source
+  `srm_provider`/`srm_category` coverage, and `authorizing=false`; the source
 detail route returns a covered 404 for the missing provider. Imported
 supplier and tender mutation attempts return 409 read-only rejections. The
 source provider-risk detail also returns a covered 404 when the supplier table

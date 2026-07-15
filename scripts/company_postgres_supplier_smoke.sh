@@ -8,6 +8,11 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-supplier-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-limingjin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-supplier-actor-secret}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
+export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-supplier.XXXXXX")
 SERVICE_PID=""
 SMOKE_SUFFIX=$(/bin/date +%s)
@@ -25,6 +30,7 @@ trap cleanup EXIT INT TERM
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
 MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SIGNING_SECRET" \
 PSQL_BIN="$PSQL_BIN" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$PORT" \
   --database "$DATABASE" \
@@ -48,7 +54,7 @@ if [ "$ready" -ne 1 ]; then
   /bin/cat "$TMP_DIR/service.log"
   exit 1
 fi
-/usr/bin/jq -e '.capabilities | index("supplier_command") and index("source_supplier_command")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("supplier_command") and index("source_supplier_command") and index("supplier_rescore_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 request() {
   name=$1
@@ -98,6 +104,9 @@ request update PUT "/api/company/source/srm/providers/$SUPPLIER_ID" 200 \
   '{"providerName":"Updated MoonBit supplier","evalResult":"reviewed"}' \
   "supplier-update-$SMOKE_SUFFIX"
 /usr/bin/jq -e '.success == true and .provider.providerName == "Updated MoonBit supplier" and .provider.evalResult == "已评审"' "$TMP_DIR/update.json" >/dev/null
+
+request rescore POST /api/company/source/srm/providers/rescore-all 200 '{}' "supplier-rescore-$SMOKE_SUFFIX"
+/usr/bin/jq -e '.success == true and .data.total >= 1 and .data.updated == 0 and .data.wouldUpdate >= 1 and .data.dryRun == true and .data.providerExecution == false and .persisted == false and .authorizing == false' "$TMP_DIR/rescore.json" >/dev/null
 
 request submit_review POST "/api/company/suppliers/$SUPPLIER_ID/submit_review" 200 \
   '{}' "supplier-submit-$SMOKE_SUFFIX"

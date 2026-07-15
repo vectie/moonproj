@@ -108,6 +108,7 @@
     "connected_supplier_command": 1,
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
+    "supplier_rescore_candidate": 1,
     "connected_tender_command": 1,
     "connected_warning_command": 1,
     "connected_warning_custom_rule_command_candidate": 2,
@@ -4285,8 +4286,8 @@
         "/srm/providers/:guid",
         "/srm/risk-board"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "supplier_rescore_candidate",
+      "required_next": "accept_browser_supplier_risk_scenario_and_procurement_owner"
     },
     {
       "module": "srm",

@@ -15957,6 +15957,7 @@ async fn route(
             Json::string("report_share_public_read"),
             Json::string("warning_observation_read"),
             Json::string("supplier_command"),
+            Json::string("supplier_rescore_candidate"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
             Json::string("budget_check_preview"),
@@ -16136,6 +16137,32 @@ async fn handle(
       }
     }
     let result = plan_ai_suggest_response(body) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, result, false)
+    return
+  }
+  if supplier_rescore_spec(request.meth, path) {
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let _ = actor
+    let _ = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = supplier_rescore_response() catch {
       error => {
         let response = service_error_response(error)
         send_json(conn, request.meth, response.0, response.1, false)
