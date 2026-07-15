@@ -52,8 +52,9 @@ fn dashboard_rows(
 }
 
 ///|
-fn dashboard_active(_payload : Json) -> Bool {
-  true
+fn dashboard_active(payload : Json) -> Bool {
+  report_text(payload, "deleted_at", "").is_empty() &&
+  report_text(payload, "deletedAt", "").is_empty()
 }
 
 ///|
@@ -560,6 +561,34 @@ async fn dashboard_v2_response(
     dashboard_active(row.payload) &&
     project_ids.contains(report_text(row.payload, "proj_guid", ""))
   })
+  let contract_ids : Map[String, Bool] = {}
+  for row in contracts {
+    contract_ids.set(
+      report_text(row.payload, "contract_guid", row.record_id),
+      true,
+    )
+  }
+  let applications = dashboard_rows(context, "cb_htfk_apply").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    project_ids.contains(report_text(row.payload, "proj_guid", ""))
+  })
+  let plans = dashboard_rows(context, "cb_htfkplan").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    contract_ids.contains(report_text(row.payload, "contract_guid", ""))
+  })
+  let warnings = dashboard_rows(context, "sys_warning").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    report_text(row.payload, "status", "") == "open" &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let running_processes = dashboard_rows(context, "wf_process_instance").filter(fn(
+      row,
+    ) {
+      dashboard_active(row.payload) &&
+      report_text(row.payload, "status", "") == "Running" &&
+      dashboard_scoped(row.payload, business_unit_id, project_id)
+    },
+  )
   let contract_in_progress = contracts.fold(init=0.0, fn(sum, row) {
     if report_text(row.payload, "js_state", "") != "已结算" {
       sum +
@@ -569,16 +598,110 @@ async fn dashboard_v2_response(
       sum
     }
   })
+  let plan_by_month : Map[String, Double] = {}
+  for row in plans {
+    let month = cashflow_month(row.payload, "jhfk_date")
+    plan_by_month.set(
+      month,
+      plan_by_month.get_or_default(month, 0.0) +
+      report_amount(row.payload, "jhfk_amount"),
+    )
+  }
+  let actual_by_month : Map[String, Double] = {}
+  for row in applications {
+    if report_text(row.payload, "apply_state", "") == "已审核" {
+      let month = cashflow_month(row.payload, "apply_date")
+      actual_by_month.set(
+        month,
+        actual_by_month.get_or_default(month, 0.0) +
+        report_amount(row.payload, "apply_amount"),
+      )
+    }
+  }
+  let months = cashflow_months(10, -6)
   let trend : Array[Json] = []
-  for index in 0..<10 {
+  for month in months {
     trend.push(
       Json::object({
-        "ym": Json::string(index.to_string()),
-        "plan": Json::number(0),
-        "actual": Json::number(0),
+        "ym": Json::string(month),
+        "plan": Json::number(plan_by_month.get_or_default(month, 0.0)),
+        "actual": Json::number(actual_by_month.get_or_default(month, 0.0)),
       }),
     )
   }
+  let stage_counts : Map[String, Int] = {}
+  for row in projects {
+    let stage = report_text(row.payload, "proj_status", "unknown")
+    stage_counts.set(stage, stage_counts.get_or_default(stage, 0) + 1)
+  }
+  let stage_distribution : Array[Json] = []
+  for stage, count in stage_counts {
+    stage_distribution.push(
+      Json::object({
+        "stage": Json::string(stage),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  stage_distribution.sort_by(fn(left, right) {
+    json_text(left, "stage", "").lexical_compare(json_text(right, "stage", ""))
+  })
+  let latest_warnings : Array[Json] = []
+  for row in warnings {
+    latest_warnings.push(
+      Json::object({
+        "warningGuid": Json::string(
+          report_text(row.payload, "warning_guid", row.record_id),
+        ),
+        "ruleCode": Json::string(report_text(row.payload, "rule_code", "")),
+        "ruleName": Json::string(report_text(row.payload, "rule_name", "")),
+        "severity": Json::string(report_text(row.payload, "severity", "")),
+        "bizType": Json::string(report_text(row.payload, "biz_type", "")),
+        "bizDataGuid": Json::string(
+          report_text(row.payload, "biz_data_guid", ""),
+        ),
+        "title": Json::string(report_text(row.payload, "title", "")),
+        "firstDetectedAt": Json::string(
+          report_text(row.payload, "first_detected_at", ""),
+        ),
+      }),
+    )
+  }
+  latest_warnings.sort_by(fn(left, right) {
+    let left_severity = if json_text(left, "severity", "") == "error" {
+      0
+    } else {
+      1
+    }
+    let right_severity = if json_text(right, "severity", "") == "error" {
+      0
+    } else {
+      1
+    }
+    let order = left_severity - right_severity
+    if order == 0 {
+      json_text(left, "firstDetectedAt", "").lexical_compare(
+        json_text(right, "firstDetectedAt", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let unpaid_amount = applications.fold(init=0.0, fn(sum, row) {
+    if report_text(row.payload, "pay_state", "") == "未支付" &&
+      report_text(row.payload, "apply_state", "") == "已审核" {
+      sum + report_amount(row.payload, "apply_amount")
+    } else {
+      sum
+    }
+  })
+  let in_progress_projects = projects
+    .filter(fn(row) {
+      ["planning", "development", "sales"].contains(
+        report_text(row.payload, "proj_status", ""),
+      )
+    })
+    .length()
   dashboard_envelope(
     Json::object({
       "scope": Json::object({
@@ -587,15 +710,21 @@ async fn dashboard_v2_response(
       }),
       "kpi": Json::object({
         "projectCount": Json::number(projects.length().to_double()),
-        "inProgressProjects": Json::number(0),
+        "inProgressProjects": Json::number(in_progress_projects.to_double()),
         "contractInProgressAmount": Json::number(contract_in_progress),
-        "unpaidAmount": Json::number(0),
-        "openWarnings": Json::number(0),
-        "runningProcesses": Json::number(0),
+        "unpaidAmount": Json::number(unpaid_amount),
+        "openWarnings": Json::number(warnings.length().to_double()),
+        "runningProcesses": Json::number(running_processes.length().to_double()),
       }),
       "paymentTrend": Json::array(trend),
-      "stageDistribution": Json::array([]),
-      "latestWarnings": Json::array([]),
+      "stageDistribution": Json::array(stage_distribution),
+      "latestWarnings": Json::array(
+        if latest_warnings.length() > 5 {
+          latest_warnings[0:5].to_owned()
+        } else {
+          latest_warnings
+        },
+      ),
     }),
     context,
     "imported_or_empty",

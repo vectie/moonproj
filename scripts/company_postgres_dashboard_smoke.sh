@@ -5,6 +5,10 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PORT=${PORT:-4259}
 DATABASE=${DATABASE:-moonproj}
 TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-dashboard-smoke-token}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-dashboard.XXXXXX")
 SERVICE_PID=""
@@ -19,6 +23,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 PSQL_BIN="$PSQL_BIN" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$PORT" \
@@ -92,7 +97,9 @@ request v3_group /api/company/dashboard/v3/group
 /usr/bin/jq -e '
   .success == true and .data.scope.projGuid == "proj-0001" and
   .data.kpi.projectCount == 1 and .data.kpi.contractInProgressAmount == 25050000 and
-  (.data.paymentTrend | length) > 0 and .authorizing == false
+  (.data.paymentTrend | length) > 0 and
+  .data.stageDistribution[0].stage == "development" and
+  .data.stageDistribution[0].count == 1 and .authorizing == false
 ' "$TMP_DIR/v2.json" >/dev/null
 /usr/bin/jq -e '
   .success == true and .data.scope.projGuid == "proj-0001" and
