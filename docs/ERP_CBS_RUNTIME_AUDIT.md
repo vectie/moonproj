@@ -35,12 +35,17 @@ explicit empty or covered-not-found state, while R0 queue returns the two
 unclassified source contracts. The Rabbita CBS pages display this provenance
 and keep the designer snapshot only as a transport-failure fallback.
 
-Budget ownership/reservation, contract approval, R0 resolution, accounting
-posting, cash release, tax, browser production identity, and owner acceptance
-remain separate migration gates.
+Budget ownership/reservation, contract approval, accounting posting, cash
+release, tax, browser production identity, and owner acceptance remain
+separate migration gates.
 
-The remaining source mutation routes now have an explicit authenticated
-`cbs_mutation_boundary_candidate` 409 boundary for R0 resolution, demo
-contracts, contract approval/payment, and change applications. They report
-`persisted=false`, `cbs_effect=false`, and `budget_consumption=false`; no
-contract, workflow, accounting, cash, or tax write is inferred.
+R0 resolution now has a bounded authenticated native command at
+`POST /api/company/cbs/r0/resolve` (and the `/source` alias). It records an
+idempotent, auditable `cbs_r0_resolution` intent, verifies the imported/local
+subject dictionary when available, and otherwise retains `resolution_pending`.
+It never mutates imported contracts and always reports
+`targetMutated=false`, `cbs_effect=false`, `budget_consumption=false`, and no
+cash/accounting/tax effect. The resolution list is available at
+`GET /api/company/cbs/r0/resolutions`. Demo contracts, contract
+approval/payment, and change applications remain explicit authenticated
+`cbs_mutation_boundary_candidate` 409 boundaries.

@@ -15051,6 +15051,25 @@ async fn route(
       cbs_r0_queue_response(query_alias_decoded(query, "projGuid", "proj_guid")),
     )
   }
+  if path == "/api/company/cbs/r0/resolutions" ||
+    path == "/api/company/source/cbs/r0/resolutions" {
+    let rows = cbs_r0_resolution_rows()
+    return (
+      200,
+      Json::object({
+        "success": Json::boolean(true),
+        "code": Json::number(0),
+        "data": Json::array(rows),
+        "source_kind": Json::string("imported_or_command"),
+        "command_projection": Json::boolean(true),
+        "authorizing": Json::boolean(false),
+        "budget_consumption": Json::boolean(false),
+        "cash_effect": Json::boolean(false),
+        "accounting_effect": Json::boolean(false),
+        "tax_effect": Json::boolean(false),
+      }),
+    )
+  }
   if path == "/api/company/cbs/approval-rules" {
     return (
       200,
@@ -16103,6 +16122,8 @@ async fn route(
             Json::string("cashflow_ai_explain_candidate"),
             Json::string("investment_ai_explain_candidate"),
             Json::string("cbs_observation_read"),
+            Json::string("cbs_r0_command"),
+            Json::string("source_cbs_r0_command"),
             Json::string("cbs_mutation_boundary_candidate"),
             Json::string("admin_observation_read"),
             Json::string("notification_observation_read"),
@@ -17785,6 +17806,38 @@ async fn handle(
       return
     }
     None => ()
+  }
+  if cbs_r0_command_spec(request.meth, path) {
+    let idempotency_key = header(request, "Idempotency-Key")
+    if idempotency_key.is_empty() {
+      send_json(
+        conn,
+        request.meth,
+        400,
+        Json::object({ "error": Json::string("Idempotency-Key is required") }),
+        false,
+      )
+      return
+    }
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = cbs_r0_command(body, actor, idempotency_key) catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
   }
   match cbs_mutation_boundary_spec(request.meth, path) {
     Some(action) => {

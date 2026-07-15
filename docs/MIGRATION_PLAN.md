@@ -1344,7 +1344,10 @@ and expose command provenance. Signed enabled-user checks, request-equal
 idempotency, audit receipts, imported-row guards, two-decimal adjustment
 rounding, and explicit `cbs_effect=true`/`budget_consumption=false` markers are
 covered by `scripts/company_postgres_cbs_smoke.sh`. Imported CBS rows remain
-read-only. Budget reservation/consumption, contract/R0 mutation, accounting,
+read-only. R0 resolution now records an auditable, dictionary-aware local
+intent with `resolution_pending` fallback and imported-contract protection;
+it does not mutate CBS contracts or consume budget. Budget
+reservation/consumption, demo-contract/approval/change writes, accounting,
 cash, tax, browser identity, and owner acceptance are still separate gates;
 the controlled export currently has no imported CBS version or subject rows.
 
@@ -1364,11 +1367,14 @@ proves create, replay, readback, auto-offset/replay, update, submit, and void;
 the controlled export still has zero imported expense rows.
 
 **Mutation-boundary checkpoint (2026-07-16).** The native service now exposes
-explicit authenticated candidates for every remaining source mutation family.
+explicit authenticated candidates for every remaining source mutation family
+and a bounded R0 resolution intent.
 `POST /api/company/budget/expenses/:guid/sync-from-workflow` returns a 409 until
-workflow source rows exist. CBS R0 resolution, demo contracts, contract
-approval/payment, and change writes return a `cbs_mutation_boundary_candidate`
-409 with no persistence or financial effect. Project and contract batch imports
+workflow source rows exist. Demo contracts, contract approval/payment, and
+change writes return a `cbs_mutation_boundary_candidate` 409 with no
+persistence or financial effect; R0 resolution persists an auditable
+`cbs_r0_resolution` intent without mutating imported contracts or financial
+effects. Project and contract batch imports
 now validate source references and commit command-owned projections with list
 readback and idempotent replay; production identity and operations-owner
 acceptance remain. Destructive sales-customer delete returns a
