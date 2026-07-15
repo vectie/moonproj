@@ -20,6 +20,29 @@ fn import_batch_spec(
 }
 
 ///|
+/// Authenticated CSV template downloads from the ERP import route. Keep the
+/// matcher broad enough to preserve the source 400 for unsupported types.
+fn import_template_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  let prefixes = ["/api/company/import/", "/api/company/source/import/"]
+  let suffix = "/template"
+  for prefix in prefixes {
+    if (request_method is @http.Get || request_method is @http.Head) &&
+      path.has_prefix(prefix) &&
+      path.has_suffix(suffix) {
+      let end = path.length() - suffix.length()
+      let biz_type = path[prefix.length():end].to_owned()
+      if !biz_type.is_empty() && !biz_type.contains("/") {
+        return Some(biz_type)
+      }
+    }
+  }
+  None
+}
+
+///|
 fn import_batch_gate(biz_type : String) -> (Int, Json) {
   (
     409,

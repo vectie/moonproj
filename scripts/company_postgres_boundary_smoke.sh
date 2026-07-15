@@ -47,6 +47,20 @@ done
 test "$ready" = 1
 /usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/import/project/template")
+test "$status" = 200
+/usr/bin/grep -F 'Content-Type: text/csv; charset=utf-8' "$TMP_DIR/project-template.headers" >/dev/null
+/usr/bin/grep -F 'Content-Disposition: attachment; filename=project_template.csv' "$TMP_DIR/project-template.headers" >/dev/null
+/usr/bin/printf '\357\273\277projCode,projName,projShortName,buCode,projStatus,beginDate\n' | /usr/bin/cmp -s - "$TMP_DIR/project-template.csv"
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/unsupported-template.json" -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/import/unsupported/template")
+test "$status" = 400
+/usr/bin/jq -e '.code == 40001 and .message == "不支持的 bizType"' "$TMP_DIR/unsupported-template.json" >/dev/null
+
 SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$SECRET" -hex | /usr/bin/awk '{print $1}')
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import.json" -w '%{http_code}' -X POST \

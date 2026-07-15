@@ -16408,6 +16408,35 @@ async fn handle(
     }
     None => ()
   }
+  match import_template_spec(request.meth, path) {
+    Some(biz_type) => {
+      match import_template_csv(biz_type) {
+        Some(csv) =>
+          send_bytes(
+            conn,
+            request.meth,
+            200,
+            @encoding/utf8.encode(csv),
+            "text/csv; charset=utf-8",
+            "attachment; filename=" + biz_type + "_template.csv",
+          )
+        None =>
+          send_json(
+            conn,
+            request.meth,
+            400,
+            Json::object({
+              "success": Json::boolean(false),
+              "code": Json::number(40001),
+              "message": Json::string("不支持的 bizType"),
+            }),
+            false,
+          )
+      }
+      return
+    }
+    None => ()
+  }
   match import_batch_spec(request.meth, path) {
     Some(biz_type) => {
       let idempotency_key = header(request, "Idempotency-Key")

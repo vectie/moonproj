@@ -6,6 +6,21 @@
 /// provider execution, and tax effects remain outside this import boundary.
 
 ///|
+fn import_template_csv(biz_type : String) -> String? {
+  match biz_type {
+    "project" =>
+      Some(
+        "\u{FEFF}projCode,projName,projShortName,buCode,projStatus,beginDate\n",
+      )
+    "contract" =>
+      Some(
+        "\u{FEFF}contractCode,contractName,projCode,htClass,yfProviderName,htAmount,signDate\n",
+      )
+    _ => None
+  }
+}
+
+///|
 fn import_project_text(body : Json, camel : String, snake : String) -> String {
   json_text(body, camel, json_text(body, snake, "")).trim().to_owned()
 }

@@ -7,6 +7,39 @@ test "native company service validates bounded identifiers" {
 }
 
 ///|
+test "native company service maps exact import template routes" {
+  assert_true(
+    import_template_spec(@http.Get, "/api/company/import/project/template")
+    is Some("project"),
+  )
+  assert_true(
+    import_template_spec(
+      @http.Head,
+      "/api/company/source/import/contract/template",
+    )
+    is Some("contract"),
+  )
+  assert_true(
+    import_template_spec(@http.Get, "/api/company/import/unsupported/template")
+    is Some("unsupported"),
+  )
+  assert_true(
+    import_template_spec(
+      @http.Get,
+      "/api/company/import/project/template/extra",
+    )
+    is None,
+  )
+  assert_true(
+    import_template_csv("project")
+    is Some(
+      "\u{FEFF}projCode,projName,projShortName,buCode,projStatus,beginDate\n"
+    ),
+  )
+  assert_true(import_template_csv("unsupported") is None)
+}
+
+///|
 test "native company service parses safe integer options" {
   assert_eq(
     parse_int_option(
