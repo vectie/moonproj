@@ -516,6 +516,7 @@ async fn summary(
       Json::string("profile_observation_read"),
       Json::string("preference_observation_read"),
       Json::string("preference_command"),
+      Json::string("workflow_command"),
       Json::string("initiated_document_observation_read"),
       Json::string("contract_read"),
       Json::string("payment_application_read"),
@@ -5745,6 +5746,9 @@ struct WorkflowSourceRows {
   users : Array[SourceRow]
   instances : Array[SourceRow]
   actions : Array[SourceRow]
+  source_instance_count : Int
+  source_action_count : Int
+  command_projection_count : Int
 }
 
 ///|
@@ -5755,7 +5759,42 @@ async fn workflow_source_rows() -> WorkflowSourceRows raise CompanyServiceError 
   let users = raw_source_rows("sys_user", 500)
   let instances = raw_source_rows("wf_process_instance", 500)
   let actions = raw_source_rows("wf_step_action", 500)
-  { process_defs, step_defs, step_assignees, users, instances, actions }
+  let source_instance_count = instances.length()
+  let source_action_count = actions.length()
+  let command_instances = workflow_command_payloads("workflow_instance")
+  for payload in command_instances {
+    let aggregate_id = json_text(payload, "process_instance_guid", "")
+    if valid_identifier(aggregate_id) {
+      instances.push({
+        record_id: aggregate_id,
+        source_id: "moonproj:command:workflow:" + aggregate_id,
+        payload,
+      })
+    }
+  }
+  let command_actions = workflow_command_payloads("workflow_action")
+  for payload in command_actions {
+    let aggregate_id = json_text(payload, "action_guid", "")
+    if valid_identifier(aggregate_id) {
+      actions.push({
+        record_id: aggregate_id,
+        source_id: "moonproj:command:workflow-action:" + aggregate_id,
+        payload,
+      })
+    }
+  }
+  {
+    process_defs,
+    step_defs,
+    step_assignees,
+    users,
+    instances,
+    actions,
+    source_instance_count,
+    source_action_count,
+    command_projection_count: command_instances.length() +
+    command_actions.length(),
+  }
 }
 
 ///|
@@ -5763,8 +5802,8 @@ fn workflow_source_coverage(rows : WorkflowSourceRows) -> Json {
   Json::object({
     "sys_user": Json::number(rows.users.length().to_double()),
     "wf_process_def": Json::number(rows.process_defs.length().to_double()),
-    "wf_process_instance": Json::number(rows.instances.length().to_double()),
-    "wf_step_action": Json::number(rows.actions.length().to_double()),
+    "wf_process_instance": Json::number(rows.source_instance_count.to_double()),
+    "wf_step_action": Json::number(rows.source_action_count.to_double()),
     "wf_step_assignee": Json::number(rows.step_assignees.length().to_double()),
     "wf_step_def": Json::number(rows.step_defs.length().to_double()),
   })
@@ -5779,10 +5818,10 @@ fn workflow_source_missing(rows : WorkflowSourceRows) -> Array[Json] {
   if rows.process_defs.is_empty() {
     missing.push(Json::string("wf_process_def"))
   }
-  if rows.instances.is_empty() {
+  if rows.source_instance_count == 0 {
     missing.push(Json::string("wf_process_instance"))
   }
-  if rows.actions.is_empty() {
+  if rows.source_action_count == 0 {
     missing.push(Json::string("wf_step_action"))
   }
   if rows.step_assignees.is_empty() {
@@ -5797,11 +5836,21 @@ fn workflow_source_missing(rows : WorkflowSourceRows) -> Array[Json] {
 ///|
 fn workflow_source_metadata(rows : WorkflowSourceRows) -> Json {
   Json::object({
-    "source_kind": Json::string("imported_or_empty"),
+    "source_kind": Json::string(
+      if rows.command_projection_count > 0 {
+        "imported_or_command"
+      } else {
+        "imported_or_empty"
+      },
+    ),
     "source_coverage": workflow_source_coverage(rows),
     "missing_or_empty_source_tables": Json::array(workflow_source_missing(rows)),
+    "command_projection": Json::boolean(rows.command_projection_count > 0),
+    "command_projection_count": Json::number(
+      rows.command_projection_count.to_double(),
+    ),
     "authorizing": Json::boolean(false),
-    "persisted": Json::boolean(false),
+    "persisted": Json::boolean(rows.command_projection_count > 0),
     "provider_execution": Json::boolean(false),
   })
 }
@@ -5878,7 +5927,14 @@ fn workflow_instance_json(row : SourceRow) -> Json {
     "currentStepOrder": json_field(payload, "current_step_order").unwrap_or(
       Json::number(0),
     ),
-    "sourceId": Json::string("erp:wf_process_instance:" + row.record_id),
+    "sourceId": Json::string(row.source_id),
+    "sourceKind": Json::string(
+      if row.source_id.has_prefix("moonproj:") {
+        "command"
+      } else {
+        "imported"
+      },
+    ),
   })
 }
 
@@ -5910,7 +5966,14 @@ fn workflow_action_json(row : SourceRow) -> Json {
         workflow_instance_value(payload, "created_at", ""),
       ),
     ),
-    "sourceId": Json::string("erp:wf_step_action:" + row.record_id),
+    "sourceId": Json::string(row.source_id),
+    "sourceKind": Json::string(
+      if row.source_id.has_prefix("moonproj:") {
+        "command"
+      } else {
+        "imported"
+      },
+    ),
   })
 }
 
@@ -14414,12 +14477,27 @@ async fn route(
     let user_id = query_alias_decoded(query, "userId", "user_id")
     return (200, workflow_tasks_mine(user_id, user_code))
   }
+  if path == "/api/company/workflow/tasks/mine" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, workflow_tasks_mine(user_id, user_code))
+  }
   if path == "/api/company/source/workflow/tasks/initiated" {
     let user_code = query_alias_decoded(query, "userCode", "user_code")
     let user_id = query_alias_decoded(query, "userId", "user_id")
     return (200, workflow_tasks_initiated(user_id, user_code))
   }
+  if path == "/api/company/workflow/tasks/initiated" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, workflow_tasks_initiated(user_id, user_code))
+  }
   if path == "/api/company/source/workflow/tasks/my-history" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, workflow_history(user_id, user_code))
+  }
+  if path == "/api/company/workflow/tasks/my-history" {
     let user_code = query_alias_decoded(query, "userCode", "user_code")
     let user_id = query_alias_decoded(query, "userId", "user_id")
     return (200, workflow_history(user_id, user_code))
@@ -14433,9 +14511,23 @@ async fn route(
     ).unwrap_or("")
     return (200, workflow_instance_by_biz(biz_type, biz_data_guid))
   }
+  if path == "/api/company/workflow/instances/by-biz" {
+    let biz_type = query_alias_decoded(query, "bizType", "biz_type").unwrap_or(
+      "",
+    )
+    let biz_data_guid = query_alias_decoded(
+      query, "bizDataGuid", "biz_data_guid",
+    ).unwrap_or("")
+    return (200, workflow_instance_by_biz(biz_type, biz_data_guid))
+  }
   let workflow_instance_prefix = "/api/company/source/workflow/instances/"
   if path.has_prefix(workflow_instance_prefix) {
     let instance_id = path[workflow_instance_prefix.length():].to_owned()
+    return workflow_instance_detail(instance_id)
+  }
+  let canonical_workflow_instance_prefix = "/api/company/workflow/instances/"
+  if path.has_prefix(canonical_workflow_instance_prefix) {
+    let instance_id = path[canonical_workflow_instance_prefix.length():].to_owned()
     return workflow_instance_detail(instance_id)
   }
   let dynamic_remarks_prefix = "/api/company/source/cost/dynamic-cost/"
@@ -15533,6 +15625,7 @@ async fn route(
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),
             Json::string("preference_command"),
+            Json::string("workflow_command"),
             Json::string("initiated_document_observation_read"),
             Json::string("budget_scope_observation_read"),
             Json::string("workflow_observation_read"),
@@ -15697,6 +15790,43 @@ async fn handle(
       }
       let result = preference_command(
         command_type, actor, pref_key, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match workflow_command_spec(request.meth, path) {
+    Some((command_type, instance_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = workflow_command(
+        command_type, instance_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }

@@ -11,8 +11,9 @@ task/approval commands. The available credential-safe backup contains the
 definition side only: two active process definitions, twelve ordered steps,
 and six assignee mappings. It contains no process instances or step actions.
 
-The target therefore connects only non-authorizing definition and observation
-boundaries:
+The target connects source-preserving definition/observation boundaries plus a
+separate signed, command-owned local workflow boundary. Imported workflow rows
+remain read-only; local commands never claim to be a source-engine promotion.
 
 | Source surface | Target endpoint | Target state |
 |---|---|---|
@@ -24,9 +25,15 @@ boundaries:
 | My task history | `/api/company/source/workflow/tasks/my-history?userCode=<code>` | empty-safe source observation |
 | Instance by business key | `/api/company/source/workflow/instances/by-biz` | null-safe source observation |
 | Instance detail | `/api/company/source/workflow/instances/:piGuid` | source-compatible 404 |
+| Local instance start | `POST /api/company/source/workflow/instances` and `/api/company/workflow/instances` | signed command-owned projection |
+| Local approve/reject | `POST .../instances/:piGuid/{approve,reject}` | signed local-owner action projection |
+| Canonical aliases | `/api/company/workflow/tasks/*` and `/api/company/workflow/instances/*` | source-compatible read aliases |
 
-The target does not create, approve, reject, assign, transfer, or synchronize
-workflow instances from this slice.
+Local start/approve/reject commands persist immutable `workflow_instance` and
+`workflow_action` projections, command receipts, and audit events. They expose
+`workflow_effect=true` but keep provider, cash, accounting, and tax effects
+false. Full source-engine assignment/delegation, business hooks, and imported
+workflow mutation remain gated.
 
 ## Current evidence
 
@@ -48,16 +55,20 @@ workflow instances from this slice.
   the service adapter's detail boundary.
 - `scripts/company_postgres_source_read_smoke.sh` verifies the three empty list
   reads, a null by-business lookup, and the source-compatible 43001 detail 404.
+- `scripts/company_postgres_workflow_smoke.sh` verifies signed local start,
+  idempotent replay, pending-task readback, approval, rejection, canonical
+  aliases, detail actions, and cleanup without Python.
 - The parity matrix marks the two definition GET handlers as
   `connected_workflow_definition_read` and the five instance/task GET handlers
-  as `connected_workflow_observation_read`; instance/task mutations remain
-  unconnected.
+  as `connected_workflow_observation_read`; local start/approve/reject commands
+  are registered as a separate command-owned boundary.
 
 ## Remaining gate
 
 1. Obtain source `wf_process_instance` and `wf_step_action` rows, or an
-   owner-approved explicit empty-data disposition, before enabling task or
-   approval behavior. The current read observation is not approval authority.
+   owner-approved explicit empty-data disposition, before treating local
+   command projections as source workflow authority. The current local action
+   boundary is intentionally not source-engine synchronization.
 2. Replace the local gateway session with production identity and verify BU,
    principal, delegation, and separation-of-duties scope for any future
    instance commands.
