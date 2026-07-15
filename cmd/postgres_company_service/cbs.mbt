@@ -132,13 +132,53 @@ async fn cbs_dict_response(
       )
     }
   }
-  cbs_envelope(
+  let local_rows = cbs_projection_payloads("cbs_subject_dict")
+  for payload in local_rows {
+    if json_text(payload, "state", "active") != "deleted" &&
+      cbs_filter_project(payload, Some(proj_guid)) &&
+      report_text(payload, "plan_version", "") == version &&
+      (match r_code {
+        Some(value) => report_text(payload, "r_code", "") == value
+        None => true
+      }) {
+      items.push(
+        Json::object({
+          "dict_guid": Json::string(report_text(payload, "dict_guid", "")),
+          "l3_code": Json::string(report_text(payload, "l3_code", "")),
+          "r_code": Json::string(report_text(payload, "r_code", "")),
+          "l2_code": Json::string(report_text(payload, "l2_code", "")),
+          "l2_name": Json::string(report_text(payload, "l2_name", "")),
+          "subject": Json::string(report_text(payload, "subject", "")),
+          "plan_amount": Json::number(report_amount(payload, "plan_amount")),
+          "src": Json::string(report_text(payload, "src", "manual")),
+        }),
+      )
+    }
+  }
+  let envelope = cbs_envelope(
     Json::object({
       "planVersion": Json::string(version),
       "items": Json::array(items),
     }),
     coverage,
   )
+  match envelope {
+    Object(fields) => {
+      fields.set("command_projection", Json::boolean(!local_rows.is_empty()))
+      fields.set(
+        "source_kind",
+        Json::string(
+          if local_rows.is_empty() {
+            "imported_or_empty"
+          } else {
+            "imported_or_command"
+          },
+        ),
+      )
+      Json::object(fields)
+    }
+    _ => envelope
+  }
 }
 
 ///|
@@ -225,7 +265,44 @@ async fn cbs_versions_response(
       )
     }
   }
-  cbs_envelope(Json::array(items), coverage)
+  let local_rows = cbs_projection_payloads("cbs_plan_version")
+  for payload in local_rows {
+    if json_text(payload, "state", "active") != "deleted" &&
+      cbs_filter_project(payload, Some(proj_guid)) {
+      items.push(
+        Json::object({
+          "plan_version": Json::string(report_text(payload, "plan_version", "")),
+          "version_name": Json::string(report_text(payload, "version_name", "")),
+          "parent_version": Json::string(
+            report_text(payload, "parent_version", ""),
+          ),
+          "is_active": Json::boolean(json_bool(payload, "is_active", false)),
+          "frozen_at": Json::string(report_text(payload, "frozen_at", "")),
+          "frozen_by": Json::string(report_text(payload, "frozen_by", "")),
+          "created_at": Json::string(report_text(payload, "created_at", "")),
+          "created_by": Json::string(report_text(payload, "created_by", "")),
+        }),
+      )
+    }
+  }
+  let envelope = cbs_envelope(Json::array(items), coverage)
+  match envelope {
+    Object(fields) => {
+      fields.set("command_projection", Json::boolean(!local_rows.is_empty()))
+      fields.set(
+        "source_kind",
+        Json::string(
+          if local_rows.is_empty() {
+            "imported_or_empty"
+          } else {
+            "imported_or_command"
+          },
+        ),
+      )
+      Json::object(fields)
+    }
+    _ => envelope
+  }
 }
 
 ///|

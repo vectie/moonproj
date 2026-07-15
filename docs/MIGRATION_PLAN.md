@@ -1226,6 +1226,21 @@ version deletion, with investment-only and no-provider/cash/accounting/tax
 effects. Excel upload/import activation, actual-profit simulation, valuation,
 browser identity, and investment-owner acceptance remain separate gates.
 
+**CBS version command checkpoint (2026-07-15).** Native MoonBit now translates
+the source CBS draft/version lifecycle that can be safely owned locally:
+`POST /api/company/cbs/versions/clone`, `freeze`, and `activate`, plus
+`POST /api/company/cbs/dict` for adding a draft leaf. Clone copies the
+source-shaped subject dictionary into command-owned projections; freeze and
+activate create immutable revisions and activation de-overlays; dictionary
+and version reads merge those projections and expose command provenance.
+Signed enabled-user checks, request-equal idempotency, audit receipts, and
+explicit `cbs_effect=true`/`budget_consumption=false` markers are covered by
+`scripts/company_postgres_cbs_smoke.sh`. Imported CBS rows remain read-only.
+Batch percentage adjustment, budget reservation/consumption, contract/R0
+mutation, accounting, cash, tax, browser identity, and owner acceptance are
+still separate gates; the controlled export currently has no imported CBS
+version or subject rows.
+
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
 visible Rabbita navigation group through sidebar actions (not direct URL
