@@ -98,6 +98,7 @@ request investment_versions /api/company/investment/projects/proj-0001/versions
 request investment_indices /api/company/investment/versions/tzsy-ver-tjhjy-v1/indices
 request investment_profit /api/company/investment/projects/proj-0001/profit-summary
 request investment_sensitivity /api/company/investment/projects/proj-0001/sensitivity
+request investment_cost_dashboard '/api/company/investment/projects/proj-0001/profit-actual-v2?planVersion=baseline'
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
   -H 'X-Forwarded-Proto: https' \
@@ -593,5 +594,6 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
 /usr/bin/jq -e '(.data | length) == 12 and ([.data[] | select(.ruleCode == "W005")][0].openCount) == 1 and .persisted == false' "$TMP_DIR/warning_rules.json" >/dev/null
 /usr/bin/jq -e '.data == [] and .authorizing == false and .persisted == false' "$TMP_DIR/warning_scans.json" >/dev/null
 /usr/bin/jq -e '.data == [] and .authorizing == false and .persisted == false' "$TMP_DIR/warning_custom.json" >/dev/null
+/usr/bin/jq -e '.success == true and .data.rows == [] and .data.summary.targetCost == 0 and .data.counts.leaves == 0 and .source_coverage.cb_subject_dict == 0 and .source_coverage.cb_plan_version == 0 and (.missing_or_empty_source_tables | index("cb_subject_dict")) != null and .authorizing == false' "$TMP_DIR/investment_cost_dashboard.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment/warning read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment/warning/investment-cost-dashboard read smoke passed"

@@ -1307,8 +1307,8 @@ of the Moonproj target runtime.
 definition, and primary investment-observation waves are no longer Python
 runtime dependencies: `cmd/postgres_company_service` now owns the five
 individual report reads plus `/reports/overview`, all seven dashboard/cockpit
-GET reads, workflow definition/preview, and investment versions/indices/profit
-reads, cashflow forecast/inflow/detail/net/gap/v3, CBS observation reads, and
+GET reads, workflow definition/preview, and investment versions/indices/profit/
+cost-dashboard reads, cashflow forecast/inflow/detail/net/gap/v3, CBS observation reads, and
 the native admin/notification/AI/attachment/webhook/RBAC/warning observation
 reads.
 `scripts/company_postgres_source_read_smoke.sh` and

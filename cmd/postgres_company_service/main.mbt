@@ -14879,6 +14879,14 @@ async fn route(
   }
   let investment_project_prefix = "/api/company/investment/projects/"
   if path.has_prefix(investment_project_prefix) {
+    if path.has_suffix("/profit-actual-v2") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/profit-actual-v2".length()].to_owned()
+      return investment_profit_actual_v2_response(
+        project_id,
+        query_alias_decoded(query, "planVersion", "plan_version"),
+      )
+    }
     if path.has_suffix("/versions") {
       let project_id = path[investment_project_prefix.length():path.length() -
       "/versions".length()].to_owned()

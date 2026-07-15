@@ -384,3 +384,364 @@ async fn investment_profit_actual_response(
     }),
   )
 }
+
+///|
+/// Source-compatible CBS hierarchy used by the designer's cost dashboard.
+/// Missing CBS dictionaries are a successful empty observation: no synthetic
+/// budget or accounting values are introduced by this read.
+async fn investment_profit_actual_v2_response(
+  project_id : String,
+  plan_version : String?,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(project_id) {
+    raise reject(422, "invalid project_id")
+  }
+  match plan_version {
+    Some(value) if !valid_identifier(value) =>
+      raise reject(422, "invalid plan_version")
+    _ => ()
+  }
+  let tables = [
+    "cb_change_apply", "cb_contract", "cb_expense_split", "cb_plan_version", "cb_r_master",
+    "cb_subject_dict", "ep_project", "sale_revenue", "vcb_expense",
+  ]
+  let rows : Map[String, Array[SourceRow]] = {}
+  let coverage : Map[String, Int] = {}
+  for table in tables {
+    let values = raw_source_rows(table, 5000)
+    rows.set(table, values)
+    coverage.set(table, values.length())
+  }
+  let mut project : SourceRow? = None
+  for row in rows.get_or_default("ep_project", []) {
+    if report_text(row.payload, "proj_guid", row.record_id) == project_id &&
+      json_field(row.payload, "deleted_at") is None {
+      project = Some(row)
+    }
+  }
+  let project = match project {
+    Some(value) => value
+    None =>
+      return (
+        404,
+        Json::object({
+          "success": Json::boolean(false),
+          "code": Json::number(41001),
+          "message": Json::string("项目不存在"),
+          "source_coverage": report_coverage(coverage),
+          "missing_or_empty_source_tables": Json::array(
+            report_missing(coverage),
+          ),
+          "authorizing": Json::boolean(false),
+          "persisted": Json::boolean(false),
+          "provider_execution": Json::boolean(false),
+        }),
+      )
+  }
+  let mut active_version : Json? = None
+  for row in rows.get_or_default("cb_plan_version", []) {
+    if json_field(row.payload, "deleted_at") is None &&
+      report_text(row.payload, "proj_guid", "") == project_id &&
+      json_bool(row.payload, "is_active", false) {
+      active_version = Some(row.payload)
+    }
+  }
+  let selected_version = match plan_version {
+    Some(value) => value
+    None =>
+      match active_version {
+        Some(value) => report_text(value, "plan_version", "baseline")
+        None => "baseline"
+      }
+  }
+  let dict_rows = rows
+    .get_or_default("cb_subject_dict", [])
+    .filter(fn(row) {
+      json_field(row.payload, "deleted_at") is None &&
+      report_text(row.payload, "proj_guid", "") == project_id &&
+      report_text(row.payload, "plan_version", "baseline") == selected_version
+    })
+  let contracts = rows
+    .get_or_default("cb_contract", [])
+    .filter(fn(row) {
+      json_field(row.payload, "deleted_at") is None &&
+      report_text(row.payload, "proj_guid", "") == project_id &&
+      !report_text(row.payload, "r_code", "").is_empty()
+    })
+  let expenses : Map[String, Json] = {}
+  for row in rows.get_or_default("vcb_expense", []) {
+    let id = report_text(row.payload, "expense_guid", "")
+    if !id.is_empty() {
+      expenses.set(id, row.payload)
+    }
+  }
+  let splits = rows.get_or_default("cb_expense_split", [])
+  let changes = rows
+    .get_or_default("cb_change_apply", [])
+    .filter(fn(row) {
+      json_field(row.payload, "deleted_at") is None &&
+      report_text(row.payload, "proj_guid", "") == project_id
+    })
+  let r_names : Map[String, String] = {}
+  for row in rows.get_or_default("cb_r_master", []) {
+    if json_field(row.payload, "deleted_at") is None {
+      let code = report_text(row.payload, "r_code", "")
+      if !code.is_empty() {
+        r_names.set(code, report_text(row.payload, "r_name", code))
+      }
+    }
+  }
+  let group_leaves : Map[String, Array[Json]] = {}
+  let group_r : Map[String, String] = {}
+  let group_l2_code : Map[String, String] = {}
+  let group_l2 : Map[String, String] = {}
+  let group_totals : Map[String, Map[String, Double]] = {}
+  let r_order : Array[String] = []
+  let r_totals : Map[String, Map[String, Double]] = {}
+  fn add_total(target : Map[String, Double], key : String, value : Double) {
+    target.set(key, target.get_or_default(key, 0.0) + value)
+  }
+  for row in dict_rows {
+    let payload = row.payload
+    let r_code = report_text(payload, "r_code", "")
+    let l2_code = report_text(payload, "l2_code", "")
+    let l3_code = report_text(payload, "l3_code", "")
+    let group_key = r_code + "\u{1f}" + l2_code
+    let a = report_amount(payload, "plan_amount")
+    let mut d = 0.0
+    let mut e = 0.0
+    let mut g = 0.0
+    for contract in contracts {
+      let cp = contract.payload
+      if report_text(cp, "l3_code", "") == l3_code {
+        let amount = (
+            report_amount(cp, "ht_amount") +
+            report_amount(cp, "sum_alter_amount")
+          ) /
+          10000.0
+        let state = report_text(cp, "cb_state", "")
+        if state == "signed" || state == "paid" {
+          d += amount
+        } else if state == "approving" {
+          e += amount
+        }
+      }
+    }
+    for split in splits {
+      let sp = split.payload
+      if report_text(sp, "l3_code", "") == l3_code {
+        let expense = expenses.get_or_default(
+          report_text(sp, "expense_guid", ""),
+          Json::object({}),
+        )
+        let amount = report_amount(sp, "amount") / 10000.0
+        let state = report_text(expense, "apply_state", "")
+        if state == "approved" || state == "Approved" {
+          d += amount
+        } else if state == "approving" || state == "Approving" {
+          e += amount
+        }
+      }
+    }
+    for change in changes {
+      let cp = change.payload
+      if report_text(cp, "l3_code", "") == l3_code {
+        let amount = report_amount(cp, "change_amount") / 10000.0
+        let state = report_text(cp, "state", "")
+        if state == "confirmed" {
+          d += amount
+        } else if state == "estimated" || state == "approving" {
+          g += amount
+        }
+      }
+    }
+    let f = if a - d - e > 0.0 { a - d - e } else { 0.0 }
+    let b = d + e + f + g
+    let values : Map[String, Double] = {
+      "A": round_places(a, 2),
+      "D": round_places(d, 2),
+      "E": round_places(e, 2),
+      "F": round_places(f, 2),
+      "G": round_places(g, 2),
+      "B": round_places(b, 2),
+      "H": round_places(a - b, 2),
+    }
+    let leaf = Json::object({
+      "l3Code": Json::string(l3_code),
+      "subject": Json::string(report_text(payload, "subject", "")),
+      "A": Json::number(values["A"]),
+      "D": Json::number(values["D"]),
+      "E": Json::number(values["E"]),
+      "F": Json::number(values["F"]),
+      "G": Json::number(values["G"]),
+      "B": Json::number(values["B"]),
+      "H": Json::number(values["H"]),
+    })
+    let leaves = group_leaves.get_or_default(group_key, [])
+    leaves.push(leaf)
+    group_leaves.set(group_key, leaves)
+    group_r.set(group_key, r_code)
+    group_l2_code.set(group_key, l2_code)
+    group_l2.set(group_key, report_text(payload, "l2_name", l2_code))
+    let group_values = group_totals.get_or_default(group_key, {})
+    for key, value in values {
+      add_total(group_values, key, value)
+    }
+    group_totals.set(group_key, group_values)
+    let r_values = r_totals.get_or_default(r_code, {})
+    for key, value in values {
+      add_total(r_values, key, value)
+    }
+    r_totals.set(r_code, r_values)
+    if !r_order.contains(r_code) {
+      r_order.push(r_code)
+    }
+  }
+  let output_rows : Array[Json] = []
+  for r_code in r_order {
+    let groups : Array[Json] = []
+    for group_key, group_r_code in group_r {
+      if group_r_code == r_code {
+        let totals = group_totals.get_or_default(group_key, {})
+        let group_fields : Map[String, Json] = {
+          "l2Code": Json::string(group_l2_code.get_or_default(group_key, "")),
+          "l2Name": Json::string(group_l2.get_or_default(group_key, "")),
+          "leaves": Json::array(group_leaves.get_or_default(group_key, [])),
+        }
+        for key in ["A", "D", "E", "F", "G", "B", "H"] {
+          group_fields.set(
+            key,
+            Json::number(round_places(totals.get_or_default(key, 0.0), 2)),
+          )
+        }
+        groups.push(Json::object(group_fields))
+      }
+    }
+    let totals = r_totals.get_or_default(r_code, {})
+    let fields : Map[String, Json] = {
+      "rCode": Json::string(r_code),
+      "rName": Json::string(r_names.get_or_default(r_code, r_code)),
+      "groups": Json::array(groups),
+    }
+    for key in ["A", "D", "E", "F", "G", "B", "H"] {
+      fields.set(
+        key,
+        Json::number(round_places(totals.get_or_default(key, 0.0), 2)),
+      )
+    }
+    output_rows.push(Json::object(fields))
+  }
+  let revenue_total = rows
+    .get_or_default("sale_revenue", [])
+    .fold(init=0.0, fn(total, row) {
+      if json_field(row.payload, "deleted_at") is None &&
+        report_text(row.payload, "proj_guid", "") == project_id &&
+        report_text(row.payload, "status", "") == "received" {
+        total + report_amount(row.payload, "amount") / 10000.0
+      } else {
+        total
+      }
+    })
+  if !output_rows.is_empty() || revenue_total != 0.0 {
+    output_rows.insert(
+      0,
+      Json::object({
+        "rCode": Json::string("R6"),
+        "rName": Json::string(r_names.get_or_default("R6", "回款额")),
+        "A": Json::number(0.0),
+        "D": Json::number(round_places(revenue_total, 2)),
+        "E": Json::number(0.0),
+        "F": Json::number(0.0),
+        "G": Json::number(0.0),
+        "B": Json::number(round_places(revenue_total, 2)),
+        "H": Json::number(0.0),
+        "groups": Json::array([]),
+      }),
+    )
+  }
+  let r0_total = contracts.fold(init=0.0, fn(total, row) {
+    let code = report_text(row.payload, "r_code", "")
+    if code.is_empty() || code == "R0" {
+      total +
+      (
+        report_amount(row.payload, "ht_amount") +
+        report_amount(row.payload, "sum_alter_amount")
+      ) /
+      10000.0
+    } else {
+      total
+    }
+  })
+  if r0_total != 0.0 {
+    output_rows.push(
+      Json::object({
+        "rCode": Json::string("R0"),
+        "rName": Json::string("未归类(R0 兜底)"),
+        "A": Json::number(0.0),
+        "D": Json::number(round_places(r0_total, 2)),
+        "E": Json::number(0.0),
+        "F": Json::number(0.0),
+        "G": Json::number(0.0),
+        "B": Json::number(round_places(r0_total, 2)),
+        "H": Json::number(round_places(-r0_total, 2)),
+        "groups": Json::array([]),
+      }),
+    )
+  }
+  let target_total = output_rows.fold(init=0.0, fn(total, row) {
+    if report_text(row, "rCode", "") == "R6" ||
+      report_text(row, "rCode", "") == "R0" {
+      total
+    } else {
+      total + report_amount(row, "A")
+    }
+  })
+  let dynamic_total = output_rows.fold(init=0.0, fn(total, row) {
+    if report_text(row, "rCode", "") == "R6" ||
+      report_text(row, "rCode", "") == "R0" {
+      total
+    } else {
+      total + report_amount(row, "B")
+    }
+  })
+  let summary = Json::object({
+    "targetCost": Json::number(round_places(target_total, 2)),
+    "dynamicCost": Json::number(round_places(dynamic_total, 2)),
+    "deviationPct": if target_total > 0.0 {
+      Json::number(
+        round_places((target_total - dynamic_total) / target_total * 100.0, 4),
+      )
+    } else {
+      Json::null()
+    },
+  })
+  (
+    200,
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": Json::object({
+        "projGuid": Json::string(project_id),
+        "projName": Json::string(
+          report_text(project.payload, "proj_name", project_id),
+        ),
+        "planVersion": Json::string(selected_version),
+        "asOf": Json::string("imported"),
+        "rows": Json::array(output_rows),
+        "summary": summary,
+        "counts": Json::object({
+          "leaves": Json::number(dict_rows.length().to_double()),
+          "contracts": Json::number(contracts.length().to_double()),
+          "expenses": Json::number(splits.length().to_double()),
+          "changes": Json::number(changes.length().to_double()),
+        }),
+      }),
+      "source_kind": Json::string("imported_or_empty"),
+      "source_coverage": report_coverage(coverage),
+      "missing_or_empty_source_tables": Json::array(report_missing(coverage)),
+      "authorizing": Json::boolean(false),
+      "persisted": Json::boolean(false),
+      "provider_execution": Json::boolean(false),
+    }),
+  )
+}

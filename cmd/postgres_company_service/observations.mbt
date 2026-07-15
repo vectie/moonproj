@@ -910,10 +910,48 @@ async fn report_templates_response() -> Json raise CompanyServiceError {
 
 ///|
 async fn report_templates_meta_response() -> Json raise CompanyServiceError {
-  observation_envelope(
-    Json::object({ "tables": Json::array([]), "operators": Json::array([]) }),
-    {},
-  )
+  let names : Array[String] = [
+    "ep_project", "cb_contract", "cb_htfk_apply", "vcb_expense", "vcb_loan_simple",
+    "srm_provider", "jd_task", "sale_revenue", "cb_subject_dict", "cb_change_apply",
+  ]
+  let labels : Array[String] = [
+    "项目", "合同", "付款申请", "报销", "借款", "供应商", "任务",
+    "销售回款", "CBS字典(v3)", "合同变更(v3)",
+  ]
+  let tables : Array[Json] = []
+  for index in 0..<names.length() {
+    tables.push(
+      Json::object({
+        "name": Json::string(names[index]),
+        "label": Json::string(labels[index]),
+        "columns": Json::array([]),
+        "filterableTypes": Json::object({}),
+      }),
+    )
+  }
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "tables": Json::array(tables),
+      "operators": Json::array([
+        Json::string("="),
+        Json::string("!="),
+        Json::string(">"),
+        Json::string(">="),
+        Json::string("<"),
+        Json::string("<="),
+        Json::string("like"),
+        Json::string("in"),
+      ]),
+    }),
+    "source_kind": Json::string("definition"),
+    "source_coverage": Json::object({}),
+    "missing_or_empty_source_tables": Json::array([]),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+  })
 }
 
 ///|
