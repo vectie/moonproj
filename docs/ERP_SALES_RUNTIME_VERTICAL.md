@@ -33,6 +33,16 @@ Revenue writes are also native and authority-bound:
   revenue to received;
 - `DELETE /api/company/sales/revenues/:id` records a local tombstone.
 
+Customer writes now have the same signed local command boundary:
+
+- `POST /api/company/sales/customers` and its `/source` alias create a
+  command-owned customer projection;
+- `PUT /api/company/sales/customers/:id` and its `/source` alias update mutable
+  customer fields and merge source-shaped readback.
+
+Imported customer rows remain read-only, and destructive customer deletion is
+still an explicit 409 policy gate.
+
 The former Python service remains frozen comparison evidence only. All native
 commands require the signed actor assertion, an active principal/scope/
 capability grant, and an `Idempotency-Key`.
@@ -69,16 +79,17 @@ The source-observation boundary is separate from those target projections:
 
 Each response preserves the source row fields, adds normalized aggregate
 identity for the Rabbita table, reports coverage for all six sales tables, and
-marks the observation non-authorizing and non-persisting. Revenue source reads
-also merge local command projections as `source_kind=command` while keeping
-raw-table coverage separate; deleted local projections are filtered out. The
+marks the observation non-authorizing and non-persisting. Revenue and customer
+source reads merge local command projections as `source_kind=command` while
+keeping raw-table coverage separate; deleted local projections are filtered out. The
 current export has zero rows in every table, so these reads do not seed or
 promote source rows.
 
 ## Evidence
 
-The native shell smoke covers an authority-checked revenue
-create/replay/update/confirm/delete workflow with source-shaped readback. The
+The native shell smoke covers customer create/replay/update plus an
+authority-checked revenue create/replay/update/confirm/delete workflow with
+source-shaped readback. The
 trusted gateway smoke covers the same revenue command family through the
 session boundary; the broader sales cohort remains a separate projection
 rehearsal.
@@ -97,13 +108,14 @@ identity/session deployment remain required.
 
 ## Source action reconciliation
 
-The parity matrix now maps the source-equivalent customer create/update,
-subscription create/convert, mortgage create/approve/release, refund
-create/approve, and revenue create/update/delete/confirm-received actions to
-the local command runtime. Revenue commands require authority, idempotency,
-and actor/scope matching; they only create local projections and never release
-cash or post accounting. The source customer delete action now returns an
-authenticated `sales_customer_delete_candidate` 409 boundary because the
-target deliberately exposes archive rather than destructive deletion. These
-command mappings are local evidence only: source identity
+The parity matrix maps customer create/update and revenue
+create/update/delete/confirm-received to local command runtimes. Customer
+commands require a signed actor and idempotency, while revenue commands also
+require authority, idempotency, and actor/scope matching; both only create
+local projections and never release cash or post accounting. Subscription,
+mortgage, and refund writes remain explicit authenticated candidates until
+their command projections are ported. The source customer delete action now
+returns an authenticated `sales_customer_delete_candidate` 409 boundary
+because the target deliberately exposes archive rather than destructive
+deletion. These command mappings are local evidence only: source identity
 mapping, browser acceptance, and sales/finance owner approval remain open.

@@ -63,6 +63,38 @@ test "$status" = 400
 
 SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$SECRET" -hex | /usr/bin/awk '{print $1}')
 
+CUSTOMER_KEY="boundary-customer-$SMOKE_SUFFIX"
+CUSTOMER_CODE="CUS-BOUNDARY-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer-create.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $CUSTOMER_KEY" \
+  --data "{\"customerCode\":\"$CUSTOMER_CODE\",\"customerName\":\"Native Boundary Customer\",\"phone\":\"13800000000\",\"projGuid\":\"proj-0001\"}" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/customers")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$CUSTOMER_CODE" '.success == true and .customer.customerCode == $code and .persisted == true and .idempotent_replay == false' "$TMP_DIR/customer-create.json" >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer-replay.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $CUSTOMER_KEY" \
+  --data "{\"customerCode\":\"$CUSTOMER_CODE\",\"customerName\":\"Native Boundary Customer\",\"phone\":\"13800000000\",\"projGuid\":\"proj-0001\"}" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/customers")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .persisted == true' "$TMP_DIR/customer-replay.json" >/dev/null
+CUSTOMER_ID=$(/usr/bin/jq -r '.customer.customerGuid' "$TMP_DIR/customer-create.json")
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer-update.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: customer-update-$SMOKE_SUFFIX" \
+  --data '{"customerName":"Native Boundary Customer Updated"}' \
+  "http://127.0.0.1:$PORT/api/company/source/sales/customers/$CUSTOMER_ID")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .persisted == true' "$TMP_DIR/customer-update.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "keyword=$CUSTOMER_CODE" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/customers" \
+  | /usr/bin/jq -e --arg id "$CUSTOMER_ID" '.data | any(.[]; .customer_guid == $id and .customer_name == "Native Boundary Customer Updated" and .source_kind == "command")' >/dev/null
+
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \

@@ -328,6 +328,49 @@ test "native company service maps sales revenue command paths" {
 }
 
 ///|
+test "native company service maps sales customer command paths" {
+  assert_true(
+    sales_customer_command_spec(@http.Post, "/api/company/sales/customers")
+    is Some(("create", None)),
+  )
+  assert_true(
+    sales_customer_command_spec(
+      @http.Post,
+      "/api/company/source/sales/customers",
+    )
+    is Some(("create", None)),
+  )
+  assert_true(
+    sales_customer_command_spec(
+      @http.Put,
+      "/api/company/source/sales/customers/CUS-1",
+    )
+    is Some(("update", Some("CUS-1"))),
+  )
+  assert_true(
+    sales_customer_command_spec(
+      @http.Delete,
+      "/api/company/sales/customers/CUS-1",
+    )
+    is None,
+  )
+  let request = sales_customer_create_request(
+    @json.parse(
+      "{\"customerName\":\"Native Customer\",\"phone\":\"13800000000\",\"projGuid\":\"P-1\"}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+    "customer-test-key",
+  )
+  assert_eq(json_text(request, "customer_name", ""), "Native Customer")
+  assert_eq(
+    json_text(request, "customer_guid", ""),
+    "customer-customer-test-key",
+  )
+}
+
+///|
 test "native company service maps tender and split command paths" {
   assert_true(
     tender_command_spec(@http.Post, "/api/company/tenders")
