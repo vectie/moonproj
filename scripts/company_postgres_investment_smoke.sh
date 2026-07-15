@@ -70,6 +70,7 @@ if [ "$ready" -ne 1 ]; then
 fi
 /usr/bin/jq -e '.capabilities | index("investment_excel_index_upsert_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("investment_excel_plan_line_import_candidate") != null' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("investment_subject_mappings_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 
 version_body="{\"versionGuid\":\"$VERSION_ID\",\"versionName\":\"Native Investment Smoke\",\"remark\":\"local command projection\",\"activate\":true}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/version.json" -w '%{http_code}' \
@@ -198,5 +199,22 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/plan-line-import-write-gate.json" -w '%{
   "http://127.0.0.1:$PORT/api/company/investment/excel-imports/$MISSING_IMPORT_ID/plan-lines/import")
 test "$status" = 409
 /usr/bin/jq -e '.code == 46002 and .dry_run == false and .replace_existing == true and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/plan-line-import-write-gate.json" >/dev/null
+
+MISSING_PROJECT_ID="investment-smoke-missing-project-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subject-mappings-missing.json" -w '%{http_code}' \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{"items":[{"key":"rate.R24","value":"0.022"}]}' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$MISSING_PROJECT_ID/subject-mappings")
+test "$status" = 404
+/usr/bin/jq -e '.code == 41001' "$TMP_DIR/subject-mappings-missing.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subject-mappings-write-gate.json" -w '%{http_code}' \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{"dryRun":false,"items":[{"key":"rate.R24","value":"0.022"}]}' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/subject-mappings")
+test "$status" = 409
+/usr/bin/jq -e '.code == 46003 and .dry_run == false and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/subject-mappings-write-gate.json" >/dev/null
 
 echo "native MoonBit investment version/index lifecycle/idempotency/readback smoke passed"

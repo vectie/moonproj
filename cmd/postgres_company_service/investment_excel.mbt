@@ -666,6 +666,91 @@ async fn investment_plan_line_import_candidate(
 }
 
 ///|
+fn investment_subject_mappings_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  if request_method is @http.Put {
+    let suffix = "/subject-mappings"
+    let prefix = "/api/company/investment/projects/"
+    let source_prefix = "/api/company/source/investment/projects/"
+    if path.has_prefix(prefix) && path.has_suffix(suffix) {
+      return Some(
+        path[prefix.length():path.length() - suffix.length()].to_owned(),
+      )
+    }
+    if path.has_prefix(source_prefix) && path.has_suffix(suffix) {
+      return Some(
+        path[source_prefix.length():path.length() - suffix.length()].to_owned(),
+      )
+    }
+  }
+  None
+}
+
+///|
+async fn investment_subject_mappings_candidate(
+  project_id : String,
+  body : Json,
+) -> (Int, Json) raise CompanyServiceError {
+  let dry_run = match json_field(body, "dryRun") {
+    Some(False) => false
+    _ => true
+  }
+  let items = match json_field(body, "items") {
+    Some(Array(values)) if !values.is_empty() => values
+    _ => raise reject(400, "缺少 items 数组")
+  }
+  if !dry_run {
+    return (
+      409,
+      Json::object({
+        "success": Json::boolean(false),
+        "code": Json::number(46003),
+        "message": Json::string(
+          "投资科目映射写入需要投资负责人确认；当前 native 服务仅提供 dry-run。",
+        ),
+        "source_kind": Json::string("investment_subject_mappings_candidate"),
+        "dry_run": Json::boolean(false),
+        "provider_execution": Json::boolean(false),
+        "persisted": Json::boolean(false),
+        "authorizing": Json::boolean(false),
+      }),
+    )
+  }
+  let existing = investment_subject_mappings_response(project_id)
+  if existing.0 != 200 {
+    return existing
+  }
+  let groups = match json_field(existing.1, "data") {
+    Some(Object(data_fields)) =>
+      data_fields.get("groups").unwrap_or(Json::object({}))
+    _ => Json::object({})
+  }
+  (
+    200,
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": Json::object({
+        "projGuid": Json::string(project_id),
+        "groups": groups,
+        "items": Json::array(items),
+        "total": Json::number(items.length().to_double()),
+        "updated": Json::number(0),
+        "wouldUpdate": Json::number(items.length().to_double()),
+        "dryRun": Json::boolean(true),
+      }),
+      "source_kind": Json::string("investment_subject_mappings_candidate"),
+      "dry_run": Json::boolean(true),
+      "provider_execution": Json::boolean(false),
+      "persisted": Json::boolean(false),
+      "authorizing": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 async fn investment_profit_table_response(
   import_id : String,
 ) -> (Int, Json) raise CompanyServiceError {

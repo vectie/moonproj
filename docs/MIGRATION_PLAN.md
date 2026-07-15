@@ -514,6 +514,11 @@ source summary and expose `replaceExisting`, `inserted`, `replaced`, and
 the durable line write/replace transaction. Missing imports retain the source
 404 and no provider, audit, financial, or tax effect is created.
 
+The subject-mapping `PUT /projects/:projGuid/subject-mappings` mutation is
+also exposed as a signed dry-run candidate. It validates a non-empty `items`
+array, returns the existing grouped mapping observation plus `wouldUpdate`,
+and rejects `dryRun=false` until an investment owner accepts mapping writes.
+
 The marketing screen is now a bounded source/read-command family. `/marketing`
 loads `/api/company/marketing/{campaigns,placements,channels,materials}` with
 project/state filters and explicit source-table coverage. Imported source rows
