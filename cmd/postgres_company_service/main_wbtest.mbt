@@ -224,6 +224,69 @@ test "native company service normalizes contract milestone requests" {
 }
 
 ///|
+test "native company service maps supplier command paths" {
+  assert_true(
+    supplier_command_spec(@http.Post, "/api/company/suppliers")
+    is Some(("create", None)),
+  )
+  assert_true(
+    supplier_command_spec(@http.Post, "/api/company/source/srm/providers")
+    is Some(("source-create", None)),
+  )
+  assert_true(
+    supplier_command_spec(
+      @http.Post,
+      "/api/company/suppliers/SUP-1/submit_review",
+    )
+    is Some(("submit_review", Some("SUP-1"))),
+  )
+  assert_true(
+    supplier_command_spec(
+      @http.Patch,
+      "/api/company/source/srm/providers/SUP-1",
+    )
+    is Some(("source-update", Some("SUP-1"))),
+  )
+  assert_true(
+    supplier_command_spec(
+      @http.Delete,
+      "/api/company/source/srm/providers/SUP-1",
+    )
+    is Some(("source-void", Some("SUP-1"))),
+  )
+}
+
+///|
+test "native company service normalizes supplier source fields" {
+  let body = @json.parse(
+    "{\"providerGuid\":\"SUP-1\",\"providerCode\":\"G-1\",\"providerName\":\"Supplier\",\"mainCategoryCode\":\"CAT-1\",\"shortName\":\"S\",\"enabled\":true}",
+  ) catch {
+    _ => Json::null()
+  }
+  let request = supplier_source_create_request(body, "actor-1", "key-1")
+  assert_eq(json_text(request, "supplier_id", ""), "SUP-1")
+  assert_eq(json_text(request, "supplier_code", ""), "G-1")
+  assert_eq(json_text(request, "category_code", ""), "CAT-1")
+  assert_eq(json_text(request, "short_name", ""), "S")
+  assert_true(json_bool(request, "enabled", false))
+  let update = supplier_source_update_request(
+    "SUP-1",
+    @json.parse("{\"providerName\":\"Updated\",\"evalResult\":\"qualified\"}") catch {
+      _ => Json::null()
+    },
+    "actor-1",
+  )
+  assert_eq(
+    json_text(json_field(update, "changes").unwrap(), "name", ""),
+    "Updated",
+  )
+  assert_eq(
+    json_text(json_field(update, "changes").unwrap(), "evaluation", ""),
+    "qualified",
+  )
+}
+
+///|
 test "native company service normalizes dynamic-cost source fields" {
   let body = @json.parse(
     "{\"costGuid\":\"COST-1\",\"projGuid\":\"P-1\",\"costCode\":\"C-1\",\"costName\":\"Design\",\"costLevel\":2,\"targetCost\":125.50,\"isEndCost\":true}",

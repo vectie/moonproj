@@ -267,9 +267,9 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .source_kind == "definition" and .authorizing == false
 ' "$TMP_DIR/supplier_sources.json" >/dev/null
 /usr/bin/jq -e '
-  .success == true and (.data | length) == 91 and
+  .success == true and
+  (.data | map(select(.providerGuid == "SUP-SOURCE-SMOKE-4f8d3f5b34" and .sourceKind == "command")) | length) == 1 and
   .source_coverage.srm_provider == 0 and
-  .data[0].sourceKind == "command" and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/supplier_providers.json" >/dev/null
 /usr/bin/jq -e '

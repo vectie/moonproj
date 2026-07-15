@@ -325,13 +325,16 @@ The source-handler action register now marks the ERP `GET /srm/providers` and
 overview is connected through `/api/company/srm/stats/overview` as well, and
 the provider risk-detail read is connected through
 `/api/company/srm/providers/<guid>/risk`.
-The ERP supplier mutation handlers are now connected as bounded source aliases:
-`POST /api/company/source/srm/providers` and `PATCH`, `PUT`, or `DELETE`
+The ERP supplier mutation handlers are now implemented in the native MoonBit
+service as bounded source aliases: `POST
+/api/company/source/srm/providers` and `PATCH`, `PUT`, or `DELETE`
 `/api/company/source/srm/providers/<guid>` translate provider fields into
-idempotent command-owned supplier projections. Source-shaped list/detail
+idempotent command-owned supplier projections. Direct supplier create and
+`update`, `submit_review`, `review`, `blacklist`, and `void` commands use the
+same PostgreSQL receipt/audit/revision boundary. Source-shaped list/detail
 readback merges those projections with explicit `source_kind=command`, while
-imported providers remain read-only; qualification, signature, risk rescore,
-and external provider effects remain gated.
+imported providers remain read-only; populated-source qualification,
+signature, risk rescore, and external provider effects remain gated.
 The supplier signature-check handler now has a source-compatible missing-
 provider boundary and an explicit populated-provider procurement gate. A
 command-owned supplier projection also returns a `derived_command_preview`
@@ -899,13 +902,27 @@ Tender-plan, tender-award, and contract-split observations are native as well.
 MoonBit merges the current command-owned tender/split projections, preserves
 source filters and provenance, and keeps procurement/cash/accounting/tax
 effects disabled. Supplier category, evaluation-result, and source dictionaries
-also run natively with explicit empty-table/definition metadata. Tender and
-supplier writes, signature/qualification decisions, provider execution,
-production identity, and owner acceptance remain gated. The native provider
-list/detail/risk observations now preserve the active command-owned supplier
-cohort, imported-row provenance, source coverage, and missing-provider
-semantics; provider CRUD and populated-source risk/signature parity remain the
-next supplier gate.
+also run natively with explicit empty-table/definition metadata. Native
+supplier/provider command replay, source readback, imported-row protection,
+and lifecycle evidence are covered by the service and gateway smokes.
+Populated-source signature/qualification decisions, risk rescore, provider
+execution, production identity, and owner acceptance remain gated. The native
+provider list/detail/risk observations preserve the active command-owned
+supplier cohort, imported-row provenance, source coverage, and missing-provider
+semantics.
+
+**Native supplier/provider command checkpoint (2026-07-15).** The native
+MoonBit company service now owns direct supplier create/update/submit-review/
+review/blacklist/void and source-compatible provider POST/PATCH/PUT/DELETE
+aliases. Each command requires a signed actor and idempotency key, validates
+the ERP field family, protects imported rows, persists immutable supplier
+revisions, command receipts, and audit events, and returns source-shaped
+provider readback with `sourceKind=command`. Blacklist and void are local
+non-authorizing lifecycle states; no provider call, qualification grant,
+signature, risk rescore, budget, accounting, cash, or tax effect is implied.
+`scripts/company_postgres_supplier_smoke.sh` and the gateway smoke provide the
+shell-only replay/collision/update/review/blacklist/void evidence. The frozen
+Python service remains comparison material only.
 
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
@@ -1451,9 +1468,10 @@ Execute the remainder in this order:
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
     observations plus the native expense, contract, payment-application,
-    contract-milestone, and dynamic-cost list/detail/command boundaries,
+    contract-milestone, dynamic-cost, and supplier/provider list/detail/command
+    boundaries,
     budget-check preview, and idempotent expense/contract/payment-application/
-    contract-milestone/dynamic-cost
+    contract-milestone/dynamic-cost/supplier
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1470,7 +1488,9 @@ Execute the remainder in this order:
     check, CI job, smoke test, release artifact, deployment manifest, or
     browser start command. The migration backlog is therefore explicit:
     (a) finish the remaining authenticated company-service reads and command
-    lifecycles in `cmd/postgres_company_service`,
+    lifecycles in `cmd/postgres_company_service` (supplier/provider commands
+    are now a native checkpoint; populated-source qualification/signature and
+    external effects remain separate gates),
     (b) port the remaining source-export, cohort-planner, parity, acceptance,
     and shadow/replay commands to MoonBit, and
     (c) replace each Python call in the legacy rehearsal drivers with the
@@ -1502,7 +1522,8 @@ Execute the remainder in this order:
     shell wrapper before it can be added to the manifest.
 
     The current manifest covers the native PostgreSQL target/apply/read/service/
-    gateway boundaries, expense/contract/payment/milestone smoke paths, source-export
+    gateway boundaries, expense/contract/payment/milestone/dynamic-cost/supplier
+    smoke paths, source-export
     inventory commands, all `cmd` packages, and the Rabbita frontend package.
     The gate passing proves only that these paths are Python-free; it does not
     imply that the remaining ERP routes, external effects, managed identity,

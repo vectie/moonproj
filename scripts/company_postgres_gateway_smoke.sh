@@ -135,6 +135,20 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.milestoneGuid == "'"$gateway_milestone_id"'" and .milestone.state == "pending"' \
   "$TMP_DIR/milestone-create.json" >/dev/null
 
+gateway_supplier_suffix=$(/bin/date +%s)
+gateway_supplier_id="SUP-GW-SMOKE-$gateway_supplier_suffix"
+gateway_supplier_body="{\"providerGuid\":\"$gateway_supplier_id\",\"providerCode\":\"SUP-GW-$gateway_supplier_suffix\",\"providerName\":\"gateway smoke supplier\",\"mainCategoryCode\":\"CAT-GW\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-supplier-create-$gateway_supplier_suffix" \
+  --data "$gateway_supplier_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/srm/providers")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == false and .data.providerGuid == "'"$gateway_supplier_id"'" and .provider.sourceKind == "command"' \
+  "$TMP_DIR/supplier-create.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"

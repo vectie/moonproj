@@ -2,8 +2,9 @@
 
 Status: local PostgreSQL/Rabbita slice verified; source export and production
 acceptance remain open. Supplier provider data and supplier dictionaries are
-kept as separate observations, while source provider CRUD is translated only
-into command-owned projections and remains non-authorizing for procurement.
+kept as separate observations. Native MoonBit owns the bounded supplier
+command lifecycle and source provider aliases; they persist only command-owned
+projections and remain non-authorizing for procurement.
 
 The ERP `/tender` and `/srm/providers` pages are now connected to the company
 boundary. They read the latest `tender` and `supplier` aggregate projections
@@ -14,7 +15,10 @@ rows are production data.
 
 ## Connected API
 
-`scripts/company_postgres_service.py` exposes:
+The supported runtime is the compiled `cmd/postgres_company_service` binary
+started by `scripts/company_postgres_service.sh`; the Python service is a
+frozen comparison adapter and is not executed by the supported path. The
+native service exposes:
 
 - `GET /api/company/tenders` and `GET /api/company/tenders/<id>` for the latest
   tender plan projection, including bids, award, commitment identity, source
@@ -109,7 +113,9 @@ source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
 
-The source supplier CRUD aliases follow the same rule: they translate the ERP
+The native supplier/provider smoke and gateway smoke cover create/replay,
+collision, source-shaped detail, update, review, blacklist, void, and trusted
+forwarding. The source supplier CRUD aliases follow the same rule: they translate the ERP
 field family into a local supplier command, but do not pretend that a local
 projection is an imported `srm_provider` row. List/detail readback is useful
 for the designer flow and carries provenance; source statistics, imported

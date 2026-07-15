@@ -8127,7 +8127,7 @@ async fn supplier_command_items() -> Array[Json] raise CompanyServiceError {
     "'buCount', 0, 'contractCount', 0, 'sourceKind', 'command', 'source_kind', 'command', 'commandProjection', true, " +
     "'authorizing', false, 'persisted', true, 'providerExecution', false, 'cashEffect', false, 'accountingEffect', false, 'taxEffect', false, " +
     "'sourceId', 'moonproj:command:supplier:' || aggregate_id, 'aggregate_type', 'supplier', 'aggregate_id', aggregate_id" +
-    ") ORDER BY aggregate_id), '[]'::jsonb)::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'supplier' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', 'draft') NOT IN ('voided', 'blacklisted')",
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'supplier' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', 'draft') <> 'voided'",
   )
   json_array_output(output)
 }
@@ -8481,6 +8481,680 @@ async fn supplier_risk_response(
       }
     }
   }
+}
+
+///|
+fn supplier_required_text(
+  body : Json,
+  key : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = json_text(body, key, "").trim().to_owned()
+  if value.is_empty() {
+    raise reject(422, key + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, key + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn supplier_optional_text(
+  body : Json,
+  key : String,
+  request : Map[String, Json],
+) -> Unit raise CompanyServiceError {
+  match json_field(body, key) {
+    None | Some(Null) => ()
+    Some(String(value)) if value.trim().length() <= 256 =>
+      request.set(key, Json::string(value.trim().to_owned()))
+    Some(String(_)) => raise reject(422, key + " must be text")
+    _ => raise reject(422, key + " must be text")
+  }
+}
+
+///|
+fn supplier_register_capital(
+  body : Json,
+  key : String,
+  request : Map[String, Json],
+) -> Unit raise CompanyServiceError {
+  match json_field(body, key) {
+    None | Some(Null) => ()
+    Some(Number(number, ..)) =>
+      request.set(key, Json::string(number.to_string()))
+    Some(String(value)) =>
+      request.set(key, Json::string(value.trim().to_owned()))
+    _ => raise reject(422, key + " must be numeric")
+  }
+}
+
+///|
+fn supplier_enabled(
+  body : Json,
+  key : String,
+  request : Map[String, Json],
+) -> Unit raise CompanyServiceError {
+  match json_field(body, key) {
+    None | Some(Null) => ()
+    Some(True) => request.set(key, Json::boolean(true))
+    Some(False) => request.set(key, Json::boolean(false))
+    _ => raise reject(422, key + " must be boolean")
+  }
+}
+
+///|
+fn supplier_create_request(
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("create"))
+  request.set(
+    "supplier_id",
+    Json::string(supplier_required_text(body, "supplier_id", true)),
+  )
+  request.set(
+    "principal_id",
+    Json::string(supplier_required_text(body, "principal_id", true)),
+  )
+  request.set(
+    "scope",
+    Json::string(supplier_required_text(body, "scope", true)),
+  )
+  request.set(
+    "supplier_code",
+    Json::string(supplier_required_text(body, "supplier_code", true)),
+  )
+  request.set("name", Json::string(supplier_required_text(body, "name", false)))
+  request.set(
+    "category_code",
+    Json::string(supplier_required_text(body, "category_code", true)),
+  )
+  for
+    key in [
+      "short_name", "legal_person", "business_scope", "source", "contact_person",
+      "contact_phone", "address",
+    ] {
+    supplier_optional_text(body, key, request)
+  }
+  supplier_register_capital(body, "register_capital", request)
+  supplier_enabled(body, "enabled", request)
+  request.set("actor_id", Json::string(actor_id))
+  Json::object(request)
+}
+
+///|
+fn supplier_source_create_request(
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let provider_id_value = json_text(body, "providerGuid", "").trim().to_owned()
+  let provider_id = if provider_id_value.is_empty() {
+    "SUP-SRC-" + idempotency_key
+  } else {
+    provider_id_value
+  }
+  if !valid_identifier(provider_id) {
+    raise reject(422, "providerGuid contains unsupported characters")
+  }
+  let provider_name = supplier_required_text(body, "providerName", false)
+  let category_code = if json_text(body, "mainCategoryCode", "")
+    .trim()
+    .is_empty() {
+    supplier_required_text(body, "category_code", true)
+  } else {
+    supplier_required_text(body, "mainCategoryCode", true)
+  }
+  let provider_code_value = json_text(body, "providerCode", "")
+    .trim()
+    .to_owned()
+  let provider_code = if provider_code_value.is_empty() {
+    "GYS-SRC-" + provider_id
+  } else {
+    provider_code_value
+  }
+  if !valid_identifier(provider_code) {
+    raise reject(422, "providerCode contains unsupported characters")
+  }
+  let principal_id = if json_text(body, "principal_id", "").trim().is_empty() {
+    actor_id
+  } else {
+    json_text(body, "principal_id", "").trim().to_owned()
+  }
+  let scope = if json_text(body, "scope", "").trim().is_empty() {
+    "supplier:" + provider_id
+  } else {
+    json_text(body, "scope", "").trim().to_owned()
+  }
+  if !valid_identifier(principal_id) {
+    raise reject(422, "principal_id contains unsupported characters")
+  }
+  if !valid_identifier(scope) {
+    raise reject(422, "scope contains unsupported characters")
+  }
+  let canonical : Map[String, Json] = {}
+  canonical.set("supplier_id", Json::string(provider_id))
+  canonical.set("principal_id", Json::string(principal_id))
+  canonical.set("scope", Json::string(scope))
+  canonical.set("supplier_code", Json::string(provider_code))
+  canonical.set("name", Json::string(provider_name))
+  canonical.set("category_code", Json::string(category_code))
+  for
+    source_key in [
+      "shortName", "legalPerson", "businessScope", "source", "contactPerson", "contactPhone",
+      "address",
+    ] {
+    let target_key = if source_key == "shortName" {
+      "short_name"
+    } else if source_key == "legalPerson" {
+      "legal_person"
+    } else if source_key == "businessScope" {
+      "business_scope"
+    } else if source_key == "contactPerson" {
+      "contact_person"
+    } else if source_key == "contactPhone" {
+      "contact_phone"
+    } else {
+      source_key
+    }
+    match json_field(body, source_key) {
+      None => ()
+      Some(String(value)) if value.trim().length() <= 256 =>
+        canonical.set(target_key, Json::string(value.trim().to_owned()))
+      Some(_) => raise reject(422, source_key + " must be text")
+    }
+  }
+  match json_field(body, "registerCapital") {
+    None => ()
+    Some(Number(number, ..)) =>
+      canonical.set("register_capital", Json::string(number.to_string()))
+    Some(String(value)) =>
+      canonical.set("register_capital", Json::string(value.trim().to_owned()))
+    _ => raise reject(422, "registerCapital must be numeric")
+  }
+  match json_field(body, "enabled") {
+    None => ()
+    Some(True) => canonical.set("enabled", Json::boolean(true))
+    Some(False) => canonical.set("enabled", Json::boolean(false))
+    _ => raise reject(422, "enabled must be boolean")
+  }
+  supplier_create_request(Json::object(canonical), actor_id)
+}
+
+///|
+fn supplier_update_request(
+  supplier_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(supplier_id) {
+    raise reject(422, "supplier_id is required")
+  }
+  let changes : Map[String, Json] = {}
+  for
+    key in [
+      "scope", "supplier_code", "name", "category_code", "short_name", "legal_person",
+      "business_scope", "source", "contact_person", "contact_phone", "address", "evaluation",
+    ] {
+    match json_field(body, key) {
+      None | Some(Null) => ()
+      Some(String(value)) if !value.trim().is_empty() => {
+        let cleaned = value.trim().to_owned()
+        if (key == "scope" || key == "supplier_code" || key == "category_code") &&
+          !valid_identifier(cleaned) {
+          raise reject(422, key + " contains unsupported characters")
+        }
+        changes.set(key, Json::string(cleaned))
+      }
+      _ => raise reject(422, key + " must be non-empty text")
+    }
+  }
+  supplier_register_capital(body, "register_capital", changes)
+  supplier_enabled(body, "enabled", changes)
+  if changes.is_empty() {
+    raise reject(422, "update requires at least one mutable field")
+  }
+  Json::object({
+    "command_type": Json::string("update"),
+    "supplier_id": Json::string(supplier_id),
+    "changes": Json::object(changes),
+    "actor_id": Json::string(actor_id),
+  })
+}
+
+///|
+fn supplier_source_update_request(
+  supplier_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let canonical : Map[String, Json] = {}
+  for
+    source_key in [
+      "providerCode", "providerName", "shortName", "legalPerson", "businessScope",
+      "mainCategoryCode", "evalResult", "source", "contactPerson", "contactPhone",
+      "address",
+    ] {
+    let target_key = if source_key == "providerCode" {
+      "supplier_code"
+    } else if source_key == "providerName" {
+      "name"
+    } else if source_key == "shortName" {
+      "short_name"
+    } else if source_key == "legalPerson" {
+      "legal_person"
+    } else if source_key == "businessScope" {
+      "business_scope"
+    } else if source_key == "mainCategoryCode" {
+      "category_code"
+    } else if source_key == "evalResult" {
+      "evaluation"
+    } else if source_key == "contactPerson" {
+      "contact_person"
+    } else if source_key == "contactPhone" {
+      "contact_phone"
+    } else {
+      source_key
+    }
+    match json_field(body, source_key) {
+      None => ()
+      Some(String(value)) =>
+        canonical.set(target_key, Json::string(value.trim().to_owned()))
+      Some(_) => raise reject(422, source_key + " must be text")
+    }
+  }
+  match json_field(body, "registerCapital") {
+    None => ()
+    Some(Number(number, ..)) =>
+      canonical.set("register_capital", Json::string(number.to_string()))
+    Some(String(value)) =>
+      canonical.set("register_capital", Json::string(value.trim().to_owned()))
+    _ => raise reject(422, "registerCapital must be numeric")
+  }
+  match json_field(body, "enabled") {
+    None => ()
+    Some(True) => canonical.set("enabled", Json::boolean(true))
+    Some(False) => canonical.set("enabled", Json::boolean(false))
+    _ => raise reject(422, "enabled must be boolean")
+  }
+  supplier_update_request(supplier_id, Json::object(canonical), actor_id)
+}
+
+///|
+fn supplier_transition_request(
+  command_type : String,
+  supplier_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(supplier_id) {
+    raise reject(422, "supplier_id is required")
+  }
+  let reason = match json_field(body, "reason") {
+    None => ""
+    Some(String(value)) => value.trim().to_owned()
+    _ => raise reject(422, "reason must be text")
+  }
+  if command_type == "review" {
+    let evaluation = supplier_required_text(body, "evaluation", true).to_lower()
+    if evaluation != "reviewed" &&
+      evaluation != "qualified" &&
+      evaluation != "unqualified" &&
+      evaluation != "strategic" {
+      raise reject(422, "evaluation is invalid")
+    }
+    Json::object({
+      "command_type": Json::string(command_type),
+      "supplier_id": Json::string(supplier_id),
+      "evaluation": Json::string(evaluation),
+      "reason": Json::string(reason),
+      "actor_id": Json::string(actor_id),
+    })
+  } else {
+    Json::object({
+      "command_type": Json::string(command_type),
+      "supplier_id": Json::string(supplier_id),
+      "reason": Json::string(reason),
+      "actor_id": Json::string(actor_id),
+    })
+  }
+}
+
+///|
+async fn latest_supplier_payload(
+  supplier_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'supplier' AND aggregate_id = " +
+    @postgres.sql_literal(supplier_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid supplier projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn supplier_imported_exists(
+  supplier_id : String,
+) -> Bool raise CompanyServiceError {
+  let rows = raw_source_rows("srm_provider", 500)
+  for row in rows {
+    if json_text(row.payload, "provider_guid", row.record_id) == supplier_id &&
+      json_text(row.payload, "deleted_at", "").is_empty() {
+      return true
+    }
+  }
+  false
+}
+
+///|
+async fn supplier_command(
+  command_type : String,
+  supplier_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let (id, request) = if command_type == "create" {
+    let request = supplier_create_request(body, actor_id)
+    (json_text(request, "supplier_id", ""), request)
+  } else {
+    let id = match supplier_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, "supplier_id is required")
+    }
+    let request = if command_type == "update" {
+      match json_field(body, "changes") {
+        Some(Object(_)) => body
+        _ => supplier_update_request(id, body, actor_id)
+      }
+    } else {
+      supplier_transition_request(command_type, id, body, actor_id)
+    }
+    (id, request)
+  }
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "supplier": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_supplier_payload(id)
+  let imported = supplier_imported_exists(id)
+  if command_type == "create" {
+    if current is Some(_) || imported {
+      raise reject(409, "supplier already exists")
+    }
+  } else {
+    match current {
+      None => {
+        if imported {
+          raise reject(
+            409, "imported supplier is read-only; create a local supplier first",
+          )
+        }
+        raise reject(404, "supplier not found")
+      }
+      Some((payload, _)) => {
+        let state = json_text(payload, "state", "draft")
+        if command_type == "update" && state == "voided" {
+          raise reject(409, "voided supplier cannot be updated")
+        }
+        if command_type == "submit_review" && state != "draft" {
+          raise reject(
+            409,
+            "supplier transition submit_review requires draft, found " + state,
+          )
+        }
+        if command_type == "review" && state != "pending_review" {
+          raise reject(
+            409,
+            "supplier transition review requires pending_review, found " + state,
+          )
+        }
+        if (command_type == "blacklist" || command_type == "void") &&
+          state == "voided" {
+          raise reject(409, "voided supplier cannot change state")
+        }
+      }
+    }
+  }
+  let event_id = "supplier:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    "draft"
+  } else if command_type == "submit_review" {
+    "pending_review"
+  } else if command_type == "review" {
+    let evaluation = json_text(request, "evaluation", "unqualified")
+    if evaluation == "qualified" || evaluation == "strategic" {
+      "active"
+    } else {
+      "suspended"
+    }
+  } else if command_type == "blacklist" {
+    "blacklisted"
+  } else if command_type == "void" {
+    "voided"
+  } else {
+    json_text(current_payload, "state", "draft")
+  }
+  let next_evaluation = if command_type == "create" {
+    "unrated"
+  } else if command_type == "update" {
+    json_text(
+      json_field(request, "changes").unwrap_or(Json::object({})),
+      "evaluation",
+      json_text(current_payload, "evaluation", "unrated"),
+    )
+  } else {
+    json_text(
+      request,
+      "evaluation",
+      json_text(current_payload, "evaluation", "unrated"),
+    )
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let result = Json::object({
+    "supplier_id": Json::string(id),
+    "state": Json::string(next_state),
+    "evaluation": Json::string(next_evaluation),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "supplier_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    @postgres.sql_literal(request_json) +
+    "::jsonb || jsonb_build_object('state', 'draft', 'evaluation', 'unrated', 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "update" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || (" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb->'changes') || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'evaluation', " +
+    @postgres.sql_literal(next_evaluation) +
+    ", 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'evaluation', " +
+    @postgres.sql_literal(next_evaluation) +
+    ", 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("supplier." + command_type),
+    "aggregate_type": Json::string("supplier"),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "evaluation": Json::string(next_evaluation),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('supplier', " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "supplier": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+async fn source_supplier_alias_result(
+  result : Json,
+) -> Json raise CompanyServiceError {
+  let supplier = json_field(result, "supplier").unwrap_or(Json::null())
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let request = json_field(command, "request").unwrap_or(Json::null())
+  let changes = json_field(request, "changes").unwrap_or(Json::null())
+  let supplier_id = json_text(supplier, "supplier_id", "")
+  let provider_code = if !json_text(changes, "supplier_code", "").is_empty() {
+    json_text(changes, "supplier_code", supplier_id)
+  } else {
+    json_text(request, "supplier_code", supplier_id)
+  }
+  let list = supplier_source_list_response()
+  let mut provider = Json::null()
+  match json_field(list, "data") {
+    Some(Array(items)) =>
+      for item in items {
+        if json_text(item, "providerGuid", "") == supplier_id {
+          provider = item
+          break
+        }
+      }
+    _ => ()
+  }
+  if provider is Null {
+    provider = Json::object({
+      "providerGuid": Json::string(supplier_id),
+      "providerCode": Json::string(provider_code),
+      "providerName": Json::string(supplier_id),
+      "sourceKind": Json::string("command"),
+      "source_kind": Json::string("command"),
+      "auditState": Json::string(json_text(supplier, "state", "")),
+      "evalResult": Json::string(json_text(supplier, "evaluation", "unrated")),
+      "enabled": Json::boolean(json_text(supplier, "state", "") != "voided"),
+    })
+  }
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "providerGuid": Json::string(supplier_id),
+      "providerCode": Json::string(provider_code),
+    }),
+    "provider": provider,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
 }
 
 ///|
@@ -9218,6 +9892,49 @@ fn milestone_command_spec(
 }
 
 ///|
+fn supplier_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post && path == "/api/company/suppliers" {
+    return Some(("create", None))
+  }
+  if request_method is @http.Post && path == "/api/company/source/srm/providers" {
+    return Some(("source-create", None))
+  }
+  let supplier_prefix = "/api/company/suppliers/"
+  if request_method is @http.Post && path.has_prefix(supplier_prefix) {
+    let rest = path[supplier_prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 && valid_identifier(rest[0].to_owned()) {
+      let command = match rest[1].to_owned() {
+        "update" => "update"
+        "submit_review" => "submit_review"
+        "review" => "review"
+        "blacklist" => "blacklist"
+        "void" => "void"
+        _ => ""
+      }
+      if !command.is_empty() {
+        return Some((command, Some(rest[0].to_owned())))
+      }
+    }
+  }
+  let source_prefix = "/api/company/source/srm/providers/"
+  if path.has_prefix(source_prefix) {
+    let id = path[source_prefix.length():].to_owned()
+    if valid_identifier(id) {
+      if request_method is @http.Put || request_method is @http.Patch {
+        return Some(("source-update", Some(id)))
+      }
+      if request_method is @http.Delete {
+        return Some(("source-void", Some(id)))
+      }
+    }
+  }
+  None
+}
+
+///|
 fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
   match error {
     CompanyServiceError::CommandRejected(status, message) =>
@@ -9505,6 +10222,8 @@ async fn route(
             Json::string("source_dynamic_cost_command"),
             Json::string("contract_milestone_command"),
             Json::string("source_contract_milestone_command"),
+            Json::string("supplier_command"),
+            Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
@@ -9643,6 +10362,73 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match supplier_command_spec(request.meth, path) {
+    Some((command_type, supplier_guid)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let source_alias = command_type.has_prefix("source-")
+      let native_command = if command_type == "source-create" {
+        "create"
+      } else if command_type == "source-update" {
+        "update"
+      } else if command_type == "source-void" {
+        "void"
+      } else {
+        command_type
+      }
+      let canonical_body = if command_type == "source-create" {
+        supplier_source_create_request(body, actor, idempotency_key)
+      } else if command_type == "source-update" {
+        supplier_source_update_request(supplier_guid.unwrap(), body, actor)
+      } else if command_type == "source-void" {
+        supplier_transition_request("void", supplier_guid.unwrap(), body, actor)
+      } else {
+        body
+      }
+      let result = supplier_command(
+        native_command, supplier_guid, canonical_body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      if source_alias && result.0 < 400 {
+        let source_result = source_supplier_alias_result(result.1) catch {
+          error => {
+            let response = service_error_response(error)
+            send_json(conn, request.meth, response.0, response.1, false)
+            return
+          }
+        }
+        send_json(conn, request.meth, result.0, source_result, false)
+      } else {
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
+      return
+    }
+    None => ()
   }
   match milestone_command_spec(request.meth, path) {
     Some((command_type, contract_guid, milestone_guid)) => {
