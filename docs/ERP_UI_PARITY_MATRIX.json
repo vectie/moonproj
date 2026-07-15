@@ -84,6 +84,7 @@
     "connected_payment_application_command": 1,
     "connected_profile_read": 1,
     "connected_project_read": 2,
+    "connected_rbac_user_command_candidate": 4,
     "connected_rbac_user_read": 1,
     "connected_report_builder_command": 1,
     "connected_report_read": 1,
@@ -94,6 +95,7 @@
     "connected_tender_command": 1,
     "connected_warning_command": 1,
     "connected_warning_read": 1,
+    "connected_warning_rule_command_candidate": 1,
     "connected_webhook_config_command_candidate": 1,
     "connected_webhook_overdue_preview_read": 1,
     "connected_webhook_read": 1,
@@ -4402,8 +4404,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_rule_command_candidate",
+      "required_next": "accept_browser_warning_rule_command_scenario_and_warning_owner"
     },
     {
       "module": "warning",
