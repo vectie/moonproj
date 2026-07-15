@@ -3,9 +3,10 @@
 ///
 /// This is the first service slice in the Python-to-MoonBit migration. It
 /// keeps the bearer-token and forwarded-TLS boundary, then exposes fixed
-/// read-only contracts for health, summary, receipts, projections, and the
-/// imported profile/preferences/initiated-document observations. Commands and
-/// the wider ERP route families remain separate migration gates.
+/// read-only contracts for health, summary, receipts, projections, imported
+/// profile/preferences/initiated-document observations, and the source-shaped
+/// cost contract/payment observations. Commands and the wider ERP route
+/// families remain separate migration gates.
 pub(all) suberror CompanyServiceError {
   InvalidInput(String)
   Database(@postgres.PostgresError)
@@ -595,6 +596,924 @@ fn json_array_output(output : String) -> Array[Json] raise CompanyServiceError {
 }
 
 ///|
+fn json_double(value : Json, key : String, fallback : Double) -> Double {
+  match json_field(value, key) {
+    Some(Number(number, ..)) => number
+    _ => fallback
+  }
+}
+
+///|
+fn json_int(value : Json, key : String, fallback : Int) -> Int {
+  json_double(value, key, fallback.to_double()).to_int()
+}
+
+///|
+struct CostSourceRows {
+  contracts : Array[SourceRow]
+  applies : Array[SourceRow]
+  plans : Array[SourceRow]
+  milestones : Array[SourceRow]
+  projects : Array[SourceRow]
+  units : Array[SourceRow]
+  users : Array[SourceRow]
+  tasks : Array[SourceRow]
+}
+
+///|
+async fn cost_source_rows() -> CostSourceRows raise CompanyServiceError {
+  let contracts = raw_source_rows("cb_contract", 500)
+  let applies = raw_source_rows("cb_htfk_apply", 500)
+  let plans = raw_source_rows("cb_htfkplan", 500)
+  let milestones = raw_source_rows("cb_contract_milestone", 500)
+  let projects = raw_source_rows("ep_project", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let users = raw_source_rows("sys_user", 500)
+  let tasks = raw_source_rows("jd_task", 500)
+  { contracts, applies, plans, milestones, projects, units, users, tasks }
+}
+
+///|
+fn source_payload(
+  rows : Array[SourceRow],
+  key : String,
+  value : String,
+) -> Json? {
+  for row in rows {
+    if row.record_id == value || json_text(row.payload, key, "") == value {
+      return Some(row.payload)
+    }
+  }
+  None
+}
+
+///|
+fn source_name(
+  rows : Array[SourceRow],
+  key : String,
+  id_key : String,
+  id : String,
+) -> String {
+  match source_payload(rows, id_key, id) {
+    Some(payload) => json_text(payload, key, id)
+    None => id
+  }
+}
+
+///|
+fn source_coverage(rows : CostSourceRows) -> Json {
+  Json::object({
+    "cb_contract": Json::number(rows.contracts.length().to_double()),
+    "cb_contract_milestone": Json::number(rows.milestones.length().to_double()),
+    "cb_htfk_apply": Json::number(rows.applies.length().to_double()),
+    "cb_htfkplan": Json::number(rows.plans.length().to_double()),
+    "ep_project": Json::number(rows.projects.length().to_double()),
+    "jd_task": Json::number(rows.tasks.length().to_double()),
+    "mu_business_unit": Json::number(rows.units.length().to_double()),
+    "sys_user": Json::number(rows.users.length().to_double()),
+  })
+}
+
+///|
+fn source_missing(rows : CostSourceRows) -> Array[Json] {
+  let missing : Array[Json] = []
+  if rows.contracts.is_empty() {
+    missing.push(Json::string("cb_contract"))
+  }
+  if rows.milestones.is_empty() {
+    missing.push(Json::string("cb_contract_milestone"))
+  }
+  if rows.applies.is_empty() {
+    missing.push(Json::string("cb_htfk_apply"))
+  }
+  if rows.plans.is_empty() {
+    missing.push(Json::string("cb_htfkplan"))
+  }
+  if rows.projects.is_empty() {
+    missing.push(Json::string("ep_project"))
+  }
+  if rows.tasks.is_empty() {
+    missing.push(Json::string("jd_task"))
+  }
+  if rows.units.is_empty() {
+    missing.push(Json::string("mu_business_unit"))
+  }
+  if rows.users.is_empty() {
+    missing.push(Json::string("sys_user"))
+  }
+  missing
+}
+
+///|
+fn source_metadata(rows : CostSourceRows, command_projection : Bool) -> Json {
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": source_coverage(rows),
+    "missing_or_empty_source_tables": Json::array(source_missing(rows)),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(command_projection),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn source_money(value : Double) -> String raise CompanyServiceError {
+  money_display((value * 100.0).to_int())
+}
+
+///|
+async fn source_contract_row(
+  row : SourceRow,
+  rows : CostSourceRows,
+  paid : Double,
+  milestone_count : Int,
+) -> Json raise CompanyServiceError {
+  let payload = row.payload
+  let contract_id = json_text(payload, "contract_guid", row.record_id)
+  let project_id = json_text(payload, "proj_guid", "")
+  let bu_id = json_text(payload, "bu_guid", "")
+  let amount = json_double(payload, "ht_amount", 0.0)
+  let alteration = json_double(payload, "sum_alter_amount", 0.0)
+  let amount_minor = (amount * 100.0).to_int()
+  Json::object({
+    "contractGuid": Json::string(contract_id),
+    "contractCode": Json::string(
+      json_text(payload, "contract_code", contract_id),
+    ),
+    "contractName": Json::string(
+      json_text(payload, "contract_name", contract_id),
+    ),
+    "buGuid": Json::string(bu_id),
+    "buName": Json::string(source_name(rows.units, "bu_name", "bu_guid", bu_id)),
+    "projGuid": Json::string(project_id),
+    "projName": Json::string(
+      source_name(rows.projects, "proj_name", "proj_guid", project_id),
+    ),
+    "htTypeCode": Json::string(json_text(payload, "ht_type_code", "")),
+    "htClass": Json::number(json_int(payload, "ht_class", 0).to_double()),
+    "yfProviderName": Json::string(json_text(payload, "yf_provider_name", "")),
+    "yfCorporation": Json::string(json_text(payload, "yf_corporation", "")),
+    "htAmount": Json::number(amount),
+    "sumAlterAmount": Json::number(alteration),
+    "currentAmount": Json::number(amount + alteration),
+    "signDate": Json::string(json_text(payload, "sign_date", "")),
+    "htCfState": Json::string(json_text(payload, "ht_cf_state", "")),
+    "jsState": Json::string(json_text(payload, "js_state", "")),
+    "costCode": Json::string(json_text(payload, "cost_code", "")),
+    "rCode": Json::string(json_text(payload, "r_code", "")),
+    "l3Code": Json::string(json_text(payload, "l3_code", "")),
+    "cbState": Json::string(json_text(payload, "cb_state", "")),
+    "sourceKind": Json::string("imported"),
+    "sourceId": Json::string("erp:cb_contract:" + row.record_id),
+    "contract_id": Json::string(contract_id),
+    "contract_code": Json::string(
+      json_text(payload, "contract_code", contract_id),
+    ),
+    "contract_name": Json::string(
+      json_text(payload, "contract_name", contract_id),
+    ),
+    "project_id": Json::string(project_id),
+    "project_name": Json::string(
+      source_name(rows.projects, "proj_name", "proj_guid", project_id),
+    ),
+    "supplier_id": Json::string(json_text(payload, "yf_provider_name", "")),
+    "supplier_name": Json::string(json_text(payload, "yf_provider_name", "")),
+    "amount_minor": Json::number(amount_minor.to_double()),
+    "amount_display": Json::string(source_money(amount)),
+    "currency": Json::string("CNY"),
+    "sign_date": Json::string(json_text(payload, "sign_date", "")),
+    "state": Json::string(
+      if json_text(payload, "ht_cf_state", "") == "已终止" ||
+        json_text(payload, "ht_cf_state", "") == "作废" {
+        "voided"
+      } else {
+        "active"
+      },
+    ),
+    "paid_amount_display": Json::string(source_money(paid)),
+    "milestone_count": Json::string(milestone_count.to_string()),
+    "source_kind": Json::string("imported"),
+    "paidAmount": Json::number(paid),
+    "milestoneCount": Json::number(milestone_count.to_double()),
+  })
+}
+
+///|
+fn source_command_contract(item : Json) -> Json {
+  let contract_id = json_text(item, "contract_id", "")
+  let amount_minor = json_int(item, "amount_minor", 0)
+  let sum_alter_minor = json_int(item, "sum_alter_amount_minor", 0)
+  let state = json_text(item, "state", "draft")
+  let project_id = json_text(item, "project_id", "")
+  let supplier_id = json_text(item, "supplier_id", "")
+  let contract_code = json_text(item, "contract_code", contract_id)
+  let contract_name = json_text(item, "contract_name", contract_id)
+  let supplier_name = json_text(item, "supplier_name", supplier_id)
+  let project_name = json_text(item, "project_name", project_id)
+  Json::object({
+    "contractGuid": Json::string(contract_id),
+    "contractCode": Json::string(contract_code),
+    "contractName": Json::string(contract_name),
+    "buGuid": Json::string(json_text(item, "bu_guid", "")),
+    "buName": Json::string(json_text(item, "bu_name", "")),
+    "projGuid": Json::string(project_id),
+    "projName": Json::string(project_name),
+    "htTypeCode": Json::string(json_text(item, "ht_type_code", "")),
+    "htClass": Json::number(json_int(item, "ht_class", 0).to_double()),
+    "yfProviderName": Json::string(supplier_name),
+    "yfCorporation": Json::string(json_text(item, "supplier_corporation", "")),
+    "htAmount": Json::number(amount_minor.to_double() / 100.0),
+    "sumAlterAmount": Json::number(sum_alter_minor.to_double() / 100.0),
+    "currentAmount": Json::number(
+      (amount_minor + sum_alter_minor).to_double() / 100.0,
+    ),
+    "signDate": Json::string(json_text(item, "sign_date", "")),
+    "htCfState": Json::string(json_text(item, "ht_cf_state", "")),
+    "jsState": Json::string(json_text(item, "js_state", "")),
+    "costCode": Json::string(json_text(item, "cost_code", "")),
+    "rCode": Json::string(json_text(item, "r_code", "")),
+    "l3Code": Json::string(json_text(item, "l3_code", "")),
+    "cbState": Json::string(state),
+    "sourceKind": Json::string("command"),
+    "sourceId": Json::string("moonproj:command:contract:" + contract_id),
+    "contract_id": Json::string(contract_id),
+    "contract_code": Json::string(contract_code),
+    "contract_name": Json::string(contract_name),
+    "project_id": Json::string(project_id),
+    "project_name": Json::string(project_name),
+    "supplier_id": Json::string(supplier_id),
+    "supplier_name": Json::string(supplier_name),
+    "amount_minor": Json::number(amount_minor.to_double()),
+    "amount_display": Json::string(json_text(item, "amount_display", "¥0.00")),
+    "currency": Json::string(json_text(item, "currency", "CNY")),
+    "sign_date": Json::string(json_text(item, "sign_date", "")),
+    "state": Json::string(state),
+    "paid_amount_display": Json::string(
+      json_text(item, "paid_amount_display", "¥0.00"),
+    ),
+    "milestoneCount": Json::number(
+      json_int(item, "milestone_count", 0).to_double(),
+    ),
+    "milestone_count": Json::string(json_text(item, "milestone_count", "0")),
+    "source_kind": Json::string("command"),
+    "command_projection": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn source_contract_matches(
+  item : Json,
+  contract_id : String?,
+  bu_guid : String?,
+  proj_guid : String?,
+  keyword : String?,
+) -> Bool {
+  if contract_id is Some(value) && json_text(item, "contractGuid", "") != value {
+    return false
+  }
+  if bu_guid is Some(value) && json_text(item, "buGuid", "") != value {
+    return false
+  }
+  if proj_guid is Some(value) && json_text(item, "projGuid", "") != value {
+    return false
+  }
+  match keyword {
+    Some(value) => {
+      let needle = value.to_lower()
+      let haystack = (json_text(item, "contractName", "") +
+      " " +
+      json_text(item, "contractCode", "") +
+      " " +
+      json_text(item, "yfProviderName", "")).to_lower()
+      haystack.contains(needle)
+    }
+    None => true
+  }
+}
+
+///|
+async fn source_contract_list(
+  contract_id : String?,
+  bu_guid : String?,
+  proj_guid : String?,
+  keyword : String?,
+) -> Json raise CompanyServiceError {
+  let rows = cost_source_rows()
+  let result : Array[Json] = []
+  for row in rows.contracts {
+    let contract_id_value = json_text(
+      row.payload,
+      "contract_guid",
+      row.record_id,
+    )
+    let mut paid = 0.0
+    for apply in rows.applies {
+      if json_text(apply.payload, "contract_guid", "") == contract_id_value {
+        let state = json_text(apply.payload, "pay_state", "")
+        if state == "完全支付" || state == "部分支付" {
+          paid = paid + json_double(apply.payload, "apply_amount", 0.0)
+        }
+      }
+    }
+    let mut milestone_count = 0
+    for milestone in rows.milestones {
+      if json_text(milestone.payload, "contract_guid", "") == contract_id_value {
+        milestone_count += 1
+      }
+    }
+    let base = source_contract_row(row, rows, paid, milestone_count)
+    if source_contract_matches(base, contract_id, bu_guid, proj_guid, keyword) {
+      result.push(base)
+    }
+  }
+  let command_items = contract_items(None)
+  for item in command_items {
+    if json_text(item, "source_kind", "") == "command" {
+      let command = source_command_contract(item)
+      if source_contract_matches(
+          command, contract_id, bu_guid, proj_guid, keyword,
+        ) {
+        result.push(command)
+      }
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(right, "signDate", "").lexical_compare(
+      json_text(left, "signDate", ""),
+    )
+    if order == 0 {
+      json_text(right, "contractGuid", "").lexical_compare(
+        json_text(left, "contractGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  match
+    source_metadata(
+      rows,
+      result.any(fn(item) { json_text(item, "sourceKind", "") == "command" }),
+    ) {
+    Object(fields) => {
+      fields.set("success", Json::boolean(true))
+      fields.set("code", Json::number(0))
+      fields.set("data", Json::array(result))
+      Json::object(fields)
+    }
+    _ => raise fail("invalid source metadata")
+  }
+}
+
+///|
+fn source_user_name(rows : Array[SourceRow], user_id : String) -> String {
+  match source_payload(rows, "user_id", user_id) {
+    Some(payload) =>
+      json_text(payload, "emp_name", json_text(payload, "user_name", user_id))
+    None => user_id
+  }
+}
+
+///|
+fn source_contract_plans(
+  rows : CostSourceRows,
+  contract_id : String,
+  bu_guid : String,
+) -> Array[Json] {
+  let result : Array[Json] = []
+  for row in rows.plans {
+    let payload = row.payload
+    if json_text(payload, "contract_guid", "") == contract_id &&
+      json_text(payload, "bu_guid", "") == bu_guid {
+      let jbr = json_text(payload, "jbr_guid", "")
+      result.push(
+        Json::object({
+          "htfkPlanGuid": Json::string(
+            json_text(payload, "htfk_plan_guid", row.record_id),
+          ),
+          "planPeriod": Json::string(json_text(payload, "plan_period", "")),
+          "jhfkDate": Json::string(json_text(payload, "jhfk_date", "")),
+          "jhfkAmount": Json::number(json_double(payload, "jhfk_amount", 0.0)),
+          "approveState": Json::string(json_text(payload, "approve_state", "")),
+          "jbrName": Json::string(source_user_name(rows.users, jbr)),
+        }),
+      )
+    }
+  }
+  result
+}
+
+///|
+fn source_contract_applies(
+  rows : CostSourceRows,
+  contract_id : String,
+  bu_guid : String,
+) -> Array[Json] {
+  let result : Array[Json] = []
+  for row in rows.applies {
+    let payload = row.payload
+    if json_text(payload, "contract_guid", "") == contract_id &&
+      json_text(payload, "bu_guid", "") == bu_guid {
+      let state = json_text(payload, "pay_state", "")
+      let applied_by = json_text(payload, "applied_by", "")
+      result.push(
+        Json::object({
+          "htfkApplyGuid": Json::string(
+            json_text(payload, "htfk_apply_guid", row.record_id),
+          ),
+          "applyCode": Json::string(json_text(payload, "apply_code", "")),
+          "subject": Json::string(json_text(payload, "subject", "")),
+          "applyState": Json::string(json_text(payload, "apply_state", "")),
+          "payState": Json::string(state),
+          "applyAmount": Json::number(json_double(payload, "apply_amount", 0.0)),
+          "applyDate": Json::string(json_text(payload, "apply_date", "")),
+          "appliedByName": Json::string(
+            source_user_name(rows.users, applied_by),
+          ),
+          "milestoneGuid": Json::string(
+            json_text(payload, "milestone_guid", ""),
+          ),
+          "earlyPayFlag": json_field(payload, "early_pay_flag").unwrap_or(
+            Json::number(0),
+          ),
+          "operationState": Json::string(
+            if state == "未支付" {
+              json_text(payload, "apply_state", "")
+            } else {
+              state
+            },
+          ),
+        }),
+      )
+    }
+  }
+  result
+}
+
+///|
+fn source_contract_milestones(
+  rows : CostSourceRows,
+  contract_id : String,
+) -> Array[Json] {
+  let result : Array[Json] = []
+  for row in rows.milestones {
+    let payload = row.payload
+    if json_text(payload, "contract_guid", "") == contract_id {
+      let trigger_value = json_text(payload, "trigger_value", "")
+      let task = source_payload(rows.tasks, "task_guid", trigger_value)
+      let task_name = match task {
+        Some(value) => json_text(value, "task_name", "")
+        None => ""
+      }
+      let task_status = match task {
+        Some(value) => json_text(value, "status", "")
+        None => ""
+      }
+      result.push(
+        Json::object({
+          "milestoneGuid": Json::string(
+            json_text(payload, "milestone_guid", row.record_id),
+          ),
+          "seq": Json::number(json_int(payload, "seq", 0).to_double()),
+          "nodeName": Json::string(json_text(payload, "node_name", "")),
+          "triggerType": Json::string(json_text(payload, "trigger_type", "")),
+          "triggerValue": Json::string(trigger_value),
+          "triggerTaskName": Json::string(task_name),
+          "triggerTaskStatus": Json::string(task_status),
+          "planDate": Json::string(json_text(payload, "plan_date", "")),
+          "planAmount": Json::number(json_double(payload, "plan_amount", 0.0)),
+          "planPct": Json::number(json_double(payload, "plan_pct", 0.0)),
+          "actualAmount": Json::number(
+            json_double(payload, "actual_amount", 0.0),
+          ),
+          "state": Json::string(json_text(payload, "state", "")),
+          "reachedAt": Json::string(json_text(payload, "reached_at", "")),
+          "notes": Json::string(json_text(payload, "notes", "")),
+        }),
+      )
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_int(left, "seq", 0) - json_int(right, "seq", 0)
+    if order == 0 {
+      json_text(left, "milestoneGuid", "").lexical_compare(
+        json_text(right, "milestoneGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  result
+}
+
+///|
+async fn source_contract_detail(
+  contract_id : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(contract_id) {
+    raise fail("invalid contract_id")
+  }
+  let rows = cost_source_rows()
+  let list = source_contract_list(Some(contract_id), None, None, None)
+  let contract = match json_field(list, "data") {
+    Some(Array(items)) if !items.is_empty() => items[0]
+    _ =>
+      return (
+        404,
+        Json::object({
+          "success": Json::boolean(false),
+          "code": Json::number(43001),
+          "message": Json::string("合同不存在"),
+        }),
+      )
+  }
+  let bu_guid = json_text(contract, "buGuid", "")
+  let plans = source_contract_plans(rows, contract_id, bu_guid)
+  let applies = source_contract_applies(rows, contract_id, bu_guid)
+  let milestones = source_contract_milestones(rows, contract_id)
+  let (command_status, command_detail) = contract_detail_response(contract_id)
+  if command_status == 200 {
+    match json_field(command_detail, "milestones") {
+      Some(Array(items)) =>
+        for item in items {
+          if json_bool(item, "command_projection", false) {
+            milestones.push(item)
+          }
+        }
+      _ => ()
+    }
+  }
+  let paid : Double = applies.fold(init=0.0, fn(total, item) {
+    if json_text(item, "payState", "") == "完全支付" ||
+      json_text(item, "payState", "") == "部分支付" {
+      total + json_double(item, "applyAmount", 0.0)
+    } else {
+      total
+    }
+  })
+  milestones.sort_by(fn(left, right) {
+    let order = json_int(left, "seq", 0) - json_int(right, "seq", 0)
+    if order == 0 {
+      json_text(left, "milestoneGuid", "").lexical_compare(
+        json_text(right, "milestoneGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  match contract {
+    Object(fields) => {
+      fields.set("plans", Json::array(plans))
+      fields.set("applies", Json::array(applies))
+      fields.set("milestones", Json::array(milestones))
+      fields.set("paidAmount", Json::number(paid))
+      fields.set("paid_amount_display", Json::string(source_money(paid)))
+      fields.set(
+        "milestoneCount",
+        Json::number(milestones.length().to_double()),
+      )
+      fields.set(
+        "milestone_count",
+        Json::string(milestones.length().to_string()),
+      )
+      let contract_json = Json::object(fields)
+      match
+        source_metadata(
+          rows,
+          json_text(contract_json, "sourceKind", "") == "command",
+        ) {
+        Object(metadata) => {
+          metadata.set("success", Json::boolean(true))
+          metadata.set("code", Json::number(0))
+          metadata.set(
+            "data",
+            Json::object({
+              "contract": contract_json,
+              "plans": Json::array(plans),
+              "applies": Json::array(applies),
+              "milestones": Json::array(milestones),
+            }),
+          )
+          (200, Json::object(metadata))
+        }
+        _ =>
+          (
+            500,
+            Json::object({ "error": Json::string("invalid source metadata") }),
+          )
+      }
+    }
+    _ =>
+      (500, Json::object({ "error": Json::string("invalid source contract") }))
+  }
+}
+
+///|
+fn source_payment_matches_view(
+  apply_state : String,
+  pay_state : String,
+  view : String,
+  user_id : String,
+  applied_by : String,
+) -> Bool {
+  if view == "mine" && (user_id.is_empty() || applied_by != user_id) {
+    return false
+  }
+  if view == "approving" &&
+    !(apply_state == "申请审批中" ||
+    apply_state == "Approving" ||
+    apply_state == "submitted") {
+    return false
+  }
+  if view == "approved" &&
+    !(apply_state == "已审核" ||
+    apply_state == "Approved" ||
+    apply_state == "approved") {
+    return false
+  }
+  if view == "fullpaid" && pay_state != "完全支付" {
+    return false
+  }
+  true
+}
+
+///|
+async fn source_payment_row(
+  row : SourceRow,
+  rows : CostSourceRows,
+  contract : Json,
+) -> Json raise CompanyServiceError {
+  let payload = row.payload
+  let apply_id = json_text(payload, "htfk_apply_guid", row.record_id)
+  let contract_id = json_text(payload, "contract_guid", "")
+  let project_id = json_text(
+    payload,
+    "proj_guid",
+    json_text(contract, "proj_guid", ""),
+  )
+  let apply_dept = json_text(payload, "apply_dept_guid", "")
+  let applied_by = json_text(payload, "applied_by", "")
+  let apply_state = json_text(payload, "apply_state", "")
+  let pay_state = json_text(payload, "pay_state", "")
+  let amount = json_double(payload, "apply_amount", 0.0)
+  Json::object({
+    "htfkApplyGuid": Json::string(apply_id),
+    "applyCode": Json::string(json_text(payload, "apply_code", "")),
+    "contractGuid": Json::string(contract_id),
+    "contractName": Json::string(
+      json_text(contract, "contract_name", contract_id),
+    ),
+    "yfProviderName": Json::string(json_text(contract, "yf_provider_name", "")),
+    "projGuid": Json::string(project_id),
+    "projName": Json::string(
+      source_name(rows.projects, "proj_name", "proj_guid", project_id),
+    ),
+    "payClass": Json::string(
+      if json_text(payload, "apply_class", "0") == "0" {
+        "合同"
+      } else {
+        "非合同"
+      },
+    ),
+    "operationState": Json::string(
+      if pay_state == "未支付" {
+        apply_state
+      } else {
+        pay_state
+      },
+    ),
+    "applyState": Json::string(apply_state),
+    "payState": Json::string(pay_state),
+    "subject": Json::string(json_text(payload, "subject", "")),
+    "applyDeptName": Json::string(
+      source_name(rows.units, "bu_name", "bu_guid", apply_dept),
+    ),
+    "appliedBy": Json::string(applied_by),
+    "appliedByName": Json::string(source_user_name(rows.users, applied_by)),
+    "applyDate": Json::string(json_text(payload, "apply_date", "")),
+    "applyAmount": Json::number(amount),
+    "applyTypeCode": Json::string(json_text(payload, "apply_type_code", "")),
+    "htfkPlanGuid": Json::string(json_text(payload, "htfk_plan_guid", "")),
+    "milestoneGuid": Json::string(json_text(payload, "milestone_guid", "")),
+    "sourceKind": Json::string("imported"),
+    "sourceId": Json::string("erp:cb_htfk_apply:" + row.record_id),
+    "apply_id": Json::string(apply_id),
+    "apply_code": Json::string(json_text(payload, "apply_code", "")),
+    "contract_id": Json::string(contract_id),
+    "contract_name": Json::string(
+      json_text(contract, "contract_name", contract_id),
+    ),
+    "project_name": Json::string(
+      source_name(rows.projects, "proj_name", "proj_guid", project_id),
+    ),
+    "supplier_name": Json::string(json_text(contract, "yf_provider_name", "")),
+    "amount_minor": Json::number((amount * 100.0).to_int().to_double()),
+    "amount_display": Json::string(source_money(amount)),
+    "currency": Json::string("CNY"),
+    "apply_date": Json::string(json_text(payload, "apply_date", "")),
+    "operation_state": Json::string(
+      if pay_state == "未支付" {
+        apply_state
+      } else {
+        pay_state
+      },
+    ),
+    "apply_state": Json::string(apply_state),
+    "pay_state": Json::string(pay_state),
+    "apply_type_code": Json::string(json_text(payload, "apply_type_code", "")),
+    "pay_class": Json::string(
+      if json_text(payload, "apply_class", "0") == "0" {
+        "合同"
+      } else {
+        "非合同"
+      },
+    ),
+    "applied_by": Json::string(applied_by),
+    "applied_by_name": Json::string(source_user_name(rows.users, applied_by)),
+    "source_kind": Json::string("imported"),
+    "plan_id": Json::string(json_text(payload, "htfk_plan_guid", "")),
+    "milestone_id": Json::string(json_text(payload, "milestone_guid", "")),
+  })
+}
+
+///|
+fn source_command_payment(item : Json) -> Json {
+  let apply_id = json_text(item, "apply_id", "")
+  let amount_minor = json_int(item, "amount_minor", 0)
+  let operation_state = json_text(
+    item,
+    "operation_state",
+    json_text(item, "apply_state", "draft"),
+  )
+  let apply_state = json_text(item, "apply_state", operation_state)
+  let pay_state = json_text(item, "pay_state", "未支付")
+  let contract_id = json_text(item, "contract_id", "")
+  let project_id = json_text(item, "project_id", "")
+  let applied_by = json_text(item, "applied_by", "")
+  let applied_by_name = json_text(item, "applied_by_name", applied_by)
+  let apply_code = json_text(item, "apply_code", apply_id)
+  Json::object({
+    "htfkApplyGuid": Json::string(apply_id),
+    "applyCode": Json::string(apply_code),
+    "contractGuid": Json::string(contract_id),
+    "contractName": Json::string(json_text(item, "contract_name", contract_id)),
+    "yfProviderName": Json::string(json_text(item, "supplier_name", "")),
+    "projGuid": Json::string(project_id),
+    "projName": Json::string(json_text(item, "project_name", project_id)),
+    "payClass": Json::string(json_text(item, "pay_class", "合同")),
+    "operationState": Json::string(operation_state),
+    "applyState": Json::string(apply_state),
+    "payState": Json::string(pay_state),
+    "subject": Json::string(json_text(item, "subject", "")),
+    "applyDeptName": Json::string(""),
+    "appliedBy": Json::string(applied_by),
+    "appliedByName": Json::string(applied_by_name),
+    "applyDate": Json::string(json_text(item, "apply_date", "")),
+    "applyAmount": Json::number(amount_minor.to_double() / 100.0),
+    "applyTypeCode": Json::string(json_text(item, "apply_type_code", "")),
+    "htfkPlanGuid": Json::string(json_text(item, "plan_id", "")),
+    "milestoneGuid": Json::string(json_text(item, "milestone_id", "")),
+    "sourceKind": Json::string("command"),
+    "sourceId": Json::string("moonproj:command:payment_application:" + apply_id),
+    "apply_id": Json::string(apply_id),
+    "apply_code": Json::string(apply_code),
+    "contract_id": Json::string(contract_id),
+    "contract_name": Json::string(json_text(item, "contract_name", contract_id)),
+    "project_name": Json::string(json_text(item, "project_name", project_id)),
+    "supplier_name": Json::string(json_text(item, "supplier_name", "")),
+    "amount_minor": Json::number(amount_minor.to_double()),
+    "amount_display": Json::string(json_text(item, "amount_display", "¥0.00")),
+    "currency": Json::string(json_text(item, "currency", "CNY")),
+    "apply_date": Json::string(json_text(item, "apply_date", "")),
+    "operation_state": Json::string(operation_state),
+    "apply_state": Json::string(apply_state),
+    "pay_state": Json::string(pay_state),
+    "apply_type_code": Json::string(json_text(item, "apply_type_code", "")),
+    "pay_class": Json::string(json_text(item, "pay_class", "合同")),
+    "applied_by": Json::string(applied_by),
+    "applied_by_name": Json::string(applied_by_name),
+    "source_kind": Json::string("command"),
+    "plan_id": Json::string(json_text(item, "plan_id", "")),
+    "milestone_id": Json::string(json_text(item, "milestone_id", "")),
+    "command_projection": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn source_payment_list(
+  view : String,
+  bu_guid : String?,
+  user_id : String?,
+) -> Json raise CompanyServiceError {
+  if !(view == "all" ||
+    view == "mine" ||
+    view == "approving" ||
+    view == "approved" ||
+    view == "fullpaid") {
+    raise fail("unsupported payment application view")
+  }
+  let rows = cost_source_rows()
+  let result : Array[Json] = []
+  for row in rows.applies {
+    let payload = row.payload
+    let contract_id = json_text(payload, "contract_guid", "")
+    let contract = source_payload(rows.contracts, "contract_guid", contract_id)
+    match contract {
+      Some(contract_payload) => {
+        let applied_by = json_text(payload, "applied_by", "")
+        let apply_state = json_text(payload, "apply_state", "")
+        let pay_state = json_text(payload, "pay_state", "")
+        if json_field(payload, "deleted_at") is None &&
+          (
+            bu_guid is None ||
+            json_text(payload, "bu_guid", "") == bu_guid.unwrap()
+          ) &&
+          (user_id is None || applied_by == user_id.unwrap()) &&
+          source_payment_matches_view(
+            apply_state,
+            pay_state,
+            view,
+            user_id.unwrap_or(""),
+            applied_by,
+          ) {
+          result.push(source_payment_row(row, rows, contract_payload))
+        }
+      }
+      None => ()
+    }
+  }
+  let command_items = payment_items(None, "all")
+  for item in command_items {
+    if json_text(item, "source_kind", "") == "command" {
+      let operation_state = json_text(item, "operation_state", "")
+      let pay_state = json_text(item, "pay_state", "")
+      let applied_by = json_text(item, "applied_by", "")
+      let contract_id = json_text(item, "contract_id", "")
+      let contract = source_payload(
+        rows.contracts,
+        "contract_guid",
+        contract_id,
+      )
+      let bu_match = match bu_guid {
+        Some(value) =>
+          match contract {
+            Some(payload) => json_text(payload, "bu_guid", "") == value
+            None => false
+          }
+        None => true
+      }
+      if bu_match &&
+        (user_id is None || applied_by == user_id.unwrap()) &&
+        source_payment_matches_view(
+          operation_state,
+          pay_state,
+          view,
+          user_id.unwrap_or(""),
+          applied_by,
+        ) {
+        result.push(source_command_payment(item))
+      }
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(right, "applyDate", "").lexical_compare(
+      json_text(left, "applyDate", ""),
+    )
+    if order == 0 {
+      json_text(right, "htfkApplyGuid", "").lexical_compare(
+        json_text(left, "htfkApplyGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  match source_metadata(rows, true) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid source metadata")
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -928,6 +1847,81 @@ fn query_value(path : String, key : String) -> String? {
 }
 
 ///|
+fn hex_digit(value : Int) -> Char {
+  match "0123456789ABCDEF".get_char(value) {
+    Some(char) => char
+    None => '0'
+  }
+}
+
+///|
+fn query_encoded_hex(value : String) -> String {
+  let mut result = ""
+  let mut index = 0
+  while index < value.length() {
+    match value.get_char(index) {
+      Some('%') if index + 2 < value.length() =>
+        match (value.get_char(index + 1), value.get_char(index + 2)) {
+          (Some(high), Some(low)) => {
+            result += high.to_string()
+            result += low.to_string()
+            index += 3
+          }
+          _ => {
+            result += "25"
+            index += 1
+          }
+        }
+      Some('+') => {
+        result += "20"
+        index += 1
+      }
+      Some(char) => {
+        let code = char.to_int()
+        result += hex_digit(code / 16).to_string()
+        result += hex_digit(code % 16).to_string()
+        index += 1
+      }
+      None => index = value.length()
+    }
+  }
+  result
+}
+
+///|
+async fn query_decoded(
+  path : String,
+  key : String,
+) -> String? raise CompanyServiceError {
+  match query_value(path, key) {
+    None => None
+    Some(value) if !value.contains("%") && !value.contains("+") => Some(value)
+    Some(value) =>
+      Some(
+        run_sql(
+          "SELECT convert_from(decode(" +
+          @postgres.sql_literal(query_encoded_hex(value)) +
+          ", 'hex'), 'UTF8')",
+        )
+        .trim()
+        .to_owned(),
+      )
+  }
+}
+
+///|
+async fn query_alias_decoded(
+  path : String,
+  primary : String,
+  secondary : String,
+) -> String? raise CompanyServiceError {
+  match query_decoded(path, primary) {
+    Some(value) => Some(value)
+    None => query_decoded(path, secondary)
+  }
+}
+
+///|
 fn path_only(path : String) -> String {
   match path.find("?") {
     Some(index) => path[:index].to_owned()
@@ -1009,6 +2003,53 @@ async fn route(
   query : String,
   expected_schema_version : Int,
 ) -> (Int, Json) raise CompanyServiceError {
+  let source_contract_prefix = "/api/company/source/cost/contracts/"
+  if path == "/api/company/source/cost/contracts" {
+    let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
+    let bu_guid = query_alias_decoded(query, "buGuid", "bu_guid")
+    let proj_guid = query_alias_decoded(query, "projGuid", "proj_guid")
+    let keyword = query_decoded(query, "keyword")
+    return (200, source_contract_list(contract_id, bu_guid, proj_guid, keyword))
+  }
+  if path.has_prefix(source_contract_prefix) && path.has_suffix("/milestones") {
+    let contract_id = path[source_contract_prefix.length():path.length() -
+    "/milestones".length()].to_owned()
+    let detail = source_contract_detail(contract_id)
+    return match detail.0 {
+      200 =>
+        match json_field(detail.1, "data") {
+          Some(data) =>
+            match data {
+              Object(data_fields) => {
+                let milestones = data_fields
+                  .get("milestones")
+                  .unwrap_or(Json::array([]))
+                match
+                  source_contract_list(Some(contract_id), None, None, None) {
+                  Object(meta) => {
+                    meta.set("data", milestones)
+                    (200, Json::object(meta))
+                  }
+                  _ => detail
+                }
+              }
+              _ => detail
+            }
+          None => detail
+        }
+      _ => detail
+    }
+  }
+  if path.has_prefix(source_contract_prefix) {
+    let contract_id = path[source_contract_prefix.length():].to_owned()
+    return source_contract_detail(contract_id)
+  }
+  if path == "/api/company/source/cost/payment-applies" {
+    let view = query_value(query, "view").unwrap_or("all")
+    let bu_guid = query_alias_decoded(query, "buGuid", "bu_guid")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, source_payment_list(view, bu_guid, user_id))
+  }
   let payment_prefix = "/api/company/payment-applies/"
   if path.has_prefix(payment_prefix) &&
     path != "/api/company/payment-applies/eligibility" {
@@ -1051,6 +2092,8 @@ async fn route(
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),
+            Json::string("source_contract_observation_read"),
+            Json::string("source_payment_observation_read"),
             Json::string("authenticated_http_read"),
           ]),
           "schema_version": Json::number(expected_schema_version.to_double()),

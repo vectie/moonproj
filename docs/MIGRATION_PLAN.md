@@ -776,9 +776,10 @@ observations, plus the source investment sensitivity envelope over one version
 and 26 indices.
 Rabbita now loads source contracts/payment applications, renders budget scope
 and balance provenance on the expense surfaces, and chains all three workflow
-observation lists after the definition read. The dedicated
-`scripts/company_postgres_source_read_smoke.py` plus the existing attachment
-and dynamic-cost probes pass without mutations; the dynamic-cost remark
+observation lists after the definition read. The native shell-only
+`scripts/company_postgres_source_read_smoke.sh` plus the existing attachment
+and dynamic-cost probes pass without mutations; the older Python source-read
+smoke is comparison evidence only. The dynamic-cost remark
 observation preserves the imported `CB-101`/`建安工程` subject and remains
 non-authorizing, while the milestone early-payment check preserves a covered
 404 for the currently empty `cb_contract_milestone` table. Supplier category
@@ -790,6 +791,15 @@ sensitivity exposes six deterministic scenarios and remains analytics-only;
 it does not activate a version, call a provider, or write finance state.
 These are still local evidence: production identity, browser acceptance, named
 owner reconciliation, and the missing 49-table export remain open.
+
+The native MoonBit service now also owns the source-shaped contract/payment
+observation boundary (`/api/company/source/cost/contracts[/{id}[/milestones]]`
+and `/api/company/source/cost/payment-applies`). Imported rows, command
+projection merge, source coverage, URL-decoded filters, detail plans/applies,
+and the empty milestone response are parsed-equal to the frozen Python bridge
+on the live PostgreSQL target. This removes Python from the supported runtime
+path for this vertical; Python is retained only as historical comparison
+evidence until the remaining service/gateway surfaces are ported.
 
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
@@ -1300,10 +1310,13 @@ Execute the remainder in this order:
     MoonBit packages with the same fixed routes, PostgreSQL-only boundary,
     signed actor/session semantics, command receipts, and fail-closed error
     behavior. Port the source/export/rehearsal and smoke logic to MoonBit CLI
-    commands; retain shell only for process orchestration and PostgreSQL
-    operational commands. Run the Python bridge and MoonBit implementation in
-    shadow, compare canonical response/receipt hashes and replay counts, then
-    delete or archive the Python entry points before managed deployment.
+    commands. The supported implementation is pure MoonBit plus shell: shell
+    may select binaries, pass PostgreSQL environment/credentials, start
+    processes, and invoke `psql`, but it must not contain business logic or
+    depend on Python. Existing Python services/smokes are frozen comparison
+    artifacts only; no new Python path may be added. Continue canonical
+    response/receipt/replay comparisons while each slice is ported, then
+    archive the Python entry points before managed deployment.
     Native `cmd/postgres_read_model` covers the first three fixed read
     contracts, and native `cmd/postgres_read_model_server` now serves the first
     bounded HTTP read surface (`health`, `summary`, `receipts`, and filtered
@@ -1314,7 +1327,8 @@ Execute the remainder in this order:
     accounting traceability transactions with replay-hash parity. Continue the
     port with `cmd/postgres_company_service`'s authenticated native slice
     (health, summary, receipts, projections, profile, preferences,
-    initiated-document, contract, and payment observations), then the
+    initiated-document, source-shaped contract/payment, and payment
+    observations), then the
     remaining HTTP routes, gateway,
     rehearsal planners/parity tools, and shadow/replay checks before treating
     this convergence step as complete; Python remains bridge evidence only and
