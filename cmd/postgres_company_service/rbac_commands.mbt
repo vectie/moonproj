@@ -474,3 +474,276 @@ fn rbac_permissions(payload : Json) -> Json {
     _ => Json::array([])
   }
 }
+
+///|
+/// User-management candidates mirror the source RBAC write surface without
+/// mutating imported authentication state. Passwords are represented only by
+/// a digest; no credential value is returned or persisted in the request.
+fn rbac_user_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post && path == "/api/company/rbac/users" {
+    return Some(("user_create", None))
+  }
+  let prefix = "/api/company/rbac/users/"
+  if !path.has_prefix(prefix) {
+    return None
+  }
+  let rest = path[prefix.length():].to_owned().split("/").to_array()
+  if rest.length() == 1 &&
+    request_method is @http.Put &&
+    valid_identifier(rest[0].to_owned()) {
+    return Some(("user_update", Some(rest[0].to_owned())))
+  }
+  if rest.length() != 2 || !valid_identifier(rest[0].to_owned()) {
+    return None
+  }
+  let command_type = if rest[1] == "toggle" {
+    "user_toggle"
+  } else if rest[1] == "reset-password" {
+    "user_reset_password"
+  } else {
+    ""
+  }
+  if command_type.is_empty() {
+    return None
+  }
+  if request_method is @http.Post {
+    Some((command_type, Some(rest[0].to_owned())))
+  } else {
+    None
+  }
+}
+
+///|
+async fn rbac_user_exists(user_id : String) -> Bool raise CompanyServiceError {
+  raw_source_rows("sys_user", 500).any(fn(row) {
+    json_text(row.payload, "user_id", row.record_id) == user_id
+  })
+}
+
+///|
+fn rbac_user_digest(password : String) -> String {
+  @crypto.bytes_to_hex_string(@crypto.sha256(@encoding/utf8.encode(password)))
+}
+
+///|
+async fn rbac_user_command(
+  command_type : String,
+  target_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let actor_user_id = rbac_require_super(actor_id)
+  let (aggregate_id, changes, status_code) = if command_type == "user_create" {
+    let user_code = rbac_body_text(body, "userCode", "user_code")
+    let emp_name = rbac_body_text(body, "empName", "emp_name")
+    if !valid_identifier(user_code) || emp_name.is_empty() {
+      raise reject(400, "userCode/empName are required")
+    }
+    if raw_source_rows("sys_user", 500).any(fn(row) {
+        json_text(row.payload, "user_code", row.record_id) == user_code
+      }) {
+      raise reject(409, "userCode already exists in imported users")
+    }
+    let user_id = "local-user-" + idempotency_key
+    let password = rbac_body_text(body, "password", "")
+    let password_value = if password.is_empty() { "123456" } else { password }
+    (
+      user_id,
+      Json::object({
+        "user_id": Json::string(user_id),
+        "user_code": Json::string(user_code),
+        "emp_name": Json::string(emp_name),
+        "bu_guid": Json::string(rbac_body_text(body, "buGuid", "bu_guid")),
+        "dept_guid": Json::string(rbac_body_text(body, "deptGuid", "dept_guid")),
+        "is_super_user": Json::boolean(json_bool(body, "isSuperUser", false)),
+        "enabled": Json::boolean(true),
+        "password_digest": Json::string(rbac_user_digest(password_value)),
+        "credential_configured": Json::boolean(true),
+        "state": Json::string("active"),
+        "source_kind": Json::string("command"),
+      }),
+      201,
+    )
+  } else {
+    let user_id = match target_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, "user id is required")
+    }
+    if !rbac_user_exists(user_id) {
+      raise reject(404, "user not found; imported identity remains read-only")
+    }
+    if command_type == "user_update" {
+      let changes : Map[String, Json] = {
+        "user_id": Json::string(user_id),
+        "state": Json::string("active"),
+        "source_kind": Json::string("command"),
+      }
+      let emp_name = rbac_body_text(body, "empName", "emp_name")
+      if !emp_name.is_empty() {
+        changes.set("emp_name", Json::string(emp_name))
+      }
+      let bu_guid = rbac_body_text(body, "buGuid", "bu_guid")
+      if !bu_guid.is_empty() {
+        changes.set("bu_guid", Json::string(bu_guid))
+      }
+      let dept_guid = rbac_body_text(body, "deptGuid", "dept_guid")
+      if !dept_guid.is_empty() {
+        changes.set("dept_guid", Json::string(dept_guid))
+      }
+      if json_field(body, "isSuperUser") is Some(_) ||
+        json_field(body, "is_super_user") is Some(_) {
+        changes.set(
+          "is_super_user",
+          Json::boolean(
+            json_bool(
+              body,
+              "isSuperUser",
+              json_bool(body, "is_super_user", false),
+            ),
+          ),
+        )
+      }
+      (user_id, Json::object(changes), 200)
+    } else if command_type == "user_toggle" {
+      let mut enabled = true
+      for row in raw_source_rows("sys_user", 500) {
+        if json_text(row.payload, "user_id", row.record_id) == user_id {
+          enabled = !json_bool(row.payload, "enabled", false)
+        }
+      }
+      (
+        user_id,
+        Json::object({
+          "user_id": Json::string(user_id),
+          "enabled": Json::boolean(enabled),
+          "state": Json::string("active"),
+          "source_kind": Json::string("command"),
+        }),
+        200,
+      )
+    } else if command_type == "user_reset_password" {
+      let password = rbac_body_text(body, "password", "")
+      let password_value = if password.is_empty() { "123456" } else { password }
+      (
+        user_id,
+        Json::object({
+          "user_id": Json::string(user_id),
+          "password_digest": Json::string(rbac_user_digest(password_value)),
+          "credential_configured": Json::boolean(true),
+          "state": Json::string("active"),
+          "source_kind": Json::string("command"),
+        }),
+        200,
+      )
+    } else {
+      raise reject(404, "unsupported RBAC user command")
+    }
+  }
+  let request = Json::object({
+    "command_type": Json::string(command_type),
+    "aggregate_type": Json::string("rbac_user"),
+    "aggregate_id": Json::string(aggregate_id),
+    "actor_id": Json::string(actor_id),
+    "actor_user_id": Json::string(actor_user_id),
+    "changes": changes,
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "rbac": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let event_id = "rbac:" + command_type + ":" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "aggregate_type": Json::string("rbac_user"),
+    "aggregate_id": Json::string(aggregate_id),
+    "state": Json::string("active"),
+    "revision": Json::number(1.0),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+    "authorization_candidate": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "security_effect": Json::boolean(true),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+    "credential_values_redacted": Json::boolean(true),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("rbac"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("rbac_user"),
+    "aggregate_id": Json::string(aggregate_id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("rbac." + command_type),
+    "aggregate_type": Json::string("rbac_user"),
+    "aggregate_id": Json::string(aggregate_id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "authorization_candidate": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "security_effect": Json::boolean(true),
+    "credential_values_redacted": Json::boolean(true),
+  })
+  let sql = "BEGIN; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('rbac_user', " +
+    @postgres.sql_literal(aggregate_id) +
+    ", 1, " +
+    @postgres.sql_literal(changes.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    status_code,
+    Json::object({
+      "command": command_payload,
+      "rbac": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}

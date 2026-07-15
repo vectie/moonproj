@@ -38,6 +38,7 @@
     "connected_payment_application_command_form": 1,
     "connected_profile_read": 1,
     "connected_project_read": 2,
+    "connected_rbac_user_command_candidate": 4,
     "connected_rbac_user_read": 1,
     "connected_report_builder_command_form": 1,
     "connected_report_read": 1,
@@ -3649,8 +3650,8 @@
       "browser_route_paths": [
         "/users"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_rbac_user_command_candidate",
+      "required_next": "accept_browser_user_command_scenario_and_identity_owner"
     },
     {
       "module": "rbac",
@@ -3659,8 +3660,8 @@
       "browser_route_paths": [
         "/users"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_rbac_user_command_candidate",
+      "required_next": "accept_browser_user_command_scenario_and_identity_owner"
     },
     {
       "module": "rbac",
@@ -3669,8 +3670,8 @@
       "browser_route_paths": [
         "/users"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_rbac_user_command_candidate",
+      "required_next": "accept_browser_user_command_scenario_and_identity_owner"
     },
     {
       "module": "rbac",
@@ -3679,8 +3680,8 @@
       "browser_route_paths": [
         "/users"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_rbac_user_command_candidate",
+      "required_next": "accept_browser_user_command_scenario_and_identity_owner"
     },
     {
       "module": "rbac",

@@ -8,6 +8,11 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-rbac-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-admin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-rbac-actor-secret}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
+export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-rbac.XXXXXX")
 SERVICE_PID=""
 SMOKE_SUFFIX=$(/bin/date +%s)
@@ -17,6 +22,11 @@ ROLE_KEY="rbac-role-$SMOKE_SUFFIX"
 DELETE_ROLE_KEY="rbac-delete-role-$SMOKE_SUFFIX"
 ASSIGN_KEY="rbac-assignment-$SMOKE_SUFFIX"
 DELETE_KEY="rbac-role-delete-$SMOKE_SUFFIX"
+USER_CREATE_KEY="rbac-user-create-$SMOKE_SUFFIX"
+USER_UPDATE_KEY="rbac-user-update-$SMOKE_SUFFIX"
+USER_TOGGLE_KEY="rbac-user-toggle-$SMOKE_SUFFIX"
+USER_RESET_KEY="rbac-user-reset-$SMOKE_SUFFIX"
+LOCAL_USER_ID="local-user-$USER_CREATE_KEY"
 USER_ID="user-admin-0001"
 
 cleanup() {
@@ -25,7 +35,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'rbac_role' AND aggregate_id IN ('$ROLE_CODE', '$DELETE_ROLE_CODE')) OR (aggregate_type = 'rbac_user_roles' AND aggregate_id = '$USER_ID'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$ROLE_KEY', 'moonproj:command:$DELETE_ROLE_KEY', 'moonproj:command:$ASSIGN_KEY', 'moonproj:command:$DELETE_KEY', 'moonproj:audit:rbac:role_upsert:$ROLE_KEY', 'moonproj:audit:rbac:role_upsert:$DELETE_ROLE_KEY', 'moonproj:audit:rbac:user_roles:$ASSIGN_KEY', 'moonproj:audit:rbac:role_delete:$DELETE_KEY');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'rbac_role' AND aggregate_id IN ('$ROLE_CODE', '$DELETE_ROLE_CODE')) OR (aggregate_type = 'rbac_user_roles' AND aggregate_id = '$USER_ID') OR (aggregate_type = 'rbac_user' AND aggregate_id = '$LOCAL_USER_ID'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$ROLE_KEY', 'moonproj:command:$DELETE_ROLE_KEY', 'moonproj:command:$ASSIGN_KEY', 'moonproj:command:$DELETE_KEY', 'moonproj:command:$USER_CREATE_KEY', 'moonproj:command:$USER_UPDATE_KEY', 'moonproj:command:$USER_TOGGLE_KEY', 'moonproj:command:$USER_RESET_KEY', 'moonproj:audit:rbac:role_upsert:$ROLE_KEY', 'moonproj:audit:rbac:role_upsert:$DELETE_ROLE_KEY', 'moonproj:audit:rbac:user_roles:$ASSIGN_KEY', 'moonproj:audit:rbac:role_delete:$DELETE_KEY', 'moonproj:audit:rbac:user_create:$USER_CREATE_KEY', 'moonproj:audit:rbac:user_update:$USER_UPDATE_KEY', 'moonproj:audit:rbac:user_toggle:$USER_TOGGLE_KEY', 'moonproj:audit:rbac:user_reset_password:$USER_RESET_KEY');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -117,6 +127,39 @@ test "$status" = 200
 /usr/bin/jq -e '.data.roles | index("'$ROLE_CODE'")' "$TMP_DIR/me.json" >/dev/null
 /usr/bin/jq -e '(.data.permissions | index("dashboard:read")) != null and .authorization_candidate == true and .authorizing == false' "$TMP_DIR/me.json" >/dev/null
 
+user_body="{\"userCode\":\"moonproj-smoke-user-$SMOKE_SUFFIX\",\"empName\":\"Moonproj User\",\"password\":\"secret-not-returned\"}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-create.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $USER_CREATE_KEY" \
+  --data "$user_body" "http://127.0.0.1:$PORT/api/company/rbac/users")
+test "$status" = 201
+/usr/bin/jq -e '.rbac.aggregate_id == "'"$LOCAL_USER_ID"'" and .rbac.credential_values_redacted == true and (.command.request.changes.password == null)' "$TMP_DIR/user-create.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-update.json" -w '%{http_code}' \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $USER_UPDATE_KEY" \
+  --data '{"empName":"Updated Admin"}' "http://127.0.0.1:$PORT/api/company/rbac/users/$USER_ID")
+test "$status" = 200
+/usr/bin/jq -e '.rbac.authorization_candidate == true and .rbac.authorizing == false' "$TMP_DIR/user-update.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-toggle.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $USER_TOGGLE_KEY" \
+  --data '{}' "http://127.0.0.1:$PORT/api/company/rbac/users/$USER_ID/toggle")
+test "$status" = 200
+/usr/bin/jq -e '.rbac.security_effect == true and .rbac.authorizing == false' "$TMP_DIR/user-toggle.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-reset.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $USER_RESET_KEY" \
+  --data '{"password":"reset-secret-not-returned"}' "http://127.0.0.1:$PORT/api/company/rbac/users/$USER_ID/reset-password")
+test "$status" = 200
+/usr/bin/jq -e '.rbac.credential_values_redacted == true and (.command.request.changes.password == null)' "$TMP_DIR/user-reset.json" >/dev/null
+
 delete_body='{}'
 delete_role_body="{\"roleCode\":\"$DELETE_ROLE_CODE\",\"roleName\":\"Delete Smoke\",\"permissions\":[]}"
 /usr/bin/curl -fsS -o "$TMP_DIR/delete-create.json" -w '%{http_code}' \
@@ -132,4 +175,4 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/delete.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.rbac.state == "deleted" and .rbac.authorization_candidate == true' "$TMP_DIR/delete.json" >/dev/null
 
-echo "native MoonBit RBAC role/assignment/idempotency/readback smoke passed"
+echo "native MoonBit RBAC role/user candidate/assignment/idempotency/readback smoke passed"

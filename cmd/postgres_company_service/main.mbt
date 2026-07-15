@@ -518,6 +518,7 @@ async fn summary(
       Json::string("preference_command"),
       Json::string("workflow_command"),
       Json::string("rbac_command"),
+      Json::string("rbac_user_command_candidate"),
       Json::string("investment_command"),
       Json::string("cbs_command"),
       Json::string("budget_expense_command"),
@@ -15760,6 +15761,7 @@ async fn route(
             Json::string("preference_command"),
             Json::string("workflow_command"),
             Json::string("rbac_command"),
+            Json::string("rbac_user_command_candidate"),
             Json::string("investment_command"),
             Json::string("initiated_document_observation_read"),
             Json::string("budget_scope_observation_read"),
@@ -16149,6 +16151,43 @@ async fn handle(
       }
       let result = workflow_command(
         command_type, instance_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match rbac_user_command_spec(request.meth, path) {
+    Some((command_type, target_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = rbac_user_command(
+        command_type, target_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }

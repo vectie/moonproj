@@ -1199,7 +1199,9 @@ commands now persist command-owned authority candidates, enforce enabled
 super-user actors, replay idempotently, and merge into role/user/me reads;
 `scripts/company_postgres_rbac_smoke.sh` covers the full local slice. These
 commands deliberately set `authorization_candidate=true` while retaining
-`authorizing=false`; password writes, production identity/token binding,
+`authorizing=false`; user create/update/toggle/reset-password candidates now
+persist only digest-backed credential metadata (never plaintext). Password
+binding, production identity/token binding,
 provider-backed authorization, owner reconciliation, and the complete
 credential-safe export remain open gates.
 
