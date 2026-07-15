@@ -1395,8 +1395,8 @@ activation, CBS budget-reservation/
 mutation surfaces, warning scans/provider actions, attachment binary/OCR
 operations, notification/provider actions, RBAC password/identity writes and
 production authorization binding, source workflow-engine
-synchronization/full delegation semantics, report-builder template/share commands, and the remaining
-investment/cash/provider effects.
+synchronization/full delegation semantics, report-builder share/export
+commands, and the remaining investment/cash/provider effects.
 Those surfaces stay explicitly gated rather than being represented by
 designer fixtures or the frozen Python bridge.
 
