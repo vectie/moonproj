@@ -303,6 +303,12 @@ fn budget_command_spec(
       rest[1].to_owned() == "auto-offset" {
       return Some(("auto_offset", Some(rest[0].to_owned())))
     }
+    if request_method is @http.Post &&
+      rest.length() == 2 &&
+      valid_identifier(rest[0].to_owned()) &&
+      rest[1].to_owned() == "sync-from-workflow" {
+      return Some(("sync_from_workflow", Some(rest[0].to_owned())))
+    }
   }
   None
 }
@@ -317,6 +323,11 @@ async fn budget_command(
 ) -> (Int, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  if command_type == "sync_from_workflow" {
+    raise reject(
+      409, "workflow synchronization is gated until wf_process_instance source rows are available",
+    )
   }
   let (actor_user_id, actor_bu_guid) = budget_actor(actor_id)
   let (request, aggregate_id, result_data) = if command_type == "create" {

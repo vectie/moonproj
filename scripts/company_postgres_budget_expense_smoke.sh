@@ -55,6 +55,9 @@ curl_common -fsS -X POST -H 'Idempotency-Key: budget-smoke-auto-offset' --data '
 curl_common -fsS -X PUT -H 'Idempotency-Key: budget-smoke-update' --data '{"subject":"Updated Office Expense","expenseAmount":110,"offsetAmount":20,"payUnit":"CNY"}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke" | /usr/bin/jq -e '.data.expenseGuid == "budget-expense-smoke" and .data.applyState == "Draft" and .budget_consumption == false' >/dev/null
 curl_common -fsS -X POST -H 'Idempotency-Key: budget-smoke-submit' --data '{}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke/submit-for-approval" | /usr/bin/jq -e '.data.expenseGuid == "budget-expense-smoke" and .data.applyState == "Approving" and .workflow_synchronization == false' >/dev/null
 /usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' "http://127.0.0.1:$PORT/api/company/budget/expenses?expenseGuid=budget-expense-smoke" | /usr/bin/jq -e '.data[0].applyState == "Approving" and .data[0].subject == "Updated Office Expense"' >/dev/null
+status=$(curl_common -sS -o "$TMP_DIR/workflow-gate.json" -w '%{http_code}' -X POST -H 'Idempotency-Key: budget-smoke-workflow-gate' --data '{}' "http://127.0.0.1:$PORT/api/company/budget/expenses/budget-expense-smoke/sync-from-workflow")
+test "$status" = 409
+/usr/bin/jq -e '.error == "workflow synchronization is gated until wf_process_instance source rows are available"' "$TMP_DIR/workflow-gate.json" >/dev/null
 
 second='{"expenseGuid":"budget-expense-void-smoke","subject":"Voidable Expense","expenseAmount":10,"applyDeptGuid":"bu-tjgs-0001","applyDate":"2026-07-15","splits":[{"userGuid":"user-admin-0001","deptGuid":"bu-tjgs-0001","costSubjectCode":"COST-001","amount":10}]}'
 curl_common -fsS -X POST -H 'Idempotency-Key: budget-smoke-second' --data "$second" "http://127.0.0.1:$PORT/api/company/budget/expenses" | /usr/bin/jq -e '.data.applyState == "Draft"' >/dev/null

@@ -15970,6 +15970,7 @@ async fn route(
             Json::string("supplier_rescore_candidate"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
+            Json::string("expense_workflow_sync_candidate"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),

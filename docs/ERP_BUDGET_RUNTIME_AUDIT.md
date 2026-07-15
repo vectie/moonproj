@@ -21,6 +21,7 @@ The target now exposes source-compatible read boundaries:
 | Current user's approved loan balance | `/api/company/source/budget/my-loan-balance?userCode=<code>` | bounded source observation |
 | Budget headroom preview | `/api/company/budget-check` | non-authorizing calculation-only read |
 | Expense auto-offset | `/api/company/budget/expenses/:guid/auto-offset` | command-owned Draft writeback with FIFO loan plan |
+| Workflow synchronization | `/api/company/budget/expenses/:guid/sync-from-workflow` | explicit 409 gate until workflow-engine source rows are imported |
 
 Each response preserves source field names (`code`, `name`, and `guid` where
 applicable) and marks rows `sourceKind=imported`. The budget-check response
