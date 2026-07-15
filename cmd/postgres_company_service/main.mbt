@@ -16006,6 +16006,7 @@ async fn route(
             Json::string("source_contract_observation_read"),
             Json::string("source_payment_observation_read"),
             Json::string("authenticated_http_read"),
+            Json::string("auth_lifecycle_candidate"),
           ]),
           "schema_version": Json::number(expected_schema_version.to_double()),
         }),
@@ -16075,7 +16076,16 @@ async fn handle(
   let path = path_only(request.path)
   let public_share = (request.meth is @http.Get || request.meth is @http.Head) &&
     report_share_public_path(path)
+  let auth_login_route = auth_lifecycle_spec(request.meth, path)
+    is Some("login")
   let authorization_status = if public_share {
+    if require_forwarded_tls &&
+      header(request, "X-Forwarded-Proto").to_lower() != "https" {
+      400
+    } else {
+      0
+    }
+  } else if auth_login_route {
     if require_forwarded_tls &&
       header(request, "X-Forwarded-Proto").to_lower() != "https" {
       400
@@ -16102,6 +16112,24 @@ async fn handle(
       authorization_status == 401,
     )
     return
+  }
+  match auth_lifecycle_spec(request.meth, path) {
+    Some(action) => {
+      if action != "login" {
+        let actor = command_actor(request, actor_signing_secret) catch {
+          error => {
+            let response = service_error_response(error)
+            send_json(conn, request.meth, response.0, response.1, false)
+            return
+          }
+        }
+        let _ = actor
+      }
+      let result = auth_lifecycle_gate(action)
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   match ai_explain_spec(request.meth, path) {
     Some((kind, project_id)) => {

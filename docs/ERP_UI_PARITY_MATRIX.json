@@ -138,6 +138,7 @@
     "connected_warning_ticket_transition_candidate": 3,
     "connected_warning_scan_preview_read": 1,
     "connected_admin_sys_param_command_candidate": 1,
+    "auth_lifecycle_candidate": 4,
     "connected_tender_state_candidate": 1,
     "connected_tender_award_candidate": 1,
     "connected_webhook_config_command_candidate": 1,
@@ -1468,8 +1469,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "auth_lifecycle_candidate",
+      "required_next": "accept_production_identity_and_auth_owner"
     },
     {
       "module": "auth",
@@ -1490,8 +1491,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "auth_lifecycle_candidate",
+      "required_next": "accept_production_identity_and_auth_owner"
     },
     {
       "module": "auth",
@@ -1501,8 +1502,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "auth_lifecycle_candidate",
+      "required_next": "accept_production_identity_and_auth_owner"
     },
     {
       "module": "auth",
@@ -1512,8 +1513,8 @@
         "/login",
         "/profile"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "auth_lifecycle_candidate",
+      "required_next": "accept_production_identity_and_auth_owner"
     },
     {
       "module": "auth",

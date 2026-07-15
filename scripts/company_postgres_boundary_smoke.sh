@@ -73,4 +73,11 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs.json" -w '%{http_code}' -X POST \
 test "$status" = 409
 /usr/bin/jq -e '.code == 45001 and .source_kind == "cbs_mutation_boundary_candidate" and .data.mutated == false' "$TMP_DIR/cbs.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/login.json" -w '%{http_code}' -X POST \
+  -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' \
+  --data '{"userCode":"admin","password":"not-used"}' \
+  "http://127.0.0.1:$PORT/api/company/auth/login")
+test "$status" = 409
+/usr/bin/jq -e '.code == 41001 and .source_kind == "auth_lifecycle_candidate" and .data.sessionIssued == false' "$TMP_DIR/login.json" >/dev/null
+
 /usr/bin/printf '%s\n' 'native PostgreSQL import/customer boundary smoke passed'

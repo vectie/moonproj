@@ -19,6 +19,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - API-state delta: `connected_expense_workflow_sync_candidate` **1** now covers the budget `sync-from-workflow` gate; the API-state JSON ledger remains authoritative.
 - API-state delta: `import_batch_candidate` **1** and `sales_customer_delete_candidate` **1** now expose explicit authenticated policy gates; the API-state JSON ledger remains authoritative.
 - API-state delta: `cbs_mutation_boundary_candidate` **12** now covers the remaining R0, demo-contract, contract-approval, and change writes; the API-state JSON ledger remains authoritative.
+- API-state delta: `auth_lifecycle_candidate` **4** now covers login, logout, password change, and profile writes as explicit identity/session gates; the API-state JSON ledger remains authoritative.
 - Native additions since the original matrix snapshot: `connected_cashflow_ai_explain_candidate` **1**, `connected_investment_ai_explain_candidate` **1**, `plan_ai_suggestion_candidate` **1**, `ai_hub_explain_candidate` **1**, `ai_hub_command_candidate` **9**, `attachment_re_extract_candidate` **1**, `attachment_upload_candidate` **1**, `attachment_delete_candidate` **1**, `connected_cbs_command_candidate` **5**, `connected_cbs_approval_command_candidate` **3**, `investment_excel_index_upsert_candidate` **1**, `investment_excel_plan_line_import_candidate` **1**, `investment_subject_mappings_candidate` **1**, `investment_plan_line_update_candidate` **1**, `investment_excel_upload_candidate` **1**, `connected_loan_workflow_sync_candidate` **1**, `connected_rbac_role_command_candidate` **2**, `connected_rbac_role_assignment_candidate` **1**, `connected_warning_custom_rule_preview_candidate` **1**, `supplier_rescore_candidate` **1**, `connected_investment_command_candidate` **6**, `connected_report_export_xlsx` **1**, `connected_tender_state_candidate` **1**, and `connected_tender_award_candidate` **1**; the JSON ledger is authoritative for the full state counts.
 - Workflow command state: `connected_workflow_command_candidate` **5** (start, approve, reject, cosigner, transfer); browser/production identity and operations-owner acceptance remain required.
 
@@ -137,11 +138,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `attachment` | `POST` | `/re-extract/:guid` | `/attachments` | `attachment_re_extract_candidate` | `accept_browser_attachment_re_extract_scenario_and_ai_owner` |
 | `attachment` | `GET` | `/all` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
 | `attachment` | `GET` | `/stats` | `/attachments` | `connected_attachment_read` | `accept_browser_attachment_scenario_and_production_identity` |
-| `auth` | `POST` | `/login` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `auth` | `POST` | `/login` | `/login`, `/profile` | `auth_lifecycle_candidate` | `accept_production_identity_and_auth_owner` |
 | `auth` | `GET` | `/me` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
-| `auth` | `POST` | `/logout` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `auth` | `POST` | `/change-password` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `auth` | `PUT` | `/profile` | `/login`, `/profile` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `auth` | `POST` | `/logout` | `/login`, `/profile` | `auth_lifecycle_candidate` | `accept_production_identity_and_auth_owner` |
+| `auth` | `POST` | `/change-password` | `/login`, `/profile` | `auth_lifecycle_candidate` | `accept_production_identity_and_auth_owner` |
+| `auth` | `PUT` | `/profile` | `/login`, `/profile` | `auth_lifecycle_candidate` | `accept_production_identity_and_auth_owner` |
 | `auth` | `GET` | `/my-initiated` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `auth` | `GET` | `/prefs` | `/login`, `/profile` | `connected_profile_read` | `accept_browser_profile_scenario_and_production_identity` |
 | `auth` | `PUT` | `/prefs/:key` | `/login`, `/profile` | `connected_preference_command` | `accept_browser_preference_command_scenario_and_security_owner` |

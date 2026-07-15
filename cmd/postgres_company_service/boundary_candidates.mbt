@@ -177,3 +177,49 @@ fn cbs_mutation_boundary_gate(action : String) -> (Int, Json) {
     }),
   )
 }
+
+///|
+fn auth_lifecycle_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  if request_method is @http.Post && path == "/api/company/auth/login" {
+    return Some("login")
+  }
+  if request_method is @http.Post && path == "/api/company/auth/logout" {
+    return Some("logout")
+  }
+  if request_method is @http.Post && path == "/api/company/auth/change-password" {
+    return Some("change_password")
+  }
+  if request_method is @http.Put && path == "/api/company/auth/profile" {
+    return Some("profile")
+  }
+  None
+}
+
+///|
+fn auth_lifecycle_gate(action : String) -> (Int, Json) {
+  (
+    409,
+    Json::object({
+      "success": Json::boolean(false),
+      "code": Json::number(41001),
+      "message": Json::string(
+        "认证生命周期需要生产身份、密码哈希/会话存储和负责人确认；当前 native 服务不执行该写入。",
+      ),
+      "data": Json::object({
+        "action": Json::string(action),
+        "sessionIssued": Json::boolean(false),
+        "mutated": Json::boolean(false),
+      }),
+      "source_kind": Json::string("auth_lifecycle_candidate"),
+      "dry_run": Json::boolean(true),
+      "persisted": Json::boolean(false),
+      "authorizing": Json::boolean(false),
+      "cash_effect": Json::boolean(false),
+      "accounting_effect": Json::boolean(false),
+      "tax_effect": Json::boolean(false),
+    }),
+  )
+}
