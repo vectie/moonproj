@@ -99,6 +99,7 @@
     "connected_payment_application_command": 1,
     "connected_profile_read": 1,
     "connected_project_read": 2,
+    "plan_ai_suggestion_candidate": 1,
     "connected_rbac_user_command_candidate": 4,
     "connected_rbac_user_read": 1,
     "connected_report_builder_command": 1,
@@ -3550,8 +3551,8 @@
       "browser_route_paths": [
         "/project-plan"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "plan_ai_suggestion_candidate",
+      "required_next": "accept_browser_plan_ai_scenario_and_operations_owner"
     },
     {
       "module": "plan",

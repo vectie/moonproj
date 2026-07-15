@@ -589,8 +589,11 @@ report to a PostgreSQL-owned planning boundary. Imported `jd_task` rows remain
 read-only; local task projections require project-scoped authority,
 deterministic idempotency, immutable revisions, and audit receipts, while task
 reports require explicit evidence and never mutate the imported task or
-trigger workflow, cash, accounting, or tax. AI scheduling remains a provider
-gate, and browser/operations-owner acceptance is still open.
+trigger workflow, cash, accounting, or tax. Signed `/api/company/plan/ai-suggest-plan`
+and `/source` now return a deterministic seven-node schedule candidate with
+calculated end dates; no LLM/provider call, plan persistence, or task mutation
+is performed. Provider execution and browser/operations-owner acceptance remain
+open.
 
 **Tender mutation audit checkpoint (2026-07-14).** The target has a verified
 local tender command runtime for planning-draft creation and the forward-only
@@ -809,7 +812,8 @@ the source-read smoke, and trusted-gateway smoke run the native path using
 shell orchestration only. Browser production-identity acceptance, evidence
 capture in the full designer flow, source promotion, AI scheduling, and
 operations-owner approval remain separate gates; the Python bridge is frozen
-comparison evidence only.
+comparison evidence only. The project-plan smoke also proves the deterministic
+AI suggestion candidate and its explicit no-provider/no-persistence markers.
 
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;

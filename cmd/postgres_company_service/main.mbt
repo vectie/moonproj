@@ -15919,6 +15919,7 @@ async fn route(
             Json::string("delivery_read"),
             Json::string("project_runtime_read"),
             Json::string("project_plan_task_command"),
+            Json::string("plan_ai_suggestion_candidate"),
             Json::string("loan_read"),
             Json::string("loan_command"),
             Json::string("reports_read"),
@@ -16117,6 +16118,32 @@ async fn handle(
       return
     }
     None => ()
+  }
+  if plan_ai_suggest_spec(request.meth, path) {
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let _ = actor
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = plan_ai_suggest_response(body) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, result, false)
+    return
   }
   if request.meth is @http.Post && path == "/api/company/export/excel" {
     let body = read_json_body(body_reader) catch {

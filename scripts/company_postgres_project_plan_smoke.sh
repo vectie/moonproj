@@ -8,6 +8,11 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-project-plan-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-limingjin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-project-plan-actor-secret}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
+export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-project-plan.XXXXXX")
 SERVICE_PID=""
 SMOKE_SUFFIX=$(/bin/date +%s)
@@ -26,6 +31,7 @@ trap cleanup EXIT INT TERM
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
 MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SIGNING_SECRET" \
 PSQL_BIN="$PSQL_BIN" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 "$ROOT/scripts/company_postgres_service.sh" --port "$PORT" --database "$DATABASE" \
   --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
 SERVICE_PID=$!
@@ -45,7 +51,7 @@ if [ "$ready" -ne 1 ]; then
   /bin/cat "$TMP_DIR/service.log"
   exit 1
 fi
-/usr/bin/jq -e '.capabilities | index("project_runtime_read") and index("project_plan_task_command")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("project_runtime_read") and index("project_plan_task_command") and index("plan_ai_suggestion_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 request() {
   name=$1
@@ -88,6 +94,10 @@ request task_detail GET /api/company/tasks/task-003 200
 /usr/bin/jq -e '.data.task.taskGuid == "task-003" and (.data.reports | length) >= 1' "$TMP_DIR/task_detail.json" >/dev/null
 request delay_impact GET '/api/company/tasks/task-003/delay-impact?delayDays=3' 200
 /usr/bin/jq -e '.data.source.delayDays == 3 and .data.calculation_available == true and .data.source.newEnd == "2026-12-18"' "$TMP_DIR/delay_impact.json" >/dev/null
+
+ai_body='{"projType":"住宅","scale":"中型","region":"上海","beginDate":"2026-01-01"}'
+request ai_suggest POST /api/company/plan/ai-suggest-plan 200 "$ai_body" "project-plan-ai-suggest-$SMOKE_SUFFIX"
+/usr/bin/jq -e '.success == true and (.data.nodes | length) == 7 and .data.nodes[0].offsetDays == 0 and .data.nodes[6].planEndDate == "2027-01-01" and .data.provider == "native-deterministic" and .data.providerExecution == false and .persisted == false and .authorizing == false' "$TMP_DIR/ai_suggest.json" >/dev/null
 
 task_body="{\"task_id\":\"$TASK_ID\",\"task_code\":\"PT-CODE-$SMOKE_SUFFIX\",\"task_name\":\"native project-plan smoke task\",\"project_id\":\"$PROJECT_ID\",\"task_type\":\"task\",\"plan_begin_date\":\"2026-08-01\",\"plan_end_date\":\"2026-08-15\",\"remarks\":\"native MoonBit smoke\",\"authority\":{\"active\":true,\"principal_id\":\"co-plan-smoke\",\"actor_id\":\"$ACTOR\",\"capability\":\"project:task:create\",\"scope\":\"project:$PROJECT_ID\"}}"
 task_key="project-plan-create-$SMOKE_SUFFIX"

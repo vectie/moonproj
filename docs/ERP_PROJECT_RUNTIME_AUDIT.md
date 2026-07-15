@@ -27,6 +27,7 @@ comparison evidence only:
 | Project plan summary | `/api/company/projects/:id/plan-summary` | source-compatible read |
 | Project lifecycle | `/api/company/projects/:id/lifecycle` | source-compatible read |
 | Task delay impact | `/api/company/tasks/:id/delay-impact` | source-compatible read |
+| AI plan suggestion | signed `POST /api/company/plan/ai-suggest-plan` and `/source` alias | deterministic seven-node candidate; no provider, persistence, or plan mutation |
 | Rabbita project list | `/projects` | connected read with designer fallback |
 | Rabbita project detail | `/projects/:guid` | connected read with designer fallback |
 
@@ -65,10 +66,13 @@ evidence-gated boundary.
   delete and an evidence-gated report alias; the source-shaped project-plan
   readback merges command projections with `sourceKind=command` while keeping
   source coverage separate.
+- `scripts/company_postgres_project_plan_smoke.sh` also proves the seven-node
+  plan suggestion candidate, deterministic end dates, and explicit
+  `providerExecution=false`, `persisted=false`, and `authorizing=false` markers.
 - The parity matrix marks project-plan create/update/delete/report as
-  `connected_project_plan_command`; AI scheduling, production identity,
-  browser acceptance, imported source promotion, and owner approval remain
-  open.
+  `connected_project_plan_command`; AI scheduling is now a deterministic native
+  candidate, while provider execution, production identity, browser acceptance,
+  imported source promotion, and owner approval remain open.
 
 ## Remaining gate
 
