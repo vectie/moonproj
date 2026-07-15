@@ -273,6 +273,13 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-legacy.json" -w '%{http_code}' -X PO
 test "$status" = 200
 /usr/bin/jq -e '.success == true and (.contract.code | startswith("LEGACY-")) and .contract.state == "signed" and .contract.amount == 8.2 and .budget_consumption == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-legacy.json" >/dev/null
 LEGACY_ID=$(/usr/bin/jq -r '.contract.id' "$TMP_DIR/cbs-legacy.json")
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-mark-paid.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: boundary-cbs-paid-$SMOKE_SUFFIX" \
+  --data '{}' "http://127.0.0.1:$PORT/api/company/source/cbs/contracts/$LEGACY_ID/mark-paid")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .contract.fromState == "signed" and .contract.toState == "paid" and .workflow_effect == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-mark-paid.json" >/dev/null
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-clear.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \

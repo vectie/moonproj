@@ -60,7 +60,10 @@ with revisions and audit receipts; they remain non-authorizing. Legacy
 backfill is also native at `POST /api/company/cbs/demo/legacy` (and the
 `/source` alias), creating deterministic `LEGACY-*` command projections with
 the same imported protection and no financial effects. Clear/delete, contract
-approval/payment, and change applications remain explicit candidates. The
+approval/payment, and change applications remain explicit candidates. Contract
+action aliases now advance or reject command-owned demo contracts through the
+source state graph (`submit-approval`, `approve`, `reject`, `mark-paid`) with
+`workflow_effect=false`; the external workflow engine is not invoked. The
 `DELETE /api/company/cbs/demo/clear` route now tombstones only command-owned
 `DEMO-*`/`LEGACY-*` projections and reports the deleted count; imported
 contracts are never removed.

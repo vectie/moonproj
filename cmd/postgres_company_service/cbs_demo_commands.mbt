@@ -43,6 +43,31 @@ fn cbs_demo_clear_command_spec(
 }
 
 ///|
+fn cbs_contract_action_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String)? {
+  let prefixes = [
+    "/api/company/cbs/contracts/", "/api/company/source/cbs/contracts/",
+  ]
+  for prefix in prefixes {
+    if request_method is @http.Post && path.has_prefix(prefix) {
+      let parts = path[prefix.length():].to_owned().split("/").to_array()
+      if parts.length() == 2 && valid_identifier(parts[0].to_owned()) {
+        let action = parts[1].to_owned()
+        if action == "submit-approval" ||
+          action == "approve" ||
+          action == "reject" ||
+          action == "mark-paid" {
+          return Some((action, parts[0].to_owned()))
+        }
+      }
+    }
+  }
+  None
+}
+
+///|
 fn cbs_demo_contract_state_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -189,6 +214,8 @@ async fn cbs_demo_contract_state_command(
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
   let to_state = cbs_demo_contract_text(body, "to_state", "toState", true, true)
+  let allow_rollback = json_bool(body, "allow_rollback", false) ||
+    json_bool(body, "allowRollback", false)
   let valid_state = to_state == "draft" ||
     to_state == "approving" ||
     to_state == "signed" ||
@@ -202,6 +229,7 @@ async fn cbs_demo_contract_state_command(
     "contract_guid": Json::string(contract_id),
     "to_state": Json::string(to_state),
     "remark": Json::string(remark),
+    "allow_rollback": Json::boolean(allow_rollback),
     "actor_id": Json::string(actor_id),
   })
   match existing_company_command(idempotency_key) {
@@ -227,6 +255,7 @@ async fn cbs_demo_contract_state_command(
           "source_kind": Json::string("command"),
           "authorizing": Json::boolean(false),
           "persisted": Json::boolean(true),
+          "workflow_effect": Json::boolean(false),
           "budget_consumption": Json::boolean(false),
           "cash_effect": Json::boolean(false),
           "accounting_effect": Json::boolean(false),
@@ -263,7 +292,8 @@ async fn cbs_demo_contract_state_command(
     "signed" => 2
     _ => 3
   }
-  if to_index != from_index + 1 {
+  if to_index != from_index + 1 &&
+    !(allow_rollback && from_state == "approving" && to_state == "draft") {
     raise reject(400, "demo contract state transition is not forward-only")
   }
   let event_id = "cbs_demo_contract_state:" + idempotency_key
@@ -285,6 +315,7 @@ async fn cbs_demo_contract_state_command(
     "event_id": Json::string(event_id),
     "audit_id": Json::string(audit_id),
     "budget_consumption": Json::boolean(false),
+    "workflow_effect": Json::boolean(false),
   })
   let command_payload = Json::object({
     "kind": Json::string("company_command"),
@@ -342,6 +373,7 @@ async fn cbs_demo_contract_state_command(
       "source_kind": Json::string("command"),
       "authorizing": Json::boolean(false),
       "persisted": Json::boolean(true),
+      "workflow_effect": Json::boolean(false),
       "budget_consumption": Json::boolean(false),
       "cash_effect": Json::boolean(false),
       "accounting_effect": Json::boolean(false),
