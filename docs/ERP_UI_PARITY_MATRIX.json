@@ -110,6 +110,7 @@
     "connected_tender_command": 1,
     "connected_warning_command": 1,
     "connected_warning_custom_rule_command_candidate": 2,
+    "connected_warning_custom_rule_preview_candidate": 1,
     "connected_warning_read": 1,
     "connected_warning_rule_command_candidate": 1,
     "connected_warning_ticket_command_candidate": 1,
@@ -4519,8 +4520,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_custom_rule_preview_candidate",
+      "required_next": "accept_browser_warning_custom_rule_preview_scenario_and_warning_owner"
     },
     {
       "module": "warning",

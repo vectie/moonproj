@@ -223,6 +223,21 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/scan-preview.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.data.dryRun == true and .data.rulesRun == 12 and .data.persisted == false and .data.providerExecution == false and .data.queryExecution == false and .data.notificationsSent == 0 and .authorizing == false' "$TMP_DIR/scan-preview.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-preview.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' --data '{"sqlTemplate":"SELECT 1"}' \
+  "http://127.0.0.1:$PORT/api/company/source/warning/custom-rules/preview")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .data.rows == [] and .data.total == 0 and .data.queryExecution == false and .data.persisted == false and .authorizing == false and .source_kind == "warning_custom_rule_preview_candidate"' "$TMP_DIR/custom-preview.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-preview-invalid.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' --data '{"sqlTemplate":"DELETE FROM foo"}' \
+  "http://127.0.0.1:$PORT/api/company/warning/custom-rules/preview")
+test "$status" = 400
+
 custom_body="{\"ruleCode\":\"$CUSTOM_CODE\",\"ruleName\":\"Smoke custom rule\",\"severity\":\"warning\",\"bizType\":\"project\",\"sqlTemplate\":\"SELECT 1\",\"enabled\":true}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-create.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \

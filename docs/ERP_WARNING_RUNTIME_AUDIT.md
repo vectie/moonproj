@@ -29,6 +29,9 @@ ticket also appends the warning-state resolution overlay.
 The signed `/scan` path
 is a deterministic dry-run preview that returns rule/finding totals and source
 coverage without persisting findings or dispatching notifications.
+The signed `/custom-rules/preview` path now validates the source SQL shape and
+returns a deterministic empty result with its digest; it never executes SQL,
+persists a rule, or creates a warning/provider effect.
 
 In the controlled export, one W005 observation is present: a project lacks an
 imported dynamic-cost end subject. Workflow, supplier, expense, and warning
@@ -43,6 +46,7 @@ Bounded command paths:
 - `POST /api/company/warning/:guid/ignore`
 - `PATCH /api/company/warning/rules/:code` (and `/api/company/source` alias)
 - `POST/DELETE /api/company/warning/custom-rules[/:code]` (and `/source` aliases)
+- `POST /api/company/warning/custom-rules/preview` (dry-run; and `/source` alias)
 - `POST /api/company/warning/scan` (dry-run; and `/source` alias)
 - `POST /api/company/warning/:guid/to-ticket` (and `/api/company/source` alias)
 - `GET /api/company/warning/tickets/mine` (and `/api/company/source` alias)

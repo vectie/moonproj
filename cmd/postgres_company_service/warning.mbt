@@ -181,6 +181,57 @@ fn warning_scan_preview_spec(
 }
 
 ///|
+fn warning_custom_rule_preview_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Post &&
+  (
+    path == "/api/company/warning/custom-rules/preview" ||
+    path == "/api/company/source/warning/custom-rules/preview"
+  )
+}
+
+///|
+fn warning_custom_rule_preview_response(
+  body : Json,
+) -> Json raise CompanyServiceError {
+  let sql = json_text(body, "sqlTemplate", json_text(body, "sql_template", ""))
+  if !warning_custom_rule_sql_safe(sql) {
+    raise reject(
+      400, "sqlTemplate must be a single read-only SELECT/WITH statement",
+    )
+  }
+  let digest = @crypto.bytes_to_hex_string(
+    @crypto.sha256(@encoding/utf8.encode(sql)),
+  )
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "rows": Json::array([]),
+      "total": Json::number(0),
+      "durationMs": Json::number(0),
+      "sqlDigest": Json::string(digest),
+      "sqlTemplateRedacted": Json::boolean(true),
+      "queryExecution": Json::boolean(false),
+      "providerExecution": Json::boolean(false),
+      "persisted": Json::boolean(false),
+      "authorizing": Json::boolean(false),
+    }),
+    "source_kind": Json::string("warning_custom_rule_preview_candidate"),
+    "dry_run": Json::boolean(true),
+    "query_execution": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "authorizing": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
 async fn warning_scan_preview_response() -> Json raise CompanyServiceError {
   let rows = warning_context()
   let coverage = warning_coverage(rows)

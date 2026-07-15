@@ -15968,6 +15968,7 @@ async fn route(
             Json::string("warning_rule_command_candidate"),
             Json::string("warning_custom_rule_command_candidate"),
             Json::string("warning_scan_preview_read"),
+            Json::string("warning_custom_rule_preview_candidate"),
             Json::string("warning_ticket_command_candidate"),
             Json::string("warning_ticket_transition_candidate"),
             Json::string("admin_sys_param_command_candidate"),
@@ -16249,6 +16250,38 @@ async fn handle(
       }
     }
     let result = warning_scan_preview_response() catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, result, false)
+    return
+  }
+  if warning_custom_rule_preview_spec(request.meth, path) {
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let _ = rbac_require_super(actor) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = warning_custom_rule_preview_response(body) catch {
       error => {
         let response = service_error_response(error)
         send_json(conn, request.meth, response.0, response.1, false)

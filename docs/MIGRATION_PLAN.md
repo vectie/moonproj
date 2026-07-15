@@ -463,6 +463,13 @@ accounting, or tax effect. Production identity, browser interaction, warning
 owner acceptance, rule configuration, scans, notifications, and tickets remain
 gates.
 
+The custom-rule preview gap is now closed as a native candidate. Signed
+super-user `POST /api/company/warning/custom-rules/preview` (and `/source`)
+accepts only a single read-only SELECT/WITH template, returns a source-shaped
+empty result plus a digest, and explicitly does not execute SQL or persist
+findings. The warning smoke covers valid and rejected templates; browser
+warning-owner acceptance and any real query execution remain gated.
+
 The attachment center now has a bounded source-metadata read family. `/attachments`
 loads `/api/company/attachments/all` and `/api/company/attachments/stats`, with
 `/list` available for business-linked evidence queries. The adapter reports
