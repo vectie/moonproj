@@ -2064,6 +2064,15 @@ Execute the remainder in this order:
     coverage, and the warning-plan envelope. Warning promotion remains an open
     evidence finding only; it does not notify, mutate workflow, release cash,
     post accounting, or determine tax.
+
+3a.22. **Native CBS cost-link planner (2026-07-16).**
+    `cmd/cbs_cost_link_plan` and `scripts/erp_cbs_cost_link_plan.sh` now
+    replace the export-backed Python CBS compiler in the PostgreSQL cohort
+    path. The native planner preserves version/project/scope/principal joins,
+    explicit cost-code subjects, fixed-point money policy, deterministic
+    quarantine reasons, and the exact CBS cost-link plan envelope. Native CBS
+    promotion remains configuration/link evidence only; it does not consume a
+    budget or post accounting.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

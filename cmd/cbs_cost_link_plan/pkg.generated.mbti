@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/cbs_cost_link_plan"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror CbsCostLinkPlanError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+} derive(@debug.Debug)
+
+// Types and methods
+type ProjectConfig
+
+type Subject
+
+// Type aliases
+
+// Traits
+
