@@ -86,6 +86,10 @@ request sales_revenues '/api/company/source/sales/revenues'
 request tender_plans '/api/company/source/tender/tenders'
 request tender_awards '/api/company/source/tender/awards'
 request tender_splits '/api/company/source/tender/splits'
+request marketing_campaigns '/api/company/marketing/campaigns?projGuid=proj-0001'
+request marketing_placements '/api/company/marketing/placements'
+request marketing_channels '/api/company/marketing/channels'
+request marketing_materials '/api/company/marketing/materials?projGuid=proj-0001'
 request supplier_categories '/api/company/source/srm/categories'
 request supplier_eval '/api/company/source/srm/dict/eval-results'
 request supplier_sources '/api/company/source/srm/dict/sources'
@@ -254,6 +258,30 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/tender_splits.json" >/dev/null
 /usr/bin/jq -e '
+  .success == true and
+  .source_coverage.mkt_campaign == 0 and
+  ((.data | map(select(.sourceKind == "command")) | length) == (.data | length)) and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/marketing_campaigns.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and
+  .source_coverage.mkt_placement == 0 and
+  ((.data | map(select(.sourceKind == "command")) | length) == (.data | length)) and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/marketing_placements.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and
+  .source_coverage.mkt_channel == 0 and
+  ((.data | map(select(.sourceKind == "command")) | length) == (.data | length)) and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/marketing_channels.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and
+  .source_coverage.mkt_material == 0 and
+  ((.data | map(select(.sourceKind == "command")) | length) == (.data | length)) and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/marketing_materials.json" >/dev/null
+/usr/bin/jq -e '
   .success == true and (.data | length) == 0 and
   .source_coverage.srm_category == 0 and
   .authorizing == false and .persisted == false
@@ -294,4 +322,4 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .provider_execution == false
 ' "$TMP_DIR/supplier_provider_risk.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/supplier read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/supplier read smoke passed"

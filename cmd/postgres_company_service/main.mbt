@@ -9897,6 +9897,1316 @@ async fn tender_source_response(
 }
 
 ///|
+fn marketing_source_metadata(coverage : Json) -> Json {
+  let missing : Array[Json] = []
+  for table in ["mkt_campaign", "mkt_placement", "mkt_channel", "mkt_material"] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn marketing_lookup(value : Json, primary : String, fallback : String) -> Json? {
+  match json_field(value, primary) {
+    Some(Null) if !fallback.is_empty() => json_field(value, fallback)
+    Some(item) => Some(item)
+    None if !fallback.is_empty() => json_field(value, fallback)
+    None => None
+  }
+}
+
+///|
+fn marketing_text(
+  value : Json,
+  primary : String,
+  fallback : String,
+  default : String,
+) -> String {
+  match marketing_lookup(value, primary, fallback) {
+    Some(String(text)) => text
+    Some(Number(number, ..)) => number.to_string()
+    Some(True) => "true"
+    Some(False) => "false"
+    _ => default
+  }
+}
+
+///|
+fn marketing_number(
+  value : Json,
+  primary : String,
+  fallback : String,
+  default : Double,
+) -> Double {
+  match marketing_lookup(value, primary, fallback) {
+    Some(Number(number, ..)) => number
+    Some(String(text)) => parse_number(text)
+    _ => default
+  }
+}
+
+///|
+fn marketing_command_aggregate(resource : String) -> String {
+  match resource {
+    "campaign" => "marketing_campaign"
+    "placement" => "marketing_placement"
+    "channel" => "marketing_channel"
+    "material" => "marketing_material"
+    _ => ""
+  }
+}
+
+///|
+fn marketing_source_table(resource : String) -> String {
+  match resource {
+    "campaign" => "mkt_campaign"
+    "placement" => "mkt_placement"
+    "channel" => "mkt_channel"
+    "material" => "mkt_material"
+    _ => ""
+  }
+}
+
+///|
+async fn marketing_command_rows(
+  resource : String,
+  include_deleted : Bool,
+) -> Array[SourceRow] raise CompanyServiceError {
+  let aggregate_type = marketing_command_aggregate(resource)
+  if aggregate_type.is_empty() {
+    raise fail("unsupported marketing resource")
+  }
+  let deleted_clause = if include_deleted {
+    ""
+  } else {
+    " WHERE coalesce(payload->>'state', '') <> 'deleted'"
+  }
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, " +
+    "encode(convert_to(payload::text, 'UTF8'), 'hex'), " +
+    "encode(convert_to(source_event_id, 'UTF8'), 'hex') FROM (" +
+    "SELECT DISTINCT ON (aggregate_id) aggregate_id, revision, payload, " +
+    "source_event_id FROM company_aggregate_projection WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    " ORDER BY aggregate_id, revision DESC) latest" +
+    deleted_clause +
+    " ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Array[SourceRow] = []
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 4)
+      let payload = @json.parse(decode_hex(row[2])) catch {
+        _ => raise fail("invalid marketing projection JSON")
+      }
+      match payload {
+        Object(_) =>
+          result.push({
+            record_id: decode_hex(row[0]),
+            source_id: decode_hex(row[3]),
+            payload,
+          })
+        _ => raise fail("marketing projection payload is not an object")
+      }
+    }
+  }
+  result
+}
+
+///|
+fn marketing_source_kind(row : SourceRow) -> String {
+  if json_text(row.payload, "source_kind", "") == "command" {
+    "command"
+  } else {
+    "imported"
+  }
+}
+
+///|
+fn marketing_default(value : String, fallback : String) -> String {
+  if value.is_empty() {
+    fallback
+  } else {
+    value
+  }
+}
+
+///|
+fn marketing_source_id(row : SourceRow) -> String {
+  if row.source_id.is_empty() {
+    row.record_id
+  } else {
+    row.source_id
+  }
+}
+
+///|
+fn marketing_campaign_item(row : SourceRow) -> Json {
+  let payload = row.payload
+  let id = marketing_text(
+    payload,
+    "campaign_guid",
+    "campaignGuid",
+    row.record_id,
+  )
+  let source_kind = marketing_source_kind(row)
+  Json::object({
+    "campaignGuid": Json::string(id),
+    "campaignCode": Json::string(
+      marketing_text(payload, "campaign_code", "campaignCode", ""),
+    ),
+    "projGuid": Json::string(
+      marketing_text(payload, "proj_guid", "projGuid", ""),
+    ),
+    "buGuid": Json::string(marketing_text(payload, "bu_guid", "buGuid", "")),
+    "name": Json::string(marketing_text(payload, "name", "", "")),
+    "campaignType": Json::string(
+      marketing_text(payload, "campaign_type", "campaignType", ""),
+    ),
+    "budget": Json::number(
+      marketing_number(payload, "budget", "budget_amount", 0.0),
+    ),
+    "actualCost": Json::number(
+      marketing_number(payload, "actual_cost", "actualCost", 0.0),
+    ),
+    "startDate": Json::string(
+      marketing_text(payload, "start_date", "startDate", ""),
+    ),
+    "endDate": Json::string(marketing_text(payload, "end_date", "endDate", "")),
+    "state": Json::string(marketing_text(payload, "state", "", "planning")),
+    "goal": Json::string(marketing_text(payload, "goal", "", "")),
+    "remark": Json::string(marketing_text(payload, "remark", "", "")),
+    "l3Code": Json::string(marketing_text(payload, "l3_code", "l3Code", "")),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(marketing_source_id(row)),
+    "aggregate_type": Json::string("marketing_campaign"),
+    "aggregate_id": Json::string(id),
+    "source_kind": Json::string(source_kind),
+    "command_projection": Json::boolean(source_kind == "command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(source_kind == "command"),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn marketing_placement_item(
+  row : SourceRow,
+  campaign_names : Map[String, String],
+) -> Json {
+  let payload = row.payload
+  let id = marketing_text(
+    payload,
+    "placement_guid",
+    "placementGuid",
+    row.record_id,
+  )
+  let campaign_id = marketing_text(payload, "campaign_guid", "campaignGuid", "")
+  let source_kind = marketing_source_kind(row)
+  Json::object({
+    "placementGuid": Json::string(id),
+    "placementCode": Json::string(
+      marketing_text(payload, "placement_code", "placementCode", ""),
+    ),
+    "campaignGuid": Json::string(campaign_id),
+    "campaignName": Json::string(campaign_names.get(campaign_id).unwrap_or("")),
+    "channelGuid": Json::string(
+      marketing_text(payload, "channel_guid", "channelGuid", ""),
+    ),
+    "channelName": Json::string(
+      marketing_text(payload, "channel_name", "channelName", ""),
+    ),
+    "amount": Json::number(marketing_number(payload, "amount", "", 0.0)),
+    "placeDate": Json::string(
+      marketing_text(payload, "place_date", "placeDate", ""),
+    ),
+    "durationDays": Json::number(
+      marketing_number(payload, "duration_days", "durationDays", 0.0),
+    ),
+    "state": Json::string(marketing_text(payload, "state", "", "placed")),
+    "impressions": Json::number(
+      marketing_number(payload, "impressions", "", 0.0),
+    ),
+    "clicks": Json::number(marketing_number(payload, "clicks", "", 0.0)),
+    "leads": Json::number(marketing_number(payload, "leads", "", 0.0)),
+    "l3Code": Json::string(marketing_text(payload, "l3_code", "l3Code", "")),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(marketing_source_id(row)),
+    "aggregate_type": Json::string("marketing_placement"),
+    "aggregate_id": Json::string(id),
+    "source_kind": Json::string(source_kind),
+    "command_projection": Json::boolean(source_kind == "command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(source_kind == "command"),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn marketing_channel_item(
+  row : SourceRow,
+  placement_counts : Map[String, (Int, Double)],
+) -> Json {
+  let payload = row.payload
+  let id = marketing_text(payload, "channel_guid", "channelGuid", row.record_id)
+  let totals = placement_counts.get(id).unwrap_or((0, 0.0))
+  let source_kind = marketing_source_kind(row)
+  Json::object({
+    "channelGuid": Json::string(id),
+    "channelCode": Json::string(
+      marketing_text(payload, "channel_code", "channelCode", ""),
+    ),
+    "name": Json::string(marketing_text(payload, "name", "", "")),
+    "channelType": Json::string(
+      marketing_text(payload, "channel_type", "channelType", ""),
+    ),
+    "contactPerson": Json::string(
+      marketing_text(payload, "contact_person", "contactPerson", ""),
+    ),
+    "contactPhone": Json::string(
+      marketing_text(payload, "contact_phone", "contactPhone", ""),
+    ),
+    "state": Json::string(marketing_text(payload, "state", "", "active")),
+    "totalCost": Json::number(
+      if totals.0 == 0 {
+        marketing_number(payload, "total_cost", "totalCost", 0.0)
+      } else {
+        totals.1
+      },
+    ),
+    "placementCount": Json::number(totals.0.to_double()),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(marketing_source_id(row)),
+    "aggregate_type": Json::string("marketing_channel"),
+    "aggregate_id": Json::string(id),
+    "source_kind": Json::string(source_kind),
+    "command_projection": Json::boolean(source_kind == "command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(source_kind == "command"),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn marketing_material_item(row : SourceRow) -> Json {
+  let payload = row.payload
+  let id = marketing_text(
+    payload,
+    "material_guid",
+    "materialGuid",
+    row.record_id,
+  )
+  let source_kind = marketing_source_kind(row)
+  Json::object({
+    "materialGuid": Json::string(id),
+    "materialCode": Json::string(
+      marketing_text(payload, "material_code", "materialCode", ""),
+    ),
+    "projGuid": Json::string(
+      marketing_text(payload, "proj_guid", "projGuid", ""),
+    ),
+    "name": Json::string(marketing_text(payload, "name", "", "")),
+    "materialType": Json::string(
+      marketing_text(payload, "material_type", "materialType", ""),
+    ),
+    "unitCost": Json::number(
+      marketing_number(payload, "unit_cost", "unitCost", 0.0),
+    ),
+    "quantity": Json::number(marketing_number(payload, "quantity", "", 0.0)),
+    "totalCost": Json::number(
+      marketing_number(payload, "total_cost", "totalCost", 0.0),
+    ),
+    "usagePeriod": Json::string(
+      marketing_text(payload, "usage_period", "usagePeriod", ""),
+    ),
+    "state": Json::string(marketing_text(payload, "state", "", "designing")),
+    "remark": Json::string(marketing_text(payload, "remark", "", "")),
+    "l3Code": Json::string(marketing_text(payload, "l3_code", "l3Code", "")),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(marketing_source_id(row)),
+    "aggregate_type": Json::string("marketing_material"),
+    "aggregate_id": Json::string(id),
+    "source_kind": Json::string(source_kind),
+    "command_projection": Json::boolean(source_kind == "command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(source_kind == "command"),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn marketing_source_response(
+  resource : String,
+  proj_guid : String?,
+  state : String?,
+  campaign_guid : String?,
+) -> Json raise CompanyServiceError {
+  if !["campaign", "placement", "channel", "material"].contains(resource) {
+    raise fail("unsupported marketing resource")
+  }
+  match proj_guid {
+    Some(value) if !valid_identifier(value) => raise fail("invalid projGuid")
+    _ => ()
+  }
+  match campaign_guid {
+    Some(value) if !valid_identifier(value) =>
+      raise fail("invalid campaignGuid")
+    _ => ()
+  }
+  match state {
+    Some(value) if value.length() > 64 => raise fail("invalid state")
+    _ => ()
+  }
+  let campaign_raw = raw_source_rows("mkt_campaign", 500)
+  let placement_raw = raw_source_rows("mkt_placement", 500)
+  let channel_raw = raw_source_rows("mkt_channel", 500)
+  let material_raw = raw_source_rows("mkt_material", 500)
+  let campaign_commands = marketing_command_rows("campaign", false)
+  let placement_commands = marketing_command_rows("placement", false)
+  let channel_commands = marketing_command_rows("channel", false)
+  let material_commands = marketing_command_rows("material", false)
+  let coverage = Json::object({
+    "mkt_campaign": Json::number(campaign_raw.length().to_double()),
+    "mkt_placement": Json::number(placement_raw.length().to_double()),
+    "mkt_channel": Json::number(channel_raw.length().to_double()),
+    "mkt_material": Json::number(material_raw.length().to_double()),
+  })
+  let campaign_rows = campaign_raw + campaign_commands
+  let placement_rows = placement_raw + placement_commands
+  let channel_rows = channel_raw + channel_commands
+  let material_rows = material_raw + material_commands
+  let result : Array[Json] = []
+  if resource == "campaign" {
+    for row in campaign_rows {
+      let item = marketing_campaign_item(row)
+      let project = json_text(item, "projGuid", "")
+      let current_state = json_text(item, "state", "")
+      if (proj_guid is None || project == proj_guid.unwrap()) &&
+        (state is None || current_state == state.unwrap()) &&
+        current_state != "deleted" {
+        result.push(item)
+      }
+    }
+    result.sort_by(fn(left, right) {
+      let order = json_text(right, "startDate", "").lexical_compare(
+        json_text(left, "startDate", ""),
+      )
+      if order == 0 {
+        json_text(right, "campaignCode", "").lexical_compare(
+          json_text(left, "campaignCode", ""),
+        )
+      } else {
+        order
+      }
+    })
+  } else if resource == "placement" {
+    let campaign_names : Map[String, String] = {}
+    for row in campaign_rows {
+      let item = marketing_campaign_item(row)
+      let id = json_text(item, "campaignGuid", "")
+      if json_text(item, "state", "") != "deleted" {
+        campaign_names[id] = json_text(item, "name", "")
+      }
+    }
+    for row in placement_rows {
+      let item = marketing_placement_item(row, campaign_names)
+      let current_campaign = json_text(item, "campaignGuid", "")
+      if (campaign_guid is None || current_campaign == campaign_guid.unwrap()) &&
+        json_text(item, "state", "") != "deleted" {
+        result.push(item)
+      }
+    }
+    result.sort_by(fn(left, right) {
+      let order = json_text(right, "placeDate", "").lexical_compare(
+        json_text(left, "placeDate", ""),
+      )
+      if order == 0 {
+        json_text(right, "placementCode", "").lexical_compare(
+          json_text(left, "placementCode", ""),
+        )
+      } else {
+        order
+      }
+    })
+  } else if resource == "channel" {
+    let placement_counts : Map[String, (Int, Double)] = {}
+    for row in placement_rows {
+      let item = marketing_placement_item(row, {})
+      if json_text(item, "state", "") != "deleted" {
+        let id = json_text(item, "channelGuid", "")
+        if !id.is_empty() {
+          let current = placement_counts.get(id).unwrap_or((0, 0.0))
+          placement_counts[id] = (
+            current.0 + 1,
+            current.1 + json_number(item, "amount", 0.0),
+          )
+        }
+      }
+    }
+    for row in channel_rows {
+      let item = marketing_channel_item(row, placement_counts)
+      if json_text(item, "state", "") != "deleted" {
+        result.push(item)
+      }
+    }
+    result.sort_by(fn(left, right) {
+      let order = json_number(right, "totalCost", 0.0).compare(
+        json_number(left, "totalCost", 0.0),
+      )
+      if order == 0 {
+        json_text(right, "channelCode", "").lexical_compare(
+          json_text(left, "channelCode", ""),
+        )
+      } else {
+        order
+      }
+    })
+  } else {
+    for row in material_rows {
+      let item = marketing_material_item(row)
+      let project = json_text(item, "projGuid", "")
+      if (proj_guid is None || project == proj_guid.unwrap()) &&
+        json_text(item, "state", "") != "deleted" {
+        result.push(item)
+      }
+    }
+    result.sort_by(fn(left, right) {
+      let order = json_text(right, "materialCode", "").lexical_compare(
+        json_text(left, "materialCode", ""),
+      )
+      if order == 0 {
+        json_text(right, "materialGuid", "").lexical_compare(
+          json_text(left, "materialGuid", ""),
+        )
+      } else {
+        order
+      }
+    })
+  }
+  match marketing_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid marketing metadata")
+  }
+}
+
+///|
+fn marketing_required_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => raise reject(422, primary + " is required")
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if value.is_empty() {
+    raise reject(422, primary + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn marketing_optional_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => ""
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if identifier && !value.is_empty() && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn marketing_nonnegative_int(
+  body : Json,
+  primary : String,
+  fallback : String,
+) -> Int raise CompanyServiceError {
+  match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => 0
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(String(text)) => {
+      let parsed = parse_number(text.trim().to_owned())
+      if parsed < 0.0 || parsed != parsed.to_int().to_double() {
+        raise reject(422, primary + " must be a non-negative integer")
+      }
+      parsed.to_int()
+    }
+    _ => raise reject(422, primary + " must be a non-negative integer")
+  }
+}
+
+///|
+fn marketing_amount(
+  body : Json,
+  primary : String,
+  fallback : String,
+  positive : Bool,
+) -> (String, Int) raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => raise reject(422, primary + " is required")
+    Some(Number(number, ..)) => number
+    Some(String(text)) => parse_number(text.trim().to_owned())
+    _ => raise reject(422, primary + " must be a decimal amount")
+  }
+  if value != value || value < 0.0 || (positive && value == 0.0) {
+    raise reject(422, primary + " must be a non-negative decimal amount")
+  }
+  let minor = (value * 100.0 + 0.5).to_int()
+  if positive && minor == 0 {
+    raise reject(422, primary + " must be positive")
+  }
+  (invoice_minor_text(minor), minor)
+}
+
+///|
+fn marketing_authority(
+  body : Json,
+  actor_id : String,
+  principal_id : String,
+  scope : String,
+  capability : String,
+  amount_minor : Int,
+) -> Json raise CompanyServiceError {
+  let grant = match json_field(body, "authority") {
+    Some(Object(_)) => json_field(body, "authority").unwrap()
+    _ => raise reject(403, "active marketing authority grant is required")
+  }
+  if !json_bool(grant, "active", false) {
+    raise reject(403, "active marketing authority grant is required")
+  }
+  if json_text(grant, "principal_id", "") != principal_id {
+    raise reject(403, "marketing authority principal does not match")
+  }
+  if json_text(grant, "actor_id", "") != actor_id {
+    raise reject(403, "marketing authority actor does not match signed actor")
+  }
+  if json_text(grant, "scope", "") != scope {
+    raise reject(403, "marketing authority scope does not match")
+  }
+  if json_text(grant, "capability", "") != capability {
+    raise reject(403, "marketing authority must allow " + capability)
+  }
+  let max_amount = match json_field(grant, "max_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(String(text)) => parse_decimal(text.trim().to_owned())
+    _ => raise reject(403, "marketing authority max_amount_minor is required")
+  }
+  if max_amount < amount_minor {
+    raise reject(403, "marketing authority amount is exceeded")
+  }
+  Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string(principal_id),
+    "actor_id": Json::string(actor_id),
+    "capability": Json::string(capability),
+    "scope": Json::string(scope),
+    "max_amount_minor": Json::number(max_amount.to_double()),
+  })
+}
+
+///|
+fn marketing_generated_id(prefix : String, idempotency_key : String) -> String {
+  let suffix = if idempotency_key.length() > 110 {
+    idempotency_key[0:110].to_owned()
+  } else {
+    idempotency_key
+  }
+  prefix + "-" + suffix
+}
+
+///|
+fn marketing_create_request(
+  resource : String,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (String, Json) raise CompanyServiceError {
+  let principal_id = marketing_required_text(body, "principal_id", "", true)
+  let scope = marketing_required_text(body, "scope", "", true)
+  if resource == "campaign" {
+    let id_value = marketing_optional_text(
+      body, "campaignGuid", "campaign_guid", true,
+    )
+    let id = if id_value.is_empty() {
+      marketing_generated_id("CAMP", idempotency_key)
+    } else {
+      id_value
+    }
+    let (_, budget_minor) = marketing_amount(body, "budget", "", false)
+    let authority = marketing_authority(
+      body, actor_id, principal_id, scope, "marketing:campaign:create", budget_minor,
+    )
+    (
+      id,
+      Json::object({
+        "campaign_guid": Json::string(id),
+        "campaign_code": Json::string(
+          marketing_default(
+            marketing_optional_text(
+              body, "campaignCode", "campaign_code", false,
+            ),
+            marketing_generated_id("CAMP", idempotency_key),
+          ),
+        ),
+        "proj_guid": Json::string(
+          marketing_required_text(body, "projGuid", "proj_guid", true),
+        ),
+        "bu_guid": Json::string(
+          marketing_optional_text(body, "buGuid", "bu_guid", true),
+        ),
+        "name": Json::string(marketing_required_text(body, "name", "", false)),
+        "campaign_type": Json::string(
+          marketing_default(
+            marketing_optional_text(
+              body, "campaignType", "campaign_type", false,
+            ),
+            "推广活动",
+          ),
+        ),
+        "budget": Json::string(invoice_minor_text(budget_minor)),
+        "budget_minor": Json::number(budget_minor.to_double()),
+        "actual_cost": Json::string("0.00"),
+        "actual_cost_minor": Json::number(0.0),
+        "start_date": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "startDate", "start_date", false),
+            "2026-01-01",
+          ),
+        ),
+        "end_date": Json::string(
+          marketing_optional_text(body, "endDate", "end_date", false),
+        ),
+        "goal": Json::string(marketing_optional_text(body, "goal", "", false)),
+        "remark": Json::string(
+          marketing_optional_text(body, "remark", "", false),
+        ),
+        "l3_code": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "l3Code", "l3_code", true),
+            "R19.02.03",
+          ),
+        ),
+        "principal_id": Json::string(principal_id),
+        "scope": Json::string(scope),
+        "actor_id": Json::string(actor_id),
+        "state": Json::string("planning"),
+        "authority": authority,
+        "command_type": Json::string("create"),
+      }),
+    )
+  } else if resource == "placement" {
+    let id_value = marketing_optional_text(
+      body, "placementGuid", "placement_guid", true,
+    )
+    let id = if id_value.is_empty() {
+      marketing_generated_id("PLAC", idempotency_key)
+    } else {
+      id_value
+    }
+    let (_, amount_minor) = marketing_amount(body, "amount", "", false)
+    let authority = marketing_authority(
+      body, actor_id, principal_id, scope, "marketing:placement:create", amount_minor,
+    )
+    (
+      id,
+      Json::object({
+        "placement_guid": Json::string(id),
+        "placement_code": Json::string(
+          marketing_default(
+            marketing_optional_text(
+              body, "placementCode", "placement_code", false,
+            ),
+            marketing_generated_id("PLAC", idempotency_key),
+          ),
+        ),
+        "campaign_guid": Json::string(
+          marketing_optional_text(body, "campaignGuid", "campaign_guid", true),
+        ),
+        "channel_guid": Json::string(
+          marketing_optional_text(body, "channelGuid", "channel_guid", true),
+        ),
+        "channel_name": Json::string(
+          marketing_required_text(body, "channelName", "channel_name", false),
+        ),
+        "amount": Json::string(invoice_minor_text(amount_minor)),
+        "amount_minor": Json::number(amount_minor.to_double()),
+        "place_date": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "placeDate", "place_date", false),
+            "2026-01-01",
+          ),
+        ),
+        "duration_days": Json::number(
+          marketing_nonnegative_int(body, "durationDays", "duration_days").to_double(),
+        ),
+        "impressions": Json::number(0.0),
+        "clicks": Json::number(0.0),
+        "leads": Json::number(0.0),
+        "state": Json::string("placed"),
+        "remark": Json::string(
+          marketing_optional_text(body, "remark", "", false),
+        ),
+        "l3_code": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "l3Code", "l3_code", true),
+            "R19.02.02",
+          ),
+        ),
+        "principal_id": Json::string(principal_id),
+        "scope": Json::string(scope),
+        "actor_id": Json::string(actor_id),
+        "authority": authority,
+        "command_type": Json::string("create"),
+      }),
+    )
+  } else if resource == "channel" {
+    let id_value = marketing_optional_text(
+      body, "channelGuid", "channel_guid", true,
+    )
+    let id = if id_value.is_empty() {
+      marketing_generated_id("CH", idempotency_key)
+    } else {
+      id_value
+    }
+    let authority = marketing_authority(
+      body, actor_id, principal_id, scope, "marketing:channel:create", 0,
+    )
+    (
+      id,
+      Json::object({
+        "channel_guid": Json::string(id),
+        "channel_code": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "channelCode", "channel_code", false),
+            marketing_generated_id("CH", idempotency_key),
+          ),
+        ),
+        "name": Json::string(marketing_required_text(body, "name", "", false)),
+        "channel_type": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "channelType", "channel_type", false),
+            "线上",
+          ),
+        ),
+        "contact_person": Json::string(
+          marketing_optional_text(
+            body, "contactPerson", "contact_person", false,
+          ),
+        ),
+        "contact_phone": Json::string(
+          marketing_optional_text(body, "contactPhone", "contact_phone", false),
+        ),
+        "state": Json::string("active"),
+        "remark": Json::string(
+          marketing_optional_text(body, "remark", "", false),
+        ),
+        "principal_id": Json::string(principal_id),
+        "scope": Json::string(scope),
+        "actor_id": Json::string(actor_id),
+        "authority": authority,
+        "command_type": Json::string("create"),
+      }),
+    )
+  } else if resource == "material" {
+    let id_value = marketing_optional_text(
+      body, "materialGuid", "material_guid", true,
+    )
+    let id = if id_value.is_empty() {
+      marketing_generated_id("MAT", idempotency_key)
+    } else {
+      id_value
+    }
+    let (_, unit_cost_minor) = marketing_amount(
+      body, "unitCost", "unit_cost", false,
+    )
+    let quantity = marketing_nonnegative_int(body, "quantity", "")
+    let total_minor = unit_cost_minor * quantity
+    let authority = marketing_authority(
+      body, actor_id, principal_id, scope, "marketing:material:create", total_minor,
+    )
+    (
+      id,
+      Json::object({
+        "material_guid": Json::string(id),
+        "material_code": Json::string(
+          marketing_default(
+            marketing_optional_text(
+              body, "materialCode", "material_code", false,
+            ),
+            marketing_generated_id("MAT", idempotency_key),
+          ),
+        ),
+        "proj_guid": Json::string(
+          marketing_optional_text(body, "projGuid", "proj_guid", true),
+        ),
+        "name": Json::string(marketing_required_text(body, "name", "", false)),
+        "material_type": Json::string(
+          marketing_default(
+            marketing_optional_text(
+              body, "materialType", "material_type", false,
+            ),
+            "现场包装",
+          ),
+        ),
+        "unit_cost": Json::string(invoice_minor_text(unit_cost_minor)),
+        "unit_cost_minor": Json::number(unit_cost_minor.to_double()),
+        "quantity": Json::number(quantity.to_double()),
+        "total_cost": Json::string(invoice_minor_text(total_minor)),
+        "total_cost_minor": Json::number(total_minor.to_double()),
+        "usage_period": Json::string(
+          marketing_optional_text(body, "usagePeriod", "usage_period", false),
+        ),
+        "state": Json::string("designing"),
+        "remark": Json::string(
+          marketing_optional_text(body, "remark", "", false),
+        ),
+        "l3_code": Json::string(
+          marketing_default(
+            marketing_optional_text(body, "l3Code", "l3_code", true),
+            "R19.02.07",
+          ),
+        ),
+        "principal_id": Json::string(principal_id),
+        "scope": Json::string(scope),
+        "actor_id": Json::string(actor_id),
+        "authority": authority,
+        "command_type": Json::string("create"),
+      }),
+    )
+  } else {
+    raise reject(404, "unsupported marketing resource")
+  }
+}
+
+///|
+fn marketing_command_request(
+  resource : String,
+  command_type : String,
+  resource_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (String, Json) raise CompanyServiceError {
+  if command_type == "create" {
+    return marketing_create_request(resource, body, actor_id, idempotency_key)
+  }
+  let id = match resource_id {
+    Some(value) if valid_identifier(value) => value
+    _ => raise reject(422, "marketing resource id is required")
+  }
+  let principal_id = marketing_required_text(body, "principal_id", "", true)
+  let scope = marketing_required_text(body, "scope", "", true)
+  let capability = "marketing:" + resource + ":" + command_type
+  let mut amount_minor = 0
+  let changes : Map[String, Json] = {}
+  if command_type == "update" && resource == "campaign" {
+    let mut has_change = false
+    let add_text = fn(
+      key : String,
+      primary : String,
+      fallback : String,
+    ) raise CompanyServiceError {
+      match marketing_lookup(body, primary, fallback) {
+        None | Some(Null) => ()
+        Some(String(item)) => {
+          changes.set(key, Json::string(item.trim().to_owned()))
+          has_change = true
+        }
+        _ => raise reject(422, primary + " must be text")
+      }
+    }
+    add_text("name", "name", "")
+    add_text("campaign_type", "campaignType", "campaign_type")
+    add_text("start_date", "startDate", "start_date")
+    add_text("end_date", "endDate", "end_date")
+    add_text("goal", "goal", "")
+    add_text("remark", "remark", "")
+    add_text("state", "state", "")
+    match marketing_lookup(body, "budget", "") {
+      Some(_) => {
+        let (_, value) = marketing_amount(body, "budget", "", false)
+        changes.set("budget", Json::string(invoice_minor_text(value)))
+        changes.set("budget_minor", Json::number(value.to_double()))
+        amount_minor = if value > amount_minor { value } else { amount_minor }
+        has_change = true
+      }
+      None => ()
+    }
+    match marketing_lookup(body, "actualCost", "actual_cost") {
+      Some(_) => {
+        let (_, value) = marketing_amount(
+          body, "actualCost", "actual_cost", false,
+        )
+        changes.set("actual_cost", Json::string(invoice_minor_text(value)))
+        changes.set("actual_cost_minor", Json::number(value.to_double()))
+        amount_minor = if value > amount_minor { value } else { amount_minor }
+        has_change = true
+      }
+      None => ()
+    }
+    if !has_change {
+      raise reject(422, "update requires at least one mutable field")
+    }
+  } else if command_type == "effect" && resource == "placement" {
+    let impressions = marketing_nonnegative_int(body, "impressions", "")
+    let clicks = marketing_nonnegative_int(body, "clicks", "")
+    let leads = marketing_nonnegative_int(body, "leads", "")
+    let state = marketing_default(
+      marketing_optional_text(body, "state", "", false),
+      "completed",
+    )
+    if state != "placed" && state != "completed" {
+      raise reject(422, "effect state is invalid")
+    }
+    changes.set("impressions", Json::number(impressions.to_double()))
+    changes.set("clicks", Json::number(clicks.to_double()))
+    changes.set("leads", Json::number(leads.to_double()))
+    changes.set("state", Json::string(state))
+  } else if command_type != "delete" {
+    raise reject(404, "unsupported marketing command")
+  }
+  let authority = marketing_authority(
+    body, actor_id, principal_id, scope, capability, amount_minor,
+  )
+  (
+    id,
+    Json::object({
+      "aggregate_id": Json::string(id),
+      "principal_id": Json::string(principal_id),
+      "scope": Json::string(scope),
+      "actor_id": Json::string(actor_id),
+      "authority": authority,
+      "command_type": Json::string(command_type),
+      "changes": Json::object(changes),
+    }),
+  )
+}
+
+///|
+async fn marketing_latest_payload(
+  resource : String,
+  resource_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let aggregate_type = marketing_command_aggregate(resource)
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
+    "FROM company_aggregate_projection WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    " AND aggregate_id = " +
+    @postgres.sql_literal(resource_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid marketing projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn marketing_imported_exists(
+  resource : String,
+  resource_id : String,
+) -> Bool raise CompanyServiceError {
+  let rows = raw_source_rows(marketing_source_table(resource), 500)
+  let key = match resource {
+    "campaign" => "campaign_guid"
+    "placement" => "placement_guid"
+    "channel" => "channel_guid"
+    _ => "material_guid"
+  }
+  let alternate_key = match resource {
+    "campaign" => "campaignGuid"
+    "placement" => "placementGuid"
+    "channel" => "channelGuid"
+    _ => "materialGuid"
+  }
+  for row in rows {
+    if marketing_text(row.payload, key, alternate_key, row.record_id) ==
+      resource_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+async fn marketing_command(
+  resource : String,
+  command_type : String,
+  resource_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !["campaign", "placement", "channel", "material"].contains(resource) {
+    raise reject(404, "unsupported marketing resource")
+  }
+  if !["create", "update", "effect", "delete"].contains(command_type) {
+    raise reject(404, "unsupported marketing command")
+  }
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let (id, request) = marketing_command_request(
+    resource, command_type, resource_id, body, actor_id, idempotency_key,
+  )
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let response = Json::object({
+        "command": existing,
+        "idempotent_replay": Json::boolean(true),
+      })
+      return match response {
+        Object(fields) => {
+          fields.set(
+            resource,
+            json_field(existing, "result").unwrap_or(Json::null()),
+          )
+          (200, response)
+        }
+        _ => raise fail("invalid marketing replay response")
+      }
+    }
+    None => ()
+  }
+  let current = marketing_latest_payload(resource, id)
+  let imported = marketing_imported_exists(resource, id)
+  if command_type == "create" {
+    if current is Some(_) || imported {
+      raise reject(409, "marketing resource already exists")
+    }
+  } else {
+    match current {
+      None => {
+        if imported {
+          raise reject(
+            409, "imported marketing resource is read-only; create a local resource first",
+          )
+        }
+        raise reject(404, "marketing resource not found")
+      }
+      Some((payload, _)) => {
+        if json_text(payload, "source_kind", "") != "command" {
+          raise reject(
+            409, "imported marketing resource is read-only; create a local resource first",
+          )
+        }
+        if json_text(payload, "principal_id", "") !=
+          json_text(request, "principal_id", "") ||
+          json_text(payload, "scope", "") != json_text(request, "scope", "") {
+          raise reject(403, "marketing principal or scope does not match")
+        }
+        if json_text(payload, "state", "") == "deleted" {
+          raise reject(409, "marketing resource is already deleted")
+        }
+      }
+    }
+  }
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    json_text(request, "state", "planning")
+  } else if command_type == "delete" {
+    "deleted"
+  } else {
+    match json_field(request, "changes") {
+      Some(changes) =>
+        json_text(
+          changes,
+          "state",
+          json_text(current_payload, "state", "planning"),
+        )
+      None => json_text(current_payload, "state", "planning")
+    }
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let event_id = "marketing:" +
+    resource +
+    ":" +
+    command_type +
+    ":" +
+    idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "aggregate_id": Json::string(id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("marketing"),
+    "resource": Json::string(resource),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string(marketing_command_aggregate(resource)),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let request_projection = "(" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'authority' - 'changes') || coalesce(" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb->'changes', '{}'::jsonb)"
+  let next_payload_sql = if command_type == "create" {
+    request_projection +
+    " || jsonb_build_object('source_kind', 'command', 'state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "delete" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || " +
+    request_projection +
+    " || jsonb_build_object('source_kind', 'command', 'state', 'deleted', " +
+    "'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || " +
+    request_projection +
+    " || jsonb_build_object('source_kind', 'command', 'state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("marketing." + resource + "." + command_type),
+    "aggregate_type": Json::string(marketing_command_aggregate(resource)),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES (" +
+    @postgres.sql_literal(marketing_command_aggregate(resource)) +
+    ", " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  let response = Json::object({
+    "command": command_payload,
+    "idempotent_replay": Json::boolean(false),
+  })
+  match response {
+    Object(fields) => {
+      fields.set(resource, result)
+      (if command_type == "create" { 201 } else { 200 }, response)
+    }
+    _ => raise fail("invalid marketing response")
+  }
+}
+
+///|
 fn supplier_dictionary_metadata(coverage : Json, source_kind : String) -> Json {
   let missing : Array[Json] = []
   if source_kind == "imported_or_empty" &&
@@ -11906,6 +13216,57 @@ fn tender_command_spec(
 }
 
 ///|
+fn marketing_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String, String?)? {
+  if request_method is @http.Post {
+    if path == "/api/company/marketing/campaigns" {
+      return Some(("campaign", "create", None))
+    }
+    if path == "/api/company/marketing/placements" {
+      return Some(("placement", "create", None))
+    }
+    if path == "/api/company/marketing/channels" {
+      return Some(("channel", "create", None))
+    }
+    if path == "/api/company/marketing/materials" {
+      return Some(("material", "create", None))
+    }
+  }
+  let campaign_prefix = "/api/company/marketing/campaigns/"
+  if request_method is @http.Put && path.has_prefix(campaign_prefix) {
+    let id = path[campaign_prefix.length():].to_owned()
+    if valid_identifier(id) {
+      return Some(("campaign", "update", Some(id)))
+    }
+  }
+  let effect_prefix = "/api/company/marketing/placements/"
+  if request_method is @http.Put &&
+    path.has_prefix(effect_prefix) &&
+    path.has_suffix("/effect") {
+    let id = path[effect_prefix.length():path.length() - "/effect".length()].to_owned()
+    if valid_identifier(id) {
+      return Some(("placement", "effect", Some(id)))
+    }
+  }
+  let delete_prefixes = [
+    "/api/company/marketing/campaigns/", "/api/company/marketing/channels/", "/api/company/marketing/materials/",
+  ]
+  let delete_resources = ["campaign", "channel", "material"]
+  for index in 0..<delete_prefixes.length() {
+    let prefix = delete_prefixes[index]
+    if request_method is @http.Delete && path.has_prefix(prefix) {
+      let id = path[prefix.length():].to_owned()
+      if valid_identifier(id) {
+        return Some((delete_resources[index], "delete", Some(id)))
+      }
+    }
+  }
+  None
+}
+
+///|
 fn supplier_command_spec(
   request_method : @http.RequestMethod,
   path : String,
@@ -12086,6 +13447,42 @@ async fn route(
     let keyword = query_decoded(query, "keyword")
     return (200, sales_source_response(family, project_id, state, keyword))
   }
+  if path == "/api/company/marketing/campaigns" {
+    return (
+      200,
+      marketing_source_response(
+        "campaign",
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+        query_decoded(query, "state"),
+        None,
+      ),
+    )
+  }
+  if path == "/api/company/marketing/placements" {
+    return (
+      200,
+      marketing_source_response(
+        "placement",
+        None,
+        None,
+        query_alias_decoded(query, "campaignGuid", "campaign_guid"),
+      ),
+    )
+  }
+  if path == "/api/company/marketing/channels" {
+    return (200, marketing_source_response("channel", None, None, None))
+  }
+  if path == "/api/company/marketing/materials" {
+    return (
+      200,
+      marketing_source_response(
+        "material",
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+        None,
+        None,
+      ),
+    )
+  }
   let tender_source_prefix = "/api/company/source/tender/"
   if path.has_prefix(tender_source_prefix) {
     let family = path[tender_source_prefix.length():].to_owned()
@@ -12244,6 +13641,8 @@ async fn route(
             Json::string("source_tender_command"),
             Json::string("contract_split_command"),
             Json::string("source_contract_split_command"),
+            Json::string("marketing_command"),
+            Json::string("marketing_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -12532,6 +13931,43 @@ async fn handle(
       } else {
         send_json(conn, request.meth, result.0, result.1, false)
       }
+      return
+    }
+    None => ()
+  }
+  match marketing_command_spec(request.meth, path) {
+    Some((resource, command_type, resource_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = marketing_command(
+        resource, command_type, resource_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
       return
     }
     None => ()

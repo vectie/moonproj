@@ -12,6 +12,7 @@ scripts/company_postgres_expense_smoke.sh
 scripts/company_postgres_gateway.sh
 scripts/company_postgres_gateway_smoke.sh
 scripts/company_postgres_invoice_smoke.sh
+scripts/company_postgres_marketing_smoke.sh
 scripts/company_postgres_milestone_smoke.sh
 scripts/company_postgres_payment_smoke.sh
 scripts/company_postgres_projection_apply.sh

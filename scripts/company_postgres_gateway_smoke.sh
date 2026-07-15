@@ -253,6 +253,29 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-delete.json" -w '%{h
 test "$status" = 200
 /usr/bin/jq -e '.success == true and .tender.state == "deleted"' "$TMP_DIR/tender-delete.json" >/dev/null
 
+gateway_marketing_suffix=$(/bin/date +%s)
+gateway_marketing_id="CAMP-GW-SMOKE-$gateway_marketing_suffix"
+gateway_marketing_principal="co-gateway-marketing-smoke"
+gateway_marketing_scope="project:CD-HJL"
+gateway_marketing_body="{\"campaignGuid\":\"$gateway_marketing_id\",\"projGuid\":\"CD-HJL\",\"name\":\"gateway marketing smoke\",\"budget\":\"12.34\",\"principal_id\":\"$gateway_marketing_principal\",\"scope\":\"$gateway_marketing_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_marketing_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_marketing_scope\",\"capability\":\"marketing:campaign:create\",\"max_amount_minor\":2000}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/marketing-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-marketing-create-$gateway_marketing_suffix" \
+  --data "$gateway_marketing_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/marketing/campaigns")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_marketing_id" \
+  '.campaign.aggregate_id == $id and .campaign.state == "planning" and .idempotent_replay == false' \
+  "$TMP_DIR/marketing-create.json" >/dev/null
+gateway_marketing_delete_body="{\"principal_id\":\"$gateway_marketing_principal\",\"scope\":\"$gateway_marketing_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_marketing_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_marketing_scope\",\"capability\":\"marketing:campaign:delete\",\"max_amount_minor\":0}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/marketing-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-marketing-delete-$gateway_marketing_suffix" \
+  --data "$gateway_marketing_delete_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/marketing/campaigns/$gateway_marketing_id")
+test "$status" = 200
+/usr/bin/jq -e '.campaign.state == "deleted"' "$TMP_DIR/marketing-delete.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"

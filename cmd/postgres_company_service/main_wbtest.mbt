@@ -353,6 +353,56 @@ test "native company service normalizes source tender and split fields" {
 }
 
 ///|
+test "native company service maps marketing command paths" {
+  assert_true(
+    marketing_command_spec(@http.Post, "/api/company/marketing/campaigns")
+    is Some(("campaign", "create", None)),
+  )
+  assert_true(
+    marketing_command_spec(@http.Put, "/api/company/marketing/campaigns/CAMP-1")
+    is Some(("campaign", "update", Some("CAMP-1"))),
+  )
+  assert_true(
+    marketing_command_spec(
+      @http.Put,
+      "/api/company/marketing/placements/PLAC-1/effect",
+    )
+    is Some(("placement", "effect", Some("PLAC-1"))),
+  )
+  assert_true(
+    marketing_command_spec(
+      @http.Delete,
+      "/api/company/marketing/materials/MAT-1",
+    )
+    is Some(("material", "delete", Some("MAT-1"))),
+  )
+}
+
+///|
+test "native company service normalizes marketing amounts and authority" {
+  let body = @json.parse(
+    "{\"campaignGuid\":\"CAMP-1\",\"projGuid\":\"P-1\",\"name\":\"Launch\",\"budget\":\"123.45\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"marketing:campaign:create\",\"max_amount_minor\":20000}}",
+  ) catch {
+    _ => Json::null()
+  }
+  let normalized = marketing_create_request(
+    "campaign", body, "actor-1", "marketing-create-1",
+  )
+  assert_eq(normalized.0, "CAMP-1")
+  assert_eq(json_int(normalized.1, "budget_minor", 0), 12345)
+  assert_eq(json_text(normalized.1, "state", ""), "planning")
+  assert_eq(json_text(normalized.1, "principal_id", ""), "principal-1")
+  assert_eq(
+    json_int(
+      json_field(normalized.1, "authority").unwrap(),
+      "max_amount_minor",
+      0,
+    ),
+    20000,
+  )
+}
+
+///|
 test "native company service normalizes sales revenue authority and amount" {
   let body = @json.parse(
     "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",

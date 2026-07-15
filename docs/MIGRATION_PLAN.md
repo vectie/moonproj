@@ -725,6 +725,19 @@ overwrite, standalone source-award insertion, cash, accounting, tax,
 production identity, and procurement-owner acceptance remain separate gates;
 the Python bridge is comparison evidence only.
 
+**Native marketing command checkpoint (2026-07-15).** The native MoonBit
+company service now owns source-compatible campaign, placement, channel, and
+material reads plus the bounded marketing command family. It preserves the ERP
+field aliases, project/state/campaign filters, fixed-point budget/placement/
+material amounts, campaign/channel joins, placement effect metrics, immutable
+revisions, audit receipts, request-equal replay, imported-row protection, and
+command-owned tombstones. Campaign/placement/channel/material creates,
+campaign update, placement effect, and campaign/channel/material delete routes
+are covered by native service, trusted gateway, source-read, and marketing
+shell smoke. Provider execution, R19 budget-ledger consumption, attribution,
+cash, accounting, tax, production identity, and finance-owner acceptance remain
+separate gates; the Python bridge is comparison evidence only.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -1514,11 +1527,11 @@ Execute the remainder in this order:
     initiated-document, source-shaped contract/payment, and payment
     observations plus the native expense, contract, payment-application,
     contract-milestone, dynamic-cost, invoice, sales-revenue, tender,
-    contract-split, and supplier/provider
+    contract-split, marketing, and supplier/provider
     list/detail/command boundaries,
     budget-check preview, and idempotent expense/contract/payment-application/
     contract-milestone/dynamic-cost/invoice/sales-revenue/tender/
-    contract-split/supplier
+    contract-split/marketing/supplier
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1536,7 +1549,7 @@ Execute the remainder in this order:
     browser start command. The migration backlog is therefore explicit:
     (a) finish the remaining authenticated company-service reads and command
     lifecycles in `cmd/postgres_company_service` (invoice, sales-revenue,
-    tender/contract-split, and supplier/provider commands are now native
+    tender/contract-split, marketing, and supplier/provider commands are now native
     checkpoints; populated-source qualification,
     signature, and external effects remain separate gates),
     (b) port the remaining source-export, cohort-planner, parity, acceptance,
@@ -1551,7 +1564,7 @@ Execute the remainder in this order:
 
     The current native gateway/session boundary and bounded company service
     (including the expense, contract, payment-application, contract-milestone,
-    dynamic-cost, invoice, sales-revenue, tender, and contract-split
+    dynamic-cost, invoice, sales-revenue, tender, contract-split, and marketing
     command lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation

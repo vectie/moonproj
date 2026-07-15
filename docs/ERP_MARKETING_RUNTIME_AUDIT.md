@@ -10,7 +10,8 @@ remain company-domain gates.
 
 ## PostgreSQL boundary
 
-The authenticated service and read-model adapter expose:
+The compiled `cmd/postgres_company_service` binary, started by
+`scripts/company_postgres_service.sh`, exposes:
 
 - `/api/company/marketing/campaigns?projGuid=&state=`
 - `/api/company/marketing/placements?campaignGuid=`
@@ -27,6 +28,11 @@ audit events, then appear in the same reads with `sourceKind=command`:
 - `PUT /api/company/marketing/campaigns/:guid`
 - `PUT /api/company/marketing/placements/:guid/effect`
 - `DELETE /api/company/marketing/{campaigns,channels,materials}/:guid`
+
+`scripts/company_postgres_marketing_smoke.sh` exercises all four resources,
+replay, campaign update, placement effect, readback, and tombstones. The
+trusted gateway and source-read smokes cover forwarding and empty-safe source
+observations. The former Python service remains comparison evidence only.
 
 ## Current evidence
 
