@@ -1115,10 +1115,21 @@ async fn warning_ticket_list_response(
   coverage.set("sys_warning_ticket", source_tickets.length())
   let findings = warning_findings(rows)
   let states = warning_ticket_states()
+  let actor_user_id = if actor_id.is_empty() {
+    ""
+  } else {
+    match auth_current_user(actor_id) {
+      Some(profile) => {
+        let data = json_field(profile, "data").unwrap_or(Json::null())
+        json_text(data, "userId", actor_id)
+      }
+      None => actor_id
+    }
+  }
   let result : Array[Json] = []
   for row in source_tickets {
     let assignee = report_text(row.payload, "assignee_user_id", "")
-    if actor_id.is_empty() || assignee == actor_id {
+    if actor_id.is_empty() || assignee == actor_id || assignee == actor_user_id {
       result.push(
         Json::object({
           "ticketId": Json::string(
@@ -1133,6 +1144,13 @@ async fn warning_ticket_list_response(
           "createdAt": json_field(row.payload, "created_at").unwrap_or(
             Json::null(),
           ),
+          "createdBy": Json::string(report_text(row.payload, "created_by", "")),
+          "handledAt": json_field(row.payload, "handled_at").unwrap_or(
+            Json::null(),
+          ),
+          "handledNote": json_field(row.payload, "handled_note").unwrap_or(
+            Json::null(),
+          ),
           "assigneeUserId": Json::string(assignee),
           "sourceKind": Json::string("imported"),
           "commandProjection": Json::boolean(false),
@@ -1143,7 +1161,7 @@ async fn warning_ticket_list_response(
   for ticket_id, payload in states {
     let assignee = report_text(payload, "assignee_user_id", "")
     if report_text(payload, "state", "active") != "deleted" &&
-      (actor_id.is_empty() || assignee == actor_id) {
+      (actor_id.is_empty() || assignee == actor_id || assignee == actor_user_id) {
       let warning_guid = report_text(payload, "warning_guid", "")
       let mut warning : Json? = None
       for item in findings {
@@ -1182,6 +1200,11 @@ async fn warning_ticket_list_response(
           "note": Json::string(report_text(payload, "note", "")),
           "dueDate": Json::string(report_text(payload, "due_date", "")),
           "createdAt": json_field(payload, "created_at").unwrap_or(Json::null()),
+          "createdBy": Json::string(report_text(payload, "created_by", "")),
+          "handledAt": json_field(payload, "handled_at").unwrap_or(Json::null()),
+          "handledNote": json_field(payload, "handled_note").unwrap_or(
+            Json::null(),
+          ),
           "assigneeUserId": Json::string(assignee),
           "sourceKind": Json::string("command"),
           "commandProjection": Json::boolean(true),

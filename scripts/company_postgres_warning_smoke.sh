@@ -31,6 +31,18 @@ TICKET_KEY="warning-ticket-create-$SMOKE_SUFFIX"
 TICKET_EVENT_ID="warning:ticket_create:$TICKET_KEY"
 TICKET_ID="local-ticket-$TICKET_KEY"
 ASSIGNEE_ID="user-admin-0001"
+NEW_ASSIGNEE_ID="user-lmj-0001"
+NEW_ASSIGNEE_ACTOR="limingjin"
+STATUS_HANDLING_KEY="warning-ticket-status-handling-$SMOKE_SUFFIX"
+STATUS_HANDLING_EVENT_ID="warning:ticket_status:$STATUS_HANDLING_KEY"
+STATUS_HANDLING_NEW_KEY="${STATUS_HANDLING_KEY}-new"
+STATUS_HANDLING_NEW_EVENT_ID="warning:ticket_status:$STATUS_HANDLING_NEW_KEY"
+STATUS_DONE_KEY="warning-ticket-status-done-$SMOKE_SUFFIX"
+STATUS_DONE_EVENT_ID="warning:ticket_status:$STATUS_DONE_KEY"
+REASSIGN_KEY="warning-ticket-reassign-$SMOKE_SUFFIX"
+REASSIGN_EVENT_ID="warning:ticket_reassign:$REASSIGN_KEY"
+EXTEND_KEY="warning-ticket-extend-$SMOKE_SUFFIX"
+EXTEND_EVENT_ID="warning:ticket_extend:$EXTEND_KEY"
 
 cleanup() {
   if [ -n "$SERVICE_PID" ]; then
@@ -38,7 +50,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_rule_config' AND aggregate_id = 'W005') OR (aggregate_type = 'warning_custom_rule' AND aggregate_id = '$CUSTOM_CODE') OR (aggregate_type = 'warning_ticket' AND aggregate_id = '$TICKET_ID'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:$EVENT_ID', 'moonproj:command:$RULE_KEY', 'moonproj:audit:$RULE_EVENT_ID', 'moonproj:command:$CUSTOM_KEY', 'moonproj:audit:$CUSTOM_EVENT_ID', 'moonproj:command:$CUSTOM_DELETE_KEY', 'moonproj:audit:$CUSTOM_DELETE_EVENT_ID', 'moonproj:command:$TICKET_KEY', 'moonproj:audit:$TICKET_EVENT_ID');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_rule_config' AND aggregate_id = 'W005') OR (aggregate_type = 'warning_custom_rule' AND aggregate_id = '$CUSTOM_CODE') OR (aggregate_type = 'warning_ticket' AND aggregate_id = '$TICKET_ID'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:$EVENT_ID', 'moonproj:command:$RULE_KEY', 'moonproj:audit:$RULE_EVENT_ID', 'moonproj:command:$CUSTOM_KEY', 'moonproj:audit:$CUSTOM_EVENT_ID', 'moonproj:command:$CUSTOM_DELETE_KEY', 'moonproj:audit:$CUSTOM_DELETE_EVENT_ID', 'moonproj:command:$TICKET_KEY', 'moonproj:audit:$TICKET_EVENT_ID', 'moonproj:command:$STATUS_HANDLING_KEY', 'moonproj:audit:$STATUS_HANDLING_EVENT_ID', 'moonproj:command:$STATUS_HANDLING_NEW_KEY', 'moonproj:audit:$STATUS_HANDLING_NEW_EVENT_ID', 'moonproj:command:$STATUS_DONE_KEY', 'moonproj:audit:$STATUS_DONE_EVENT_ID', 'moonproj:command:$REASSIGN_KEY', 'moonproj:audit:$REASSIGN_EVENT_ID', 'moonproj:command:$EXTEND_KEY', 'moonproj:audit:$EXTEND_EVENT_ID');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -55,7 +67,8 @@ SERVICE_PID=$!
 
 signature=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/awk '{print $1}')
 rule_signature=$(/usr/bin/printf '%s' "$RULE_ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/awk '{print $1}')
-assignee_signature=$(/usr/bin/printf '%s' "$ASSIGNEE_ID" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/awk '{print $1}')
+assignee_signature=$(/usr/bin/printf '%s' "$RULE_ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/awk '{print $1}')
+new_assignee_signature=$(/usr/bin/printf '%s' "$NEW_ASSIGNEE_ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/awk '{print $1}')
 ready=0
 i=0
 while [ "$i" -lt 30 ]; do
@@ -93,9 +106,54 @@ test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .warning.ticketId == "'"$TICKET_ID"'"' "$TMP_DIR/ticket-replay.json" >/dev/null
 
 /usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
-  -H "X-Moonproj-Actor: $ASSIGNEE_ID" -H "X-Moonproj-Actor-Signature: $assignee_signature" \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $assignee_signature" \
   "http://127.0.0.1:$PORT/api/company/source/warning/tickets/mine" >"$TMP_DIR/tickets.json"
 /usr/bin/jq -e '.data | any(.[]; .ticketId == "'"$TICKET_ID"'" and .warningGuid == "'"$WARNING_GUID"'" and .commandProjection == true and .status == "open")' "$TMP_DIR/tickets.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-handling.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $assignee_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $STATUS_HANDLING_KEY" \
+  --data '{"status":"handling","note":"started handling"}' \
+  "http://127.0.0.1:$PORT/api/company/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .ticket.ticketId == "'"$TICKET_ID"'" and .ticket.status == "handling" and .ticket.transition == "status" and .ticket.notificationSent == false and .ticket.authorizing == false' "$TMP_DIR/ticket-handling.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-handling-replay.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $assignee_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $STATUS_HANDLING_KEY" \
+  --data '{"status":"handling","note":"started handling"}' \
+  "http://127.0.0.1:$PORT/api/company/source/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .ticket.status == "handling"' "$TMP_DIR/ticket-handling-replay.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-extend.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $assignee_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $EXTEND_KEY" \
+  --data '{"newDueDate":"2030-02-01","reason":"native extension"}' \
+  "http://127.0.0.1:$PORT/api/company/source/warning/tickets/$TICKET_ID/extend")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .ticket.ticketId == "'"$TICKET_ID"'" and .ticket.dueDate == "2030-02-01" and .ticket.transition == "extend" and .ticket.authorizing == false' "$TMP_DIR/ticket-extend.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-reassign.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $REASSIGN_KEY" \
+  --data "{\"newAssigneeUserId\":\"$NEW_ASSIGNEE_ID\",\"reason\":\"native reassignment\"}" \
+  "http://127.0.0.1:$PORT/api/company/source/warning/tickets/$TICKET_ID/reassign")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .ticket.assigneeUserId == "'"$NEW_ASSIGNEE_ID"'" and .ticket.status == "open" and .ticket.transition == "reassign" and .ticket.authorizing == false' "$TMP_DIR/ticket-reassign.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-new-assignee-handling.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $NEW_ASSIGNEE_ACTOR" -H "X-Moonproj-Actor-Signature: $new_assignee_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $STATUS_HANDLING_NEW_KEY" \
+  --data '{"status":"handling"}' \
+  "http://127.0.0.1:$PORT/api/company/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e '.ticket.assigneeUserId == "'"$NEW_ASSIGNEE_ID"'" and .ticket.status == "handling"' "$TMP_DIR/ticket-new-assignee-handling.json" >/dev/null
 
 body='{"note":"native warning smoke"}'
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/resolve.json" -w '%{http_code}' \
@@ -113,6 +171,29 @@ if [ "$status" != "200" ]; then
   exit 1
 fi
 /usr/bin/jq -e '.idempotent_replay == false and .warning.state == "resolved" and .warning.persisted == true and .warning.authorizing == false and .warning.cashEffect == false' "$TMP_DIR/resolve.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-done.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $NEW_ASSIGNEE_ACTOR" -H "X-Moonproj-Actor-Signature: $new_assignee_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $STATUS_DONE_KEY" \
+  --data '{"status":"done","note":"completed from native smoke"}' \
+  "http://127.0.0.1:$PORT/api/company/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .ticket.status == "done" and .ticket.warningResolved == true and .ticket.handledAt != null and .ticket.notificationSent == false and .ticket.webhookSent == false' "$TMP_DIR/ticket-done.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-done-replay.json" -w '%{http_code}' \
+  -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $NEW_ASSIGNEE_ACTOR" -H "X-Moonproj-Actor-Signature: $new_assignee_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $STATUS_DONE_KEY" \
+  --data '{"status":"done","note":"completed from native smoke"}' \
+  "http://127.0.0.1:$PORT/api/company/source/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .ticket.status == "done"' "$TMP_DIR/ticket-done-replay.json" >/dev/null
+
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $NEW_ASSIGNEE_ACTOR" -H "X-Moonproj-Actor-Signature: $new_assignee_signature" \
+  "http://127.0.0.1:$PORT/api/company/source/warning/tickets/mine" >"$TMP_DIR/tickets-done.json"
+/usr/bin/jq -e '.data | any(.[]; .ticketId == "'"$TICKET_ID"'" and .assigneeUserId == "'"$NEW_ASSIGNEE_ID"'" and .status == "done" and .handledAt != null and .handledNote == "completed from native smoke")' "$TMP_DIR/tickets-done.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/rule.json" -w '%{http_code}' \
   -X PATCH -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \

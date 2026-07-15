@@ -98,6 +98,7 @@
     "connected_warning_read": 1,
     "connected_warning_rule_command_candidate": 1,
     "connected_warning_ticket_command_candidate": 1,
+    "connected_warning_ticket_transition_candidate": 3,
     "connected_warning_scan_preview_read": 1,
     "connected_admin_sys_param_command_candidate": 1,
     "connected_webhook_config_command_candidate": 1,
@@ -4540,8 +4541,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_ticket_transition_candidate",
+      "required_next": "accept_browser_warning_ticket_scenario_and_warning_owner"
     },
     {
       "module": "warning",
@@ -4551,8 +4552,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_ticket_transition_candidate",
+      "required_next": "accept_browser_warning_ticket_scenario_and_warning_owner"
     },
     {
       "module": "warning",
@@ -4562,8 +4563,8 @@
         "/warning",
         "/warning-rules"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_warning_ticket_transition_candidate",
+      "required_next": "accept_browser_warning_ticket_scenario_and_warning_owner"
     },
     {
       "module": "webhook",

@@ -23,6 +23,9 @@ merges imported and local ticket rows with assignee filtering. Custom
 SQL is validated as a single read-only SELECT/WITH statement and retained only
 as a digest. These commands do not create `sys_warning` rows, run provider
 scans, send notifications, or invoke external ticket/notification providers.
+Ticket status, reassignment, and due-date extension now append local ticket
+revisions with actor/owner checks and replay receipts; completing a local
+ticket also appends the warning-state resolution overlay.
 The signed `/scan` path
 is a deterministic dry-run preview that returns rule/finding totals and source
 coverage without persisting findings or dispatching notifications.
@@ -43,3 +46,5 @@ Bounded command paths:
 - `POST /api/company/warning/scan` (dry-run; and `/source` alias)
 - `POST /api/company/warning/:guid/to-ticket` (and `/api/company/source` alias)
 - `GET /api/company/warning/tickets/mine` (and `/api/company/source` alias)
+- `PATCH /api/company/warning/tickets/:id/{status,reassign,extend}` (and
+  `/api/company/source` aliases)
