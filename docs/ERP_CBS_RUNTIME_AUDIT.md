@@ -47,8 +47,8 @@ It never mutates imported contracts and always reports
 `targetMutated=false`, `cbs_effect=false`, `budget_consumption=false`, and no
 cash/accounting/tax effect. The resolution list is available at
 `GET /api/company/cbs/r0/resolutions`. Demo contracts, contract
-approval/payment, and change applications remain explicit authenticated
-`cbs_mutation_boundary_candidate` 409 boundaries.
+approval/payment remain explicit authenticated boundaries; change registration
+and its bounded lifecycle are now local command projections.
 
 The demo-contract create form is also native at `POST
 /api/company/cbs/demo/contracts` (and the `/source` alias). It persists a

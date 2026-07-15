@@ -1367,15 +1367,16 @@ proves create, replay, readback, auto-offset/replay, update, submit, and void;
 the controlled export still has zero imported expense rows.
 
 **Mutation-boundary checkpoint (2026-07-16).** The native service now exposes
-explicit authenticated candidates for every remaining source mutation family
-and a bounded R0 resolution intent.
+explicit authenticated candidates for the remaining external/provider
+mutation families and a bounded R0 resolution intent.
 `POST /api/company/budget/expenses/:guid/sync-from-workflow` returns a 409 until
-workflow source rows exist. Demo-contract legacy/clear, contract
-approval/payment, and change writes return a `cbs_mutation_boundary_candidate`
-409 with no persistence or financial effect; demo-contract create persists a
-budget-check-pending local projection, and R0 resolution persists an auditable
-`cbs_r0_resolution` intent without mutating imported contracts or financial
-effects. Project and contract batch imports
+workflow source rows exist. Demo-contract create/state/legacy/clear, contract
+approval/payment, and change registration plus `estimated → approving →
+confirmed` lifecycle transitions now persist protected command projections and
+audit/replay receipts without invoking the workflow engine or applying
+financial effects. R0 resolution persists an auditable `cbs_r0_resolution`
+intent without mutating imported contracts or financial effects. Project and
+contract batch imports
 now validate source references and commit command-owned projections with list
 readback and idempotent replay; production identity and operations-owner
 acceptance remain. Sales-customer delete now tombstones command-owned rows

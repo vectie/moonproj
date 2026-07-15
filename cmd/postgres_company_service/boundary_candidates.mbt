@@ -115,54 +115,6 @@ fn sales_customer_delete_gate(customer_guid : String) -> (Int, Json) {
 }
 
 ///|
-fn cbs_mutation_boundary_spec(
-  request_method : @http.RequestMethod,
-  path : String,
-) -> String? {
-  let prefix = "/api/company/cbs/"
-  if !path.has_prefix(prefix) {
-    return None
-  }
-  let rest = path[prefix.length():].to_owned()
-  if request_method is @http.Post {
-    let parts = rest.split("/").to_array()
-    if parts.length() == 2 && valid_identifier(parts[1].to_owned()) {
-      if parts[0].to_owned() == "contracts" {
-        return Some("contracts/" + parts[1].to_owned())
-      }
-    }
-  }
-  None
-}
-
-///|
-fn cbs_mutation_boundary_gate(action : String) -> (Int, Json) {
-  (
-    409,
-    Json::object({
-      "success": Json::boolean(false),
-      "code": Json::number(45001),
-      "message": Json::string(
-        "CBS 合同/R0/变更写入需要完整源表、审批策略和财务负责人确认；当前 native 服务不执行该写入。",
-      ),
-      "data": Json::object({
-        "action": Json::string(action),
-        "mutated": Json::boolean(false),
-      }),
-      "source_kind": Json::string("cbs_mutation_boundary_candidate"),
-      "dry_run": Json::boolean(true),
-      "persisted": Json::boolean(false),
-      "cbs_effect": Json::boolean(false),
-      "budget_consumption": Json::boolean(false),
-      "authorizing": Json::boolean(false),
-      "cash_effect": Json::boolean(false),
-      "accounting_effect": Json::boolean(false),
-      "tax_effect": Json::boolean(false),
-    }),
-  )
-}
-
-///|
 fn auth_lifecycle_spec(
   request_method : @http.RequestMethod,
   path : String,

@@ -16138,7 +16138,6 @@ async fn route(
             Json::string("source_cbs_change_command"),
             Json::string("cbs_change_action_command"),
             Json::string("source_cbs_change_action_command"),
-            Json::string("cbs_mutation_boundary_candidate"),
             Json::string("admin_observation_read"),
             Json::string("notification_observation_read"),
             Json::string("notification_message_command"),
@@ -18084,22 +18083,6 @@ async fn handle(
       ) catch {
         error => service_error_response(error)
       }
-      send_json(conn, request.meth, result.0, result.1, false)
-      return
-    }
-    None => ()
-  }
-  match cbs_mutation_boundary_spec(request.meth, path) {
-    Some(action) => {
-      let actor = command_actor(request, actor_signing_secret) catch {
-        error => {
-          let response = service_error_response(error)
-          send_json(conn, request.meth, response.0, response.1, false)
-          return
-        }
-      }
-      let _ = actor
-      let result = cbs_mutation_boundary_gate(action)
       send_json(conn, request.meth, result.0, result.1, false)
       return
     }

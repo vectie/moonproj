@@ -80,9 +80,9 @@
     "connected_cashflow_read": 1,
     "connected_cashflow_ai_explain_candidate": 1,
     "connected_cbs_read": 4,
-    "connected_cbs_command_candidate": 5,
+    "connected_cbs_command_candidate": 17,
     "connected_cbs_approval_command_candidate": 3,
-    "cbs_mutation_boundary_candidate": 12,
+    "cbs_mutation_boundary_candidate": 0,
     "connected_contract_command": 2,
     "connected_cost_dashboard_read": 1,
     "connected_cost_read": 1,
@@ -123,7 +123,6 @@
     "connected_report_builder_command": 1,
     "connected_report_read": 1,
     "connected_sales_read": 5,
-    "sales_customer_delete_candidate": 1,
     "connected_supplier_command": 1,
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
@@ -1940,8 +1939,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -1992,8 +1991,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2005,8 +2004,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2018,8 +2017,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2031,8 +2030,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2044,8 +2043,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2057,8 +2056,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2070,8 +2069,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2083,8 +2082,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2109,8 +2108,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2122,8 +2121,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -2135,8 +2134,8 @@
         "/cbs/r0-queue",
         "/cbs/approval-config"
       ],
-      "action_state": "cbs_mutation_boundary_candidate",
-      "required_next": "accept_browser_cbs_mutation_scenario_and_finance_owner"
+      "action_state": "connected_cbs_command_candidate",
+      "required_next": "accept_browser_cbs_command_scenario_and_finance_owner"
     },
     {
       "module": "cbs",
@@ -4009,8 +4008,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "sales_customer_delete_candidate",
-      "required_next": "accept_sales_archive_or_destructive_delete_policy"
+      "action_state": "connected_sales_command",
+      "required_next": "accept_browser_sales_command_scenario_and_sales_finance_owner"
     },
     {
       "module": "sales",

@@ -490,10 +490,6 @@ test "native company service maps CBS R0 resolution command paths" {
     cbs_r0_command_spec(@http.Post, "/api/company/source/cbs/r0/resolve"),
   )
   assert_true(!cbs_r0_command_spec(@http.Get, "/api/company/cbs/r0/resolve"))
-  assert_true(
-    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/r0/resolve")
-    is None,
-  )
 }
 
 ///|
@@ -511,22 +507,11 @@ test "native company service maps CBS demo contract command paths" {
     ),
   )
   assert_true(
-    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/demo/contracts")
-    is None,
-  )
-  assert_true(
     cbs_demo_contract_state_spec(
       @http.Put,
       "/api/company/cbs/demo/contracts/demo-1/state",
     )
     is Some("demo-1"),
-  )
-  assert_true(
-    cbs_mutation_boundary_spec(
-      @http.Put,
-      "/api/company/cbs/demo/contracts/demo-1/state",
-    )
-    is None,
   )
   assert_true(
     cbs_demo_legacy_command_spec(
@@ -535,18 +520,10 @@ test "native company service maps CBS demo contract command paths" {
     ),
   )
   assert_true(
-    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/demo/legacy")
-    is None,
-  )
-  assert_true(
     cbs_demo_clear_command_spec(
       @http.Delete,
       "/api/company/source/cbs/demo/clear",
     ),
-  )
-  assert_true(
-    cbs_mutation_boundary_spec(@http.Delete, "/api/company/cbs/demo/clear")
-    is None,
   )
   assert_true(
     cbs_contract_action_spec(
@@ -554,13 +531,6 @@ test "native company service maps CBS demo contract command paths" {
       "/api/company/source/cbs/contracts/demo-1/mark-paid",
     )
     is Some(("mark-paid", "demo-1")),
-  )
-  assert_true(
-    cbs_mutation_boundary_spec(
-      @http.Post,
-      "/api/company/cbs/contracts/demo-1/mark-paid",
-    )
-    is None,
   )
   assert_true(cbs_change_command_spec(@http.Post, "/api/company/cbs/changes"))
   assert_true(
@@ -579,16 +549,6 @@ test "native company service maps CBS demo contract command paths" {
       "/api/company/cbs/changes/change-1/approve",
     )
     is Some(("approve", "change-1")),
-  )
-  assert_true(
-    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/changes") is None,
-  )
-  assert_true(
-    cbs_mutation_boundary_spec(
-      @http.Post,
-      "/api/company/cbs/changes/change-1/approve",
-    )
-    is None,
   )
 }
 
