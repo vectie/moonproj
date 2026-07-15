@@ -20,6 +20,7 @@ comparison evidence only:
 |---|---|---|
 | Project list | `/api/company/projects` | source-preserving read |
 | Project detail/lifecycle/tasks | `/api/company/projects/:id` | source-preserving read |
+| MDM project create/update/delete | signed `POST /api/company/source/mdm/projects` and `PUT`/`DELETE .../:id` | command-owned source alias with replay, audit, and imported-row protection |
 | Project task list | `/api/company/projects/:id/tasks` | source-compatible read |
 | Task detail/report history | `/api/company/tasks/:id` | source-compatible read |
 | Local task create/update/delete | `/api/company/plan/tasks[/:id]` | authority-bound command projection |
@@ -49,8 +50,9 @@ evidence-gated boundary.
 
 ## Current evidence
 
-- `scripts/company_postgres_project_plan_smoke.sh` returns two projects, fourteen lifecycle rows, and
-  nine tasks; `proj-0001` detail returns seven lifecycle stages and seven tasks.
+- `scripts/company_postgres_project_plan_smoke.sh` covers imported project reads,
+  MDM project create/replay/update/tombstone, fourteen lifecycle rows, and nine
+  tasks; `proj-0001` detail returns seven lifecycle stages and seven tasks.
 - The source-compatible plan reads return seven tasks, one task report for
   `task-003`, and a five-key-node summary for `proj-0001` (two done, one
   in-progress, and two pending).
@@ -62,10 +64,11 @@ evidence-gated boundary.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
   retaining the designer-built tables and forms as an explicitly labelled
   fallback/preview.
-- Native service, source-read, and trusted-gateway smokes cover local task create/replay/update/
-  delete and an evidence-gated report alias; the source-shaped project-plan
-  readback merges command projections with `sourceKind=command` while keeping
-  source coverage separate.
+- The native service and project-plan smoke cover MDM project
+  create/replay/update/delete, local task create/replay/update/delete, and an
+  evidence-gated report alias; the source-shaped project-plan readback merges
+  command projections with `sourceKind=command` while keeping source coverage
+  separate.
 - `scripts/company_postgres_project_plan_smoke.sh` also proves the seven-node
   plan suggestion candidate, deterministic end dates, and explicit
   `providerExecution=false`, `persisted=false`, and `authorizing=false` markers.

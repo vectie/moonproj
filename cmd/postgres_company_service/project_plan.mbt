@@ -402,6 +402,10 @@ async fn project_plan_project_items(
   for row in command_projects {
     raw_projects.push(row)
   }
+  let native_project_commands = project_command_projection_rows(false)
+  for row in native_project_commands {
+    raw_projects.push(row)
+  }
   let units = raw_source_rows("mu_business_unit", 500)
   let stages = raw_source_rows("proj_lifecycle_stage", 500)
   let instances = raw_source_rows("proj_lifecycle_instance", 500)
@@ -450,6 +454,7 @@ async fn project_runtime_response(
 ) -> Json raise CompanyServiceError {
   let items = project_plan_project_items(project_id, status, keyword)
   let command_projects = project_import_projection_rows()
+  let native_project_commands = project_command_projection_rows(false)
   let coverage = Json::object({
     "ep_project": Json::number(
       raw_source_rows("ep_project", 500).length().to_double(),
@@ -470,17 +475,20 @@ async fn project_runtime_response(
       raw_source_rows("jd_task_report", 500).length().to_double(),
     ),
     "project_import": Json::number(command_projects.length().to_double()),
+    "project": Json::number(native_project_commands.length().to_double()),
   })
   Json::object({
     "items": Json::array(items),
     "source_kind": Json::string(
-      if command_projects.is_empty() {
+      if command_projects.is_empty() && native_project_commands.is_empty() {
         "imported"
       } else {
         "imported_or_command"
       },
     ),
-    "command_projection": Json::boolean(!command_projects.is_empty()),
+    "command_projection": Json::boolean(
+      !command_projects.is_empty() || !native_project_commands.is_empty(),
+    ),
     "authorizing": Json::boolean(false),
     "source_coverage": coverage,
     "missing_source_tables": Json::array(

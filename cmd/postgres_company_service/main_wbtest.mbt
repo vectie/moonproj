@@ -476,6 +476,37 @@ test "native company service maps project-plan task paths" {
 }
 
 ///|
+test "native company service maps MDM project source paths" {
+  assert_true(
+    project_source_command_spec(@http.Post, "/api/company/source/mdm/projects")
+    is Some(("create", None)),
+  )
+  assert_true(
+    project_source_command_spec(
+      @http.Put,
+      "/api/company/source/mdm/projects/PRJ-1",
+    )
+    is Some(("update", Some("PRJ-1"))),
+  )
+  assert_true(
+    project_source_command_spec(
+      @http.Delete,
+      "/api/company/source/mdm/projects/PRJ-1",
+    )
+    is Some(("delete", Some("PRJ-1"))),
+  )
+  let body = @json.parse(
+    "{\"projGuid\":\"PRJ-1\",\"projCode\":\"P-1\",\"projName\":\"Project\",\"buGuid\":\"BU-1\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  let request = project_source_create_request(body, "key-1", "actor-1")
+  assert_eq(json_text(request, "project_id", ""), "PRJ-1")
+  assert_eq(json_text(request, "proj_code", ""), "P-1")
+  assert_eq(json_text(request, "bu_guid", ""), "BU-1")
+}
+
+///|
 test "native company service normalizes sales revenue authority and amount" {
   let body = @json.parse(
     "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",

@@ -18,6 +18,7 @@ SERVICE_PID=""
 SMOKE_SUFFIX=$(/bin/date +%s)
 PROJECT_ID="proj-0001"
 TASK_ID="PT-MB-SMOKE-$SMOKE_SUFFIX"
+SOURCE_PROJECT_ID="PRJ-PLAN-SOURCE-$SMOKE_SUFFIX"
 
 cleanup() {
   if [ -n "$SERVICE_PID" ]; then
@@ -51,7 +52,7 @@ if [ "$ready" -ne 1 ]; then
   /bin/cat "$TMP_DIR/service.log"
   exit 1
 fi
-/usr/bin/jq -e '.capabilities | index("project_runtime_read") and index("project_plan_task_command") and index("plan_ai_suggestion_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("project_runtime_read") and index("project_plan_task_command") and index("source_project_command") and index("plan_ai_suggestion_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 request() {
   name=$1
@@ -81,7 +82,7 @@ request() {
 }
 
 request projects GET /api/company/projects 200
-/usr/bin/jq -e '(.items | length) == 2 and .source_kind == "imported" and .items[0].project_id != null' "$TMP_DIR/projects.json" >/dev/null
+/usr/bin/jq -e '(.items | length) >= 2 and .source_kind == "imported_or_command" and any(.items[]; .project_id == "proj-0001")' "$TMP_DIR/projects.json" >/dev/null
 request project GET "/api/company/projects/$PROJECT_ID" 200
 /usr/bin/jq -e --arg id "$PROJECT_ID" '.project_id == $id and (.lifecycle | length) == 7 and .task_count >= 1' "$TMP_DIR/project.json" >/dev/null
 request tasks GET "/api/company/projects/$PROJECT_ID/tasks" 200
@@ -94,6 +95,17 @@ request task_detail GET /api/company/tasks/task-003 200
 /usr/bin/jq -e '.data.task.taskGuid == "task-003" and (.data.reports | length) >= 1' "$TMP_DIR/task_detail.json" >/dev/null
 request delay_impact GET '/api/company/tasks/task-003/delay-impact?delayDays=3' 200
 /usr/bin/jq -e '.data.source.delayDays == 3 and .data.calculation_available == true and .data.source.newEnd == "2026-12-18"' "$TMP_DIR/delay_impact.json" >/dev/null
+
+source_project_body="{\"projGuid\":\"$SOURCE_PROJECT_ID\",\"projCode\":\"PRJ-PLAN-$SMOKE_SUFFIX\",\"projName\":\"native MDM project smoke\",\"projShortName\":\"MDM smoke\",\"buGuid\":\"bu-tjgs-0001\",\"buName\":\"Test BU\",\"beginDate\":\"2026-07-16\",\"projStatus\":\"initiation\"}"
+source_project_key="project-source-create-$SMOKE_SUFFIX"
+request source_project_create POST /api/company/source/mdm/projects 200 "$source_project_body" "$source_project_key"
+/usr/bin/jq -e --arg id "$SOURCE_PROJECT_ID" '.success == true and .project.projGuid == $id and .project.sourceKind == "command" and .persisted == true' "$TMP_DIR/source_project_create.json" >/dev/null
+request source_project_replay POST /api/company/source/mdm/projects 200 "$source_project_body" "$source_project_key"
+/usr/bin/jq -e '.success == true and .idempotent_replay == true' "$TMP_DIR/source_project_replay.json" >/dev/null
+request source_project_update PUT "/api/company/source/mdm/projects/$SOURCE_PROJECT_ID" 200 '{"projName":"native MDM project smoke updated"}' "project-source-update-$SMOKE_SUFFIX"
+/usr/bin/jq -e '.success == true and .project.projName == "native MDM project smoke updated"' "$TMP_DIR/source_project_update.json" >/dev/null
+request source_project_read GET "/api/company/projects/$SOURCE_PROJECT_ID" 200
+/usr/bin/jq -e --arg id "$SOURCE_PROJECT_ID" '.project_id == $id and .project_name == "native MDM project smoke updated" and .source_kind == "command"' "$TMP_DIR/source_project_read.json" >/dev/null
 
 ai_body='{"projType":"住宅","scale":"中型","region":"上海","beginDate":"2026-01-01"}'
 request ai_suggest POST /api/company/plan/ai-suggest-plan 200 "$ai_body" "project-plan-ai-suggest-$SMOKE_SUFFIX"
@@ -122,5 +134,9 @@ request task_delete DELETE "/api/company/plan/tasks/$TASK_ID" 200 '{"reason":"na
 /usr/bin/jq -e '.task.state == "deleted" and .task.cash_effect == false' "$TMP_DIR/task_delete.json" >/dev/null
 request tasks_after_delete GET "/api/company/projects/$PROJECT_ID/tasks" 200
 /usr/bin/jq -e --arg id "$TASK_ID" 'all(.items[]; .taskGuid != $id)' "$TMP_DIR/tasks_after_delete.json" >/dev/null
+
+request source_project_delete DELETE "/api/company/source/mdm/projects/$SOURCE_PROJECT_ID" 200 '{"reason":"native MDM project tombstone smoke"}' "project-source-delete-$SMOKE_SUFFIX"
+/usr/bin/jq -e '.success == true and .project.projGuid != null and .persisted == true' "$TMP_DIR/source_project_delete.json" >/dev/null
+request source_project_missing GET "/api/company/projects/$SOURCE_PROJECT_ID" 404
 
 echo "native MoonBit project-plan read/command lifecycle smoke passed"
