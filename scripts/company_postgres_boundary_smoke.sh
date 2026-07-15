@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -94,6 +94,38 @@ test "$status" = 200
   --data-urlencode "keyword=$CUSTOMER_CODE" \
   "http://127.0.0.1:$PORT/api/company/source/sales/customers" \
   | /usr/bin/jq -e --arg id "$CUSTOMER_ID" '.data | any(.[]; .customer_guid == $id and .customer_name == "Native Boundary Customer Updated" and .source_kind == "command")' >/dev/null
+
+SUBSCRIPTION_KEY="boundary-subscription-$SMOKE_SUFFIX"
+SUBSCRIPTION_CODE="SUB-BOUNDARY-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subscription-create.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $SUBSCRIPTION_KEY" \
+  --data "{\"subCode\":\"$SUBSCRIPTION_CODE\",\"customerGuid\":\"$CUSTOMER_ID\",\"projGuid\":\"proj-0001\",\"buildingNo\":\"1\",\"unitNo\":\"101\",\"totalPrice\":123.45}" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/subscriptions")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$SUBSCRIPTION_CODE" '.success == true and .subscription.subCode == $code and .subscription.state == "subscribed" and .persisted == true' "$TMP_DIR/subscription-create.json" >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subscription-replay.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $SUBSCRIPTION_KEY" \
+  --data "{\"subCode\":\"$SUBSCRIPTION_CODE\",\"customerGuid\":\"$CUSTOMER_ID\",\"projGuid\":\"proj-0001\",\"buildingNo\":\"1\",\"unitNo\":\"101\",\"totalPrice\":123.45}" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/subscriptions")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .persisted == true' "$TMP_DIR/subscription-replay.json" >/dev/null
+SUBSCRIPTION_ID=$(/usr/bin/jq -r '.subscription.subGuid' "$TMP_DIR/subscription-create.json")
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subscription-convert.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: subscription-convert-$SMOKE_SUFFIX" \
+  --data '{"paymentType":"按揭","signedDate":"2026-07-16"}' \
+  "http://127.0.0.1:$PORT/api/company/source/sales/subscriptions/$SUBSCRIPTION_ID/convert-to-contract")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .subscription.state == "converted" and .subscription.contract_pending == true and .subscription.contract_created == false and .subscription.revenue_created == false' "$TMP_DIR/subscription-convert.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "keyword=$SUBSCRIPTION_CODE" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/subscriptions" \
+  | /usr/bin/jq -e --arg id "$SUBSCRIPTION_ID" '.data | any(.[]; .sub_guid == $id and .state == "converted" and .source_kind == "command")' >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \

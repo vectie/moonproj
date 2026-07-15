@@ -371,6 +371,43 @@ test "native company service maps sales customer command paths" {
 }
 
 ///|
+test "native company service maps sales subscription command paths" {
+  assert_true(
+    sales_subscription_command_spec(
+      @http.Post,
+      "/api/company/source/sales/subscriptions",
+    )
+    is Some(("create", None)),
+  )
+  assert_true(
+    sales_subscription_command_spec(
+      @http.Post,
+      "/api/company/sales/subscriptions/SUB-1/convert-to-contract",
+    )
+    is Some(("convert_to_contract", Some("SUB-1"))),
+  )
+  assert_true(
+    sales_subscription_command_spec(
+      @http.Post,
+      "/api/company/sales/subscriptions/SUB-1/unknown",
+    )
+    is None,
+  )
+  let request = sales_subscription_create_request(
+    @json.parse(
+      "{\"customerGuid\":\"CUS-1\",\"projGuid\":\"P-1\",\"buildingNo\":\"1\",\"unitNo\":\"101\",\"totalPrice\":123.45}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+    "subscription-test-key",
+  )
+  assert_eq(json_text(request, "customer_guid", ""), "CUS-1")
+  assert_eq(json_text(request, "state", ""), "subscribed")
+  assert_true(json_number(request, "total_price", 0.0) == 123.45)
+}
+
+///|
 test "native company service maps tender and split command paths" {
   assert_true(
     tender_command_spec(@http.Post, "/api/company/tenders")

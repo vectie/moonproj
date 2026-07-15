@@ -43,21 +43,25 @@ Customer writes now have the same signed local command boundary:
 Imported customer rows remain read-only, and destructive customer deletion is
 still an explicit 409 policy gate.
 
+Subscription writes now have a bounded local command boundary:
+
+- `POST /api/company/sales/subscriptions` and its `/source` alias create a
+  command-owned reservation projection;
+- `POST /api/company/sales/subscriptions/:id/convert-to-contract` and its
+  `/source` alias transition a local reservation to `converted` and return an
+  explicit `contract_pending` marker.
+
+Conversion does not create a sales contract or revenue row yet; those remain
+separate downstream command effects.
+
 The former Python service remains frozen comparison evidence only. All native
 commands require the signed actor assertion, an active principal/scope/
 capability grant, and an `Idempotency-Key`.
 
 Local commands use the same idempotent company-command and immutable revision
-boundary:
-
-- customer create/update/block/archive;
-- reservation create/convert/cancel;
-- sales-agreement create/fulfill/cancel;
-- fulfilled-agreement receivable opening;
-- mortgage create/approve/release;
-- refund create/approve/pay/reject.
-- revenue create/update/confirm-received/delete through a separate
-  authority-checked local command boundary.
+boundary for customer create/update, subscription create/convert, and revenue
+create/update/confirm-received/delete. Sales-agreement, mortgage, and refund
+commands remain separate next-wave boundaries.
 
 Imported projections are read-only. A fulfilled agreement opens a receivable
 only through an explicit command; collections, refund cash, revenue
@@ -79,8 +83,9 @@ The source-observation boundary is separate from those target projections:
 
 Each response preserves the source row fields, adds normalized aggregate
 identity for the Rabbita table, reports coverage for all six sales tables, and
-marks the observation non-authorizing and non-persisting. Revenue and customer
-source reads merge local command projections as `source_kind=command` while
+marks the observation non-authorizing and non-persisting. Revenue, customer,
+and subscription source reads merge local command projections as
+`source_kind=command` while
 keeping raw-table coverage separate; deleted local projections are filtered out. The
 current export has zero rows in every table, so these reads do not seed or
 promote source rows.
@@ -108,13 +113,15 @@ identity/session deployment remain required.
 
 ## Source action reconciliation
 
-The parity matrix maps customer create/update and revenue
-create/update/delete/confirm-received to local command runtimes. Customer
-commands require a signed actor and idempotency, while revenue commands also
-require authority, idempotency, and actor/scope matching; both only create
-local projections and never release cash or post accounting. Subscription,
-mortgage, and refund writes remain explicit authenticated candidates until
-their command projections are ported. The source customer delete action now
+The parity matrix maps customer create/update, subscription create/convert,
+and revenue create/update/delete/confirm-received to local command runtimes.
+Customer and subscription commands require a signed actor and idempotency,
+while revenue commands also require authority, idempotency, and actor/scope
+matching; all only create local projections and never release cash or post
+accounting. Sales-agreement, mortgage, and refund writes remain explicit
+authenticated candidates until their command projections are ported.
+Subscription conversion currently leaves downstream contract/revenue creation
+pending. The source customer delete action now
 returns an authenticated `sales_customer_delete_candidate` 409 boundary
 because the target deliberately exposes archive rather than destructive
 deletion. These command mappings are local evidence only: source identity
