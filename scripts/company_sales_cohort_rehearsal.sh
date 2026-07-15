@@ -37,7 +37,7 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/sales-cohort-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-apply.json"
-  python3 "$SCRIPT_DIR/company_postgres_projection_parity.py" \
+  "$SCRIPT_DIR/company_postgres_projection_parity.sh" \
     "$WORK_DIR/sales-cohort-receipt.json" "$WORK_DIR/postgres-parity.json" \
     --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
