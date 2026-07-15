@@ -631,10 +631,28 @@ or a batch into immutable local projections with deterministic idempotency;
 only command-owned rows; and `POST .../:guid/trigger-event` reaches pending
 event milestones. Source-shaped contract detail/readback merges command
 milestones with `sourceKind=command`, the early-payment check reads them, and
-service/gateway smokes cover replay, imported-row guards, trigger, check, and
-void. These commands remain explicitly cash/accounting/tax-neutral; payment
-release, budget/CBS enforcement, workflow-driven progress, browser acceptance,
-production identity, and operations-owner approval remain separate gates.
+the native MoonBit service smoke covers replay, update, trigger, and tombstone
+readback. The supported runtime is now `cmd/postgres_company_service` plus
+`scripts/company_postgres_milestone_smoke.sh`; the Python implementation is
+frozen comparison evidence only. Imported contracts and milestones remain
+read-only, and these commands remain explicitly cash/accounting/tax-neutral;
+payment release, budget/CBS enforcement, workflow-driven progress, browser
+acceptance, production identity, and operations-owner approval remain separate
+gates.
+
+**Native contract-milestone command checkpoint (2026-07-15).** The native
+MoonBit service now owns the source milestone aliases rather than forwarding
+them to the frozen bridge. `POST /api/company/source/cost/milestones` and
+`POST /api/company/source/cost/contracts/:guid/milestones` accept one or a
+bounded batch, normalize fixed-point amount/percentage fields, allocate stable
+sequence and identifier defaults, and persist `contract_milestone_command`
+revisions with a command receipt and audit event. `PUT` updates mutable fields,
+`DELETE` writes a local tombstone, and `POST .../:guid/trigger-event` reaches
+only pending event nodes. The command detail read already merges the latest
+imported and local projections; the new shell-only smoke proves health
+capabilities, replay, source-shaped detail, update, trigger, and delete. No
+cash, accounting, tax, provider, budget, or workflow effect is enabled by this
+slice.
 
 **Payment-application mutation checkpoint (2026-07-14).** The source cost
 payment-application create/update/delete family now has a bounded alias over
@@ -1432,9 +1450,10 @@ Execute the remainder in this order:
     port with `cmd/postgres_company_service`'s authenticated native slice
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
-    observations plus the native expense, contract, payment-application, and
-    dynamic-cost list/detail/command boundaries, budget-check preview, and
-    idempotent expense/contract/payment-application/dynamic-cost
+    observations plus the native expense, contract, payment-application,
+    contract-milestone, and dynamic-cost list/detail/command boundaries,
+    budget-check preview, and idempotent expense/contract/payment-application/
+    contract-milestone/dynamic-cost
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1463,7 +1482,8 @@ Execute the remainder in this order:
     dual-runtime mode is planned.
 
     The current native gateway/session boundary and bounded company service
-    (including the expense, contract, payment-application, and dynamic-cost
+    (including the expense, contract, payment-application, contract-milestone,
+    and dynamic-cost
     command lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation
@@ -1482,7 +1502,7 @@ Execute the remainder in this order:
     shell wrapper before it can be added to the manifest.
 
     The current manifest covers the native PostgreSQL target/apply/read/service/
-    gateway boundaries, expense/contract/payment smoke paths, source-export
+    gateway boundaries, expense/contract/payment/milestone smoke paths, source-export
     inventory commands, all `cmd` packages, and the Rabbita frontend package.
     The gate passing proves only that these paths are Python-free; it does not
     imply that the remaining ERP routes, external effects, managed identity,

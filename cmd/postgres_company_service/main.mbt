@@ -2981,6 +2981,861 @@ fn source_payment_alias_result(result : Json, apply_code : String?) -> Json {
 }
 
 ///|
+fn milestone_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  required : Bool,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = match json_field(body, primary) {
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    None => json_text(body, fallback, "").trim().to_owned()
+    _ => raise reject(422, primary + " must be text")
+  }
+  if required && value.is_empty() {
+    raise reject(422, primary + " is required")
+  }
+  if identifier && !value.is_empty() && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn milestone_plan_pct_bps(body : Json) -> Int raise CompanyServiceError {
+  match json_field(body, "plan_pct_bps") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number <= 10000.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(_) => raise reject(422, "plan_pct_bps must be between 0 and 10000")
+    None =>
+      match json_field(body, "plan_pct") {
+        Some(_) => source_decimal_minor(body, "plan_pct", 0)
+        None => source_decimal_minor(body, "planPct", 0)
+      }
+  }
+}
+
+///|
+fn milestone_plan_amount_minor(body : Json) -> Int raise CompanyServiceError {
+  match json_field(body, "plan_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    Some(_) =>
+      raise reject(422, "plan_amount_minor must be a non-negative integer")
+    None =>
+      match json_field(body, "plan_amount") {
+        Some(_) => source_decimal_minor(body, "plan_amount", 0)
+        None =>
+          match json_field(body, "planAmount") {
+            Some(_) => source_decimal_minor(body, "planAmount", 0)
+            None => 0
+          }
+      }
+  }
+}
+
+///|
+async fn contract_milestone_items(
+  contract_id : String?,
+  include_deleted : Bool,
+) -> Array[Json] raise CompanyServiceError {
+  let contract_clause = match contract_id {
+    Some(value) => {
+      if !valid_identifier(value) {
+        raise fail("invalid contract_id")
+      }
+      " AND coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'contract_id' END, payload->'candidate'->'milestone'->>'contract_guid', '') = " +
+      @postgres.sql_literal(value)
+    }
+    None => ""
+  }
+  let deleted_clause = if include_deleted {
+    ""
+  } else {
+    " WHERE coalesce(payload->>'state', payload->'candidate'->'milestone'->>'state', 'pending') <> 'deleted'"
+  }
+  let contract_filter = if contract_clause.is_empty() {
+    ""
+  } else if deleted_clause.is_empty() {
+    " WHERE " + contract_clause[5:].to_owned()
+  } else {
+    contract_clause
+  }
+  let sql = [
+    "SELECT aggregate_type, aggregate_id, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (",
+    "  SELECT DISTINCT ON (aggregate_type, aggregate_id) aggregate_type, aggregate_id, payload",
+    "  FROM company_aggregate_projection", "  WHERE aggregate_type IN ('contract_milestone', 'contract_milestone_command')",
+    "  ORDER BY aggregate_type, aggregate_id, revision DESC", ") latest", deleted_clause,
+    contract_filter, " ORDER BY aggregate_id LIMIT 500",
+  ].join("\n")
+  let result : Array[Json] = []
+  for line_view in run_sql(sql).split("\n") {
+    let line = line_view.to_owned()
+    if line.is_empty() {
+      continue
+    }
+    let row = fields(line, 3)
+    let payload = @json.parse(decode_hex(row[2])) catch {
+      _ => raise fail("invalid contract milestone projection JSON")
+    }
+    let is_command = row[0] == "contract_milestone_command"
+    let candidate = json_field(payload, "candidate").unwrap_or(Json::object({}))
+    let source = if is_command {
+      payload
+    } else {
+      json_field(candidate, "milestone").unwrap_or(Json::object({}))
+    }
+    let source_kind = if is_command { "command" } else { "imported" }
+    let source_id = if is_command {
+      "moonproj:command:contract_milestone:" + row[1]
+    } else {
+      json_text(payload, "source_id", row[1])
+    }
+    let normalized_contract = if is_command {
+      json_text(source, "contract_id", "")
+    } else {
+      json_text(source, "contract_guid", "")
+    }
+    if contract_id is Some(_) && normalized_contract != contract_id.unwrap() {
+      continue
+    }
+    result.push(
+      Json::object({
+        "milestone_id": Json::string(
+          if is_command {
+            json_text(source, "milestone_id", row[1])
+          } else {
+            json_text(source, "milestone_guid", row[1])
+          },
+        ),
+        "contract_id": Json::string(normalized_contract),
+        "sequence": Json::number(
+          json_int(source, "sequence", json_int(source, "seq", 0)).to_double(),
+        ),
+        "node_name": Json::string(json_text(source, "node_name", "")),
+        "trigger_type": Json::string(json_text(source, "trigger_type", "")),
+        "trigger_value": Json::string(json_text(source, "trigger_value", "")),
+        "plan_date": Json::string(json_text(source, "plan_date", "")),
+        "plan_amount_minor": Json::number(
+          json_int(source, "plan_amount_minor", 0).to_double(),
+        ),
+        "plan_pct_bps": Json::number(
+          json_int(source, "plan_pct_bps", 0).to_double(),
+        ),
+        "actual_amount_minor": Json::number(
+          json_int(source, "actual_amount_minor", 0).to_double(),
+        ),
+        "state": Json::string(
+          json_text(payload, "state", json_text(source, "state", "pending")),
+        ),
+        "reached_at": Json::string(
+          json_text(payload, "reached_at", json_text(source, "reached_at", "")),
+        ),
+        "notes": Json::string(
+          json_text(source, "notes", json_text(payload, "notes", "")),
+        ),
+        "source_kind": Json::string(source_kind),
+        "source_id": Json::string(source_id),
+        "command_projection": Json::boolean(is_command),
+        "persisted": Json::boolean(is_command),
+        "provider_execution": Json::boolean(false),
+        "cash_effect": Json::boolean(false),
+        "accounting_effect": Json::boolean(false),
+        "tax_effect": Json::boolean(false),
+      }),
+    )
+  }
+  result
+}
+
+///|
+fn milestone_create_items(
+  body : Json,
+  contract_id : String,
+  contract_amount_minor : Int,
+  first_sequence : Int,
+  idempotency_key : String,
+) -> Array[Json] raise CompanyServiceError {
+  let raw_list = match json_field(body, "milestones") {
+    Some(Array(items)) => items
+    None => [body]
+    _ => raise reject(422, "milestones must contain objects")
+  }
+  if raw_list.is_empty() || raw_list.length() > 100 {
+    raise reject(422, "milestones must contain between 1 and 100 objects")
+  }
+  let result : Array[Json] = []
+  for index in 0..<raw_list.length() {
+    let raw = raw_list[index]
+    match raw {
+      Object(_) => ()
+      _ => raise reject(422, "milestones must contain objects")
+    }
+    let milestone_id = milestone_text(
+      raw, "milestoneGuid", "milestone_id", false, true,
+    )
+    let resolved_id = if milestone_id.is_empty() {
+      "MS-SRC-" + idempotency_key + "-" + (index + 1).to_string()
+    } else {
+      milestone_id
+    }
+    let node_name = milestone_text(raw, "nodeName", "node_name", true, false)
+    let trigger_type = milestone_text(
+      raw, "triggerType", "trigger_type", true, false,
+    ).to_lower()
+    if trigger_type != "time" &&
+      trigger_type != "progress" &&
+      trigger_type != "event" {
+      raise reject(400, "triggerType 非法")
+    }
+    let plan_pct_bps = match json_field(raw, "plan_pct_bps") {
+      Some(_) => milestone_plan_pct_bps(raw)
+      None =>
+        match json_field(raw, "planPct") {
+          Some(_) => milestone_plan_pct_bps(raw)
+          None => 0
+        }
+    }
+    let mut plan_amount_minor = milestone_plan_amount_minor(raw)
+    if plan_amount_minor == 0 && plan_pct_bps > 0 && contract_amount_minor > 0 {
+      plan_amount_minor = (contract_amount_minor.to_double() *
+      plan_pct_bps.to_double() /
+      10000.0 +
+      0.5).to_int()
+    }
+    let sequence = match json_field(raw, "sequence") {
+      Some(Number(number, ..)) if number > 0.0 &&
+        number == number.to_int().to_double() => number.to_int()
+      Some(_) => raise reject(422, "sequence must be a positive integer")
+      None =>
+        match json_field(raw, "seq") {
+          Some(Number(number, ..)) if number > 0.0 &&
+            number == number.to_int().to_double() => number.to_int()
+          Some(_) => raise reject(422, "seq must be a positive integer")
+          None => first_sequence + index
+        }
+    }
+    result.push(
+      Json::object({
+        "milestone_id": Json::string(resolved_id),
+        "contract_id": Json::string(contract_id),
+        "sequence": Json::number(sequence.to_double()),
+        "node_name": Json::string(node_name),
+        "trigger_type": Json::string(trigger_type),
+        "trigger_value": Json::string(
+          milestone_text(raw, "triggerValue", "trigger_value", false, false),
+        ),
+        "plan_date": Json::string(
+          milestone_text(raw, "planDate", "plan_date", false, false),
+        ),
+        "plan_amount_minor": Json::number(plan_amount_minor.to_double()),
+        "plan_pct_bps": Json::number(plan_pct_bps.to_double()),
+        "actual_amount_minor": Json::number(0.0),
+        "state": Json::string("pending"),
+        "reached_at": Json::string(""),
+        "notes": Json::string(
+          milestone_text(raw, "notes", "notes", false, false),
+        ),
+      }),
+    )
+  }
+  result
+}
+
+///|
+fn milestone_update_request(
+  milestone_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("update"))
+  request.set("milestone_id", Json::string(milestone_id))
+  request.set("actor_id", Json::string(actor_id))
+  let mut changed = false
+  for primary in ["nodeName", "triggerValue", "planDate", "notes"] {
+    let fallback = if primary == "nodeName" {
+      "node_name"
+    } else if primary == "triggerValue" {
+      "trigger_value"
+    } else if primary == "planDate" {
+      "plan_date"
+    } else {
+      "notes"
+    }
+    let target = fallback
+    match json_field(body, primary) {
+      None =>
+        match json_field(body, fallback) {
+          None => ()
+          Some(String(value)) => {
+            request.set(target, Json::string(value.trim().to_owned()))
+            changed = true
+          }
+          _ => raise reject(422, primary + " must be text")
+        }
+      Some(String(value)) => {
+        request.set(target, Json::string(value.trim().to_owned()))
+        changed = true
+      }
+      _ => raise reject(422, primary + " must be text")
+    }
+  }
+  match json_field(body, "triggerType") {
+    None =>
+      match json_field(body, "trigger_type") {
+        None => ()
+        Some(String(value)) => {
+          let trigger = value.trim().to_lower().to_owned()
+          if trigger != "time" && trigger != "progress" && trigger != "event" {
+            raise reject(400, "triggerType 非法")
+          }
+          request.set("trigger_type", Json::string(trigger))
+          changed = true
+        }
+        _ => raise reject(422, "triggerType must be text")
+      }
+    Some(String(value)) => {
+      let trigger = value.trim().to_lower().to_owned()
+      if trigger != "time" && trigger != "progress" && trigger != "event" {
+        raise reject(400, "triggerType 非法")
+      }
+      request.set("trigger_type", Json::string(trigger))
+      changed = true
+    }
+    _ => raise reject(422, "triggerType must be text")
+  }
+  match json_field(body, "planAmount") {
+    None =>
+      match json_field(body, "plan_amount_minor") {
+        None => ()
+        Some(_) => {
+          request.set(
+            "plan_amount_minor",
+            Json::number(milestone_plan_amount_minor(body).to_double()),
+          )
+          changed = true
+        }
+      }
+    Some(_) => {
+      request.set(
+        "plan_amount_minor",
+        Json::number(milestone_plan_amount_minor(body).to_double()),
+      )
+      changed = true
+    }
+  }
+  match json_field(body, "plan_amount") {
+    None => ()
+    Some(_) => {
+      request.set(
+        "plan_amount_minor",
+        Json::number(milestone_plan_amount_minor(body).to_double()),
+      )
+      changed = true
+    }
+  }
+  match json_field(body, "planPct") {
+    None =>
+      match json_field(body, "plan_pct_bps") {
+        None => ()
+        Some(_) => {
+          request.set(
+            "plan_pct_bps",
+            Json::number(milestone_plan_pct_bps(body).to_double()),
+          )
+          changed = true
+        }
+      }
+    Some(_) => {
+      request.set(
+        "plan_pct_bps",
+        Json::number(milestone_plan_pct_bps(body).to_double()),
+      )
+      changed = true
+    }
+  }
+  match json_field(body, "plan_pct") {
+    None => ()
+    Some(_) => {
+      request.set(
+        "plan_pct_bps",
+        Json::number(milestone_plan_pct_bps(body).to_double()),
+      )
+      changed = true
+    }
+  }
+  match json_field(body, "state") {
+    None => ()
+    Some(String(value)) if [
+        "pending", "reached", "paid", "overdue", "over_paid",
+      ].contains(value) => {
+      request.set("state", Json::string(value))
+      changed = true
+    }
+    Some(_) => raise reject(400, "state 非法")
+  }
+  if !changed {
+    raise reject(422, "milestone update requires a mutable field")
+  }
+  Json::object(request)
+}
+
+///|
+fn source_milestone_create_request(
+  body : Json,
+  contract_id : String?,
+) -> (String, Json) raise CompanyServiceError {
+  let resolved_contract = match contract_id {
+    Some(value) if valid_identifier(value) => value
+    Some(_) => raise reject(422, "contractGuid contains unsupported characters")
+    None => milestone_text(body, "contractGuid", "contract_id", true, true)
+  }
+  (resolved_contract, body)
+}
+
+///|
+fn milestone_create_request_matches(
+  stored : Json,
+  contract_id : String,
+  items : Array[Json],
+  actor_id : String,
+) -> Bool {
+  if json_text(stored, "contract_id", "") != contract_id ||
+    json_text(stored, "actor_id", "") != actor_id ||
+    json_text(stored, "command_type", "") != "create" {
+    return false
+  }
+  let stored_items = match json_field(stored, "milestones") {
+    Some(Array(values)) => values
+    _ => return false
+  }
+  if stored_items.length() != items.length() {
+    return false
+  }
+  let keys = [
+    "milestone_id", "contract_id", "node_name", "trigger_type", "trigger_value",
+    "plan_date", "plan_amount_minor", "plan_pct_bps", "actual_amount_minor", "state",
+    "reached_at", "notes",
+  ]
+  for index in 0..<items.length() {
+    for key in keys {
+      if !json_equal(
+          json_field(stored_items[index], key).unwrap_or(Json::null()),
+          json_field(items[index], key).unwrap_or(Json::null()),
+        ) {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
+async fn contract_milestone_command(
+  command_type : String,
+  contract_id : String?,
+  milestone_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let existing = existing_company_command(idempotency_key)
+  if command_type == "create" {
+    let (resolved_contract, _) = source_milestone_create_request(
+      body, contract_id,
+    )
+    let contracts = contract_items(Some(resolved_contract))
+    if contracts.is_empty() {
+      raise reject(404, "合同不存在")
+    }
+    if json_text(contracts[0], "source_kind", "") != "command" {
+      raise reject(
+        409, "imported contract is read-only; create a local command contract first",
+      )
+    }
+    if json_text(contracts[0], "state", "") == "deleted" {
+      raise reject(409, "contract is voided")
+    }
+    let current = contract_milestone_items(Some(resolved_contract), true)
+    let mut max_sequence = 0
+    for item in current {
+      if json_text(item, "source_kind", "") == "command" {
+        let sequence = json_int(item, "sequence", 0)
+        if sequence > max_sequence {
+          max_sequence = sequence
+        }
+      }
+    }
+    let raw_source = raw_source_rows("cb_contract_milestone", 500)
+    for row in raw_source {
+      if json_text(row.payload, "contract_guid", "") == resolved_contract {
+        let sequence = json_int(row.payload, "seq", 0)
+        if sequence > max_sequence {
+          max_sequence = sequence
+        }
+      }
+    }
+    let items = milestone_create_items(
+      body,
+      resolved_contract,
+      json_int(contracts[0], "amount_minor", 0),
+      max_sequence + 1,
+      idempotency_key,
+    )
+    match existing {
+      Some(command) => {
+        let stored_request = json_field(command, "request").unwrap_or(
+          Json::null(),
+        )
+        if !milestone_create_request_matches(
+            stored_request, resolved_contract, items, actor_id,
+          ) {
+          raise reject(
+            409, "Idempotency-Key was already used for another request",
+          )
+        }
+        return (
+          200,
+          Json::object({
+            "command": command,
+            "milestone": json_field(command, "result").unwrap_or(Json::null()),
+            "idempotent_replay": Json::boolean(true),
+          }),
+        )
+      }
+      None => {
+        let active = contract_milestone_items(Some(resolved_contract), false)
+        for item in items {
+          let current_id = json_text(item, "milestone_id", "")
+          for visible in active {
+            if json_text(visible, "milestone_id", "") == current_id {
+              raise reject(409, "milestone already exists")
+            }
+          }
+          for row in raw_source_rows("cb_contract_milestone", 500) {
+            if json_text(row.payload, "contract_guid", "") == resolved_contract &&
+              json_text(row.payload, "milestone_guid", row.record_id) ==
+              current_id {
+              raise reject(
+                409, "imported milestone is read-only; use a new local milestone id",
+              )
+            }
+          }
+        }
+        let event_id = "contract-milestone:create:" + idempotency_key
+        let command_source = "moonproj:command:" + idempotency_key
+        let audit_id = event_id + ":audit"
+        let created_ids : Array[Json] = []
+        for item in items {
+          created_ids.push(Json::string(json_text(item, "milestone_id", "")))
+        }
+        let result = Json::object({
+          "contract_id": Json::string(resolved_contract),
+          "created": Json::array(created_ids),
+          "state": Json::string("pending"),
+          "event_id": Json::string(event_id),
+          "audit_id": Json::string(audit_id),
+          "actor_id": Json::string(actor_id),
+        })
+        let request = Json::object({
+          "command_type": Json::string("create"),
+          "contract_id": Json::string(resolved_contract),
+          "milestones": Json::array(items),
+          "actor_id": Json::string(actor_id),
+        })
+        let command_payload = Json::object({
+          "kind": Json::string("company_command"),
+          "command_type": Json::string("create"),
+          "idempotency_key": Json::string(idempotency_key),
+          "contract_id": Json::string(resolved_contract),
+          "milestone_id": Json::string(""),
+          "actor_id": Json::string(actor_id),
+          "request": request,
+          "result": result,
+        })
+        let mut statements = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+          @postgres.sql_literal(event_id) +
+          ", 4, " +
+          @postgres.sql_literal(command_payload.stringify()) +
+          "::jsonb, " +
+          @postgres.sql_literal(command_source) +
+          ") ON CONFLICT (source_id) DO NOTHING;"
+        for item in items {
+          let item_json = item.stringify()
+          let item_id = json_text(item, "milestone_id", "")
+          statements = statements +
+            " INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('contract_milestone_command', " +
+            @postgres.sql_literal(item_id) +
+            ", 1, " +
+            @postgres.sql_literal(item_json) +
+            "::jsonb, " +
+            @postgres.sql_literal(event_id + ":" + item_id) +
+            ") ON CONFLICT DO NOTHING;"
+        }
+        statements = statements +
+          " INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+          @postgres.sql_literal(audit_id) +
+          ", 4, " +
+          @postgres.sql_literal(
+            Json::object({
+              "audit_id": Json::string(audit_id),
+              "action": Json::string("contract_milestone.create"),
+              "aggregate_type": Json::string("contract_milestone"),
+              "contract_id": Json::string(resolved_contract),
+              "actor_id": Json::string(actor_id),
+              "event_id": Json::string(event_id),
+              "state": Json::string("pending"),
+            }).stringify(),
+          ) +
+          "::jsonb, " +
+          @postgres.sql_literal("moonproj:audit:" + event_id) +
+          ") ON CONFLICT DO NOTHING; COMMIT;"
+        let _ = run_sql(statements)
+        return (
+          201,
+          Json::object({
+            "command": command_payload,
+            "milestone": result,
+            "idempotent_replay": Json::boolean(false),
+          }),
+        )
+      }
+    }
+  }
+  let resolved_id = match milestone_id {
+    Some(value) if valid_identifier(value) => value
+    _ => raise reject(422, "milestoneGuid is required")
+  }
+  let rows = contract_milestone_items(None, true)
+  let mut current : Json? = None
+  for item in rows {
+    if json_text(item, "milestone_id", "") == resolved_id {
+      current = Some(item)
+      if json_text(item, "source_kind", "") == "command" {
+        break
+      }
+    }
+  }
+  let current = match current {
+    Some(value) => value
+    None => raise reject(404, "节点不存在")
+  }
+  if json_text(current, "source_kind", "") != "command" {
+    raise reject(
+      409, "imported milestone is read-only; create a local milestone first",
+    )
+  }
+  let contract_for_milestone = json_text(current, "contract_id", "")
+  let current_state = json_text(current, "state", "pending")
+  let request = if command_type == "update" {
+    if current_state == "deleted" {
+      raise reject(409, "节点已作废")
+    }
+    milestone_update_request(resolved_id, body, actor_id)
+  } else if command_type == "delete" {
+    if current_state == "deleted" {
+      raise reject(409, "节点已作废")
+    }
+    if json_int(current, "actual_amount_minor", 0) > 0 {
+      raise reject(400, "该节点已有付款,不可删除")
+    }
+    match json_field(body, "reason") {
+      None | Some(String(_)) => ()
+      _ => raise reject(422, "reason must be text")
+    }
+    Json::object({
+      "command_type": Json::string("delete"),
+      "milestone_id": Json::string(resolved_id),
+      "reason": Json::string(json_text(body, "reason", "").trim().to_owned()),
+      "actor_id": Json::string(actor_id),
+    })
+  } else if command_type == "trigger_event" {
+    if current_state != "pending" ||
+      json_text(current, "trigger_type", "") != "event" {
+      raise reject(400, "仅 pending event 类节点支持手工打点")
+    }
+    Json::object({
+      "command_type": Json::string("trigger_event"),
+      "milestone_id": Json::string(resolved_id),
+      "reached_at": Json::string("today"),
+      "actor_id": Json::string(actor_id),
+    })
+  } else {
+    raise reject(404, "unsupported contract milestone command")
+  }
+  match existing {
+    Some(command) => {
+      let stored_request = json_field(command, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": command,
+          "milestone": json_field(command, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let revision_output = run_sql(
+    "SELECT coalesce(max(revision), 0)::text FROM company_aggregate_projection WHERE aggregate_type = 'contract_milestone_command' AND aggregate_id = " +
+    @postgres.sql_literal(resolved_id),
+  )
+  let next_revision = parse_decimal(revision_output.trim().to_owned()) + 1
+  let event_id = "contract-milestone:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let next_state = if command_type == "delete" {
+    "deleted"
+  } else if command_type == "trigger_event" {
+    "reached"
+  } else {
+    json_text(request, "state", current_state)
+  }
+  let result = Json::object({
+    "milestone_id": Json::string(resolved_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "contract_id": Json::string(contract_for_milestone),
+    "milestone_id": Json::string(resolved_id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let current_json = current.stringify()
+  let request_json = request.stringify()
+  let patch_sql = if command_type == "delete" {
+    "jsonb_build_object('state', 'deleted', 'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "trigger_event" {
+    "jsonb_build_object('state', 'reached', 'reached_at', CURRENT_DATE::text, 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'command_type' - 'milestone_id' - 'actor_id'"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("contract_milestone." + command_type),
+    "aggregate_type": Json::string("contract_milestone"),
+    "aggregate_id": Json::string(resolved_id),
+    "contract_id": Json::string(contract_for_milestone),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('contract_milestone_command', " +
+    @postgres.sql_literal(resolved_id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    @postgres.sql_literal(current_json) +
+    "::jsonb || " +
+    patch_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    200,
+    Json::object({
+      "command": command_payload,
+      "milestone": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+fn source_milestone_alias_result(result : Json) -> Json {
+  let milestone = json_field(result, "milestone").unwrap_or(Json::null())
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let created = json_field(milestone, "created")
+  let data = match created {
+    Some(Array(items)) =>
+      Json::object({
+        "created": Json::array(items),
+        "milestoneGuid": Json::string(
+          if items.length() == 1 {
+            match items[0] {
+              String(value) => value
+              _ => ""
+            }
+          } else {
+            ""
+          },
+        ),
+      })
+    _ =>
+      Json::object({
+        "milestoneGuid": Json::string(json_text(milestone, "milestone_id", "")),
+      })
+  }
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0.0),
+    "data": data,
+    "milestone": milestone,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
 fn dynamic_cost_required_text(
   body : Json,
   key : String,
@@ -8324,6 +9179,45 @@ fn dynamic_cost_command_spec(
 }
 
 ///|
+fn milestone_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?, String?)? {
+  if request_method is @http.Post &&
+    path == "/api/company/source/cost/milestones" {
+    return Some(("source-create", None, None))
+  }
+  let contract_prefix = "/api/company/source/cost/contracts/"
+  if request_method is @http.Post &&
+    path.has_prefix(contract_prefix) &&
+    path.has_suffix("/milestones") {
+    let contract_id = path[contract_prefix.length():path.length() - 11].to_owned()
+    if valid_identifier(contract_id) {
+      return Some(("source-create", Some(contract_id), None))
+    }
+  }
+  let milestone_prefix = "/api/company/source/cost/milestones/"
+  if path.has_prefix(milestone_prefix) {
+    let rest = path[milestone_prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 1 && valid_identifier(rest[0].to_owned()) {
+      if request_method is @http.Put {
+        return Some(("update", None, Some(rest[0].to_owned())))
+      }
+      if request_method is @http.Delete {
+        return Some(("delete", None, Some(rest[0].to_owned())))
+      }
+    }
+    if request_method is @http.Post &&
+      rest.length() == 2 &&
+      rest[1].to_owned() == "trigger-event" &&
+      valid_identifier(rest[0].to_owned()) {
+      return Some(("trigger_event", None, Some(rest[0].to_owned())))
+    }
+  }
+  None
+}
+
+///|
 fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
   match error {
     CompanyServiceError::CommandRejected(status, message) =>
@@ -8609,6 +9503,8 @@ async fn route(
             Json::string("source_payment_application_command"),
             Json::string("dynamic_cost_command"),
             Json::string("source_dynamic_cost_command"),
+            Json::string("contract_milestone_command"),
+            Json::string("source_contract_milestone_command"),
             Json::string("expense_detail_read"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
@@ -8747,6 +9643,62 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match milestone_command_spec(request.meth, path) {
+    Some((command_type, contract_guid, milestone_guid)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = contract_milestone_command(
+        if command_type == "source-create" {
+          "create"
+        } else {
+          command_type
+        },
+        contract_guid,
+        milestone_guid,
+        body,
+        actor,
+        idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      if result.0 < 400 {
+        send_json(
+          conn,
+          request.meth,
+          result.0,
+          source_milestone_alias_result(result.1),
+          false,
+        )
+      } else {
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
+      return
+    }
+    None => ()
   }
   match dynamic_cost_command_spec(request.meth, path) {
     Some((command_type, cost_guid)) => {

@@ -80,6 +80,12 @@ separate source contract void alias with tombstone readback. The native gateway
 HTTP smoke repeats source contract create and verifies signed forwarding. The
 stored command and audit payloads carry the asserted actor identity.
 
+`scripts/company_postgres_milestone_smoke.sh` exercises the native MoonBit
+milestone command family: signed source create/replay, source-shaped detail,
+mutable update, pending event trigger, and tombstone readback. It uses
+PostgreSQL directly through the shell-launched native service; the legacy
+Python service is not part of this supported path.
+
 ## Remaining gate
 
 This is a local vertical, not full ERP API parity. Source contract creation now

@@ -121,6 +121,20 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.contractGuid == "'"$gateway_contract_id"'" and .contract.state == "draft"' \
   "$TMP_DIR/contract-create.json" >/dev/null
 
+gateway_milestone_suffix=$(/bin/date +%s)
+gateway_milestone_id="MS-GW-SMOKE-$gateway_milestone_suffix"
+gateway_milestone_body="{\"milestoneGuid\":\"$gateway_milestone_id\",\"nodeName\":\"gateway design approval\",\"triggerType\":\"event\",\"planPct\":10.00}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/milestone-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-milestone-create-$gateway_milestone_suffix" \
+  --data "$gateway_milestone_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/cost/contracts/$gateway_contract_id/milestones")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == false and .data.milestoneGuid == "'"$gateway_milestone_id"'" and .milestone.state == "pending"' \
+  "$TMP_DIR/milestone-create.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"

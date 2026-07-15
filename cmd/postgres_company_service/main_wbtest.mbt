@@ -164,6 +164,66 @@ test "native company service maps dynamic-cost command paths" {
 }
 
 ///|
+test "native company service maps contract milestone command paths" {
+  assert_true(
+    milestone_command_spec(@http.Post, "/api/company/source/cost/milestones")
+    is Some(("source-create", None, None)),
+  )
+  assert_true(
+    milestone_command_spec(
+      @http.Post,
+      "/api/company/source/cost/contracts/CT-1/milestones",
+    )
+    is Some(("source-create", Some("CT-1"), None)),
+  )
+  assert_true(
+    milestone_command_spec(
+      @http.Post,
+      "/api/company/source/cost/milestones/MS-1/trigger-event",
+    )
+    is Some(("trigger_event", None, Some("MS-1"))),
+  )
+  assert_true(
+    milestone_command_spec(
+      @http.Put,
+      "/api/company/source/cost/milestones/MS-1",
+    )
+    is Some(("update", None, Some("MS-1"))),
+  )
+  assert_true(
+    milestone_command_spec(
+      @http.Delete,
+      "/api/company/source/cost/milestones/MS-1",
+    )
+    is Some(("delete", None, Some("MS-1"))),
+  )
+}
+
+///|
+test "native company service normalizes contract milestone requests" {
+  let body = @json.parse(
+    "{\"contractGuid\":\"CT-1\",\"milestoneGuid\":\"MS-1\",\"nodeName\":\"Design\",\"triggerType\":\"event\",\"planPct\":25.5,\"notes\":\"review\"}",
+  ) catch {
+    _ => Json::null()
+  }
+  let items = milestone_create_items(body, "CT-1", 100000, 3, "key-1")
+  assert_eq(items.length(), 1)
+  assert_eq(json_text(items[0], "milestone_id", ""), "MS-1")
+  assert_eq(json_int(items[0], "sequence", 0), 3)
+  assert_eq(json_int(items[0], "plan_pct_bps", 0), 2550)
+  assert_eq(json_int(items[0], "plan_amount_minor", 0), 25500)
+  let update = milestone_update_request(
+    "MS-1",
+    @json.parse("{\"nodeName\":\"Updated\",\"planAmount\":12.5}") catch {
+      _ => Json::null()
+    },
+    "actor-1",
+  )
+  assert_eq(json_text(update, "node_name", ""), "Updated")
+  assert_eq(json_int(update, "plan_amount_minor", 0), 1250)
+}
+
+///|
 test "native company service normalizes dynamic-cost source fields" {
   let body = @json.parse(
     "{\"costGuid\":\"COST-1\",\"projGuid\":\"P-1\",\"costCode\":\"C-1\",\"costName\":\"Design\",\"costLevel\":2,\"targetCost\":125.50,\"isEndCost\":true}",
