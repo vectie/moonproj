@@ -38,3 +38,9 @@ and keep the designer snapshot only as a transport-failure fallback.
 Budget ownership/reservation, contract approval, R0 resolution, accounting
 posting, cash release, tax, browser production identity, and owner acceptance
 remain separate migration gates.
+
+The remaining source mutation routes now have an explicit authenticated
+`cbs_mutation_boundary_candidate` 409 boundary for R0 resolution, demo
+contracts, contract approval/payment, and change applications. They report
+`persisted=false`, `cbs_effect=false`, and `budget_consumption=false`; no
+contract, workflow, accounting, cash, or tax write is inferred.

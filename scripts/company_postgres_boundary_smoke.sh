@@ -43,7 +43,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_delete_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$SECRET" -hex | /usr/bin/awk '{print $1}')
 
@@ -63,5 +63,14 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/customer.json" -w '%{http_code}' -X DELE
   "http://127.0.0.1:$PORT/api/company/sales/customers/customer-boundary-1")
 test "$status" = 409
 /usr/bin/jq -e '.code == 48001 and .source_kind == "sales_customer_delete_candidate" and .data.deleted == false' "$TMP_DIR/customer.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: boundary-cbs-r0' \
+  --data '{"contractGuid":"contract-boundary-1"}' \
+  "http://127.0.0.1:$PORT/api/company/cbs/r0/resolve")
+test "$status" = 409
+/usr/bin/jq -e '.code == 45001 and .source_kind == "cbs_mutation_boundary_candidate" and .data.mutated == false' "$TMP_DIR/cbs.json" >/dev/null
 
 /usr/bin/printf '%s\n' 'native PostgreSQL import/customer boundary smoke passed'
