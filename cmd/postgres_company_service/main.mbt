@@ -14654,6 +14654,197 @@ async fn route(
       ),
     )
   }
+  if path == "/api/company/attachments/all" {
+    return (200, attachment_all_response())
+  }
+  if path == "/api/company/attachments/list" {
+    return (200, attachment_list_response())
+  }
+  if path == "/api/company/attachments/stats" {
+    return (200, attachment_stats_response())
+  }
+  let attachment_download_prefix = "/api/company/attachments/download/"
+  if path.has_prefix(attachment_download_prefix) {
+    return attachment_download_response(
+      path[attachment_download_prefix.length():].to_owned(),
+    )
+  }
+  if path == "/api/company/ai-stats/overview" {
+    return (
+      200,
+      ai_stats_overview_response(
+        query_decoded(query, "period").unwrap_or("month"),
+      ),
+    )
+  }
+  if path == "/api/company/ai-stats/activity" {
+    return (
+      200,
+      ai_stats_activity_response(
+        parse_decimal(query_decoded(query, "limit").unwrap_or("30")),
+      ),
+    )
+  }
+  if path == "/api/company/ai-stats/badge" {
+    let biz_type = query_alias_decoded(query, "bizType", "biz_type").unwrap_or(
+      "",
+    )
+    let biz_guid = query_alias_decoded(query, "bizGuid", "biz_guid").unwrap_or(
+      "",
+    )
+    if biz_type.is_empty() || biz_guid.is_empty() {
+      return (
+        422,
+        Json::object({
+          "error": Json::string("bizType and bizGuid are required"),
+        }),
+      )
+    }
+    return (200, ai_stats_badge_response(biz_type, biz_guid))
+  }
+  if path == "/api/company/ai-hub/usage-stats" {
+    return (200, ai_hub_usage_response())
+  }
+  if path == "/api/company/ai-hub/drafts" {
+    return (200, ai_hub_drafts_response())
+  }
+  let ai_draft_prefix = "/api/company/ai-hub/drafts/"
+  if path.has_prefix(ai_draft_prefix) {
+    return ai_hub_draft_response(path[ai_draft_prefix.length():].to_owned())
+  }
+  if path == "/api/company/ai-hub/query-log" {
+    return (200, ai_hub_query_response())
+  }
+  if path == "/api/company/ai-hub/correction-stats" {
+    return (200, ai_hub_correction_stats_response())
+  }
+  if path == "/api/company/ai-hub/corrections" {
+    return (
+      200,
+      ai_hub_corrections_response(
+        parse_decimal(query_decoded(query, "limit").unwrap_or("50")),
+      ),
+    )
+  }
+  if path == "/api/company/webhook/config" {
+    return (200, webhook_config_response())
+  }
+  if path == "/api/company/notify/messages" {
+    return (200, notification_messages_response())
+  }
+  if path == "/api/company/notify/messages/unread-count" {
+    return (200, notification_unread_response())
+  }
+  if path == "/api/company/notify/subscriptions" {
+    return (200, notification_subscriptions_response())
+  }
+  if path == "/api/company/notify/config" {
+    return (200, notification_config_response())
+  }
+  if path == "/api/company/notify/digest/preview" {
+    return (200, notification_digest_preview_response())
+  }
+  if path == "/api/company/notify/email-outbox" ||
+    path == "/api/company/notify/digest/log" ||
+    path == "/api/company/notify/llm-providers" {
+    return (200, notification_empty_rows_response())
+  }
+  if path == "/api/company/admin/ocr/status" {
+    return (200, admin_ocr_response())
+  }
+  if path == "/api/company/admin/error-log" {
+    return (200, admin_error_log_response())
+  }
+  if path == "/api/company/admin/dict/groups" {
+    return (200, admin_dict_groups_response())
+  }
+  if path == "/api/company/admin/dict/options" {
+    return (
+      200,
+      admin_dict_options_response(
+        query_alias_decoded(query, "groupName", "group_name"),
+      ),
+    )
+  }
+  if path == "/api/company/admin/audit/logs" {
+    return (200, admin_audit_logs_response())
+  }
+  if path == "/api/company/admin/audit/actions" {
+    return (200, admin_audit_actions_response())
+  }
+  if path == "/api/company/admin/health/tables" {
+    return (200, admin_health_tables_response())
+  }
+  if path == "/api/company/admin/health/bpm-pool" {
+    return (200, admin_bpm_pool_response())
+  }
+  if path == "/api/company/admin/health/full" {
+    return (
+      200,
+      admin_health_full_response(
+        query_decoded(query, "database").unwrap_or("moonproj"),
+      ),
+    )
+  }
+  if path == "/api/company/admin/llm/status" {
+    return (200, admin_llm_status_response())
+  }
+  if path == "/api/company/admin/ai/diag" {
+    return (200, admin_ai_diag_response())
+  }
+  if path == "/api/company/admin/quality/overview" {
+    return (200, admin_quality_response())
+  }
+  if path == "/api/company/admin/backup/db" {
+    return (
+      501,
+      Json::object({
+        "success": Json::boolean(false),
+        "code": Json::number(43032),
+        "message": Json::string("database backup remains gated"),
+        "backup_status": Json::string("gated"),
+        "database": Json::string(
+          query_decoded(query, "database").unwrap_or("moonproj"),
+        ),
+        "format": Json::string("postgresql"),
+        "binary_storage": Json::string("not_exported"),
+        "authorizing": Json::boolean(false),
+        "provider_execution": Json::boolean(false),
+      }),
+    )
+  }
+  if path == "/api/company/rbac/users" {
+    return (200, rbac_users_response())
+  }
+  if path == "/api/company/rbac/me" {
+    let user_code = query_decoded(query, "userCode").unwrap_or("")
+    if user_code.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("userCode is required") }),
+      )
+    }
+    return rbac_me_response(user_code)
+  }
+  if path == "/api/company/rbac/roles" {
+    return (200, rbac_roles_response())
+  }
+  let rbac_role_prefix = "/api/company/rbac/roles/"
+  if path.has_prefix(rbac_role_prefix) {
+    return (404, Json::object({ "error": Json::string("role not found") }))
+  }
+  if path == "/api/company/rbac/permission-catalog" {
+    return (200, rbac_permission_catalog_response())
+  }
+  if path == "/api/company/reports/templates" {
+    return (200, report_templates_response())
+  }
+  if path == "/api/company/reports/templates/meta" {
+    return (200, report_templates_meta_response())
+  }
+  if path == "/api/company/reports/templates/run" {
+    return report_template_run_response()
+  }
   if path == "/api/company/reports/overview" {
     return (200, reports_overview_response())
   }
@@ -15242,6 +15433,14 @@ async fn route(
             Json::string("investment_observation_read"),
             Json::string("cashflow_observation_read"),
             Json::string("cbs_observation_read"),
+            Json::string("admin_observation_read"),
+            Json::string("notification_observation_read"),
+            Json::string("ai_analytics_read"),
+            Json::string("ai_hub_read"),
+            Json::string("attachment_observation_read"),
+            Json::string("webhook_config_read"),
+            Json::string("rbac_observation_read"),
+            Json::string("report_template_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),

@@ -1308,19 +1308,19 @@ definition, and primary investment-observation waves are no longer Python
 runtime dependencies: `cmd/postgres_company_service` now owns the five
 individual report reads plus `/reports/overview`, all seven dashboard/cockpit
 GET reads, workflow definition/preview, and investment versions/indices/profit
-reads, cashflow forecast/inflow/detail/net/gap/v3, and CBS observation reads.
+reads, cashflow forecast/inflow/detail/net/gap/v3, CBS observation reads, and
+the native admin/notification/AI/attachment/webhook/RBAC observation reads.
 `scripts/company_postgres_source_read_smoke.sh` and
 `scripts/company_postgres_dashboard_smoke.sh` exercise these boundaries with
 PostgreSQL only. The gateway's GET forwarding is not proof of service coverage;
 a path can be allow-listed and still return a native 404. The remaining
 browser-visible families without native MoonBit service ownership are
 investment Excel/detail/plan-line/mapping surfaces and actual-profit
-simulation/mutations, AI explain reads, CBS budget-reservation/mutation
-surfaces, warning
-rules/scans/tickets, attachment metadata plus binary/OCR operations,
-notification/admin/AI-hub/webhook reads and provider actions, RBAC users/roles
-and catalog writes, workflow process definitions/task actions, report-builder
-template/share lifecycle, and the remaining investment/cash/provider effects.
+simulation/mutations, AI explain/provider actions, CBS budget-reservation/
+mutation surfaces, warning rules/scans/tickets, attachment binary/OCR
+operations, notification/provider actions, RBAC writes, workflow task
+actions, report-builder template/share commands, and the remaining
+investment/cash/provider effects.
 Those surfaces stay explicitly gated rather than being represented by
 designer fixtures or the frozen Python bridge.
 

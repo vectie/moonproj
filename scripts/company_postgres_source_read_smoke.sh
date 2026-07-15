@@ -53,6 +53,15 @@ request() {
     "http://127.0.0.1:$PORT$path" >"$TMP_DIR/$name.json"
 }
 
+request_allow_error() {
+  name=$1
+  path=$2
+  /usr/bin/curl -sS \
+    -H "Authorization: Bearer $TOKEN" \
+    -H 'X-Forwarded-Proto: https' \
+    "http://127.0.0.1:$PORT$path" >"$TMP_DIR/$name.json" || true
+}
+
 request contracts /api/company/source/cost/contracts
 request detail /api/company/source/cost/contracts/ht-tj-001
 request milestones /api/company/source/cost/contracts/ht-tj-001/milestones
@@ -100,7 +109,43 @@ request cashflow_detail '/api/company/cashflow/forecast/detail?ym=2026-04&projGu
 request cbs_dict '/api/company/cbs/dict?projGuid=proj-0001'
 request cbs_versions '/api/company/cbs/versions?projGuid=proj-0001'
 request cbs_r0 '/api/company/cbs/r0/queue?projGuid=proj-0001'
-request cbs_f_balance '/api/company/cbs/dict/f-balance?projGuid=proj-0001&l3Code=03.01.01'
+request_allow_error cbs_f_balance '/api/company/cbs/dict/f-balance?projGuid=proj-0001&l3Code=03.01.01'
+request attachment_all /api/company/attachments/all
+request attachment_list '/api/company/attachments/list?bizType=contract&bizGuid=ht-tj-001'
+request attachment_stats /api/company/attachments/stats
+request_allow_error attachment_missing /api/company/attachments/download/no-attachment
+request ai_overview '/api/company/ai-stats/overview?period=month'
+request ai_activity '/api/company/ai-stats/activity?limit=30'
+request ai_badge '/api/company/ai-stats/badge?bizType=contract&bizGuid=HT-CD-260701'
+request ai_hub_usage /api/company/ai-hub/usage-stats
+request ai_hub_drafts '/api/company/ai-hub/drafts?userCode=admin'
+request ai_hub_query '/api/company/ai-hub/query-log?userCode=admin'
+request ai_hub_corrections '/api/company/ai-hub/corrections?limit=50'
+request ai_hub_correction_stats /api/company/ai-hub/correction-stats
+request_allow_error ai_hub_missing '/api/company/ai-hub/drafts/missing-draft?userCode=admin'
+request webhook /api/company/webhook/config
+request notify_messages '/api/company/notify/messages?userCode=admin&status=unread'
+request notify_unread '/api/company/notify/messages/unread-count?userCode=admin'
+request notify_subscriptions '/api/company/notify/subscriptions?userCode=admin'
+request notify_config /api/company/notify/config
+request notify_email /api/company/notify/email-outbox
+request notify_preview /api/company/notify/digest/preview
+request notify_log /api/company/notify/digest/log
+request notify_llm /api/company/notify/llm-providers
+request admin_ocr /api/company/admin/ocr/status
+request admin_error '/api/company/admin/error-log?limit=100'
+request admin_groups /api/company/admin/dict/groups
+request admin_options '/api/company/admin/dict/options?groupName=cost_subject'
+request admin_health '/api/company/admin/health/full'
+request admin_quality /api/company/admin/quality/overview
+request admin_llm /api/company/admin/llm/status
+request admin_diag /api/company/admin/ai/diag
+request_allow_error admin_backup /api/company/admin/backup/db
+request rbac_users /api/company/rbac/users
+request rbac_me '/api/company/rbac/me?userCode=admin'
+request rbac_roles /api/company/rbac/roles
+request rbac_catalog /api/company/rbac/permission-catalog
+request report_templates /api/company/reports/templates
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -499,5 +544,44 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .success == false and .code == 43001 and .data == null and
   .source_coverage.cb_subject_dict == 0 and .authorizing == false
 ' "$TMP_DIR/cbs_f_balance.json" >/dev/null
+/usr/bin/jq -e '
+  .data.total == 0 and .data.rows == [] and .source_coverage.attachment == 0 and
+  .source_coverage.sys_user == 5 and .downloadable == false and .binary_storage == "not_imported"
+' "$TMP_DIR/attachment_all.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.attachment == 0 and .authorizing == false' "$TMP_DIR/attachment_list.json" >/dev/null
+/usr/bin/jq -e '.data.total == {"count":0,"bytes":0} and .data.byBizType == [] and .data.byAiStatus == []' "$TMP_DIR/attachment_stats.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001 and .downloadable == false and .binary_storage == "not_imported"' "$TMP_DIR/attachment_missing.json" >/dev/null
+/usr/bin/jq -e '.data.kpi.intakeTotal == 0 and .data.kpi.queryTotal == 0 and .source_coverage.ai_draft == 0 and .provider_execution == false' "$TMP_DIR/ai_overview.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.ai_draft == 0 and .provider_execution == false' "$TMP_DIR/ai_activity.json" >/dev/null
+/usr/bin/jq -e '.data.byAi == false and .source_coverage.ai_draft == 0 and .authorizing == false' "$TMP_DIR/ai_badge.json" >/dev/null
+/usr/bin/jq -e '.data.monthlyTotalCalls == 0 and .data.minutesSaved == 0 and .source_coverage.ai_query_turn == 0' "$TMP_DIR/ai_hub_usage.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.ai_draft == 0 and .persisted == false' "$TMP_DIR/ai_hub_drafts.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.ai_query_log == 0 and .query_execution == false' "$TMP_DIR/ai_hub_query.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.ai_correction_log == 0' "$TMP_DIR/ai_hub_corrections.json" >/dev/null
+/usr/bin/jq -e '.data.byField == [] and .data.total == 0 and .source_coverage.ai_correction_log == 0' "$TMP_DIR/ai_hub_correction_stats.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43001 and .data == null' "$TMP_DIR/ai_hub_missing.json" >/dev/null
+/usr/bin/jq -e '(.data | keys) == ["dingtalk","feishu","wecom"] and .source_coverage.sys_param == 0 and .secret_values_redacted == true' "$TMP_DIR/webhook.json" >/dev/null
+/usr/bin/jq -e '.data.total == 0 and .data.rows == [] and .source_coverage.sys_message == 0 and .source_coverage.sys_user == 5' "$TMP_DIR/notify_messages.json" >/dev/null
+/usr/bin/jq -e '.data.count == 0 and .source_coverage.sys_message == 0' "$TMP_DIR/notify_unread.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.sys_warning_subscription == 0' "$TMP_DIR/notify_subscriptions.json" >/dev/null
+/usr/bin/jq -e '.data.configured == [] and .source_coverage.sys_param == 0' "$TMP_DIR/notify_config.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.sys_user == 5 and .provider_execution == false' "$TMP_DIR/notify_email.json" >/dev/null
+/usr/bin/jq -e '.data.total == 0 and .data.rows == [] and .source_coverage.sys_user == 5' "$TMP_DIR/notify_preview.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.sys_user == 5' "$TMP_DIR/notify_log.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.sys_user == 5' "$TMP_DIR/notify_llm.json" >/dev/null
+/usr/bin/jq -e '.data.provider == "mock" and (.data.providers | length) == 6 and .source_coverage.sys_param == 0' "$TMP_DIR/admin_ocr.json" >/dev/null
+/usr/bin/jq -e '.data.total == 0 and .data.rows == [] and .source_coverage.sys_error_log == 0 and .network_fields_redacted == true' "$TMP_DIR/admin_error.json" >/dev/null
+/usr/bin/jq -e '.data[0].groupName == "cost_subject" and .data[0].enabled == 5 and .source_coverage.my_biz_param_option == 5' "$TMP_DIR/admin_groups.json" >/dev/null
+/usr/bin/jq -e '(.data | length) == 5 and .data[0].groupName == "cost_subject" and .source_coverage.my_biz_param_option == 5' "$TMP_DIR/admin_options.json" >/dev/null
+/usr/bin/jq -e '(.data.tables | length) == 29 and .data.runtimeMetricsAvailable == false and .data.db.name == "moonproj"' "$TMP_DIR/admin_health.json" >/dev/null
+/usr/bin/jq -e '.data.summary.totalRules == 12 and .data.summary.evaluatedRules == 8 and .data.summary.unavailableRules == 4 and .data.summary.failed == 1 and (.data.rules | length) == 12' "$TMP_DIR/admin_quality.json" >/dev/null
+/usr/bin/jq -e '.data.provider == "mock" and .data.providers == [] and .provider_execution == false' "$TMP_DIR/admin_llm.json" >/dev/null
+/usr/bin/jq -e '.data.pingResult == null and .provider_execution == false' "$TMP_DIR/admin_diag.json" >/dev/null
+/usr/bin/jq -e '.success == false and .code == 43032 and .backup_status == "gated" and .format == "postgresql"' "$TMP_DIR/admin_backup.json" >/dev/null
+/usr/bin/jq -e '(.data | length) == 5 and .data[0].userCode == "admin" and .data[0].isSuperUser == true and .source_coverage.sys_user == 5' "$TMP_DIR/rbac_users.json" >/dev/null
+/usr/bin/jq -e '.data.userId == "user-admin-0001" and .data.roles == [] and .data.permissions == [] and .source_coverage.sys_role == 0' "$TMP_DIR/rbac_me.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.sys_role == 0 and .source_coverage.sys_user == 5' "$TMP_DIR/rbac_roles.json" >/dev/null
+/usr/bin/jq -e '(.data | length) == 11 and .data[0].module == "驾驶舱"' "$TMP_DIR/rbac_catalog.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.sys_report_template == 0 and .persisted == false' "$TMP_DIR/report_templates.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier/admin/notification/AI/RBAC/attachment read smoke passed"
