@@ -62,14 +62,22 @@ Mortgage writes now have a bounded local lifecycle:
 - `POST .../mortgages/:id/release` advances it to `released` and reports
   `revenue_pending=true` without updating revenue or cash.
 
+Refund writes now have a bounded local lifecycle:
+
+- `POST /api/company/sales/refunds` and its `/source` alias create an
+  `applying` refund projection;
+- `POST .../refunds/:id/approve` advances it to `approved` and reports
+  `contract_pending`/`revenue_pending` without changing either aggregate.
+
 The former Python service remains frozen comparison evidence only. All native
 commands require the signed actor assertion, an active principal/scope/
 capability grant, and an `Idempotency-Key`.
 
 Local commands use the same idempotent company-command and immutable revision
 boundary for customer create/update, subscription create/convert, mortgage
-create/approve/release, and revenue create/update/confirm-received/delete.
-Sales-agreement and refund commands remain separate next-wave boundaries.
+create/approve/release, refund create/approve, and revenue
+create/update/confirm-received/delete. Sales-agreement commands remain a
+separate next-wave boundary.
 
 Imported projections are read-only. A fulfilled agreement opens a receivable
 only through an explicit command; collections, refund cash, revenue
@@ -92,7 +100,7 @@ The source-observation boundary is separate from those target projections:
 Each response preserves the source row fields, adds normalized aggregate
 identity for the Rabbita table, reports coverage for all six sales tables, and
 marks the observation non-authorizing and non-persisting. Revenue, customer,
-and subscription source reads merge local command projections as
+subscription, mortgage, and refund source reads merge local command projections as
 `source_kind=command` while
 keeping raw-table coverage separate; deleted local projections are filtered out. The
 current export has zero rows in every table, so these reads do not seed or
@@ -122,16 +130,15 @@ identity/session deployment remain required.
 ## Source action reconciliation
 
 The parity matrix maps customer create/update, subscription create/convert,
-mortgage create/approve/release, and revenue create/update/delete/confirm-
-received to local command runtimes. Customer, subscription, and mortgage
-commands require a signed actor and idempotency,
-while revenue commands also require authority, idempotency, and actor/scope
-matching; all only create local projections and never release cash or post
-accounting. Sales-agreement and refund writes remain explicit authenticated
-candidates until their command projections are ported. Mortgage release leaves
-downstream revenue recognition pending.
-Subscription conversion currently leaves downstream contract/revenue creation
-pending. The source customer delete action now
+mortgage create/approve/release, refund create/approve, and revenue
+create/update/delete/confirm-received to local command runtimes. Customer,
+subscription, mortgage, and refund commands require a signed actor and
+idempotency, while revenue commands also require authority, idempotency, and
+actor/scope matching; all only create local projections and never release cash
+or post accounting. Sales-agreement writes remain explicit authenticated
+candidates until their command projection is ported. Subscription conversion,
+mortgage release, and refund approval leave downstream contract/revenue
+reconciliation pending. The source customer delete action now
 returns an authenticated `sales_customer_delete_candidate` 409 boundary
 because the target deliberately exposes archive rather than destructive
 deletion. These command mappings are local evidence only: source identity

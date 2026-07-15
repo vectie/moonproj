@@ -451,6 +451,39 @@ test "native company service maps sales mortgage command paths" {
 }
 
 ///|
+test "native company service maps sales refund command paths" {
+  assert_true(
+    sales_refund_command_spec(@http.Post, "/api/company/source/sales/refunds")
+    is Some(("create", None)),
+  )
+  assert_true(
+    sales_refund_command_spec(
+      @http.Post,
+      "/api/company/sales/refunds/RF-1/approve",
+    )
+    is Some(("approve", Some("RF-1"))),
+  )
+  assert_true(
+    sales_refund_command_spec(
+      @http.Post,
+      "/api/company/sales/refunds/RF-1/reject",
+    )
+    is None,
+  )
+  let request = sales_refund_create_request(
+    @json.parse(
+      "{\"scontractGuid\":\"SCT-1\",\"reason\":\"buyer request\",\"refundAmount\":12.5}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+    "refund-test-key",
+  )
+  assert_eq(json_text(request, "state", ""), "applying")
+  assert_true(json_number(request, "refund_amount", 0.0) == 12.5)
+}
+
+///|
 test "native company service maps tender and split command paths" {
   assert_true(
     tender_command_spec(@http.Post, "/api/company/tenders")

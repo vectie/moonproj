@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_candidate") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -157,6 +157,29 @@ test "$status" = 200
   "http://127.0.0.1:$PORT/api/company/source/sales/mortgages" \
   | /usr/bin/jq -e --arg id "$MORTGAGE_ID" '.data | any(.[]; .mortgage_guid == $id and .state == "released" and .source_kind == "command")' >/dev/null
 
+REFUND_KEY="boundary-refund-$SMOKE_SUFFIX"
+REFUND_CODE="RF-BOUNDARY-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/refund-create.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $REFUND_KEY" \
+  --data "{\"refundCode\":\"$REFUND_CODE\",\"scontractGuid\":\"SCT-BOUNDARY-$SMOKE_SUFFIX\",\"reason\":\"Native boundary smoke\",\"refundAmount\":12.5}" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/refunds")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$REFUND_CODE" '.success == true and .refund.refundCode == $code and .refund.state == "applying" and .persisted == true' "$TMP_DIR/refund-create.json" >/dev/null
+REFUND_ID=$(/usr/bin/jq -r '.refund.refundGuid' "$TMP_DIR/refund-create.json")
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/refund-approve.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: refund-approve-$SMOKE_SUFFIX" \
+  --data '{}' "http://127.0.0.1:$PORT/api/company/source/sales/refunds/$REFUND_ID/approve")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .refund.state == "approved" and .refund.contract_pending == true and .refund.revenue_pending == true and .refund.contract_updated == false and .refund.revenue_updated == false' "$TMP_DIR/refund-approve.json" >/dev/null
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "keyword=$REFUND_CODE" \
+  "http://127.0.0.1:$PORT/api/company/source/sales/refunds" \
+  | /usr/bin/jq -e --arg id "$REFUND_ID" '.data | any(.[]; .refund_guid == $id and .state == "approved" and .source_kind == "command")' >/dev/null
+
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/import.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
@@ -227,4 +250,4 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/logout.json" -w '%{http_code}' -X POST \
 test "$status" = 200
 /usr/bin/jq -e '.auth.sessionRevoked == true and .auth.persisted == true and .idempotent_replay == false' "$TMP_DIR/logout.json" >/dev/null
 
-/usr/bin/printf '%s\n' 'native PostgreSQL import/customer boundary smoke passed'
+/usr/bin/printf '%s\n' 'native PostgreSQL import/sales boundary smoke passed'

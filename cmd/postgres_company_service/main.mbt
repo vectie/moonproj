@@ -9828,6 +9828,11 @@ async fn sales_source_response(
     []
   }
   let refunds = raw_source_rows("sale_refund", 500)
+  let refund_commands = if family == "refunds" {
+    sales_refund_command_rows()
+  } else {
+    []
+  }
   let revenues = raw_source_rows("sale_revenue", 500)
   let customer_commands = if family == "customers" {
     sales_customer_command_rows()
@@ -9884,6 +9889,13 @@ async fn sales_source_response(
   }
   if family == "mortgages" {
     for row in mortgage_commands {
+      if sales_source_matches(row.payload, family, proj_guid, state, keyword) {
+        result.push(sales_source_item(row, family, "command"))
+      }
+    }
+  }
+  if family == "refunds" {
+    for row in refund_commands {
       if sales_source_matches(row.payload, family, proj_guid, state, keyword) {
         result.push(sales_source_item(row, family, "command"))
       }
@@ -16064,6 +16076,8 @@ async fn route(
             Json::string("source_sales_subscription_command"),
             Json::string("sales_mortgage_command"),
             Json::string("source_sales_mortgage_command"),
+            Json::string("sales_refund_command"),
+            Json::string("source_sales_refund_command"),
             Json::string("tender_command"),
             Json::string("source_tender_command"),
             Json::string("source_tender_state_command"),
@@ -16662,6 +16676,43 @@ async fn handle(
       }
       let result = sales_mortgage_command(
         command_type, mortgage_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match sales_refund_command_spec(request.meth, path) {
+    Some((command_type, refund_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = sales_refund_command(
+        command_type, refund_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }
