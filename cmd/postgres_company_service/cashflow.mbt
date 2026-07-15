@@ -145,8 +145,12 @@ async fn cashflow_forecast_response(
       report_text(row.payload, "proj_guid", ""),
     )
   }
+  let units = context.rows.get_or_default("mu_business_unit", [])
+  let projects = context.rows.get_or_default("ep_project", [])
   let month_list = cashflow_months(months, 0)
   let series : Map[String, Map[String, Double]] = {}
+  let by_bu : Map[String, Double] = {}
+  let by_proj : Map[String, Double] = {}
   for month in month_list {
     series.set(month, {
       "planned": 0.0,
@@ -161,12 +165,21 @@ async fn cashflow_forecast_response(
       let month = cashflow_month(row.payload, "jhfk_date")
       match series.get(month) {
         Some(values) => {
-          values.set(
-            "planned",
-            values.get_or_default("planned", 0.0) +
-            report_amount(row.payload, "jhfk_amount"),
-          )
+          let amount = report_amount(row.payload, "jhfk_amount")
+          values.set("planned", values.get_or_default("planned", 0.0) + amount)
           series.set(month, values)
+          let bu_guid = report_text(row.payload, "bu_guid", "")
+          by_bu.set(bu_guid, by_bu.get_or_default(bu_guid, 0.0) + amount)
+          let project_guid = contracts.get_or_default(
+            report_text(row.payload, "contract_guid", ""),
+            "",
+          )
+          if !project_guid.is_empty() {
+            by_proj.set(
+              project_guid,
+              by_proj.get_or_default(project_guid, 0.0) + amount,
+            )
+          }
         }
         None => ()
       }
@@ -195,6 +208,39 @@ async fn cashflow_forecast_response(
           }
         }
         None => ()
+      }
+    }
+  }
+  for row in context.rows.get_or_default("vcb_expense", []) {
+    if cashflow_scope(row.payload, bu_guid, proj_guid, contracts, false) {
+      let month = cashflow_month(row.payload, "apply_date")
+      match series.get(month) {
+        Some(values) if report_text(row.payload, "apply_state", "") ==
+          "Approved" &&
+          report_text(row.payload, "pay_state", "") != "完全支付" => {
+          values.set(
+            "expense",
+            values.get_or_default("expense", 0.0) +
+            report_amount(row.payload, "pay_amount"),
+          )
+          series.set(month, values)
+        }
+        _ => ()
+      }
+    }
+  }
+  for row in context.rows.get_or_default("vcb_loan_simple", []) {
+    if cashflow_scope(row.payload, bu_guid, proj_guid, contracts, false) {
+      let month = cashflow_month(row.payload, "apply_date")
+      let amount = report_amount(row.payload, "remain_amount")
+      match series.get(month) {
+        Some(values) if report_text(row.payload, "apply_state", "") ==
+          "Approved" &&
+          amount > 0.0 => {
+          values.set("loan", values.get_or_default("loan", 0.0) + amount)
+          series.set(month, values)
+        }
+        _ => ()
       }
     }
   }
@@ -238,6 +284,58 @@ async fn cashflow_forecast_response(
   let sum_field = fn(key : String) -> Double {
     rows.fold(init=0.0, fn(sum, row) { sum + report_amount(row, key) })
   }
+  let by_bu_rows : Array[Json] = []
+  for bu_guid, amount in by_bu {
+    let name = match source_payload(units, "bu_guid", bu_guid) {
+      Some(value) => report_text(value, "bu_name", bu_guid)
+      None => bu_guid
+    }
+    by_bu_rows.push(
+      Json::object({
+        "buGuid": Json::string(bu_guid),
+        "buName": Json::string(name),
+        "amount": Json::number(round_places(amount, 2)),
+      }),
+    )
+  }
+  by_bu_rows.sort_by(fn(left, right) {
+    let order = json_number(right, "amount", 0.0).compare(
+      json_number(left, "amount", 0.0),
+    )
+    if order == 0 {
+      json_text(left, "buGuid", "").lexical_compare(
+        json_text(right, "buGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let by_proj_rows : Array[Json] = []
+  for project_guid, amount in by_proj {
+    let name = match source_payload(projects, "proj_guid", project_guid) {
+      Some(value) => report_text(value, "proj_name", project_guid)
+      None => project_guid
+    }
+    by_proj_rows.push(
+      Json::object({
+        "projGuid": Json::string(project_guid),
+        "projName": Json::string(name),
+        "amount": Json::number(round_places(amount, 2)),
+      }),
+    )
+  }
+  by_proj_rows.sort_by(fn(left, right) {
+    let order = json_number(right, "amount", 0.0).compare(
+      json_number(left, "amount", 0.0),
+    )
+    if order == 0 {
+      json_text(left, "projGuid", "").lexical_compare(
+        json_text(right, "projGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
   cashflow_envelope(
     Json::object({
       "filters": Json::object({
@@ -257,8 +355,20 @@ async fn cashflow_forecast_response(
         "loanTotal": Json::number(sum_field("loan")),
         "totalOutflow": Json::number(sum_field("totalOutflow")),
       }),
-      "byBu": Json::array([]),
-      "byProj": Json::array([]),
+      "byBu": Json::array(
+        if by_bu_rows.length() > 5 {
+          by_bu_rows[0:5].to_owned()
+        } else {
+          by_bu_rows
+        },
+      ),
+      "byProj": Json::array(
+        if by_proj_rows.length() > 5 {
+          by_proj_rows[0:5].to_owned()
+        } else {
+          by_proj_rows
+        },
+      ),
     }),
     context.coverage,
   )
