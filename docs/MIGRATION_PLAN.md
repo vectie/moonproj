@@ -525,6 +525,11 @@ line boundary, returns the current row plus the requested patch, and rejects
 non-dry-run edits until an investment owner accepts imported plan-line
 mutation.
 
+The workbook upload route now reports an explicit signed binary boundary: the
+native service does not accept multipart content, parse XLSX bytes, or persist
+an import. This keeps the source route visible while reserving parser,
+workbook ownership, and investment-owner acceptance for a separate gate.
+
 The marketing screen is now a bounded source/read-command family. `/marketing`
 loads `/api/company/marketing/{campaigns,placements,channels,materials}` with
 project/state filters and explicit source-table coverage. Imported source rows

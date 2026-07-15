@@ -92,6 +92,7 @@
     "investment_excel_plan_line_import_candidate": 1,
     "investment_subject_mappings_candidate": 1,
     "investment_plan_line_update_candidate": 1,
+    "investment_excel_upload_candidate": 1,
     "connected_invoice_read": 1,
     "connected_loan_command": 2,
     "connected_loan_read": 1,
@@ -2687,8 +2688,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "investment_excel_upload_candidate",
+      "required_next": "accept_browser_investment_excel_scenario_and_investment_owner"
     },
     {
       "module": "investment",

@@ -843,6 +843,56 @@ async fn investment_plan_line_update_candidate(
 }
 
 ///|
+fn investment_excel_upload_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  if request_method is @http.Post {
+    let suffix = "/excel-imports"
+    let prefix = "/api/company/investment/projects/"
+    let source_prefix = "/api/company/source/investment/projects/"
+    if path.has_prefix(prefix) && path.has_suffix(suffix) {
+      return Some(
+        path[prefix.length():path.length() - suffix.length()].to_owned(),
+      )
+    }
+    if path.has_prefix(source_prefix) && path.has_suffix(suffix) {
+      return Some(
+        path[source_prefix.length():path.length() - suffix.length()].to_owned(),
+      )
+    }
+  }
+  None
+}
+
+///|
+fn investment_excel_upload_candidate(project_id : String) -> (Int, Json) {
+  (
+    409,
+    Json::object({
+      "success": Json::boolean(false),
+      "code": Json::number(46005),
+      "message": Json::string(
+        "Excel 工作簿上传需要二进制解析与投资负责人确认；当前 native 服务仅提供导入后 dry-run。",
+      ),
+      "data": Json::object({
+        "projGuid": Json::string(project_id),
+        "multipartAccepted": Json::boolean(false),
+        "binaryParser": Json::string("not_connected"),
+      }),
+      "source_kind": Json::string("investment_excel_upload_candidate"),
+      "dry_run": Json::boolean(true),
+      "provider_execution": Json::boolean(false),
+      "persisted": Json::boolean(false),
+      "authorizing": Json::boolean(false),
+      "cash_effect": Json::boolean(false),
+      "accounting_effect": Json::boolean(false),
+      "tax_effect": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 async fn investment_profit_table_response(
   import_id : String,
 ) -> (Int, Json) raise CompanyServiceError {

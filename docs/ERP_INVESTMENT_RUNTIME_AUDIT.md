@@ -21,6 +21,7 @@ The target now exposes source-compatible read boundaries:
 | Dimension metadata | `/api/company/investment/meta/dimensions` | source-compatible read |
 | Sensitivity scenarios | `/api/company/investment/projects/:id/sensitivity` | deterministic, analytics-only read |
 | Excel import detail/bridge/preview | `/api/company/investment/excel-imports/:id/...` | source-preserving boundary |
+| Excel workbook upload | signed `POST /api/company/investment/projects/:id/excel-imports` and `/source` alias | explicit binary-parser/owner gate; no multipart or persistence |
 | Profit table and plan-line reads | `/api/company/investment/excel-imports/:id/{profit-table,plan-line-preview}` and `/projects/:id/plan-lines` | source-preserving boundary |
 | Subject mappings | `/api/company/investment/projects/:id/subject-mappings` | empty-safe source read |
 | Profit cockpit | `/api/company/investment/projects/:id/profit-cockpit` | source-style missing-data boundary |

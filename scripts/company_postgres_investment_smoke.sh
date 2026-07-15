@@ -72,6 +72,7 @@ fi
 /usr/bin/jq -e '.capabilities | index("investment_excel_plan_line_import_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("investment_subject_mappings_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("investment_plan_line_update_candidate") != null' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("investment_excel_upload_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 
 version_body="{\"versionGuid\":\"$VERSION_ID\",\"versionName\":\"Native Investment Smoke\",\"remark\":\"local command projection\",\"activate\":true}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/version.json" -w '%{http_code}' \
@@ -234,5 +235,12 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/plan-line-update-write-gate.json" -w '%{
   "http://127.0.0.1:$PORT/api/company/investment/plan-lines/$MISSING_LINE_ID")
 test "$status" = 409
 /usr/bin/jq -e '.code == 46004 and .dry_run == false and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/plan-line-update-write-gate.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/excel-upload-gate.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/excel-imports")
+test "$status" = 409
+/usr/bin/jq -e '.code == 46005 and .data.multipartAccepted == false and .data.binaryParser == "not_connected" and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/excel-upload-gate.json" >/dev/null
 
 echo "native MoonBit investment version/index lifecycle/idempotency/readback smoke passed"
