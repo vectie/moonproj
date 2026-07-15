@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/socket",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8" @encoding/utf8,
+  "moonbitlang/x/sys",
+  "vectie/moonproj/persistence/postgres",
+}
+
+supported_targets = "native"
+
+options(
+  "is-main": true,
+)

@@ -83,14 +83,18 @@ The native runtime slice is available without Python through
 [aggregate_type]`. The MoonBit command runs only fixed allow-listed queries via
 `psql`, inherits PostgreSQL connection settings (`PGHOST`, `PGPORT`, `PGUSER`,
 `PGDATABASE`, and `PGPASSWORD`), and has been shadow-compared against the
-development HTTP adapter. The native HTTP server and CLI are intentionally
-read-only and bounded; they do not replace the authenticated HTTP service or
-gateway yet.
-The authenticated bounded runtime remains `scripts/company_postgres_service.py`
-as frozen bridge evidence while its MoonBit replacement is ported.
-It keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a
-bearer token from an environment variable and forwarded TLS, exposes the four
-fixed reads, and now provides the local expense, contract, and payment-application
+development HTTP adapter. The native read-model HTTP server and CLI are
+intentionally read-only and bounded; they do not replace the complete
+authenticated service or gateway yet.
+The native authenticated read slice is available through
+`scripts/company_postgres_service.sh`. It requires `MOONPROJ_SERVICE_TOKEN`,
+supports `--require-forwarded-tls`, and currently serves only the capability
+list documented in `IMPLEMENTATION_STATUS.md`. The broad
+`scripts/company_postgres_service.py` remains frozen bridge evidence while its
+remaining routes and command lifecycles are ported. The frozen Python bridge
+keeps reusable PostgreSQL sessions behind a fail-closed pool, requires a bearer
+token from an environment variable and forwarded TLS, exposes the four fixed
+reads, and provides the local expense, contract, and payment-application
 command verticals documented in `ERP_EXPENSE_RUNTIME_VERTICAL.md`,
 `ERP_CONTRACT_RUNTIME_VERTICAL.md`, and
 `ERP_PAYMENT_APPLICATION_RUNTIME_VERTICAL.md`. Put
