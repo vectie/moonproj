@@ -135,6 +135,20 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.htfkApplyGuid == "'"$gateway_payment_id"'" and .payment_application.state == "submitted"' \
   "$TMP_DIR/payment-create.json" >/dev/null
 
+gateway_dynamic_cost_suffix=$(/bin/date +%s)
+gateway_dynamic_cost_id="COST-GW-SMOKE-$gateway_dynamic_cost_suffix"
+gateway_dynamic_cost_body="{\"costGuid\":\"$gateway_dynamic_cost_id\",\"projGuid\":\"proj-0001\",\"costCode\":\"DC-GW-$gateway_dynamic_cost_suffix\",\"costName\":\"gateway smoke dynamic cost\",\"targetCost\":50.00,\"htAlterAmount\":5.00,\"ztCost\":2.00,\"dfsBudget\":1.00,\"ygAlter\":0.50}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/dynamic-cost-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-dynamic-cost-create-$gateway_dynamic_cost_suffix" \
+  --data "$gateway_dynamic_cost_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/cost/dynamic-cost")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == false and .data.costGuid == "'"$gateway_dynamic_cost_id"'" and .dynamic_cost.state == "active"' \
+  "$TMP_DIR/dynamic-cost-create.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" -c "$TMP_DIR/cookies.txt" \
   -X POST "http://127.0.0.1:$GATEWAY_PORT/api/session/logout" >"$TMP_DIR/logout.json"
 /usr/bin/jq -e '.authenticated == false' "$TMP_DIR/logout.json" >/dev/null

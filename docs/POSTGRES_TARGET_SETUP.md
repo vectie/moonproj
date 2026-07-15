@@ -118,6 +118,9 @@ source-shaped detail, and void tombstone behavior.
 The shell-only `scripts/company_postgres_payment_smoke.sh` verifies native
 source-field payment create/replay, auto-submit, update, reject/resubmit/
 approve, imported-row protection, and void behavior.
+The shell-only `scripts/company_postgres_dynamic_cost_smoke.sh` verifies native
+source-field dynamic-cost create/replay, project-scoped formula readback,
+remarks, update, imported-row protection, and void behavior.
 The former credential-free `company_production_service_check.py` is frozen
 comparison evidence only. Its service-boundary requirements (bounded reusable
 pool, schema-matched readiness, private TLS-terminated binding,

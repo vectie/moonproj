@@ -159,10 +159,11 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .source_coverage.wf_process_instance == 0 and .authorizing == false
 ' "$TMP_DIR/workflow_biz.json" >/dev/null
 /usr/bin/jq -e '
-  .success == true and (.data.items | length) == 7 and
-  .data.summary.A_targetCost == 35900000 and
-  .data.summary.B_dtCost == 36350000 and
-  .data.summary.endCount == 6 and
+  .success == true and
+  ((.data.items | map(select(.sourceKind == "imported")) | length) == 7) and
+  ((.data.items | map(select(.sourceKind == "imported" and .isEndCost == true) | .A_targetCost) | add) == 35900000) and
+  ((.data.items | map(select(.sourceKind == "imported" and .isEndCost == true) | .B_dtCost) | add) == 36350000) and
+  ((.data.items | map(select(.sourceKind == "imported" and .isEndCost == true)) | length) == 6) and
   .source_coverage.cb_cost == 7 and .authorizing == false
 ' "$TMP_DIR/dynamic.json" >/dev/null
 /usr/bin/jq -e '

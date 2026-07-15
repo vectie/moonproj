@@ -2981,6 +2981,704 @@ fn source_payment_alias_result(result : Json, apply_code : String?) -> Json {
 }
 
 ///|
+fn dynamic_cost_required_text(
+  body : Json,
+  key : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = json_text(body, key, "").trim().to_owned()
+  if value.is_empty() {
+    raise reject(422, key + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, key + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn dynamic_cost_nonnegative_minor(
+  body : Json,
+  key : String,
+) -> Int raise CompanyServiceError {
+  match json_field(body, key) {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    _ => raise reject(422, key + " must be a non-negative integer")
+  }
+}
+
+///|
+fn dynamic_cost_level(
+  body : Json,
+  key : String,
+  fallback : Int,
+) -> Int raise CompanyServiceError {
+  match json_field(body, key) {
+    None => fallback
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    _ => raise reject(422, key + " must be a non-negative integer")
+  }
+}
+
+///|
+fn dynamic_cost_source_value(
+  body : Json,
+  primary : String,
+  fallback : String,
+) -> Json? {
+  match json_field(body, primary) {
+    Some(value) => Some(value)
+    None => json_field(body, fallback)
+  }
+}
+
+///|
+fn dynamic_cost_source_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  identifier : Bool,
+  required : Bool,
+) -> String raise CompanyServiceError {
+  let value = match dynamic_cost_source_value(body, primary, fallback) {
+    Some(String(text)) => text.trim().to_owned()
+    Some(Number(number, ..)) => number.to_string()
+    _ => ""
+  }
+  if required && value.is_empty() {
+    raise reject(422, primary + " is required")
+  }
+  if identifier && !value.is_empty() && !valid_identifier(value) {
+    raise reject(422, primary + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn dynamic_cost_source_bool(
+  body : Json,
+  primary : String,
+  fallback : String,
+  default : Bool,
+) -> Bool raise CompanyServiceError {
+  match dynamic_cost_source_value(body, primary, fallback) {
+    None => default
+    Some(True) => true
+    Some(False) => false
+    _ => raise reject(422, primary + " must be boolean")
+  }
+}
+
+///|
+fn dynamic_cost_source_level(
+  body : Json,
+  primary : String,
+  fallback : String,
+  default : Int,
+) -> Int raise CompanyServiceError {
+  match dynamic_cost_source_value(body, primary, fallback) {
+    None => default
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    _ => raise reject(422, primary + " must be a non-negative integer")
+  }
+}
+
+///|
+fn dynamic_cost_source_minor(
+  body : Json,
+  primary : String,
+  fallback : String,
+  default : Int,
+) -> Int raise CompanyServiceError {
+  match dynamic_cost_source_value(body, primary, fallback) {
+    None => default
+    Some(Number(number, ..)) if number >= 0.0 => {
+      let minor = (number * 100.0 + 0.5).to_int()
+      if minor >= 0 {
+        minor
+      } else {
+        raise reject(422, primary + " must be a positive decimal number")
+      }
+    }
+    Some(String(text)) => {
+      let value = parse_number(text)
+      if value < 0.0 {
+        raise reject(422, primary + " must be a positive decimal number")
+      }
+      (value * 100.0 + 0.5).to_int()
+    }
+    _ => raise reject(422, primary + " must be a decimal number")
+  }
+}
+
+///|
+async fn dynamic_cost_request(
+  command_type : String,
+  cost_guid : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (String, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  if command_type == "create" {
+    let requested_id = json_text(body, "cost_id", "").trim().to_owned()
+    let cost_id = if requested_id.is_empty() {
+      "COST-SRC-" + idempotency_key
+    } else {
+      requested_id
+    }
+    if !valid_identifier(cost_id) {
+      raise reject(422, "cost_id contains unsupported characters")
+    }
+    let project_id = dynamic_cost_required_text(body, "project_id", true)
+    let projects = raw_source_rows("ep_project", 500)
+    let project_exists = projects.any(fn(row) {
+      row.record_id == project_id ||
+      json_text(row.payload, "proj_guid", "") == project_id
+    })
+    if !project_exists {
+      raise reject(404, "project not found")
+    }
+    let cost_code = dynamic_cost_required_text(body, "cost_code", true)
+    let cost_name = dynamic_cost_required_text(body, "cost_name", false)
+    let request : Map[String, Json] = {}
+    request.set("command_type", Json::string(command_type))
+    request.set("cost_id", Json::string(cost_id))
+    request.set("project_id", Json::string(project_id))
+    request.set("cost_code", Json::string(cost_code))
+    request.set("cost_name", Json::string(cost_name))
+    request.set(
+      "cost_level",
+      Json::number(dynamic_cost_level(body, "cost_level", 2).to_double()),
+    )
+    request.set(
+      "parent_cost_id",
+      Json::string(json_text(body, "parent_cost_id", "").trim().to_owned()),
+    )
+    match json_field(body, "is_end_cost") {
+      None => request.set("is_end_cost", Json::boolean(true))
+      Some(True) => request.set("is_end_cost", Json::boolean(true))
+      Some(False) => request.set("is_end_cost", Json::boolean(false))
+      _ => raise reject(422, "is_end_cost must be boolean")
+    }
+    for
+      key in [
+        "target_cost_minor", "ht_alter_amount_minor", "zt_cost_minor", "dfs_budget_minor",
+        "yg_alter_minor",
+      ] {
+      request.set(
+        key,
+        Json::number(dynamic_cost_nonnegative_minor(body, key).to_double()),
+      )
+    }
+    request.set("remarks", Json::string(json_text(body, "remarks", "")))
+    request.set("actor_id", Json::string(actor_id))
+    return (cost_id, Json::object(request))
+  }
+  let cost_id = match cost_guid {
+    Some(value) if valid_identifier(value) => value
+    _ => raise reject(422, "cost_id is required")
+  }
+  if command_type == "update" {
+    let request : Map[String, Json] = {}
+    request.set("command_type", Json::string(command_type))
+    request.set("cost_id", Json::string(cost_id))
+    request.set("actor_id", Json::string(actor_id))
+    let mut changed = false
+    for key in ["cost_name", "parent_cost_id", "remarks"] {
+      match json_field(body, key) {
+        None | Some(Null) => ()
+        Some(String(value)) => {
+          request.set(key, Json::string(value.trim().to_owned()))
+          changed = true
+        }
+        _ => raise reject(422, key + " must be text")
+      }
+    }
+    match json_field(body, "cost_level") {
+      None | Some(Null) => ()
+      Some(_) => {
+        request.set(
+          "cost_level",
+          Json::number(dynamic_cost_level(body, "cost_level", 0).to_double()),
+        )
+        changed = true
+      }
+    }
+    match json_field(body, "is_end_cost") {
+      None | Some(Null) => ()
+      Some(True) => {
+        request.set("is_end_cost", Json::boolean(true))
+        changed = true
+      }
+      Some(False) => {
+        request.set("is_end_cost", Json::boolean(false))
+        changed = true
+      }
+      _ => raise reject(422, "is_end_cost must be boolean")
+    }
+    for
+      key in [
+        "target_cost_minor", "ht_alter_amount_minor", "zt_cost_minor", "dfs_budget_minor",
+        "yg_alter_minor",
+      ] {
+      match json_field(body, key) {
+        None | Some(Null) => ()
+        Some(_) => {
+          request.set(
+            key,
+            Json::number(dynamic_cost_nonnegative_minor(body, key).to_double()),
+          )
+          changed = true
+        }
+      }
+    }
+    if !changed {
+      raise reject(422, "dynamic-cost update requires a mutable field")
+    }
+    return (cost_id, Json::object(request))
+  }
+  if command_type == "void" {
+    match json_field(body, "reason") {
+      None | Some(Null) => ()
+      Some(String(_)) => ()
+      _ => raise reject(422, "reason must be text")
+    }
+    return (
+      cost_id,
+      Json::object({
+        "command_type": Json::string(command_type),
+        "cost_id": Json::string(cost_id),
+        "reason": Json::string(json_text(body, "reason", "").trim().to_owned()),
+        "actor_id": Json::string(actor_id),
+      }),
+    )
+  }
+  raise reject(404, "unsupported dynamic-cost command")
+}
+
+///|
+fn source_dynamic_cost_create_request(
+  body : Json,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let cost_id_value = dynamic_cost_source_text(
+    body, "costGuid", "cost_guid", true, false,
+  )
+  let cost_id = if cost_id_value.is_empty() {
+    "COST-SRC-" + idempotency_key
+  } else {
+    cost_id_value
+  }
+  let project_id = dynamic_cost_source_text(
+    body, "projGuid", "proj_guid", true, true,
+  )
+  let cost_code = dynamic_cost_source_text(
+    body, "costCode", "cost_code", true, true,
+  )
+  let cost_name = dynamic_cost_source_text(
+    body, "costName", "cost_name", false, true,
+  )
+  Json::object({
+    "cost_id": Json::string(cost_id),
+    "project_id": Json::string(project_id),
+    "cost_code": Json::string(cost_code),
+    "cost_name": Json::string(cost_name),
+    "cost_level": Json::number(
+      dynamic_cost_source_level(body, "costLevel", "cost_level", 2).to_double(),
+    ),
+    "parent_cost_id": Json::string(
+      dynamic_cost_source_text(
+        body, "parentCostGuid", "parent_cost_id", false, false,
+      ),
+    ),
+    "is_end_cost": Json::boolean(
+      dynamic_cost_source_bool(body, "isEndCost", "is_end_cost", true),
+    ),
+    "target_cost_minor": Json::number(
+      dynamic_cost_source_minor(body, "targetCost", "target_cost", 0).to_double(),
+    ),
+    "ht_alter_amount_minor": Json::number(
+      dynamic_cost_source_minor(body, "htAlterAmount", "ht_alter_amount", 0).to_double(),
+    ),
+    "zt_cost_minor": Json::number(
+      dynamic_cost_source_minor(body, "ztCost", "zt_cost", 0).to_double(),
+    ),
+    "dfs_budget_minor": Json::number(
+      dynamic_cost_source_minor(body, "dfsBudget", "dfs_budget", 0).to_double(),
+    ),
+    "yg_alter_minor": Json::number(
+      dynamic_cost_source_minor(body, "ygAlter", "yg_alter", 0).to_double(),
+    ),
+    "remarks": Json::string(json_text(body, "remarks", "")),
+  })
+}
+
+///|
+fn dynamic_cost_update_text(
+  body : Json,
+  primary : String,
+  fallback : String,
+  target : String,
+  request : Map[String, Json],
+) -> Bool raise CompanyServiceError {
+  match dynamic_cost_source_value(body, primary, fallback) {
+    None | Some(Null) => false
+    Some(String(value)) => {
+      request.set(target, Json::string(value.trim().to_owned()))
+      true
+    }
+    _ => raise reject(422, primary + " must be text")
+  }
+}
+
+///|
+fn dynamic_cost_update_level(
+  body : Json,
+  primary : String,
+  fallback : String,
+  target : String,
+  request : Map[String, Json],
+) -> Bool raise CompanyServiceError {
+  match dynamic_cost_source_value(body, primary, fallback) {
+    None | Some(Null) => false
+    Some(_) => {
+      request.set(
+        target,
+        Json::number(
+          dynamic_cost_source_level(body, primary, fallback, 0).to_double(),
+        ),
+      )
+      true
+    }
+  }
+}
+
+///|
+fn dynamic_cost_update_minor(
+  body : Json,
+  primary : String,
+  fallback : String,
+  target : String,
+  request : Map[String, Json],
+) -> Bool raise CompanyServiceError {
+  match dynamic_cost_source_value(body, primary, fallback) {
+    None | Some(Null) => false
+    Some(_) => {
+      request.set(
+        target,
+        Json::number(
+          dynamic_cost_source_minor(body, primary, fallback, 0).to_double(),
+        ),
+      )
+      true
+    }
+  }
+}
+
+///|
+fn source_dynamic_cost_update_request(
+  body : Json,
+) -> Json raise CompanyServiceError {
+  let request : Map[String, Json] = {}
+  let mut changed = false
+  changed = dynamic_cost_update_text(
+      body, "costName", "cost_name", "cost_name", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_text(
+      body, "parentCostGuid", "parent_cost_id", "parent_cost_id", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_text(
+      body, "remarks", "remarks", "remarks", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_level(
+      body, "costLevel", "cost_level", "cost_level", request,
+    ) ||
+    changed
+  match dynamic_cost_source_value(body, "isEndCost", "is_end_cost") {
+    None | Some(Null) => ()
+    Some(True) => {
+      request.set("is_end_cost", Json::boolean(true))
+      changed = true
+    }
+    Some(False) => {
+      request.set("is_end_cost", Json::boolean(false))
+      changed = true
+    }
+    _ => raise reject(422, "isEndCost must be boolean")
+  }
+  changed = dynamic_cost_update_minor(
+      body, "targetCost", "target_cost", "target_cost_minor", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_minor(
+      body, "htAlterAmount", "ht_alter_amount", "ht_alter_amount_minor", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_minor(
+      body, "ztCost", "zt_cost", "zt_cost_minor", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_minor(
+      body, "dfsBudget", "dfs_budget", "dfs_budget_minor", request,
+    ) ||
+    changed
+  changed = dynamic_cost_update_minor(
+      body, "ygAlter", "yg_alter", "yg_alter_minor", request,
+    ) ||
+    changed
+  if !changed {
+    raise reject(422, "dynamic-cost update requires a mutable field")
+  }
+  Json::object(request)
+}
+
+///|
+fn source_dynamic_cost_alias_result(result : Json) -> Json {
+  let dynamic = json_field(result, "dynamic_cost").unwrap_or(Json::null())
+  let cost_id = json_text(dynamic, "cost_id", "")
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "costGuid": Json::string(cost_id),
+      "costCode": Json::string(json_text(dynamic, "cost_code", cost_id)),
+    }),
+    "dynamic_cost": dynamic,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn latest_dynamic_cost_payload(
+  cost_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'dynamic_cost_command' AND aggregate_id = " +
+    @postgres.sql_literal(cost_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid dynamic-cost command projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn dynamic_cost_command(
+  command_type : String,
+  cost_guid : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  let (cost_id, request) = dynamic_cost_request(
+    command_type, cost_guid, body, actor_id, idempotency_key,
+  )
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "dynamic_cost": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_dynamic_cost_payload(cost_id)
+  let raw_costs = raw_source_rows("cb_cost", 500)
+  let imported = raw_costs.any(fn(row) {
+    json_text(row.payload, "cost_guid", row.record_id) == cost_id
+  })
+  if imported && command_type == "create" {
+    raise reject(
+      409, "source dynamic-cost row is read-only; create a new local cost id",
+    )
+  }
+  if imported && command_type != "create" && current is None {
+    raise reject(
+      409, "source dynamic-cost row is read-only; create a local command row first",
+    )
+  }
+  if command_type == "create" &&
+    current is Some((payload, _)) &&
+    json_text(payload, "state", "") != "deleted" {
+    raise reject(409, "dynamic-cost already exists")
+  }
+  if command_type != "create" {
+    match current {
+      None => raise reject(404, "dynamic-cost not found")
+      Some((payload, _)) => {
+        if json_text(payload, "source_kind", "") != "command" {
+          raise reject(
+            409, "source dynamic-cost row is read-only; create a local command row first",
+          )
+        }
+        if json_text(payload, "state", "") == "deleted" {
+          raise reject(409, "dynamic-cost is already voided")
+        }
+      }
+    }
+  }
+  let event_id = "dynamic-cost:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    "active"
+  } else if command_type == "void" {
+    "deleted"
+  } else {
+    json_text(current_payload, "state", "active")
+  }
+  let next_revision = if command_type == "create" && current is None {
+    1
+  } else {
+    current_revision + 1
+  }
+  let result = Json::object({
+    "cost_id": Json::string(cost_id),
+    "cost_code": Json::string(
+      json_text(
+        request,
+        "cost_code",
+        json_text(current_payload, "cost_code", cost_id),
+      ),
+    ),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "cost_id": Json::string(cost_id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    @postgres.sql_literal(request_json) +
+    "::jsonb || jsonb_build_object('state', 'active', 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "update" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || (" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'command_type' - 'cost_id' - 'actor_id') || jsonb_build_object('event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', 'deleted', 'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("dynamic_cost." + command_type),
+    "aggregate_type": Json::string("dynamic_cost"),
+    "aggregate_id": Json::string(cost_id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('dynamic_cost_command', " +
+    @postgres.sql_literal(cost_id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" && current is None {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "dynamic_cost": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 fn invoice_money_display(value : Double) -> String {
   let negative = value < 0.0
   let scaled = (if negative { -value } else { value }) * 100.0 + 0.5
@@ -7603,6 +8301,29 @@ fn payment_command_spec(
 }
 
 ///|
+fn dynamic_cost_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post && path == "/api/company/cost/dynamic-cost" {
+    return Some(("source-create", None))
+  }
+  let prefix = "/api/company/source/cost/dynamic-cost/"
+  if path.has_prefix(prefix) {
+    let id = path[prefix.length():].to_owned()
+    if valid_identifier(id) {
+      if request_method is @http.Put {
+        return Some(("source-update", Some(id)))
+      }
+      if request_method is @http.Delete {
+        return Some(("source-void", Some(id)))
+      }
+    }
+  }
+  None
+}
+
+///|
 fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
   match error {
     CompanyServiceError::CommandRejected(status, message) =>
@@ -7886,6 +8607,8 @@ async fn route(
             Json::string("source_contract_command"),
             Json::string("payment_application_command"),
             Json::string("source_payment_application_command"),
+            Json::string("dynamic_cost_command"),
+            Json::string("source_dynamic_cost_command"),
             Json::string("expense_detail_read"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
@@ -8024,6 +8747,68 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match dynamic_cost_command_spec(request.meth, path) {
+    Some((command_type, cost_guid)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let is_source_alias = command_type.has_prefix("source-")
+      let native_command = if command_type == "source-create" {
+        "create"
+      } else if command_type == "source-update" {
+        "update"
+      } else {
+        "void"
+      }
+      let canonical_body = if command_type == "source-create" {
+        source_dynamic_cost_create_request(body, idempotency_key)
+      } else if command_type == "source-update" {
+        source_dynamic_cost_update_request(body)
+      } else {
+        body
+      }
+      let result = dynamic_cost_command(
+        native_command, cost_guid, canonical_body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      if is_source_alias && result.0 < 400 {
+        send_json(
+          conn,
+          request.meth,
+          result.0,
+          source_dynamic_cost_alias_result(result.1),
+          false,
+        )
+      } else {
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
+      return
+    }
+    None => ()
   }
   match payment_command_spec(request.meth, path) {
     Some((command_type, apply_guid)) => {

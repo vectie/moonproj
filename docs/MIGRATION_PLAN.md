@@ -609,6 +609,20 @@ no-cash/accounting/tax markers. Remarks writes, CBS/budget ownership, browser
 acceptance, production identity, and operations-owner approval remain separate
 gates.
 
+**Native dynamic-cost command checkpoint (2026-07-15).** The dynamic-cost
+source command family is now implemented in the native MoonBit company service.
+`POST /api/company/cost/dynamic-cost` normalizes the ERP camel-case fields into
+an idempotent local `dynamic_cost_command` projection, while `PUT` and `DELETE`
+source aliases update or tombstone only command-owned rows. Native validation
+checks project scope, identifiers, non-negative fixed-point amounts, imported
+row protection, replay request equality, immutable revisions, and audit
+receipts. The source-shaped read and remarks observation merge active command
+rows, and the shell-only service smoke plus native gateway smoke prove the
+create/replay/update/imported-guard/void lifecycle with no budget, CBS,
+accounting, cash, tax, or provider effect. Those external effects, browser
+acceptance, production identity, and operations-owner approval remain separate
+gates.
+
 **Contract-milestone mutation checkpoint (2026-07-14).** The source cost
 milestone family now has a bounded PostgreSQL command projection. `POST
 /api/company/source/cost/contracts/:guid/milestones` translates one milestone
@@ -1418,8 +1432,9 @@ Execute the remainder in this order:
     port with `cmd/postgres_company_service`'s authenticated native slice
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
-    observations plus the native expense and contract list/detail,
-    budget-check preview, and idempotent expense/contract/payment-application
+    observations plus the native expense, contract, payment-application, and
+    dynamic-cost list/detail/command boundaries, budget-check preview, and
+    idempotent expense/contract/payment-application/dynamic-cost
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1448,8 +1463,8 @@ Execute the remainder in this order:
     dual-runtime mode is planned.
 
     The current native gateway/session boundary and bounded company service
-    (including the expense, contract, and payment-application command
-    lifecycles) are partial completion of this
+    (including the expense, contract, payment-application, and dynamic-cost
+    command lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation
     still require their own MoonBit implementation and parity evidence.

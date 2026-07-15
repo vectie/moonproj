@@ -1,6 +1,6 @@
 # ERP Dynamic-Cost Runtime Audit
 
-Recorded: 2026-07-14
+Recorded: 2026-07-15
 Source: `../erp/erp_new`
 Target: this repository
 
@@ -25,13 +25,13 @@ source-compatible `/api/company/source/cost/milestones/:id/check` read also
 preserves the early-payment warning contract and returns a covered 404 when
 the available export has no `cb_contract_milestone` row.
 
-The source mutation family now has a bounded command projection as well:
+The source mutation family now has a native MoonBit command projection as well:
 `POST /api/company/cost/dynamic-cost` translates source fields into an
-idempotent local cost row, while `PUT` and `DELETE`
+idempotent `dynamic_cost_command` projection, while `PUT` and `DELETE`
 `/api/company/source/cost/dynamic-cost/:id` update or tombstone only
 command-owned rows. Imported `cb_cost` rows remain read-only; command rows are
-merged into the dynamic-cost read with `sourceKind=command` and explicit
-no-cash/accounting/tax markers.
+merged into the dynamic-cost read with `sourceKind=command`, immutable
+revisions, audit receipts, and explicit no-cash/accounting/tax markers.
 
 ## Evidence
 
@@ -47,8 +47,9 @@ no-cash/accounting/tax markers.
   non-authorizing/non-persisting metadata.
 - The milestone-check probe returns source-compatible `43001` for a missing
   milestone rather than inventing a payment warning or milestone row.
-- Service and trusted-gateway smokes create, replay, update, read back, and
-  void a source-shaped dynamic-cost command row.
+- The shell-only `scripts/company_postgres_dynamic_cost_smoke.sh` and native
+  gateway smoke create, replay, update, read back, protect an imported row,
+  and void a source-shaped dynamic-cost command row.
 - Service and trusted-gateway smokes also create, replay, update, trigger,
   check, and tombstone command-owned contract milestones; imported milestone
   rows remain read-only.

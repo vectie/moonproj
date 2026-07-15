@@ -133,3 +133,53 @@ test "native company service maps payment command paths" {
     is Some(("source-void", Some("PAY-1"))),
   )
 }
+
+///|
+test "native company service maps dynamic-cost command paths" {
+  assert_true(
+    dynamic_cost_command_spec(@http.Post, "/api/company/cost/dynamic-cost")
+    is Some(("source-create", None)),
+  )
+  assert_true(
+    dynamic_cost_command_spec(
+      @http.Put,
+      "/api/company/source/cost/dynamic-cost/COST-1",
+    )
+    is Some(("source-update", Some("COST-1"))),
+  )
+  assert_true(
+    dynamic_cost_command_spec(
+      @http.Delete,
+      "/api/company/source/cost/dynamic-cost/COST-1",
+    )
+    is Some(("source-void", Some("COST-1"))),
+  )
+  assert_true(
+    dynamic_cost_command_spec(
+      @http.Post,
+      "/api/company/source/cost/dynamic-cost/COST-1",
+    )
+    is None,
+  )
+}
+
+///|
+test "native company service normalizes dynamic-cost source fields" {
+  let body = @json.parse(
+    "{\"costGuid\":\"COST-1\",\"projGuid\":\"P-1\",\"costCode\":\"C-1\",\"costName\":\"Design\",\"costLevel\":2,\"targetCost\":125.50,\"isEndCost\":true}",
+  ) catch {
+    _ => Json::null()
+  }
+  let request = source_dynamic_cost_create_request(body, "key-1")
+  assert_eq(json_text(request, "cost_id", ""), "COST-1")
+  assert_eq(json_text(request, "project_id", ""), "P-1")
+  assert_eq(json_int(request, "target_cost_minor", 0), 12550)
+  assert_true(json_bool(request, "is_end_cost", false))
+  let update = source_dynamic_cost_update_request(
+    @json.parse("{\"costName\":\"Updated\",\"dfsBudget\":12.25}") catch {
+      _ => Json::null()
+    },
+  )
+  assert_eq(json_text(update, "cost_name", ""), "Updated")
+  assert_eq(json_int(update, "dfs_budget_minor", 0), 1225)
+}
