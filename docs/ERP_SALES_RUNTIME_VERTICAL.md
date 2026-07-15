@@ -102,7 +102,8 @@ subscription create/convert, mortgage create/approve/release, refund
 create/approve, and revenue create/update/delete/confirm-received actions to
 the local command runtime. Revenue commands require authority, idempotency,
 and actor/scope matching; they only create local projections and never release
-cash or post accounting. The source customer delete action remains gated
-because the target deliberately exposes archive rather than destructive
-deletion. These command mappings are local evidence only: source identity
+cash or post accounting. The source customer delete action now returns an
+authenticated `sales_customer_delete_candidate` 409 boundary because the
+target deliberately exposes archive rather than destructive deletion. These
+command mappings are local evidence only: source identity
 mapping, browser acceptance, and sales/finance owner approval remain open.

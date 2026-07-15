@@ -100,6 +100,7 @@
     "investment_plan_line_update_candidate": 1,
     "investment_excel_upload_candidate": 1,
     "connected_invoice_read": 1,
+    "import_batch_candidate": 1,
     "connected_loan_command": 2,
     "connected_loan_workflow_sync_candidate": 1,
     "connected_loan_read": 1,
@@ -121,6 +122,7 @@
     "connected_report_builder_command": 1,
     "connected_report_read": 1,
     "connected_sales_read": 5,
+    "sales_customer_delete_candidate": 1,
     "connected_supplier_command": 1,
     "connected_supplier_read": 1,
     "connected_supplier_risk_read": 1,
@@ -2637,8 +2639,8 @@
       "method": "POST",
       "path": "/:bizType",
       "browser_route_paths": [],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "import_batch_candidate",
+      "required_next": "accept_import_rows_and_operations_owner"
     },
     {
       "module": "investment",
@@ -4004,8 +4006,8 @@
         "/sales/contracts",
         "/sales/mortgages"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "sales_customer_delete_candidate",
+      "required_next": "accept_sales_archive_or_destructive_delete_policy"
     },
     {
       "module": "sales",

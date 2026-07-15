@@ -15971,6 +15971,7 @@ async fn route(
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
             Json::string("expense_workflow_sync_candidate"),
+            Json::string("import_batch_candidate"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),
@@ -15994,6 +15995,7 @@ async fn route(
             Json::string("receivable_read"),
             Json::string("invoice_observation_read"),
             Json::string("sales_observation_read"),
+            Json::string("sales_customer_delete_candidate"),
             Json::string("tender_observation_read"),
             Json::string("supplier_dictionary_observation_read"),
             Json::string("supplier_observation_read"),
@@ -16213,6 +16215,38 @@ async fn handle(
       }
       let _ = actor
       let result = ai_hub_command_gate(command)
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match import_batch_spec(request.meth, path) {
+    Some(biz_type) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let _ = actor
+      let result = import_batch_gate(biz_type)
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match sales_customer_delete_spec(request.meth, path) {
+    Some(customer_guid) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let _ = actor
+      let result = sales_customer_delete_gate(customer_guid)
       send_json(conn, request.meth, result.0, result.1, false)
       return
     }
