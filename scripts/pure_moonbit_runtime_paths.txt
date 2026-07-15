@@ -6,6 +6,7 @@
 cmd
 frontend/main
 scripts/company_postgres_accounting_link_apply.sh
+scripts/company_postgres_accounting_link_parity.sh
 scripts/company_postgres_contract_smoke.sh
 scripts/company_postgres_dynamic_cost_smoke.sh
 scripts/company_postgres_expense_smoke.sh

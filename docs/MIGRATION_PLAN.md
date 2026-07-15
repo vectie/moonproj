@@ -1888,6 +1888,15 @@ Execute the remainder in this order:
     broader cohort/accounting parity helpers remain frozen comparison evidence
     until their corresponding native database-specific commands are ported;
     this checkpoint does not claim the complete rehearsal is Python-free.
+
+3a.4. **PostgreSQL accounting-link parity utility (2026-07-16).**
+    `cmd/postgres_accounting_link_parity` and
+    `scripts/company_postgres_accounting_link_parity.sh` now replace the
+    supported PostgreSQL accounting-link identity helper. The native command
+    validates the native accounting-link receipt, reopens event/source/journal/
+    principal rows, reports missing/extra/mismatched event IDs, and keeps cash
+    release and period posting false. SQLite parity and the broader
+    reconciliation/reporting helpers remain explicit follow-up ports.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
