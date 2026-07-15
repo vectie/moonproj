@@ -54,7 +54,7 @@ if [ "$ready" -ne 1 ]; then
   /bin/cat "$TMP_DIR/service.log"
   exit 1
 fi
-/usr/bin/jq -e '.capabilities | index("supplier_command") and index("source_supplier_command") and index("supplier_rescore_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("supplier_command") and index("source_supplier_command") and index("supplier_rescore_command") and index("source_supplier_rescore_command")' "$TMP_DIR/health.json" >/dev/null
 
 request() {
   name=$1
@@ -106,7 +106,15 @@ request update PUT "/api/company/source/srm/providers/$SUPPLIER_ID" 200 \
 /usr/bin/jq -e '.success == true and .provider.providerName == "Updated MoonBit supplier" and .provider.evalResult == "已评审"' "$TMP_DIR/update.json" >/dev/null
 
 request rescore POST /api/company/source/srm/providers/rescore-all 200 '{}' "supplier-rescore-$SMOKE_SUFFIX"
-/usr/bin/jq -e '.success == true and .data.total >= 1 and .data.updated == 0 and .data.wouldUpdate >= 1 and .data.dryRun == true and .data.providerExecution == false and .persisted == false and .authorizing == false' "$TMP_DIR/rescore.json" >/dev/null
+/usr/bin/jq -e '.success == true and .data.total >= 1 and .data.updated >= 1 and .data.wouldUpdate >= 1 and .data.importedProtected >= 0 and .data.dryRun == false and .data.providerExecution == false and .persisted == true and .authorizing == false and .idempotent_replay == false' "$TMP_DIR/rescore.json" >/dev/null
+request rescore_replay POST /api/company/source/srm/providers/rescore-all 200 '{}' "supplier-rescore-$SMOKE_SUFFIX"
+/usr/bin/jq -e '.success == true and .idempotent_replay == true and .data.dryRun == false and .persisted == true' "$TMP_DIR/rescore_replay.json" >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/supplier-risk-board" \
+  | /usr/bin/jq -e --arg id "$SUPPLIER_ID" '.items | any(.[]; .supplier_id == $id and .score >= 0 and (.rating | length) == 1 and .source_kind == "command")' >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/suppliers/$SUPPLIER_ID/risk" \
+  | /usr/bin/jq -e --arg id "$SUPPLIER_ID" '.supplier_id == $id and .score >= 0 and (.rating | length) == 1 and .source_kind == "command"' >/dev/null
 
 request submit_review POST "/api/company/suppliers/$SUPPLIER_ID/submit_review" 200 \
   '{}' "supplier-submit-$SMOKE_SUFFIX"

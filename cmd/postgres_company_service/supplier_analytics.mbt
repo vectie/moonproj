@@ -442,7 +442,10 @@ async fn supplier_command_risk_board_response() -> Json raise CompanyServiceErro
       "不合格" => "unqualified"
       _ => "unrated"
     }
-    let score = if state == "voided" ||
+    let persisted_rating = json_text(item, "riskRating", "")
+    let score = if !persisted_rating.is_empty() {
+      json_number(item, "riskScore", 0.0).to_int()
+    } else if state == "voided" ||
       state == "blacklisted" ||
       evaluation == "unqualified" {
       0
@@ -457,7 +460,9 @@ async fn supplier_command_risk_board_response() -> Json raise CompanyServiceErro
     } else {
       50
     }
-    let rating = if score >= 95 {
+    let rating = if !persisted_rating.is_empty() {
+      persisted_rating
+    } else if score >= 95 {
       "A"
     } else if score >= 85 {
       "B"
@@ -468,7 +473,14 @@ async fn supplier_command_risk_board_response() -> Json raise CompanyServiceErro
     } else {
       "C"
     }
-    let tags : Array[Json] = []
+    let tags : Array[Json] = if !json_text(item, "riskTags", "").is_empty() {
+      json_text(item, "riskTags", "")
+      .split(",")
+      .to_array()
+      .map(fn(tag) { Json::string(tag.to_owned()) })
+    } else {
+      []
+    }
     if state == "pending_review" {
       tags.push(Json::string("pending_review"))
     }

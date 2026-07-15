@@ -69,8 +69,9 @@ native service exposes:
   These aliases create, update, or void command-owned supplier projections,
   merge those projections into source-shaped list/detail reads with
   `source_kind=command`, and preserve idempotent replay evidence. Imported
-  providers remain read-only; qualification, signature, risk rescore, and
-  external provider effects are not inferred;
+  providers remain read-only; qualification, signature, and external provider
+  effects are not inferred. Rescore is a local command that writes only
+  command-owned risk projections;
 - `GET /api/company/srm/stats/overview` for source-backed enabled-provider,
   rating, category/source, and top-business aggregates;
 - `GET /api/company/source/srm/categories` for the source `srm_category`
@@ -84,9 +85,10 @@ native service exposes:
   `srm_provider`, `cb_contract`, and `cb_contract_milestone` rows and reports
   coverage/missing tables; it never falls back to local supplier projections;
 - `POST /api/company/source/srm/providers/rescore-all` (and the canonical alias)
-  for a signed supplier-risk rescore candidate. It reports the current supplier
-  population and would-update count without mutating imported or command-owned
-  rows, calling a provider, or changing ratings;
+  for a signed supplier-risk rescore command. It computes the ERP formula and
+  persists score/rating/tags only on command-owned supplier projections, records
+  an idempotent command/audit receipt, protects imported rows, and never calls a
+  provider or changes cash/accounting/tax;
 - `GET /api/company/source/tender/splits` (with
   `parentContractGuid`/`state` filters) for explicit contract-split evidence;
   `POST /api/company/tender-splits` and the source-field POST alias create
@@ -130,7 +132,7 @@ The source parity audit also records the remaining differences. The
 `srm.js` signature-check endpoint now has a bounded missing-provider/gated
 boundary plus a local command-owned derived preview; imported populated-
 provider decisions still require procurement-owner approval. The native
-rescore-all route is now a dry-run candidate; it never mutates ratings. The
+rescore-all route is now a local command; it mutates only command-owned ratings. The
 source-compatible risk board remains read-only and non-authorizing while the
 snapshot has no supplier rows. All target mutations above are separate
 idempotent company commands, not proxied legacy writes.
@@ -142,8 +144,8 @@ field family into a local supplier command, but do not pretend that a local
 projection is an imported `srm_provider` row. List/detail readback is useful
 for the designer flow and carries provenance; source statistics, imported
 provider signature/risk decisions, and populated-source rescore remain source-
-evidence and owner gates. The native rescore candidate is only a local
-decision aid and never a rating write, signature, or provider call.
+evidence and owner gates. The native rescore command is a local projection
+write and never a signature decision or provider call.
 
 The tender command runtime is not an exact proxy for every legacy tender
 mutation. Local create and lifecycle commands enforce a forward-only state

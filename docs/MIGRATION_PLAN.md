@@ -334,12 +334,14 @@ idempotent command-owned supplier projections. Direct supplier create and
 same PostgreSQL receipt/audit/revision boundary. Source-shaped list/detail
 readback merges those projections with explicit `source_kind=command`, while
 imported providers remain read-only; populated-source qualification,
-signature, risk rescore, and external provider effects remain gated.
+signature and external provider effects remain gated. A local rescore command
+now persists ERP-formula score/rating/tags only on command-owned providers,
+with imported-row protection and replayable audit evidence.
 The supplier signature-check handler now has a source-compatible missing-
 provider boundary and an explicit populated-provider procurement gate. A
-command-owned supplier projection also returns a `derived_command_preview`
-with local risk derivation, but it is non-authorizing, non-persistent, and
-does not invoke a provider. The
+command-owned supplier projection also returns persisted local risk values;
+the command is non-authorizing, does not invoke a provider, and does not
+change cash, accounting, or tax. The
 admin backup handler now has a PostgreSQL target-format export boundary; it
 does not invoke the source MySQL dump process or return binary data.
 The route-level count now includes the connected `/srm/providers/:guid`
@@ -1105,8 +1107,8 @@ effects disabled. Supplier category, evaluation-result, and source dictionaries
 also run natively with explicit empty-table/definition metadata. Native
 supplier/provider command replay, source readback, imported-row protection,
 and lifecycle evidence are covered by the service and gateway smokes.
-Populated-source signature/qualification decisions, risk rescore, provider
-execution, production identity, and owner acceptance remain gated. The native
+Populated-source signature/qualification decisions, provider execution,
+production identity, and owner acceptance remain gated. The native
 provider list/detail/risk observations preserve the active command-owned
 supplier cohort, imported-row provenance, source coverage, and missing-provider
 semantics.
@@ -1118,8 +1120,9 @@ aliases. Each command requires a signed actor and idempotency key, validates
 the ERP field family, protects imported rows, persists immutable supplier
 revisions, command receipts, and audit events, and returns source-shaped
 provider readback with `sourceKind=command`. Blacklist and void are local
-non-authorizing lifecycle states; no provider call, qualification grant,
-signature, risk rescore, budget, accounting, cash, or tax effect is implied.
+non-authorizing lifecycle states; rescore persists only local risk projections;
+no provider call, qualification grant, signature, budget, accounting, cash, or
+tax effect is implied.
 `scripts/company_postgres_supplier_smoke.sh` and the gateway smoke provide the
 shell-only replay/collision/update/review/blacklist/void evidence. The frozen
 Python service remains comparison material only.
@@ -1558,7 +1561,7 @@ authorization false; the owner-filled artifact is still required.
 | P1 | Missing 49-table source export and reconciliation | Hash-verified, redacted export including empty tables and primary-key metadata; runtime `/api/company/source/migration/schema-coverage` evidence; source/UI metric-label reconciliation, including the investment IRR/sensitivity mismatch | Migration owner accepts coverage and metric semantics |
 | P2 | Dashboard v3 and investment actual acceptance | The v3 observation and native profit-actual imported-real/simulated read are implemented; reconcile missing CBS/sales/fund/invoice/tender/warning dependencies or an explicit owner-approved empty disposition before exposing management KPIs, then approve source calculation semantics for actual-profit simulation | Finance/operations owner accepts formulas, source coverage, and the no-synthetic-KPI policy |
 | P3 | Attachment binary completion and database backup | The attachment download boundary is connected for missing metadata/binary; bind real binary storage, retention, authorization, and PostgreSQL backup/restore policy to managed operations | Security/operations owner approval; do not return fixture or ad-hoc files |
-| P4 | Supplier provider signature decision | The missing-provider boundary, populated-provider procurement gate, and non-authorizing command-owned derived preview are connected; bind provider credentials, imported-row risk calculation parity, timeout/retry, and audit trail before returning an imported-provider decision | Procurement/security owner approval and a real provider test contract |
+| P4 | Supplier provider signature decision | The missing-provider boundary, populated-provider procurement gate, and non-authorizing command-owned rescore command are connected; bind provider credentials, timeout/retry, imported-provider decision parity, and provider-side audit before returning an imported-provider decision | Procurement/security owner approval and a real provider test contract |
 | P5 | Mutations and external effects | Marketing and invoice local command cohorts now have authority, deterministic idempotency, aggregate revisions, audit receipts, source-shaped readback, and service/gateway replay evidence. Delivery progress/output create, report, confirmation, and command-owned progress tombstone actions are now explicitly registered against the evidence-gated command runtime; imported progress remains read-only. Sales customer create/update/delete, subscription/mortgage/refund actions and the revenue create/update/confirm/delete cohort now map to PostgreSQL command runtimes; customer delete tombstones only command-owned rows, while downstream subscription contract/revenue reconciliation remains pending. Expense create/update/submit/void now maps to the source budget mutation boundary. Fund plan create/update/delete and dispatch create/approve now use the same local authority/idempotency/revision/audit boundary; imported fund rows remain read-only and commands are explicitly cash/accounting/tax-neutral. Project-plan task create/update/delete and evidence-gated task report now use a separate local planning projection; imported `jd_task` rows remain read-only and AI scheduling remains gated. Signed local workflow start/approve/reject commands now persist command-owned instance/action projections, owner checks, replay/audit evidence, and workflow-only effect markers; imported workflow rows and source-engine synchronization/delegation remain gated. MDM project create/update/delete aliases now use a command-owned project projection with lifecycle initialization, imported-project protection, source-shaped readback, replay, and tombstone evidence; task/workflow/budget/accounting/cash/tax effects remain gated. Tender planning/lifecycle commands, command-owned tender tombstone/delete, and source tender create/split/delete aliases now return source-shaped readback with command provenance; arbitrary state overwrite, imported deletion, and standalone award semantics remain policy gates. Supplier source provider POST/PATCH/PUT/DELETE aliases now translate the ERP provider field family into command-owned supplier projections and merge source-shaped list/detail readback with replay evidence; imported providers remain read-only and qualification/signature/rescore/external effects remain gated. Payment-application source create/update/void aliases now reuse the native command projection, translate source fields, enter the submitted approval state, and preserve no-cash/accounting/tax markers. Contract source create/update/void aliases now reuse the native command projection, preserve BU/project/provider/amount/CBS fields, and return source-shaped readback with imported-row protection and tombstone semantics. Dynamic-cost source create/update/void aliases and contract-milestone create/update/trigger/void aliases now use the same command projection pattern with imported-row protection and source-shaped readback. Authenticated preference set/delete aliases now use a signed-user-scoped command projection with replay/audit evidence while imported preferences remain read-only and no identity, authorization, provider, accounting, cash, and tax effects are enabled. Notification subscription create/update/delete and message read/read-all aliases now use signed-user-scoped command projections with source-shaped readback, replay/audit evidence, tombstones, and imported-message overlays while imported notification rows remain read-only and delivery/provider/accounting/cash/tax effects remain false. Report-builder template create/delete commands now use command-owned revisions and report run evaluates only the source field whitelist without executing raw SQL; imported templates remain read-only and report exports remain gated. CBS/budget enforcement, payment execution, and external effects remain gated. Continue the same pattern for remaining mutation families and bind accounting/tax/cash/provider effects separately | Named business owner acceptance, production identity, and external-effect owner decisions; imported rows remain read-only |
 
 This ordering supersedes the earlier route-count-first sequence. The remaining
@@ -1898,7 +1901,8 @@ Execute the remainder in this order:
    tender planning/award/complete,
    and contract-split reads/creates now pass PostgreSQL smoke and Rabbita
    command-state checks. Remaining procurement work is populated-provider
-   signature decision parity and external risk-rescore integration, a
+   signature decision parity and external risk-rescore integration beyond the
+   local command, a
    redacted source export, supplier
    identity mapping, browser acceptance, award-to-commitment acceptance, and
    procurement-owner sign-off.

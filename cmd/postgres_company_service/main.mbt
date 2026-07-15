@@ -12694,6 +12694,9 @@ async fn supplier_command_items() -> Array[Json] raise CompanyServiceError {
     "'contactPerson', coalesce(payload->>'contact_person', ''), 'contactPhone', coalesce(payload->>'contact_phone', ''), " +
     "'address', coalesce(payload->>'address', ''), " +
     "'enabled', CASE WHEN coalesce(payload->>'state', 'draft') IN ('voided', 'blacklisted') THEN false ELSE coalesce((payload->>'enabled')::boolean, true) END, " +
+    "'riskScore', CASE WHEN payload ? 'risk_score' THEN (payload->>'risk_score')::numeric ELSE NULL END, " +
+    "'riskRating', coalesce(payload->>'risk_rating', ''), 'riskTags', coalesce(payload->>'risk_tags', ''), " +
+    "'riskUpdatedAt', coalesce(payload->>'risk_updated_at', ''), " +
     "'buCount', 0, 'contractCount', 0, 'sourceKind', 'command', 'source_kind', 'command', 'commandProjection', true, " +
     "'authorizing', false, 'persisted', true, 'providerExecution', false, 'cashEffect', false, 'accountingEffect', false, 'taxEffect', false, " +
     "'sourceId', 'moonproj:command:supplier:' || aggregate_id, 'aggregate_type', 'supplier', 'aggregate_id', aggregate_id" +
@@ -16175,7 +16178,8 @@ async fn route(
             Json::string("report_share_public_read"),
             Json::string("warning_observation_read"),
             Json::string("supplier_command"),
-            Json::string("supplier_rescore_candidate"),
+            Json::string("supplier_rescore_command"),
+            Json::string("source_supplier_rescore_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
             Json::string("expense_workflow_sync_candidate"),
@@ -16437,6 +16441,17 @@ async fn handle(
     return
   }
   if supplier_rescore_spec(request.meth, path) {
+    let idempotency_key = header(request, "Idempotency-Key")
+    if idempotency_key.is_empty() {
+      send_json(
+        conn,
+        request.meth,
+        400,
+        Json::object({ "error": Json::string("Idempotency-Key is required") }),
+        false,
+      )
+      return
+    }
     let actor = command_actor(request, actor_signing_secret) catch {
       error => {
         let response = service_error_response(error)
@@ -16444,7 +16459,6 @@ async fn handle(
         return
       }
     }
-    let _ = actor
     let _ = read_json_body(body_reader) catch {
       error => {
         let response = service_error_response(error)
@@ -16452,7 +16466,7 @@ async fn handle(
         return
       }
     }
-    let result = supplier_rescore_response() catch {
+    let result = supplier_rescore_command(actor, idempotency_key) catch {
       error => {
         let response = service_error_response(error)
         send_json(conn, request.meth, response.0, response.1, false)

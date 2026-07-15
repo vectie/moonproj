@@ -37,7 +37,11 @@ async fn supplier_projection_items(
     "encode(convert_to(coalesce(latest.payload->'candidate'->>'contact_person', latest.payload->>'contact_person', ''), 'UTF8'), 'hex'), " +
     "encode(convert_to(coalesce(latest.payload->'candidate'->>'contact_phone', latest.payload->>'contact_phone', ''), 'UTF8'), 'hex'), " +
     "encode(convert_to(coalesce(latest.payload->'candidate'->>'address', latest.payload->>'address', ''), 'UTF8'), 'hex'), " +
-    "encode(convert_to(coalesce(latest.payload->'candidate'->>'enabled', latest.payload->>'enabled', 'true'), 'UTF8'), 'hex') " +
+    "encode(convert_to(coalesce(latest.payload->'candidate'->>'enabled', latest.payload->>'enabled', 'true'), 'UTF8'), 'hex'), " +
+    "encode(convert_to(coalesce(latest.payload->>'risk_rating', ''), 'UTF8'), 'hex'), " +
+    "encode(convert_to(coalesce(latest.payload->>'risk_tags', ''), 'UTF8'), 'hex'), " +
+    "encode(convert_to(coalesce(latest.payload->>'risk_score', ''), 'UTF8'), 'hex'), " +
+    "encode(convert_to(coalesce(latest.payload->>'risk_updated_at', ''), 'UTF8'), 'hex') " +
     "FROM latest WHERE true" +
     filter +
     " ORDER BY latest.aggregate_id LIMIT 500",
@@ -48,7 +52,7 @@ async fn supplier_projection_items(
     if line.is_empty() {
       continue
     }
-    let row = fields(line, 20)
+    let row = fields(line, 24)
     let enabled = decode_hex(row[19]).to_lower() == "true"
     result.push(
       Json::object({
@@ -72,6 +76,10 @@ async fn supplier_projection_items(
         "contact_phone": Json::string(decode_hex(row[17])),
         "address": Json::string(decode_hex(row[18])),
         "enabled": Json::boolean(enabled),
+        "riskRating": Json::string(decode_hex(row[20])),
+        "riskTags": Json::string(decode_hex(row[21])),
+        "riskScore": Json::string(decode_hex(row[22])),
+        "riskUpdatedAt": Json::string(decode_hex(row[23])),
       }),
     )
   }
@@ -141,13 +149,37 @@ async fn supplier_direct_risk_response(
   } else {
     (50, "C")
   }
+  let persisted_rating = json_text(supplier, "riskRating", "")
+  let persisted_score = json_text(supplier, "riskScore", "")
+  let parsed_score = @json.parse(persisted_score) catch { _ => Json::null() }
+  let response_score = if !persisted_score.is_empty() {
+    match parsed_score {
+      Number(value, ..) => value
+      _ => score.to_double()
+    }
+  } else {
+    score.to_double()
+  }
+  let response_rating = if persisted_rating.is_empty() {
+    rating
+  } else {
+    persisted_rating
+  }
+  let tags = if json_text(supplier, "riskTags", "").is_empty() {
+    supplier_risk_tags(state, evaluation)
+  } else {
+    json_text(supplier, "riskTags", "")
+    .split(",")
+    .to_array()
+    .map(fn(tag) { Json::string(tag.to_owned()) })
+  }
   (
     200,
     Json::object({
       "supplier_id": Json::string(json_text(supplier, "supplier_id", "")),
-      "score": Json::number(score.to_double()),
-      "rating": Json::string(rating),
-      "tags": Json::array(supplier_risk_tags(state, evaluation)),
+      "score": Json::number(response_score),
+      "rating": Json::string(response_rating),
+      "tags": Json::array(tags),
       "state": Json::string(state),
       "evaluation": Json::string(evaluation),
       "source_kind": Json::string(json_text(supplier, "source_kind", "")),
