@@ -90,9 +90,10 @@ The native authenticated company service is available through
 `scripts/company_postgres_service.sh`. It requires `MOONPROJ_SERVICE_TOKEN`,
 supports `--require-forwarded-tls`, and currently serves only the capability
 list documented in `IMPLEMENTATION_STATUS.md`, including imported expense
-list/detail, calculation-only budget-check, and the idempotent native expense
-command lifecycle. Set `MOONPROJ_ACTOR_SIGNING_SECRET` (shared with the native
-gateway) before enabling command routes; unsigned actor assertions fail closed.
+list/detail for expenses and contracts, calculation-only budget-check, and the
+idempotent native expense and contract command lifecycles. Set
+`MOONPROJ_ACTOR_SIGNING_SECRET` (shared with the native gateway) before enabling
+command routes; unsigned actor assertions fail closed.
 The broad
 `scripts/company_postgres_service.py` remains frozen bridge evidence while its
 remaining routes and command lifecycles are ported. The frozen Python bridge
@@ -112,6 +113,9 @@ validation remain separate gates.
 The shell-only `scripts/company_postgres_expense_smoke.sh` verifies native
 expense reads, replay, lifecycle transitions, and the non-persisting budget
 preview.
+The shell-only `scripts/company_postgres_contract_smoke.sh` verifies native
+source-field contract create/replay, update, submit/reject/resubmit/approve,
+source-shaped detail, and void tombstone behavior.
 The credential-free `company_production_service_check.py` now validates the
 service boundary separately: bounded reusable pool, schema-matched readiness,
 private TLS-terminated binding, authentication, fixed read endpoints, and no

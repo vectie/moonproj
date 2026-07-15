@@ -38,7 +38,8 @@ These reads are bounded and non-authorizing (`authorizing=false`,
 
 ## Connected API
 
-`scripts/company_postgres_service.py` exposes:
+The native MoonBit service exposed by `scripts/company_postgres_service.sh`
+exposes:
 
 - `GET /api/company/contracts` — latest contract rows with project, supplier,
   amount, paid amount, state, source kind, and milestone count;
@@ -64,7 +65,7 @@ These reads are bounded and non-authorizing (`authorizing=false`,
 - `POST /api/company/source/cost/milestones/<id>/trigger-event` — reach a
   pending event milestone without emitting cash, accounting, or tax effects.
 
-The loop is forwarded by the loopback-only development gateway. The gateway
+The loop is forwarded by the loopback-only native MoonBit gateway. The gateway
 requires its in-memory HttpOnly session and signs `rabbita-user` before the
 service accepts a command. The Rabbita contracts list is wired to load live
 rows; the detail route is wired to load live fields and milestones, and the
@@ -73,12 +74,11 @@ approve.
 
 ## Acceptance evidence
 
-The service smoke now exercises native and source-field contract create with
-idempotent replay, source update/replay/readback, all four state transitions, source milestone
-single-create/replay/update/trigger/check/void, imported-row guards, and a
-separate source contract void alias with tombstone readback. A gateway HTTP
-probe repeats the source contract and milestone flow and verifies that the
-stored command and audit payloads carry `actor_id: rabbita-user`.
+The shell-only native contract smoke exercises source-field create with
+idempotent replay, source update/readback, all four state transitions, and a
+separate source contract void alias with tombstone readback. The native gateway
+HTTP smoke repeats source contract create and verifies signed forwarding. The
+stored command and audit payloads carry the asserted actor identity.
 
 ## Remaining gate
 

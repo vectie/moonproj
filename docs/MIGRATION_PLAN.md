@@ -518,6 +518,17 @@ the actor assertion to match the local applicant for update/void, and keeps
 imported source rows, workflow synchronization, budget checks, cash,
 accounting, tax, and finance-owner acceptance separate.
 
+The contract action register now maps source-field create, draft/submitted
+update, submit, reject, resubmit, approve, and void aliases to the native
+MoonBit PostgreSQL contract command runtime. The native service preserves
+BU/project/provider/amount/CBS fields, source-shaped readback, deterministic
+idempotency, aggregate revisions, and audit receipts; imported contracts remain
+read-only and void is a local tombstone. The shell-only
+`scripts/company_postgres_contract_smoke.sh` and native gateway smoke prove
+replay, the full local lifecycle, signed forwarding, and tombstone readback.
+CBS/budget enforcement, payment execution, cash, accounting, tax, production
+identity, and contract-owner acceptance remain separate gates.
+
 The budget action register now maps `POST /api/company/budget-check` to a
 PostgreSQL-backed, source-shaped headroom preview. It reads imported `cb_cost`
 rows, reports target/used/remain and over-budget indicators, and explicitly
@@ -1396,9 +1407,10 @@ Execute the remainder in this order:
     port with `cmd/postgres_company_service`'s authenticated native slice
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
-    observations plus the native expense list/detail, budget-check preview,
-    and idempotent expense create/update/submit/reject/resubmit/approve
-    lifecycle, with the bounded gateway/session boundary now ported as
+    observations plus the native expense and contract list/detail,
+    budget-check preview, and idempotent expense/contract create/update/
+    submit/reject/resubmit/approve/void lifecycles, with the bounded
+    gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
     service commands, gateway allow-list parity, rehearsal planners/parity
     tools, and fixture/replay checks before treating this convergence step as

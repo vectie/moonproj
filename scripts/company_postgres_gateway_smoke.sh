@@ -107,6 +107,20 @@ test "$status" = 201
   '.idempotent_replay == false and .expense.expense_id == "'"$gateway_expense_id"'" and .expense.state == "draft"' \
   "$TMP_DIR/expense-create.json" >/dev/null
 
+gateway_contract_suffix=$(/bin/date +%s)
+gateway_contract_id="CT-GW-SMOKE-$gateway_contract_suffix"
+gateway_contract_body="{\"contractGuid\":\"$gateway_contract_id\",\"contractCode\":\"C-GW-$gateway_contract_suffix\",\"contractName\":\"gateway smoke contract\",\"buGuid\":\"bu-gateway\",\"projGuid\":\"proj-gateway\",\"providerGuid\":\"supplier-gateway\",\"signDate\":\"2026-07-15\",\"htAmount\":88.80,\"rCode\":\"R1\",\"l3Code\":\"L3-GW\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/contract-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-contract-create-$gateway_contract_suffix" \
+  --data "$gateway_contract_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/cost/contracts")
+test "$status" = 201
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == false and .data.contractGuid == "'"$gateway_contract_id"'" and .contract.state == "draft"' \
+  "$TMP_DIR/contract-create.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" -c "$TMP_DIR/cookies.txt" \
   -X POST "http://127.0.0.1:$GATEWAY_PORT/api/session/logout" >"$TMP_DIR/logout.json"
 /usr/bin/jq -e '.authenticated == false' "$TMP_DIR/logout.json" >/dev/null

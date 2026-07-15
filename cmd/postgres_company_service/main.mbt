@@ -5,8 +5,8 @@
 /// keeps the bearer-token and forwarded-TLS boundary, then exposes fixed
 /// fixed contracts for health, summary, receipts, projections, imported
 /// profile/preferences/initiated-document observations, source-shaped cost
-/// observations, and the expense read/command boundary. The wider ERP route
-/// families remain separate migration gates.
+/// observations, and the expense/contract read/command boundaries. The wider
+/// ERP route families remain separate migration gates.
 pub(all) suberror CompanyServiceError {
   InvalidInput(String)
   CommandRejected(Int, String)
@@ -1619,6 +1619,766 @@ async fn expense_command(
       "idempotent_replay": Json::boolean(false),
     }),
   )
+}
+
+///|
+fn contract_required_text(
+  body : Json,
+  key : String,
+  identifier : Bool,
+) -> String raise CompanyServiceError {
+  let value = json_text(body, key, "").trim().to_owned()
+  if value.is_empty() {
+    raise reject(422, key + " is required")
+  }
+  if identifier && !valid_identifier(value) {
+    raise reject(422, key + " contains unsupported characters")
+  }
+  value
+}
+
+///|
+fn contract_currency(
+  body : Json,
+  key : String,
+) -> String raise CompanyServiceError {
+  let value = contract_required_text(body, key, false).to_upper()
+  if value.length() != 3 {
+    raise reject(422, "currency must be a three-letter code")
+  }
+  for char in value.iter() {
+    if char < 'A' || char > 'Z' {
+      raise reject(422, "currency must be a three-letter code")
+    }
+  }
+  value
+}
+
+///|
+fn contract_positive_amount(
+  body : Json,
+  key : String,
+) -> Int raise CompanyServiceError {
+  match json_field(body, key) {
+    Some(Number(number, ..)) if number > 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    _ => raise reject(422, key + " must be a positive integer")
+  }
+}
+
+///|
+fn contract_nonnegative_amount(
+  body : Json,
+  key : String,
+) -> Int raise CompanyServiceError {
+  match json_field(body, key) {
+    Some(Number(number, ..)) if number >= 0.0 &&
+      number == number.to_int().to_double() => number.to_int()
+    _ => raise reject(422, key + " must be a non-negative integer")
+  }
+}
+
+///|
+fn contract_optional_text(
+  body : Json,
+  key : String,
+  request : Map[String, Json],
+) -> Unit raise CompanyServiceError {
+  match json_field(body, key) {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() =>
+      request.set(key, Json::string(value.trim().to_owned()))
+    _ => raise reject(422, key + " must be non-empty text")
+  }
+}
+
+///|
+fn source_contract_optional_text(
+  body : Json,
+  source_key : String,
+  target_key : String,
+  request : Map[String, Json],
+) -> Unit raise CompanyServiceError {
+  match json_field(body, source_key) {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() =>
+      request.set(target_key, Json::string(value.trim().to_owned()))
+    _ => raise reject(422, source_key + " must be non-empty text")
+  }
+}
+
+///|
+fn contract_create_request(
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("create"))
+  request.set(
+    "contract_id",
+    Json::string(contract_required_text(body, "contract_id", true)),
+  )
+  request.set(
+    "contract_code",
+    Json::string(contract_required_text(body, "contract_code", false)),
+  )
+  request.set(
+    "contract_name",
+    Json::string(contract_required_text(body, "contract_name", false)),
+  )
+  request.set(
+    "project_id",
+    Json::string(contract_required_text(body, "project_id", true)),
+  )
+  request.set(
+    "project_name",
+    Json::string(contract_required_text(body, "project_name", false)),
+  )
+  request.set(
+    "supplier_id",
+    Json::string(contract_required_text(body, "supplier_id", true)),
+  )
+  request.set(
+    "supplier_name",
+    Json::string(contract_required_text(body, "supplier_name", false)),
+  )
+  request.set(
+    "sign_date",
+    Json::string(contract_required_text(body, "sign_date", false)),
+  )
+  request.set(
+    "amount_minor",
+    Json::number(contract_positive_amount(body, "amount_minor").to_double()),
+  )
+  request.set("currency", Json::string(contract_currency(body, "currency")))
+  for
+    key in [
+      "bu_guid", "bu_name", "ht_type_code", "supplier_corporation", "ht_cf_state",
+      "js_state", "cost_code", "r_code", "l3_code",
+    ] {
+    contract_optional_text(body, key, request)
+  }
+  match json_field(body, "ht_class") {
+    None | Some(Null) => ()
+    Some(Number(number, ..)) =>
+      if number >= 0.0 && number == number.to_int().to_double() {
+        request.set("ht_class", Json::number(number.to_int().to_double()))
+      } else {
+        raise reject(422, "ht_class must be a non-negative integer")
+      }
+    _ => raise reject(422, "ht_class must be a non-negative integer")
+  }
+  request.set("actor_id", Json::string(actor_id))
+  Json::object(request)
+}
+
+///|
+fn contract_update_request(
+  contract_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(contract_id) {
+    raise reject(422, "contract_id is required")
+  }
+  let request : Map[String, Json] = {}
+  request.set("command_type", Json::string("update"))
+  request.set("contract_id", Json::string(contract_id))
+  request.set("actor_id", Json::string(actor_id))
+  for
+    key in [
+      "contract_name", "project_name", "supplier_id", "supplier_name", "sign_date",
+      "ht_type_code", "supplier_corporation", "ht_cf_state", "js_state", "cost_code",
+    ] {
+    contract_optional_text(body, key, request)
+  }
+  match json_field(body, "currency") {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() => {
+      let currency = value.trim().to_owned().to_upper()
+      if currency.length() != 3 {
+        raise reject(422, "currency must be a three-letter code")
+      }
+      for char in currency.iter() {
+        if char < 'A' || char > 'Z' {
+          raise reject(422, "currency must be a three-letter code")
+        }
+      }
+      request.set("currency", Json::string(currency))
+    }
+    _ => raise reject(422, "currency must be a three-letter code")
+  }
+  for key in ["amount_minor", "sum_alter_amount_minor", "ht_class"] {
+    match json_field(body, key) {
+      None | Some(Null) => ()
+      Some(_) =>
+        request.set(
+          key,
+          Json::number(contract_nonnegative_amount(body, key).to_double()),
+        )
+    }
+  }
+  if request.length() == 3 {
+    raise reject(422, "contract update requires a mutable field")
+  }
+  Json::object(request)
+}
+
+///|
+fn contract_transition_request(
+  command_type : String,
+  contract_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(contract_id) {
+    raise reject(422, "contract_id is required")
+  }
+  match json_field(body, "reason") {
+    None => ()
+    Some(String(_)) => ()
+    _ => raise reject(422, "reason must be text")
+  }
+  Json::object({
+    "command_type": Json::string(command_type),
+    "contract_id": Json::string(contract_id),
+    "reason": Json::string(json_text(body, "reason", "").trim().to_owned()),
+    "actor_id": Json::string(actor_id),
+  })
+}
+
+///|
+fn source_decimal_minor(
+  body : Json,
+  key : String,
+  minimum : Int,
+) -> Int raise CompanyServiceError {
+  let value = match json_field(body, key) {
+    Some(Number(number, ..)) => number
+    Some(String(text)) => parse_number(text)
+    _ => raise reject(422, key + " must be a decimal number")
+  }
+  if value < minimum.to_double() {
+    raise reject(422, key + " must be a positive decimal number")
+  }
+  let minor = (value * 100.0 + 0.5).to_int()
+  if minor < minimum * 100 {
+    raise reject(422, key + " must be a positive decimal number")
+  }
+  minor
+}
+
+///|
+fn source_contract_create_request(
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> Json raise CompanyServiceError {
+  let canonical : Map[String, Json] = {}
+  let contract_id = json_text(body, "contractGuid", "").trim().to_owned()
+  canonical.set(
+    "contract_id",
+    Json::string(
+      if contract_id.is_empty() {
+        "CT-SRC-" + idempotency_key
+      } else {
+        contract_id
+      },
+    ),
+  )
+  canonical.set(
+    "contract_code",
+    Json::string(contract_required_text(body, "contractCode", false)),
+  )
+  canonical.set(
+    "contract_name",
+    Json::string(contract_required_text(body, "contractName", false)),
+  )
+  canonical.set(
+    "project_id",
+    Json::string(contract_required_text(body, "projGuid", true)),
+  )
+  canonical.set(
+    "project_name",
+    Json::string(
+      if json_text(body, "projName", "").trim().is_empty() {
+        json_text(body, "projGuid", "")
+      } else {
+        json_text(body, "projName", "").trim().to_owned()
+      },
+    ),
+  )
+  let provider_id = json_text(body, "providerGuid", "").trim().to_owned()
+  let supplier_id = if provider_id.is_empty() {
+    "source-supplier-" + idempotency_key
+  } else {
+    provider_id
+  }
+  canonical.set("supplier_id", Json::string(supplier_id))
+  canonical.set(
+    "supplier_name",
+    Json::string(
+      if json_text(body, "yfProviderName", "").trim().is_empty() {
+        supplier_id
+      } else {
+        json_text(body, "yfProviderName", "").trim().to_owned()
+      },
+    ),
+  )
+  canonical.set(
+    "bu_guid",
+    Json::string(contract_required_text(body, "buGuid", true)),
+  )
+  canonical.set(
+    "bu_name",
+    Json::string(
+      if json_text(body, "buName", "").trim().is_empty() {
+        json_text(body, "buGuid", "")
+      } else {
+        json_text(body, "buName", "").trim().to_owned()
+      },
+    ),
+  )
+  canonical.set(
+    "sign_date",
+    Json::string(contract_required_text(body, "signDate", false)),
+  )
+  canonical.set(
+    "amount_minor",
+    Json::number(
+      if json_field(body, "htAmount") is Some(_) {
+        source_decimal_minor(body, "htAmount", 1).to_double()
+      } else {
+        contract_positive_amount(body, "amount_minor").to_double()
+      },
+    ),
+  )
+  canonical.set(
+    "currency",
+    Json::string(
+      if json_field(body, "currency") is Some(_) {
+        contract_currency(body, "currency")
+      } else {
+        "CNY"
+      },
+    ),
+  )
+  source_contract_optional_text(body, "htTypeCode", "ht_type_code", canonical)
+  source_contract_optional_text(
+    body, "yfCorporation", "supplier_corporation", canonical,
+  )
+  source_contract_optional_text(body, "htCfState", "ht_cf_state", canonical)
+  source_contract_optional_text(body, "jsState", "js_state", canonical)
+  source_contract_optional_text(body, "costCode", "cost_code", canonical)
+  source_contract_optional_text(body, "rCode", "r_code", canonical)
+  source_contract_optional_text(body, "l3Code", "l3_code", canonical)
+  match json_field(body, "htClass") {
+    None | Some(Null) => ()
+    Some(Number(number, ..)) =>
+      if number >= 0.0 && number == number.to_int().to_double() {
+        canonical.set("ht_class", Json::number(number.to_int().to_double()))
+      } else {
+        raise reject(422, "htClass must be a non-negative integer")
+      }
+    _ => raise reject(422, "htClass must be a non-negative integer")
+  }
+  contract_create_request(Json::object(canonical), actor_id)
+}
+
+///|
+fn source_contract_update_request(
+  contract_id : String,
+  body : Json,
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let canonical : Map[String, Json] = {}
+  source_contract_optional_text(
+    body, "contractName", "contract_name", canonical,
+  )
+  source_contract_optional_text(body, "htTypeCode", "ht_type_code", canonical)
+  source_contract_optional_text(
+    body, "yfProviderName", "supplier_name", canonical,
+  )
+  source_contract_optional_text(
+    body, "yfCorporation", "supplier_corporation", canonical,
+  )
+  source_contract_optional_text(body, "signDate", "sign_date", canonical)
+  source_contract_optional_text(body, "htCfState", "ht_cf_state", canonical)
+  source_contract_optional_text(body, "jsState", "js_state", canonical)
+  source_contract_optional_text(body, "costCode", "cost_code", canonical)
+  match json_field(body, "htAmount") {
+    None | Some(Null) => ()
+    Some(_) =>
+      canonical.set(
+        "amount_minor",
+        Json::number(source_decimal_minor(body, "htAmount", 0).to_double()),
+      )
+  }
+  match json_field(body, "sumAlterAmount") {
+    None | Some(Null) => ()
+    Some(_) =>
+      canonical.set(
+        "sum_alter_amount_minor",
+        Json::number(
+          source_decimal_minor(body, "sumAlterAmount", 0).to_double(),
+        ),
+      )
+  }
+  match json_field(body, "htClass") {
+    None | Some(Null) => ()
+    Some(Number(number, ..)) =>
+      if number >= 0.0 && number == number.to_int().to_double() {
+        canonical.set("ht_class", Json::number(number.to_int().to_double()))
+      } else {
+        raise reject(422, "htClass must be a non-negative integer")
+      }
+    _ => raise reject(422, "htClass must be a non-negative integer")
+  }
+  match json_field(body, "currency") {
+    None | Some(Null) => ()
+    Some(String(value)) if !value.trim().is_empty() => {
+      let currency = value.trim().to_owned().to_upper()
+      if currency.length() != 3 {
+        raise reject(422, "currency must be a three-letter code")
+      }
+      for char in currency.iter() {
+        if char < 'A' || char > 'Z' {
+          raise reject(422, "currency must be a three-letter code")
+        }
+      }
+      canonical.set("currency", Json::string(currency))
+    }
+    _ => raise reject(422, "currency must be a three-letter code")
+  }
+  contract_update_request(contract_id, Json::object(canonical), actor_id)
+}
+
+///|
+async fn latest_contract_payload(
+  contract_id : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'contract' AND aggregate_id = " +
+    @postgres.sql_literal(contract_id) +
+    " ORDER BY revision DESC LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid contract projection JSON")
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn existing_company_command(
+  idempotency_key : String,
+) -> Json? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_record WHERE record_type = 'company_command' AND source_id = " +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    " LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  Some(
+    @json.parse(decode_hex(value)) catch {
+      _ => raise fail("invalid stored company command receipt")
+    },
+  )
+}
+
+///|
+async fn contract_command(
+  command_type : String,
+  contract_id : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let (id, request) = if command_type == "create" {
+    let request = contract_create_request(body, actor_id)
+    (json_text(request, "contract_id", ""), request)
+  } else {
+    let id = match contract_id {
+      Some(value) if valid_identifier(value) => value
+      _ => raise reject(422, "contract_id is required")
+    }
+    let request = if command_type == "update" {
+      contract_update_request(id, body, actor_id)
+    } else {
+      contract_transition_request(command_type, id, body, actor_id)
+    }
+    (id, request)
+  }
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      let stored_request = json_field(existing, "request").unwrap_or(
+        Json::null(),
+      )
+      if !json_equal(stored_request, request) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "contract": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = latest_contract_payload(id)
+  let visible = contract_items(Some(id))
+  if command_type == "create" {
+    if current is Some(_) || !visible.is_empty() {
+      raise reject(409, "contract already exists")
+    }
+  } else {
+    match current {
+      None => {
+        if !visible.is_empty() {
+          raise reject(
+            409, "source contract is read-only; create a local command contract first",
+          )
+        }
+        raise reject(404, "contract not found")
+      }
+      Some((payload, _)) => {
+        let state = json_text(payload, "state", "")
+        if command_type == "update" {
+          if state != "draft" && state != "submitted" {
+            raise reject(
+              409,
+              "contract update requires draft or submitted, found " + state,
+            )
+          }
+        } else if command_type == "void" {
+          if state == "deleted" {
+            raise reject(409, "contract is already voided")
+          }
+        } else {
+          let expected = if command_type == "submit" {
+            "draft"
+          } else if command_type == "approve" || command_type == "reject" {
+            "submitted"
+          } else if command_type == "resubmit" {
+            "rejected"
+          } else {
+            ""
+          }
+          if expected.is_empty() || state != expected {
+            raise reject(
+              409,
+              "contract transition " +
+              command_type +
+              " requires " +
+              expected +
+              ", found " +
+              state,
+            )
+          }
+        }
+      }
+    }
+  }
+  let event_id = "contract:" + command_type + ":" + idempotency_key
+  let command_source = "moonproj:command:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let current_payload = match current {
+    Some((payload, _)) => payload
+    None => Json::null()
+  }
+  let current_revision = match current {
+    Some((_, revision)) => revision
+    None => 0
+  }
+  let next_state = if command_type == "create" {
+    "draft"
+  } else if command_type == "submit" || command_type == "resubmit" {
+    "submitted"
+  } else if command_type == "approve" {
+    "approved"
+  } else if command_type == "reject" {
+    "rejected"
+  } else if command_type == "void" {
+    "deleted"
+  } else {
+    json_text(current_payload, "state", "draft")
+  }
+  let next_revision = if command_type == "create" {
+    1
+  } else {
+    current_revision + 1
+  }
+  let result = Json::object({
+    "contract_id": Json::string(id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "actor_id": Json::string(actor_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "contract_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let request_json = request.stringify()
+  let current_json = current_payload.stringify()
+  let next_payload_sql = if command_type == "create" {
+    @postgres.sql_literal(request_json) +
+    "::jsonb || jsonb_build_object('state', 'draft', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "update" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || (" +
+    @postgres.sql_literal(request_json) +
+    "::jsonb - 'command_type' - 'contract_id' - 'actor_id') || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ")"
+  } else if command_type == "void" {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', 'deleted', 'deleted_at', " +
+    @postgres.sql_literal(event_id) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  } else {
+    @postgres.sql_literal(current_json) +
+    "::jsonb || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', " +
+    @postgres.sql_literal(actor_id) +
+    ", 'reason', " +
+    @postgres.sql_literal(json_text(request, "reason", "")) +
+    ")"
+  }
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("contract." + command_type),
+    "aggregate_type": Json::string("contract"),
+    "aggregate_id": Json::string(id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(next_state),
+    "revision": Json::number(next_revision.to_double()),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(command_source) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('contract', " +
+    @postgres.sql_literal(id) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    next_payload_sql +
+    ", " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    if command_type == "create" {
+      201
+    } else {
+      200
+    },
+    Json::object({
+      "command": command_payload,
+      "contract": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+async fn source_contract_alias_result(
+  result : Json,
+  contract_code : String?,
+) -> Json raise CompanyServiceError {
+  let contract = json_field(result, "contract").unwrap_or(Json::null())
+  let contract_id = json_text(contract, "contract_id", "")
+  let command = json_field(result, "command").unwrap_or(Json::null())
+  let request = json_field(command, "request").unwrap_or(Json::null())
+  let resolved_code = contract_code.unwrap_or(
+    json_text(request, "contract_code", contract_id),
+  )
+  let rows = contract_items(Some(contract_id))
+  let source_contract = if !rows.is_empty() &&
+    json_text(rows[0], "source_kind", "") == "command" {
+    let item = source_command_contract(rows[0])
+    match item {
+      Object(fields) => {
+        match contract {
+          Object(contract_fields) =>
+            contract_fields.each((key, value) => fields.set(key, value))
+          _ => ()
+        }
+        Json::object(fields)
+      }
+      _ => contract
+    }
+  } else {
+    contract
+  }
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "contractGuid": Json::string(contract_id),
+      "contractCode": Json::string(resolved_code),
+    }),
+    "contract": source_contract,
+    "command": command,
+    "idempotent_replay": Json::boolean(
+      json_bool(result, "idempotent_replay", false),
+    ),
+    "source_kind": Json::string("command"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
 }
 
 ///|
@@ -5613,6 +6373,7 @@ async fn contract_items(
     "  'supplier_id', coalesce(base.payload->'candidate'->>'counterparty_id', base.payload->>'supplier_id', ''),",
     "  'supplier_name', coalesce(raw.payload->>'yf_provider_name', base.payload->>'supplier_name', base.payload->>'supplier_id', ''),",
     "  'amount_minor', coalesce(base.payload->'candidate'->>'amount_minor', base.payload->>'amount_minor', round(coalesce((raw.payload->>'ht_amount')::numeric, 0) * 100)::bigint::text, '0')::bigint,",
+    "  'sum_alter_amount_minor', coalesce(base.payload->'candidate'->>'sum_alter_amount_minor', base.payload->>'sum_alter_amount_minor', '0')::bigint,",
     "  'currency', coalesce(base.payload->'candidate'->>'currency', base.payload->>'currency', 'CNY'),",
     "  'sign_date', coalesce(raw.payload->>'sign_date', base.payload->>'sign_date', ''),",
     "  'state', coalesce(base.payload->>'state', 'active'),", "  'paid_amount_minor', coalesce(payment.paid_amount_minor, '0')::bigint,",
@@ -6155,6 +6916,49 @@ fn expense_command_spec(
 }
 
 ///|
+fn contract_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  if request_method is @http.Post && path == "/api/company/contracts" {
+    return Some(("create", None))
+  }
+  if request_method is @http.Post &&
+    path == "/api/company/source/cost/contracts" {
+    return Some(("source-create", None))
+  }
+  let contract_prefix = "/api/company/contracts/"
+  if request_method is @http.Post && path.has_prefix(contract_prefix) {
+    let rest = path[contract_prefix.length():].to_owned().split("/").to_array()
+    if rest.length() == 2 && valid_identifier(rest[0].to_owned()) {
+      let command = match rest[1].to_owned() {
+        "submit" | "submit-for-approval" => "submit"
+        "approve" => "approve"
+        "reject" => "reject"
+        "resubmit" => "resubmit"
+        _ => ""
+      }
+      if !command.is_empty() {
+        return Some((command, Some(rest[0].to_owned())))
+      }
+    }
+  }
+  let source_prefix = "/api/company/source/cost/contracts/"
+  if path.has_prefix(source_prefix) {
+    let id = path[source_prefix.length():].to_owned()
+    if valid_identifier(id) {
+      if request_method is @http.Put {
+        return Some(("source-update", Some(id)))
+      }
+      if request_method is @http.Delete {
+        return Some(("source-void", Some(id)))
+      }
+    }
+  }
+  None
+}
+
+///|
 fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
   match error {
     CompanyServiceError::CommandRejected(status, message) =>
@@ -6434,6 +7238,8 @@ async fn route(
           "capabilities": Json::array([
             Json::string("read_model"),
             Json::string("expense_command"),
+            Json::string("contract_command"),
+            Json::string("source_contract_command"),
             Json::string("expense_detail_read"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
@@ -6573,8 +7379,8 @@ async fn handle(
     send_json(conn, request.meth, 200, result, false)
     return
   }
-  match expense_command_spec(request.meth, path) {
-    Some((command_type, expense_guid)) => {
+  match contract_command_spec(request.meth, path) {
+    Some((command_type, contract_guid)) => {
       let idempotency_key = header(request, "Idempotency-Key")
       if idempotency_key.is_empty() {
         send_json(
@@ -6600,25 +7406,112 @@ async fn handle(
           return
         }
       }
-      let result = expense_command(
-        command_type, expense_guid, body, actor, idempotency_key,
+      let is_source_alias = command_type.has_prefix("source-")
+      let native_command = if command_type == "source-create" {
+        "create"
+      } else if command_type == "source-update" {
+        "update"
+      } else if command_type == "source-void" {
+        "void"
+      } else {
+        command_type
+      }
+      let canonical_body = if command_type == "source-create" {
+        source_contract_create_request(body, actor, idempotency_key)
+      } else if command_type == "source-update" {
+        source_contract_update_request(contract_guid.unwrap(), body, actor)
+      } else if command_type == "source-void" {
+        contract_transition_request("void", contract_guid.unwrap(), body, actor)
+      } else {
+        body
+      }
+      let source_contract_code = if command_type == "source-update" ||
+        command_type == "source-void" {
+        match contract_guid {
+          Some(id) => {
+            let current = contract_items(Some(id))
+            if current.is_empty() {
+              None
+            } else {
+              Some(json_text(current[0], "contract_code", ""))
+            }
+          }
+          None => None
+        }
+      } else {
+        None
+      }
+      let result = contract_command(
+        native_command, contract_guid, canonical_body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }
-      send_json(conn, request.meth, result.0, result.1, false)
+      if is_source_alias && result.0 < 400 {
+        let source_result = source_contract_alias_result(
+          result.1,
+          source_contract_code,
+        ) catch {
+          error => {
+            let response = service_error_response(error)
+            send_json(conn, request.meth, response.0, response.1, false)
+            return
+          }
+        }
+        send_json(conn, request.meth, result.0, source_result, false)
+      } else {
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
     }
     None =>
-      send_json(
-        conn,
-        request.meth,
-        405,
-        Json::object({
-          "error": Json::string(
-            "authenticated company command is not implemented",
-          ),
-        }),
-        false,
-      )
+      match expense_command_spec(request.meth, path) {
+        Some((command_type, expense_guid)) => {
+          let idempotency_key = header(request, "Idempotency-Key")
+          if idempotency_key.is_empty() {
+            send_json(
+              conn,
+              request.meth,
+              400,
+              Json::object({
+                "error": Json::string("Idempotency-Key is required"),
+              }),
+              false,
+            )
+            return
+          }
+          let actor = command_actor(request, actor_signing_secret) catch {
+            error => {
+              let result = service_error_response(error)
+              send_json(conn, request.meth, result.0, result.1, false)
+              return
+            }
+          }
+          let body = read_json_body(body_reader) catch {
+            error => {
+              let result = service_error_response(error)
+              send_json(conn, request.meth, result.0, result.1, false)
+              return
+            }
+          }
+          let result = expense_command(
+            command_type, expense_guid, body, actor, idempotency_key,
+          ) catch {
+            error => service_error_response(error)
+          }
+          send_json(conn, request.meth, result.0, result.1, false)
+        }
+        None =>
+          send_json(
+            conn,
+            request.meth,
+            405,
+            Json::object({
+              "error": Json::string(
+                "authenticated company command is not implemented",
+              ),
+            }),
+            false,
+          )
+      }
   }
 }
 
