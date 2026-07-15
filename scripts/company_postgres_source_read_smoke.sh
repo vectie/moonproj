@@ -94,6 +94,13 @@ request investment_sensitivity /api/company/investment/projects/proj-0001/sensit
   -H 'X-Forwarded-Proto: https' \
   "http://127.0.0.1:$PORT/api/company/investment/projects/proj-0001/profit-actual" >"$TMP_DIR/investment_actual.json"
 request investment_dimensions /api/company/investment/meta/dimensions
+request cashflow_forecast '/api/company/cashflow/forecast?months=6&projGuid=proj-0001'
+request cashflow_inflow '/api/company/cashflow/inflow?months=6&projGuid=proj-0001'
+request cashflow_detail '/api/company/cashflow/forecast/detail?ym=2026-04&projGuid=proj-0001'
+request cbs_dict '/api/company/cbs/dict?projGuid=proj-0001'
+request cbs_versions '/api/company/cbs/versions?projGuid=proj-0001'
+request cbs_r0 '/api/company/cbs/r0/queue?projGuid=proj-0001'
+request cbs_f_balance '/api/company/cbs/dict/f-balance?projGuid=proj-0001&l3Code=03.01.01'
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -464,5 +471,33 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
 /usr/bin/jq -e '
   (.data | length) == 5 and .data[0].code == "key_point" and .authorizing == false
 ' "$TMP_DIR/investment_dimensions.json" >/dev/null
+/usr/bin/jq -e '
+  (.data.series | length) == 6 and .source_coverage.cb_htfkplan == 4 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/cashflow_forecast.json" >/dev/null
+/usr/bin/jq -e '
+  (.data.series | length) == 9 and .data.totals.totalInflow == 0 and
+  .source_coverage.sale_revenue == 0 and .authorizing == false
+' "$TMP_DIR/cashflow_inflow.json" >/dev/null
+/usr/bin/jq -e '
+  .data.ym == "2026-04" and (.data.plans | length) == 1 and
+  .source_coverage.cb_htfkplan == 4 and .authorizing == false
+' "$TMP_DIR/cashflow_detail.json" >/dev/null
+/usr/bin/jq -e '
+  .data.planVersion == "baseline" and (.data.items | length) == 0 and
+  .source_coverage.cb_subject_dict == 0 and .authorizing == false
+' "$TMP_DIR/cbs_dict.json" >/dev/null
+/usr/bin/jq -e '
+  (.data | length) == 0 and .source_coverage.cb_plan_version == 0 and
+  .authorizing == false
+' "$TMP_DIR/cbs_versions.json" >/dev/null
+/usr/bin/jq -e '
+  (.data.items | length) == 2 and .source_coverage.cb_contract == 2 and
+  .authorizing == false
+' "$TMP_DIR/cbs_r0.json" >/dev/null
+/usr/bin/jq -e '
+  .success == false and .code == 43001 and .data == null and
+  .source_coverage.cb_subject_dict == 0 and .authorizing == false
+' "$TMP_DIR/cbs_f_balance.json" >/dev/null
 
 echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier read smoke passed"

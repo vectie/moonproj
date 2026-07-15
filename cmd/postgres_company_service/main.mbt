@@ -14470,6 +14470,190 @@ async fn route(
     }
     return loan_detail_response(loan_id)
   }
+  if path == "/api/company/cashflow/forecast" {
+    return (
+      200,
+      cashflow_forecast_response(
+        parse_decimal(query_decoded(query, "months").unwrap_or("6")),
+        query_alias_decoded(query, "buGuid", "bu_guid"),
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+      ),
+    )
+  }
+  if path == "/api/company/cashflow/forecast-v3" {
+    let proj_guid = query_alias_decoded(query, "projGuid", "proj_guid").unwrap_or(
+      "",
+    )
+    if proj_guid.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("projGuid is required") }),
+      )
+    }
+    return (
+      200,
+      cashflow_v3_response(
+        parse_decimal(query_decoded(query, "months").unwrap_or("6")),
+        proj_guid,
+      ),
+    )
+  }
+  if path == "/api/company/cashflow/forecast/detail" {
+    let ym = query_decoded(query, "ym").unwrap_or("")
+    if ym.is_empty() {
+      return (422, Json::object({ "error": Json::string("ym is required") }))
+    }
+    return (
+      200,
+      cashflow_detail_response(
+        ym,
+        query_alias_decoded(query, "buGuid", "bu_guid"),
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+      ),
+    )
+  }
+  if path == "/api/company/cashflow/inflow" {
+    return (
+      200,
+      cashflow_inflow_response(
+        parse_decimal(query_decoded(query, "months").unwrap_or("6")),
+        query_alias_decoded(query, "buGuid", "bu_guid"),
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+      ),
+    )
+  }
+  if path == "/api/company/cashflow/net" {
+    return (
+      200,
+      cashflow_net_response(
+        parse_decimal(query_decoded(query, "months").unwrap_or("6")),
+      ),
+    )
+  }
+  if path == "/api/company/cashflow/gap-alert" {
+    return (
+      200,
+      cashflow_gap_response(
+        parse_decimal(query_decoded(query, "horizonDays").unwrap_or("90")),
+      ),
+    )
+  }
+  if path == "/api/company/cbs/r-master" {
+    return (200, cbs_r_master_response())
+  }
+  if path == "/api/company/cbs/dict" {
+    let proj_guid = query_alias_decoded(query, "projGuid", "proj_guid").unwrap_or(
+      "",
+    )
+    if proj_guid.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("projGuid is required") }),
+      )
+    }
+    return (
+      200,
+      cbs_dict_response(
+        proj_guid,
+        query_alias_decoded(query, "planVersion", "plan_version"),
+        query_alias_decoded(query, "rCode", "r_code"),
+      ),
+    )
+  }
+  if path == "/api/company/cbs/dict/f-balance" {
+    let proj_guid = query_alias_decoded(query, "projGuid", "proj_guid").unwrap_or(
+      "",
+    )
+    let l3_code = query_alias_decoded(query, "l3Code", "l3_code").unwrap_or("")
+    if proj_guid.is_empty() || l3_code.is_empty() {
+      return (
+        422,
+        Json::object({
+          "error": Json::string("projGuid and l3Code are required"),
+        }),
+      )
+    }
+    return cbs_f_balance_response(
+      proj_guid,
+      l3_code,
+      query_alias_decoded(query, "planVersion", "plan_version"),
+    )
+  }
+  if path == "/api/company/cbs/versions" {
+    let proj_guid = query_alias_decoded(query, "projGuid", "proj_guid").unwrap_or(
+      "",
+    )
+    if proj_guid.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("projGuid is required") }),
+      )
+    }
+    return (200, cbs_versions_response(proj_guid))
+  }
+  if path == "/api/company/cbs/versions/compare" {
+    let proj_guid = query_alias_decoded(query, "projGuid", "proj_guid").unwrap_or(
+      "",
+    )
+    let version_a = query_decoded(query, "a").unwrap_or("")
+    let version_b = query_decoded(query, "b").unwrap_or("")
+    if proj_guid.is_empty() || version_a.is_empty() || version_b.is_empty() {
+      return (
+        422,
+        Json::object({
+          "error": Json::string("projGuid, a, and b are required"),
+        }),
+      )
+    }
+    return (200, cbs_compare_response(proj_guid, version_a, version_b))
+  }
+  if path == "/api/company/cbs/r0/queue" {
+    return (
+      200,
+      cbs_r0_queue_response(query_alias_decoded(query, "projGuid", "proj_guid")),
+    )
+  }
+  if path == "/api/company/cbs/approval-rules" {
+    return (
+      200,
+      cbs_approval_rules_response(
+        query_alias_decoded(query, "bizType", "biz_type"),
+      ),
+    )
+  }
+  if path == "/api/company/cbs/approval-rules/pick" {
+    let biz_type = query_alias_decoded(query, "bizType", "biz_type").unwrap_or(
+      "",
+    )
+    if biz_type.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("bizType is required") }),
+      )
+    }
+    let amount = match query_decoded(query, "amount") {
+      Some(_) => 0.0
+      None => 0.0
+    }
+    return (200, cbs_approval_pick_response(biz_type, amount))
+  }
+  if path == "/api/company/cbs/changes" {
+    return (
+      200,
+      cbs_changes_response(
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+        query_alias_decoded(query, "contractGuid", "contract_guid"),
+      ),
+    )
+  }
+  if path == "/api/company/cbs/demo/contracts" {
+    return (
+      200,
+      cbs_demo_contracts_response(
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+      ),
+    )
+  }
   if path == "/api/company/reports/overview" {
     return (200, reports_overview_response())
   }
@@ -15056,6 +15240,8 @@ async fn route(
             Json::string("dashboard_read"),
             Json::string("workflow_definition_read"),
             Json::string("investment_observation_read"),
+            Json::string("cashflow_observation_read"),
+            Json::string("cbs_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
