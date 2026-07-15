@@ -51,3 +51,4 @@ scripts/erp_opening_control_plan.sh
 scripts/erp_contract_milestone_plan.sh
 scripts/erp_investment_performance_plan.sh
 scripts/erp_asset_lifecycle_plan.sh
+scripts/erp_invoice_subledger_plan.sh

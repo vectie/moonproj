@@ -1984,6 +1984,15 @@ Execute the remainder in this order:
     validation, and the exact asset-lifecycle plan envelope. Lifecycle
     promotion remains separate from journal posting, cash settlement, tax, and
     period close.
+
+3a.14. **Native invoice/subledger planner (2026-07-16).**
+    `cmd/invoice_subledger_plan` and `scripts/erp_invoice_subledger_plan.sh`
+    now replace the Python invoice/receivable/payable compiler in the
+    PostgreSQL cohort path. The native planner preserves reviewed-input gating,
+    recursive secret-shaped-key rejection, invoice/receivable/payable
+    uniqueness, payment/state consistency, positive amounts, and the exact
+    invoice-subledger plan envelope. Domain import remains separate from cash
+    release, revenue/expense posting, tax settlement, and period close.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

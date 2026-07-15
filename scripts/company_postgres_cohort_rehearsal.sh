@@ -350,7 +350,7 @@ if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
 fi
 
 if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_invoice_subledger_plan.py" \
+  "$SCRIPT_DIR/erp_invoice_subledger_plan.sh" \
     "$INVOICE_SUBLEDGER_MAPPING" "$WORK_DIR/invoice-subledger-plan.json"
   moon run --target native cmd/invoice_subledger -- \
     "$WORK_DIR/invoice-subledger-plan.json" "$WORK_DIR/invoice-subledger-receipt.json"
