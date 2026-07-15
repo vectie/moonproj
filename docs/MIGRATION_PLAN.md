@@ -2101,6 +2101,34 @@ Execute the remainder in this order:
     and the exact accounting-posting plan envelope. The downstream posting
     command still owns balanced-journal and open-period validation; cash,
     tax, and period close remain separate gates.
+
+3a.26. **Native investment-valuation planner (2026-07-16).**
+    `cmd/investment_valuation_plan` and
+    `scripts/erp_investment_valuation_plan.sh` now replace the reviewed
+    performance-to-valuation Python compiler in the investment accounting
+    rehearsal. The native planner preserves performance snapshot/portfolio
+    continuity, recursive secret-key rejection, explicit gain/loss direction,
+    journal identity, and the exact investment-valuation plan envelope.
+    Valuation remains analytics/accounting-event evidence only; it does not
+    mutate positions, post a book, release cash, or close a period.
+
+3a.27. **Native tax-accounting planner (2026-07-16).**
+    `cmd/tax_accounting_plan` and `scripts/erp_tax_accounting_plan.sh` now
+    replace the reviewed tax-accounting Python compiler in the tax/financing
+    rehearsal. The native planner preserves tax-plan snapshot continuity,
+    recursive secret-key rejection, fixed-point tax calculation, explicit
+    source/principal/scope/amount/currency identity, journal direction, and
+    the exact tax-accounting plan envelope. Tax payment, cash release, book
+    posting, filing, and period close remain separate gates.
+3a.28. **Native financing-accounting planner (2026-07-16).**
+    `cmd/financing_accounting_plan` and
+    `scripts/erp_financing_accounting_plan.sh` now replace the reviewed
+    financing-accounting Python compiler in the tax/financing rehearsal. The
+    native planner preserves facility/map snapshot continuity, recursive
+    secret-key rejection, draw/repayment identity and amount bounds, journal
+    direction, and the exact financing-accounting plan envelope. Lender calls,
+    cash movement, book posting, tax treatment, and period close remain
+    separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

@@ -19,10 +19,10 @@ PG_USER=${PGUSER:-moonproj}
 
 mkdir -p "$WORK_DIR"
 PERFORMANCE_PLAN="$WORK_DIR/investment-performance-plan.json"
-python3 "$SCRIPT_DIR/erp_investment_performance_plan.py" \
+"$SCRIPT_DIR/erp_investment_performance_plan.sh" \
   "$PERFORMANCE_MAPPING" "$PERFORMANCE_PLAN"
 VALUATION_PLAN="$WORK_DIR/investment-valuation-plan.json"
-python3 "$SCRIPT_DIR/erp_investment_valuation_plan.py" \
+"$SCRIPT_DIR/erp_investment_valuation_plan.sh" \
   "$PERFORMANCE_PLAN" "$VALUATION_MAPPING" "$VALUATION_PLAN"
 VALUATION_DOMAIN_RECEIPT="$WORK_DIR/investment-valuation-domain-receipt.json"
 moon run --target native cmd/investment_valuation -- \

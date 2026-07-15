@@ -20,7 +20,7 @@ PG_USER=${PGUSER:-moonproj}
 mkdir -p "$WORK_DIR"
 rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 
-python3 "$SCRIPT_DIR/erp_invoice_subledger_plan.py" \
+"$SCRIPT_DIR/erp_invoice_subledger_plan.sh" \
   "$INVOICE_MAPPING" "$WORK_DIR/invoice-subledger-plan.json"
 moon run --target native cmd/invoice_subledger -- \
   "$WORK_DIR/invoice-subledger-plan.json" "$WORK_DIR/invoice-subledger-receipt.json"
@@ -40,7 +40,7 @@ python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
   "$WORK_DIR/invoice-accounting-link-receipt.json" --backend sqlite \
   --database "$SQLITE_DATABASE" > "$WORK_DIR/invoice-sqlite-parity.json"
 
-python3 "$SCRIPT_DIR/erp_procurement_cohort_plan.py" \
+  "$SCRIPT_DIR/erp_procurement_cohort_plan.sh" \
   "$PROCUREMENT_MAPPING" "$WORK_DIR/procurement-plan.json"
 moon run --target native cmd/procurement_cohort -- \
   "$WORK_DIR/procurement-plan.json" "$WORK_DIR/procurement-receipt.json"

@@ -18,7 +18,7 @@ PG_USER=${PGUSER:-moonproj}
 mkdir -p "$WORK_DIR"
 rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 
-python3 "$SCRIPT_DIR/erp_contract_milestone_plan.py" \
+"$SCRIPT_DIR/erp_contract_milestone_plan.sh" \
   "$CONTRACT_MILESTONE_MAPPING" "$WORK_DIR/contract-milestone-plan.json"
 moon run --target native cmd/contract_milestone -- \
   "$WORK_DIR/contract-milestone-plan.json" \

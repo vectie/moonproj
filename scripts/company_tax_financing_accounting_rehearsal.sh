@@ -24,7 +24,7 @@ rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 
 "$SCRIPT_DIR/erp_tax_filing_plan.sh" \
   "$TAX_MAPPING" "$WORK_DIR/tax-filing-plan.json"
-python3 "$SCRIPT_DIR/erp_tax_accounting_plan.py" \
+"$SCRIPT_DIR/erp_tax_accounting_plan.sh" \
   "$WORK_DIR/tax-filing-plan.json" "$TAX_ACCOUNTING_MAPPING" \
   "$WORK_DIR/tax-accounting-plan.json"
 moon run --target native cmd/tax_accounting_link -- \
@@ -45,9 +45,9 @@ python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
   "$WORK_DIR/tax-accounting-link-receipt.json" --backend sqlite \
   --database "$SQLITE_DATABASE" > "$WORK_DIR/tax-sqlite-parity.json"
 
-python3 "$SCRIPT_DIR/erp_financing_facility_plan.py" \
+"$SCRIPT_DIR/erp_financing_facility_plan.sh" \
   "$FINANCING_MAPPING" "$WORK_DIR/financing-facility-plan.json"
-python3 "$SCRIPT_DIR/erp_financing_accounting_plan.py" \
+"$SCRIPT_DIR/erp_financing_accounting_plan.sh" \
   "$WORK_DIR/financing-facility-plan.json" "$FINANCING_ACCOUNTING_MAPPING" \
   "$WORK_DIR/financing-accounting-plan.json"
 moon run --target native cmd/financing_accounting_link -- \
