@@ -12,4 +12,4 @@ if [ -z "${PSQL_BIN:-}" ]; then
   fi
   export PSQL_BIN
 fi
-moon run --target native "$ROOT/cmd/postgres_company_service" -- "$@"
+exec moon run --target native "$ROOT/cmd/postgres_company_service" -- "$@"

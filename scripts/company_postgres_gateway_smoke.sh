@@ -31,6 +31,10 @@ trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
 MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
+PGHOST="${PGHOST:-/tmp}" \
+PGPORT="${PGPORT:-5432}" \
+PGUSER="${PGUSER:-moonproj}" \
+PGPASSWORD="${PGPASSWORD:-520825}" \
 PSQL_BIN="${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$SERVICE_PORT" \
