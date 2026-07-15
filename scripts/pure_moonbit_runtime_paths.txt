@@ -58,3 +58,4 @@ scripts/erp_expense_advance_cohort_plan.sh
 scripts/erp_workflow_assignment_plan.sh
 scripts/erp_delivery_progress_plan.sh
 scripts/erp_delivery_recognition_plan.sh
+scripts/erp_warning_plan.sh

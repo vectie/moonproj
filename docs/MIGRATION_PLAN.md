@@ -2055,6 +2055,15 @@ Execute the remainder in this order:
     envelope. Native import still creates only a pending-posting source-to-
     journal link; it does not post, release cash, determine tax, or close a
     period.
+
+3a.21. **Native source warning planner (2026-07-16).**
+    `cmd/warning_plan` and `scripts/erp_warning_plan.sh` now replace the
+    export-backed Python cost-overrun scanner in the PostgreSQL cohort path.
+    The native planner preserves explicit project/scope/principal mapping,
+    fixed-point half-even money policy, exact positive-overrun source-row
+    coverage, and the warning-plan envelope. Warning promotion remains an open
+    evidence finding only; it does not notify, mutate workflow, release cash,
+    post accounting, or determine tax.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

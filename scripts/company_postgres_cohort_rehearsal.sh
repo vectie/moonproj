@@ -235,7 +235,7 @@ if [ -n "$WARNING_PLAN" ]; then
 fi
 
 if [ -n "$WARNING_SOURCE_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_warning_plan.py" \
+  "$SCRIPT_DIR/erp_warning_plan.sh" \
     "$EXPORT_DIR" "$WARNING_SOURCE_MAPPING" \
     "$WORK_DIR/warning-source-plan.json"
   moon run --target native cmd/warning -- \
