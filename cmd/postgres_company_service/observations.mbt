@@ -1553,33 +1553,115 @@ async fn notification_llm_providers_response() -> Json raise CompanyServiceError
 /// Admin.
 async fn admin_ocr_response() -> Json raise CompanyServiceError {
   let coverage = observation_coverage(["sys_param", "sys_user"])
+  let params : Map[String, String] = {}
+  for source in raw_source_rows("sys_param", 500) {
+    let payload = source.payload
+    let key = json_text(
+      payload,
+      "pk",
+      json_text(payload, "key", json_text(payload, "param_key", "")),
+    )
+    if !key.is_empty() {
+      params.set(
+        key,
+        json_text(
+          payload,
+          "pv",
+          json_text(payload, "value", json_text(payload, "param_value", "")),
+        ),
+      )
+    }
+  }
+  let provider = params.get_or_default("ai.ocr.provider", "mock")
+  let scene = params.get_or_default("ai.ocr.scene", "auto")
+  let providers : Array[Json] = []
+  fn add_provider(
+    providers : Array[Json],
+    params : Map[String, String],
+    provider : String,
+    code : String,
+    name : String,
+    needs_key : Bool,
+    keys : Array[String],
+  ) -> Unit {
+    let key_status : Map[String, Json] = {}
+    for key in keys {
+      let configured = params.get(key).is_some() &&
+        !params.get_or_default(key, "").is_empty()
+      key_status.set(
+        key,
+        Json::string(if configured { "已配置" } else { "(未配)" }),
+      )
+    }
+    providers.push(
+      Json::object({
+        "code": Json::string(code),
+        "label": Json::string(name),
+        "needsKey": Json::boolean(needs_key),
+        "current": Json::boolean(code == provider),
+        "keyStatus": Json::object(key_status),
+      }),
+    )
+  }
+  add_provider(providers, params, provider, "mock", "演示 Mock", false, [])
+  add_provider(
+    providers,
+    params,
+    provider,
+    "paddle",
+    "本地 PaddleOCR",
+    false,
+    [],
+  )
+  add_provider(
+    providers,
+    params,
+    provider,
+    "http",
+    "自定义 HTTP 端点",
+    true,
+    ["ai.ocr.http.url"],
+  )
+  add_provider(providers, params, provider, "baidu", "百度 OCR", true, [
+    "ai.ocr.baidu.api_key", "ai.ocr.baidu.secret_key",
+  ])
+  add_provider(providers, params, provider, "aliyun", "阿里云 OCR", true, [
+    "ai.ocr.aliyun.app_code",
+  ])
+  add_provider(providers, params, provider, "tencent", "腾讯云 OCR", true, [
+    "ai.ocr.tencent.secret_id", "ai.ocr.tencent.secret_key", "ai.ocr.tencent.region",
+  ])
+  let configured_key_count = [
+    "ai.ocr.http.url", "ai.ocr.baidu.api_key", "ai.ocr.baidu.secret_key", "ai.ocr.aliyun.app_code",
+    "ai.ocr.tencent.secret_id", "ai.ocr.tencent.secret_key", "ai.ocr.tencent.region",
+  ].fold(init=0, fn(total, key) {
+    if params.get(key) is Some(value) && !value.is_empty() {
+      total + 1
+    } else {
+      total
+    }
+  })
   observation_envelope(
     Json::object({
-      "provider": Json::string("mock"),
-      "providers": Json::array([
+      "provider": Json::string(provider),
+      "providers": Json::array(providers),
+      "scene": Json::string(scene),
+      "configuredKeyCount": Json::number(configured_key_count.to_double()),
+      "note": Json::string(
+        "OCR 状态只读；provider 执行、远程调用和密钥写入仍需授权。",
+      ),
+      "sceneOptions": Json::array([
         Json::object({
-          "id": Json::string("mock"),
-          "name": Json::string("演示 Mock"),
+          "code": Json::string("auto"),
+          "label": Json::string("自动(按 bizType+文件名猜)"),
         }),
         Json::object({
-          "id": Json::string("paddle"),
-          "name": Json::string("本地 PaddleOCR"),
+          "code": Json::string("invoice"),
+          "label": Json::string("发票识别(精确字段)"),
         }),
         Json::object({
-          "id": Json::string("http"),
-          "name": Json::string("自定义 HTTP 端点"),
-        }),
-        Json::object({
-          "id": Json::string("baidu"),
-          "name": Json::string("百度 OCR"),
-        }),
-        Json::object({
-          "id": Json::string("aliyun"),
-          "name": Json::string("阿里云 OCR"),
-        }),
-        Json::object({
-          "id": Json::string("tencent"),
-          "name": Json::string("腾讯云 OCR"),
+          "code": Json::string("contract"),
+          "label": Json::string("合同/通用文本"),
         }),
       ]),
     }),
