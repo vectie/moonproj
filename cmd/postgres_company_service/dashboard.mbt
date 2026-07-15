@@ -743,12 +743,113 @@ async fn dashboard_v3_response(
     raise reject(422, "invalid projGuid")
   }
   let context = dashboard_context(500)
+  let projects = dashboard_rows(context, "ep_project").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let project_ids : Map[String, Bool] = {}
+  for row in projects {
+    project_ids.set(report_text(row.payload, "proj_guid", row.record_id), true)
+  }
+  let contracts = dashboard_rows(context, "cb_contract").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    project_ids.contains(report_text(row.payload, "proj_guid", ""))
+  })
+  let contract_by_id : Map[String, Json] = {}
+  for row in contracts {
+    contract_by_id.set(
+      report_text(row.payload, "contract_guid", row.record_id),
+      row.payload,
+    )
+  }
   let applications = dashboard_rows(context, "cb_htfk_apply").filter(fn(row) {
     dashboard_active(row.payload) &&
     dashboard_scoped(row.payload, business_unit_id, project_id)
   })
   let expenses = dashboard_rows(context, "vcb_expense").filter(fn(row) {
     dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let sale_contracts = dashboard_rows(context, "sale_contract").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let sale_contract_ids : Map[String, Bool] = {}
+  for row in sale_contracts {
+    sale_contract_ids.set(
+      report_text(row.payload, "scontract_guid", row.record_id),
+      true,
+    )
+  }
+  let sale_customers = dashboard_rows(context, "sale_customer").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let sale_subscriptions = dashboard_rows(context, "sale_subscription").filter(fn(
+    row,
+  ) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let sale_revenues = dashboard_rows(context, "sale_revenue").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let sale_mortgages = dashboard_rows(context, "sale_mortgage").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    (
+      sale_contract_ids.contains(report_text(row.payload, "scontract_guid", "")) ||
+      (business_unit_id is None && project_id is None)
+    )
+  })
+  let sale_refunds = dashboard_rows(context, "sale_refund").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    (
+      sale_contract_ids.contains(report_text(row.payload, "scontract_guid", "")) ||
+      (business_unit_id is None && project_id is None)
+    )
+  })
+  let fund_plans = dashboard_rows(context, "fund_plan").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let progress_rows = dashboard_rows(context, "proj_progress").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let invoice_in = dashboard_rows(context, "invoice_in").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let invoice_out = dashboard_rows(context, "invoice_out").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let tender_plans = dashboard_rows(context, "tender_plan").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let tender_ids : Map[String, Bool] = {}
+  for row in tender_plans {
+    tender_ids.set(report_text(row.payload, "tender_guid", row.record_id), true)
+  }
+  let tender_awards = dashboard_rows(context, "tender_award").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    (
+      tender_ids.contains(report_text(row.payload, "tender_guid", "")) ||
+      (business_unit_id is None && project_id is None)
+    )
+  })
+  let warnings = dashboard_rows(context, "sys_warning").filter(fn(row) {
+    dashboard_active(row.payload) &&
+    report_text(row.payload, "status", "") == "open" &&
+    dashboard_scoped(row.payload, business_unit_id, project_id)
+  })
+  let processes = dashboard_rows(context, "wf_process_instance").filter(fn(
+    row,
+  ) {
+    dashboard_active(row.payload) &&
+    report_text(row.payload, "status", "") == "Running" &&
     dashboard_scoped(row.payload, business_unit_id, project_id)
   })
   let paid_contract_expense = applications.fold(init=0.0, fn(sum, row) {
@@ -769,9 +870,197 @@ async fn dashboard_v3_response(
       sum
     }
   })
+  let total_revenue = sale_revenues.fold(init=0.0, fn(sum, row) {
+      if report_text(row.payload, "status", "") == "received" {
+        sum + report_amount(row.payload, "amount")
+      } else {
+        sum
+      }
+    }) /
+    10000.0
+  let expected_revenue = sale_revenues.fold(init=0.0, fn(sum, row) {
+      if report_text(row.payload, "status", "") == "expected" {
+        sum + report_amount(row.payload, "amount")
+      } else {
+        sum
+      }
+    }) /
+    10000.0
+  let signed_contracts = contracts.filter(fn(row) {
+    ["signed", "paid"].contains(report_text(row.payload, "cb_state", ""))
+  })
+  let approving_contracts = contracts.filter(fn(row) {
+    report_text(row.payload, "cb_state", "") == "approving"
+  })
+  let unpaid_applications = applications.filter(fn(row) {
+    report_text(row.payload, "apply_state", "") == "已审核" &&
+    report_text(row.payload, "pay_state", "") == "未支付"
+  })
+  let r0_contracts = contracts.filter(fn(row) {
+    ["", "R0"].contains(report_text(row.payload, "r_code", ""))
+  })
+  let progress_active = progress_rows.filter(fn(row) {
+    ["pending", "in_progress"].contains(report_text(row.payload, "state", ""))
+  })
+  let progress_done = progress_rows.filter(fn(row) {
+    report_text(row.payload, "state", "") == "completed"
+  })
+  let progress_average_raw = progress_active.fold(init=0.0, fn(sum, row) {
+    sum + report_amount(row.payload, "actual_pct")
+  })
+  let progress_average = if progress_active.is_empty() {
+    0.0
+  } else {
+    progress_average_raw / progress_active.length().to_double()
+  }
+  let tender_active = tender_plans.filter(fn(row) {
+    ["planning", "publishing", "bidding"].contains(
+      report_text(row.payload, "state", ""),
+    )
+  })
+  let signed_sales = sale_contracts.filter(fn(row) {
+    report_text(row.payload, "state", "") == "signed"
+  })
+  let released_mortgages = sale_mortgages.filter(fn(row) {
+    report_text(row.payload, "state", "") == "released"
+  })
+  let approved_refunds = sale_refunds.filter(fn(row) {
+    report_text(row.payload, "state", "") == "approved"
+  })
+  let dict_plan_sum = dashboard_rows(context, "cb_subject_dict").fold(
+    init=0.0,
+    fn(sum, row) { sum + report_amount(row.payload, "plan_amount") },
+  )
+  let signed_wan = signed_contracts.fold(init=0.0, fn(sum, row) {
+    sum +
+    (
+      report_amount(row.payload, "ht_amount") +
+      report_amount(row.payload, "sum_alter_amount")
+    ) /
+    10000.0
+  })
+  let approving_wan = approving_contracts.fold(init=0.0, fn(sum, row) {
+    sum +
+    (
+      report_amount(row.payload, "ht_amount") +
+      report_amount(row.payload, "sum_alter_amount")
+    ) /
+    10000.0
+  })
+  let fund_in_plan = fund_plans.fold(init=0.0, fn(sum, row) {
+    if report_text(row.payload, "direction", "") == "in" {
+      sum + report_amount(row.payload, "plan_amount")
+    } else {
+      sum
+    }
+  })
+  let fund_in_actual = fund_plans.fold(init=0.0, fn(sum, row) {
+    if report_text(row.payload, "direction", "") == "in" {
+      sum + report_amount(row.payload, "actual_amount")
+    } else {
+      sum
+    }
+  })
+  let fund_out_plan = fund_plans.fold(init=0.0, fn(sum, row) {
+    if report_text(row.payload, "direction", "") == "out" {
+      sum + report_amount(row.payload, "plan_amount")
+    } else {
+      sum
+    }
+  })
+  let fund_out_actual = fund_plans.fold(init=0.0, fn(sum, row) {
+    if report_text(row.payload, "direction", "") == "out" {
+      sum + report_amount(row.payload, "actual_amount")
+    } else {
+      sum
+    }
+  })
+  let invoice_in_total = invoice_in.fold(init=0.0, fn(sum, row) {
+    sum + report_amount(row.payload, "total_amount")
+  })
+  let invoice_out_total = invoice_out.fold(init=0.0, fn(sum, row) {
+    sum + report_amount(row.payload, "total_amount")
+  })
+  let invoice_in_tax = invoice_in.fold(init=0.0, fn(sum, row) {
+    sum + report_amount(row.payload, "tax_amount")
+  })
+  let invoice_out_tax = invoice_out.fold(init=0.0, fn(sum, row) {
+    sum + report_amount(row.payload, "tax_amount")
+  })
   let units = dashboard_rows(context, "mu_business_unit").filter(fn(row) {
     report_text(row.payload, "bu_type", "") == "company" &&
     dashboard_active(row.payload)
+  })
+  let expense_by_category_map : Map[String, Double] = {}
+  for row in applications {
+    if ["完全支付", "部分支付"].contains(
+        report_text(row.payload, "pay_state", ""),
+      ) {
+      let contract = contract_by_id.get_or_default(
+        report_text(row.payload, "contract_guid", ""),
+        Json::object({}),
+      )
+      let code = report_text(contract, "r_code", "R0")
+      expense_by_category_map.set(
+        code,
+        expense_by_category_map.get_or_default(code, 0.0) +
+        report_amount(row.payload, "apply_amount") / 10000.0,
+      )
+    }
+  }
+  let expense_by_id : Map[String, Json] = {}
+  for row in expenses {
+    expense_by_id.set(
+      report_text(row.payload, "expense_guid", row.record_id),
+      row.payload,
+    )
+  }
+  for row in dashboard_rows(context, "cb_expense_split") {
+    let expense = expense_by_id.get_or_default(
+      report_text(row.payload, "expense_guid", ""),
+      Json::object({}),
+    )
+    if ["完全支付", "部分支付"].contains(
+        report_text(expense, "pay_state", ""),
+      ) {
+      let code = report_text(row.payload, "r_code", "R0")
+      expense_by_category_map.set(
+        code,
+        expense_by_category_map.get_or_default(code, 0.0) +
+        report_amount(row.payload, "amount") / 10000.0,
+      )
+    }
+  }
+  let category_names : Map[String, String] = {}
+  for row in dashboard_rows(context, "cb_r_master") {
+    category_names.set(
+      report_text(row.payload, "r_code", ""),
+      report_text(row.payload, "r_name", ""),
+    )
+  }
+  let expense_by_category : Array[Json] = []
+  for code, amount in expense_by_category_map {
+    if amount > 0.0 {
+      expense_by_category.push(
+        Json::object({
+          "rCode": Json::string(code),
+          "rName": Json::string(category_names.get_or_default(code, code)),
+          "amount": Json::number(round_places(amount, 2)),
+        }),
+      )
+    }
+  }
+  expense_by_category.sort_by(fn(left, right) {
+    let order = json_number(right, "amount", 0.0).compare(
+      json_number(left, "amount", 0.0),
+    )
+    if order == 0 {
+      json_text(left, "rCode", "").lexical_compare(
+        json_text(right, "rCode", ""),
+      )
+    } else {
+      order
+    }
   })
   let expense_by_city : Array[Json] = []
   if business_unit_id is None && project_id is None {
@@ -787,12 +1076,20 @@ async fn dashboard_v3_response(
           sum
         }
       })
+      let unit_revenue = sale_revenues.fold(init=0.0, fn(sum, row) {
+        if report_text(row.payload, "bu_guid", "") == unit_id &&
+          report_text(row.payload, "status", "") == "received" {
+          sum + report_amount(row.payload, "amount")
+        } else {
+          sum
+        }
+      })
       expense_by_city.push(
         Json::object({
           "buGuid": Json::string(unit_id),
           "name": Json::string(report_text(unit.payload, "bu_name", unit_id)),
           "expense": Json::number(unit_expense / 10000.0),
-          "revenue": Json::number(0),
+          "revenue": Json::number(unit_revenue / 10000.0),
         }),
       )
     }
@@ -800,6 +1097,174 @@ async fn dashboard_v3_response(
       report_amount(right, "expense").compare(report_amount(left, "expense"))
     })
   }
+  let total_expense = (paid_contract_expense + paid_expense) / 10000.0
+  let net_profit = total_revenue - total_expense
+  let net_profit_rate = if total_revenue > 0.0 {
+    round_places(net_profit / total_revenue * 100.0, 2)
+  } else {
+    0.0
+  }
+  let available_cash = if fund_in_actual / 10000.0 > total_expense {
+    fund_in_actual / 10000.0 - total_expense + expected_revenue * 0.3
+  } else {
+    expected_revenue * 0.3
+  }
+  let monthly_outflow = if total_expense > 0.0 {
+    total_expense / 6.0
+  } else {
+    1.0
+  }
+  let cashflow_months_value = round_places(available_cash / monthly_outflow, 1)
+  let health_score = if warnings.is_empty() {
+    100
+  } else {
+    let score = 100 - warnings.length() * 10
+    if score > 0 {
+      score
+    } else {
+      0
+    }
+  }
+  let health_breakdown = Json::object({
+    "profit": Json::object({
+      "score": Json::number(if total_revenue > 0.0 { 100 } else { 50 }),
+      "weight": Json::number(40),
+      "label": Json::string("利润达成率"),
+    }),
+    "recover": Json::object({
+      "score": Json::number(
+        if total_revenue + expected_revenue > 0.0 {
+          round_places(
+            total_revenue / (total_revenue + expected_revenue) * 100.0,
+            0,
+          )
+        } else {
+          0
+        },
+      ),
+      "weight": Json::number(25),
+      "label": Json::string("回款率"),
+    }),
+    "budget": Json::object({
+      "score": Json::number(
+        if dict_plan_sum > 0.0 {
+          round_places(
+            (signed_wan + approving_wan) / (dict_plan_sum / 10000.0) * 100.0,
+            0,
+          )
+        } else {
+          0
+        },
+      ),
+      "weight": Json::number(20),
+      "label": Json::string("预算执行"),
+    }),
+    "warning": Json::object({
+      "score": Json::number(health_score.to_double()),
+      "weight": Json::number(15),
+      "label": Json::string("风险告警"),
+    }),
+  })
+  fn compact_contract(row : SourceRow) -> Json {
+    Json::object({
+      "contractCode": Json::string(
+        report_text(row.payload, "contract_code", ""),
+      ),
+      "contractName": Json::string(
+        report_text(row.payload, "contract_name", ""),
+      ),
+      "htAmount": Json::number(report_amount(row.payload, "ht_amount")),
+      "contractGuid": Json::string(
+        report_text(row.payload, "contract_guid", row.record_id),
+      ),
+    })
+  }
+  let top_unpaid = signed_contracts.map(compact_contract)
+  let top_r0 = r0_contracts.map(compact_contract)
+  let top_approving = approving_contracts.map(compact_contract)
+  let sort_contracts = fn(left : Json, right : Json) -> Int {
+    let order = json_number(right, "htAmount", 0.0).compare(
+      json_number(left, "htAmount", 0.0),
+    )
+    if order == 0 {
+      json_text(left, "contractGuid", "").lexical_compare(
+        json_text(right, "contractGuid", ""),
+      )
+    } else {
+      order
+    }
+  }
+  top_unpaid.sort_by(sort_contracts)
+  top_r0.sort_by(sort_contracts)
+  top_approving.sort_by(sort_contracts)
+  let funnel = Json::array([
+    Json::object({
+      "stage": Json::string("客户"),
+      "value": Json::number(sale_customers.length().to_double()),
+    }),
+    Json::object({
+      "stage": Json::string("认筹"),
+      "value": Json::number(sale_subscriptions.length().to_double()),
+    }),
+    Json::object({
+      "stage": Json::string("签约"),
+      "value": Json::number(signed_sales.length().to_double()),
+    }),
+    Json::object({
+      "stage": Json::string("放款"),
+      "value": Json::number(released_mortgages.length().to_double()),
+    }),
+    Json::object({
+      "stage": Json::string("退房"),
+      "value": Json::number(-approved_refunds.length().to_double()),
+    }),
+  ])
+  let compare_sales = Json::array([
+    Json::object({
+      "name": Json::string("认筹"),
+      "value": Json::number(sale_subscriptions.length().to_double()),
+    }),
+    Json::object({
+      "name": Json::string("签约"),
+      "value": Json::number(signed_sales.length().to_double()),
+    }),
+    Json::object({
+      "name": Json::string("放款"),
+      "value": Json::number(released_mortgages.length().to_double()),
+    }),
+  ])
+  let compare_cost = Json::array([
+    Json::object({
+      "name": Json::string("A 目标"),
+      "value": Json::number(dict_plan_sum),
+    }),
+    Json::object({
+      "name": Json::string("D 已成"),
+      "value": Json::number(signed_wan),
+    }),
+    Json::object({
+      "name": Json::string("E 在途"),
+      "value": Json::number(approving_wan),
+    }),
+  ])
+  let compare_fund = Json::array([
+    Json::object({
+      "name": Json::string("收入计划"),
+      "value": Json::number(fund_in_plan),
+    }),
+    Json::object({
+      "name": Json::string("收入实际"),
+      "value": Json::number(fund_in_actual),
+    }),
+    Json::object({
+      "name": Json::string("支出计划"),
+      "value": Json::number(fund_out_plan),
+    }),
+    Json::object({
+      "name": Json::string("支出实际"),
+      "value": Json::number(fund_out_actual),
+    }),
+  ])
   let level = if project_id is Some(_) {
     "project"
   } else if business_unit_id is Some(_) {
@@ -815,31 +1280,153 @@ async fn dashboard_v3_response(
         "level": Json::string(level),
       }),
       "kpi": Json::object({
-        "customerCount": Json::number(
-          dashboard_rows(context, "sale_customer").length().to_double(),
+        "r6Received": Json::number(total_revenue),
+        "r6Expected": Json::number(expected_revenue),
+        "contractSigned": Json::number(signed_wan),
+        "contractApproving": Json::number(approving_wan),
+        "dictPlanSum": Json::number(round_places(dict_plan_sum, 2)),
+        "unpaidApply": Json::number(
+          unpaid_applications.fold(init=0.0, fn(sum, row) {
+            sum + report_amount(row.payload, "apply_amount")
+          }) /
+          10000.0,
         ),
-        "totalRevenue": Json::number(0),
-        "totalExpense": Json::number(
-          (paid_contract_expense + paid_expense) / 10000.0,
+        "r0PendingCount": Json::number(r0_contracts.length().to_double()),
+        "customerCount": Json::number(sale_customers.length().to_double()),
+        "subCount": Json::number(sale_subscriptions.length().to_double()),
+        "signedCount": Json::number(signed_sales.length().to_double()),
+        "mortgageCount": Json::number(released_mortgages.length().to_double()),
+        "mortgageAmount": Json::number(
+          released_mortgages.fold(init=0.0, fn(sum, row) {
+            sum + report_amount(row.payload, "loan_amount")
+          }) /
+          10000.0,
         ),
-        "netProfit": Json::number(
-          -(paid_contract_expense + paid_expense) / 10000.0,
+        "refundCount": Json::number(approved_refunds.length().to_double()),
+        "scontractTotal": Json::number(
+          signed_sales.fold(init=0.0, fn(sum, row) {
+            sum + report_amount(row.payload, "total_price")
+          }) /
+          10000.0,
         ),
-        "netProfitRate": Json::number(0),
-        "healthScore": Json::number(0),
+        "fundInPlan": Json::number(fund_in_plan),
+        "fundInActual": Json::number(fund_in_actual),
+        "fundOutPlan": Json::number(fund_out_plan),
+        "fundOutActual": Json::number(fund_out_actual),
+        "progressActive": Json::number(progress_active.length().to_double()),
+        "progressAvgPct": Json::number(round_places(progress_average, 1)),
+        "progressDone": Json::number(progress_done.length().to_double()),
+        "invInTotal": Json::number(invoice_in_total),
+        "invOutTotal": Json::number(invoice_out_total),
+        "netTax": Json::number(
+          round_places(invoice_out_tax - invoice_in_tax, 2),
+        ),
+        "tenderActiveCount": Json::number(tender_active.length().to_double()),
+        "tenderActiveAmount": Json::number(
+          tender_active.fold(init=0.0, fn(sum, row) {
+            sum + report_amount(row.payload, "estimated_amount")
+          }) /
+          10000.0,
+        ),
+        "tenderAwardedAmount": Json::number(
+          tender_awards.fold(init=0.0, fn(sum, row) {
+            sum + report_amount(row.payload, "award_amount")
+          }) /
+          10000.0,
+        ),
+        "openWarnings": Json::number(warnings.length().to_double()),
+        "runningProcesses": Json::number(processes.length().to_double()),
+        "totalRevenue": Json::number(total_revenue),
+        "totalExpense": Json::number(total_expense),
+        "netProfit": Json::number(net_profit),
+        "netProfitRate": Json::number(net_profit_rate),
+        "cashflowMonths": Json::number(cashflow_months_value),
+        "healthScore": Json::number(health_score.to_double()),
       }),
-      "healthBreakdown": Json::object({}),
-      "expenseByCategory": Json::array([]),
+      "healthBreakdown": health_breakdown,
+      "expenseByCategory": Json::array(
+        if expense_by_category.length() > 20 {
+          expense_by_category[0:20].to_owned()
+        } else {
+          expense_by_category
+        },
+      ),
       "expenseByCity": Json::array(expense_by_city),
-      "gauge": Json::object({}),
-      "funnel": Json::array([]),
-      "compareSales": Json::array([]),
-      "compareCost": Json::array([]),
-      "compareFund": Json::array([]),
+      "gauge": Json::object({
+        "collectionRate": Json::number(
+          if total_revenue + expected_revenue > 0.0 {
+            round_places(
+              total_revenue / (total_revenue + expected_revenue) * 100.0,
+              1,
+            )
+          } else {
+            0
+          },
+        ),
+        "mortgageRate": Json::number(
+          if signed_sales.is_empty() {
+            0
+          } else {
+            round_places(
+              released_mortgages.length().to_double() /
+              signed_sales.length().to_double() *
+              100.0,
+              1,
+            )
+          },
+        ),
+        "payableRate": Json::number(
+          if signed_wan > 0.0 {
+            round_places(
+              unpaid_applications.fold(init=0.0, fn(sum, row) {
+                sum + report_amount(row.payload, "apply_amount")
+              }) /
+              10000.0 /
+              signed_wan *
+              100.0,
+              1,
+            )
+          } else {
+            0
+          },
+        ),
+        "budgetUsedRate": Json::number(
+          if dict_plan_sum > 0.0 {
+            round_places(
+              (signed_wan + approving_wan) / (dict_plan_sum / 10000.0) * 100.0,
+              1,
+            )
+          } else {
+            0
+          },
+        ),
+      }),
+      "funnel": funnel,
+      "compareSales": compare_sales,
+      "compareCost": compare_cost,
+      "compareFund": compare_fund,
       "tops": Json::object({
-        "topUnpaid": Json::array([]),
-        "topR0": Json::array([]),
-        "topApproving": Json::array([]),
+        "topUnpaid": Json::array(
+          if top_unpaid.length() > 5 {
+            top_unpaid[0:5].to_owned()
+          } else {
+            top_unpaid
+          },
+        ),
+        "topR0": Json::array(
+          if top_r0.length() > 5 {
+            top_r0[0:5].to_owned()
+          } else {
+            top_r0
+          },
+        ),
+        "topApproving": Json::array(
+          if top_approving.length() > 5 {
+            top_approving[0:5].to_owned()
+          } else {
+            top_approving
+          },
+        ),
         "topOverbudget": Json::array([]),
         "topGap": Json::array([]),
       }),
