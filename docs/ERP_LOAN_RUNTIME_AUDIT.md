@@ -8,8 +8,10 @@ Target: this repository
 
 The source loan module exposes a list/detail read boundary plus creation,
 approval-submission, offset, workflow-sync, draft update, and draft/rejected
-void actions. The target now connects the list/detail read boundary to the
-PostgreSQL service, read-model adapter, and Rabbita `/loans` page.
+void actions. The target now connects that boundary to the compiled MoonBit
+PostgreSQL service, native gateway, and Rabbita `/loans` page. The shell smoke
+is the supported execution path; the former Python service is comparison
+evidence only.
 
 | Source surface | Target endpoint | Source tables |
 |---|---|---|
@@ -53,7 +55,7 @@ posts cash, accounting, tax, or approval state implicitly.
   connected-read evidence and marks create, submit, offset, update, and void
   as connected command handlers. The workflow-sync handler remains explicitly
   gated.
-- PostgreSQL service smoke proves create/replay, applicant submit, draft
+- `scripts/company_postgres_loan_smoke.sh` proves native create/replay, applicant submit, draft
   update, draft void, amount/state guards, and the workflow-sync gate. A
   temporary approved local projection also proves bounded offset persistence
   and the separate offset read shape; the temporary rows are removed after

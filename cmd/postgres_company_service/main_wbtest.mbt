@@ -589,3 +589,37 @@ test "native company service normalizes dynamic-cost source fields" {
   assert_eq(json_text(update, "cost_name", ""), "Updated")
   assert_eq(json_int(update, "dfs_budget_minor", 0), 1225)
 }
+
+///|
+test "native company service maps employee-loan command paths" {
+  assert_true(
+    loan_command_spec(@http.Post, "/api/company/loans")
+    is Some(("create", None)),
+  )
+  assert_true(
+    loan_command_spec(
+      @http.Post,
+      "/api/company/loans/LOAN-1/submit-for-approval",
+    )
+    is Some(("submit", Some("LOAN-1"))),
+  )
+  assert_true(
+    loan_command_spec(@http.Post, "/api/company/loans/LOAN-1/offset")
+    is Some(("offset", Some("LOAN-1"))),
+  )
+  assert_true(
+    loan_command_spec(@http.Put, "/api/company/loans/LOAN-1")
+    is Some(("update", Some("LOAN-1"))),
+  )
+  assert_true(
+    loan_command_spec(@http.Delete, "/api/company/loans/LOAN-1")
+    is Some(("void", Some("LOAN-1"))),
+  )
+  assert_true(
+    loan_command_spec(
+      @http.Post,
+      "/api/company/loans/LOAN-1/sync-from-workflow",
+    )
+    is Some(("sync_from_workflow", Some("LOAN-1"))),
+  )
+}

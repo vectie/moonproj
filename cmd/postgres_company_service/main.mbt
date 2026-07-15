@@ -14453,6 +14453,23 @@ async fn route(
     }
     return (200, dynamic_cost_response(project_id))
   }
+  if path == "/api/company/loans" {
+    return (
+      200,
+      loan_read_response(
+        query_alias_decoded(query, "loanId", "loan_id"),
+        query_alias_decoded(query, "applyState", "apply_state"),
+      ),
+    )
+  }
+  let loan_prefix = "/api/company/loans/"
+  if path.has_prefix(loan_prefix) {
+    let loan_id = path[loan_prefix.length():].to_owned()
+    if loan_id.is_empty() || loan_id.contains("/") {
+      return (404, Json::object({ "error": Json::string("loan not found") }))
+    }
+    return loan_detail_response(loan_id)
+  }
   if path == "/api/company/projects" {
     return (
       200,
@@ -14910,6 +14927,8 @@ async fn route(
             Json::string("delivery_read"),
             Json::string("project_runtime_read"),
             Json::string("project_plan_task_command"),
+            Json::string("loan_read"),
+            Json::string("loan_command"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -15268,6 +15287,43 @@ async fn handle(
       }
       let result = fund_command(
         resource, command_type, resource_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match loan_command_spec(request.meth, path) {
+    Some((command_type, loan_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = loan_command(
+        command_type, loan_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }

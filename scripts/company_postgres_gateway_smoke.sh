@@ -370,6 +370,28 @@ test "$status" = 200
 /usr/bin/jq -e '.task.state == "deleted" and .task.cash_effect == false' \
   "$TMP_DIR/plan-task-delete.json" >/dev/null
 
+gateway_loan_suffix=$(/bin/date +%s)
+gateway_loan_id="LOAN-GW-SMOKE-$gateway_loan_suffix"
+gateway_loan_principal="co-gateway-loan"
+gateway_loan_scope="employee:employee-gateway-loan"
+gateway_loan_body="{\"loan_id\":\"$gateway_loan_id\",\"loan_code\":\"JK-GW-$gateway_loan_suffix\",\"subject\":\"gateway employee advance\",\"employee_id\":\"employee-gateway-loan\",\"principal_id\":\"$gateway_loan_principal\",\"scope\":\"$gateway_loan_scope\",\"currency\":\"CNY\",\"amount_minor\":250000,\"apply_dept_guid\":\"bu-tjgs-0001\",\"apply_date\":\"2026-07-15\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_loan_principal\",\"actor_id\":\"rabbita-user\",\"capability\":\"advance:create\",\"scope\":\"$gateway_loan_scope\",\"max_amount_minor\":250000}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/loan-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-loan-create-$gateway_loan_suffix" \
+  --data "$gateway_loan_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/loans")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_loan_id" \
+  '.loan.loan_id == $id and .loan.state == "Draft" and .idempotent_replay == false' \
+  "$TMP_DIR/loan-create.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/loan-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-loan-delete-$gateway_loan_suffix" \
+  --data '{"reason":"gateway loan tombstone smoke"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/loans/$gateway_loan_id")
+test "$status" = 200
+/usr/bin/jq -e '.loan.state == "Voided" and .loan.cash_effect == false' "$TMP_DIR/loan-delete.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" -c "$TMP_DIR/cookies.txt" \
   -X POST "http://127.0.0.1:$GATEWAY_PORT/api/session/logout" >"$TMP_DIR/logout.json"
 /usr/bin/jq -e '.authenticated == false' "$TMP_DIR/logout.json" >/dev/null

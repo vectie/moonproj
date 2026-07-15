@@ -1605,8 +1605,9 @@ Execute the remainder in this order:
     The current native gateway/session boundary and bounded company service
     (including the expense, contract, payment-application, contract-milestone,
     dynamic-cost, invoice, sales-revenue, tender, contract-split, marketing,
-    fund-plan/dispatch, and delivery/progress/output/task-report command
-    lifecycles) are partial completion of this
+    fund-plan/dispatch, delivery/progress/output/task-report, and employee-loan
+    read/create/submit/offset/update/void command lifecycles) are partial
+    completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation
     still require their own MoonBit implementation and parity evidence.

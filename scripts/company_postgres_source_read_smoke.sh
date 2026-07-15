@@ -75,6 +75,8 @@ request project_detail /api/company/projects/proj-0001
 request project_plan_summary /api/company/projects/proj-0001/plan-summary
 request project_lifecycle /api/company/projects/proj-0001/lifecycle
 request task_detail /api/company/tasks/task-003
+request loans /api/company/loans
+request loan_detail /api/company/loans/loan-001
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -227,6 +229,15 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .data.task.taskGuid == "task-003" and (.data.reports | length) >= 1 and
   .authorizing == false
 ' "$TMP_DIR/task_detail.json" >/dev/null
+/usr/bin/jq -e '
+  (.items | map(select(.loan_id == "loan-001")) | .[0]) as $loan |
+  $loan.loan_amount == 5000 and $loan.remain_amount == 3500 and
+  ($loan.offsets | length) == 1 and $loan.source_kind == "imported"
+' "$TMP_DIR/loans.json" >/dev/null
+/usr/bin/jq -e '
+  .loan.loan_id == "loan-001" and (.offsets | length) == 1 and
+  .loan.source_kind == "imported"
+' "$TMP_DIR/loan_detail.json" >/dev/null
 /usr/bin/jq -e '
   (.items | length) == 84 and
   .items[0].aggregate_type == "receivable" and
