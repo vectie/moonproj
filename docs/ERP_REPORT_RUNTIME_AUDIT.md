@@ -8,9 +8,10 @@ Target: this repository
 
 The source `reports.js` module has ten handlers: five core report reads,
 template metadata/list/run/create/delete, and report sharing in the separate
-`share.js` module. The target now has a bounded, read-only PostgreSQL slice for
-the five core reports plus native report-builder metadata/template commands. It keeps report computation separate from commands,
-accounting posting, cash, tax filing, and period close.
+`share.js` module. The target now has a bounded PostgreSQL slice for the five
+core reports, native report-builder metadata/template commands, and a local
+report-share lifecycle. It keeps report computation/share projections separate
+from accounting posting, cash, tax filing, and period close.
 
 | Source report | Target endpoint | Source-preserving inputs |
 |---|---|---|
@@ -24,8 +25,12 @@ accounting posting, cash, tax filing, and period close.
 coverage plus missing-table names. The Rabbita `/reports` route loads that
 overview and renders connected cost, contract, and stage rows while showing
 the supplier/approval coverage counts. The report-builder route now has native
-metadata/list/run/create/delete behavior; only share-link lifecycle remains a
-separate fixture/not-connected surface.
+metadata/list/run/create/delete behavior. Signed
+`/api/company/reports/shares` create/list/revoke commands use command-owned
+`report_share` revisions; public `/api/company/share/:token/meta|data` reads
+serve only the five allow-listed reports, require forwarded TLS, and record
+access revisions. Tokens are deterministic local SHA-256 identifiers for
+replayable evidence, not a production credential issuer.
 
 ## Current evidence
 
@@ -38,8 +43,9 @@ separate fixture/not-connected surface.
   workflow tables exist but contain zero `wf_process_instance` and
   `wf_step_action` rows. Supplier analysis and approval efficiency therefore
   correctly return empty source-backed results rather than invented data.
-- The parity matrix marks `/reports` as `connected_report_read`; the complete
-  source API module is not claimed connected because share actions remain open.
+- The parity matrix marks `/reports` as `connected_report_read`; share commands
+  and public reads are now native but remain bounded by the local token and
+  projection model.
 - No report endpoint mutates company state or infers accounting, tax, cash, or
   investment results.
 
@@ -50,9 +56,11 @@ separate fixture/not-connected surface.
    supplier and approval calculations against the source implementation.
 2. Connect authenticated report access to the production identity and entity/
    scope boundary; run a browser scenario for cost, contract, and stage reports.
-3. Preserve the native template field whitelist and the report-share
-   expiry/revocation boundary as separate command/read slices. Do not expose
-   arbitrary SQL or allow report exports to bypass data scope.
+3. Preserve the native template field whitelist and report-share
+   expiry/revocation/access boundary. Replace the deterministic local token
+   with the production credential/identity policy and managed public-serving
+   controls before treating public sharing as accepted. Do not expose arbitrary
+   SQL or allow report exports to bypass data scope.
 4. Only after report owners accept reconciliation to source records should
    reporting be used as evidence for close, tax, treasury, or management
    decisions.

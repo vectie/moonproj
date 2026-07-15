@@ -14501,6 +14501,7 @@ async fn route(
   path : String,
   query : String,
   expected_schema_version : Int,
+  actor_id : String,
 ) -> (Int, Json) raise CompanyServiceError {
   if path == "/api/company/expenses" {
     let expense_guid = query_alias_decoded(query, "expenseGuid", "expense_id")
@@ -15012,6 +15013,20 @@ async fn route(
   }
   if path == "/api/company/reports/templates/run" {
     return report_template_run_response()
+  }
+  if path == "/api/company/reports/shares" {
+    return (200, report_share_list_response(actor_id))
+  }
+  let public_share_prefix = "/api/company/share/"
+  if path.has_prefix(public_share_prefix) && path.has_suffix("/meta") {
+    let token = path[public_share_prefix.length():path.length() -
+    "/meta".length()].to_owned()
+    return report_share_meta_response(token)
+  }
+  if path.has_prefix(public_share_prefix) && path.has_suffix("/data") {
+    let token = path[public_share_prefix.length():path.length() -
+    "/data".length()].to_owned()
+    return report_share_data_response(token)
   }
   if path == "/api/company/warning" {
     return (
@@ -15694,6 +15709,8 @@ async fn route(
             Json::string("report_template_read"),
             Json::string("report_template_command"),
             Json::string("report_template_run"),
+            Json::string("report_share_command"),
+            Json::string("report_share_public_read"),
             Json::string("warning_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
@@ -15788,7 +15805,19 @@ async fn handle(
     send_json(conn, request.meth, 204, Json::null(), false)
     return
   }
-  let authorization_status = auth_status(request, token, require_forwarded_tls)
+  let path = path_only(request.path)
+  let public_share = (request.meth is @http.Get || request.meth is @http.Head) &&
+    report_share_public_path(path)
+  let authorization_status = if public_share {
+    if require_forwarded_tls &&
+      header(request, "X-Forwarded-Proto").to_lower() != "https" {
+      400
+    } else {
+      0
+    }
+  } else {
+    auth_status(request, token, require_forwarded_tls)
+  }
   if authorization_status != 0 {
     send_json(
       conn,
@@ -15807,9 +15836,13 @@ async fn handle(
     )
     return
   }
-  let path = path_only(request.path)
   if request.meth is @http.Get || request.meth is @http.Head {
-    let result = route(path, request.path, expected_schema_version) catch {
+    let result = route(
+      path,
+      request.path,
+      expected_schema_version,
+      header(request, "X-Moonproj-Actor"),
+    ) catch {
       error => service_error_response(error)
     }
     send_json(conn, request.meth, result.0, result.1, false)
@@ -16103,6 +16136,43 @@ async fn handle(
       }
       let result = report_template_command(
         command_type, template_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match report_share_command_spec(request.meth, path) {
+    Some((command_type, token)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = report_share_command(
+        command_type, token, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }

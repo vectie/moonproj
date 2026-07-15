@@ -1280,6 +1280,18 @@ metadata, create/replay, merged readback, filtered execution, delete, and
 tombstone behavior. CSV/PDF export, production identity, browser acceptance,
 and report-owner approval remain separate gates.
 
+**Report-share command checkpoint (2026-07-15).** Native MoonBit now ports the
+bounded share lifecycle from `share.js`: signed create/list/revoke commands
+persist command-owned `report_share` revisions, idempotency receipts, and audit
+events, with owner/super-user revoke checks and expiry/access-count readback.
+Public metadata/data reads omit bearer authentication but require forwarded TLS,
+serve only the five allow-listed core reports, and record access revisions.
+`scripts/company_postgres_report_share_smoke.sh` proves create/replay/list,
+public meta/data, access counting, revoke, and revoked-link rejection. The token
+is deterministic SHA-256 evidence for this local boundary; production credential
+issuance/rotation, managed public serving, report export, identity, and owner
+acceptance remain separate gates.
+
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
 visible Rabbita navigation group through sidebar actions (not direct URL
@@ -1395,8 +1407,9 @@ activation, CBS budget-reservation/
 mutation surfaces, warning scans/provider actions, attachment binary/OCR
 operations, notification/provider actions, RBAC password/identity writes and
 production authorization binding, source workflow-engine
-synchronization/full delegation semantics, report-builder share/export
-commands, and the remaining investment/cash/provider effects.
+synchronization/full delegation semantics, report-builder export and production
+share-credential/managed-serving policy, and the remaining investment/cash/
+provider effects.
 Those surfaces stay explicitly gated rather than being represented by
 designer fixtures or the frozen Python bridge.
 
@@ -1516,8 +1529,10 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    project-stage rows are populated from source raw tables; supplier and
    approval sections correctly remain empty because the backup has no provider
    tables and zero workflow-instance/action rows. The shell-only source-read
-   smoke proves the native report envelope. Templates, share links, production
-   identity, browser acceptance, and report-owner reconciliation remain open.
+   smoke proves the native report envelope. Native share create/list/revoke and
+   public meta/data reads now have a shell smoke; production share credentials,
+   managed serving, export, identity, browser acceptance, and report-owner
+   reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
 4a. **The dashboard/cockpit now has bounded v1, v2, and v3 read slices, but is
    not accepted parity.** The source cockpit exposes seven GET handlers
@@ -1786,8 +1801,8 @@ Execute the remainder in this order:
    parity floor. The five core report reads and `/reports` overview now work
    through native MoonBit;
    obtain the missing supplier/workflow source rows (or owner-approved redacted
-   cohort), run browser/report-owner reconciliation, and keep templates/share
-   links separate. Synthetic rehearsals remain design evidence until real
+   cohort), run browser/report-owner reconciliation, and keep template/export
+   plus production share credentials separate. Synthetic rehearsals remain design evidence until real
    source rows and user acceptance are attached. See
    `docs/ERP_REPORT_RUNTIME_AUDIT.md`.
 8. Treat `/cost-dashboard-v3` as a separate acceptance wave after the
