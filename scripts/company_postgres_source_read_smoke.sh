@@ -60,6 +60,10 @@ request payments '/api/company/source/cost/payment-applies?view=all'
 request keyword '/api/company/source/cost/contracts?keyword=%E5%B9%95%E5%A2%99'
 request budget_users '/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001'
 request budget_loan '/api/company/source/budget/my-loan-balance?userCode=limingjin'
+request workflow_mine '/api/company/source/workflow/tasks/mine?userId=user-lmj-0001'
+request workflow_initiated '/api/company/source/workflow/tasks/initiated?userId=user-lmj-0001'
+request workflow_history '/api/company/source/workflow/tasks/my-history?userId=user-lmj-0001'
+request workflow_biz '/api/company/source/workflow/instances/by-biz?bizType=contract&bizDataGuid=ht-tj-001'
 
 /usr/bin/jq -e '
   .success == true and
@@ -100,5 +104,24 @@ request budget_loan '/api/company/source/budget/my-loan-balance?userCode=limingj
   .source_coverage.vcb_loan_simple == 1 and
   .scope_applied == true and .authorizing == false
 ' "$TMP_DIR/budget_loan.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.wf_process_instance == 0 and
+  .source_coverage.wf_step_action == 0 and
+  .scope_applied == true and .authorizing == false
+' "$TMP_DIR/workflow_mine.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  ((.missing_or_empty_source_tables | index("wf_process_instance")) != null) and
+  .scope_applied == true and .authorizing == false
+' "$TMP_DIR/workflow_initiated.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .scope_applied == true and .authorizing == false
+' "$TMP_DIR/workflow_history.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and .data == null and
+  .source_coverage.wf_process_instance == 0 and .authorizing == false
+' "$TMP_DIR/workflow_biz.json" >/dev/null
 
-echo "native source contract/payment/budget read smoke passed"
+echo "native source contract/payment/budget/workflow read smoke passed"

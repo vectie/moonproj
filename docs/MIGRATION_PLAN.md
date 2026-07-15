@@ -806,6 +806,10 @@ The same native service now owns `/api/company/source/budget/users-in-bu` and
 scope, explicit user resolution, loan-state filtering, coverage, and the
 non-authorizing scope markers. The four-user BU scope and 3,500.00 loan
 observation are parsed-equal to the bridge and covered by the shell-only smoke.
+Workflow task/instance observations are now native as well: pending,
+initiated, history, business-instance lookup, and instance detail preserve the
+empty `wf_process_instance`/`wf_step_action` boundary, explicit scope, and
+source-compatible 404/null behavior without enabling approval or assignment.
 
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita

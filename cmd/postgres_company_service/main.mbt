@@ -1765,6 +1765,624 @@ async fn budget_source_loan_balance(
 }
 
 ///|
+struct WorkflowSourceRows {
+  process_defs : Array[SourceRow]
+  step_defs : Array[SourceRow]
+  step_assignees : Array[SourceRow]
+  users : Array[SourceRow]
+  instances : Array[SourceRow]
+  actions : Array[SourceRow]
+}
+
+///|
+async fn workflow_source_rows() -> WorkflowSourceRows raise CompanyServiceError {
+  let process_defs = raw_source_rows("wf_process_def", 500)
+  let step_defs = raw_source_rows("wf_step_def", 500)
+  let step_assignees = raw_source_rows("wf_step_assignee", 500)
+  let users = raw_source_rows("sys_user", 500)
+  let instances = raw_source_rows("wf_process_instance", 500)
+  let actions = raw_source_rows("wf_step_action", 500)
+  { process_defs, step_defs, step_assignees, users, instances, actions }
+}
+
+///|
+fn workflow_source_coverage(rows : WorkflowSourceRows) -> Json {
+  Json::object({
+    "sys_user": Json::number(rows.users.length().to_double()),
+    "wf_process_def": Json::number(rows.process_defs.length().to_double()),
+    "wf_process_instance": Json::number(rows.instances.length().to_double()),
+    "wf_step_action": Json::number(rows.actions.length().to_double()),
+    "wf_step_assignee": Json::number(rows.step_assignees.length().to_double()),
+    "wf_step_def": Json::number(rows.step_defs.length().to_double()),
+  })
+}
+
+///|
+fn workflow_source_missing(rows : WorkflowSourceRows) -> Array[Json] {
+  let missing : Array[Json] = []
+  if rows.users.is_empty() {
+    missing.push(Json::string("sys_user"))
+  }
+  if rows.process_defs.is_empty() {
+    missing.push(Json::string("wf_process_def"))
+  }
+  if rows.instances.is_empty() {
+    missing.push(Json::string("wf_process_instance"))
+  }
+  if rows.actions.is_empty() {
+    missing.push(Json::string("wf_step_action"))
+  }
+  if rows.step_assignees.is_empty() {
+    missing.push(Json::string("wf_step_assignee"))
+  }
+  if rows.step_defs.is_empty() {
+    missing.push(Json::string("wf_step_def"))
+  }
+  missing
+}
+
+///|
+fn workflow_source_metadata(rows : WorkflowSourceRows) -> Json {
+  Json::object({
+    "source_kind": Json::string("imported_or_empty"),
+    "source_coverage": workflow_source_coverage(rows),
+    "missing_or_empty_source_tables": Json::array(workflow_source_missing(rows)),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+  })
+}
+
+///|
+fn workflow_resolve_user_id(
+  rows : WorkflowSourceRows,
+  user_id : String?,
+  user_code : String?,
+) -> String? raise CompanyServiceError {
+  match user_id {
+    Some(value) => {
+      if !valid_identifier(value) {
+        raise fail("invalid user_id")
+      }
+      Some(value)
+    }
+    None =>
+      match user_code {
+        Some(value) => {
+          if !valid_identifier(value) {
+            raise fail("invalid user_code")
+          }
+          match find_user(rows.users, value) {
+            Some(row) => Some(json_text(row.payload, "user_id", row.record_id))
+            None => None
+          }
+        }
+        None => None
+      }
+  }
+}
+
+///|
+fn workflow_instance_value(
+  payload : Json,
+  key : String,
+  fallback : String,
+) -> String {
+  json_text(payload, key, fallback)
+}
+
+///|
+fn workflow_instance_json(row : SourceRow) -> Json {
+  let payload = row.payload
+  Json::object({
+    "processInstanceGuid": Json::string(
+      workflow_instance_value(payload, "process_instance_guid", row.record_id),
+    ),
+    "processGuid": Json::string(
+      workflow_instance_value(payload, "process_guid", ""),
+    ),
+    "processName": Json::string(
+      workflow_instance_value(payload, "process_name", ""),
+    ),
+    "processKey": Json::string(
+      workflow_instance_value(payload, "process_key", ""),
+    ),
+    "bizType": Json::string(workflow_instance_value(payload, "biz_type", "")),
+    "bizDataGuid": Json::string(
+      workflow_instance_value(payload, "biz_data_guid", ""),
+    ),
+    "status": Json::string(workflow_instance_value(payload, "status", "")),
+    "initiatorGuid": Json::string(
+      workflow_instance_value(payload, "initiator_guid", ""),
+    ),
+    "buGuid": Json::string(workflow_instance_value(payload, "bu_guid", "")),
+    "initiatedAt": Json::string(
+      workflow_instance_value(payload, "initiated_at", ""),
+    ),
+    "completedAt": Json::string(
+      workflow_instance_value(payload, "completed_at", ""),
+    ),
+    "currentStepOrder": json_field(payload, "current_step_order").unwrap_or(
+      Json::number(0),
+    ),
+    "sourceId": Json::string("erp:wf_process_instance:" + row.record_id),
+  })
+}
+
+///|
+fn workflow_action_json(row : SourceRow) -> Json {
+  let payload = row.payload
+  Json::object({
+    "actionGuid": Json::string(
+      workflow_instance_value(payload, "action_guid", row.record_id),
+    ),
+    "processInstanceGuid": Json::string(
+      workflow_instance_value(payload, "process_instance_guid", ""),
+    ),
+    "stepOrder": json_field(payload, "step_order").unwrap_or(Json::number(0)),
+    "stepName": Json::string(workflow_instance_value(payload, "step_name", "")),
+    "assigneeGuid": Json::string(
+      workflow_instance_value(
+        payload,
+        "assignee_guid",
+        workflow_instance_value(payload, "operator_guid", ""),
+      ),
+    ),
+    "decision": Json::string(workflow_instance_value(payload, "decision", "")),
+    "comment": Json::string(workflow_instance_value(payload, "comment", "")),
+    "actionTime": Json::string(
+      workflow_instance_value(
+        payload,
+        "action_time",
+        workflow_instance_value(payload, "created_at", ""),
+      ),
+    ),
+    "sourceId": Json::string("erp:wf_step_action:" + row.record_id),
+  })
+}
+
+///|
+fn workflow_action_list(
+  rows : Array[SourceRow],
+  instance_id : String?,
+) -> Array[Json] {
+  let result : Array[Json] = []
+  for row in rows {
+    let item = workflow_action_json(row)
+    let current_instance = json_text(item, "processInstanceGuid", "")
+    if instance_id is None || current_instance == instance_id.unwrap() {
+      result.push(item)
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(left, "actionTime", "").lexical_compare(
+      json_text(right, "actionTime", ""),
+    )
+    if order == 0 {
+      json_text(left, "actionGuid", "").lexical_compare(
+        json_text(right, "actionGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  result
+}
+
+///|
+fn workflow_user_name(rows : Array[SourceRow], user_id : String) -> String {
+  match source_payload(rows, "user_id", user_id) {
+    Some(payload) =>
+      json_text(payload, "emp_name", json_text(payload, "user_name", user_id))
+    None => user_id
+  }
+}
+
+///|
+async fn workflow_tasks_mine(
+  user_id : String?,
+  user_code : String?,
+) -> Json raise CompanyServiceError {
+  let rows = workflow_source_rows()
+  let selected = workflow_resolve_user_id(rows, user_id, user_code)
+  let actions = workflow_action_list(rows.actions, None)
+  let result : Array[Json] = []
+  for source_row in rows.instances {
+    let instance = workflow_instance_json(source_row)
+    let status = json_text(instance, "status", "")
+    if status == "Running" ||
+      status == "Approving" ||
+      status == "running" ||
+      status == "submitted" {
+      let instance_id = json_text(instance, "processInstanceGuid", "")
+      let instance_actions = actions.filter(fn(action) {
+        json_text(action, "processInstanceGuid", "") == instance_id
+      })
+      let assigned = match selected {
+        Some(value) =>
+          instance_actions.is_empty() ||
+          instance_actions.any(fn(action) {
+            json_text(action, "assigneeGuid", "") == value
+          })
+        None => true
+      }
+      if assigned {
+        result.push(
+          Json::object({
+            "processInstanceGuid": Json::string(instance_id),
+            "processName": Json::string(json_text(instance, "processName", "")),
+            "bizType": Json::string(json_text(instance, "bizType", "")),
+            "bizDataGuid": Json::string(json_text(instance, "bizDataGuid", "")),
+            "currentStep": Json::object({
+              "stepOrder": json_field(instance, "currentStepOrder").unwrap_or(
+                Json::number(0),
+              ),
+              "stepName": Json::string(""),
+            }),
+            "initiator": Json::object({
+              "userId": Json::string(json_text(instance, "initiatorGuid", "")),
+              "empName": Json::string(""),
+            }),
+            "initiatedAt": Json::string(json_text(instance, "initiatedAt", "")),
+          }),
+        )
+      }
+    }
+  }
+  workflow_task_envelope(rows, result, selected is Some(_))
+}
+
+///|
+async fn workflow_tasks_initiated(
+  user_id : String?,
+  user_code : String?,
+) -> Json raise CompanyServiceError {
+  let rows = workflow_source_rows()
+  let selected = workflow_resolve_user_id(rows, user_id, user_code)
+  let result : Array[Json] = []
+  for source_row in rows.instances {
+    let instance = workflow_instance_json(source_row)
+    if selected is None ||
+      json_text(instance, "initiatorGuid", "") == selected.unwrap() {
+      result.push(
+        Json::object({
+          "processInstanceGuid": json_field(instance, "processInstanceGuid").unwrap_or(
+            Json::string(""),
+          ),
+          "processName": json_field(instance, "processName").unwrap_or(
+            Json::string(""),
+          ),
+          "bizType": json_field(instance, "bizType").unwrap_or(Json::string("")),
+          "bizDataGuid": json_field(instance, "bizDataGuid").unwrap_or(
+            Json::string(""),
+          ),
+          "status": json_field(instance, "status").unwrap_or(Json::string("")),
+          "initiatedAt": json_field(instance, "initiatedAt").unwrap_or(
+            Json::string(""),
+          ),
+          "completedAt": json_field(instance, "completedAt").unwrap_or(
+            Json::string(""),
+          ),
+          "currentStepOrder": json_field(instance, "currentStepOrder").unwrap_or(
+            Json::number(0),
+          ),
+        }),
+      )
+    }
+  }
+  workflow_task_envelope(rows, result, selected is Some(_))
+}
+
+///|
+async fn workflow_history(
+  user_id : String?,
+  user_code : String?,
+) -> Json raise CompanyServiceError {
+  let rows = workflow_source_rows()
+  let selected = workflow_resolve_user_id(rows, user_id, user_code)
+  let result : Array[Json] = []
+  let actions = workflow_action_list(rows.actions, None)
+  for action in actions {
+    let assignee = json_text(action, "assigneeGuid", "")
+    if selected is None || assignee == selected.unwrap() {
+      let instance_id = json_text(action, "processInstanceGuid", "")
+      match
+        source_payload(rows.instances, "process_instance_guid", instance_id) {
+        Some(payload) => {
+          let instance = workflow_instance_json({
+            record_id: instance_id,
+            payload,
+          })
+          result.push(
+            Json::object({
+              "processInstanceGuid": json_field(instance, "processInstanceGuid").unwrap_or(
+                Json::string(""),
+              ),
+              "processName": json_field(instance, "processName").unwrap_or(
+                Json::string(""),
+              ),
+              "bizType": json_field(instance, "bizType").unwrap_or(
+                Json::string(""),
+              ),
+              "bizDataGuid": json_field(instance, "bizDataGuid").unwrap_or(
+                Json::string(""),
+              ),
+              "status": json_field(instance, "status").unwrap_or(
+                Json::string(""),
+              ),
+              "initiatedAt": json_field(instance, "initiatedAt").unwrap_or(
+                Json::string(""),
+              ),
+              "completedAt": json_field(instance, "completedAt").unwrap_or(
+                Json::string(""),
+              ),
+              "currentStepOrder": json_field(instance, "currentStepOrder").unwrap_or(
+                Json::number(0),
+              ),
+              "initiator": Json::object({
+                "empName": Json::string(
+                  workflow_user_name(
+                    rows.users,
+                    json_text(instance, "initiatorGuid", ""),
+                  ),
+                ),
+              }),
+              "myLastActionTime": json_field(action, "actionTime").unwrap_or(
+                Json::string(""),
+              ),
+              "myLastDecision": json_field(action, "decision").unwrap_or(
+                Json::string(""),
+              ),
+            }),
+          )
+        }
+        None => ()
+      }
+    }
+  }
+  workflow_task_envelope(rows, result, selected is Some(_))
+}
+
+///|
+fn workflow_task_envelope(
+  rows : WorkflowSourceRows,
+  result : Array[Json],
+  scope_applied : Bool,
+) -> Json raise CompanyServiceError {
+  match workflow_source_metadata(rows) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      metadata.set("scope_applied", Json::boolean(scope_applied))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid workflow metadata")
+  }
+}
+
+///|
+fn workflow_detail_data(rows : WorkflowSourceRows, instance : Json) -> Json {
+  let process_id = json_text(instance, "processGuid", "")
+  let steps : Array[Json] = []
+  for row in rows.step_defs {
+    let payload = row.payload
+    if json_text(payload, "process_guid", "") == process_id {
+      let step_id = json_text(payload, "step_guid", row.record_id)
+      let assignees : Array[Json] = []
+      for assignee_row in rows.step_assignees {
+        let assignee = assignee_row.payload
+        if json_text(assignee, "step_guid", "") == step_id {
+          let user_id = json_text(assignee, "assignee_user_guid", "")
+          assignees.push(
+            Json::object({
+              "assigneeGuid": Json::string(
+                json_text(assignee, "assignee_guid", assignee_row.record_id),
+              ),
+              "userGuid": Json::string(user_id),
+              "userCode": Json::string(
+                match source_payload(rows.users, "user_id", user_id) {
+                  Some(user) => json_text(user, "user_code", "")
+                  None => ""
+                },
+              ),
+              "userName": Json::string(workflow_user_name(rows.users, user_id)),
+              "weight": json_field(assignee, "weight").unwrap_or(
+                Json::number(1),
+              ),
+            }),
+          )
+        }
+      }
+      steps.push(
+        Json::object({
+          "stepGuid": Json::string(step_id),
+          "stepOrder": json_field(payload, "step_order").unwrap_or(
+            Json::number(0),
+          ),
+          "stepName": Json::string(json_text(payload, "step_name", "")),
+          "threshold": json_field(payload, "threshold").unwrap_or(
+            Json::number(1),
+          ),
+          "stepKey": Json::string(json_text(payload, "step_key", "")),
+          "stepStatus": Json::string(json_text(payload, "status", "")),
+          "assignees": Json::array(assignees),
+        }),
+      )
+    }
+  }
+  steps.sort_by(fn(left, right) {
+    let order = json_int(left, "stepOrder", 0) - json_int(right, "stepOrder", 0)
+    if order == 0 {
+      json_text(left, "stepGuid", "").lexical_compare(
+        json_text(right, "stepGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let process = source_payload(rows.process_defs, "process_guid", process_id)
+  let initiator_id = json_text(instance, "initiatorGuid", "")
+  let actions = workflow_action_list(
+    rows.actions,
+    Some(json_text(instance, "processInstanceGuid", "")),
+  )
+  let action_items : Array[Json] = []
+  for action in actions {
+    let assignee_id = json_text(action, "assigneeGuid", "")
+    action_items.push(
+      Json::object({
+        "actionGuid": json_field(action, "actionGuid").unwrap_or(
+          Json::string(""),
+        ),
+        "processInstanceGuid": json_field(action, "processInstanceGuid").unwrap_or(
+          Json::string(""),
+        ),
+        "stepOrder": json_field(action, "stepOrder").unwrap_or(Json::number(0)),
+        "stepName": json_field(action, "stepName").unwrap_or(Json::string("")),
+        "assigneeGuid": json_field(action, "assigneeGuid").unwrap_or(
+          Json::string(""),
+        ),
+        "decision": json_field(action, "decision").unwrap_or(Json::string("")),
+        "comment": json_field(action, "comment").unwrap_or(Json::string("")),
+        "actionTime": json_field(action, "actionTime").unwrap_or(
+          Json::string(""),
+        ),
+        "sourceId": json_field(action, "sourceId").unwrap_or(Json::string("")),
+        "assigneeEmpName": Json::string(
+          workflow_user_name(rows.users, assignee_id),
+        ),
+      }),
+    )
+  }
+  Json::object({
+    "instance": Json::object({
+      "processInstanceGuid": json_field(instance, "processInstanceGuid").unwrap_or(
+        Json::string(""),
+      ),
+      "bizType": json_field(instance, "bizType").unwrap_or(Json::string("")),
+      "bizDataGuid": json_field(instance, "bizDataGuid").unwrap_or(
+        Json::string(""),
+      ),
+      "status": json_field(instance, "status").unwrap_or(Json::string("")),
+      "initiatorGuid": json_field(instance, "initiatorGuid").unwrap_or(
+        Json::string(""),
+      ),
+      "initiatedAt": json_field(instance, "initiatedAt").unwrap_or(
+        Json::string(""),
+      ),
+      "completedAt": json_field(instance, "completedAt").unwrap_or(
+        Json::string(""),
+      ),
+      "currentStepOrder": json_field(instance, "currentStepOrder").unwrap_or(
+        Json::number(0),
+      ),
+    }),
+    "processName": Json::string(
+      match process {
+        Some(value) =>
+          json_text(
+            value,
+            "process_name",
+            json_text(instance, "processKey", ""),
+          )
+        None =>
+          json_text(
+            instance,
+            "processName",
+            json_text(instance, "processKey", ""),
+          )
+      },
+    ),
+    "initiator": Json::object({
+      "userId": Json::string(initiator_id),
+      "empName": Json::string(workflow_user_name(rows.users, initiator_id)),
+    }),
+    "steps": Json::array(steps),
+    "actions": Json::array(action_items),
+  })
+}
+
+///|
+async fn workflow_instance_detail(
+  instance_id : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(instance_id) {
+    raise fail("invalid process_instance_id")
+  }
+  let rows = workflow_source_rows()
+  match source_payload(rows.instances, "process_instance_guid", instance_id) {
+    None =>
+      (
+        404,
+        Json::object({
+          "success": Json::boolean(false),
+          "code": Json::number(43001),
+          "message": Json::string("流程实例不存在"),
+        }),
+      )
+    Some(payload) => {
+      let instance = workflow_instance_json({ record_id: instance_id, payload })
+      match workflow_source_metadata(rows) {
+        Object(metadata) => {
+          metadata.set("success", Json::boolean(true))
+          metadata.set("code", Json::number(0))
+          metadata.set("data", workflow_detail_data(rows, instance))
+          (200, Json::object(metadata))
+        }
+        _ =>
+          (
+            500,
+            Json::object({ "error": Json::string("invalid workflow metadata") }),
+          )
+      }
+    }
+  }
+}
+
+///|
+async fn workflow_instance_by_biz(
+  biz_type : String,
+  biz_data_guid : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(biz_type) || !valid_identifier(biz_data_guid) {
+    raise fail("invalid workflow business identity")
+  }
+  let rows = workflow_source_rows()
+  let mut selected : SourceRow? = None
+  for row in rows.instances {
+    let payload = row.payload
+    if json_text(payload, "biz_type", "") == biz_type &&
+      json_text(payload, "biz_data_guid", "") == biz_data_guid {
+      match selected {
+        None => selected = Some(row)
+        Some(current) =>
+          if json_text(payload, "initiated_at", "") >
+            json_text(current.payload, "initiated_at", "") {
+            selected = Some(row)
+          }
+      }
+    }
+  }
+  let data = match selected {
+    None => Json::null()
+    Some(row) => {
+      let instance = workflow_instance_json(row)
+      workflow_detail_data(rows, instance)
+    }
+  }
+  match workflow_source_metadata(rows) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", data)
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid workflow metadata")
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -2263,6 +2881,35 @@ async fn route(
     let user_id = query_alias_decoded(query, "userId", "user_id")
     return budget_source_loan_balance(user_code, user_id)
   }
+  if path == "/api/company/source/workflow/tasks/mine" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, workflow_tasks_mine(user_id, user_code))
+  }
+  if path == "/api/company/source/workflow/tasks/initiated" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, workflow_tasks_initiated(user_id, user_code))
+  }
+  if path == "/api/company/source/workflow/tasks/my-history" {
+    let user_code = query_alias_decoded(query, "userCode", "user_code")
+    let user_id = query_alias_decoded(query, "userId", "user_id")
+    return (200, workflow_history(user_id, user_code))
+  }
+  if path == "/api/company/source/workflow/instances/by-biz" {
+    let biz_type = query_alias_decoded(query, "bizType", "biz_type").unwrap_or(
+      "",
+    )
+    let biz_data_guid = query_alias_decoded(
+      query, "bizDataGuid", "biz_data_guid",
+    ).unwrap_or("")
+    return (200, workflow_instance_by_biz(biz_type, biz_data_guid))
+  }
+  let workflow_instance_prefix = "/api/company/source/workflow/instances/"
+  if path.has_prefix(workflow_instance_prefix) {
+    let instance_id = path[workflow_instance_prefix.length():].to_owned()
+    return workflow_instance_detail(instance_id)
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -2350,6 +2997,7 @@ async fn route(
             Json::string("preference_observation_read"),
             Json::string("initiated_document_observation_read"),
             Json::string("budget_scope_observation_read"),
+            Json::string("workflow_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),
