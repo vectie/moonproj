@@ -69,6 +69,7 @@
     "connected_admin_ocr_read": 1,
     "connected_admin_read": 1,
     "connected_ai_hub_read": 1,
+    "ai_hub_explain_candidate": 1,
     "connected_ai_stats_read": 1,
     "connected_ai_stats_badge_batch_read": 1,
     "connected_attachment_read": 1,
@@ -1268,8 +1269,8 @@
       "browser_route_paths": [
         "/ai-hub"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "ai_hub_explain_candidate",
+      "required_next": "accept_browser_ai_hub_explain_scenario_and_ai_owner"
     },
     {
       "module": "ai-hub",

@@ -15944,6 +15944,7 @@ async fn route(
             Json::string("webhook_overdue_scan_candidate"),
             Json::string("webhook_overdue_preview_read"),
             Json::string("ai_analytics_read"),
+            Json::string("ai_hub_explain_candidate"),
             Json::string("ai_stats_badge_batch_read"),
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
@@ -16170,6 +16171,25 @@ async fn handle(
       }
     }
     send_json(conn, request.meth, 200, result, false)
+    return
+  }
+  if ai_hub_explain_spec(request.meth, path) {
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let _ = actor
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, ai_hub_explain_response(body), false)
     return
   }
   if request.meth is @http.Post && path == "/api/company/export/excel" {

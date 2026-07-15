@@ -854,7 +854,9 @@ production identity, and AI-owner acceptance remain separate gates.
 
 The AI Hub is now a separate source-observation family. `/ai-hub` loads the
 source-compatible usage-stats, drafts, query-log, corrections, and
-correction-stats reads through PostgreSQL. The current export has no
+correction-stats reads through PostgreSQL. Signed `/api/company/ai-hub/explain`
+and `/source` now provide a deterministic table-summary candidate with no
+LLM/provider call, prompt persistence, or authority effect. The current export has no
 `ai_draft`, `ai_query_log`, `ai_correction_log`, `ai_query_session`, or
 `ai_query_turn` rows (and no AI confirmation audit rows), so the screen shows
 explicit empty-source history and usage counts while preserving the designer

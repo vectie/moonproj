@@ -50,11 +50,19 @@ redacted, with field-name hints retained where available. Every response
 reports `authorizing=false`, `persisted=false`, `provider_execution=false`,
 and `query_execution=false`.
 
+The signed `POST /api/company/ai-hub/explain` (and `/source` alias) is now a
+deterministic explanation candidate over the caller-supplied table. It returns
+the source `explain/provider/model` fields plus row count, but never invokes an
+LLM, persists prompt data, or authorizes a business action. The dedicated
+PostgreSQL smoke proves the boundary.
+
 ## Remaining gates
 
-- AI intake, confirm, discard, query, explain, rule, approval-draft, and
+- AI intake, confirm, discard, query, rule, approval-draft, and
   command routes remain unconnected mutations, as do query-session and
   global-ask routes.
+- Provider-backed AI Hub explanation remains gated behind browser and AI-owner
+  acceptance; the current explanation route is deterministic only.
 - LLM/OCR execution, remote provider credentials, prompt/data retention,
   correction writes, workflow auto-skip authority, and draft-to-business
   promotion remain separate decisions.
