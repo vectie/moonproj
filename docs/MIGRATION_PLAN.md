@@ -519,6 +519,12 @@ also exposed as a signed dry-run candidate. It validates a non-empty `items`
 array, returns the existing grouped mapping observation plus `wouldUpdate`,
 and rejects `dryRun=false` until an investment owner accepts mapping writes.
 
+The `PUT /plan-lines/:lineGuid` edit route is now also a signed native
+dry-run candidate. It validates source status values, preserves the missing
+line boundary, returns the current row plus the requested patch, and rejects
+non-dry-run edits until an investment owner accepts imported plan-line
+mutation.
+
 The marketing screen is now a bounded source/read-command family. `/marketing`
 loads `/api/company/marketing/{campaigns,placements,channels,materials}` with
 project/state filters and explicit source-table coverage. Imported source rows

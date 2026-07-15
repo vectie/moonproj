@@ -751,6 +751,98 @@ async fn investment_subject_mappings_candidate(
 }
 
 ///|
+fn investment_plan_line_update_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  if request_method is @http.Put {
+    let prefix = "/api/company/investment/plan-lines/"
+    let source_prefix = "/api/company/source/investment/plan-lines/"
+    if path.has_prefix(prefix) {
+      return Some(path[prefix.length():].to_owned())
+    }
+    if path.has_prefix(source_prefix) {
+      return Some(path[source_prefix.length():].to_owned())
+    }
+  }
+  None
+}
+
+///|
+async fn investment_plan_line_update_candidate(
+  line_id : String,
+  body : Json,
+) -> (Int, Json) raise CompanyServiceError {
+  let dry_run = match json_field(body, "dryRun") {
+    Some(False) => false
+    _ => true
+  }
+  let status = json_text(body, "status", "")
+  if !status.is_empty() &&
+    !["imported", "adjusted", "confirmed", "locked"].contains(status) {
+    raise reject(400, "status 不合法")
+  }
+  if !dry_run {
+    return (
+      409,
+      Json::object({
+        "success": Json::boolean(false),
+        "code": Json::number(46004),
+        "message": Json::string(
+          "计划行编辑需要投资负责人确认；当前 native 服务仅提供 dry-run。",
+        ),
+        "source_kind": Json::string("investment_plan_line_update_candidate"),
+        "dry_run": Json::boolean(false),
+        "provider_execution": Json::boolean(false),
+        "persisted": Json::boolean(false),
+        "authorizing": Json::boolean(false),
+      }),
+    )
+  }
+  if !valid_identifier(line_id) {
+    raise reject(422, "invalid line_guid")
+  }
+  let rows = raw_source_rows("tzsy_plan_line", 5000)
+  let mut current : Json? = None
+  for row in rows {
+    if report_text(row.payload, "line_guid", row.record_id) == line_id {
+      current = Some(row.payload)
+    }
+  }
+  match current {
+    None =>
+      (
+        404,
+        Json::object({
+          "success": Json::boolean(false),
+          "code": Json::number(43001),
+          "message": Json::string("计划行不存在"),
+        }),
+      )
+    Some(value) =>
+      (
+        200,
+        Json::object({
+          "success": Json::boolean(true),
+          "code": Json::number(0),
+          "data": Json::object({
+            "lineGuid": Json::string(line_id),
+            "current": value,
+            "requested": body,
+            "dryRun": Json::boolean(true),
+            "wouldUpdate": Json::boolean(true),
+          }),
+          "source_kind": Json::string("investment_plan_line_update_candidate"),
+          "dry_run": Json::boolean(true),
+          "provider_execution": Json::boolean(false),
+          "persisted": Json::boolean(false),
+          "authorizing": Json::boolean(false),
+        }),
+      )
+  }
+}
+
+///|
 async fn investment_profit_table_response(
   import_id : String,
 ) -> (Int, Json) raise CompanyServiceError {

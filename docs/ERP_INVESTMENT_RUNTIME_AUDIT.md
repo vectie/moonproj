@@ -29,6 +29,7 @@ The target now exposes source-compatible read boundaries:
 | Excel index upsert | signed `POST /api/company/investment/excel-imports/:id/index-upsert` and `/source` alias | deterministic dry-run candidate; real insert/update is owner-gated |
 | Excel plan-line import | signed `POST /api/company/investment/excel-imports/:id/plan-lines/import` and `/source` alias | deterministic dry-run candidate; durable line insert/replace is owner-gated |
 | Subject mappings | signed `PUT /api/company/investment/projects/:id/subject-mappings` and `/source` alias | deterministic dry-run candidate; mapping writes are owner-gated |
+| Plan-line edit | signed `PUT /api/company/investment/plan-lines/:id` and `/source` alias | deterministic dry-run candidate; imported line mutation is owner-gated |
 | AI explanation | signed `POST /api/company/investment/projects/:id/ai-explain` and `/source` alias | deterministic analytics candidate over the current PostgreSQL version/profit summary; no provider, prompt persistence, or financial effect |
 
 Rows preserve source field names and are marked `sourceKind=imported`. Local
@@ -75,6 +76,8 @@ fallback.
   source 404 and rejects non-dry-run replacement with no line persistence.
 - It also proves the subject-mapping candidate preserves a missing-project 404
   and rejects non-dry-run mapping writes without changing imported mappings.
+- The plan-line edit candidate preserves the source missing-line 404 and
+  rejects non-dry-run edits before any imported row can change.
 - Existing native investment valuation, performance, and benchmark boundaries
   remain separate reviewed analytics gates; they do not authorize source-row
   ownership or cash/accounting effects.
@@ -106,7 +109,7 @@ remains the explicit empty-CBS observation.
    identity, including project scope and version ownership.
 2. Obtain the missing investment/source export rows and owner-approved formula
    reconciliation before accepting actual-profit values as target-owned.
-3. Keep Excel upload/import, non-dry-run index/plan-line/mapping writes, valuation,
+3. Keep Excel upload/import, non-dry-run index/plan-line/mapping edits, valuation,
    cash release, accounting, tax, and period-close actions separately authorized; the
    explanation candidate still
    needs browser/investment-owner acceptance before production enablement and

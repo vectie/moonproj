@@ -15952,6 +15952,7 @@ async fn route(
             Json::string("investment_excel_index_upsert_candidate"),
             Json::string("investment_excel_plan_line_import_candidate"),
             Json::string("investment_subject_mappings_candidate"),
+            Json::string("investment_plan_line_update_candidate"),
             Json::string("webhook_config_read"),
             Json::string("rbac_observation_read"),
             Json::string("report_template_read"),
@@ -16264,6 +16265,31 @@ async fn handle(
         }
       }
       let result = investment_subject_mappings_candidate(project_id, body) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match investment_plan_line_update_spec(request.meth, path) {
+    Some(line_id) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let _ = actor
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = investment_plan_line_update_candidate(line_id, body) catch {
         error => service_error_response(error)
       }
       send_json(conn, request.meth, result.0, result.1, false)

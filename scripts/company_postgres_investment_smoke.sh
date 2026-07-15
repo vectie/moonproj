@@ -71,6 +71,7 @@ fi
 /usr/bin/jq -e '.capabilities | index("investment_excel_index_upsert_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("investment_excel_plan_line_import_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("investment_subject_mappings_candidate") != null' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("investment_plan_line_update_candidate") != null' "$TMP_DIR/health.json" >/dev/null
 
 version_body="{\"versionGuid\":\"$VERSION_ID\",\"versionName\":\"Native Investment Smoke\",\"remark\":\"local command projection\",\"activate\":true}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/version.json" -w '%{http_code}' \
@@ -216,5 +217,22 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/subject-mappings-write-gate.json" -w '%{
   "http://127.0.0.1:$PORT/api/company/investment/projects/$PROJECT_ID/subject-mappings")
 test "$status" = 409
 /usr/bin/jq -e '.code == 46003 and .dry_run == false and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/subject-mappings-write-gate.json" >/dev/null
+
+MISSING_LINE_ID="investment-smoke-missing-line-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/plan-line-update-missing.json" -w '%{http_code}' \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{"subject":"Smoke"}' \
+  "http://127.0.0.1:$PORT/api/company/investment/plan-lines/$MISSING_LINE_ID")
+test "$status" = 404
+/usr/bin/jq -e '.code == 43001' "$TMP_DIR/plan-line-update-missing.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/plan-line-update-write-gate.json" -w '%{http_code}' \
+  -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' --data '{"dryRun":false,"subject":"Smoke"}' \
+  "http://127.0.0.1:$PORT/api/company/investment/plan-lines/$MISSING_LINE_ID")
+test "$status" = 409
+/usr/bin/jq -e '.code == 46004 and .dry_run == false and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/plan-line-update-write-gate.json" >/dev/null
 
 echo "native MoonBit investment version/index lifecycle/idempotency/readback smoke passed"
