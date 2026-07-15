@@ -27,8 +27,10 @@ configuration candidate:
 | Health table coverage | `/api/company/admin/health/tables` | source-coverage read |
 | BPM pool snapshot | `/api/company/admin/health/bpm-pool` | source-coverage read |
 | OCR provider status | `/api/company/admin/ocr/status` | metadata-only read; provider execution gated |
+| OCR provider test | `/api/company/admin/ocr/test` and `/api/company/source/admin/ocr/test` | signed super-user dry-run candidate; no OCR call |
 | Error log metadata | `/api/company/admin/error-log` | bounded read; IP/stack redacted |
 | Database backup export | `/api/company/admin/backup/db` | PostgreSQL target-format boundary; export gated |
+| LLM provider test | `/api/company/admin/llm/test` and `/api/company/source/admin/llm/test` | signed super-user dry-run candidate; no provider call |
 | Generic `sys_param` write | `/api/company/admin/sys-param` and `/api/company/source/admin/sys-param` | signed super-user candidate; values are digest-only and never provider-bound |
 
 The Rabbita `/system-health` screen now calls both health endpoints through the
@@ -108,6 +110,10 @@ render explicit empty-source/definition states after successful reads.
 - The parity matrix marks `/ocr-config` and `/error-log` as connected
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.
+- The parity matrix marks `POST /ocr/test` and `POST /llm/test` as
+  `connected_ai_provider_test_candidate`; the dedicated AI-provider smoke
+  verifies redacted request handling, idempotent replay, and
+  `providerExecution=false` across canonical and `/source` aliases.
 - The parity matrix marks `GET /backup/db` as a connected PostgreSQL boundary.
   It never invokes the source MySQL `mysqldump`, returns no binary, and keeps
   backup ownership, retention, download authorization, and restore testing as

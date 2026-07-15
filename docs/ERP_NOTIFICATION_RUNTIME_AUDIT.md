@@ -87,6 +87,10 @@ outbox status and report `wouldRedeliver` without changing that source row.
 Neither operation inserts/updates `sys_email_outbox`, opens SMTP, or marks a
 message delivered.
 
+Signed super-user `POST /llm-test` (and the `/source` alias) now records a
+redacted provider/model/key/endpoint candidate with `tested=false` and
+`providerExecution=false`; it never invokes an LLM provider.
+
 ## Not yet connected
 
 The following source actions remain explicitly outside this read slice:
@@ -94,8 +98,8 @@ The following source actions remain explicitly outside this read slice:
 - webhook tests; managed credential binding and provider configuration remain
   gated even though the redacted notification-config candidate write is
   connected;
-- LLM provider test calls remain gated; digest dispatch, generic webhook test,
-  and email test/redelivery are now persisted dry-run candidates;
+- Actual LLM provider calls remain gated; digest dispatch, generic webhook
+  test, email test/redelivery, and LLM test are persisted dry-run candidates;
 - notification outbox delivery, retry/consent policy, and workflow effects;
 - production identity, browser acceptance, and owner reconciliation.
 

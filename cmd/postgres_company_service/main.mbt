@@ -529,6 +529,7 @@ async fn summary(
       Json::string("notification_digest_dispatch_candidate"),
       Json::string("notification_webhook_test_candidate"),
       Json::string("notification_email_command_candidate"),
+      Json::string("ai_provider_test_candidate"),
       Json::string("admin_sys_param_command_candidate"),
       Json::string("investment_command"),
       Json::string("cbs_command"),
@@ -15757,6 +15758,7 @@ async fn route(
             Json::string("notification_digest_dispatch_candidate"),
             Json::string("notification_webhook_test_candidate"),
             Json::string("notification_email_command_candidate"),
+            Json::string("ai_provider_test_candidate"),
             Json::string("webhook_config_command_candidate"),
             Json::string("webhook_test_delivery_candidate"),
             Json::string("webhook_overdue_scan_candidate"),
@@ -16281,6 +16283,43 @@ async fn handle(
       }
       let result = notification_email_command(
         command_type, target_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match ai_provider_test_command_spec(request.meth, path) {
+    Some(command_type) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = ai_provider_test_command(
+        command_type, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }
