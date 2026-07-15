@@ -346,6 +346,30 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.costGuid == "'"$gateway_dynamic_cost_id"'" and .dynamic_cost.state == "active"' \
   "$TMP_DIR/dynamic-cost-create.json" >/dev/null
 
+gateway_plan_suffix=$(/bin/date +%s)
+gateway_plan_id="PT-GW-SMOKE-$gateway_plan_suffix"
+gateway_plan_body="{\"task_id\":\"$gateway_plan_id\",\"task_code\":\"PT-GW-$gateway_plan_suffix\",\"task_name\":\"gateway smoke project task\",\"project_id\":\"proj-0001\",\"task_type\":\"task\",\"plan_begin_date\":\"2026-08-01\",\"plan_end_date\":\"2026-08-15\",\"authority\":{\"active\":true,\"principal_id\":\"co-gateway-plan\",\"actor_id\":\"rabbita-user\",\"capability\":\"project:task:create\",\"scope\":\"project:proj-0001\"}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/plan-task-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-plan-task-create-$gateway_plan_suffix" \
+  --data "$gateway_plan_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/plan/tasks")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_plan_id" \
+  '.idempotent_replay == false and .task.taskGuid == $id and .task.state == "pending"' \
+  "$TMP_DIR/plan-task-create.json" >/dev/null
+gateway_plan_delete_body='{"reason":"gateway project task tombstone smoke","authority":{"active":true,"principal_id":"co-gateway-plan","actor_id":"rabbita-user","capability":"project:task:delete","scope":"project:proj-0001"}}'
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/plan-task-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-plan-task-delete-$gateway_plan_suffix" \
+  --data "$gateway_plan_delete_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/plan/tasks/$gateway_plan_id")
+test "$status" = 200
+/usr/bin/jq -e '.task.state == "deleted" and .task.cash_effect == false' \
+  "$TMP_DIR/plan-task-delete.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" -c "$TMP_DIR/cookies.txt" \
   -X POST "http://127.0.0.1:$GATEWAY_PORT/api/session/logout" >"$TMP_DIR/logout.json"
 /usr/bin/jq -e '.authenticated == false' "$TMP_DIR/logout.json" >/dev/null

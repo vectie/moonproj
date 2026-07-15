@@ -346,6 +346,7 @@ fn command_path_allowed(
     @http.Delete =>
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/loans/", path) ||
+      path_with_identifier("/api/company/plan/tasks/", path) ||
       path_with_identifier("/api/company/tenders/", path) ||
       path_with_identifier("/api/company/source/tender/tenders/", path) ||
       path_with_identifier("/api/company/reports/templates/", path) ||

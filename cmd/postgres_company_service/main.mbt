@@ -14453,6 +14453,80 @@ async fn route(
     }
     return (200, dynamic_cost_response(project_id))
   }
+  if path == "/api/company/projects" {
+    return (
+      200,
+      project_runtime_response(
+        query_alias_decoded(query, "projectId", "project_id"),
+        query_decoded(query, "status"),
+        query_decoded(query, "keyword"),
+      ),
+    )
+  }
+  let project_tasks_prefix = "/api/company/projects/"
+  if path.has_prefix(project_tasks_prefix) && path.has_suffix("/tasks") {
+    let project_id = path[project_tasks_prefix.length():path.length() -
+    "/tasks".length()].to_owned()
+    let task_items = project_plan_tasks(
+      project_id,
+      query_alias_decoded(query, "taskType", "type"),
+    )
+    return (
+      200,
+      Json::object({
+        "success": Json::boolean(true),
+        "code": Json::number(0),
+        "data": Json::array(task_items),
+        "items": Json::array(task_items),
+        "source_kind": Json::string("imported_or_command"),
+        "command_projection": Json::boolean(true),
+        "authorizing": Json::boolean(false),
+      }),
+    )
+  }
+  let project_plan_summary_suffix = "/plan-summary"
+  if path.has_prefix(project_tasks_prefix) &&
+    path.has_suffix(project_plan_summary_suffix) {
+    let project_id = path[project_tasks_prefix.length():path.length() -
+    project_plan_summary_suffix.length()].to_owned()
+    return project_plan_summary_response(project_id)
+  }
+  let project_lifecycle_suffix = "/lifecycle"
+  if path.has_prefix(project_tasks_prefix) &&
+    path.has_suffix(project_lifecycle_suffix) {
+    let project_id = path[project_tasks_prefix.length():path.length() -
+    project_lifecycle_suffix.length()].to_owned()
+    return project_lifecycle_response(project_id)
+  }
+  if path.has_prefix(project_tasks_prefix) {
+    let project_id = path[project_tasks_prefix.length():].to_owned()
+    if project_id.is_empty() || project_id.contains("/") {
+      return (404, Json::object({ "error": Json::string("project not found") }))
+    }
+    let response = project_runtime_response(Some(project_id), None, None)
+    let items = json_field(response, "items").unwrap_or(Json::array([]))
+    return match items {
+      Array(values) if !values.is_empty() => (200, values[0])
+      _ => (404, Json::object({ "error": Json::string("project not found") }))
+    }
+  }
+  let task_delay_prefix = "/api/company/tasks/"
+  if path.has_prefix(task_delay_prefix) && path.has_suffix("/delay-impact") {
+    let task_id = path[task_delay_prefix.length():path.length() -
+    "/delay-impact".length()].to_owned()
+    let delay_days = parse_decimal(
+      query_decoded(query, "delayDays").unwrap_or("0"),
+    )
+    return project_delay_impact_response(task_id, delay_days)
+  }
+  let task_detail_prefix = "/api/company/tasks/"
+  if path.has_prefix(task_detail_prefix) {
+    let task_id = path[task_detail_prefix.length():].to_owned()
+    return project_task_detail_response(task_id)
+  }
+  if path == "/api/company/tasks" {
+    return (200, Json::object({ "items": Json::array([]) }))
+  }
   if path == "/api/company/delivery/progress" {
     return (
       200,
@@ -14834,6 +14908,8 @@ async fn route(
             Json::string("fund_observation_read"),
             Json::string("delivery_command"),
             Json::string("delivery_read"),
+            Json::string("project_runtime_read"),
+            Json::string("project_plan_task_command"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),
@@ -15233,6 +15309,64 @@ async fn handle(
         error => service_error_response(error)
       }
       send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match plan_task_command_spec(request.meth, path) {
+    Some((command_type, task_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      if command_type == "report" {
+        let report_body = match body {
+          Object(fields) => {
+            if json_field(body, "report_id") is None {
+              fields.set("report_id", Json::string("TR-" + idempotency_key))
+            }
+            if json_field(body, "task_id") is None {
+              fields.set("task_id", Json::string(task_id.unwrap_or("")))
+            }
+            Json::object(fields)
+          }
+          _ => body
+        }
+        let result = delivery_command(
+          "task_report", "report", task_id, report_body, actor, idempotency_key,
+        ) catch {
+          error => service_error_response(error)
+        }
+        send_json(conn, request.meth, result.0, result.1, false)
+      } else {
+        let result = plan_task_command(
+          command_type, task_id, body, actor, idempotency_key,
+        ) catch {
+          error => service_error_response(error)
+        }
+        send_json(conn, request.meth, result.0, result.1, false)
+      }
       return
     }
     None => ()

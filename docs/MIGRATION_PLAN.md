@@ -763,6 +763,21 @@ credential-safe source `proj_progress`/`proj_output` cohort, browser acceptance,
 production identity, and operations-owner approval remain separate gates; the
 Python bridge is comparison evidence only.
 
+**Native project-plan task checkpoint (2026-07-15).** The compiled MoonBit
+company service now owns the source-compatible project master/detail, lifecycle,
+task list/detail, key-node summary, and delay-impact reads. It also owns local
+project-plan task create/update/delete projections and the evidence-gated
+`/api/company/plan/tasks/:guid/report` alias. Imported `ep_project`, lifecycle,
+`jd_task`, and `jd_task_report` rows remain read-only; local commands require a
+signed actor, project-scoped capability, deterministic idempotency, immutable
+revisions, and audit receipts, with workflow, delivery, cash, accounting, and
+tax effects explicitly false. `scripts/company_postgres_project_plan_smoke.sh`,
+the source-read smoke, and trusted-gateway smoke run the native path using
+shell orchestration only. Browser production-identity acceptance, evidence
+capture in the full designer flow, source promotion, AI scheduling, and
+operations-owner approval remain separate gates; the Python bridge is frozen
+comparison evidence only.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,

@@ -154,12 +154,14 @@ remain a clearly labelled design snapshot and no approval mutation is exposed.
 `/projects` and `/projects/:guid` now read the source project master and
 lifecycle/task evidence (two projects, fourteen lifecycle rows, nine tasks),
 while the designer project tables/forms remain an explicitly labelled fallback;
-project and plan mutations are not inferred from those reads.
+native local project-plan task mutations are available as a separate
+authority-bound boundary and do not mutate imported rows.
 Source-compatible plan reads are also available at
 `/api/company/projects/:id/tasks`, `/api/company/tasks/:id`, and
 `/api/company/projects/:id/plan-summary`, plus lifecycle and delay-impact
-reads; task reporting and plan mutations remain separate evidence-gated
-boundaries.
+reads. `POST`/`PUT`/`DELETE /api/company/plan/tasks[/:id]` and the evidence-gated
+`/report` alias persist local projections through the compiled MoonBit service;
+workflow, cash, accounting, and tax effects remain explicitly false.
 The source MDM business-unit tree is available to company-scoped screens at
 `/api/company/business-units/tree`; imported organization rows remain read-only
 until legal-principal and role ownership are accepted.

@@ -69,6 +69,12 @@ request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
 request delivery_progress '/api/company/source/delivery/progress?projGuid=proj-0001'
 request delivery_outputs '/api/company/source/delivery/outputs?projGuid=proj-0001'
 request delivery_overview '/api/company/delivery/overview?project_id=proj-0001'
+request projects /api/company/projects
+request project_tasks '/api/company/projects/proj-0001/tasks'
+request project_detail /api/company/projects/proj-0001
+request project_plan_summary /api/company/projects/proj-0001/plan-summary
+request project_lifecycle /api/company/projects/proj-0001/lifecycle
+request task_detail /api/company/tasks/task-003
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -196,6 +202,31 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .cash_effect == false and
   .accounting_effect == false and .tax_effect == false
 ' "$TMP_DIR/delivery_overview.json" >/dev/null
+/usr/bin/jq -e '
+  (.items | length) == 2 and
+  (.items | map(select(.source_kind == "imported")) | length) == 2 and
+  .command_projection == false and .authorizing == false
+' "$TMP_DIR/projects.json" >/dev/null
+/usr/bin/jq -e '
+  (.items | map(select(.sourceKind == "imported")) | length) == 7 and
+  .authorizing == false
+' "$TMP_DIR/project_tasks.json" >/dev/null
+/usr/bin/jq -e '
+  .project_id == "proj-0001" and (.lifecycle | length) == 7 and
+  .source_kind == "imported"
+' "$TMP_DIR/project_detail.json" >/dev/null
+/usr/bin/jq -e '
+  .data.summary.total >= 1 and .authorizing == false and
+  .source_kind == "imported_or_command"
+' "$TMP_DIR/project_plan_summary.json" >/dev/null
+/usr/bin/jq -e '
+  (.data.stages | length) == 7 and .authorizing == false and
+  .source_kind == "imported"
+' "$TMP_DIR/project_lifecycle.json" >/dev/null
+/usr/bin/jq -e '
+  .data.task.taskGuid == "task-003" and (.data.reports | length) >= 1 and
+  .authorizing == false
+' "$TMP_DIR/task_detail.json" >/dev/null
 /usr/bin/jq -e '
   (.items | length) == 84 and
   .items[0].aggregate_type == "receivable" and

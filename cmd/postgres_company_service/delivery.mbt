@@ -1010,7 +1010,17 @@ async fn delivery_task_exists(
   project_id : String,
 ) -> Bool raise CompanyServiceError {
   let tasks = delivery_task_items(Some(project_id), Some(task_id))
-  !tasks.is_empty()
+  if !tasks.is_empty() {
+    return true
+  }
+  for row in plan_task_projection_rows(false) {
+    let payload = row.payload
+    if row.record_id == task_id &&
+      json_text(payload, "project_id", "") == project_id {
+      return true
+    }
+  }
+  false
 }
 
 ///|

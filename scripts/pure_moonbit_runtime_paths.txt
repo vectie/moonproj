@@ -10,6 +10,7 @@ scripts/company_postgres_contract_smoke.sh
 scripts/company_postgres_dynamic_cost_smoke.sh
 scripts/company_postgres_expense_smoke.sh
 scripts/company_postgres_delivery_smoke.sh
+scripts/company_postgres_project_plan_smoke.sh
 scripts/company_postgres_fund_smoke.sh
 scripts/company_postgres_gateway.sh
 scripts/company_postgres_gateway_smoke.sh

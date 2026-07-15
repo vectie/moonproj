@@ -1,6 +1,6 @@
 # ERP Project Runtime Audit
 
-Recorded: 2026-07-13  
+Recorded: 2026-07-15
 Source: `../erp/erp_new`  
 Target: this repository
 
@@ -11,7 +11,10 @@ routes provide project task/detail reads and task mutations. The available
 credential-safe backup contains two projects, seven lifecycle stages, fourteen
 lifecycle instances, nine tasks, and one task report.
 
-The target now connects the source-preserving project master/detail boundary:
+The compiled MoonBit PostgreSQL company service now owns the source-preserving
+project master/detail and project-plan task boundary. Shell wrappers are the
+supported execution path; Python service/gateway files remain frozen
+comparison evidence only:
 
 | Source surface | Target endpoint | Target state |
 |---|---|---|
@@ -45,7 +48,7 @@ evidence-gated boundary.
 
 ## Current evidence
 
-- PostgreSQL service smoke returns two projects, fourteen lifecycle rows, and
+- `scripts/company_postgres_project_plan_smoke.sh` returns two projects, fourteen lifecycle rows, and
   nine tasks; `proj-0001` detail returns seven lifecycle stages and seven tasks.
 - The source-compatible plan reads return seven tasks, one task report for
   `task-003`, and a five-key-node summary for `proj-0001` (two done, one
@@ -58,7 +61,7 @@ evidence-gated boundary.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
   retaining the designer-built tables and forms as an explicitly labelled
   fallback/preview.
-- Service and trusted-gateway smokes cover local task create/replay/update/
+- Native service, source-read, and trusted-gateway smokes cover local task create/replay/update/
   delete and an evidence-gated report alias; the source-shaped project-plan
   readback merges command projections with `sourceKind=command` while keeping
   source coverage separate.

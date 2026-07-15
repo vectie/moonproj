@@ -456,6 +456,26 @@ test "native company service maps delivery command paths" {
 }
 
 ///|
+test "native company service maps project-plan task paths" {
+  assert_true(
+    plan_task_command_spec(@http.Post, "/api/company/plan/tasks")
+    is Some(("create", None)),
+  )
+  assert_true(
+    plan_task_command_spec(@http.Put, "/api/company/plan/tasks/PT-1")
+    is Some(("update", Some("PT-1"))),
+  )
+  assert_true(
+    plan_task_command_spec(@http.Delete, "/api/company/plan/tasks/PT-1")
+    is Some(("delete", Some("PT-1"))),
+  )
+  assert_true(
+    plan_task_command_spec(@http.Post, "/api/company/plan/tasks/PT-1/report")
+    is Some(("report", Some("PT-1"))),
+  )
+}
+
+///|
 test "native company service normalizes sales revenue authority and amount" {
   let body = @json.parse(
     "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",
