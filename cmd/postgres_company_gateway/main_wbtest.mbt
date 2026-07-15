@@ -15,6 +15,9 @@ test "native gateway validates identifiers and path boundaries" {
   assert_true(
     command_path_allowed(@http.Delete, "/api/company/source/invoice/out/INV-1"),
   )
+  assert_true(
+    command_path_allowed(@http.Delete, "/api/company/sales/revenues/REV-1"),
+  )
 }
 
 ///|

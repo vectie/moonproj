@@ -695,6 +695,21 @@ cash settlement, OCR/verification, production identity, and finance-owner
 acceptance remain separate gates; the Python bridge is comparison evidence
 only.
 
+**Native sales-revenue command checkpoint (2026-07-15).** The native MoonBit
+company service now owns `POST /api/company/sales/revenues`, `PUT` updates,
+`POST .../:id/confirm-received`, and `DELETE` tombstones for local revenue
+projections. It normalizes the ERP field aliases and fixed-point amount forms,
+requires an active signed principal/scope/capability grant, rejects imported
+revenue mutation, enforces request-equal idempotency, preserves expected /
+received transitions, and persists immutable `sale_revenue` revisions with
+command receipts and audit events. The source sales read merges active command
+projections with imported rows and keeps `source_kind=command`; the new
+`scripts/company_postgres_sales_revenue_smoke.sh` covers authority, replay,
+update, confirmation, source readback, and tombstoning, and the gateway smoke
+covers trusted forwarding. Revenue recognition, collection/cash, accounting,
+tax, production identity, and finance-owner acceptance remain separate gates;
+the Python bridge is comparison evidence only.
+
 Notification is now a bounded source-read family rather than a delivery
 integration. `/inbox` loads user-scoped messages and unread counts;
 `/notify-config` chains subscriptions, redacted configuration status,
@@ -1483,10 +1498,10 @@ Execute the remainder in this order:
     (health, summary, receipts, projections, profile, preferences,
     initiated-document, source-shaped contract/payment, and payment
     observations plus the native expense, contract, payment-application,
-    contract-milestone, dynamic-cost, invoice, and supplier/provider
+    contract-milestone, dynamic-cost, invoice, sales-revenue, and supplier/provider
     list/detail/command boundaries,
     budget-check preview, and idempotent expense/contract/payment-application/
-    contract-milestone/dynamic-cost/invoice/supplier
+    contract-milestone/dynamic-cost/invoice/sales-revenue/supplier
     create/update/submit/reject/resubmit/approve/void lifecycles, with the bounded
     gateway/session boundary now ported as
     `cmd/postgres_company_gateway`; continue with the remaining HTTP routes,
@@ -1503,8 +1518,8 @@ Execute the remainder in this order:
     check, CI job, smoke test, release artifact, deployment manifest, or
     browser start command. The migration backlog is therefore explicit:
     (a) finish the remaining authenticated company-service reads and command
-    lifecycles in `cmd/postgres_company_service` (invoice and supplier/provider
-    commands are now native checkpoints; populated-source qualification,
+    lifecycles in `cmd/postgres_company_service` (invoice, sales-revenue, and
+    supplier/provider commands are now native checkpoints; populated-source qualification,
     signature, and external effects remain separate gates),
     (b) port the remaining source-export, cohort-planner, parity, acceptance,
     and shadow/replay commands to MoonBit, and
@@ -1518,7 +1533,7 @@ Execute the remainder in this order:
 
     The current native gateway/session boundary and bounded company service
     (including the expense, contract, payment-application, contract-milestone,
-    dynamic-cost, and invoice
+    dynamic-cost, invoice, and sales-revenue
     command lifecycles) are partial completion of this
     gate, not completion of the convergence step: remaining routes, command
     writes, provider/accounting/tax effects, and managed identity/rotation

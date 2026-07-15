@@ -262,6 +262,70 @@ test "native company service normalizes invoice authority and tax" {
 }
 
 ///|
+test "native company service maps sales revenue command paths" {
+  assert_true(
+    sales_revenue_command_spec(@http.Post, "/api/company/sales/revenues")
+    is Some(("create", None)),
+  )
+  assert_true(
+    sales_revenue_command_spec(@http.Put, "/api/company/sales/revenues/REV-1")
+    is Some(("update", Some("REV-1"))),
+  )
+  assert_true(
+    sales_revenue_command_spec(
+      @http.Post,
+      "/api/company/sales/revenues/REV-1/confirm-received",
+    )
+    is Some(("confirm_received", Some("REV-1"))),
+  )
+  assert_true(
+    sales_revenue_command_spec(
+      @http.Delete,
+      "/api/company/sales/revenues/REV-1",
+    )
+    is Some(("delete", Some("REV-1"))),
+  )
+  assert_true(
+    sales_revenue_command_spec(
+      @http.Delete,
+      "/api/company/sales/revenues/REV/1",
+    )
+    is None,
+  )
+}
+
+///|
+test "native company service normalizes sales revenue authority and amount" {
+  let body = @json.parse(
+    "{\"revenue_id\":\"REV-1\",\"revenue_code\":\"SR-1\",\"proj_guid\":\"P-1\",\"customer_name\":\"Customer\",\"amount\":\"4567.00\",\"status\":\"expected\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":500000}}",
+  ) catch {
+    _ => Json::null()
+  }
+  let request = sales_revenue_create_request(body, "actor-1")
+  assert_eq(json_text(request, "revenue_guid", ""), "REV-1")
+  assert_eq(json_int(request, "amount_minor", 0), 456700)
+  assert_eq(json_text(request, "amount", ""), "4567.00")
+  assert_eq(json_text(request, "state", ""), "expected")
+  assert_eq(
+    json_int(json_field(request, "authority").unwrap(), "max_amount_minor", 0),
+    500000,
+  )
+  let update = sales_revenue_update_request(
+    "REV-1",
+    @json.parse(
+      "{\"customer_name\":\"Updated\",\"principal_id\":\"principal-1\",\"scope\":\"project:P-1\",\"authority\":{\"active\":true,\"principal_id\":\"principal-1\",\"actor_id\":\"actor-1\",\"scope\":\"project:P-1\",\"capability\":\"sales:revenue:update\",\"max_amount_minor\":0}}",
+    ) catch {
+      _ => Json::null()
+    },
+    "actor-1",
+  )
+  assert_eq(
+    json_text(json_field(update, "changes").unwrap(), "customer_name", ""),
+    "Updated",
+  )
+}
+
+///|
 test "native company service maps supplier command paths" {
   assert_true(
     supplier_command_spec(@http.Post, "/api/company/suppliers")

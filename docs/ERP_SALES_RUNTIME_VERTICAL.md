@@ -12,7 +12,7 @@ turning a revenue row into an implicit cash or accounting event.
 
 ## Connected API
 
-`scripts/company_postgres_service.py` exposes:
+The native `cmd/postgres_company_service` exposes:
 
 - `GET /api/company/sales/customers[/:id]`;
 - `GET /api/company/sales/subscriptions[/:id]`;
@@ -23,6 +23,19 @@ turning a revenue row into an implicit cash or accounting event.
 - `GET /api/company/receivables[/:id]`;
 - `GET /api/company/invoices[/:id]` for reviewed invoice/subledger
   projections when an invoice cohort is present.
+
+Revenue writes are also native and authority-bound:
+
+- `POST /api/company/sales/revenues` creates a local expected/received
+  projection;
+- `PUT /api/company/sales/revenues/:id` updates mutable revenue fields;
+- `POST /api/company/sales/revenues/:id/confirm-received` advances an expected
+  revenue to received;
+- `DELETE /api/company/sales/revenues/:id` records a local tombstone.
+
+The former Python service remains frozen comparison evidence only. All native
+commands require the signed actor assertion, an active principal/scope/
+capability grant, and an `Idempotency-Key`.
 
 Local commands use the same idempotent company-command and immutable revision
 boundary:
@@ -64,12 +77,11 @@ promote source rows.
 
 ## Evidence
 
-The authenticated service smoke covers a disposable customer → reservation →
-fulfilled agreement → receivable workflow plus mortgage approval/release,
-refund approval/payment, and an authority-checked revenue
+The native shell smoke covers an authority-checked revenue
 create/replay/update/confirm/delete workflow with source-shaped readback. The
 trusted gateway smoke covers the same revenue command family through the
-session boundary.
+session boundary; the broader sales cohort remains a separate projection
+rehearsal.
 
 The reviewed synthetic sales cohort contains one customer, converted
 subscription, fulfilled agreement, opened receivable, released mortgage, paid

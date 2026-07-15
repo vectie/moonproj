@@ -174,6 +174,52 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/invoice-delete.json" -w '%{
 test "$status" = 200
 /usr/bin/jq -e '.invoice.state == "deleted"' "$TMP_DIR/invoice-delete.json" >/dev/null
 
+gateway_sales_revenue_suffix=$(/bin/date +%s)
+gateway_sales_revenue_id="REV-GW-SMOKE-$gateway_sales_revenue_suffix"
+gateway_sales_revenue_principal="co-gateway-sales-revenue-smoke"
+gateway_sales_revenue_scope="project:proj-0001"
+gateway_sales_revenue_create_body="{\"revenue_id\":\"$gateway_sales_revenue_id\",\"revenue_code\":\"SR-GW-SMOKE-$gateway_sales_revenue_suffix\",\"proj_guid\":\"proj-0001\",\"customer_name\":\"gateway sales revenue smoke\",\"amount_minor\":123450,\"receive_date\":\"2026-07-15\",\"status\":\"expected\",\"principal_id\":\"$gateway_sales_revenue_principal\",\"scope\":\"$gateway_sales_revenue_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_sales_revenue_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_sales_revenue_scope\",\"capability\":\"sales:revenue:create\",\"max_amount_minor\":150000}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/sales-revenue-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-sales-revenue-create-$gateway_sales_revenue_suffix" \
+  --data "$gateway_sales_revenue_create_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/revenues")
+test "$status" = 201
+/usr/bin/jq -e --arg id "$gateway_sales_revenue_id" \
+  '.revenue.aggregate_id == $id and .revenue.state == "expected" and .idempotent_replay == false' \
+  "$TMP_DIR/sales-revenue-create.json" >/dev/null
+
+gateway_sales_revenue_update_body="{\"customer_name\":\"gateway sales revenue smoke updated\",\"principal_id\":\"$gateway_sales_revenue_principal\",\"scope\":\"$gateway_sales_revenue_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_sales_revenue_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_sales_revenue_scope\",\"capability\":\"sales:revenue:update\",\"max_amount_minor\":0}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/sales-revenue-update.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-sales-revenue-update-$gateway_sales_revenue_suffix" \
+  --data "$gateway_sales_revenue_update_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/revenues/$gateway_sales_revenue_id")
+test "$status" = 200
+/usr/bin/jq -e '.revenue.state == "expected"' "$TMP_DIR/sales-revenue-update.json" >/dev/null
+
+gateway_sales_revenue_confirm_body="{\"principal_id\":\"$gateway_sales_revenue_principal\",\"scope\":\"$gateway_sales_revenue_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_sales_revenue_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_sales_revenue_scope\",\"capability\":\"sales:revenue:confirm_received\",\"max_amount_minor\":0}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/sales-revenue-confirm.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-sales-revenue-confirm-$gateway_sales_revenue_suffix" \
+  --data "$gateway_sales_revenue_confirm_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/revenues/$gateway_sales_revenue_id/confirm-received")
+test "$status" = 200
+/usr/bin/jq -e '.revenue.state == "received"' "$TMP_DIR/sales-revenue-confirm.json" >/dev/null
+
+gateway_sales_revenue_delete_body="{\"principal_id\":\"$gateway_sales_revenue_principal\",\"scope\":\"$gateway_sales_revenue_scope\",\"authority\":{\"active\":true,\"principal_id\":\"$gateway_sales_revenue_principal\",\"actor_id\":\"rabbita-user\",\"scope\":\"$gateway_sales_revenue_scope\",\"capability\":\"sales:revenue:delete\",\"max_amount_minor\":0}}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/sales-revenue-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-sales-revenue-delete-$gateway_sales_revenue_suffix" \
+  --data "$gateway_sales_revenue_delete_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/revenues/$gateway_sales_revenue_id")
+test "$status" = 200
+/usr/bin/jq -e '.revenue.state == "deleted"' "$TMP_DIR/sales-revenue-delete.json" >/dev/null
+
 gateway_payment_suffix=$(/bin/date +%s)
 gateway_payment_id="PAY-GW-SMOKE-$gateway_payment_suffix"
 gateway_payment_body="{\"htfkApplyGuid\":\"$gateway_payment_id\",\"applyCode\":\"PA-GW-$gateway_payment_suffix\",\"contractGuid\":\"$gateway_contract_id\",\"subject\":\"gateway smoke payment\",\"applyAmount\":12.34,\"applyDate\":\"2026-07-15\"}"
