@@ -457,27 +457,105 @@ async fn cashflow_inflow_response(
   bu_guid : String?,
   proj_guid : String?,
 ) -> Json raise CompanyServiceError {
+  if months < 1 || months > 24 {
+    raise reject(422, "months must be between 1 and 24")
+  }
+  match bu_guid {
+    Some(value) if !valid_identifier(value) =>
+      raise reject(422, "invalid bu_guid")
+    _ => ()
+  }
+  match proj_guid {
+    Some(value) if !valid_identifier(value) =>
+      raise reject(422, "invalid proj_guid")
+    _ => ()
+  }
   let context = cashflow_context()
   let month_list = cashflow_months(months + 3, -3)
-  let series = month_list.map(fn(month) {
-    Json::object({
-      "ym": Json::string(month),
-      "received": Json::number(0),
-      "expected": Json::number(0),
-      "overdue": Json::number(0),
-      "total": Json::number(0),
-      "cumulative": Json::number(0),
+  let month_set : Map[String, Bool] = {}
+  let series_values : Map[String, Map[String, Double]] = {}
+  for month in month_list {
+    month_set.set(month, true)
+    series_values.set(month, {
+      "received": 0.0,
+      "expected": 0.0,
+      "overdue": 0.0,
     })
-  })
+  }
+  let today = @env.now().to_string()[0:10].to_owned()
+  for row in context.rows.get_or_default("sale_revenue", []) {
+    if !dashboard_active(row.payload) {
+      continue
+    }
+    if bu_guid is Some(value) &&
+      report_text(row.payload, "bu_guid", "") != value {
+      continue
+    }
+    if proj_guid is Some(value) &&
+      report_text(row.payload, "proj_guid", "") != value {
+      continue
+    }
+    let month = cashflow_month(row.payload, "receive_date")
+    if !month_set.contains(month) {
+      continue
+    }
+    let state = report_text(row.payload, "status", "")
+    let receive_date = report_text(row.payload, "receive_date", "")
+    let normalized_state = if state == "expected" &&
+      receive_date.length() >= 10 &&
+      receive_date[0:10].to_owned() < today {
+      "overdue"
+    } else {
+      state
+    }
+    if normalized_state == "received" ||
+      normalized_state == "expected" ||
+      normalized_state == "overdue" {
+      match series_values.get(month) {
+        Some(values) => {
+          values.set(
+            normalized_state,
+            values.get_or_default(normalized_state, 0.0) +
+            report_amount(row.payload, "amount"),
+          )
+          series_values.set(month, values)
+        }
+        None => ()
+      }
+    }
+  }
+  let mut cumulative = 0.0
+  let series : Array[Json] = []
+  for month in month_list {
+    let values = series_values.get_or_default(month, {})
+    let received = values.get_or_default("received", 0.0)
+    let expected = values.get_or_default("expected", 0.0)
+    let overdue = values.get_or_default("overdue", 0.0)
+    let total = received + expected + overdue
+    cumulative += total
+    series.push(
+      Json::object({
+        "ym": Json::string(month),
+        "received": Json::number(received),
+        "expected": Json::number(expected),
+        "overdue": Json::number(overdue),
+        "total": Json::number(round_places(total, 2)),
+        "cumulative": Json::number(round_places(cumulative, 2)),
+      }),
+    )
+  }
+  let sum_field = fn(key : String) -> Double {
+    series.fold(init=0.0, fn(sum, row) { sum + report_amount(row, key) })
+  }
   cashflow_envelope(
     Json::object({
       "months": Json::array(month_list.map(fn(value) { Json::string(value) })),
       "series": Json::array(series),
       "totals": Json::object({
-        "receivedTotal": Json::number(0),
-        "expectedTotal": Json::number(0),
-        "overdueTotal": Json::number(0),
-        "totalInflow": Json::number(0),
+        "receivedTotal": Json::number(sum_field("received")),
+        "expectedTotal": Json::number(sum_field("expected")),
+        "overdueTotal": Json::number(sum_field("overdue")),
+        "totalInflow": Json::number(sum_field("total")),
       }),
     }),
     context.coverage,
@@ -486,40 +564,51 @@ async fn cashflow_inflow_response(
 
 ///|
 async fn cashflow_net_response(months : Int) -> Json raise CompanyServiceError {
+  if months < 1 || months > 24 {
+    raise reject(422, "months must be between 1 and 24")
+  }
+  let context = cashflow_context()
   let forecast = cashflow_forecast_response(months, None, None)
   let data = json_field(forecast, "data").unwrap_or(Json::object({}))
   let rows = json_field(data, "series").unwrap_or(Json::array([]))
+  let revenue_by_month : Map[String, Double] = {}
+  for row in context.rows.get_or_default("sale_revenue", []) {
+    if dashboard_active(row.payload) {
+      let month = cashflow_month(row.payload, "receive_date")
+      revenue_by_month.set(
+        month,
+        revenue_by_month.get_or_default(month, 0.0) +
+        report_amount(row.payload, "amount"),
+      )
+    }
+  }
   let series : Array[Json] = []
+  let mut cumulative = 0.0
   match rows {
     Array(values) =>
       for row in values {
+        let month = json_text(row, "ym", "")
+        let inflow = revenue_by_month.get_or_default(month, 0.0)
+        let outflow = report_amount(row, "planned") +
+          report_amount(row, "pending")
+        let net = inflow - outflow
+        cumulative += net
         series.push(
           Json::object({
-            "ym": json_field(row, "ym").unwrap_or(Json::string("")),
-            "inflow": Json::number(0),
-            "outflow": json_field(row, "totalOutflow").unwrap_or(
-              Json::number(0),
-            ),
-            "net": Json::number(-report_amount(row, "totalOutflow")),
-            "cumulativeNet": Json::number(0),
+            "ym": Json::string(month),
+            "inflow": Json::number(round_places(inflow, 2)),
+            "outflow": Json::number(round_places(outflow, 2)),
+            "net": Json::number(round_places(net, 2)),
+            "cumulativeNet": Json::number(round_places(cumulative, 2)),
           }),
         )
       }
     _ => ()
   }
-  cashflow_envelope(Json::object({ "series": Json::array(series) }), {
-    "cb_htfkplan": 4,
-    "cb_htfk_apply": 3,
-    "cb_contract": 2,
-    "sale_revenue": 0,
-    "vcb_expense": 0,
-    "vcb_loan_simple": 1,
-    "cb_contract_milestone": 0,
-    "cb_plan_version": 0,
-    "cb_subject_dict": 0,
-    "ep_project": 2,
-    "mu_business_unit": 7,
-  })
+  cashflow_envelope(
+    Json::object({ "series": Json::array(series) }),
+    context.coverage,
+  )
 }
 
 ///|
