@@ -1363,6 +1363,21 @@ workflow-engine synchronization false or gated. The budget-expense smoke
 proves create, replay, readback, auto-offset/replay, update, submit, and void;
 the controlled export still has zero imported expense rows.
 
+**Mutation-boundary checkpoint (2026-07-16).** The native service now exposes
+explicit authenticated candidates for every remaining source mutation family.
+`POST /api/company/budget/expenses/:guid/sync-from-workflow` returns a 409 until
+workflow source rows exist. CBS R0 resolution, demo contracts, contract
+approval/payment, and change writes return a `cbs_mutation_boundary_candidate`
+409 with no persistence or financial effect. Project/contract batch imports
+return an `import_batch_candidate` 409 until row validation and transactional
+commit are implemented. Destructive sales-customer delete returns a
+`sales_customer_delete_candidate` 409 because the product policy is archive,
+not hard delete. Auth login/logout/password/profile writes return an
+`auth_lifecycle_candidate` 409 until production identity, password/session
+storage, and security-owner acceptance are available. The parity ledger now
+has zero `not_connected` API handlers; these candidate states remain explicit
+acceptance gates rather than functional-parity claims.
+
 **Report-builder command checkpoint (2026-07-15).** The report-builder
 boundary is now native MoonBit rather than a Python-only comparison surface.
 Metadata preserves all ten source table definitions and eight operators;

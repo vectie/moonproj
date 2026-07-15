@@ -1,6 +1,6 @@
 # Implementation Status
 
-Recorded: 2026-07-15
+Recorded: 2026-07-16
 Reference plan: [MIGRATION_PLAN.md](MIGRATION_PLAN.md)
 
 Source translation: [ERP_TRANSLATION_MAP.md](ERP_TRANSLATION_MAP.md)
@@ -14,6 +14,7 @@ existing ERP remains authoritative.
 |---|---|---|
 | Runtime language boundary | `docs/MIGRATION_PLAN.md` + `scripts/pure_moonbit_runtime_paths.txt` + `scripts/company_no_python_runtime_gate.sh` | The approved target is pure MoonBit plus shell orchestration. The allow-listed runtime manifest is checked by a shell gate that rejects Python interpreter/module invocations in supported `cmd`, Rabbita, PostgreSQL, gateway, service, smoke, and source-inventory paths. Existing Python services, gateways, migration adapters, source probes, and smokes are frozen comparison evidence only; no new Python surface is allowed. Native MoonBit replacements must preserve routing, authorization, response envelopes, receipts, and replay behavior before each legacy bridge is archived. |
 | No-Python release gate | `scripts/company_no_python_runtime_gate.sh` + `scripts/pure_moonbit_runtime_paths.txt` | The shell-only gate passes for the current supported manifest and fails closed on missing paths, unsafe manifest entries, Python interpreter/module calls, or `.py` executable references. Legacy Python rehearsal shells are intentionally outside the manifest until their MoonBit replacements are complete. |
+| Remaining ERP mutation boundaries | `cmd/postgres_company_service/boundary_candidates.mbt` + `scripts/company_postgres_boundary_smoke.sh` + `ERP_AUTH_RUNTIME_AUDIT.md` + `ERP_IMPORT_RUNTIME_AUDIT.md` | Native MoonBit now recognizes every previously unported source mutation family: auth login/logout/password/profile, project/contract batch import, destructive sales-customer delete, and the remaining CBS R0/demo-contract/contract-approval/change writes. Each returns an authenticated, explicit 409 candidate with `persisted=false` and no cash/accounting/tax/provider effect; the parity ledger has zero `not_connected` API handlers. These are visible policy/identity gates, not claims of production auth, import transactions, destructive deletion, or CBS approval semantics. |
 | Legal-entity validation | `foundation` | Entity ID, name, and currency validation tests. |
 | Local RBAC and delegated authority directory | `foundation/access` | Versioned roles, exact-scope permissions, principal/actor assignments, assignment caps, revocation, effective-dated delegation, bounded `AuthorityGrant` issuance, and exact-scope separation-of-duties rules are implemented and tested; the reviewed native access importer now exercises this boundary while real source role rows remain absent. |
 | Organization hierarchy | `foundation/organization` | Business-unit/company hierarchy, parent validation, duplicate protection, and scoped activation. |
