@@ -46,10 +46,24 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 /usr/bin/jq -e '.capabilities | index("attachment_re_extract_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("attachment_upload_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("attachment_delete_candidate")' "$TMP_DIR/health.json" >/dev/null
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/reextract.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
   "http://127.0.0.1:$PORT/api/company/source/attachments/re-extract/missing-attachment")
 test "$status" = 404
 /usr/bin/jq -e '.success == false and .code == 43001 and .persisted == false and .provider_execution == false and .authorizing == false' "$TMP_DIR/reextract.json" >/dev/null
-echo "native PostgreSQL attachment re-extraction candidate smoke passed"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/upload.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  "http://127.0.0.1:$PORT/api/company/attachments/upload")
+test "$status" = 409
+/usr/bin/jq -e '.code == 43002 and .data.multipartAccepted == false and .persisted == false and .authorizing == false' "$TMP_DIR/upload.json" >/dev/null
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/delete.json" -w '%{http_code}' -X DELETE \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
+  "http://127.0.0.1:$PORT/api/company/attachments/missing-attachment")
+test "$status" = 409
+/usr/bin/jq -e '.code == 43003 and .data.deleted == false and .persisted == false and .authorizing == false' "$TMP_DIR/delete.json" >/dev/null
+echo "native PostgreSQL attachment upload/delete/re-extraction candidate smoke passed"

@@ -75,6 +75,8 @@
     "connected_ai_stats_badge_batch_read": 1,
     "connected_attachment_read": 1,
     "attachment_re_extract_candidate": 1,
+    "attachment_upload_candidate": 1,
+    "attachment_delete_candidate": 1,
     "connected_cashflow_read": 1,
     "connected_cashflow_ai_explain_candidate": 1,
     "connected_cbs_read": 4,
@@ -1388,8 +1390,8 @@
       "browser_route_paths": [
         "/attachments"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "attachment_upload_candidate",
+      "required_next": "accept_browser_attachment_upload_scenario_and_ai_owner"
     },
     {
       "module": "attachment",
@@ -1418,8 +1420,8 @@
       "browser_route_paths": [
         "/attachments"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "attachment_delete_candidate",
+      "required_next": "accept_browser_attachment_delete_scenario_and_ai_owner"
     },
     {
       "module": "attachment",

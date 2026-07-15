@@ -35,14 +35,15 @@ its reviewed fixture rows when the transport fails.
 
 The parity matrix marks source `GET /list`, `/all`, and `/stats` as
 `connected_attachment_read` and the download route as a
-`connected_attachment_boundary`; `POST /re-extract/:guid` is now an
-`attachment_re_extract_candidate`. The current matrix leaves actual binary
-storage/serving and OCR provider execution gated.
+`connected_attachment_boundary`; signed `POST /upload`, `DELETE /:guid`, and
+`POST /re-extract/:guid` are now explicit upload/delete/OCR candidates. The
+current matrix leaves actual binary storage/serving and OCR provider execution
+gated.
 
 ## Open gates
 
-Upload, binary download/preview beyond the missing-data boundary, deletion,
-provider-backed OCR re-extraction, retention,
+Multipart upload, binary download/preview beyond the missing-data boundary,
+object deletion, provider-backed OCR re-extraction, retention,
 malware scanning, object-store ownership, production identity, and owner
 acceptance remain unimplemented gates. No attachment migration cutover is
 authorized by this read-only slice.

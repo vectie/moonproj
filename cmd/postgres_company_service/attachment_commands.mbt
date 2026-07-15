@@ -81,3 +81,85 @@ async fn attachment_reextract_response(
       )
   }
 }
+
+///|
+fn attachment_upload_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Post &&
+  (
+    path == "/api/company/attachments/upload" ||
+    path == "/api/company/source/attachments/upload"
+  )
+}
+
+///|
+fn attachment_upload_gate() -> (Int, Json) {
+  (
+    409,
+    Json::object({
+      "success": Json::boolean(false),
+      "code": Json::number(43002),
+      "message": Json::string(
+        "附件上传需要对象存储与负责人确认；当前 native 服务不接受 multipart。",
+      ),
+      "data": Json::object({
+        "multipartAccepted": Json::boolean(false),
+        "binaryStorage": Json::string("not_imported"),
+      }),
+      "source_kind": Json::string("attachment_upload_candidate"),
+      "dry_run": Json::boolean(true),
+      "persisted": Json::boolean(false),
+      "provider_execution": Json::boolean(false),
+      "authorizing": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+fn attachment_delete_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  let prefixes = [
+    "/api/company/attachments/", "/api/company/source/attachments/",
+  ]
+  for prefix in prefixes {
+    if request_method is @http.Delete && path.has_prefix(prefix) {
+      let guid = path[prefix.length():].to_owned()
+      if valid_identifier(guid) &&
+        guid != "upload" &&
+        guid != "all" &&
+        guid != "list" &&
+        guid != "stats" {
+        return Some(guid)
+      }
+    }
+  }
+  None
+}
+
+///|
+fn attachment_delete_gate(attachment_guid : String) -> (Int, Json) {
+  (
+    409,
+    Json::object({
+      "success": Json::boolean(false),
+      "code": Json::number(43003),
+      "message": Json::string(
+        "附件删除需要对象存储所有权与负责人确认；当前 native 服务不执行删除。",
+      ),
+      "data": Json::object({
+        "attGuid": Json::string(attachment_guid),
+        "deleted": Json::boolean(false),
+        "binaryStorage": Json::string("not_imported"),
+      }),
+      "source_kind": Json::string("attachment_delete_candidate"),
+      "dry_run": Json::boolean(true),
+      "persisted": Json::boolean(false),
+      "provider_execution": Json::boolean(false),
+      "authorizing": Json::boolean(false),
+    }),
+  )
+}

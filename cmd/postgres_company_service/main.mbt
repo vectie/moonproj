@@ -15950,6 +15950,8 @@ async fn route(
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
             Json::string("attachment_re_extract_candidate"),
+            Json::string("attachment_upload_candidate"),
+            Json::string("attachment_delete_candidate"),
             Json::string("investment_excel_index_upsert_candidate"),
             Json::string("investment_excel_plan_line_import_candidate"),
             Json::string("investment_subject_mappings_candidate"),
@@ -16348,6 +16350,35 @@ async fn handle(
           return
         }
       }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  if attachment_upload_spec(request.meth, path) {
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let _ = actor
+    let result = attachment_upload_gate()
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
+  }
+  match attachment_delete_spec(request.meth, path) {
+    Some(attachment_guid) => {
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let _ = actor
+      let result = attachment_delete_gate(attachment_guid)
       send_json(conn, request.meth, result.0, result.1, false)
       return
     }
