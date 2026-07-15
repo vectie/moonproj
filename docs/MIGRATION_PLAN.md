@@ -2044,6 +2044,17 @@ Execute the remainder in this order:
     progress plan envelope. Native import remains Draft-only evidence; delivery
     acceptance, recognition, cost, budget, cash, and task-state effects remain
     separate gates.
+
+3a.20. **Native reviewed delivery-recognition planner (2026-07-16).**
+    `cmd/delivery_recognition_plan` and
+    `scripts/erp_delivery_recognition_plan.sh` now replace the export-backed
+    Python recognition compiler in the PostgreSQL cohort path. The native
+    planner preserves explicit task/project joins, separately reviewed
+    acceptance and evidence, positive measured value, account mappings,
+    deterministic quarantine reasons, and the exact delivery-recognition plan
+    envelope. Native import still creates only a pending-posting source-to-
+    journal link; it does not post, release cash, determine tax, or close a
+    period.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

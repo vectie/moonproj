@@ -195,7 +195,7 @@ if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
 fi
 
 if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_delivery_recognition_plan.py" \
+  "$SCRIPT_DIR/erp_delivery_recognition_plan.sh" \
     "$EXPORT_DIR" "$DELIVERY_RECOGNITION_MAPPING" \
     "$WORK_DIR/delivery-recognition-plan.json"
   moon run --target native cmd/delivery_recognition -- \
