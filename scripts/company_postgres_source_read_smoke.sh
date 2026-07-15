@@ -64,6 +64,8 @@ request workflow_mine '/api/company/source/workflow/tasks/mine?userId=user-lmj-0
 request workflow_initiated '/api/company/source/workflow/tasks/initiated?userId=user-lmj-0001'
 request workflow_history '/api/company/source/workflow/tasks/my-history?userId=user-lmj-0001'
 request workflow_biz '/api/company/source/workflow/instances/by-biz?bizType=contract&bizDataGuid=ht-tj-001'
+request workflow_defs /api/company/workflow/process-defs
+request workflow_preview /api/company/workflow/process-defs/expense-approval/preview
 request dynamic '/api/company/cost/dynamic-cost?projGuid=proj-0001'
 request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
 request delivery_progress '/api/company/source/delivery/progress?projGuid=proj-0001'
@@ -77,6 +79,21 @@ request project_lifecycle /api/company/projects/proj-0001/lifecycle
 request task_detail /api/company/tasks/task-003
 request loans /api/company/loans
 request loan_detail /api/company/loans/loan-001
+request reports /api/company/reports/overview
+request report_cost /api/company/reports/cost-summary
+request report_ledger /api/company/reports/contract-payment-ledger
+request report_supplier /api/company/reports/supplier-analysis
+request report_approval /api/company/reports/approval-efficiency
+request report_stage /api/company/reports/project-stage-matrix
+request investment_versions /api/company/investment/projects/proj-0001/versions
+request investment_indices /api/company/investment/versions/tzsy-ver-tjhjy-v1/indices
+request investment_profit /api/company/investment/projects/proj-0001/profit-summary
+request investment_sensitivity /api/company/investment/projects/proj-0001/sensitivity
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/investment/projects/proj-0001/profit-actual" >"$TMP_DIR/investment_actual.json"
+request investment_dimensions /api/company/investment/meta/dimensions
 request receivables /api/company/receivables
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -175,6 +192,19 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .source_coverage.wf_process_instance == 0 and .authorizing == false
 ' "$TMP_DIR/workflow_biz.json" >/dev/null
 /usr/bin/jq -e '
+  (.items | length) == 2 and
+  .source_coverage.wf_process_def == 2 and
+  .source_coverage.wf_step_def == 12 and
+  .source_coverage.wf_step_assignee == 6 and
+  .instances_available == 0 and .actions_available == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/workflow_defs.json" >/dev/null
+/usr/bin/jq -e '
+  .process_key == "expense-approval" and
+  (.steps | length) == 7 and .instances_available == 0 and
+  .actions_available == 0 and .authorizing == false
+' "$TMP_DIR/workflow_preview.json" >/dev/null
+/usr/bin/jq -e '
   .success == true and
   ((.data.items | map(select(.sourceKind == "imported")) | length) == 7) and
   ((.data.items | map(select(.sourceKind == "imported" and .isEndCost == true) | .A_targetCost) | add) == 35900000) and
@@ -238,6 +268,14 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .loan.loan_id == "loan-001" and (.offsets | length) == 1 and
   .loan.source_kind == "imported"
 ' "$TMP_DIR/loan_detail.json" >/dev/null
+/usr/bin/jq -e '
+  (.cost_summary.rows | length) == 2 and
+  (.contract_payment_ledger | length) == 2 and
+  (.project_stage_matrix.projects | length) == 2 and
+  .source_kind == "imported" and
+  .source_coverage.cb_cost == 7 and
+  .source_coverage.cb_contract == 2
+' "$TMP_DIR/reports.json" >/dev/null
 /usr/bin/jq -e '
   (.items | length) == 84 and
   .items[0].aggregate_type == "receivable" and
@@ -389,5 +427,42 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   (.missing_or_empty_source_tables | index("srm_provider")) != null and
   .provider_execution == false
 ' "$TMP_DIR/supplier_provider_risk.json" >/dev/null
+
+/usr/bin/jq -e '
+  (.rows | length) == 2 and .source_kind == "imported" and
+  .rows[0].dynamicCost == 36350000
+' "$TMP_DIR/report_cost.json" >/dev/null
+/usr/bin/jq -e '
+  (. | length) == 2 and .[0].source_kind == "imported"
+' "$TMP_DIR/report_ledger.json" >/dev/null
+/usr/bin/jq -e '(. | length) == 0' "$TMP_DIR/report_supplier.json" >/dev/null
+/usr/bin/jq -e '
+  (.byType | length) == 0 and .source_kind == "imported"
+' "$TMP_DIR/report_approval.json" >/dev/null
+/usr/bin/jq -e '
+  (.projects | length) == 2 and (.stages | length) == 7 and
+  .source_kind == "imported"
+' "$TMP_DIR/report_stage.json" >/dev/null
+/usr/bin/jq -e '
+  (.data | length) == 1 and .data[0].versionGuid == "tzsy-ver-tjhjy-v1" and
+  .data[0].isCurrent == true and .authorizing == false
+' "$TMP_DIR/investment_versions.json" >/dev/null
+/usr/bin/jq -e '
+  (.data | length) == 5 and ([.data[].items | length] | add) == 26 and
+  .source_coverage.tzsy_plan_index == 26
+' "$TMP_DIR/investment_indices.json" >/dev/null
+/usr/bin/jq -e '
+  .data.revenue == 18500 and .data.netProfit == 2890 and .data.irr == 14.8
+' "$TMP_DIR/investment_profit.json" >/dev/null
+/usr/bin/jq -e '
+  (.data.cases | length) == 6 and .authorizing == false and .persisted == false
+' "$TMP_DIR/investment_sensitivity.json" >/dev/null
+/usr/bin/jq -e '
+  .success == false and .code == 41002 and .simulation == false and
+  .source_coverage.tzsy_excel_import == 0 and .authorizing == false
+' "$TMP_DIR/investment_actual.json" >/dev/null
+/usr/bin/jq -e '
+  (.data | length) == 5 and .data[0].code == "key_point" and .authorizing == false
+' "$TMP_DIR/investment_dimensions.json" >/dev/null
 
 echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/marketing/fund/supplier read smoke passed"

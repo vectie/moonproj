@@ -1303,6 +1303,26 @@ source JSON/NDJSON export or a fully owner-approved disposition artifact. Any
 MySQL extraction step belongs to the ERP source boundary only; it is not part
 of the Moonproj target runtime.
 
+**Native endpoint audit (2026-07-15).** The report, dashboard, workflow
+definition, and primary investment-observation waves are no longer Python
+runtime dependencies: `cmd/postgres_company_service` now owns the five
+individual report reads plus `/reports/overview`, all seven dashboard/cockpit
+GET reads, workflow definition/preview, and investment versions/indices/profit
+reads. `scripts/company_postgres_source_read_smoke.sh` and
+`scripts/company_postgres_dashboard_smoke.sh` exercise these boundaries with
+PostgreSQL only. The gateway's GET forwarding is not proof of service coverage;
+a path can be allow-listed and still return a native 404. The remaining
+browser-visible families without native MoonBit service ownership are
+investment Excel/detail/plan-line/mapping surfaces and actual-profit
+simulation/mutations, cashflow forecast/detail and
+AI explain reads, CBS/dictionary and budget-reservation surfaces, warning
+rules/scans/tickets, attachment metadata plus binary/OCR operations,
+notification/admin/AI-hub/webhook reads and provider actions, RBAC users/roles
+and catalog writes, workflow process definitions/task actions, report-builder
+template/share lifecycle, and the remaining investment/cash/provider effects.
+Those surfaces stay explicitly gated rather than being represented by
+designer fixtures or the frozen Python bridge.
+
 The export contract now also checks every non-empty row for a non-null,
 unique declared primary-key value before reporting content verification. This
 strengthens the handoff without changing the current disposition: the
@@ -1411,19 +1431,22 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    detail and approval synchronization still require source rows and workflow
    data. See [`ERP_EXPENSE_RUNTIME_VERTICAL.md`](ERP_EXPENSE_RUNTIME_VERTICAL.md).
 4. **Reporting is locally connected but source-incomplete and not accepted.**
-   The five core report reads now run through the local PostgreSQL service,
-   read-model adapter, and Rabbita `/reports` overview. Cost, contract, and
+   The five core report reads now run through the native MoonBit PostgreSQL
+   service and Rabbita `/reports` overview. Cost, contract, and
    project-stage rows are populated from source raw tables; supplier and
    approval sections correctly remain empty because the backup has no provider
-   tables and zero workflow-instance/action rows. Templates, share links, production
+   tables and zero workflow-instance/action rows. The shell-only source-read
+   smoke proves the native report envelope. Templates, share links, production
    identity, browser acceptance, and report-owner reconciliation remain open.
    See [`ERP_REPORT_RUNTIME_AUDIT.md`](ERP_REPORT_RUNTIME_AUDIT.md).
 4a. **The dashboard/cockpit now has bounded v1, v2, and v3 read slices, but is
    not accepted parity.** The source cockpit exposes seven GET handlers
    (overview, funnel, top anomalies, project KPI/anomalies, and v2/v3 group
    views) over 30 unique tables. The target exposes all seven as authenticated
-   source-backed observations, and Rabbita loads the v1 group overview, funnel,
-   and anomaly rows while preserving the designer layout. Only 14 of the 30
+   native MoonBit source-backed observations, and Rabbita loads the v1 group
+   overview, funnel, and anomaly rows while preserving the designer layout.
+   The shell-only dashboard smoke proves the imported KPI and scope values.
+   Only 14 of the 30
    dependencies are present in the controlled export; 16 cross-domain tables
    needed by the full v3 view are absent. Every response reports source
    coverage and missing tables; no synthetic revenue, cash, health, warning, or
@@ -1679,7 +1702,8 @@ Execute the remainder in this order:
    source import parity. Recognition, budget/cost, cash, tax, and period-close
    effects remain separate gates.
 7. Finish report acceptance and then expand runtime vertical slices to the ERP
-   parity floor. The five core report reads and `/reports` overview now work;
+   parity floor. The five core report reads and `/reports` overview now work
+   through native MoonBit;
    obtain the missing supplier/workflow source rows (or owner-approved redacted
    cohort), run browser/report-owner reconciliation, and keep templates/share
    links separate. Synthetic rehearsals remain design evidence until real
@@ -1692,7 +1716,7 @@ Execute the remainder in this order:
    missing budget/expense/change tables explicitly; do not fill that hierarchy
    with dashboard fixtures and do not call the v3 screen parity complete until
    the source coverage and KPI reconciliation gate passes.
-9. Accept the bounded dashboard v1 and v2 gates in
+9. Accept the bounded native dashboard v1 and v2 gates in
    `docs/ERP_DASHBOARD_RUNTIME_AUDIT.md`
    through production identity, entity scope, and operations/finance KPI
    reconciliation. The v2 service read is mounted as a read-only observation;

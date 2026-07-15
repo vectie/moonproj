@@ -14470,6 +14470,129 @@ async fn route(
     }
     return loan_detail_response(loan_id)
   }
+  if path == "/api/company/reports/overview" {
+    return (200, reports_overview_response())
+  }
+  if path == "/api/company/investment/meta/dimensions" {
+    return (
+      200,
+      investment_envelope(Json::array(investment_dimension_rows()), {}),
+    )
+  }
+  let investment_project_prefix = "/api/company/investment/projects/"
+  if path.has_prefix(investment_project_prefix) {
+    if path.has_suffix("/versions") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/versions".length()].to_owned()
+      return (200, investment_versions_response(project_id))
+    }
+    if path.has_suffix("/profit-summary") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/profit-summary".length()].to_owned()
+      return (200, investment_profit_summary_response(project_id))
+    }
+    if path.has_suffix("/sensitivity") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/sensitivity".length()].to_owned()
+      return (200, investment_sensitivity_response(project_id))
+    }
+    if path.has_suffix("/profit-actual") {
+      let project_id = path[investment_project_prefix.length():path.length() -
+      "/profit-actual".length()].to_owned()
+      return investment_profit_actual_response(project_id)
+    }
+  }
+  let investment_indices_prefix = "/api/company/investment/versions/"
+  if path.has_prefix(investment_indices_prefix) && path.has_suffix("/indices") {
+    let version_id = path[investment_indices_prefix.length():path.length() -
+    "/indices".length()].to_owned()
+    return (
+      200,
+      investment_indices_response(
+        version_id,
+        query_alias_decoded(query, "dimension", "dimension"),
+      ),
+    )
+  }
+  if path == "/api/company/workflow/process-defs" {
+    return (
+      200,
+      workflow_process_defs_response(
+        query_alias_decoded(query, "processKey", "process_key"),
+      ),
+    )
+  }
+  let workflow_process_prefix = "/api/company/workflow/process-defs/"
+  if path.has_prefix(workflow_process_prefix) && path.has_suffix("/preview") {
+    let process_key = path[workflow_process_prefix.length():path.length() -
+    "/preview".length()].to_owned()
+    return workflow_process_preview_response(process_key)
+  }
+  if path == "/api/company/reports/cost-summary" {
+    return (200, report_cost_summary())
+  }
+  if path == "/api/company/reports/contract-payment-ledger" {
+    return (200, Json::array(report_contract_payment_ledger()))
+  }
+  if path == "/api/company/reports/supplier-analysis" {
+    return (200, Json::array(report_supplier_analysis()))
+  }
+  if path == "/api/company/reports/approval-efficiency" {
+    return (200, report_approval_efficiency())
+  }
+  if path == "/api/company/reports/project-stage-matrix" {
+    return (200, report_project_stage_matrix())
+  }
+  if path == "/api/company/dashboard/group/overview" {
+    return (200, dashboard_group_overview_response())
+  }
+  if path == "/api/company/dashboard/group/funnel" {
+    return (200, dashboard_group_funnel_response())
+  }
+  if path == "/api/company/dashboard/group/top-anomalies" {
+    let limit = parse_decimal(query_decoded(query, "limit").unwrap_or("10"))
+    return (200, dashboard_group_anomalies_response(limit))
+  }
+  if path == "/api/company/dashboard/v2/group" {
+    return (
+      200,
+      dashboard_v2_response(
+        query_alias_decoded(query, "buGuid", "bu_guid"),
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+      ),
+    )
+  }
+  if path == "/api/company/dashboard/v3/group" {
+    return (
+      200,
+      dashboard_v3_response(
+        query_alias_decoded(query, "buGuid", "bu_guid"),
+        query_alias_decoded(query, "projGuid", "proj_guid"),
+      ),
+    )
+  }
+  let dashboard_project_prefix = "/api/company/dashboard/project/"
+  if path.has_prefix(dashboard_project_prefix) {
+    let rest = path[dashboard_project_prefix.length():]
+      .to_owned()
+      .split("/")
+      .to_array()
+    if rest.length() == 2 && valid_identifier(rest[0].to_owned()) {
+      let project_id = rest[0].to_owned()
+      if rest[1] == "kpi" {
+        return dashboard_project_kpi_response(project_id)
+      }
+      if rest[1] == "anomalies" {
+        return dashboard_project_anomalies_response(project_id)
+      }
+    }
+    return (
+      404,
+      Json::object({
+        "error": Json::string("dashboard project route not found"),
+      }),
+    )
+  }
   if path == "/api/company/projects" {
     return (
       200,
@@ -14929,6 +15052,10 @@ async fn route(
             Json::string("project_plan_task_command"),
             Json::string("loan_read"),
             Json::string("loan_command"),
+            Json::string("reports_read"),
+            Json::string("dashboard_read"),
+            Json::string("workflow_definition_read"),
+            Json::string("investment_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
             Json::string("expense_detail_read"),

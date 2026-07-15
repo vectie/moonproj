@@ -30,7 +30,7 @@ workflow instances from this slice.
 
 ## Current evidence
 
-- PostgreSQL service smoke returns two process definitions, twelve steps, six
+- Native MoonBit PostgreSQL service smoke returns two process definitions, twelve steps, six
   assignees with imported user labels, and zero instance/action rows.
 - The loan preview returns the five source-defined loan approval steps while
   retaining `instances_available=0` and `actions_available=0`.
@@ -46,7 +46,7 @@ workflow instances from this slice.
 - The read-model preview endpoint returns the source-shaped seven-step
   `expense-approval` preview and a 404 for an unknown process key, preserving
   the service adapter's detail boundary.
-- `scripts/company_postgres_source_read_smoke.py` verifies the three empty list
+- `scripts/company_postgres_source_read_smoke.sh` verifies the three empty list
   reads, a null by-business lookup, and the source-compatible 43001 detail 404.
 - The parity matrix marks the two definition GET handlers as
   `connected_workflow_definition_read` and the five instance/task GET handlers

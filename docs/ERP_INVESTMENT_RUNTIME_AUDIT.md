@@ -39,7 +39,7 @@ fallback.
 
 ## Evidence
 
-- PostgreSQL service smoke returns one current version, 26 grouped indices,
+- Native MoonBit PostgreSQL service smoke returns one current version, 26 grouped indices,
   five dimension groups, and the source profit summary (`revenue=18500`,
   `netProfit=2890`, `irr=14.8`).
 - The parity matrix marks 13 source investment GET handlers as

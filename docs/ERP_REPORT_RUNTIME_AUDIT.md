@@ -29,7 +29,9 @@ surfaces.
 
 ## Current evidence
 
-- PostgreSQL service and read-model server both return the report overview.
+- The native MoonBit PostgreSQL service returns the five individual report
+  endpoints and the bundled overview; the shell-only source-read smoke covers
+  those routes without Python.
 - Current export produces two cost rows, two contract-payment rows, and two
   project-stage rows.
 - Current backup has no `srm_provider` or `srm_category` tables at all, and the
