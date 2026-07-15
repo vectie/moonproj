@@ -14752,6 +14752,18 @@ async fn route(
     let bu_guid = query_alias_decoded(query, "buGuid", "bu_guid")
     return (200, budget_source_users(bu_guid))
   }
+  if path == "/api/company/source/migration/schema-coverage" {
+    return (200, migration_schema_coverage_response())
+  }
+  if path == "/api/company/business-units/tree" {
+    return (200, business_units_tree_response())
+  }
+  if path == "/api/company/budget/dict/cost-subjects" {
+    return (200, budget_cost_subjects_response())
+  }
+  if path == "/api/company/budget/proceedings" {
+    return (200, budget_proceedings_response())
+  }
   if path == "/api/company/source/budget/my-loan-balance" {
     let user_code = query_alias_decoded(query, "userCode", "user_code")
     let user_id = query_alias_decoded(query, "userId", "user_id")
@@ -15841,6 +15853,15 @@ async fn route(
   }
   if path == "/api/company/srm/providers" {
     return (200, supplier_source_list_response())
+  }
+  if path == "/api/company/srm/stats/overview" {
+    return (200, supplier_source_stats_response())
+  }
+  if path == "/api/company/srm/risk-board" {
+    return (200, supplier_risk_board_source_response())
+  }
+  if path == "/api/company/supplier-risk-board" {
+    return (200, supplier_command_risk_board_response())
   }
   let supplier_prefix = "/api/company/srm/providers/"
   if path.has_prefix(supplier_prefix) && path.has_suffix("/risk") {

@@ -74,6 +74,9 @@ request payments '/api/company/source/cost/payment-applies?view=all'
 request keyword '/api/company/source/cost/contracts?keyword=%E5%B9%95%E5%A2%99'
 request budget_users '/api/company/source/budget/users-in-bu?buGuid=bu-tjgs-0001'
 request budget_loan '/api/company/source/budget/my-loan-balance?userCode=limingjin'
+request business_units /api/company/business-units/tree
+request budget_cost_subjects /api/company/budget/dict/cost-subjects
+request budget_proceedings /api/company/budget/proceedings
 request workflow_mine '/api/company/source/workflow/tasks/mine?userId=user-lmj-0001'
 request workflow_initiated '/api/company/source/workflow/tasks/initiated?userId=user-lmj-0001'
 request workflow_history '/api/company/source/workflow/tasks/my-history?userId=user-lmj-0001'
@@ -126,6 +129,7 @@ request cashflow_forecast_v3 '/api/company/cashflow/forecast-v3?months=6&projGui
 request cashflow_inflow '/api/company/cashflow/inflow?months=6&projGuid=proj-0001'
 request cashflow_gap '/api/company/cashflow/gap-alert?horizonDays=90'
 request cashflow_detail '/api/company/cashflow/forecast/detail?ym=2026-04&projGuid=proj-0001'
+request migration_schema /api/company/source/migration/schema-coverage
 request cbs_dict '/api/company/cbs/dict?projGuid=proj-0001'
 request cbs_versions '/api/company/cbs/versions?projGuid=proj-0001'
 request cbs_r0 '/api/company/cbs/r0/queue?projGuid=proj-0001'
@@ -202,6 +206,9 @@ request supplier_categories '/api/company/source/srm/categories'
 request supplier_eval '/api/company/source/srm/dict/eval-results'
 request supplier_sources '/api/company/source/srm/dict/sources'
 request supplier_providers '/api/company/srm/providers'
+request supplier_stats '/api/company/srm/stats/overview'
+request supplier_risk_board '/api/company/srm/risk-board'
+request supplier_command_risk_board '/api/company/supplier-risk-board'
 request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f8d3f5b34'
 /usr/bin/curl -sS \
   -H "Authorization: Bearer $TOKEN" \
@@ -251,6 +258,18 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .source_coverage.vcb_loan_simple == 1 and
   .scope_applied == true and .authorizing == false
 ' "$TMP_DIR/budget_loan.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | type) == "array" and
+  .source_coverage.mu_business_unit == 7 and .authorizing == false
+' "$TMP_DIR/business_units.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 5 and
+  .source_coverage.my_biz_param_option == 5 and .authorizing == false
+' "$TMP_DIR/budget_cost_subjects.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 3 and
+  .source_coverage.vys_proceeding == 3 and .authorizing == false
+' "$TMP_DIR/budget_proceedings.json" >/dev/null
 /usr/bin/jq -e '
   .success == true and (.data | length) == 0 and
   .source_coverage.wf_process_instance == 0 and
@@ -486,6 +505,16 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/supplier_providers.json" >/dev/null
 /usr/bin/jq -e '
+  .success == true and .data.total >= 0 and
+  (.data.byEvalResult | type) == "array" and
+  .source_coverage.srm_provider >= 0 and .authorizing == false
+' "$TMP_DIR/supplier_stats.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data.highRisk | type) == "array" and
+  (.data.distribution | type) == "array" and .authorizing == false
+' "$TMP_DIR/supplier_risk_board.json" >/dev/null
+/usr/bin/jq -e '(.items | type) == "array"' "$TMP_DIR/supplier_command_risk_board.json" >/dev/null
+/usr/bin/jq -e '
   .success == true and .data.provider.providerGuid == "SUP-SOURCE-SMOKE-4f8d3f5b34" and
   .data.provider.sourceKind == "command" and .authorizing == false
 ' "$TMP_DIR/supplier_provider_detail.json" >/dev/null
@@ -566,6 +595,12 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .data.ym == "2026-04" and (.data.plans | length) == 1 and
   .source_coverage.cb_htfkplan == 4 and .authorizing == false
 ' "$TMP_DIR/cashflow_detail.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and .source_kind == "migration_inventory" and
+  .data.schemaTableCount == 75 and .data.snapshotTableCount == 26 and
+  .data.importedTableCount >= 1 and .promotion_authorized == false and
+  .cutover_authorized == false
+' "$TMP_DIR/migration_schema.json" >/dev/null
 /usr/bin/jq -e '
   .data.planVersion == "baseline" and (.data.items | length) == 0 and
   .source_coverage.cb_subject_dict == 0 and .authorizing == false
