@@ -2129,6 +2129,23 @@ Execute the remainder in this order:
     direction, and the exact financing-accounting plan envelope. Lender calls,
     cash movement, book posting, tax treatment, and period close remain
     separate gates.
+3a.29. **Native marketing-cohort planner (2026-07-16).**
+    `cmd/marketing_cohort_plan` and `scripts/erp_marketing_cohort_plan.sh`
+    now replace the reviewed marketing Python compiler in the dedicated
+    rehearsal. The native planner preserves campaign/placement budget and
+    currency continuity, completed/placed state gates, catalog-only channel
+    and material evidence, recursive secret-key rejection, and the exact
+    marketing-cohort plan envelope. Provider calls, budget consumption, cash,
+    accounting, attribution, and period close remain separate gates.
+
+3a.30. **Native sales-cohort planner (2026-07-16).**
+    `cmd/sales_cohort_plan` and `scripts/erp_sales_cohort_plan.sh` now replace
+    the reviewed sales/receivables Python compiler in the dedicated rehearsal.
+    The native planner preserves customer/subscription/agreement continuity,
+    mortgage and refund bounds, source-evidence-only revenue, recursive
+    secret-key rejection, and the exact sales-cohort plan envelope. Collection,
+    refund cash, revenue recognition, accounting, and period close remain
+    separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

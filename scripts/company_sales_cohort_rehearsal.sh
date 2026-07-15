@@ -18,7 +18,7 @@ PG_USER=${PGUSER:-moonproj}
 mkdir -p "$WORK_DIR"
 rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 
-python3 "$SCRIPT_DIR/erp_sales_cohort_plan.py" \
+"$SCRIPT_DIR/erp_sales_cohort_plan.sh" \
   "$SALES_MAPPING" "$WORK_DIR/sales-cohort-plan.json"
 moon run --target native cmd/sales_cohort -- \
   "$WORK_DIR/sales-cohort-plan.json" "$WORK_DIR/sales-cohort-receipt.json"
