@@ -157,14 +157,6 @@ fn cbs_mutation_boundary_spec(
       return Some(rest)
     }
   }
-  if request_method is @http.Put && rest.has_prefix("demo/contracts/") {
-    let parts = rest.split("/").to_array()
-    if parts.length() == 3 &&
-      valid_identifier(parts[1].to_owned()) &&
-      parts[2].to_owned() == "state" {
-      return Some(rest)
-    }
-  }
   if request_method is @http.Delete && rest == "demo/clear" {
     return Some(rest)
   }

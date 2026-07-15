@@ -19,6 +19,27 @@ fn cbs_demo_contract_command_spec(
 }
 
 ///|
+fn cbs_demo_contract_state_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  let prefixes = [
+    "/api/company/cbs/demo/contracts/", "/api/company/source/cbs/demo/contracts/",
+  ]
+  for prefix in prefixes {
+    if request_method is @http.Put &&
+      path.has_prefix(prefix) &&
+      path.has_suffix("/state") {
+      let id = path[prefix.length():path.length() - "/state".length()].to_owned()
+      if valid_identifier(id) {
+        return Some(id)
+      }
+    }
+  }
+  None
+}
+
+///|
 fn cbs_demo_contract_text(
   body : Json,
   primary : String,
@@ -116,9 +137,185 @@ fn cbs_demo_contract_request(
     "ht_amount": Json::number((amount * 10000.0).to_int().to_double()),
     "sum_alter_amount": Json::number(0.0),
     "cb_state": Json::string(state),
+    "state": Json::string(state),
     "budget_check_pending": Json::boolean(true),
     "actor_id": Json::string(actor_id),
   })
+}
+
+///|
+async fn cbs_demo_contract_state_command(
+  contract_id : String,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(contract_id) {
+    raise reject(422, "contract id is invalid")
+  }
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let to_state = cbs_demo_contract_text(body, "to_state", "toState", true, true)
+  let valid_state = to_state == "draft" ||
+    to_state == "approving" ||
+    to_state == "signed" ||
+    to_state == "paid"
+  if !valid_state {
+    raise reject(400, "invalid demo contract state")
+  }
+  let remark = cbs_demo_contract_text(body, "remark", "remark", false, false)
+  let request = Json::object({
+    "command_type": Json::string("state"),
+    "contract_guid": Json::string(contract_id),
+    "to_state": Json::string(to_state),
+    "remark": Json::string(remark),
+    "actor_id": Json::string(actor_id),
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      let result = json_field(existing, "result").unwrap_or(Json::null())
+      return (
+        200,
+        Json::object({
+          "success": Json::boolean(true),
+          "code": Json::number(0),
+          "data": result,
+          "contract": result,
+          "command": existing,
+          "idempotent_replay": Json::boolean(true),
+          "source_kind": Json::string("command"),
+          "authorizing": Json::boolean(false),
+          "persisted": Json::boolean(true),
+          "budget_consumption": Json::boolean(false),
+          "cash_effect": Json::boolean(false),
+          "accounting_effect": Json::boolean(false),
+          "tax_effect": Json::boolean(false),
+        }),
+      )
+    }
+    None => ()
+  }
+  let current = match cbs_latest_projection("cbs_demo_contract", contract_id) {
+    Some((payload, revision)) => (payload, revision)
+    None => {
+      if cbs_demo_contract_imported_exists(contract_id, "") {
+        raise reject(409, "imported CBS contract is read-only")
+      }
+      raise reject(404, "demo contract not found")
+    }
+  }
+  let from_state = json_text(
+    current.0,
+    "cb_state",
+    json_text(current.0, "state", "draft"),
+  )
+  let from_index = match from_state {
+    "draft" => 0
+    "approving" => 1
+    "signed" => 2
+    "paid" => 3
+    _ => -1
+  }
+  let to_index = match to_state {
+    "draft" => 0
+    "approving" => 1
+    "signed" => 2
+    _ => 3
+  }
+  if to_index != from_index + 1 {
+    raise reject(400, "demo contract state transition is not forward-only")
+  }
+  let event_id = "cbs_demo_contract_state:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let fields = cbs_copy_fields(current.0)
+  fields.set("cb_state", Json::string(to_state))
+  fields.set("state", Json::string(to_state))
+  fields.set("source_kind", Json::string("command"))
+  fields.set("event_id", Json::string(event_id))
+  fields.set("updated_by", Json::string(actor_id))
+  fields.set("remark", Json::string(remark))
+  let next_payload = Json::object(fields)
+  let result = Json::object({
+    "id": Json::string(contract_id),
+    "fromState": Json::string(from_state),
+    "toState": Json::string(to_state),
+    "actor": Json::string(actor_id),
+    "remark": Json::string(remark),
+    "event_id": Json::string(event_id),
+    "audit_id": Json::string(audit_id),
+    "budget_consumption": Json::boolean(false),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("cbs_demo_contract"),
+    "command_type": Json::string("state"),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("cbs_demo_contract"),
+    "aggregate_id": Json::string(contract_id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("cbs.demo.contract.state"),
+    "aggregate_type": Json::string("cbs_demo_contract"),
+    "aggregate_id": Json::string(contract_id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "from_state": Json::string(from_state),
+    "to_state": Json::string(to_state),
+  })
+  let next_revision = current.1 + 1
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_command'," +
+    @postgres.sql_literal(event_id) +
+    ",4," +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type,aggregate_id,revision,payload,source_event_id) VALUES ('cbs_demo_contract'," +
+    @postgres.sql_literal(contract_id) +
+    "," +
+    next_revision.to_string() +
+    "," +
+    @postgres.sql_literal(next_payload.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type,record_id,schema_version,payload,source_id) VALUES ('company_audit_event'," +
+    @postgres.sql_literal(audit_id) +
+    ",4," +
+    @postgres.sql_literal(audit.stringify()) +
+    "::jsonb," +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    200,
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "data": result,
+      "contract": result,
+      "command": command_payload,
+      "idempotent_replay": Json::boolean(false),
+      "source_kind": Json::string("command"),
+      "authorizing": Json::boolean(false),
+      "persisted": Json::boolean(true),
+      "budget_consumption": Json::boolean(false),
+      "cash_effect": Json::boolean(false),
+      "accounting_effect": Json::boolean(false),
+      "tax_effect": Json::boolean(false),
+    }),
+  )
 }
 
 ///|

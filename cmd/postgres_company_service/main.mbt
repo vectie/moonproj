@@ -17873,6 +17873,43 @@ async fn handle(
     send_json(conn, request.meth, result.0, result.1, false)
     return
   }
+  match cbs_demo_contract_state_spec(request.meth, path) {
+    Some(contract_id) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = cbs_demo_contract_state_command(
+        contract_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
   match cbs_mutation_boundary_spec(request.meth, path) {
     Some(action) => {
       let actor = command_actor(request, actor_signing_secret) catch {

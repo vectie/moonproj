@@ -54,6 +54,8 @@ The demo-contract create form is also native at `POST
 /api/company/cbs/demo/contracts` (and the `/source` alias). It persists a
 command-owned `cbs_demo_contract` projection, merges it into the demo-contract
 read, protects imported contracts, and reports `budgetCheckPending=true` with
-no budget, workflow, accounting, cash, or tax effect. Demo state transitions,
-legacy backfill, clear/delete, contract approval/payment, and change
-applications remain explicit candidates.
+no budget, workflow, accounting, cash, or tax effect. Forward-only local state
+transitions (`draft` → `approving` → `signed` → `paid`) are also persisted
+with revisions and audit receipts; they remain non-authorizing. Legacy
+backfill, clear/delete, contract approval/payment, and change applications
+remain explicit candidates.

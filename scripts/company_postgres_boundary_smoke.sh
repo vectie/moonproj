@@ -243,10 +243,19 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-demo.json" -w '%{http_code}' -X POST
   "http://127.0.0.1:$PORT/api/company/cbs/demo/contracts")
 test "$status" = 200
 /usr/bin/jq -e '.success == true and .contract.rCode == "R0" and .contract.amount == 12.5 and .contract.state == "signed" and .contract.budgetCheckPending == true and .budget_consumption == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-demo.json" >/dev/null
+DEMO_ID=$(/usr/bin/jq -r '.contract.id' "$TMP_DIR/cbs-demo.json")
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-demo-state.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: ${DEMO_KEY}-paid" \
+  --data '{"toState":"paid","remark":"Boundary smoke"}' \
+  "http://127.0.0.1:$PORT/api/company/cbs/demo/contracts/$DEMO_ID/state")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .contract.fromState == "signed" and .contract.toState == "paid" and .budget_consumption == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-demo-state.json" >/dev/null
 /usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   --data-urlencode 'projGuid=proj-0001' \
   "http://127.0.0.1:$PORT/api/company/cbs/demo/contracts" \
-  | /usr/bin/jq -e 'any(.data[]; (.code | tostring | startswith("DEMO-")))' >/dev/null
+  | /usr/bin/jq -e --arg id "$DEMO_ID" 'any(.data[]; (.id == $id and .state == "paid" and (.code | tostring | startswith("DEMO-"))))' >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/login.json" -w '%{http_code}' -X POST \
   -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' \

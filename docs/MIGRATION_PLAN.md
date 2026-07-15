@@ -1347,7 +1347,7 @@ covered by `scripts/company_postgres_cbs_smoke.sh`. Imported CBS rows remain
 read-only. R0 resolution now records an auditable, dictionary-aware local
 intent with `resolution_pending` fallback and imported-contract protection;
 it does not mutate CBS contracts or consume budget. Budget
-reservation/consumption, demo-contract state/legacy/clear, approval/change writes, accounting,
+reservation/consumption, demo-contract legacy/clear, approval/change writes, accounting,
 cash, tax, browser identity, and owner acceptance are still separate gates;
 the controlled export currently has no imported CBS version or subject rows.
 
@@ -1370,7 +1370,7 @@ the controlled export still has zero imported expense rows.
 explicit authenticated candidates for every remaining source mutation family
 and a bounded R0 resolution intent.
 `POST /api/company/budget/expenses/:guid/sync-from-workflow` returns a 409 until
-workflow source rows exist. Demo-contract state/legacy/clear, contract
+workflow source rows exist. Demo-contract legacy/clear, contract
 approval/payment, and change writes return a `cbs_mutation_boundary_candidate`
 409 with no persistence or financial effect; demo-contract create persists a
 budget-check-pending local projection, and R0 resolution persists an auditable
