@@ -1551,8 +1551,7 @@ async fn notification_llm_providers_response() -> Json raise CompanyServiceError
 
 ///|
 /// Admin.
-async fn admin_ocr_response() -> Json raise CompanyServiceError {
-  let coverage = observation_coverage(["sys_param", "sys_user"])
+async fn admin_param_values() -> Map[String, String] raise CompanyServiceError {
   let params : Map[String, String] = {}
   for source in raw_source_rows("sys_param", 500) {
     let payload = source.payload
@@ -1572,6 +1571,41 @@ async fn admin_ocr_response() -> Json raise CompanyServiceError {
       )
     }
   }
+  params
+}
+
+///|
+fn admin_redacted_params(params : Map[String, String]) -> Json {
+  let values : Map[String, Json] = {}
+  for key, value in params {
+    let lowered = key.to_lower()
+    let sensitive = lowered.contains("key") ||
+      lowered.contains("pass") ||
+      lowered.contains("secret") ||
+      lowered.contains("token") ||
+      lowered.contains("password")
+    values.set(
+      key,
+      Json::string(
+        if sensitive {
+          if value.is_empty() {
+            "(空)"
+          } else {
+            "***"
+          }
+        } else {
+          value
+        },
+      ),
+    )
+  }
+  Json::object(values)
+}
+
+///|
+async fn admin_ocr_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(["sys_param", "sys_user"])
+  let params = admin_param_values()
   let provider = params.get_or_default("ai.ocr.provider", "mock")
   let scene = params.get_or_default("ai.ocr.scene", "auto")
   let providers : Array[Json] = []
@@ -2142,23 +2176,51 @@ async fn admin_bpm_pool_response() -> Json raise CompanyServiceError {
 
 ///|
 async fn admin_llm_status_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(["sys_param", "sys_user"])
+  let params = admin_param_values()
+  let provider = params.get_or_default("ai.llm.provider", "mock")
+  let fallback = params.get_or_default("ai.llm.fallback_providers", "")
+  let global_key = params.get_or_default("ai.llm.key", "")
   observation_envelope(
     Json::object({
-      "provider": Json::string("mock"),
+      "provider": Json::string(provider),
+      "fallbackList": Json::string(fallback),
+      "globalKeyMasked": Json::string(
+        if global_key.is_empty() {
+          "(未配)"
+        } else {
+          "***"
+        },
+      ),
       "providers": Json::array([]),
+      "note": Json::string(
+        "PostgreSQL migration adapter exposes redacted configuration only; provider execution remains disabled.",
+      ),
     }),
-    observation_coverage(["sys_param"]),
+    coverage,
   )
 }
 
 ///|
 async fn admin_ai_diag_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(["sys_param", "sys_user"])
+  let params = admin_param_values()
+  let provider = params.get_or_default("ai.llm.provider", "(未配)")
+  let global_key = !params.get_or_default("ai.llm.key", "").is_empty()
+  let provider_key = provider != "(未配)" &&
+    !params.get_or_default("ai.llm.key." + provider, "").is_empty()
   observation_envelope(
     Json::object({
+      "provider": Json::string(provider),
+      "hasGlobalKey": Json::boolean(global_key),
+      "hasProviderKey": Json::boolean(provider_key),
+      "allParams": admin_redacted_params(params),
       "pingResult": Json::null(),
-      "provider": Json::string("mock"),
+      "hint": Json::string(
+        "Provider execution is disabled in the PostgreSQL migration adapter; configure a reviewed managed provider before enabling it.",
+      ),
     }),
-    observation_coverage(["sys_param"]),
+    coverage,
   )
 }
 
