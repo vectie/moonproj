@@ -57,6 +57,8 @@
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
     "connected_workflow_command_candidate": 5,
+    "connected_investment_command_candidate": 6,
+    "connected_report_export_xlsx": 1,
     "public": 1,
     "read_only_public": 1
   },
@@ -119,6 +121,8 @@
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
     "connected_workflow_command_candidate": 5,
+    "connected_investment_command_candidate": 6,
+    "connected_report_export_xlsx": 1,
     "read_only_fixture_no_source_api": 2
   },
   "routes": [
@@ -2514,8 +2518,8 @@
       "method": "POST",
       "path": "/excel",
       "browser_route_paths": [],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_report_export_xlsx",
+      "required_next": "accept_export_scope_and_production_identity"
     },
     {
       "module": "fund",
@@ -2640,8 +2644,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_command_candidate",
+      "required_next": "accept_browser_investment_command_scenario_and_investment_owner"
     },
     {
       "module": "investment",
@@ -2730,8 +2734,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_command_candidate",
+      "required_next": "accept_browser_investment_command_scenario_and_investment_owner"
     },
     {
       "module": "investment",
@@ -2740,8 +2744,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_command_candidate",
+      "required_next": "accept_browser_investment_command_scenario_and_investment_owner"
     },
     {
       "module": "investment",
@@ -2750,8 +2754,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_command_candidate",
+      "required_next": "accept_browser_investment_command_scenario_and_investment_owner"
     },
     {
       "module": "investment",
@@ -2760,8 +2764,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_command_candidate",
+      "required_next": "accept_browser_investment_command_scenario_and_investment_owner"
     },
     {
       "module": "investment",
@@ -2770,8 +2774,8 @@
       "browser_route_paths": [
         "/investment"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_investment_command_candidate",
+      "required_next": "accept_browser_investment_command_scenario_and_investment_owner"
     },
     {
       "module": "investment",

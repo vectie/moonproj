@@ -4,6 +4,10 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PORT=${PORT:-4242}
 DATABASE=${DATABASE:-moonproj}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
 TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-investment-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-admin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-investment-actor-secret}
@@ -28,6 +32,7 @@ cleanup() {
     kill "$SERVICE_PID" 2>/dev/null || true
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
+  PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
     "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'investment_version' AND aggregate_id IN ('$VERSION_ID', '$SECOND_VERSION_ID')) OR (aggregate_type = 'investment_index' AND aggregate_id = '$INDEX_ID'); DELETE FROM company_record WHERE source_id LIKE 'moonproj:command:investment-smoke-%$SMOKE_SUFFIX' OR source_id LIKE 'moonproj:audit:investment:%investment-smoke-%$SMOKE_SUFFIX%';" \
     >/dev/null 2>&1 || true
@@ -37,6 +42,7 @@ trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" \
 MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SIGNING_SECRET" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 PSQL_BIN="$PSQL_BIN" \
 "$ROOT/scripts/company_postgres_service.sh" \
   --port "$PORT" \

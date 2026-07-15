@@ -25,10 +25,12 @@ The target now exposes source-compatible read boundaries:
 | Subject mappings | `/api/company/investment/projects/:id/subject-mappings` | empty-safe source read |
 | Profit cockpit | `/api/company/investment/projects/:id/profit-cockpit` | source-style missing-data boundary |
 | Actual-vs-plan profit | `/api/company/investment/projects/:id/profit-actual` | bounded imported-real plus explicitly simulated sparse-plan read |
+| Version/index lifecycle | signed local `POST`/`PUT`/`DELETE` command routes | command-owned candidate projections; imported rows remain read-only |
 
-Rows preserve source field names and are marked `sourceKind=imported`. No Excel
-import, version creation/activation, index update, valuation, cash movement,
-or accounting posting is enabled by this slice.
+Rows preserve source field names and are marked `sourceKind=imported`. Local
+version/index lifecycle commands are explicitly marked `sourceKind=command_candidate`;
+they do not mutate imported rows. Excel import, valuation, cash movement, or
+accounting posting is not enabled by this slice.
 
 The Rabbita `/investment` screen now loads the current `proj-0001` version,
 flattens the five grouped dimensions and 26 indices into the designer table,
@@ -54,6 +56,9 @@ fallback.
   `authorizing=false` without Python.
 - The parity matrix marks `/investment` as `connected_investment_read`; the
   project-scope and production-identity scenario remains open.
+- The lifecycle smoke covers signed version create/activate/delete and index
+  create/update/delete with idempotent replay and command-owned readback; the
+  parity matrix records six `connected_investment_command_candidate` handlers.
 - Existing native investment valuation, performance, and benchmark boundaries
   remain separate reviewed analytics gates; they do not authorize source-row
   ownership or cash/accounting effects.
@@ -85,5 +90,6 @@ remains the explicit empty-CBS observation.
    identity, including project scope and version ownership.
 2. Obtain the missing investment/source export rows and owner-approved formula
    reconciliation before accepting actual-profit values as target-owned.
-3. Keep Excel import, activation, index mutation, valuation, cash release,
-   accounting, tax, and period-close actions separately authorized.
+3. Keep Excel upload/import, valuation, cash release, accounting, tax, and
+   period-close actions separately authorized; lifecycle candidates still need
+   browser and investment-owner acceptance before production enablement.
