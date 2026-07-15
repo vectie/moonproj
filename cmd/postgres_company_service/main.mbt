@@ -15172,7 +15172,13 @@ async fn route(
     return (200, admin_ocr_response())
   }
   if path == "/api/company/admin/error-log" {
-    return (200, admin_error_log_response())
+    return (
+      200,
+      admin_error_log_response(
+        query_decoded(query, "keyword"),
+        parse_decimal(query_decoded(query, "limit").unwrap_or("100")),
+      ),
+    )
   }
   if path == "/api/company/admin/dict/groups" {
     return (200, admin_dict_groups_response())
@@ -15186,7 +15192,16 @@ async fn route(
     )
   }
   if path == "/api/company/admin/audit/logs" {
-    return (200, admin_audit_logs_response())
+    return (
+      200,
+      admin_audit_logs_response(
+        query_decoded(query, "action"),
+        query_alias_decoded(query, "userId", "user_id"),
+        query_alias_decoded(query, "targetType", "target_type"),
+        parse_decimal(query_decoded(query, "limit").unwrap_or("100")),
+        parse_decimal(query_decoded(query, "offset").unwrap_or("0")),
+      ),
+    )
   }
   if path == "/api/company/admin/audit/actions" {
     return (200, admin_audit_actions_response())

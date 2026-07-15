@@ -152,6 +152,8 @@ request notify_log /api/company/notify/digest/log
 request notify_llm /api/company/notify/llm-providers
 request admin_ocr /api/company/admin/ocr/status
 request admin_error '/api/company/admin/error-log?limit=100'
+request admin_audit_logs '/api/company/admin/audit/logs?limit=100&offset=0'
+request admin_audit_actions /api/company/admin/audit/actions
 request admin_groups /api/company/admin/dict/groups
 request admin_options '/api/company/admin/dict/options?groupName=cost_subject'
 request admin_health '/api/company/admin/health/full'
@@ -594,6 +596,8 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
 /usr/bin/jq -e '.data == [] and .source_coverage.sys_user == 5' "$TMP_DIR/notify_llm.json" >/dev/null
 /usr/bin/jq -e '.data.provider == "mock" and (.data.providers | length) == 6 and .source_coverage.sys_param == 0' "$TMP_DIR/admin_ocr.json" >/dev/null
 /usr/bin/jq -e '.data.total == 0 and .data.rows == [] and .source_coverage.sys_error_log == 0 and .network_fields_redacted == true' "$TMP_DIR/admin_error.json" >/dev/null
+/usr/bin/jq -e '.data.total == 0 and .data.rows == [] and .source_coverage.audit_log == 0 and .network_fields_redacted == true' "$TMP_DIR/admin_audit_logs.json" >/dev/null
+/usr/bin/jq -e '.data == [] and .source_coverage.audit_log == 0' "$TMP_DIR/admin_audit_actions.json" >/dev/null
 /usr/bin/jq -e '.data[0].groupName == "cost_subject" and .data[0].enabled == 5 and .source_coverage.my_biz_param_option == 5' "$TMP_DIR/admin_groups.json" >/dev/null
 /usr/bin/jq -e '(.data | length) == 5 and .data[0].groupName == "cost_subject" and .source_coverage.my_biz_param_option == 5' "$TMP_DIR/admin_options.json" >/dev/null
 /usr/bin/jq -e '(.data.tables | length) == 29 and .data.runtimeMetricsAvailable == false and .data.db.name == "moonproj"' "$TMP_DIR/admin_health.json" >/dev/null

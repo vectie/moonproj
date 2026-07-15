@@ -1450,10 +1450,96 @@ async fn admin_ocr_response() -> Json raise CompanyServiceError {
 }
 
 ///|
-async fn admin_error_log_response() -> Json raise CompanyServiceError {
+async fn admin_error_log_response(
+  keyword : String?,
+  limit : Int,
+) -> Json raise CompanyServiceError {
+  if limit < 1 || limit > 500 {
+    raise fail("invalid error log limit")
+  }
+  let coverage = observation_coverage(["sys_error_log", "sys_user"])
+  let rows : Array[Json] = []
+  let mut today_count = 0
+  let mut five_xx_count = 0
+  for source in raw_source_rows("sys_error_log", 500) {
+    let payload = source.payload
+    let path = json_text(payload, "path", "")
+    let message = json_text(
+      payload,
+      "error_message",
+      json_text(payload, "errorMessage", ""),
+    )
+    if keyword is Some(value) &&
+      !(path + " " + message).to_lower().contains(value.to_lower()) {
+      continue
+    }
+    let status = json_int(payload, "status", 0)
+    if ai_stat_period_match(payload, "occurred_at", "occurredAt", "today") {
+      today_count += 1
+    }
+    if status >= 500 {
+      five_xx_count += 1
+    }
+    rows.push(
+      Json::object({
+        "errId": Json::string(
+          json_text(
+            payload,
+            "err_id",
+            json_text(payload, "errId", source.record_id),
+          ),
+        ),
+        "occurredAt": Json::string(
+          json_text(
+            payload,
+            "occurred_at",
+            json_text(payload, "occurredAt", ""),
+          ),
+        ),
+        "userId": Json::string(
+          json_text(payload, "user_id", json_text(payload, "userId", "")),
+        ),
+        "method": Json::string(json_text(payload, "method", "")),
+        "path": Json::string(path),
+        "status": Json::number(status.to_double()),
+        "errorMessage": Json::string(message),
+        "ip": Json::string(
+          if json_text(payload, "ip", "").is_empty() {
+            ""
+          } else {
+            "已脱敏"
+          },
+        ),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let order = json_text(right, "occurredAt", "").lexical_compare(
+      json_text(left, "occurredAt", ""),
+    )
+    if order == 0 {
+      json_text(right, "errId", "").lexical_compare(
+        json_text(left, "errId", ""),
+      )
+    } else {
+      order
+    }
+  })
   observation_envelope(
-    Json::object({ "total": Json::number(0), "rows": Json::array([]) }),
-    observation_coverage(["sys_error_log", "sys_user"]),
+    Json::object({
+      "total": Json::number(rows.length().to_double()),
+      "rows": Json::array(
+        if rows.length() > limit {
+          rows[0:limit].to_owned()
+        } else {
+          rows
+        },
+      ),
+      "todayCount": Json::number(today_count.to_double()),
+      "fiveXxCount": Json::number(five_xx_count.to_double()),
+    }),
+    coverage,
   )
 }
 
@@ -1509,19 +1595,134 @@ async fn admin_dict_groups_response() -> Json raise CompanyServiceError {
 }
 
 ///|
-async fn admin_audit_logs_response() -> Json raise CompanyServiceError {
+async fn admin_audit_logs_response(
+  action : String?,
+  user_id : String?,
+  target_type : String?,
+  limit : Int,
+  offset : Int,
+) -> Json raise CompanyServiceError {
+  if limit < 1 || limit > 500 || offset < 0 {
+    raise fail("invalid audit pagination")
+  }
   let coverage = observation_coverage(["audit_log", "sys_user"])
+  let users = raw_source_rows("sys_user", 500)
+  let rows : Array[Json] = []
+  for source in raw_source_rows("audit_log", 500) {
+    let payload = source.payload
+    let current_action = json_text(payload, "action", "")
+    let current_user_id = json_text(
+      payload,
+      "user_id",
+      json_text(payload, "userId", ""),
+    )
+    let current_target_type = json_text(
+      payload,
+      "target_type",
+      json_text(payload, "targetType", ""),
+    )
+    if action is Some(value) &&
+      !current_action.to_lower().contains(value.to_lower()) {
+      continue
+    }
+    if user_id is Some(value) && current_user_id != value {
+      continue
+    }
+    if target_type is Some(value) && current_target_type != value {
+      continue
+    }
+    let emp_name = match source_payload(users, "user_id", current_user_id) {
+      Some(user) =>
+        json_text(user, "emp_name", json_text(user, "user_name", ""))
+      None =>
+        match source_payload(users, "user_code", current_user_id) {
+          Some(user) =>
+            json_text(user, "emp_name", json_text(user, "user_name", ""))
+          None => ""
+        }
+    }
+    rows.push(
+      Json::object({
+        "logId": Json::number(
+          json_int(payload, "log_id", json_int(payload, "logId", 0)).to_double(),
+        ),
+        "userId": Json::string(current_user_id),
+        "empName": Json::string(emp_name),
+        "action": Json::string(current_action),
+        "targetType": Json::string(current_target_type),
+        "targetId": Json::string(
+          json_text(payload, "target_id", json_text(payload, "targetId", "")),
+        ),
+        "ip": Json::string(json_text(payload, "ip", "")),
+        "createdAt": Json::string(
+          json_text(payload, "created_at", json_text(payload, "createdAt", "")),
+        ),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let order = json_int(right, "logId", 0) - json_int(left, "logId", 0)
+    if order == 0 {
+      json_text(right, "createdAt", "").lexical_compare(
+        json_text(left, "createdAt", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let page = if offset >= rows.length() {
+    []
+  } else {
+    let end = if offset + limit > rows.length() {
+      rows.length()
+    } else {
+      offset + limit
+    }
+    rows[offset:end].to_owned()
+  }
   observation_envelope(
-    Json::object({ "rows": Json::array([]), "total": Json::number(0) }),
+    Json::object({
+      "rows": Json::array(page),
+      "total": Json::number(rows.length().to_double()),
+    }),
     coverage,
   )
 }
 
 ///|
 async fn admin_audit_actions_response() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(["audit_log", "sys_user"])
+  let counts : Map[String, Int] = {}
+  for source in raw_source_rows("audit_log", 500) {
+    let action = json_text(source.payload, "action", "")
+    if !action.is_empty() {
+      counts.set(action, counts.get_or_default(action, 0) + 1)
+    }
+  }
+  let rows : Array[Json] = []
+  for action, count in counts {
+    rows.push(
+      Json::object({
+        "action": Json::string(action),
+        "count": Json::number(count.to_double()),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let order = json_int(right, "count", 0) - json_int(left, "count", 0)
+    if order == 0 {
+      json_text(left, "action", "").lexical_compare(
+        json_text(right, "action", ""),
+      )
+    } else {
+      order
+    }
+  })
   observation_envelope(
-    Json::array([]),
-    observation_coverage(["audit_log", "sys_user"]),
+    Json::array(if rows.length() > 30 { rows[0:30].to_owned() } else { rows }),
+    coverage,
   )
 }
 
