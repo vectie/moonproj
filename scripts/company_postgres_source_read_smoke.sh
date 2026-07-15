@@ -68,6 +68,15 @@ request dynamic '/api/company/cost/dynamic-cost?projGuid=proj-0001'
 request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
 request delivery_progress '/api/company/source/delivery/progress?projGuid=proj-0001'
 request delivery_outputs '/api/company/source/delivery/outputs?projGuid=proj-0001'
+request receivables /api/company/receivables
+/usr/bin/curl -sS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/receivables/does-not-exist" >"$TMP_DIR/receivable_missing.json"
+request invoices /api/company/invoices
+request invoice_in '/api/company/source/invoice/in'
+request invoice_out '/api/company/source/invoice/out'
+request invoice_tax '/api/company/source/invoice/tax-ledger'
 
 /usr/bin/jq -e '
   .success == true and
@@ -151,5 +160,28 @@ request delivery_outputs '/api/company/source/delivery/outputs?projGuid=proj-000
   .source_coverage.cb_contract == 2 and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/delivery_outputs.json" >/dev/null
+/usr/bin/jq -e '
+  (.items | length) == 84 and
+  .items[0].aggregate_type == "receivable" and
+  .items[0].amount_display == "¥10,000.00"
+' "$TMP_DIR/receivables.json" >/dev/null
+/usr/bin/jq -e '.error == "receivable not found"' "$TMP_DIR/receivable_missing.json" >/dev/null
+/usr/bin/jq -e '(.items | length) == 0' "$TMP_DIR/invoices.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.invoice_in == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/invoice_in.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.invoice_out == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/invoice_out.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data.rows | length) == 0 and
+  .source_coverage.invoice_in == 0 and
+  .source_coverage.invoice_out == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/invoice_tax.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice read smoke passed"

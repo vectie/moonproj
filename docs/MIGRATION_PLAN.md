@@ -818,6 +818,15 @@ Delivery progress/output observations are native too, with project/period/state
 filters and explicit empty `proj_progress`/`proj_output` coverage; they remain
 read-only and separate from local delivery command projections.
 
+Receivable and invoice observations are now native as well. The MoonBit service
+serves `/api/company/receivables[/{id}]`, `/api/company/invoices[/{id}]`,
+`/api/company/source/invoice/{in,out}`, and `/tax-ledger`, preserving the ERP
+projection fields, source coverage, monthly tax envelope, command provenance,
+and missing-detail behavior. Live PostgreSQL responses are parsed-equal to the
+frozen Python bridge, and the shell-only source-read smoke covers the whole
+slice. This is still observation-only: invoice registration, OCR/verification,
+tax filing, accounting, cash, and production identity remain gated.
+
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
 assets, and the in-app browser completed a real fixture-login and navigation
@@ -1350,15 +1359,16 @@ Execute the remainder in this order:
     rehearsal planners/parity tools, and shadow/replay checks before treating
     this convergence step as complete; Python remains bridge evidence only and
     is not an accepted build, test, or deployment dependency.
-3b. **Completed locally (2026-07-14):** implement only the evidence-ready read
+3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
     instance/task observation endpoints where the source tables are defined,
     plus explicit empty-safe progress/output, sales, tender, and supplier
     dictionary source reads, and the source-backed investment sensitivity
     observation.
-    The service, read-model, Rabbita, and
-    dedicated read-only smoke checks pass; at that checkpoint the parity action
+    The native MoonBit service, read-model, Rabbita, and shell-only
+    read-only smoke checks pass; the invoice/receivable slice is now included
+    in that native boundary. At that checkpoint the parity action
     register marked 35 source GET handlers connected. Subsequent identity/RBAC,
     dashboard/admin, investment Excel, dashboard v3, attachment-boundary, and
     investment-actual, backup-boundary, and supplier-signature-boundary waves

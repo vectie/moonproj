@@ -20,6 +20,7 @@ fn fail(message : String) -> CompanyServiceError {
 ///|
 struct SourceRow {
   record_id : String
+  source_id : String
   payload : Json
 }
 
@@ -155,7 +156,7 @@ async fn raw_source_rows(
   max_rows : Int,
 ) -> Array[SourceRow] raise CompanyServiceError {
   let output = run_sql(
-    "SELECT encode(convert_to(record_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_record WHERE record_type = " +
+    "SELECT encode(convert_to(record_id, 'UTF8'), 'hex'), encode(convert_to(source_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_record WHERE record_type = " +
     @postgres.sql_literal("legacy/raw/" + table) +
     " ORDER BY record_id LIMIT " +
     max_rows.to_string(),
@@ -164,12 +165,17 @@ async fn raw_source_rows(
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
-      let row = fields(line, 2)
-      let payload = @json.parse(decode_hex(row[1])) catch {
+      let row = fields(line, 3)
+      let payload = @json.parse(decode_hex(row[2])) catch {
         _ => raise fail("invalid source row JSON")
       }
       match payload {
-        Object(_) => result.push({ record_id: decode_hex(row[0]), payload })
+        Object(_) =>
+          result.push({
+            record_id: decode_hex(row[0]),
+            source_id: decode_hex(row[1]),
+            payload,
+          })
         _ => raise fail("source row payload is not an object")
       }
     }
@@ -606,6 +612,86 @@ fn json_double(value : Json, key : String, fallback : Double) -> Double {
 ///|
 fn json_int(value : Json, key : String, fallback : Int) -> Int {
   json_double(value, key, fallback.to_double()).to_int()
+}
+
+///|
+fn parse_number(value : String) -> Double {
+  if value.is_empty() {
+    return 0.0
+  }
+  let mut sign = 1.0
+  let mut index = 0
+  match value.get_char(0) {
+    Some('-') => {
+      sign = -1.0
+      index = 1
+    }
+    Some('+') => index = 1
+    _ => ()
+  }
+  let mut whole = 0.0
+  let mut fraction = 0.0
+  let mut divisor = 1.0
+  let mut after_decimal = false
+  while index < value.length() {
+    let char = match value.get_char(index) {
+      Some(value) => value
+      None => return 0.0
+    }
+    if char == '.' {
+      if after_decimal {
+        return 0.0
+      }
+      after_decimal = true
+    } else if char >= '0' && char <= '9' {
+      let digit = (char.to_int() - '0'.to_int()).to_double()
+      if after_decimal {
+        divisor *= 10.0
+        fraction += digit / divisor
+      } else {
+        whole = whole * 10.0 + digit
+      }
+    } else {
+      return 0.0
+    }
+    index += 1
+  }
+  sign * (whole + fraction)
+}
+
+///|
+fn json_number(value : Json, key : String, fallback : Double) -> Double {
+  match json_field(value, key) {
+    Some(Number(number, ..)) => number
+    Some(String(text)) => parse_number(text)
+    _ => fallback
+  }
+}
+
+///|
+fn invoice_money_display(value : Double) -> String {
+  let negative = value < 0.0
+  let scaled = (if negative { -value } else { value }) * 100.0 + 0.5
+  let cents_total = scaled.to_int()
+  let whole = cents_total / 100
+  let cents = cents_total % 100
+  let digits = whole.to_string()
+  let mut grouped = ""
+  for index in 0..<digits.length() {
+    if index > 0 && (digits.length() - index) % 3 == 0 {
+      grouped += ","
+    }
+    grouped += match digits.get_char(index) {
+      Some(char) => char.to_string()
+      None => ""
+    }
+  }
+  let cents_text = if cents < 10 {
+    "0" + cents.to_string()
+  } else {
+    cents.to_string()
+  }
+  (if negative { "-" } else { "" }) + "¥" + grouped + "." + cents_text
 }
 
 ///|
@@ -2112,6 +2198,7 @@ async fn workflow_history(
         Some(payload) => {
           let instance = workflow_instance_json({
             record_id: instance_id,
+            source_id: "",
             payload,
           })
           result.push(
@@ -2343,7 +2430,11 @@ async fn workflow_instance_detail(
         }),
       )
     Some(payload) => {
-      let instance = workflow_instance_json({ record_id: instance_id, payload })
+      let instance = workflow_instance_json({
+        record_id: instance_id,
+        source_id: "",
+        payload,
+      })
       match workflow_source_metadata(rows) {
         Object(metadata) => {
           metadata.set("success", Json::boolean(true))
@@ -2951,6 +3042,460 @@ async fn delivery_outputs_response(
 }
 
 ///|
+fn projection_value_expr(key : String, fallback : String) -> String {
+  "coalesce(payload->'candidate'->>'" +
+  key +
+  "', payload->>'" +
+  key +
+  "', " +
+  fallback +
+  ")"
+}
+
+///|
+fn projection_text_expr(key : String, fallback : String) -> String {
+  projection_value_expr(key, @postgres.sql_literal(fallback))
+}
+
+///|
+async fn sales_projection_items(
+  aggregate_type : String,
+  aggregate_id : String?,
+) -> Array[Json] raise CompanyServiceError {
+  if aggregate_type != "receivable" && aggregate_type != "invoice" {
+    raise fail("unsupported sales aggregate type")
+  }
+  let where_clause = match aggregate_id {
+    Some(value) => {
+      if !valid_identifier(value) {
+        raise fail("invalid sales aggregate id")
+      }
+      " AND aggregate_id = " + @postgres.sql_literal(value)
+    }
+    None => ""
+  }
+  let identifier_key = if aggregate_type == "receivable" {
+    "receivable_id"
+  } else {
+    "invoice_id"
+  }
+  let identifier = projection_value_expr(identifier_key, "aggregate_id")
+  let amount = projection_value_expr("amount_minor", "'0'")
+  let outstanding = projection_value_expr(
+    "outstanding_minor",
+    if aggregate_type == "receivable" {
+      "'0'"
+    } else {
+      "'0'"
+    },
+  )
+  let source_kind = "CASE WHEN jsonb_typeof(payload->'candidate') = 'object' THEN 'imported' ELSE coalesce(payload->>'source_kind', 'command') END"
+  let state_default = if aggregate_type == "receivable" {
+    "open"
+  } else {
+    "draft"
+  }
+  let body = if aggregate_type == "receivable" {
+    [
+      "'receivable_id', " + identifier,
+      "'source_id', " + projection_text_expr("source_id", ""),
+      "'invoice_id', " + projection_text_expr("invoice_id", ""),
+      "'customer_id', " + projection_text_expr("customer_id", ""),
+      "'principal_id', " + projection_text_expr("principal_id", ""),
+      "'scope', " + projection_text_expr("scope", ""),
+      "'amount_minor', (" + amount + ")::bigint",
+      "'collected_minor', (" +
+      projection_value_expr("collected_minor", "'0'") +
+      ")::bigint",
+      "'outstanding_minor', (" + outstanding + ")::bigint",
+      "'currency', " + projection_text_expr("currency", "CNY"),
+      "'state', " + projection_text_expr("state", state_default),
+      "'amount_display', concat('¥', to_char((" +
+      amount +
+      ")::numeric / 100, 'FM999,999,999,990.00'))",
+      "'outstanding_display', concat('¥', to_char((" +
+      outstanding +
+      ")::numeric / 100, 'FM999,999,999,990.00'))",
+    ].join(", ")
+  } else {
+    [
+      "'invoice_id', " + identifier,
+      "'receivable_id', " + projection_text_expr("receivable_id", ""),
+      "'principal_id', " + projection_text_expr("principal_id", ""),
+      "'customer_id', " + projection_text_expr("customer_id", ""),
+      "'source_id', " + projection_text_expr("source_id", ""),
+      "'amount_minor', (" + amount + ")::bigint",
+      "'paid_minor', (" +
+      projection_value_expr("paid_minor", "'0'") +
+      ")::bigint",
+      "'outstanding_minor', (" + outstanding + ")::bigint",
+      "'currency', " + projection_text_expr("currency", "CNY"),
+      "'state', " + projection_text_expr("state", state_default),
+      "'amount_display', concat('¥', to_char((" +
+      amount +
+      ")::numeric / 100, 'FM999,999,999,990.00'))",
+      "'outstanding_display', concat('¥', to_char((" +
+      outstanding +
+      ")::numeric / 100, 'FM999,999,999,990.00'))",
+    ].join(", ")
+  }
+  let sql = [
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(",
+    "  'aggregate_type', " + @postgres.sql_literal(aggregate_type) + ",",
+    "  'aggregate_id', aggregate_id,",
+    "  'revision', revision,",
+    "  'source_event_id', source_event_id,",
+    "  'source_kind', " + source_kind + ",",
+    "  'source_snapshot_id', " +
+    projection_text_expr("source_snapshot_id", "") +
+    ",",
+    "  'mapping_version', " + projection_text_expr("mapping_version", "") + ",",
+    "  " + body,
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text",
+    "FROM (",
+    "  SELECT DISTINCT ON (aggregate_id) aggregate_id, revision, payload, source_event_id",
+    "  FROM company_aggregate_projection",
+    "  WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    where_clause,
+    "  ORDER BY aggregate_id, revision DESC",
+    ") latest",
+  ].join("\n")
+  json_array_output(run_sql(sql))
+}
+
+///|
+async fn sales_projection_response(
+  family : String,
+  aggregate_id : String?,
+) -> (Int, Json) raise CompanyServiceError {
+  let aggregate_type = if family == "receivables" {
+    "receivable"
+  } else if family == "invoices" {
+    "invoice"
+  } else {
+    raise fail("unsupported sales read family")
+  }
+  let items = sales_projection_items(aggregate_type, aggregate_id)
+  match aggregate_id {
+    Some(_) if items.is_empty() =>
+      (
+        404,
+        Json::object({
+          "error": Json::string(
+            if family == "receivables" {
+              "receivable not found"
+            } else {
+              "invoice not found"
+            },
+          ),
+        }),
+      )
+    Some(_) => (200, items[0])
+    None => (200, Json::object({ "items": Json::array(items) }))
+  }
+}
+
+///|
+fn invoice_source_metadata(coverage : Json) -> Json {
+  let missing : Array[Json] = []
+  for table in ["invoice_in", "invoice_out"] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+  })
+}
+
+///|
+fn invoice_source_item(
+  row : SourceRow,
+  direction : String,
+  projects : Array[SourceRow],
+  source_kind : String,
+) -> Json {
+  let payload = row.payload
+  let invoice_id = json_text(payload, "invoice_guid", row.record_id)
+  let invoice_no = json_text(payload, "invoice_no", invoice_id)
+  let project_id = json_text(payload, "proj_guid", "")
+  let project_name = match source_payload(projects, "proj_guid", project_id) {
+    Some(value) => json_text(value, "proj_name", project_id)
+    None => project_id
+  }
+  let total = json_number(payload, "total_amount", 0.0)
+  Json::object({
+    "invoiceGuid": Json::string(invoice_id),
+    "invoiceNo": Json::string(invoice_no),
+    "projGuid": Json::string(project_id),
+    "projName": Json::string(project_name),
+    "buGuid": Json::string(json_text(payload, "bu_guid", "")),
+    "contractGuid": Json::string(json_text(payload, "contract_guid", "")),
+    "providerName": Json::string(json_text(payload, "provider_name", "")),
+    "customerName": Json::string(json_text(payload, "customer_name", "")),
+    "scontractGuid": Json::string(json_text(payload, "scontract_guid", "")),
+    "revenueGuid": Json::string(json_text(payload, "revenue_guid", "")),
+    "invoiceDate": Json::string(json_text(payload, "invoice_date", "")),
+    "totalAmount": Json::number(total),
+    "taxAmount": Json::number(json_number(payload, "tax_amount", 0.0)),
+    "taxRate": Json::number(json_number(payload, "tax_rate", 0.0)),
+    "invoiceType": Json::string(json_text(payload, "invoice_type", "")),
+    "state": Json::string(json_text(payload, "state", "")),
+    "remark": Json::string(json_text(payload, "remark", "")),
+    "direction": Json::string(direction),
+    "sourceKind": Json::string(source_kind),
+    "sourceId": Json::string(
+      if row.source_id.is_empty() {
+        row.record_id
+      } else {
+        row.source_id
+      },
+    ),
+    "aggregate_type": Json::string("invoice"),
+    "aggregate_id": Json::string(invoice_id),
+    "name": Json::string(invoice_no),
+    "amount_display": Json::string(invoice_money_display(total)),
+    "source_kind": Json::string(source_kind),
+  })
+}
+
+///|
+async fn invoice_command_rows(
+  direction : String,
+) -> Array[SourceRow] raise CompanyServiceError {
+  let aggregate_type = "invoice_" + direction
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, source_event_id, payload FROM company_aggregate_projection WHERE aggregate_type = " +
+    @postgres.sql_literal(aggregate_type) +
+    " AND payload->>'source_kind' = 'command' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Array[SourceRow] = []
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 3)
+      let payload = @json.parse(decode_hex(row[2])) catch {
+        _ => raise fail("invalid invoice projection JSON")
+      }
+      match payload {
+        Object(_) =>
+          result.push({
+            record_id: decode_hex(row[0]),
+            source_id: decode_hex(row[1]),
+            payload,
+          })
+        _ => raise fail("invoice projection payload is not an object")
+      }
+    }
+  }
+  result
+}
+
+///|
+async fn invoice_source_items(
+  direction : String,
+  proj_guid : String?,
+  contract_guid : String?,
+) -> Array[Json] raise CompanyServiceError {
+  match (proj_guid, contract_guid) {
+    (Some(value), _) if !valid_identifier(value) =>
+      raise fail("invalid proj_guid")
+    (_, Some(value)) if !valid_identifier(value) =>
+      raise fail("invalid contract_guid")
+    _ => ()
+  }
+  let raw = raw_source_rows("invoice_" + direction, 500)
+  let command = invoice_command_rows(direction)
+  let projects = raw_source_rows("ep_project", 500)
+  let result : Array[Json] = []
+  for row in raw {
+    let payload = row.payload
+    if json_text(payload, "deleted_at", "").is_empty() &&
+      json_text(payload, "state", "") != "deleted" {
+      let project_ok = match proj_guid {
+        Some(value) => json_text(payload, "proj_guid", "") == value
+        None => true
+      }
+      let contract_ok = match contract_guid {
+        Some(value) => json_text(payload, "contract_guid", "") == value
+        None => true
+      }
+      if project_ok && contract_ok {
+        result.push(invoice_source_item(row, direction, projects, "imported"))
+      }
+    }
+  }
+  for row in command {
+    let payload = row.payload
+    if json_text(payload, "deleted_at", "").is_empty() &&
+      json_text(payload, "state", "") != "deleted" {
+      let project_ok = match proj_guid {
+        Some(value) => json_text(payload, "proj_guid", "") == value
+        None => true
+      }
+      let contract_ok = match contract_guid {
+        Some(value) => json_text(payload, "contract_guid", "") == value
+        None => true
+      }
+      if project_ok && contract_ok {
+        result.push(invoice_source_item(row, direction, projects, "command"))
+      }
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let order = json_text(right, "invoiceDate", "").lexical_compare(
+      json_text(left, "invoiceDate", ""),
+    )
+    if order == 0 {
+      json_text(right, "invoiceGuid", "").lexical_compare(
+        json_text(left, "invoiceGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  result
+}
+
+///|
+async fn invoice_source_response(
+  direction : String,
+  proj_guid : String?,
+  contract_guid : String?,
+) -> Json raise CompanyServiceError {
+  let rows = invoice_source_items(direction, proj_guid, contract_guid)
+  let incoming = raw_source_rows("invoice_in", 500)
+  let outgoing = raw_source_rows("invoice_out", 500)
+  let projects = raw_source_rows("ep_project", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let coverage = Json::object({
+    "ep_project": Json::number(projects.length().to_double()),
+    "invoice_in": Json::number(incoming.length().to_double()),
+    "invoice_out": Json::number(outgoing.length().to_double()),
+    "mu_business_unit": Json::number(units.length().to_double()),
+  })
+  match invoice_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(rows))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid invoice metadata")
+  }
+}
+
+///|
+async fn invoice_tax_ledger_response(
+  proj_guid : String?,
+) -> Json raise CompanyServiceError {
+  match proj_guid {
+    Some(value) if !valid_identifier(value) => raise fail("invalid proj_guid")
+    _ => ()
+  }
+  let incoming = invoice_source_items("in", proj_guid, None)
+  let outgoing = invoice_source_items("out", proj_guid, None)
+  let grouped : Array[Json] = []
+  for batch in [("in", incoming), ("out", outgoing)] {
+    let direction = batch.0
+    let rows = batch.1
+    for row in rows {
+      let date = json_text(row, "invoiceDate", "")
+      if date.length() >= 7 {
+        let period = date[:7].to_owned()
+        let mut selected : Json? = None
+        for existing in grouped {
+          if json_text(existing, "period", "") == period {
+            selected = Some(existing)
+            break
+          }
+        }
+        let entry = match selected {
+          Some(value) => value
+          None => {
+            let value = Json::object({
+              "period": Json::string(period),
+              "totalIn": Json::number(0),
+              "taxIn": Json::number(0),
+              "totalOut": Json::number(0),
+              "taxOut": Json::number(0),
+            })
+            grouped.push(value)
+            value
+          }
+        }
+        match entry {
+          Object(fields) => {
+            let total_key = if direction == "in" {
+              "totalIn"
+            } else {
+              "totalOut"
+            }
+            let tax_key = if direction == "in" { "taxIn" } else { "taxOut" }
+            fields.set(
+              total_key,
+              Json::number(
+                json_double(entry, total_key, 0.0) +
+                json_number(row, "totalAmount", 0.0),
+              ),
+            )
+            fields.set(
+              tax_key,
+              Json::number(
+                json_double(entry, tax_key, 0.0) +
+                json_number(row, "taxAmount", 0.0),
+              ),
+            )
+            fields.set(
+              "netTax",
+              Json::number(
+                round_places(
+                  json_double(entry, "taxOut", 0.0) -
+                  json_double(entry, "taxIn", 0.0),
+                  2,
+                ),
+              ),
+            )
+          }
+          _ => ()
+        }
+      }
+    }
+  }
+  grouped.sort_by(fn(left, right) {
+    json_text(right, "period", "").lexical_compare(
+      json_text(left, "period", ""),
+    )
+  })
+  let projects = raw_source_rows("ep_project", 500)
+  let incoming_raw = raw_source_rows("invoice_in", 500)
+  let outgoing_raw = raw_source_rows("invoice_out", 500)
+  let units = raw_source_rows("mu_business_unit", 500)
+  let coverage = Json::object({
+    "ep_project": Json::number(projects.length().to_double()),
+    "invoice_in": Json::number(incoming_raw.length().to_double()),
+    "invoice_out": Json::number(outgoing_raw.length().to_double()),
+    "mu_business_unit": Json::number(units.length().to_double()),
+  })
+  match invoice_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::object({ "rows": Json::array(grouped) }))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid invoice metadata")
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -3504,6 +4049,19 @@ async fn route(
     let state = query_decoded(query, "state")
     return (200, delivery_outputs_response(project_id, period, state))
   }
+  if path == "/api/company/source/invoice/in" ||
+    path == "/api/company/source/invoice/out" {
+    let direction = if path.has_suffix("/in") { "in" } else { "out" }
+    let project_id = query_alias_decoded(query, "projGuid", "proj_guid")
+    let contract_id = query_alias_decoded(
+      query, "contractGuid", "contract_guid",
+    )
+    return (200, invoice_source_response(direction, project_id, contract_id))
+  }
+  if path == "/api/company/source/invoice/tax-ledger" {
+    let project_id = query_alias_decoded(query, "projGuid", "proj_guid")
+    return (200, invoice_tax_ledger_response(project_id))
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -3551,6 +4109,16 @@ async fn route(
     let user_id = query_alias_decoded(query, "userId", "user_id")
     return (200, source_payment_list(view, bu_guid, user_id))
   }
+  let receivable_prefix = "/api/company/receivables/"
+  if path.has_prefix(receivable_prefix) {
+    let receivable_id = path[receivable_prefix.length():].to_owned()
+    return sales_projection_response("receivables", Some(receivable_id))
+  }
+  let invoice_prefix = "/api/company/invoices/"
+  if path.has_prefix(invoice_prefix) {
+    let invoice_id = path[invoice_prefix.length():].to_owned()
+    return sales_projection_response("invoices", Some(invoice_id))
+  }
   let payment_prefix = "/api/company/payment-applies/"
   if path.has_prefix(payment_prefix) &&
     path != "/api/company/payment-applies/eligibility" {
@@ -3594,6 +4162,8 @@ async fn route(
             Json::string("workflow_observation_read"),
             Json::string("dynamic_cost_observation_read"),
             Json::string("delivery_observation_read"),
+            Json::string("receivable_read"),
+            Json::string("invoice_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),
@@ -3625,6 +4195,8 @@ async fn route(
           query_value(query, "view").unwrap_or("all"),
         ),
       )
+    "/api/company/receivables" => sales_projection_response("receivables", None)
+    "/api/company/invoices" => sales_projection_response("invoices", None)
     "/api/company/auth/me" => {
       let user_code = query_value(query, "userCode").unwrap_or("")
       match auth_current_user(user_code) {
