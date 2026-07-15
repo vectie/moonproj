@@ -803,6 +803,9 @@ imported `sys_warning_subscription`/`sys_message` rows remain read-only and
 delivery/provider/accounting/cash/tax effects remain false. Configuration
 writes, digest dispatch, provider calls, consent/retry policy, production
 identity, browser acceptance, and owner acceptance remain separate gates.
+`scripts/company_postgres_notification_smoke.sh` proves create/replay/list,
+source-alias update/delete, message read/read-all, invalid-channel rejection,
+and PostgreSQL cleanup without Python.
 
 The next admin read family covers OCR configuration status and error-log
 metadata. `/ocr-config` loads provider definitions, current scene, and
@@ -1407,7 +1410,8 @@ GET reads, workflow definition/preview plus signed local workflow
 start/approve/reject commands, and investment versions/indices/profit/
 cost-dashboard/Excel-import/plan-line/subject-mapping/cockpit reads, cashflow forecast/inflow/detail/net/gap/v3, CBS observation reads, and
 the native admin/notification/AI/attachment/webhook/RBAC/warning observation
-reads plus warning resolve/ignore state commands and local RBAC role/assignment
+reads plus warning resolve/ignore state commands, notification message/read-all
+and subscription commands, and local RBAC role/assignment
 authority-candidate commands, plus local investment version/index lifecycle
 commands.
 `scripts/company_postgres_source_read_smoke.sh` and

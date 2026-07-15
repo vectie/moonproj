@@ -294,30 +294,6 @@ fn notification_tables() -> Array[String] {
 }
 
 ///|
-async fn notification_messages_response() -> Json raise CompanyServiceError {
-  observation_envelope(
-    Json::object({ "total": Json::number(0), "rows": Json::array([]) }),
-    observation_coverage(notification_tables()),
-  )
-}
-
-///|
-async fn notification_unread_response() -> Json raise CompanyServiceError {
-  observation_envelope(
-    Json::object({ "count": Json::number(0) }),
-    observation_coverage(notification_tables()),
-  )
-}
-
-///|
-async fn notification_subscriptions_response() -> Json raise CompanyServiceError {
-  observation_envelope(
-    Json::array([]),
-    observation_coverage(notification_tables()),
-  )
-}
-
-///|
 async fn notification_config_response() -> Json raise CompanyServiceError {
   observation_envelope(
     Json::object({ "configured": Json::array([]) }),

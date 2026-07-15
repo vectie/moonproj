@@ -14917,14 +14917,17 @@ async fn route(
   if path == "/api/company/webhook/config" {
     return (200, webhook_config_response())
   }
-  if path == "/api/company/notify/messages" {
-    return (200, notification_messages_response())
+  if path == "/api/company/notify/messages" ||
+    path == "/api/company/source/notify/messages" {
+    return (200, notification_messages_response_native(actor_id))
   }
-  if path == "/api/company/notify/messages/unread-count" {
-    return (200, notification_unread_response())
+  if path == "/api/company/notify/messages/unread-count" ||
+    path == "/api/company/source/notify/messages/unread-count" {
+    return (200, notification_unread_response_native(actor_id))
   }
-  if path == "/api/company/notify/subscriptions" {
-    return (200, notification_subscriptions_response())
+  if path == "/api/company/notify/subscriptions" ||
+    path == "/api/company/source/notify/subscriptions" {
+    return (200, notification_subscriptions_response_native(actor_id))
   }
   if path == "/api/company/notify/config" {
     return (200, notification_config_response())
@@ -15724,6 +15727,8 @@ async fn route(
             Json::string("cbs_observation_read"),
             Json::string("admin_observation_read"),
             Json::string("notification_observation_read"),
+            Json::string("notification_message_command"),
+            Json::string("notification_subscription_command"),
             Json::string("ai_analytics_read"),
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
@@ -15921,6 +15926,43 @@ async fn handle(
     }
     send_json(conn, request.meth, 200, result, false)
     return
+  }
+  match notification_command_spec(request.meth, path) {
+    Some((command_type, target_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = notification_command(
+        command_type, target_id, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   match preference_command_spec(request.meth, path) {
     Some((command_type, pref_key)) => {

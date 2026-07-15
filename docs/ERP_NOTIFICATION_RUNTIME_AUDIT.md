@@ -38,15 +38,18 @@ subscription read merges active local projections with imported rows and
 filters local tombstones. Imported `sys_warning_subscription` rows remain
 read-only. Command responses explicitly report `authorizing=false`,
 `delivery_effect=false`, `provider_execution=false`, and no accounting, cash,
-or tax effect. Trusted-gateway create/replay/read/update/delete evidence is
-covered by the PostgreSQL smoke.
+or tax effect. Native create/replay/read/update/delete evidence is covered by
+the pure-shell PostgreSQL service smoke.
 
 `POST /api/company/source/notify/messages/:guid/read` and
 `POST /api/company/source/notify/messages/read-all` persist signed-user
 read-state overlays. The overlay keeps imported `sys_message` rows immutable,
 does not synthesize missing messages, and merges read state into the source
 observation only when a matching imported message exists. Replay and empty
-source read-all behavior are covered by the trusted-gateway smoke.
+source read-all behavior are covered by the pure-shell service smoke.
+The evidence script is `scripts/company_postgres_notification_smoke.sh`; it
+also seeds one imported message to prove the overlay does not mutate the
+source row and does not synthesize missing messages.
 
 The current PostgreSQL export has no imported rows for sys_message,
 sys_warning_subscription, sys_param, sys_email_outbox, or
