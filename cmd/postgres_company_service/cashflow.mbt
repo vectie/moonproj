@@ -294,7 +294,7 @@ async fn cashflow_forecast_response(
       Json::object({
         "buGuid": Json::string(bu_guid),
         "buName": Json::string(name),
-        "amount": Json::number(round_places(amount, 2)),
+        "amount": Json::number(amount),
       }),
     )
   }
@@ -320,7 +320,7 @@ async fn cashflow_forecast_response(
       Json::object({
         "projGuid": Json::string(project_guid),
         "projName": Json::string(name),
-        "amount": Json::number(round_places(amount, 2)),
+        "amount": Json::number(amount),
       }),
     )
   }
@@ -612,6 +612,49 @@ async fn cashflow_net_response(months : Int) -> Json raise CompanyServiceError {
 }
 
 ///|
+fn cashflow_date_parts(value : String) -> (Int, Int, Int)? {
+  if value.length() < 10 || value[4:5] != "-" || value[7:8] != "-" {
+    return None
+  }
+  let year = parse_decimal(value[0:4].to_owned()) catch { _ => -1 }
+  let month = parse_decimal(value[5:7].to_owned()) catch { _ => -1 }
+  let day = parse_decimal(value[8:10].to_owned()) catch { _ => -1 }
+  if year < 1 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > plan_days_in_month(year, month) {
+    None
+  } else {
+    Some((year, month, day))
+  }
+}
+
+///|
+fn cashflow_week_start(value : String) -> String {
+  match cashflow_date_parts(value) {
+    Some((year, month, day)) => {
+      let offsets = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
+      let adjusted_year = if month < 3 { year - 1 } else { year }
+      let weekday = (
+          adjusted_year +
+          adjusted_year / 4 -
+          adjusted_year / 100 +
+          adjusted_year / 400 +
+          offsets[month - 1] +
+          day
+        ) %
+        7
+      let days_back = if weekday == 0 { 6 } else { weekday - 1 }
+      plan_shift_date(value[:10].to_owned(), -days_back) catch {
+        _ => ""
+      }
+    }
+    None => ""
+  }
+}
+
+///|
 async fn cashflow_gap_response(
   horizon_days : Int,
 ) -> Json raise CompanyServiceError {
@@ -619,11 +662,126 @@ async fn cashflow_gap_response(
     raise reject(422, "horizonDays must be between 7 and 365")
   }
   let context = cashflow_context()
+  let today = @env.now().to_string()[0:10].to_owned()
+  let end_date = plan_shift_date(today, horizon_days)
+  let contracts : Map[String, String] = {}
+  for row in context.rows.get_or_default("cb_contract", []) {
+    if dashboard_active(row.payload) {
+      contracts.set(
+        report_text(row.payload, "contract_guid", row.record_id),
+        report_text(row.payload, "contract_name", ""),
+      )
+    }
+  }
+  let buckets : Map[String, Map[String, Double]] = {}
+  let out_items : Map[String, Array[Json]] = {}
+  let in_items : Map[String, Array[Json]] = {}
+  for row in context.rows.get_or_default("cb_contract_milestone", []) {
+    if !dashboard_active(row.payload) ||
+      report_text(row.payload, "trigger_type", "") != "time" ||
+      !["pending", "reached"].contains(report_text(row.payload, "state", "")) {
+      continue
+    }
+    let date_value = report_text(row.payload, "plan_date", "")
+    let normalized_day = if date_value.length() >= 10 {
+      date_value[:10].to_owned()
+    } else {
+      ""
+    }
+    if cashflow_date_parts(normalized_day) is None ||
+      normalized_day < today ||
+      normalized_day > end_date {
+      continue
+    }
+    let week = cashflow_week_start(normalized_day)
+    if week.is_empty() {
+      continue
+    }
+    let amount = report_amount(row.payload, "plan_amount")
+    let values = buckets.get_or_default(week, { "in": 0.0, "out": 0.0 })
+    values.set("out", values.get_or_default("out", 0.0) + amount)
+    buckets.set(week, values)
+    let items = out_items.get_or_default(week, [])
+    items.push(
+      Json::object({
+        "subject": Json::string(
+          contracts.get_or_default(
+            report_text(row.payload, "contract_guid", ""),
+            "",
+          ),
+        ),
+        "amount": Json::number(round_places(amount, 2)),
+        "kind": Json::string("milestone"),
+      }),
+    )
+    out_items.set(week, items)
+  }
+  for row in context.rows.get_or_default("sale_revenue", []) {
+    if !dashboard_active(row.payload) ||
+      report_text(row.payload, "status", "") != "pending" {
+      continue
+    }
+    let date_value = report_text(row.payload, "receive_date", "")
+    let normalized_day = if date_value.length() >= 10 {
+      date_value[:10].to_owned()
+    } else {
+      ""
+    }
+    if normalized_day.is_empty() ||
+      normalized_day < today ||
+      normalized_day > end_date {
+      continue
+    }
+    let week = cashflow_week_start(normalized_day)
+    if week.is_empty() {
+      continue
+    }
+    let amount = report_amount(row.payload, "amount")
+    let values = buckets.get_or_default(week, { "in": 0.0, "out": 0.0 })
+    values.set("in", values.get_or_default("in", 0.0) + amount)
+    buckets.set(week, values)
+    let items = in_items.get_or_default(week, [])
+    items.push(
+      Json::object({
+        "subject": Json::string(report_text(row.payload, "customer_name", "")),
+        "amount": Json::number(round_places(amount, 2)),
+      }),
+    )
+    in_items.set(week, items)
+  }
+  let week_keys : Array[String] = []
+  for week, _ in buckets {
+    week_keys.push(week)
+  }
+  week_keys.sort_by(fn(left, right) { left.compare(right) })
+  let weeks : Array[Json] = []
+  let gap_weeks : Array[Json] = []
+  let mut total_gap = 0.0
+  for week in week_keys {
+    let values = buckets.get_or_default(week, {})
+    let incoming = values.get_or_default("in", 0.0)
+    let outgoing = values.get_or_default("out", 0.0)
+    let gap = round_places(outgoing - incoming, 2)
+    let item = Json::object({
+      "weekStart": Json::string(week),
+      "in": Json::number(incoming),
+      "out": Json::number(outgoing),
+      "outItems": Json::array(out_items.get_or_default(week, [])),
+      "inItems": Json::array(in_items.get_or_default(week, [])),
+      "gap": Json::number(gap),
+      "alert": Json::boolean(gap > 0.0),
+    })
+    weeks.push(item)
+    if gap > 0.0 {
+      gap_weeks.push(item)
+      total_gap += gap
+    }
+  }
   cashflow_envelope(
     Json::object({
-      "weeks": Json::array([]),
-      "gapWeeks": Json::array([]),
-      "totalGap": Json::number(0),
+      "weeks": Json::array(weeks),
+      "gapWeeks": Json::array(gap_weeks),
+      "totalGap": Json::number(round_places(total_gap, 2)),
       "horizonDays": Json::number(horizon_days.to_double()),
     }),
     context.coverage,
@@ -635,35 +793,143 @@ async fn cashflow_v3_response(
   months : Int,
   proj_guid : String,
 ) -> Json raise CompanyServiceError {
+  if months < 1 || months > 24 {
+    raise reject(422, "months must be between 1 and 24")
+  }
   if !valid_identifier(proj_guid) {
     raise reject(422, "invalid proj_guid")
   }
   let context = cashflow_context()
   let month_list = cashflow_months(months, 0)
-  let series = month_list.map(fn(month) {
-    Json::object({
-      "ym": Json::string(month),
-      "inflow": Json::number(0),
-      "outflow": Json::number(0),
-      "net": Json::number(0),
-      "cumNet": Json::number(0),
-      "gap": Json::number(0),
+  let versions = context.rows
+    .get_or_default("cb_plan_version", [])
+    .filter(fn(row) {
+      dashboard_active(row.payload) &&
+      report_text(row.payload, "proj_guid", "") == proj_guid
     })
+  let mut first_plan_version = ""
+  let mut active_plan_version = ""
+  for row in versions {
+    let value = report_text(row.payload, "plan_version", "baseline")
+    if first_plan_version.is_empty() {
+      first_plan_version = value
+    }
+    if json_bool(row.payload, "is_active", false) &&
+      active_plan_version.is_empty() {
+      active_plan_version = value
+    }
+  }
+  let plan_version = if !active_plan_version.is_empty() {
+    active_plan_version
+  } else if !first_plan_version.is_empty() {
+    first_plan_version
+  } else {
+    "baseline"
+  }
+  let leaves = context.rows
+    .get_or_default("cb_subject_dict", [])
+    .filter(fn(row) {
+      dashboard_active(row.payload) &&
+      report_text(row.payload, "proj_guid", "") == proj_guid &&
+      report_text(row.payload, "plan_version", "baseline") == plan_version
+    })
+  let contracts = context.rows
+    .get_or_default("cb_contract", [])
+    .filter(fn(row) {
+      dashboard_active(row.payload) &&
+      report_text(row.payload, "proj_guid", "") == proj_guid &&
+      ["signed", "paid", "approving"].contains(
+        report_text(row.payload, "cb_state", ""),
+      )
+    })
+  let total_a = leaves.fold(init=0.0, fn(sum, row) {
+    sum + report_amount(row.payload, "plan_amount")
   })
+  let total_d = contracts.fold(init=0.0, fn(sum, row) {
+    if ["signed", "paid"].contains(report_text(row.payload, "cb_state", "")) {
+      sum +
+      (
+        report_amount(row.payload, "ht_amount") +
+        report_amount(row.payload, "sum_alter_amount")
+      ) /
+      10000.0
+    } else {
+      sum
+    }
+  })
+  let total_e = contracts.fold(init=0.0, fn(sum, row) {
+    if report_text(row.payload, "cb_state", "") == "approving" {
+      sum +
+      (
+        report_amount(row.payload, "ht_amount") +
+        report_amount(row.payload, "sum_alter_amount")
+      ) /
+      10000.0
+    } else {
+      sum
+    }
+  })
+  let total_fg_base = leaves.fold(init=0.0, fn(sum, row) {
+    let amount = report_amount(row.payload, "plan_amount")
+    let positive = if amount > 0.0 { amount } else { 0.0 }
+    sum + positive
+  })
+  let total_fg = if total_fg_base - total_d - total_e > 0.0 {
+    total_fg_base - total_d - total_e + total_d * 0.05
+  } else {
+    total_d * 0.05
+  }
+  let revenue_by_month : Map[String, Double] = {}
+  for row in context.rows.get_or_default("sale_revenue", []) {
+    if dashboard_active(row.payload) &&
+      report_text(row.payload, "proj_guid", "") == proj_guid &&
+      report_text(row.payload, "status", "") == "expected" {
+      let month = cashflow_month(row.payload, "receive_date")
+      revenue_by_month.set(
+        month,
+        revenue_by_month.get_or_default(month, 0.0) +
+        report_amount(row.payload, "amount") / 10000.0,
+      )
+    }
+  }
+  let fg_monthly = total_fg / months.to_double()
+  let mut cumulative = 0.0
+  let series : Array[Json] = []
+  for index in 0..<month_list.length() {
+    let month = month_list[index]
+    let inflow = revenue_by_month.get_or_default(month, 0.0)
+    let outflow = (if index == 0 { total_e } else { 0.0 }) + fg_monthly
+    let net = inflow - outflow
+    cumulative += net
+    let gap = if cumulative < 0.0 { -cumulative } else { 0.0 }
+    series.push(
+      Json::object({
+        "ym": Json::string(month),
+        "inflow": Json::number(round_places(inflow, 2)),
+        "outflow": Json::number(round_places(outflow, 2)),
+        "net": Json::number(round_places(net, 2)),
+        "cumNet": Json::number(round_places(cumulative, 2)),
+        "gap": Json::number(round_places(gap, 2)),
+      }),
+    )
+  }
+  let sum_field = fn(key : String) -> Double {
+    series.fold(init=0.0, fn(sum, row) { sum + report_amount(row, key) })
+  }
   cashflow_envelope(
     Json::object({
       "projGuid": Json::string(proj_guid),
-      "planVersion": Json::string("baseline"),
+      "planVersion": Json::string(plan_version),
       "months": Json::array(month_list.map(fn(value) { Json::string(value) })),
       "series": Json::array(series),
       "totals": Json::object({
-        "A_total": Json::number(0),
-        "D_total": Json::number(0),
-        "E_total": Json::number(0),
-        "FG_total": Json::number(0),
-        "inflow_total": Json::number(0),
-        "outflow_total": Json::number(0),
-        "gap_total": Json::number(0),
+        "A_total": Json::number(round_places(total_a, 2)),
+        "D_total": Json::number(round_places(total_d, 2)),
+        "E_total": Json::number(round_places(total_e, 2)),
+        "FG_total": Json::number(round_places(total_fg, 2)),
+        "inflow_total": Json::number(round_places(sum_field("inflow"), 2)),
+        "outflow_total": Json::number(round_places(sum_field("outflow"), 2)),
+        "gap_total": Json::number(round_places(sum_field("gap"), 2)),
       }),
     }),
     context.coverage,

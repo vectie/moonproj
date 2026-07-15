@@ -122,7 +122,9 @@ request_allow_error investment_plan_preview '/api/company/investment/excel-impor
   "http://127.0.0.1:$PORT/api/company/investment/projects/proj-0001/profit-actual" >"$TMP_DIR/investment_actual.json"
 request investment_dimensions /api/company/investment/meta/dimensions
 request cashflow_forecast '/api/company/cashflow/forecast?months=6&projGuid=proj-0001'
+request cashflow_forecast_v3 '/api/company/cashflow/forecast-v3?months=6&projGuid=proj-0001'
 request cashflow_inflow '/api/company/cashflow/inflow?months=6&projGuid=proj-0001'
+request cashflow_gap '/api/company/cashflow/gap-alert?horizonDays=90'
 request cashflow_detail '/api/company/cashflow/forecast/detail?ym=2026-04&projGuid=proj-0001'
 request cbs_dict '/api/company/cbs/dict?projGuid=proj-0001'
 request cbs_versions '/api/company/cbs/versions?projGuid=proj-0001'
@@ -546,9 +548,20 @@ request supplier_provider_detail '/api/company/srm/providers/SUP-SOURCE-SMOKE-4f
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/cashflow_forecast.json" >/dev/null
 /usr/bin/jq -e '
+  (.data.series | length) == 6 and .data.projGuid == "proj-0001" and
+  .data.planVersion == "baseline" and .authorizing == false and
+  .persisted == false and .provider_execution == false
+' "$TMP_DIR/cashflow_forecast_v3.json" >/dev/null
+/usr/bin/jq -e '
   (.data.series | length) == 9 and .data.totals.totalInflow == 0 and
   .source_coverage.sale_revenue == 0 and .authorizing == false
 ' "$TMP_DIR/cashflow_inflow.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data.weeks | length) == 0 and
+  .data.gapWeeks == [] and .data.totalGap == 0 and
+  .data.horizonDays == 90 and .authorizing == false and
+  .persisted == false and .provider_execution == false
+' "$TMP_DIR/cashflow_gap.json" >/dev/null
 /usr/bin/jq -e '
   .data.ym == "2026-04" and (.data.plans | length) == 1 and
   .source_coverage.cb_htfkplan == 4 and .authorizing == false
