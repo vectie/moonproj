@@ -12,7 +12,8 @@ async fn cbs_projection_payloads(
   if aggregate_type != "cbs_plan_version" &&
     aggregate_type != "cbs_subject_dict" &&
     aggregate_type != "cbs_approval_rule" &&
-    aggregate_type != "cbs_demo_contract" {
+    aggregate_type != "cbs_demo_contract" &&
+    aggregate_type != "cbs_change" {
     raise fail("unsupported CBS projection type")
   }
   let output = run_sql(

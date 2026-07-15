@@ -514,7 +514,40 @@ async fn cbs_changes_response(
   contract_guid : String?,
 ) -> Json raise CompanyServiceError {
   let rows = cbs_rows()
-  cbs_envelope(Json::array([]), cbs_coverage(rows))
+  let items : Array[Json] = []
+  let local_rows = cbs_projection_payloads("cbs_change")
+  for payload in local_rows {
+    if json_text(payload, "state", "estimated") != "deleted" &&
+      (
+        proj_guid is None ||
+        json_text(payload, "proj_guid", "") == proj_guid.unwrap()
+      ) &&
+      (
+        contract_guid is None ||
+        json_text(payload, "contract_guid", "") == contract_guid.unwrap()
+      ) {
+      let fields = cbs_copy_fields(payload)
+      fields.set(
+        "changeGuid",
+        Json::string(json_text(payload, "change_guid", "")),
+      )
+      fields.set(
+        "changeCode",
+        Json::string(json_text(payload, "change_code", "")),
+      )
+      fields.set(
+        "contractGuid",
+        Json::string(json_text(payload, "contract_guid", "")),
+      )
+      fields.set(
+        "changeAmount",
+        Json::number(json_number(payload, "change_amount", 0.0)),
+      )
+      fields.set("source_kind", Json::string("command"))
+      items.push(Json::object(fields))
+    }
+  }
+  cbs_envelope(Json::array(items), cbs_coverage(rows))
 }
 
 ///|

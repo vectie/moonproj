@@ -562,6 +562,13 @@ test "native company service maps CBS demo contract command paths" {
     )
     is None,
   )
+  assert_true(cbs_change_command_spec(@http.Post, "/api/company/cbs/changes"))
+  assert_true(
+    cbs_change_command_spec(@http.Post, "/api/company/source/cbs/changes"),
+  )
+  assert_true(
+    cbs_mutation_boundary_spec(@http.Post, "/api/company/cbs/changes") is None,
+  )
 }
 
 ///|

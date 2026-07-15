@@ -67,3 +67,11 @@ source state graph (`submit-approval`, `approve`, `reject`, `mark-paid`) with
 `DELETE /api/company/cbs/demo/clear` route now tombstones only command-owned
 `DEMO-*`/`LEGACY-*` projections and reports the deleted count; imported
 contracts are never removed.
+
+Change registration is now native at `POST /api/company/cbs/changes` (and the
+`/source` alias). It accepts only signed or paid command-owned contracts,
+persists an auditable `cbs_change` projection with idempotent replay, and
+returns `state=estimated` plus `workflowPending=true`. Imported contracts are
+protected and the registration has no workflow, budget, cash, accounting, or
+tax effect. Approval/finalization of a change remains a separate candidate
+boundary.

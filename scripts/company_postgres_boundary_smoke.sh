@@ -45,7 +45,7 @@ for _ in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_command") and index("source_sales_customer_delete_command") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_demo_legacy_command") and index("source_cbs_demo_legacy_command") and index("cbs_demo_clear_command") and index("source_cbs_demo_clear_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/jq -e '.capabilities | index("import_batch_candidate") and index("sales_customer_command") and index("sales_subscription_command") and index("sales_mortgage_command") and index("sales_refund_command") and index("sales_customer_delete_command") and index("source_sales_customer_delete_command") and index("cbs_r0_command") and index("source_cbs_r0_command") and index("cbs_demo_contract_command") and index("source_cbs_demo_contract_command") and index("cbs_demo_legacy_command") and index("source_cbs_demo_legacy_command") and index("cbs_demo_clear_command") and index("source_cbs_demo_clear_command") and index("cbs_change_command") and index("source_cbs_change_command") and index("cbs_mutation_boundary_candidate")' "$TMP_DIR/health.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/project-template.csv" -D "$TMP_DIR/project-template.headers" -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
@@ -280,6 +280,20 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-mark-paid.json" -w '%{http_code}' -X
   --data '{}' "http://127.0.0.1:$PORT/api/company/source/cbs/contracts/$LEGACY_ID/mark-paid")
 test "$status" = 200
 /usr/bin/jq -e '.success == true and .contract.fromState == "signed" and .contract.toState == "paid" and .workflow_effect == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-mark-paid.json" >/dev/null
+CHANGE_KEY="boundary-cbs-change-$SMOKE_SUFFIX"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-change.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $CHANGE_KEY" \
+  --data "{\"contractGuid\":\"$DEMO_ID\",\"reason\":\"Boundary smoke change\",\"changeAmount\":1.25}" \
+  "http://127.0.0.1:$PORT/api/company/source/cbs/changes")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and (.change.changeCode | startswith("CHG-")) and .change.state == "estimated" and .change.workflowPending == true and .workflow_effect == false and .budget_consumption == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' "$TMP_DIR/cbs-change.json" >/dev/null
+CHANGE_ID=$(/usr/bin/jq -r '.change.changeGuid' "$TMP_DIR/cbs-change.json")
+/usr/bin/curl -fsS -G -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  --data-urlencode "contractGuid=$DEMO_ID" \
+  "http://127.0.0.1:$PORT/api/company/cbs/changes" \
+  | /usr/bin/jq -e --arg id "$CHANGE_ID" 'any(.data[]; .changeGuid == $id and .state == "estimated" and .source_kind == "command")' >/dev/null
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/cbs-clear.json" -w '%{http_code}' -X DELETE \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
