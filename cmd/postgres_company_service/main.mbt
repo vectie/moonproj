@@ -242,7 +242,7 @@ async fn auth_current_user(
   match selected {
     None => None
     Some(row) => {
-      let payload = row.payload
+      let payload = auth_profile_overlay(row.payload, user_code)
       let bu_guid = json_text(payload, "bu_guid", "")
       let dept_guid = json_text(payload, "dept_guid", "")
       Some(
@@ -514,6 +514,7 @@ async fn summary(
     "capabilities": Json::array([
       Json::string("read_model"),
       Json::string("profile_observation_read"),
+      Json::string("auth_profile_command"),
       Json::string("preference_observation_read"),
       Json::string("preference_command"),
       Json::string("workflow_command"),
@@ -15975,6 +15976,7 @@ async fn route(
             Json::string("import_batch_candidate"),
             Json::string("budget_check_preview"),
             Json::string("profile_observation_read"),
+            Json::string("auth_profile_command"),
             Json::string("preference_observation_read"),
             Json::string("preference_command"),
             Json::string("workflow_command"),
@@ -16112,6 +16114,45 @@ async fn handle(
       authorization_status == 401,
     )
     return
+  }
+  match auth_command_spec(request.meth, path) {
+    Some(command_type) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = if command_type == "profile" {
+        read_json_body(body_reader) catch {
+          error => {
+            let response = service_error_response(error)
+            send_json(conn, request.meth, response.0, response.1, false)
+            return
+          }
+        }
+      } else {
+        Json::object({})
+      }
+      let result = auth_command(command_type, body, actor, idempotency_key) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
   }
   match auth_lifecycle_spec(request.meth, path) {
     Some(action) => {

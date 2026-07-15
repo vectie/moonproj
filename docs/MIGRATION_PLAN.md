@@ -1372,7 +1372,8 @@ approval/payment, and change writes return a `cbs_mutation_boundary_candidate`
 return an `import_batch_candidate` 409 until row validation and transactional
 commit are implemented. Destructive sales-customer delete returns a
 `sales_customer_delete_candidate` 409 because the product policy is archive,
-not hard delete. Auth login/logout/password/profile writes return an
+not hard delete. Auth logout/profile now persist signed local command
+projections and overlay `/auth/me` readback; login/password writes return an
 `auth_lifecycle_candidate` 409 until production identity, password/session
 storage, and security-owner acceptance are available. The parity ledger now
 has zero `not_connected` API handlers; these candidate states remain explicit

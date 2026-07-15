@@ -80,4 +80,24 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/login.json" -w '%{http_code}' -X POST \
 test "$status" = 409
 /usr/bin/jq -e '.code == 41001 and .source_kind == "auth_lifecycle_candidate" and .data.sessionIssued == false' "$TMP_DIR/login.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/profile.json" -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: boundary-profile' \
+  --data '{"empName":"Native Boundary Profile"}' \
+  "http://127.0.0.1:$PORT/api/company/auth/profile")
+test "$status" = 200
+/usr/bin/jq -e '.auth.empName == "Native Boundary Profile" and .auth.persisted == true and .idempotent_replay == false' "$TMP_DIR/profile.json" >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/auth/me?userCode=admin" \
+  | /usr/bin/jq -e '.data.empName == "Native Boundary Profile" and .source_kind == "imported"' >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/logout.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Idempotency-Key: boundary-logout' \
+  "http://127.0.0.1:$PORT/api/company/auth/logout")
+test "$status" = 200
+/usr/bin/jq -e '.auth.sessionRevoked == true and .auth.persisted == true and .idempotent_replay == false' "$TMP_DIR/logout.json" >/dev/null
+
 /usr/bin/printf '%s\n' 'native PostgreSQL import/customer boundary smoke passed'

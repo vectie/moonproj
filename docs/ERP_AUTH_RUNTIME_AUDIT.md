@@ -5,9 +5,11 @@ mutation. Native PostgreSQL now recognizes the same `/api/company/auth/*`
 boundaries. Login is reachable without a bearer token (subject to forwarded TLS)
 so the missing behavior is explicit rather than an authentication 401.
 
-Each route currently returns a signed-request-independent `409`
-`auth_lifecycle_candidate` response with `sessionIssued=false` and
-`persisted=false`. Password hashing/history, session/token issuance, user
-profile persistence, production identity, and security-owner acceptance remain
-unported. Read-only `/me`, preferences, and initiated-document observations
-remain separate native surfaces.
+Logout and profile now use signed local commands with idempotent PostgreSQL
+receipts, immutable `auth_session`/`auth_profile` revisions, audit events, and
+`/auth/me` profile overlay readback. They remain non-authorizing and do not
+issue bearer tokens. Login and password change return an explicit
+`auth_lifecycle_candidate` 409 with `sessionIssued=false` and `persisted=false`;
+password hashing/history, session/token issuance, production identity, and
+security-owner acceptance remain unported. Read-only preferences and
+initiated-document observations remain separate native surfaces.
