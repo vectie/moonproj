@@ -2025,6 +2025,15 @@ Execute the remainder in this order:
     bounds, and the exact expense-advance plan envelope. The offset remains a
     bounded balance mutation; cash, accounting, tax, and period-close effects
     stay disabled.
+
+3a.18. **Native workflow-assignment planner (2026-07-16).**
+    `cmd/workflow_assignment_plan` and `scripts/erp_workflow_assignment_plan.sh`
+    now replace the export-backed Python assignment compiler in the PostgreSQL
+    cohort path. The native planner preserves manifest hash validation,
+    explicit process/step/user/mapping joins, deterministic quarantine reasons,
+    assignment weights, and the exact workflow-assignment plan envelope.
+    Assignments remain configuration-only and non-authorizing; effective
+    decision-time capability checks remain mandatory.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

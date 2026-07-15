@@ -183,7 +183,7 @@ if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
 fi
 
 if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_workflow_assignment_plan.py" "$EXPORT_DIR" "$WORKFLOW_ASSIGNMENT_MAPPING" "$WORK_DIR/workflow-assignment-plan.json"
+  "$SCRIPT_DIR/erp_workflow_assignment_plan.sh" "$EXPORT_DIR" "$WORKFLOW_ASSIGNMENT_MAPPING" "$WORK_DIR/workflow-assignment-plan.json"
   moon run --target native cmd/workflow_assignment -- "$WORK_DIR/workflow-assignment-plan.json" "$WORK_DIR/workflow-assignment-receipt.json"
   apply_projection workflow-assignment "$WORK_DIR/workflow-assignment-receipt.json"
 fi
