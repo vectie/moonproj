@@ -1252,8 +1252,9 @@ match the Python read-model responses, including aggregate-type filtering, on
 the live target. The native authenticated service slice
 `cmd/postgres_company_service`, invoked through
 `scripts/company_postgres_service.sh`, now adds mandatory bearer-token and
-forwarded-TLS checks plus exact live parity for the profile, preference, and
-initiated-document observations; it remains capability-limited and read-only,
+forwarded-TLS checks plus exact live parity for the profile, preference,
+initiated-document, contract, payment-application, and payment-eligibility
+observations; it remains capability-limited and read-only,
 not yet the complete service or gateway. The raw PostgreSQL target-apply boundary is now also native
 MoonBit (`cmd/postgres_target_apply` plus
 `scripts/company_postgres_target_apply.sh`): it validates the staging manifest,
@@ -1312,8 +1313,9 @@ Execute the remainder in this order:
     `cmd/postgres_accounting_link_apply` cover the raw, aggregate, and
     accounting traceability transactions with replay-hash parity. Continue the
     port with `cmd/postgres_company_service`'s authenticated native slice
-    (health, summary, receipts, projections, profile, preferences, and
-    initiated-document observations), then the remaining HTTP routes, gateway,
+    (health, summary, receipts, projections, profile, preferences,
+    initiated-document, contract, and payment observations), then the
+    remaining HTTP routes, gateway,
     rehearsal planners/parity tools, and shadow/replay checks before treating
     this convergence step as complete; Python remains bridge evidence only and
     is not an accepted build, test, or deployment dependency.

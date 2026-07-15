@@ -503,6 +503,9 @@ async fn summary(
       Json::string("profile_observation_read"),
       Json::string("preference_observation_read"),
       Json::string("initiated_document_observation_read"),
+      Json::string("contract_read"),
+      Json::string("payment_application_read"),
+      Json::string("payment_eligibility_read"),
       Json::string("authenticated_http_read"),
     ]),
     "schema_version": Json::number(schema_version.to_double()),
@@ -578,6 +581,329 @@ async fn projections(
     }
   }
   Json::object({ "items": Json::array(result) })
+}
+
+///|
+fn json_array_output(output : String) -> Array[Json] raise CompanyServiceError {
+  let parsed = @json.parse(output.trim()) catch {
+    _ => raise fail("invalid PostgreSQL JSON array")
+  }
+  match parsed {
+    Array(values) => values
+    _ => raise fail("PostgreSQL result is not a JSON array")
+  }
+}
+
+///|
+async fn contract_items(
+  contract_id : String?,
+) -> Array[Json] raise CompanyServiceError {
+  let where_clause = match contract_id {
+    Some(value) => {
+      if !valid_identifier(value) {
+        raise fail("invalid contract_id")
+      }
+      "WHERE base.contract_id = " + @postgres.sql_literal(value)
+    }
+    None => ""
+  }
+  let sql = [
+    "WITH commitment_latest AS (", "  SELECT DISTINCT ON (aggregate_id) aggregate_id AS contract_id, payload, 'imported' AS source_kind",
+    "  FROM company_aggregate_projection WHERE aggregate_type = 'commitment' ORDER BY aggregate_id, revision DESC",
+    "), contract_latest AS (", "  SELECT contract_id, payload, source_kind FROM (",
+    "    SELECT DISTINCT ON (aggregate_id) aggregate_id AS contract_id, payload, 'command' AS source_kind",
+    "    FROM company_aggregate_projection WHERE aggregate_type = 'contract' ORDER BY aggregate_id, revision DESC",
+    "  ) latest WHERE coalesce(payload->>'state', '') <> 'deleted'", "), base AS (",
+    "  SELECT contract_id, payload, source_kind FROM commitment_latest", "  UNION ALL SELECT contract_id, payload, source_kind FROM contract_latest",
+    "), deduped AS (", "  SELECT DISTINCT ON (contract_id) contract_id, payload, source_kind FROM base",
+    "  ORDER BY contract_id, CASE WHEN source_kind = 'command' THEN 1 ELSE 0 END DESC",
+    "), raw_contract AS (", "  SELECT record_id, payload FROM company_record WHERE record_type = 'legacy/raw/cb_contract'",
+    "), raw_project AS (", "  SELECT record_id, payload FROM company_record WHERE record_type = 'legacy/raw/ep_project'",
+    "), raw_payment AS (", "  SELECT payload FROM company_record WHERE record_type = 'legacy/raw/cb_htfk_apply'",
+    "), milestone_counts AS (", "  SELECT contract_id, count(*)::text AS milestone_count FROM (",
+    "    SELECT payload->'candidate'->'milestone'->>'contract_guid' AS contract_id, payload->>'state' AS state",
+    "    FROM company_aggregate_projection WHERE aggregate_type = 'contract_milestone'",
+    "    UNION ALL SELECT payload->>'contract_id' AS contract_id, payload->>'state' AS state FROM (",
+    "      SELECT DISTINCT ON (aggregate_id) payload FROM company_aggregate_projection",
+    "      WHERE aggregate_type = 'contract_milestone_command' ORDER BY aggregate_id, revision DESC",
+    "    ) latest_command", "  ) milestones WHERE coalesce(state, '') <> 'deleted' GROUP BY contract_id",
+    "), payment_totals AS (", "  SELECT payload->>'contract_guid' AS contract_id, coalesce(sum(CASE WHEN payload->>'pay_state' = '完全支付' THEN round((payload->>'apply_amount')::numeric * 100)::bigint ELSE 0 END), 0)::text AS paid_amount_minor",
+    "  FROM raw_payment GROUP BY payload->>'contract_guid'", ")", "SELECT coalesce(jsonb_agg(jsonb_build_object(",
+    "  'contract_id', base.contract_id,", "  'contract_code', coalesce(raw.payload->>'contract_code', base.payload->>'contract_code', base.contract_id),",
+    "  'contract_name', coalesce(raw.payload->>'contract_name', base.payload->>'contract_name', base.contract_id),",
+    "  'project_id', coalesce(raw.payload->>'proj_guid', base.payload->>'project_id', ''),",
+    "  'project_name', coalesce(project.payload->>'proj_name', base.payload->>'project_name', ''),",
+    "  'supplier_id', coalesce(base.payload->'candidate'->>'counterparty_id', base.payload->>'supplier_id', ''),",
+    "  'supplier_name', coalesce(raw.payload->>'yf_provider_name', base.payload->>'supplier_name', base.payload->>'supplier_id', ''),",
+    "  'amount_minor', coalesce(base.payload->'candidate'->>'amount_minor', base.payload->>'amount_minor', round(coalesce((raw.payload->>'ht_amount')::numeric, 0) * 100)::bigint::text, '0')::bigint,",
+    "  'currency', coalesce(base.payload->'candidate'->>'currency', base.payload->>'currency', 'CNY'),",
+    "  'sign_date', coalesce(raw.payload->>'sign_date', base.payload->>'sign_date', ''),",
+    "  'state', coalesce(base.payload->>'state', 'active'),", "  'paid_amount_minor', coalesce(payment.paid_amount_minor, '0')::bigint,",
+    "  'milestone_count', coalesce(milestone.milestone_count, '0')::integer,", "  'source_kind', base.source_kind,",
+    "  'bu_guid', coalesce(raw.payload->>'bu_guid', base.payload->>'bu_guid', ''),",
+    "  'bu_name', coalesce(raw.payload->>'bu_name', base.payload->>'bu_name', ''),",
+    "  'ht_type_code', coalesce(raw.payload->>'ht_type_code', base.payload->>'ht_type_code', ''),",
+    "  'ht_class', coalesce(raw.payload->>'ht_class', base.payload->>'ht_class', '0')::integer,",
+    "  'supplier_corporation', coalesce(raw.payload->>'yf_corporation', base.payload->>'supplier_corporation', ''),",
+    "  'ht_cf_state', coalesce(raw.payload->>'ht_cf_state', base.payload->>'ht_cf_state', ''),",
+    "  'js_state', coalesce(raw.payload->>'js_state', base.payload->>'js_state', ''),",
+    "  'cost_code', coalesce(raw.payload->>'cost_code', base.payload->>'cost_code', ''),",
+    "  'r_code', coalesce(raw.payload->>'r_code', base.payload->>'r_code', ''),",
+    "  'l3_code', coalesce(raw.payload->>'l3_code', base.payload->>'l3_code', ''),",
+    "  'amount_display', concat('¥', to_char((coalesce(base.payload->'candidate'->>'amount_minor', base.payload->>'amount_minor', round(coalesce((raw.payload->>'ht_amount')::numeric, 0) * 100)::bigint::text, '0')::numeric / 100), 'FM999,999,999,990.00')),",
+    "  'paid_amount_display', concat('¥', to_char((coalesce(payment.paid_amount_minor, '0')::numeric / 100), 'FM999,999,999,990.00'))",
+    ") ORDER BY base.contract_id), '[]'::jsonb)::text", "FROM deduped base", "LEFT JOIN raw_contract raw ON raw.record_id = base.contract_id",
+    "LEFT JOIN raw_project project ON project.record_id = raw.payload->>'proj_guid'",
+    "LEFT JOIN milestone_counts milestone ON milestone.contract_id = base.contract_id",
+    "LEFT JOIN payment_totals payment ON payment.contract_id = base.contract_id",
+    where_clause,
+  ].join("\n")
+  json_array_output(run_sql(sql))
+}
+
+///|
+async fn contract_response(
+  contract_id : String?,
+) -> Json raise CompanyServiceError {
+  Json::object({ "items": Json::array(contract_items(contract_id)) })
+}
+
+///|
+async fn contract_detail_response(
+  contract_id : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(contract_id) {
+    raise fail("invalid contract_id")
+  }
+  let items = contract_items(Some(contract_id))
+  if items.is_empty() {
+    return (404, Json::object({ "error": Json::string("contract not found") }))
+  }
+  let milestone_sql = [
+    "WITH latest AS (",
+    "  SELECT DISTINCT ON (aggregate_type, aggregate_id) aggregate_type, aggregate_id, payload",
+    "  FROM company_aggregate_projection",
+    "  WHERE aggregate_type IN ('contract_milestone', 'contract_milestone_command')",
+    "  ORDER BY aggregate_type, aggregate_id, revision DESC",
+    ")",
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(",
+    "  'milestoneGuid', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'milestone_id' END, payload->'candidate'->'milestone'->>'milestone_guid', aggregate_id),",
+    "  'seq', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'sequence' END, payload->'candidate'->'milestone'->>'sequence', payload->'candidate'->'milestone'->>'seq', '0')::integer,",
+    "  'nodeName', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'node_name' END, payload->'candidate'->'milestone'->>'node_name', ''),",
+    "  'triggerType', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'trigger_type' END, payload->'candidate'->'milestone'->>'trigger_type', ''),",
+    "  'triggerValue', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'trigger_value' END, payload->'candidate'->'milestone'->>'trigger_value', ''),",
+    "  'triggerTaskName', '', 'triggerTaskStatus', '',",
+    "  'planDate', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'plan_date' END, payload->'candidate'->'milestone'->>'plan_date', ''),",
+    "  'planAmount', (coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'plan_amount_minor' END, payload->'candidate'->'milestone'->>'plan_amount_minor', '0')::numeric / 100),",
+    "  'planPct', (coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'plan_pct_bps' END, payload->'candidate'->'milestone'->>'plan_pct_bps', '0')::numeric / 100),",
+    "  'actualAmount', (coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'actual_amount_minor' END, payload->'candidate'->'milestone'->>'actual_amount_minor', '0')::numeric / 100),",
+    "  'state', coalesce(payload->>'state', payload->'candidate'->'milestone'->>'state', 'pending'),",
+    "  'reachedAt', coalesce(payload->>'reached_at', payload->'candidate'->'milestone'->>'reached_at', ''),",
+    "  'notes', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'notes' END, payload->'candidate'->'milestone'->>'notes', ''),",
+    "  'sourceKind', CASE WHEN aggregate_type = 'contract_milestone_command' THEN 'command' ELSE 'imported' END,",
+    "  'sourceId', CASE WHEN aggregate_type = 'contract_milestone_command' THEN 'moonproj:command:contract_milestone:' || aggregate_id ELSE coalesce(payload->>'source_id', aggregate_id) END,",
+    "  'command_projection', aggregate_type = 'contract_milestone_command',",
+    "  'authorizing', false, 'persisted', aggregate_type = 'contract_milestone_command', 'provider_execution', false, 'cash_effect', false, 'accounting_effect', false, 'tax_effect', false,",
+    "  'milestone_id', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'milestone_id' END, payload->'candidate'->'milestone'->>'milestone_guid', aggregate_id),",
+    "  'node_name', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'node_name' END, payload->'candidate'->'milestone'->>'node_name', ''),",
+    "  'plan_amount_minor', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'plan_amount_minor' END, payload->'candidate'->'milestone'->>'plan_amount_minor', '0')::bigint,",
+    "  'plan_amount_display', concat('¥', to_char((coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'plan_amount_minor' END, payload->'candidate'->'milestone'->>'plan_amount_minor', '0')::numeric / 100), 'FM999,999,999,990.00')),",
+    "  'plan_pct_bps', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'plan_pct_bps' END, payload->'candidate'->'milestone'->>'plan_pct_bps', '0'),",
+    "  'trigger_type', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'trigger_type' END, payload->'candidate'->'milestone'->>'trigger_type', ''),",
+    "  'contract_id', coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'contract_id' END, payload->'candidate'->'milestone'->>'contract_guid', '')",
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text",
+    "FROM latest",
+    "WHERE coalesce(payload->>'state', '') <> 'deleted'",
+    "  AND coalesce(CASE WHEN aggregate_type = 'contract_milestone_command' THEN payload->>'contract_id' END, payload->'candidate'->'milestone'->>'contract_guid', '') = " +
+    @postgres.sql_literal(contract_id),
+  ].join("\n")
+  let milestones = json_array_output(run_sql(milestone_sql))
+  match items[0] {
+    Object(fields) => {
+      fields.set("milestones", Json::array(milestones))
+      (200, Json::object(fields))
+    }
+    _ =>
+      (
+        500,
+        Json::object({ "error": Json::string("invalid contract response") }),
+      )
+  }
+}
+
+///|
+async fn payment_items(
+  apply_id : String?,
+  view : String,
+) -> Array[Json] raise CompanyServiceError {
+  if !["all", "approving", "approved", "fullpaid"].contains(view) {
+    raise fail("unsupported payment application view")
+  }
+  let where_clause = match apply_id {
+    Some(value) => {
+      if !valid_identifier(value) {
+        raise fail("invalid payment application id")
+      }
+      "WHERE base.apply_id = " + @postgres.sql_literal(value)
+    }
+    None => ""
+  }
+  let sql = [
+    "WITH imported AS (", "  SELECT DISTINCT ON (aggregate_id) aggregate_id AS apply_id, payload, 'imported' AS source_kind",
+    "  FROM company_aggregate_projection WHERE aggregate_type = 'payment_application' ORDER BY aggregate_id, revision DESC",
+    "), command AS (", "  SELECT DISTINCT ON (aggregate_id) aggregate_id AS apply_id, payload, 'command' AS source_kind",
+    "  FROM company_aggregate_projection WHERE aggregate_type = 'payment_application_command' ORDER BY aggregate_id, revision DESC",
+    "), base AS (", "  SELECT apply_id, payload, source_kind FROM imported UNION ALL SELECT apply_id, payload, source_kind FROM command",
+    "), deduped AS (", "  SELECT DISTINCT ON (apply_id) apply_id, payload, source_kind FROM base",
+    "  ORDER BY apply_id, CASE WHEN source_kind = 'command' THEN 1 ELSE 0 END DESC",
+    "), raw_apply AS (SELECT record_id, payload FROM company_record WHERE record_type = 'legacy/raw/cb_htfk_apply'),",
+    "raw_contract AS (SELECT record_id, payload FROM company_record WHERE record_type = 'legacy/raw/cb_contract'),",
+    "raw_project AS (SELECT record_id, payload FROM company_record WHERE record_type = 'legacy/raw/ep_project'),",
+    "raw_user AS (SELECT record_id, payload FROM company_record WHERE record_type = 'legacy/raw/sys_user')",
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(", "  'apply_id', base.apply_id,",
+    "  'apply_code', coalesce(base.payload->'payment_application'->>'apply_code', base.payload->'candidate'->'application'->>'apply_code', raw_apply.payload->>'apply_code', base.apply_id),",
+    "  'contract_id', coalesce(base.payload->'payment_application'->>'contract_id', base.payload->'candidate'->'application'->>'contract_guid', raw_apply.payload->>'contract_guid', ''),",
+    "  'contract_name', coalesce(raw_contract.payload->>'contract_name', ''),", "  'project_id', coalesce(base.payload->'payment_application'->>'project_id', base.payload->'candidate'->'application'->>'proj_guid', raw_apply.payload->>'proj_guid', ''),",
+    "  'project_name', coalesce(raw_project.payload->>'proj_name', ''),", "  'supplier_name', coalesce(raw_contract.payload->>'yf_provider_name', ''),",
+    "  'subject', coalesce(base.payload->'payment_application'->>'subject', base.payload->'candidate'->'application'->>'subject', raw_apply.payload->>'subject', ''),",
+    "  'amount_minor', coalesce(base.payload->'payment_application'->>'amount_minor', base.payload->'candidate'->'application'->>'amount_minor', round(coalesce((raw_apply.payload->>'apply_amount')::numeric, 0) * 100)::bigint::text, '0')::bigint,",
+    "  'currency', coalesce(base.payload->>'currency', base.payload->'candidate'->>'currency', 'CNY'),",
+    "  'apply_date', coalesce(base.payload->'payment_application'->>'apply_date', base.payload->'candidate'->'application'->>'apply_date', raw_apply.payload->>'apply_date', ''),",
+    "  'operation_state', CASE WHEN base.source_kind = 'command' THEN coalesce(base.payload->>'state', 'draft') WHEN coalesce(raw_apply.payload->>'pay_state', '') = '完全支付' THEN 'paid' WHEN coalesce(raw_apply.payload->>'pay_state', '') = '部分支付' THEN 'partially_paid' WHEN coalesce(raw_apply.payload->>'apply_state', '') IN ('已审核', 'approved', 'Approved') THEN 'approved' WHEN coalesce(raw_apply.payload->>'apply_state', '') IN ('已驳回', 'rejected', 'Rejected') THEN 'rejected' WHEN coalesce(raw_apply.payload->>'apply_state', '') IN ('申请审批中', 'submitted', 'Approving') THEN 'submitted' ELSE 'draft' END,",
+    "  'apply_state', CASE WHEN base.source_kind = 'command' THEN CASE base.payload->>'state' WHEN 'draft' THEN '草稿' WHEN 'submitted' THEN '申请审批中' WHEN 'rejected' THEN '已驳回' WHEN 'approved' THEN '已审核' WHEN 'voided' THEN '已作废' ELSE coalesce(base.payload->>'state', '草稿') END ELSE coalesce(base.payload->'candidate'->'application'->>'apply_state', raw_apply.payload->>'apply_state', '') END,",
+    "  'pay_state', CASE WHEN base.source_kind = 'command' THEN coalesce(base.payload->'payment_application'->>'pay_state', '未支付') ELSE coalesce(base.payload->'candidate'->'application'->>'pay_state', raw_apply.payload->>'pay_state', '') END,",
+    "  'apply_type_code', coalesce(base.payload->'payment_application'->>'apply_type_code', base.payload->'candidate'->'application'->>'apply_type_code', raw_apply.payload->>'apply_type_code', ''),",
+    "  'pay_class', CASE WHEN coalesce(base.payload->'payment_application'->>'apply_class', base.payload->'candidate'->'application'->>'apply_class', raw_apply.payload->>'apply_class', '0') = '0' THEN '合同' ELSE '非合同' END,",
+    "  'applied_by', coalesce(base.payload->'payment_application'->>'applied_by', base.payload->'candidate'->'application'->>'applied_by', raw_apply.payload->>'applied_by', ''),",
+    "  'applied_by_name', coalesce(raw_user.payload->>'emp_name', raw_user.payload->>'user_name', base.payload->'payment_application'->>'applied_by', base.payload->'candidate'->'application'->>'applied_by', ''),",
+    "  'source_kind', base.source_kind,", "  'plan_id', coalesce(base.payload->'payment_application'->>'plan_id', base.payload->'candidate'->'application'->>'plan_guid', raw_apply.payload->>'htfk_plan_guid', ''),",
+    "  'milestone_id', coalesce(base.payload->'payment_application'->>'milestone_id', base.payload->'candidate'->'application'->>'milestone_guid', raw_apply.payload->>'milestone_guid', ''),",
+    "  'amount_display', concat('¥', to_char((coalesce(base.payload->'payment_application'->>'amount_minor', base.payload->'candidate'->'application'->>'amount_minor', round(coalesce((raw_apply.payload->>'apply_amount')::numeric, 0) * 100)::bigint::text, '0')::numeric / 100), 'FM999,999,999,990.00'))",
+    ") ORDER BY base.apply_id), '[]'::jsonb)::text", "FROM deduped base", "LEFT JOIN raw_apply ON raw_apply.record_id = base.apply_id",
+    "LEFT JOIN raw_contract ON raw_contract.record_id = coalesce(base.payload->'payment_application'->>'contract_id', base.payload->'candidate'->'application'->>'contract_guid', raw_apply.payload->>'contract_guid')",
+    "LEFT JOIN raw_project ON raw_project.record_id = coalesce(base.payload->'payment_application'->>'project_id', base.payload->'candidate'->'application'->>'proj_guid', raw_apply.payload->>'proj_guid')",
+    "LEFT JOIN raw_user ON raw_user.record_id = coalesce(base.payload->'payment_application'->>'applied_by', base.payload->'candidate'->'application'->>'applied_by', raw_apply.payload->>'applied_by')",
+    where_clause,
+  ].join("\n")
+  let all_items = json_array_output(run_sql(sql))
+  if view == "all" {
+    return all_items
+  }
+  all_items.filter(fn(value) {
+    let state = json_text(value, "operation_state", "")
+    if view == "approving" {
+      state == "submitted"
+    } else if view == "approved" {
+      state == "approved"
+    } else {
+      state == "paid"
+    }
+  })
+}
+
+///|
+async fn payment_response(
+  apply_id : String?,
+  view : String,
+) -> Json raise CompanyServiceError {
+  Json::object({ "items": Json::array(payment_items(apply_id, view)) })
+}
+
+///|
+async fn money_display(minor : Int) -> String raise CompanyServiceError {
+  run_sql(
+    "SELECT concat('¥', to_char((" +
+    minor.to_string() +
+    "::numeric / 100), 'FM999,999,999,990.00'))",
+  )
+  .trim()
+  .to_owned()
+}
+
+///|
+async fn payment_eligibility_response(
+  plan_id : String,
+  amount_minor : Int,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(plan_id) {
+    raise fail("invalid payment plan id")
+  }
+  if amount_minor <= 0 {
+    raise fail("amount_minor must be a positive integer")
+  }
+  let output = run_sql(
+    "SELECT p.aggregate_id, coalesce(p.payload->'candidate'->'milestone'->>'contract_guid', ''), coalesce(p.payload->'candidate'->'milestone'->>'plan_amount_minor', '0'), coalesce(p.payload->'candidate'->'milestone'->>'trigger_type', ''), coalesce(raw.payload->>'jhfk_date', ''), coalesce(raw.payload->>'plan_period', ''), coalesce((SELECT sum(round((a.payload->>'apply_amount')::numeric * 100)) FROM company_record a WHERE a.record_type = 'legacy/raw/cb_htfk_apply' AND a.payload->>'htfk_plan_guid' = p.aggregate_id AND coalesce(a.payload->>'pay_state', '') IN ('完全支付', '部分支付')), 0)::bigint, (coalesce(p.payload->'candidate'->'milestone'->>'trigger_type', '') = 'time' AND coalesce(raw.payload->>'jhfk_date', '') <> '' AND coalesce(raw.payload->>'jhfk_date', '') > CURRENT_DATE::text)::text FROM company_aggregate_projection p LEFT JOIN company_record raw ON raw.record_type = 'legacy/raw/cb_htfkplan' AND raw.record_id = p.aggregate_id WHERE p.aggregate_type = 'contract_milestone' AND p.aggregate_id = " +
+    @postgres.sql_literal(plan_id) +
+    " ORDER BY p.revision DESC LIMIT 1",
+  )
+  let trimmed = output.trim().to_owned()
+  if trimmed.is_empty() {
+    return (
+      404,
+      Json::object({ "error": Json::string("payment plan not found") }),
+    )
+  }
+  let row = fields(trimmed, 8)
+  let contract_id = row[1]
+  let planned_minor = parse_decimal(row[2])
+  let trigger_type = row[3]
+  let plan_date = row[4]
+  let plan_period = row[5]
+  let actual_minor = parse_decimal(row[6])
+  let early_flag = row[7] == "true"
+  let over_pay = planned_minor > 0 &&
+    actual_minor + amount_minor > planned_minor
+  let warnings : Array[Json] = []
+  if early_flag {
+    warnings.push(
+      Json::object({
+        "level": Json::string("warn"),
+        "code": Json::string("early_time"),
+        "message": Json::string(
+          "节点计划付款日 " + plan_date + ", 尚未到达",
+        ),
+      }),
+    )
+  }
+  if trigger_type == "progress" || trigger_type == "event" {
+    warnings.push(
+      Json::object({
+        "level": Json::string("warn"),
+        "code": Json::string("trigger_review"),
+        "message": Json::string(
+          "节点触发类型 " + trigger_type + " 需要履约证据复核",
+        ),
+      }),
+    )
+  }
+  if over_pay {
+    warnings.push(
+      Json::object({
+        "level": Json::string("error"),
+        "code": Json::string("over_pay"),
+        "message": Json::string("本次申请会超过付款节点计划金额"),
+      }),
+    )
+  }
+  (
+    200,
+    Json::object({
+      "plan_id": Json::string(plan_id),
+      "contract_id": Json::string(contract_id),
+      "plan_period": Json::string(plan_period),
+      "plan_date": Json::string(plan_date),
+      "trigger_type": Json::string(trigger_type),
+      "planned_amount_minor": Json::number(planned_minor.to_double()),
+      "planned_amount_display": Json::string(money_display(planned_minor)),
+      "actual_amount_minor": Json::number(actual_minor.to_double()),
+      "actual_amount_display": Json::string(money_display(actual_minor)),
+      "requested_amount_minor": Json::number(amount_minor.to_double()),
+      "requested_amount_display": Json::string(money_display(amount_minor)),
+      "early_flag": Json::boolean(early_flag),
+      "over_pay": Json::boolean(over_pay),
+      "warnings": Json::array(warnings),
+    }),
+  )
 }
 
 ///|
@@ -683,6 +1009,24 @@ async fn route(
   query : String,
   expected_schema_version : Int,
 ) -> (Int, Json) raise CompanyServiceError {
+  let payment_prefix = "/api/company/payment-applies/"
+  if path.has_prefix(payment_prefix) &&
+    path != "/api/company/payment-applies/eligibility" {
+    let apply_id = path[payment_prefix.length():].to_owned()
+    let items = payment_items(Some(apply_id), "all")
+    if items.is_empty() {
+      return (
+        404,
+        Json::object({ "error": Json::string("payment application not found") }),
+      )
+    }
+    return (200, items[0])
+  }
+  let contract_prefix = "/api/company/contracts/"
+  if path.has_prefix(contract_prefix) {
+    let contract_id = path[contract_prefix.length():].to_owned()
+    return contract_detail_response(contract_id)
+  }
   match path {
     "/api/session" =>
       (
@@ -704,6 +1048,9 @@ async fn route(
             Json::string("profile_observation_read"),
             Json::string("preference_observation_read"),
             Json::string("initiated_document_observation_read"),
+            Json::string("contract_read"),
+            Json::string("payment_application_read"),
+            Json::string("payment_eligibility_read"),
             Json::string("authenticated_http_read"),
           ]),
           "schema_version": Json::number(expected_schema_version.to_double()),
@@ -713,6 +1060,23 @@ async fn route(
     "/api/company/receipts" => (200, receipts())
     "/api/company/projections" =>
       (200, projections(query_value(query, "aggregate_type")))
+    "/api/company/contracts" =>
+      (200, contract_response(query_value(query, "contract_id")))
+    "/api/company/payment-applies/eligibility" => {
+      let plan_id = query_value(query, "plan_id").unwrap_or("")
+      let amount_minor = parse_decimal(
+        query_value(query, "amount_minor").unwrap_or("0"),
+      )
+      payment_eligibility_response(plan_id, amount_minor)
+    }
+    "/api/company/payment-applies" =>
+      (
+        200,
+        payment_response(
+          query_value(query, "apply_id"),
+          query_value(query, "view").unwrap_or("all"),
+        ),
+      )
     "/api/company/auth/me" => {
       let user_code = query_value(query, "userCode").unwrap_or("")
       match auth_current_user(user_code) {
