@@ -9,7 +9,7 @@ mutations.
 
 ## Connected reads
 
-The PostgreSQL service and read-model adapter expose:
+The native MoonBit PostgreSQL service and read-model adapter expose:
 
 - `/api/company/reports/templates/meta`
 - `/api/company/reports/templates`
@@ -22,15 +22,16 @@ template state after successful reads while retaining the designer builder
 layout and metadata table.
 
 Both reads are non-authorizing and non-persisting. Template execution,
-creation, and deletion now have a bounded local command boundary. Commands
-persist only `report_template` aggregate revisions, idempotency receipts, and
-audit events; imported `sys_report_template` rows remain read-only. Template
-execution validates the same table/column/operator whitelist and evaluates
-imported JSON envelopes in memory with `sql_executed=false`; it never accepts
-raw SQL, invokes a provider, changes budget/accounting/cash/tax state, or
-persists report results. Service and trusted-gateway smoke cover create,
-replay, run, delete, and tombstone readback. CSV/PDF export, production
-identity, and report-owner acceptance remain separate gates.
+creation, and deletion now have a bounded local command boundary in
+`cmd/postgres_company_service/report_commands.mbt`. Commands persist only
+`report_template` aggregate revisions, idempotency receipts, and audit events;
+imported `sys_report_template` rows remain read-only. Template execution
+validates the same table/column/operator whitelist and evaluates imported JSON
+envelopes in memory with `sql_executed=false`; it never accepts raw SQL,
+invokes a provider, changes budget/accounting/cash/tax state, or persists
+report results. The pure-shell PostgreSQL smoke covers create, replay, run,
+delete, and tombstone readback. CSV/PDF export, production identity, browser
+acceptance, and report-owner acceptance remain separate gates.
 
 Command paths:
 

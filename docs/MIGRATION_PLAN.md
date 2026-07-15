@@ -1266,6 +1266,20 @@ gated. `scripts/company_postgres_budget_expense_smoke.sh` proves create,
 replay, readback, update, submit, and void; the controlled export still has
 zero imported expense rows.
 
+**Report-builder command checkpoint (2026-07-15).** The report-builder
+boundary is now native MoonBit rather than a Python-only comparison surface.
+Metadata preserves all ten source table definitions and eight operators;
+signed `POST /api/company/reports/templates` and owner-scoped `DELETE
+/api/company/reports/templates/:id` persist command-owned revisions, replay
+receipts, audit events, and tombstones while imported `sys_report_template`
+rows remain read-only. `POST /api/company/reports/templates/run` validates the
+same table/field/operator allow-list and filters imported JSON envelopes in
+memory, returning `sql_executed=false` and explicit source coverage. The
+shell-only `scripts/company_postgres_report_template_smoke.sh` proves
+metadata, create/replay, merged readback, filtered execution, delete, and
+tombstone behavior. CSV/PDF export, production identity, browser acceptance,
+and report-owner approval remain separate gates.
+
 **Page-by-page browser acceptance checkpoint (2026-07-14).** After the
 representative checks above, the same logged-in local session exercised every
 visible Rabbita navigation group through sidebar actions (not direct URL

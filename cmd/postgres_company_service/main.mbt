@@ -15692,6 +15692,8 @@ async fn route(
             Json::string("webhook_config_read"),
             Json::string("rbac_observation_read"),
             Json::string("report_template_read"),
+            Json::string("report_template_command"),
+            Json::string("report_template_run"),
             Json::string("warning_observation_read"),
             Json::string("supplier_command"),
             Json::string("source_supplier_command"),
@@ -16050,6 +16052,57 @@ async fn handle(
       }
       let result = budget_command(
         command_type, expense_guid, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  if request.meth is @http.Post && path == "/api/company/reports/templates/run" {
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = report_template_run_native(body) catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
+  }
+  match report_template_command_spec(request.meth, path) {
+    Some((command_type, template_id)) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = report_template_command(
+        command_type, template_id, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }
