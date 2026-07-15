@@ -1974,6 +1974,16 @@ Execute the remainder in this order:
     benchmark-observation identity, and the exact investment-performance plan
     envelope. Analytics remain read-only evidence; trading, provider feeds,
     cash, accounting, and period-close effects remain disabled.
+
+3a.13. **Native asset-lifecycle planner (2026-07-16).**
+    `cmd/asset_lifecycle_plan` and `scripts/erp_asset_lifecycle_plan.sh` now
+    replace the Python asset-map compiler in the PostgreSQL cohort path. The
+    native planner preserves reviewed-input gating, recursive secret-shaped-key
+    rejection, asset/state and depreciation-period uniqueness, acquisition,
+    residual, useful-life, impairment, and disposal bounds, account-map
+    validation, and the exact asset-lifecycle plan envelope. Lifecycle
+    promotion remains separate from journal posting, cash settlement, tax, and
+    period close.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

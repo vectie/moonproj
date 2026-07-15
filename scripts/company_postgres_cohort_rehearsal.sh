@@ -324,7 +324,7 @@ if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
 fi
 
 if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_asset_lifecycle_plan.py" \
+  "$SCRIPT_DIR/erp_asset_lifecycle_plan.sh" \
     "$ASSET_LIFECYCLE_MAPPING" "$WORK_DIR/asset-lifecycle-plan.json"
   moon run --target native cmd/asset_lifecycle -- \
     "$WORK_DIR/asset-lifecycle-plan.json" "$WORK_DIR/asset-lifecycle-receipt.json"
