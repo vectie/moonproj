@@ -17,10 +17,13 @@ the response carries source coverage, `persisted=false`, and
 actions write only a command-owned `warning_state` overlay, idempotency receipt,
 and audit event; built-in rule enable/disable writes a separate
 `warning_rule_config` candidate, and custom-rule create/delete writes a
-`warning_custom_rule` candidate with the same replay/audit guarantees. Custom
+`warning_custom_rule` candidate with the same replay/audit guarantees. Warning
+to-ticket writes a command-owned `warning_ticket` candidate and `/tickets/mine`
+merges imported and local ticket rows with assignee filtering. Custom
 SQL is validated as a single read-only SELECT/WITH statement and retained only
 as a digest. These commands do not create `sys_warning` rows, run provider
-scans, send notifications, or create/modify tickets. The signed `/scan` path
+scans, send notifications, or invoke external ticket/notification providers.
+The signed `/scan` path
 is a deterministic dry-run preview that returns rule/finding totals and source
 coverage without persisting findings or dispatching notifications.
 
@@ -38,3 +41,5 @@ Bounded command paths:
 - `PATCH /api/company/warning/rules/:code` (and `/api/company/source` alias)
 - `POST/DELETE /api/company/warning/custom-rules[/:code]` (and `/source` aliases)
 - `POST /api/company/warning/scan` (dry-run; and `/source` alias)
+- `POST /api/company/warning/:guid/to-ticket` (and `/api/company/source` alias)
+- `GET /api/company/warning/tickets/mine` (and `/api/company/source` alias)

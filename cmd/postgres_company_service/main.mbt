@@ -522,6 +522,7 @@ async fn summary(
       Json::string("warning_rule_command_candidate"),
       Json::string("warning_custom_rule_command_candidate"),
       Json::string("warning_scan_preview_read"),
+      Json::string("warning_ticket_command_candidate"),
       Json::string("admin_sys_param_command_candidate"),
       Json::string("investment_command"),
       Json::string("cbs_command"),
@@ -15086,9 +15087,12 @@ async fn route(
     path == "/api/company/source/warning/custom-rules" {
     return (200, warning_custom_rules_response())
   }
+  if path == "/api/company/warning/tickets/mine" ||
+    path == "/api/company/source/warning/tickets/mine" {
+    return (200, warning_ticket_list_response(actor_id))
+  }
   if path == "/api/company/warning/scans" ||
-    path == "/api/company/warning/rule-templates" ||
-    path == "/api/company/warning/tickets/mine" {
+    path == "/api/company/warning/rule-templates" {
     return (200, warning_empty_response(path))
   }
   if path == "/api/company/reports/overview" {
@@ -15772,6 +15776,7 @@ async fn route(
             Json::string("warning_rule_command_candidate"),
             Json::string("warning_custom_rule_command_candidate"),
             Json::string("warning_scan_preview_read"),
+            Json::string("warning_ticket_command_candidate"),
             Json::string("admin_sys_param_command_candidate"),
             Json::string("investment_command"),
             Json::string("initiated_document_observation_read"),
@@ -16537,6 +16542,43 @@ async fn handle(
       }
       let result = cbs_approval_command(
         command_type, rule_guid, body, actor, idempotency_key,
+      ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match warning_ticket_command_spec(request.meth, path) {
+    Some(warning_guid) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": Json::string("Idempotency-Key is required") }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = warning_ticket_command(
+        warning_guid, body, actor, idempotency_key,
       ) catch {
         error => service_error_response(error)
       }

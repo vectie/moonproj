@@ -1068,6 +1068,336 @@ async fn warning_custom_rule_command(
 }
 
 ///|
+fn warning_ticket_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> String? {
+  let prefixes = ["/api/company/warning/", "/api/company/source/warning/"]
+  for prefix in prefixes {
+    if request_method is @http.Post && path.has_prefix(prefix) {
+      let rest = path[prefix.length():].to_owned().split("/").to_array()
+      if rest.length() == 2 &&
+        valid_identifier(rest[0].to_owned()) &&
+        rest[1] == "to-ticket" {
+        return Some(rest[0].to_owned())
+      }
+    }
+  }
+  None
+}
+
+///|
+async fn warning_ticket_states() -> Map[String, Json] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'warning_ticket' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Map[String, Json] = {}
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 2)
+      let payload = @json.parse(decode_hex(row[1])) catch {
+        _ => raise fail("invalid warning ticket projection JSON")
+      }
+      result.set(decode_hex(row[0]), payload)
+    }
+  }
+  result
+}
+
+///|
+async fn warning_ticket_list_response(
+  actor_id : String,
+) -> Json raise CompanyServiceError {
+  let rows = warning_context()
+  let coverage = warning_coverage(rows)
+  let source_tickets = raw_source_rows("sys_warning_ticket", 500)
+  coverage.set("sys_warning_ticket", source_tickets.length())
+  let findings = warning_findings(rows)
+  let states = warning_ticket_states()
+  let result : Array[Json] = []
+  for row in source_tickets {
+    let assignee = report_text(row.payload, "assignee_user_id", "")
+    if actor_id.is_empty() || assignee == actor_id {
+      result.push(
+        Json::object({
+          "ticketId": Json::string(
+            report_text(row.payload, "ticket_id", row.record_id),
+          ),
+          "warningGuid": Json::string(
+            report_text(row.payload, "warning_guid", ""),
+          ),
+          "status": Json::string(report_text(row.payload, "status", "open")),
+          "note": Json::string(report_text(row.payload, "note", "")),
+          "dueDate": Json::string(report_text(row.payload, "due_date", "")),
+          "createdAt": json_field(row.payload, "created_at").unwrap_or(
+            Json::null(),
+          ),
+          "assigneeUserId": Json::string(assignee),
+          "sourceKind": Json::string("imported"),
+          "commandProjection": Json::boolean(false),
+        }),
+      )
+    }
+  }
+  for ticket_id, payload in states {
+    let assignee = report_text(payload, "assignee_user_id", "")
+    if report_text(payload, "state", "active") != "deleted" &&
+      (actor_id.is_empty() || assignee == actor_id) {
+      let warning_guid = report_text(payload, "warning_guid", "")
+      let mut warning : Json? = None
+      for item in findings {
+        if report_text(item, "warningGuid", "") == warning_guid {
+          warning = Some(item)
+        }
+      }
+      let warning_data = match warning {
+        Some(value) =>
+          Json::object({
+            "ruleCode": json_field(value, "ruleCode").unwrap_or(
+              Json::string(""),
+            ),
+            "ruleName": json_field(value, "ruleName").unwrap_or(
+              Json::string(""),
+            ),
+            "severity": json_field(value, "severity").unwrap_or(
+              Json::string("warning"),
+            ),
+            "bizType": json_field(value, "bizType").unwrap_or(Json::string("")),
+            "bizDataGuid": json_field(value, "bizDataGuid").unwrap_or(
+              Json::string(""),
+            ),
+            "title": json_field(value, "title").unwrap_or(Json::string("")),
+            "status": json_field(value, "status").unwrap_or(
+              Json::string("open"),
+            ),
+          })
+        None => Json::object({})
+      }
+      result.push(
+        Json::object({
+          "ticketId": Json::string(ticket_id),
+          "warningGuid": Json::string(warning_guid),
+          "status": Json::string(report_text(payload, "status", "open")),
+          "note": Json::string(report_text(payload, "note", "")),
+          "dueDate": Json::string(report_text(payload, "due_date", "")),
+          "createdAt": json_field(payload, "created_at").unwrap_or(Json::null()),
+          "assigneeUserId": Json::string(assignee),
+          "sourceKind": Json::string("command"),
+          "commandProjection": Json::boolean(true),
+          "warning": warning_data,
+        }),
+      )
+    }
+  }
+  result.sort_by(fn(left, right) {
+    report_text(left, "ticketId", "").compare(
+      report_text(right, "ticketId", ""),
+    )
+  })
+  warning_envelope(Json::array(result), coverage, states.length())
+}
+
+///|
+async fn warning_ticket_command(
+  warning_guid : String,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) || !valid_identifier(warning_guid) {
+    raise reject(422, "warning guid and Idempotency-Key must be valid")
+  }
+  match auth_current_user(actor_id) {
+    Some(profile) => {
+      let data = json_field(profile, "data").unwrap_or(Json::null())
+      if !json_bool(data, "enabled", false) {
+        raise reject(403, "user not found or disabled")
+      }
+    }
+    None => raise reject(403, "user not found or disabled")
+  }
+  let rows = warning_context()
+  let findings = warning_findings(rows)
+  let mut matched_finding : Json? = None
+  for item in findings {
+    if report_text(item, "warningGuid", "") == warning_guid {
+      matched_finding = Some(item)
+    }
+  }
+  let finding = match matched_finding {
+    Some(value) => value
+    None => raise reject(404, "告警不存在")
+  }
+  let states = warning_command_states()
+  match states.get(warning_guid) {
+    Some(state) if report_text(state, "state", "open") != "open" =>
+      raise reject(400, "只能为 open 状态告警建工单")
+    _ => ()
+  }
+  let assignee = json_text(
+    body,
+    "assigneeUserId",
+    json_text(body, "assignee_user_id", ""),
+  )
+  if !valid_identifier(assignee) {
+    raise reject(400, "assigneeUserId is required")
+  }
+  let users = raw_source_rows("sys_user", 500)
+  if !users.any(fn(row) {
+      json_text(row.payload, "user_id", row.record_id) == assignee
+    }) {
+    raise reject(404, "assignee user not found")
+  }
+  let note = json_text(body, "note", "").trim().to_owned()
+  let due_date = json_text(body, "dueDate", json_text(body, "due_date", ""))
+    .trim()
+    .to_owned()
+  if note.length() > 1024 || due_date.length() > 32 {
+    raise reject(422, "note or dueDate is too long")
+  }
+  let request = Json::object({
+    "warning_guid": Json::string(warning_guid),
+    "assignee_user_id": Json::string(assignee),
+    "note": Json::string(note),
+    "due_date": Json::string(due_date),
+    "actor_id": Json::string(actor_id),
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "warning": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let existing_tickets = warning_ticket_states()
+  for _, ticket in existing_tickets {
+    if report_text(ticket, "state", "active") != "deleted" &&
+      report_text(ticket, "warning_guid", "") == warning_guid &&
+      report_text(ticket, "assignee_user_id", "") == assignee &&
+      (
+        report_text(ticket, "status", "open") == "open" ||
+        report_text(ticket, "status", "open") == "handling"
+      ) {
+      raise reject(400, "该用户已有进行中的同告警工单")
+    }
+  }
+  let ticket_id = "local-ticket-" + idempotency_key
+  let event_id = "warning:ticket_create:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "ticketId": Json::string(ticket_id),
+    "warningGuid": Json::string(warning_guid),
+    "assigneeUserId": Json::string(assignee),
+    "status": Json::string("open"),
+    "note": Json::string(note),
+    "dueDate": Json::string(due_date),
+    "sourceKind": Json::string("command"),
+    "commandProjection": Json::boolean(true),
+    "persisted": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "authorization_candidate": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "notificationSent": Json::boolean(false),
+    "webhookSent": Json::boolean(false),
+    "cashEffect": Json::boolean(false),
+    "accountingEffect": Json::boolean(false),
+    "taxEffect": Json::boolean(false),
+    "warning": Json::object({
+      "ruleCode": json_field(finding, "ruleCode").unwrap_or(Json::string("")),
+      "title": json_field(finding, "title").unwrap_or(Json::string("")),
+      "severity": json_field(finding, "severity").unwrap_or(
+        Json::string("warning"),
+      ),
+    }),
+  })
+  let projection = Json::object({
+    "ticket_id": Json::string(ticket_id),
+    "warning_guid": Json::string(warning_guid),
+    "assignee_user_id": Json::string(assignee),
+    "created_by": Json::string(actor_id),
+    "status": Json::string("open"),
+    "note": Json::string(note),
+    "due_date": Json::string(due_date),
+    "created_at": Json::null(),
+    "state": Json::string("active"),
+    "source_kind": Json::string("command"),
+    "event_id": Json::string(event_id),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("warning"),
+    "command_type": Json::string("ticket_create"),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("warning_ticket"),
+    "aggregate_id": Json::string(ticket_id),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("warning.ticket_create"),
+    "aggregate_type": Json::string("warning_ticket"),
+    "aggregate_id": Json::string(ticket_id),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "warning_guid": Json::string(warning_guid),
+    "assignee_user_id": Json::string(assignee),
+    "authorizing": Json::boolean(false),
+    "notification_sent": Json::boolean(false),
+    "webhook_sent": Json::boolean(false),
+  })
+  let sql = "BEGIN; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('warning_ticket', " +
+    @postgres.sql_literal(ticket_id) +
+    ", 1, " +
+    @postgres.sql_literal(projection.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  let receipt = existing_company_command(idempotency_key)
+  let receipt = match receipt {
+    Some(value) => value
+    None => raise fail("warning ticket command receipt was not persisted")
+  }
+  (
+    200,
+    Json::object({
+      "command": receipt,
+      "warning": json_field(receipt, "result").unwrap_or(result),
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 async fn warning_empty_response(
   table : String,
 ) -> Json raise CompanyServiceError {
