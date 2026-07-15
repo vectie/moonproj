@@ -103,6 +103,7 @@
     "connected_admin_sys_param_command_candidate": 1,
     "connected_webhook_config_command_candidate": 1,
     "connected_webhook_test_delivery_candidate": 1,
+    "connected_webhook_overdue_scan_candidate": 1,
     "connected_webhook_overdue_preview_read": 1,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
@@ -4614,8 +4615,8 @@
       "browser_route_paths": [
         "/webhook-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_webhook_overdue_scan_candidate",
+      "required_next": "accept_browser_webhook_scan_candidate_and_security_owner"
     },
     {
       "module": "workflow",

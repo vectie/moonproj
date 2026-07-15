@@ -41,14 +41,20 @@ Signed super-user `POST /test/:platform` now records an idempotent
 stable skip reason (`disabled`, `no_url`, or `provider_execution_disabled`),
 without returning URL/secret values or making a provider request.
 
+Signed super-user `POST /scan-overdue` now records an idempotent
+`webhook_overdue_scan` candidate from the same imported ticket window as the
+preview. It returns the bounded source payload and platform/reason state with
+`dryRun=true`, `sent=false`, and `ticketMutation=false`; it never updates
+`last_webhook_notified_at` or calls a provider.
+
 ## Remaining gates
 
 - Managed credential binding remains unauthorised until production identity,
   `webhook:config` permission, credential storage, and owner acceptance are
   wired; the redacted candidate write is connected for migration evidence.
-- Test delivery is now a persisted dry-run candidate; actual provider delivery
-  and overdue scans remain disabled, and no provider call is made by the native
-  adapter.
+- Test delivery and overdue scanning are now persisted dry-run candidates;
+  actual provider delivery remains disabled, and no provider call is made by
+  the native adapter.
 - Source ticket history, retry/deduplication evidence, provider credentials,
   production browser acceptance, and notification-owner reconciliation remain
   open.

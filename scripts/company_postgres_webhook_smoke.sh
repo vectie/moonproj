@@ -15,6 +15,8 @@ CREATE_KEY="webhook-config-create-$SUFFIX"
 UPDATE_KEY="webhook-config-update-$SUFFIX"
 TEST_KEY="webhook-test-delivery-$SUFFIX"
 TEST_EVENT_ID="webhook:test_delivery:feishu:$TEST_KEY"
+SCAN_KEY="webhook-scan-overdue-$SUFFIX"
+SCAN_EVENT_ID="webhook:scan_overdue:$SCAN_KEY"
 
 psql() {
   PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
@@ -24,7 +26,7 @@ psql() {
 cleanup() {
   if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; fi
   psql -v ON_ERROR_STOP=0 -c \
-    "DELETE FROM company_record WHERE source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$TEST_KEY%' OR source_id LIKE '%webhook:config_update:%$SUFFIX%' OR source_id LIKE '%webhook:test_delivery:%$SUFFIX%' OR source_id LIKE '%webhook-source-$SUFFIX%'; DELETE FROM company_aggregate_projection WHERE aggregate_type IN ('webhook_config', 'webhook_test_delivery') AND source_event_id LIKE '%$SUFFIX%';" \
+    "DELETE FROM company_record WHERE source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$TEST_KEY%' OR source_id LIKE '%$SCAN_KEY%' OR source_id LIKE '%webhook:config_update:%$SUFFIX%' OR source_id LIKE '%webhook:test_delivery:%$SUFFIX%' OR source_id LIKE '%webhook:scan_overdue:%$SUFFIX%' OR source_id LIKE '%webhook-source-$SUFFIX%'; DELETE FROM company_aggregate_projection WHERE aggregate_type IN ('webhook_config', 'webhook_test_delivery', 'webhook_overdue_scan') AND source_event_id LIKE '%$SUFFIX%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -79,6 +81,14 @@ curl_common "http://127.0.0.1:$PORT/api/company/source/webhook/config" >"$TMP_DI
 status=$(curl_common -o "$TMP_DIR/preview.json" -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/company/source/webhook/scan-overdue/preview")
 test "$status" = 200
 /usr/bin/jq -e '.data.scanned == 1 and .data.sent == false and .data.dryRun == true and .data.platforms == ["dingtalk"] and (.data.payload.title | contains("1")) and (.data.payload.content | contains("Webhook overdue warning")) and .source_coverage.sys_warning_ticket == 1 and .provider_execution == false and .delivery_effect == false' "$TMP_DIR/preview.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/scan.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $SCAN_KEY" --data '{}' "http://127.0.0.1:$PORT/api/company/webhook/scan-overdue")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.data.scanned == 1 and .data.data.sent == false and .data.data.dryRun == true and .data.data.reason == "provider_execution_disabled" and .data.providerExecution == false and .data.delivery_effect == false and .data.ticketMutation == false' "$TMP_DIR/scan.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/scan-replay.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $SCAN_KEY" --data '{}' "http://127.0.0.1:$PORT/api/company/source/webhook/scan-overdue")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.data.scanned == 1 and .data.data.sent == false' "$TMP_DIR/scan-replay.json" >/dev/null
 
 status=$(curl_common -o "$TMP_DIR/invalid.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: webhook-invalid-$SUFFIX" --data '{"enabled":true}' "http://127.0.0.1:$PORT/api/company/webhook/config/slack")
 test "$status" = 400
