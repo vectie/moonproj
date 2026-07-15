@@ -2082,6 +2082,25 @@ Execute the remainder in this order:
     amount, fixed-point money policy, and the exact CBS budget-plan envelope.
     Native promotion remains budget-control evidence and does not post
     accounting or release cash.
+
+3a.24. **Native advance-offset planner (2026-07-16).**
+    `cmd/advance_offset_plan` and
+    `scripts/erp_advance_offset_promotion_plan.sh` now replace the
+    export-backed Python advance/offset compiler in both PostgreSQL and
+    migration rehearsal paths. The native planner preserves explicit
+    BU/principal/employee/currency joins, positive fixed-point amounts,
+    offset identity/scope/amount bounds, and the exact advance-offset plan
+    envelope. Native promotion mutates only the imported advance balance;
+    cash and accounting recognition remain separate events.
+
+3a.25. **Native accounting-posting planner (2026-07-16).**
+    `cmd/accounting_post_plan` and `scripts/erp_accounting_post_plan.sh` now
+    replace the export-independent Python posting compiler in the PostgreSQL
+    cohort path. The native planner preserves native link-plan/receipt
+    identity, reviewed chart and period validation, approved-event allow-listing,
+    and the exact accounting-posting plan envelope. The downstream posting
+    command still owns balanced-journal and open-period validation; cash,
+    tax, and period close remain separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

@@ -61,3 +61,5 @@ scripts/erp_delivery_recognition_plan.sh
 scripts/erp_warning_plan.sh
 scripts/erp_cbs_cost_link_plan.sh
 scripts/erp_cbs_budget_plan.sh
+scripts/erp_advance_offset_promotion_plan.sh
+scripts/erp_accounting_post_plan.sh

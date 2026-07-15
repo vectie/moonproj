@@ -139,7 +139,7 @@ if [ -n "$BASE_ACCOUNTING_MAPPING" ]; then
     "$WORK_DIR/base-accounting-link-receipt.json"
   apply_accounting base-accounting "$WORK_DIR/base-accounting-link-receipt.json"
   if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
-    python3 "$SCRIPT_DIR/erp_accounting_post_plan.py" \
+    "$SCRIPT_DIR/erp_accounting_post_plan.sh" \
       "$WORK_DIR/base-accounting-link-plan.json" \
       "$WORK_DIR/base-accounting-link-receipt.json" \
       "$ACCOUNTING_POSTING_MAPPING" "$WORK_DIR/accounting-posting-plan.json"
@@ -257,7 +257,7 @@ if [ -n "$ACCESS_PLAN" ]; then
 fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_advance_offset_promotion_plan.py" "$EXPORT_DIR" "$ADVANCE_OFFSET_MAPPING" "$WORK_DIR/advance-offset-plan.json"
+  "$SCRIPT_DIR/erp_advance_offset_promotion_plan.sh" "$EXPORT_DIR" "$ADVANCE_OFFSET_MAPPING" "$WORK_DIR/advance-offset-plan.json"
   moon run --target native cmd/promote -- "$WORK_DIR/advance-offset-plan.json" "$WORK_DIR/advance-offset-promotion.json"
   apply_projection advance-offset "$WORK_DIR/advance-offset-promotion.json"
   "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$WORK_DIR/advance-offset-promotion.json" "$OFFSET_ACCOUNTING_MAPPING" "$WORK_DIR/advance-offset-accounting-plan.json"

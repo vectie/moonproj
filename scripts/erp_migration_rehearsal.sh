@@ -155,7 +155,7 @@ if [ -n "$MAPPING_PATH" ]; then
   echo "projection_replay=$PROJECTION_REPLAY"
   if [ -n "$ACCOUNTING_MAPPING" ]; then
     ACCOUNTING_PLAN="$WORK_DIR/accounting-link-plan.json"
-    "$SCRIPT_DIR/erp_accounting_link_plan.py" "$DOMAIN_PROMOTION" "$ACCOUNTING_MAPPING" "$ACCOUNTING_PLAN"
+    "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$DOMAIN_PROMOTION" "$ACCOUNTING_MAPPING" "$ACCOUNTING_PLAN"
     echo "accounting_link_plan=$ACCOUNTING_PLAN"
     ACCOUNTING_RECEIPT="$WORK_DIR/accounting-link-receipt.json"
     moon run --target native cmd/accounting_link -- "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT"
@@ -172,7 +172,7 @@ if [ -n "$MAPPING_PATH" ]; then
     echo "accounting_reconciliation=$ACCOUNTING_RECONCILIATION"
     if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
       ACCOUNTING_POSTING_PLAN="$WORK_DIR/accounting-posting-plan.json"
-      python3 "$SCRIPT_DIR/erp_accounting_post_plan.py" \
+      "$SCRIPT_DIR/erp_accounting_post_plan.sh" \
         "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT" "$ACCOUNTING_POSTING_MAPPING" \
         "$ACCOUNTING_POSTING_PLAN"
       echo "accounting_posting_plan=$ACCOUNTING_POSTING_PLAN"
@@ -414,7 +414,7 @@ fi
 
 if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
   ADVANCE_OFFSET_PLAN="$WORK_DIR/advance-offset-plan.json"
-  "$SCRIPT_DIR/erp_advance_offset_promotion_plan.py" "$EXPORT_DIR" "$ADVANCE_OFFSET_MAPPING" "$ADVANCE_OFFSET_PLAN"
+  "$SCRIPT_DIR/erp_advance_offset_promotion_plan.sh" "$EXPORT_DIR" "$ADVANCE_OFFSET_MAPPING" "$ADVANCE_OFFSET_PLAN"
   echo "advance_offset_plan=$ADVANCE_OFFSET_PLAN"
   ADVANCE_OFFSET_PROMOTION="$WORK_DIR/advance-offset-promotion.json"
   moon run --target native cmd/promote -- "$ADVANCE_OFFSET_PLAN" "$ADVANCE_OFFSET_PROMOTION"
@@ -429,7 +429,7 @@ if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$ADVANCE_OFFSET_PROMOTION" "$TARGET_DB" > "$ADVANCE_OFFSET_REPLAY"
   echo "advance_offset_projection_replay=$ADVANCE_OFFSET_REPLAY"
   ADVANCE_OFFSET_ACCOUNTING_PLAN="$WORK_DIR/advance-offset-accounting-link-plan.json"
-  "$SCRIPT_DIR/erp_accounting_link_plan.py" "$ADVANCE_OFFSET_PROMOTION" "$ADVANCE_OFFSET_MAPPING" "$ADVANCE_OFFSET_ACCOUNTING_PLAN"
+  "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$ADVANCE_OFFSET_PROMOTION" "$ADVANCE_OFFSET_MAPPING" "$ADVANCE_OFFSET_ACCOUNTING_PLAN"
   echo "advance_offset_accounting_plan=$ADVANCE_OFFSET_ACCOUNTING_PLAN"
   ADVANCE_OFFSET_ACCOUNTING_RECEIPT="$WORK_DIR/advance-offset-accounting-link-receipt.json"
   moon run --target native cmd/accounting_link -- "$ADVANCE_OFFSET_ACCOUNTING_PLAN" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT"
@@ -454,7 +454,7 @@ fi
 if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
   PAYMENT_PROMOTION="$TYPED_WORK_DIR/payment-promotion.json"
   PAYMENT_ACCOUNTING_PLAN="$WORK_DIR/payment-accounting-link-plan.json"
-  "$SCRIPT_DIR/erp_accounting_link_plan.py" "$PAYMENT_PROMOTION" "$PAYMENT_ACCOUNTING_MAPPING" "$PAYMENT_ACCOUNTING_PLAN"
+  "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$PAYMENT_PROMOTION" "$PAYMENT_ACCOUNTING_MAPPING" "$PAYMENT_ACCOUNTING_PLAN"
   echo "payment_accounting_plan=$PAYMENT_ACCOUNTING_PLAN"
   PAYMENT_ACCOUNTING_RECEIPT="$WORK_DIR/payment-accounting-link-receipt.json"
   moon run --target native cmd/accounting_link -- "$PAYMENT_ACCOUNTING_PLAN" "$PAYMENT_ACCOUNTING_RECEIPT"
@@ -591,7 +591,7 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
   echo "delivery_recognition_replay=$DELIVERY_RECOGNITION_REPLAY"
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
     DELIVERY_RECOGNITION_ACCOUNTING_PLAN="$WORK_DIR/delivery-recognition-accounting-link-plan.json"
-    "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+    "$SCRIPT_DIR/erp_accounting_link_plan.sh" \
       "$DELIVERY_RECOGNITION_RECEIPT" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_PLAN"
