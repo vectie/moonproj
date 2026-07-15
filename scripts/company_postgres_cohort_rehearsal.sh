@@ -272,7 +272,7 @@ if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
 fi
 
 if [ -n "$OPENING_CONTROL_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_opening_control_plan.py" \
+  "$SCRIPT_DIR/erp_opening_control_plan.sh" \
     "$OPENING_CONTROL_MAPPING" "$WORK_DIR/opening-control-plan.json"
   moon run --target native cmd/opening_control -- \
     "$WORK_DIR/opening-control-plan.json" "$WORK_DIR/opening-control-receipt.json"

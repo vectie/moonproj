@@ -1946,6 +1946,15 @@ Execute the remainder in this order:
     financing-facility plan envelope. Facility lifecycle promotion remains a
     separate native domain boundary; lender, cash, accounting, tax, covenant,
     and period-close effects remain disabled.
+
+3a.10. **Native opening-control map planner (2026-07-16).**
+    `cmd/opening_control_plan` and `scripts/erp_opening_control_plan.sh` now
+    replace the Python opening-control compiler in the PostgreSQL cohort path.
+    The native planner preserves reviewed-input gating, recursive
+    secret-shaped-key rejection, metric uniqueness, non-negative values and
+    tolerances, and the exact opening-control plan envelope. The native
+    shadow-control importer remains reconciliation evidence only; it does not
+    infer balances or authorize posting, cash, tax, period close, or ownership.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
