@@ -11,6 +11,7 @@ itself send a message or scan overdue tickets.
 The PostgreSQL service and read-model adapter expose:
 
 - `/api/company/webhook/config` and `/api/company/source/webhook/config`
+- `/api/company/webhook/test/:platform` and its `/source` alias
 - `/api/company/webhook/scan-overdue/preview` and its `/source` alias
 
 The response preserves the three-platform shape (`enabled`, `url`, `secret`,
@@ -34,13 +35,20 @@ with `dryRun=true` only when a provider-enabled source platform and overdue
 tickets are both present. It never updates tickets or sends a provider
 request.
 
+Signed super-user `POST /test/:platform` now records an idempotent
+`webhook_test_delivery` candidate. It validates `feishu`, `dingtalk`, and
+`wecom` configuration state and returns `dryRun=true`, `wouldSend`, and a
+stable skip reason (`disabled`, `no_url`, or `provider_execution_disabled`),
+without returning URL/secret values or making a provider request.
+
 ## Remaining gates
 
 - Managed credential binding remains unauthorised until production identity,
   `webhook:config` permission, credential storage, and owner acceptance are
   wired; the redacted candidate write is connected for migration evidence.
-- Test delivery and overdue scans remain disabled; no provider call is made by
-  the read adapter.
+- Test delivery is now a persisted dry-run candidate; actual provider delivery
+  and overdue scans remain disabled, and no provider call is made by the native
+  adapter.
 - Source ticket history, retry/deduplication evidence, provider credentials,
   production browser acceptance, and notification-owner reconciliation remain
   open.

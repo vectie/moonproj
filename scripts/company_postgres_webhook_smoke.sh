@@ -13,6 +13,8 @@ PID=""
 SUFFIX=$(/bin/date +%s)
 CREATE_KEY="webhook-config-create-$SUFFIX"
 UPDATE_KEY="webhook-config-update-$SUFFIX"
+TEST_KEY="webhook-test-delivery-$SUFFIX"
+TEST_EVENT_ID="webhook:test_delivery:feishu:$TEST_KEY"
 
 psql() {
   PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
@@ -22,7 +24,7 @@ psql() {
 cleanup() {
   if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; fi
   psql -v ON_ERROR_STOP=0 -c \
-    "DELETE FROM company_record WHERE source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%webhook:config_update:%$SUFFIX%' OR source_id LIKE '%webhook-source-$SUFFIX%'; DELETE FROM company_aggregate_projection WHERE aggregate_type = 'webhook_config' AND source_event_id LIKE '%$SUFFIX%';" \
+    "DELETE FROM company_record WHERE source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$TEST_KEY%' OR source_id LIKE '%webhook:config_update:%$SUFFIX%' OR source_id LIKE '%webhook:test_delivery:%$SUFFIX%' OR source_id LIKE '%webhook-source-$SUFFIX%'; DELETE FROM company_aggregate_projection WHERE aggregate_type IN ('webhook_config', 'webhook_test_delivery') AND source_event_id LIKE '%$SUFFIX%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -52,6 +54,15 @@ body='{"enabled":true,"url":"https://hooks.example.invalid/secret-path","secret"
 status=$(curl_common -o "$TMP_DIR/create.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: $CREATE_KEY" --data "$body" "http://127.0.0.1:$PORT/api/company/source/webhook/config/feishu")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == false and .data.platform == "feishu" and .data.enabled == true and .data.urlConfigured == true and .data.hasSecret == true and (.data | tostring | contains("super-secret") | not) and (.data | tostring | contains("hooks.example.invalid") | not)' "$TMP_DIR/create.json" >/dev/null
+
+test_body='{"title":"Native webhook test","content":"dry-run only"}'
+status=$(curl_common -o "$TMP_DIR/test-delivery.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $TEST_KEY" --data "$test_body" "http://127.0.0.1:$PORT/api/company/webhook/test/feishu")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.platform == "feishu" and .data.dryRun == true and .data.wouldSend == true and .data.skipped == "provider_execution_disabled" and .data.providerExecution == false and .data.delivery_effect == false and (.data | tostring | contains("super-secret") | not) and (.data | tostring | contains("hooks.example.invalid") | not)' "$TMP_DIR/test-delivery.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/test-delivery-replay.json" -w '%{http_code}' -X POST -H "Idempotency-Key: $TEST_KEY" --data "$test_body" "http://127.0.0.1:$PORT/api/company/source/webhook/test/feishu")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.platform == "feishu" and .data.wouldSend == true' "$TMP_DIR/test-delivery-replay.json" >/dev/null
 
 status=$(curl_common -o "$TMP_DIR/replay.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: $CREATE_KEY" --data "$body" "http://127.0.0.1:$PORT/api/company/webhook/config/feishu")
 test "$status" = 200
