@@ -49,31 +49,277 @@ fn observation_rows_for(coverage : Map[String, Int], table : String) -> Int {
 
 ///|
 /// Attachments.
-async fn attachment_all_response() -> Json raise CompanyServiceError {
-  let coverage = observation_coverage(["attachment", "sys_user"])
+async fn attachment_source_rows(
+  biz_type : String?,
+  biz_guid : String?,
+  uploaded_by : String?,
+  ai_status : String?,
+  keyword : String?,
+) -> (Array[Json], Map[String, Int]) raise CompanyServiceError {
+  let attachment_rows = raw_source_rows("attachment", 500)
+  let users = raw_source_rows("sys_user", 500)
+  let coverage : Map[String, Int] = {}
+  coverage.set("attachment", attachment_rows.length())
+  coverage.set("sys_user", users.length())
+  let rows : Array[Json] = []
+  for source in attachment_rows {
+    let payload = source.payload
+    if !json_text(payload, "deleted_at", "").is_empty() ||
+      !json_text(payload, "deletedAt", "").is_empty() {
+      continue
+    }
+    let current_biz_type = json_text(
+      payload,
+      "biz_type",
+      json_text(payload, "bizType", ""),
+    )
+    let current_biz_guid = json_text(
+      payload,
+      "biz_guid",
+      json_text(payload, "bizGuid", ""),
+    )
+    let current_uploaded_by = json_text(
+      payload,
+      "uploaded_by",
+      json_text(payload, "uploadedBy", ""),
+    )
+    let current_ai_status = json_text(
+      payload,
+      "ai_status",
+      json_text(payload, "aiStatus", ""),
+    )
+    let file_name = json_text(
+      payload,
+      "file_name",
+      json_text(payload, "fileName", ""),
+    )
+    if biz_type is Some(value) && current_biz_type != value {
+      continue
+    }
+    if biz_guid is Some(value) && current_biz_guid != value {
+      continue
+    }
+    if uploaded_by is Some(value) && current_uploaded_by != value {
+      continue
+    }
+    if ai_status is Some(value) && current_ai_status != value {
+      continue
+    }
+    if keyword is Some(value) &&
+      !file_name.to_lower().contains(value.to_lower()) {
+      continue
+    }
+    let uploaded_name = match
+      source_payload(users, "user_id", current_uploaded_by) {
+      Some(user) =>
+        json_text(user, "emp_name", json_text(user, "user_name", ""))
+      None =>
+        match source_payload(users, "user_code", current_uploaded_by) {
+          Some(user) =>
+            json_text(user, "emp_name", json_text(user, "user_name", ""))
+          None => ""
+        }
+    }
+    let ai_extracted = match json_field(payload, "ai_extracted") {
+      Some(String(text)) if !text.trim().is_empty() =>
+        @json.parse(text) catch {
+          _ => Json::object({})
+        }
+      Some(value) => value
+      None =>
+        match json_field(payload, "aiExtracted") {
+          Some(value) => value
+          None => Json::object({})
+        }
+    }
+    let has_ai = json_field(payload, "ai_extracted") is Some(_) ||
+      json_field(payload, "aiExtracted") is Some(_) ||
+      !current_ai_status.is_empty() ||
+      json_field(payload, "ai_confidence") is Some(_) ||
+      json_field(payload, "aiConfidence") is Some(_)
+    let ai = if has_ai {
+      Json::object({
+        "extracted": ai_extracted,
+        "confidence": json_field(payload, "ai_confidence").unwrap_or(
+          json_field(payload, "aiConfidence").unwrap_or(Json::null()),
+        ),
+        "status": Json::string(
+          if current_ai_status.is_empty() {
+            "pending"
+          } else {
+            current_ai_status
+          },
+        ),
+      })
+    } else {
+      Json::null()
+    }
+    rows.push(
+      Json::object({
+        "attGuid": Json::string(
+          json_text(
+            payload,
+            "att_guid",
+            json_text(payload, "attGuid", source.record_id),
+          ),
+        ),
+        "fileName": Json::string(file_name),
+        "fileSize": Json::number(
+          json_number(
+            payload,
+            "file_size",
+            json_number(payload, "fileSize", 0.0),
+          ),
+        ),
+        "mimeType": Json::string(
+          json_text(payload, "mime_type", json_text(payload, "mimeType", "")),
+        ),
+        "bizType": Json::string(current_biz_type),
+        "bizGuid": Json::string(current_biz_guid),
+        "uploadedBy": Json::string(current_uploaded_by),
+        "uploadedByName": Json::string(uploaded_name),
+        "uploadedAt": Json::string(
+          json_text(
+            payload,
+            "uploaded_at",
+            json_text(payload, "uploadedAt", ""),
+          ),
+        ),
+        "ai": ai,
+        "downloadAvailable": Json::boolean(false),
+        "sourceKind": Json::string("imported"),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let right_date = json_text(right, "uploadedAt", "")
+    let left_date = json_text(left, "uploadedAt", "")
+    let order = right_date.lexical_compare(left_date)
+    if order == 0 {
+      json_text(right, "attGuid", "").lexical_compare(
+        json_text(left, "attGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  (rows, coverage)
+}
+
+///|
+async fn attachment_all_response(
+  uploaded_by : String?,
+  ai_status : String?,
+  keyword : String?,
+) -> Json raise CompanyServiceError {
+  let (rows, coverage) = attachment_source_rows(
+    None,
+    None,
+    uploaded_by,
+    ai_status,
+    keyword,
+  )
   observation_envelope(
-    Json::object({ "total": Json::number(0), "rows": Json::array([]) }),
+    Json::object({
+      "total": Json::number(rows.length().to_double()),
+      "rows": Json::array(rows),
+    }),
     coverage,
   )
 }
 
 ///|
-async fn attachment_list_response() -> Json raise CompanyServiceError {
-  let coverage = observation_coverage(["attachment", "sys_user"])
-  observation_envelope(Json::array([]), coverage)
+async fn attachment_list_response(
+  biz_type : String?,
+  biz_guid : String?,
+) -> Json raise CompanyServiceError {
+  let (rows, coverage) = attachment_source_rows(
+    biz_type,
+    biz_guid,
+    None,
+    None,
+    None,
+  )
+  observation_envelope(Json::array(rows), coverage)
 }
 
 ///|
 async fn attachment_stats_response() -> Json raise CompanyServiceError {
-  let coverage = observation_coverage(["attachment", "sys_user"])
+  let (rows, coverage) = attachment_source_rows(None, None, None, None, None)
+  let by_biz : Map[String, Json] = {}
+  let by_ai : Map[String, Int] = {}
+  let mut bytes = 0.0
+  for row in rows {
+    let biz = json_text(row, "bizType", "")
+    let existing = match by_biz.get(biz) {
+      Some(value) => value
+      None =>
+        Json::object({
+          "bizType": Json::string(biz),
+          "count": Json::number(0),
+          "bytes": Json::number(0),
+        })
+    }
+    match existing {
+      Object(fields) => {
+        fields.set(
+          "count",
+          Json::number(json_number(existing, "count", 0.0) + 1.0),
+        )
+        let file_bytes = json_number(row, "fileSize", 0.0)
+        fields.set(
+          "bytes",
+          Json::number(json_number(existing, "bytes", 0.0) + file_bytes),
+        )
+        by_biz.set(biz, Json::object(fields))
+        bytes += file_bytes
+      }
+      _ => ()
+    }
+    let ai = json_field(row, "ai")
+    let ai_state = match ai {
+      Some(Object(fields)) =>
+        json_text(Json::object(fields), "status", "unprocessed")
+      _ => "unprocessed"
+    }
+    by_ai.set(ai_state, by_ai.get(ai_state).unwrap_or(0) + 1)
+  }
+  let by_biz_values : Array[Json] = []
+  for _, value in by_biz {
+    by_biz_values.push(value)
+  }
+  by_biz_values.sort_by(fn(left, right) {
+    json_number(right, "count", 0.0).to_int() -
+    json_number(left, "count", 0.0).to_int()
+  })
+  let by_ai_values : Array[Json] = []
+  for status, count in by_ai {
+    by_ai_values.push(
+      Json::object({
+        "aiStatus": Json::string(status),
+        "count": Json::number(count.to_double()),
+      }),
+    )
+  }
+  by_ai_values.sort_by(fn(left, right) {
+    json_text(left, "aiStatus", "").lexical_compare(
+      json_text(right, "aiStatus", ""),
+    )
+  })
   observation_envelope(
     Json::object({
       "total": Json::object({
-        "count": Json::number(0),
-        "bytes": Json::number(0),
+        "count": Json::number(
+          by_biz_values
+          .fold(init=0, fn(total, value) {
+            total + json_number(value, "count", 0.0).to_int()
+          })
+          .to_double(),
+        ),
+        "bytes": Json::number(bytes),
       }),
-      "byBizType": Json::array([]),
-      "byAiStatus": Json::array([]),
+      "byBizType": Json::array(by_biz_values),
+      "byAiStatus": Json::array(by_ai_values),
     }),
     coverage,
   )

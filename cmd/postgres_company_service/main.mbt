@@ -15032,13 +15032,31 @@ async fn route(
       ),
     )
   }
-  if path == "/api/company/attachments/all" {
-    return (200, attachment_all_response())
+  if path == "/api/company/attachments/all" ||
+    path == "/api/company/attachments" ||
+    path == "/api/company/source/attachments/all" ||
+    path == "/api/company/source/attachments" {
+    return (
+      200,
+      attachment_all_response(
+        query_alias_decoded(query, "uploadedBy", "uploaded_by"),
+        query_alias_decoded(query, "aiStatus", "ai_status"),
+        query_decoded(query, "keyword"),
+      ),
+    )
   }
-  if path == "/api/company/attachments/list" {
-    return (200, attachment_list_response())
+  if path == "/api/company/attachments/list" ||
+    path == "/api/company/source/attachments/list" {
+    return (
+      200,
+      attachment_list_response(
+        query_alias_decoded(query, "bizType", "biz_type"),
+        query_alias_decoded(query, "bizGuid", "biz_guid"),
+      ),
+    )
   }
-  if path == "/api/company/attachments/stats" {
+  if path == "/api/company/attachments/stats" ||
+    path == "/api/company/source/attachments/stats" {
     return (200, attachment_stats_response())
   }
   let attachment_download_prefix = "/api/company/attachments/download/"

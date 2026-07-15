@@ -48,6 +48,15 @@ fi
 /usr/bin/jq -e '.capabilities | index("attachment_re_extract_candidate")' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("attachment_upload_candidate")' "$TMP_DIR/health.json" >/dev/null
 /usr/bin/jq -e '.capabilities | index("attachment_delete_candidate")' "$TMP_DIR/health.json" >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/attachments/all" \
+  | /usr/bin/jq -e '.success == true and .data.total >= 0 and (.data.rows | type) == "array"' >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/source/attachments/list?bizType=expense" \
+  | /usr/bin/jq -e '.success == true and (.data | type) == "array"' >/dev/null
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/attachments/stats" \
+  | /usr/bin/jq -e '.success == true and .data.total.count >= 0 and .data.total.bytes >= 0' >/dev/null
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/reextract.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
@@ -66,4 +75,4 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/delete.json" -w '%{http_code}' -X DELETE
   "http://127.0.0.1:$PORT/api/company/attachments/missing-attachment")
 test "$status" = 409
 /usr/bin/jq -e '.code == 43003 and .data.deleted == false and .persisted == false and .authorizing == false' "$TMP_DIR/delete.json" >/dev/null
-echo "native PostgreSQL attachment upload/delete/re-extraction candidate smoke passed"
+echo "native PostgreSQL attachment read/upload/delete/re-extraction candidate smoke passed"
