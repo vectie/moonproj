@@ -835,6 +835,14 @@ match the frozen bridge under the shell-only smoke. Revenue lifecycle writes,
 cash/accounting/tax effects, production identity, and sales-owner acceptance
 remain separate gates.
 
+Tender-plan, tender-award, and contract-split observations are native as well.
+MoonBit merges the current command-owned tender/split projections, preserves
+source filters and provenance, and keeps procurement/cash/accounting/tax
+effects disabled. Supplier category, evaluation-result, and source dictionaries
+also run natively with explicit empty-table/definition metadata. Tender and
+supplier writes, signature/qualification decisions, provider execution,
+production identity, and owner acceptance remain gated.
+
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita
 assets, and the in-app browser completed a real fixture-login and navigation

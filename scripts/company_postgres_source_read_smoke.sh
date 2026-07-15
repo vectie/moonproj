@@ -83,6 +83,12 @@ request sales_contracts '/api/company/source/sales/contracts'
 request sales_mortgages '/api/company/source/sales/mortgages'
 request sales_refunds '/api/company/source/sales/refunds'
 request sales_revenues '/api/company/source/sales/revenues'
+request tender_plans '/api/company/source/tender/tenders'
+request tender_awards '/api/company/source/tender/awards'
+request tender_splits '/api/company/source/tender/splits'
+request supplier_categories '/api/company/source/srm/categories'
+request supplier_eval '/api/company/source/srm/dict/eval-results'
+request supplier_sources '/api/company/source/srm/dict/sources'
 
 /usr/bin/jq -e '
   .success == true and
@@ -219,5 +225,35 @@ request sales_revenues '/api/company/source/sales/revenues'
   .source_coverage.sale_revenue == 0 and
   .authorizing == false and .persisted == false
 ' "$TMP_DIR/sales_revenues.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 87 and
+  .source_coverage.tender_plan == 0 and
+  .data[0].source_kind == "command" and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/tender_plans.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.tender_award == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/tender_awards.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 162 and
+  .source_coverage.contract_split == 0 and
+  .data[0].source_kind == "command" and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/tender_splits.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 0 and
+  .source_coverage.srm_category == 0 and
+  .authorizing == false and .persisted == false
+' "$TMP_DIR/supplier_categories.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 6 and
+  .source_kind == "definition" and .authorizing == false
+' "$TMP_DIR/supplier_eval.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data | length) == 4 and
+  .source_kind == "definition" and .authorizing == false
+' "$TMP_DIR/supplier_sources.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost/delivery/receivable/invoice/sales/tender/supplier read smoke passed"

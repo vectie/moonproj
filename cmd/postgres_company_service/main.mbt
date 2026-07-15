@@ -3838,6 +3838,385 @@ async fn sales_source_response(
 }
 
 ///|
+fn tender_source_metadata(coverage : Json) -> Json {
+  let missing : Array[Json] = []
+  for table in ["contract_split", "tender_award", "tender_plan"] {
+    if json_int(coverage, table, 0) == 0 {
+      missing.push(Json::string(table))
+    }
+  }
+  Json::object({
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(true),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+fn tender_raw_item(row : SourceRow, family : String) -> Json {
+  let payload = row.payload
+  let source_id = if row.source_id.is_empty() {
+    row.record_id
+  } else {
+    row.source_id
+  }
+  match payload {
+    Object(fields) => {
+      if family == "tenders" {
+        let tender_id = json_text(payload, "tender_guid", row.record_id)
+        let amount = json_number(payload, "estimated_amount", 0.0)
+        set_default_field(fields, "tender_guid", Json::string(tender_id))
+        set_default_field(fields, "tender_id", Json::string(tender_id))
+        set_default_field(
+          fields,
+          "name",
+          Json::string(json_text(payload, "tender_name", tender_id)),
+        )
+        set_default_field(
+          fields,
+          "project_scope",
+          Json::string("project:" + json_text(payload, "proj_guid", "")),
+        )
+        set_default_field(
+          fields,
+          "estimated_amount_minor",
+          Json::number((amount * 100.0).to_int().to_double()),
+        )
+        set_default_field(
+          fields,
+          "estimated_amount_display",
+          Json::string(
+            if amount == 0.0 {
+              "—"
+            } else {
+              invoice_money_display(amount)
+            },
+          ),
+        )
+        set_default_field(fields, "currency", Json::string("CNY"))
+        set_default_field(fields, "state", Json::string("planning"))
+        set_default_field(fields, "bids", Json::array([]))
+        fields.set("aggregate_type", Json::string("tender"))
+        fields.set("aggregate_id", Json::string(tender_id))
+        fields.set("source_id", Json::string(source_id))
+        fields.set("source_table", Json::string("tender_plan"))
+      } else if family == "awards" {
+        let award_id = json_text(payload, "award_guid", row.record_id)
+        let amount = json_number(payload, "award_amount", 0.0)
+        set_default_field(fields, "award_guid", Json::string(award_id))
+        set_default_field(fields, "award_id", Json::string(award_id))
+        set_default_field(
+          fields,
+          "award_amount_display",
+          Json::string(
+            if amount == 0.0 {
+              "—"
+            } else {
+              invoice_money_display(amount)
+            },
+          ),
+        )
+        set_default_field(fields, "state", Json::string("awarded"))
+        fields.set("aggregate_type", Json::string("tender_award"))
+        fields.set("aggregate_id", Json::string(award_id))
+        fields.set("source_id", Json::string(source_id))
+        fields.set("source_table", Json::string("tender_award"))
+      } else {
+        let split_id = json_text(payload, "split_guid", row.record_id)
+        let amount = json_number(payload, "split_amount", 0.0)
+        set_default_field(fields, "split_guid", Json::string(split_id))
+        set_default_field(fields, "split_id", Json::string(split_id))
+        set_default_field(
+          fields,
+          "split_amount_display",
+          Json::string(
+            if amount == 0.0 {
+              "—"
+            } else {
+              invoice_money_display(amount)
+            },
+          ),
+        )
+        set_default_field(fields, "state", Json::string("planned"))
+        fields.set("aggregate_type", Json::string("contract_split"))
+        fields.set("aggregate_id", Json::string(split_id))
+        fields.set("source_id", Json::string(source_id))
+        fields.set("source_table", Json::string("contract_split"))
+      }
+      set_default_field(fields, "source_kind", Json::string("imported"))
+      Json::object(fields)
+    }
+    _ => payload
+  }
+}
+
+///|
+async fn tender_command_items() -> Array[Json] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(" +
+    "'tender_guid', aggregate_id, 'tender_id', aggregate_id, " +
+    "'tender_code', coalesce(payload->>'tender_code', payload->'candidate'->>'tender_code', 'TD-' || right(aggregate_id, 24)), " +
+    "'proj_guid', CASE WHEN coalesce(payload->>'project_scope', payload->'candidate'->>'project_scope', '') LIKE 'project:%' THEN substring(coalesce(payload->>'project_scope', payload->'candidate'->>'project_scope', '') from 9) ELSE coalesce(payload->>'project_scope', payload->'candidate'->>'project_scope', '') END, " +
+    "'project_scope', coalesce(payload->>'project_scope', payload->'candidate'->>'project_scope', ''), " +
+    "'tender_name', coalesce(payload->>'name', payload->'candidate'->>'name', aggregate_id), " +
+    "'name', coalesce(payload->>'name', payload->'candidate'->>'name', aggregate_id), " +
+    "'category', coalesce(payload->>'category', payload->'candidate'->>'category', 'uncategorized'), " +
+    "'estimated_amount', (coalesce(payload->>'estimated_amount_minor', payload->'candidate'->>'estimated_amount_minor', '0')::numeric / 100), " +
+    "'estimated_amount_minor', coalesce(payload->>'estimated_amount_minor', payload->'candidate'->>'estimated_amount_minor', '0')::bigint, " +
+    "'estimated_amount_display', CASE WHEN coalesce(payload->>'estimated_amount_minor', payload->'candidate'->>'estimated_amount_minor', '0')::bigint = 0 THEN '—' ELSE concat('¥', to_char(coalesce(payload->>'estimated_amount_minor', payload->'candidate'->>'estimated_amount_minor', '0')::numeric / 100, 'FM999,999,999,990.00')) END, " +
+    "'currency', coalesce(payload->>'currency', payload->'candidate'->>'currency', 'CNY'), " +
+    "'state', coalesce(payload->>'state', payload->'candidate'->>'state', 'planning'), " +
+    "'plan_publish_date', coalesce(payload->>'plan_publish_date', payload->'candidate'->>'plan_publish_date', ''), " +
+    "'plan_award_date', coalesce(payload->>'plan_award_date', payload->'candidate'->>'plan_award_date', ''), " +
+    "'remark', '', " +
+    "'bids', coalesce(payload->'bids', payload->'candidate'->'bids', '[]'::jsonb), " +
+    "'source_kind', 'command', 'command_projection', true, 'authorizing', false, 'persisted', true, 'provider_execution', false, " +
+    "'cash_effect', false, 'accounting_effect', false, 'tax_effect', false, 'aggregate_type', 'tender', 'aggregate_id', aggregate_id, " +
+    "'source_id', 'moonproj:command:tender:' || aggregate_id, 'source_table', 'tender_plan'" +
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, source_event_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'tender' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', payload->'candidate'->>'state', '') <> 'deleted'",
+  )
+  json_array_output(output)
+}
+
+///|
+async fn split_command_items() -> Array[Json] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT coalesce(jsonb_agg(jsonb_build_object(" +
+    "'split_guid', aggregate_id, 'split_id', aggregate_id, " +
+    "'parent_contract_guid', coalesce(payload->>'parent_contract_id', payload->'candidate'->>'parent_contract_id', ''), " +
+    "'parent_contract_id', coalesce(payload->>'parent_contract_id', payload->'candidate'->>'parent_contract_id', ''), " +
+    "'split_name', coalesce(payload->>'split_name', payload->'candidate'->>'split_name', aggregate_id), " +
+    "'split_amount', (coalesce(payload->>'split_amount_minor', payload->'candidate'->>'split_amount_minor', '0')::numeric / 100), " +
+    "'split_amount_minor', coalesce(payload->>'split_amount_minor', payload->'candidate'->>'split_amount_minor', '0')::bigint, " +
+    "'split_amount_display', CASE WHEN coalesce(payload->>'split_amount_minor', payload->'candidate'->>'split_amount_minor', '0')::bigint = 0 THEN '—' ELSE concat('¥', to_char(coalesce(payload->>'split_amount_minor', payload->'candidate'->>'split_amount_minor', '0')::numeric / 100, 'FM999,999,999,990.00')) END, " +
+    "'split_pct', (coalesce(payload->>'split_pct_bps', payload->'candidate'->>'split_pct_bps', '0')::numeric / 100), " +
+    "'split_pct_bps', coalesce(payload->>'split_pct_bps', payload->'candidate'->>'split_pct_bps', '0')::bigint, " +
+    "'scope', coalesce(payload->>'scope', payload->'candidate'->>'scope', ''), " +
+    "'state', coalesce(payload->>'state', payload->'candidate'->>'state', 'planned'), " +
+    "'source_kind', 'command', 'command_projection', true, 'authorizing', false, 'persisted', true, 'provider_execution', false, " +
+    "'cash_effect', false, 'accounting_effect', false, 'tax_effect', false, 'aggregate_type', 'contract_split', 'aggregate_id', aggregate_id, " +
+    "'source_id', 'moonproj:command:contract_split:' || aggregate_id, 'source_table', 'contract_split'" +
+    ") ORDER BY aggregate_id), '[]'::jsonb)::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, source_event_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'contract_split' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', payload->'candidate'->>'state', '') <> 'deleted'",
+  )
+  json_array_output(output)
+}
+
+///|
+fn tender_source_matches(
+  item : Json,
+  family : String,
+  proj_guid : String?,
+  state : String?,
+  tender_guid : String?,
+  parent_contract_guid : String?,
+) -> Bool {
+  if proj_guid is Some(value) {
+    if family == "splits" || json_text(item, "proj_guid", "") != value {
+      return false
+    }
+  }
+  if state is Some(value) && json_text(item, "state", "") != value {
+    return false
+  }
+  if tender_guid is Some(value) && json_text(item, "tender_guid", "") != value {
+    return false
+  }
+  if parent_contract_guid is Some(value) &&
+    json_text(item, "parent_contract_guid", "") != value {
+    return false
+  }
+  true
+}
+
+///|
+fn tender_source_sort_date(item : Json) -> String {
+  let publish = json_text(item, "plan_publish_date", "")
+  if !publish.is_empty() {
+    return publish
+  }
+  let award = json_text(item, "award_date", "")
+  if !award.is_empty() {
+    return award
+  }
+  json_text(item, "created_at", "")
+}
+
+///|
+async fn tender_source_response(
+  family : String,
+  proj_guid : String?,
+  state : String?,
+  tender_guid : String?,
+  parent_contract_guid : String?,
+) -> Json raise CompanyServiceError {
+  if !["tenders", "awards", "splits"].contains(family) {
+    raise fail("unsupported tender source family")
+  }
+  for value in [proj_guid, state, tender_guid, parent_contract_guid] {
+    match value {
+      Some(text) if text.length() > 128 =>
+        raise fail("tender filter is too long")
+      _ => ()
+    }
+  }
+  let plans = raw_source_rows("tender_plan", 500)
+  let awards = raw_source_rows("tender_award", 500)
+  let splits = raw_source_rows("contract_split", 500)
+  let coverage = Json::object({
+    "contract_split": Json::number(splits.length().to_double()),
+    "tender_award": Json::number(awards.length().to_double()),
+    "tender_plan": Json::number(plans.length().to_double()),
+  })
+  let raw = if family == "tenders" {
+    plans
+  } else if family == "awards" {
+    awards
+  } else {
+    splits
+  }
+  let result : Array[Json] = []
+  for row in raw {
+    let item = tender_raw_item(row, family)
+    if tender_source_matches(
+        item, family, proj_guid, state, tender_guid, parent_contract_guid,
+      ) {
+      result.push(item)
+    }
+  }
+  if family == "tenders" {
+    for item in tender_command_items() {
+      if tender_source_matches(
+          item, family, proj_guid, state, tender_guid, parent_contract_guid,
+        ) {
+        result.push(item)
+      }
+    }
+  } else if family == "splits" {
+    for item in split_command_items() {
+      if tender_source_matches(
+          item, family, proj_guid, state, tender_guid, parent_contract_guid,
+        ) {
+        result.push(item)
+      }
+    }
+  }
+  result.sort_by(fn(left, right) {
+    let date_order = tender_source_sort_date(right).lexical_compare(
+      tender_source_sort_date(left),
+    )
+    if date_order != 0 {
+      date_order
+    } else {
+      json_text(right, "aggregate_id", "").lexical_compare(
+        json_text(left, "aggregate_id", ""),
+      )
+    }
+  })
+  match tender_source_metadata(coverage) {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(result))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid tender source metadata")
+  }
+}
+
+///|
+fn supplier_dictionary_metadata(coverage : Json, source_kind : String) -> Json {
+  let missing : Array[Json] = []
+  if source_kind == "imported_or_empty" &&
+    json_int(coverage, "srm_category", 0) == 0 {
+    missing.push(Json::string("srm_category"))
+  }
+  Json::object({
+    "source_kind": Json::string(source_kind),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+  })
+}
+
+///|
+async fn supplier_categories_response() -> Json raise CompanyServiceError {
+  let raw = raw_source_rows("srm_category", 500)
+  let rows : Array[Json] = []
+  for row in raw {
+    let payload = row.payload
+    rows.push(
+      Json::object({
+        "code": Json::string(json_text(payload, "category_code", row.record_id)),
+        "name": Json::string(json_text(payload, "category_name", "")),
+        "sortOrder": Json::number(
+          json_int(payload, "sort_order", 0).to_double(),
+        ),
+        "sourceKind": Json::string("imported"),
+        "sourceId": Json::string(
+          if row.source_id.is_empty() {
+            row.record_id
+          } else {
+            row.source_id
+          },
+        ),
+      }),
+    )
+  }
+  rows.sort_by(fn(left, right) {
+    let order = json_int(left, "sortOrder", 0) - json_int(right, "sortOrder", 0)
+    if order == 0 {
+      json_text(left, "code", "").lexical_compare(json_text(right, "code", ""))
+    } else {
+      order
+    }
+  })
+  let coverage = Json::object({
+    "srm_category": Json::number(raw.length().to_double()),
+  })
+  match supplier_dictionary_metadata(coverage, "imported_or_empty") {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(rows))
+      Json::object(metadata)
+    }
+    _ => raise fail("invalid supplier category metadata")
+  }
+}
+
+///|
+fn supplier_definition_response(values : Array[String]) -> Json {
+  let rows : Array[Json] = []
+  for value in values {
+    rows.push(
+      Json::object({
+        "code": Json::string(value),
+        "name": Json::string(value),
+        "sourceKind": Json::string("definition"),
+      }),
+    )
+  }
+  match supplier_dictionary_metadata(Json::object({}), "definition") {
+    Object(metadata) => {
+      metadata.set("success", Json::boolean(true))
+      metadata.set("code", Json::number(0))
+      metadata.set("data", Json::array(rows))
+      Json::object(metadata)
+    }
+    _ => Json::null()
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -4412,6 +4791,41 @@ async fn route(
     let keyword = query_decoded(query, "keyword")
     return (200, sales_source_response(family, project_id, state, keyword))
   }
+  let tender_source_prefix = "/api/company/source/tender/"
+  if path.has_prefix(tender_source_prefix) {
+    let family = path[tender_source_prefix.length():].to_owned()
+    let project_id = query_alias_decoded(query, "projGuid", "proj_guid")
+    let state = query_decoded(query, "state")
+    let tender_id = query_alias_decoded(query, "tenderGuid", "tender_guid")
+    let parent_contract_id = query_alias_decoded(
+      query, "parentContractGuid", "parent_contract_guid",
+    )
+    return (
+      200,
+      tender_source_response(
+        family, project_id, state, tender_id, parent_contract_id,
+      ),
+    )
+  }
+  if path == "/api/company/source/srm/categories" {
+    return (200, supplier_categories_response())
+  }
+  if path == "/api/company/source/srm/dict/eval-results" {
+    return (
+      200,
+      supplier_definition_response([
+        "已评审", "合格", "不合格", "战略", "黑名单", "未定级",
+      ]),
+    )
+  }
+  if path == "/api/company/source/srm/dict/sources" {
+    return (
+      200,
+      supplier_definition_response([
+        "云采购", "内部收集", "外网注册", "其他",
+      ]),
+    )
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -4515,6 +4929,8 @@ async fn route(
             Json::string("receivable_read"),
             Json::string("invoice_observation_read"),
             Json::string("sales_observation_read"),
+            Json::string("tender_observation_read"),
+            Json::string("supplier_dictionary_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),
