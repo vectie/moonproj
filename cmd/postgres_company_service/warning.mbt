@@ -711,6 +711,321 @@ async fn warning_rules_response() -> Json raise CompanyServiceError {
 }
 
 ///|
+fn warning_custom_rule_command_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> (String, String?)? {
+  let create_paths = [
+    "/api/company/warning/custom-rules", "/api/company/source/warning/custom-rules",
+  ]
+  if request_method is @http.Post && create_paths.contains(path) {
+    return Some(("custom_rule_create", None))
+  }
+  let prefixes = [
+    "/api/company/warning/custom-rules/", "/api/company/source/warning/custom-rules/",
+  ]
+  for prefix in prefixes {
+    if request_method is @http.Delete && path.has_prefix(prefix) {
+      let code = path[prefix.length():].to_owned()
+      if valid_identifier(code) {
+        return Some(("custom_rule_delete", Some(code)))
+      }
+    }
+  }
+  None
+}
+
+///|
+fn warning_custom_rule_code(code : String) -> Bool {
+  valid_identifier(code) &&
+  code.length() >= 4 &&
+  code.length() <= 8 &&
+  code == code.to_upper() &&
+  (code.has_prefix("C") || code.has_prefix("D") || code.has_prefix("X")) &&
+  !warning_builtin_rule_code(code)
+}
+
+///|
+fn warning_custom_rule_sql_safe(sql : String) -> Bool {
+  let lowered = sql.trim().to_owned().to_lower()
+  if lowered.is_empty() ||
+    (
+      !lowered.has_prefix("select ") &&
+      !lowered.has_prefix("select\n") &&
+      !lowered.has_prefix("with ") &&
+      !lowered.has_prefix("with\n")
+    ) {
+    return false
+  }
+  if lowered.contains(";") {
+    return false
+  }
+  for
+    blocked in [
+      "insert", "update", "delete", "drop", "alter", "create", "truncate", "grant",
+      "revoke", "execute", "call",
+    ] {
+    if lowered.contains(blocked) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+async fn warning_custom_rule_states() -> Map[String, Json] raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'warning_custom_rule' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
+  )
+  let result : Map[String, Json] = {}
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 2)
+      let payload = @json.parse(decode_hex(row[1])) catch {
+        _ => raise fail("invalid warning custom rule projection JSON")
+      }
+      result.set(decode_hex(row[0]), payload)
+    }
+  }
+  result
+}
+
+///|
+async fn warning_custom_rules_response() -> Json raise CompanyServiceError {
+  let rows = warning_context()
+  let coverage = warning_coverage(rows)
+  let source_rows = raw_source_rows("sys_warning_rule_custom", 500)
+  coverage.set("sys_warning_rule_custom", source_rows.length())
+  let states = warning_custom_rule_states()
+  let result : Array[Json] = []
+  for row in source_rows {
+    let code = report_text(row.payload, "rule_code", row.record_id)
+    result.push(
+      Json::object({
+        "ruleCode": Json::string(code),
+        "ruleName": Json::string(report_text(row.payload, "rule_name", code)),
+        "severity": Json::string(
+          report_text(row.payload, "severity", "warning"),
+        ),
+        "bizType": Json::string(report_text(row.payload, "biz_type", "")),
+        "enabled": Json::boolean(json_bool(row.payload, "enabled", true)),
+        "custom": Json::boolean(true),
+        "sourceKind": Json::string("imported"),
+        "commandProjection": Json::boolean(false),
+        "sqlTemplateRedacted": Json::boolean(true),
+      }),
+    )
+  }
+  for code, payload in states {
+    if report_text(payload, "state", "active") != "deleted" {
+      result.push(
+        Json::object({
+          "ruleCode": Json::string(code),
+          "ruleName": Json::string(report_text(payload, "rule_name", code)),
+          "severity": Json::string(report_text(payload, "severity", "warning")),
+          "bizType": Json::string(report_text(payload, "biz_type", "")),
+          "enabled": Json::boolean(json_bool(payload, "enabled", true)),
+          "custom": Json::boolean(true),
+          "sourceKind": Json::string("command"),
+          "commandProjection": Json::boolean(true),
+          "sqlTemplateRedacted": Json::boolean(true),
+          "sqlDigest": json_field(payload, "sql_digest").unwrap_or(
+            Json::string(""),
+          ),
+        }),
+      )
+    }
+  }
+  result.sort_by(fn(left, right) {
+    report_text(left, "ruleCode", "").compare(
+      report_text(right, "ruleCode", ""),
+    )
+  })
+  warning_envelope(Json::array(result), coverage, states.length())
+}
+
+///|
+async fn warning_custom_rule_command(
+  command_type : String,
+  target_code : String?,
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let _ = rbac_require_super(actor_id)
+  let (code, changes) = if command_type == "custom_rule_create" {
+    let value = json_text(body, "ruleCode", json_text(body, "rule_code", "")).to_upper()
+    let name = json_text(body, "ruleName", json_text(body, "rule_name", ""))
+      .trim()
+      .to_owned()
+    let severity = json_text(body, "severity", "warning").trim().to_owned()
+    let biz_type = json_text(body, "bizType", json_text(body, "biz_type", ""))
+      .trim()
+      .to_owned()
+    let sql = json_text(
+      body,
+      "sqlTemplate",
+      json_text(body, "sql_template", ""),
+    )
+    if !warning_custom_rule_code(value) {
+      raise reject(400, "ruleCode must be an unused C/D/X-prefixed custom code")
+    }
+    if name.is_empty() || !["error", "warning", "info"].contains(severity) {
+      raise reject(400, "ruleName and a valid severity are required")
+    }
+    if !warning_custom_rule_sql_safe(sql) {
+      raise reject(
+        400, "sqlTemplate must be a single read-only SELECT/WITH statement",
+      )
+    }
+    let digest = @crypto.bytes_to_hex_string(
+      @crypto.sha256(@encoding/utf8.encode(sql)),
+    )
+    (
+      value,
+      Json::object({
+        "rule_code": Json::string(value),
+        "rule_name": Json::string(name),
+        "severity": Json::string(severity),
+        "biz_type": Json::string(biz_type),
+        "sql_digest": Json::string(digest),
+        "sql_length": Json::number(sql.length().to_double()),
+        "enabled": Json::boolean(json_bool(body, "enabled", true)),
+        "state": Json::string("active"),
+        "source_kind": Json::string("command"),
+        "sql_template_redacted": Json::boolean(true),
+      }),
+    )
+  } else {
+    let value = match target_code {
+      Some(value) if warning_custom_rule_code(value) => value
+      _ => raise reject(422, "custom rule code is required")
+    }
+    (
+      value,
+      Json::object({
+        "rule_code": Json::string(value),
+        "state": Json::string("deleted"),
+        "source_kind": Json::string("command"),
+        "sql_template_redacted": Json::boolean(true),
+      }),
+    )
+  }
+  let request = Json::object({
+    "command_type": Json::string(command_type),
+    "aggregate_type": Json::string("warning_custom_rule"),
+    "aggregate_id": Json::string(code),
+    "actor_id": Json::string(actor_id),
+    "changes": changes,
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "command": existing,
+          "warning": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let event_id = "warning:" + command_type + ":" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let state = json_text(changes, "state", "active")
+  let result = Json::object({
+    "ruleCode": Json::string(code),
+    "state": Json::string(state),
+    "enabled": json_field(changes, "enabled").unwrap_or(Json::boolean(false)),
+    "custom": Json::boolean(true),
+    "sourceKind": Json::string("command"),
+    "commandProjection": Json::boolean(true),
+    "persisted": Json::boolean(true),
+    "authorization_candidate": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+    "query_execution": Json::boolean(false),
+    "sqlTemplateRedacted": Json::boolean(true),
+    "cashEffect": Json::boolean(false),
+    "accountingEffect": Json::boolean(false),
+    "taxEffect": Json::boolean(false),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("warning"),
+    "command_type": Json::string(command_type),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("warning_custom_rule"),
+    "aggregate_id": Json::string(code),
+    "actor_id": Json::string(actor_id),
+    "request": request,
+    "result": result,
+  })
+  let audit_payload = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("warning." + command_type),
+    "aggregate_type": Json::string("warning_custom_rule"),
+    "aggregate_id": Json::string(code),
+    "actor_id": Json::string(actor_id),
+    "event_id": Json::string(event_id),
+    "state": Json::string(state),
+    "authorization_candidate": Json::boolean(true),
+    "authorizing": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+    "query_execution": Json::boolean(false),
+    "sql_template_redacted": Json::boolean(true),
+  })
+  let sql = "BEGIN; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) SELECT 'warning_custom_rule', " +
+    @postgres.sql_literal(code) +
+    ", coalesce(max(revision), 0) + 1, " +
+    @postgres.sql_literal(changes.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(event_id) +
+    " FROM company_aggregate_projection WHERE aggregate_type = 'warning_custom_rule' AND aggregate_id = " +
+    @postgres.sql_literal(code) +
+    "; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  let receipt = existing_company_command(idempotency_key)
+  let receipt = match receipt {
+    Some(value) => value
+    None => raise fail("warning custom rule command receipt was not persisted")
+  }
+  (
+    200,
+    Json::object({
+      "command": receipt,
+      "warning": json_field(receipt, "result").unwrap_or(result),
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 async fn warning_empty_response(
   table : String,
 ) -> Json raise CompanyServiceError {

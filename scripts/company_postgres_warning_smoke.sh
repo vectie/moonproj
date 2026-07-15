@@ -22,6 +22,11 @@ COMMAND_KEY="warning-resolve-$SMOKE_SUFFIX"
 EVENT_ID="warning:resolve:$COMMAND_KEY"
 RULE_KEY="warning-rule-config-$SMOKE_SUFFIX"
 RULE_EVENT_ID="warning:rule_config:$RULE_KEY"
+CUSTOM_CODE="X999"
+CUSTOM_KEY="warning-custom-create-$SMOKE_SUFFIX"
+CUSTOM_DELETE_KEY="warning-custom-delete-$SMOKE_SUFFIX"
+CUSTOM_EVENT_ID="warning:custom_rule_create:$CUSTOM_KEY"
+CUSTOM_DELETE_EVENT_ID="warning:custom_rule_delete:$CUSTOM_DELETE_KEY"
 
 cleanup() {
   if [ -n "$SERVICE_PID" ]; then
@@ -29,7 +34,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_rule_config' AND aggregate_id = 'W005'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:$EVENT_ID', 'moonproj:command:$RULE_KEY', 'moonproj:audit:$RULE_EVENT_ID');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_rule_config' AND aggregate_id = 'W005') OR (aggregate_type = 'warning_custom_rule' AND aggregate_id = '$CUSTOM_CODE'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:$EVENT_ID', 'moonproj:command:$RULE_KEY', 'moonproj:audit:$RULE_EVENT_ID', 'moonproj:command:$CUSTOM_KEY', 'moonproj:audit:$CUSTOM_EVENT_ID', 'moonproj:command:$CUSTOM_DELETE_KEY', 'moonproj:audit:$CUSTOM_DELETE_EVENT_ID');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -100,6 +105,43 @@ test "$status" = 200
 /usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   "http://127.0.0.1:$PORT/api/company/warning/rules" >"$TMP_DIR/rules.json"
 /usr/bin/jq -e '.data | any(.[]; .ruleCode == "W005" and .enabled == false and .commandProjection == true and .sourceKind == "command")' "$TMP_DIR/rules.json" >/dev/null
+
+custom_body="{\"ruleCode\":\"$CUSTOM_CODE\",\"ruleName\":\"Smoke custom rule\",\"severity\":\"warning\",\"bizType\":\"project\",\"sqlTemplate\":\"SELECT 1\",\"enabled\":true}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-create.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $CUSTOM_KEY" \
+  --data "$custom_body" "http://127.0.0.1:$PORT/api/company/warning/custom-rules")
+test "$status" = 200
+/usr/bin/jq -e '.warning.ruleCode == "'"$CUSTOM_CODE"'" and .warning.custom == true and .warning.sqlTemplateRedacted == true and .warning.query_execution == false and .warning.authorizing == false' "$TMP_DIR/custom-create.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-replay.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $CUSTOM_KEY" \
+  --data "$custom_body" "http://127.0.0.1:$PORT/api/company/source/warning/custom-rules")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .warning.ruleCode == "'"$CUSTOM_CODE"'"' "$TMP_DIR/custom-replay.json" >/dev/null
+
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/source/warning/custom-rules" >"$TMP_DIR/custom-list.json"
+/usr/bin/jq -e '.data | any(.[]; .ruleCode == "'"$CUSTOM_CODE"'" and .custom == true and .sqlTemplateRedacted == true and .commandProjection == true)' "$TMP_DIR/custom-list.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-delete.json" -w '%{http_code}' \
+  -X DELETE -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $CUSTOM_DELETE_KEY" \
+  "http://127.0.0.1:$PORT/api/company/source/warning/custom-rules/$CUSTOM_CODE")
+test "$status" = 200
+/usr/bin/jq -e '.warning.ruleCode == "'"$CUSTOM_CODE"'" and .warning.state == "deleted" and .warning.query_execution == false' "$TMP_DIR/custom-delete.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-invalid.json" -w '%{http_code}' \
+  -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $RULE_ACTOR" -H "X-Moonproj-Actor-Signature: $rule_signature" \
+  -H 'Content-Type: application/json' -H 'Idempotency-Key: warning-custom-invalid' \
+  --data '{"ruleCode":"X998","ruleName":"bad","severity":"warning","sqlTemplate":"UPDATE foo"}' \
+  "http://127.0.0.1:$PORT/api/company/warning/custom-rules")
+test "$status" = 400
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/replay.json" -w '%{http_code}' \
   -X POST \
