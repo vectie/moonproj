@@ -28,7 +28,7 @@ VALUATION_DOMAIN_RECEIPT="$WORK_DIR/investment-valuation-domain-receipt.json"
 moon run --target native cmd/investment_valuation -- \
   "$VALUATION_PLAN" "$VALUATION_DOMAIN_RECEIPT"
 ACCOUNTING_PLAN="$WORK_DIR/investment-valuation-accounting-plan.json"
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$VALUATION_DOMAIN_RECEIPT" "$ACCOUNTING_MAPPING" "$ACCOUNTING_PLAN"
 ACCOUNTING_RECEIPT="$WORK_DIR/investment-valuation-accounting-receipt.json"
 moon run --target native cmd/accounting_link -- \

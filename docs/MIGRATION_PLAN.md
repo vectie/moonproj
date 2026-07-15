@@ -2073,6 +2073,15 @@ Execute the remainder in this order:
     quarantine reasons, and the exact CBS cost-link plan envelope. Native CBS
     promotion remains configuration/link evidence only; it does not consume a
     budget or post accounting.
+
+3a.23. **Native CBS source-budget planner (2026-07-16).**
+    `cmd/cbs_budget_plan` and `scripts/erp_cbs_budget_plan.sh` now replace the
+    export-backed Python source-budget compiler in both the PostgreSQL cohort
+    and migration rehearsal paths. The native planner preserves explicit
+    project/version/subject joins, consume decisions for every positive source
+    amount, fixed-point money policy, and the exact CBS budget-plan envelope.
+    Native promotion remains budget-control evidence and does not post
+    accounting or release cash.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

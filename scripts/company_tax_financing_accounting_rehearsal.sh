@@ -29,7 +29,7 @@ python3 "$SCRIPT_DIR/erp_tax_accounting_plan.py" \
   "$WORK_DIR/tax-accounting-plan.json"
 moon run --target native cmd/tax_accounting_link -- \
   "$WORK_DIR/tax-accounting-plan.json" "$WORK_DIR/tax-accounting-domain-receipt.json"
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$WORK_DIR/tax-accounting-domain-receipt.json" "$TAX_ACCOUNTING_MAPPING" \
   "$WORK_DIR/tax-accounting-link-plan.json"
 moon run --target native cmd/accounting_link -- \
@@ -53,7 +53,7 @@ python3 "$SCRIPT_DIR/erp_financing_accounting_plan.py" \
 moon run --target native cmd/financing_accounting_link -- \
   "$WORK_DIR/financing-accounting-plan.json" \
   "$WORK_DIR/financing-accounting-domain-receipt.json"
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$WORK_DIR/financing-accounting-domain-receipt.json" "$FINANCING_ACCOUNTING_MAPPING" \
   "$WORK_DIR/financing-accounting-link-plan.json"
 moon run --target native cmd/accounting_link -- \

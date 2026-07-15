@@ -131,7 +131,7 @@ apply_accounting() {
 }
 
 if [ -n "$BASE_ACCOUNTING_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+  "$SCRIPT_DIR/erp_accounting_link_plan.sh" \
     "$WORK_DIR/domain-promotion.json" "$BASE_ACCOUNTING_MAPPING" \
     "$WORK_DIR/base-accounting-link-plan.json"
   moon run --target native cmd/accounting_link -- \
@@ -173,7 +173,7 @@ if [ -n "$CBS_BUDGET_PLAN" ]; then
 fi
 
 if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_cbs_budget_plan.py" \
+  "$SCRIPT_DIR/erp_cbs_budget_plan.sh" \
     "$EXPORT_DIR" "$CBS_COST_MAPPING" "$CBS_BUDGET_SOURCE_MAPPING" \
     "$WORK_DIR/cbs-budget-source-plan.json"
   moon run --target native cmd/cbs_budget -- \
@@ -203,7 +203,7 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
     "$WORK_DIR/delivery-recognition-receipt.json"
   apply_projection delivery-recognition "$WORK_DIR/delivery-recognition-receipt.json"
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
-    python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+    "$SCRIPT_DIR/erp_accounting_link_plan.sh" \
       "$WORK_DIR/delivery-recognition-receipt.json" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" \
       "$WORK_DIR/delivery-recognition-accounting-plan.json"
@@ -260,13 +260,13 @@ if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
   python3 "$SCRIPT_DIR/erp_advance_offset_promotion_plan.py" "$EXPORT_DIR" "$ADVANCE_OFFSET_MAPPING" "$WORK_DIR/advance-offset-plan.json"
   moon run --target native cmd/promote -- "$WORK_DIR/advance-offset-plan.json" "$WORK_DIR/advance-offset-promotion.json"
   apply_projection advance-offset "$WORK_DIR/advance-offset-promotion.json"
-  python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" "$WORK_DIR/advance-offset-promotion.json" "$OFFSET_ACCOUNTING_MAPPING" "$WORK_DIR/advance-offset-accounting-plan.json"
+  "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$WORK_DIR/advance-offset-promotion.json" "$OFFSET_ACCOUNTING_MAPPING" "$WORK_DIR/advance-offset-accounting-plan.json"
   moon run --target native cmd/accounting_link -- "$WORK_DIR/advance-offset-accounting-plan.json" "$WORK_DIR/advance-offset-accounting-receipt.json"
   apply_accounting advance-offset-accounting "$WORK_DIR/advance-offset-accounting-receipt.json"
 fi
 
 if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" "$TYPED_WORK_DIR/payment-promotion.json" "$PAYMENT_ACCOUNTING_MAPPING" "$WORK_DIR/payment-accounting-plan.json"
+  "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$TYPED_WORK_DIR/payment-promotion.json" "$PAYMENT_ACCOUNTING_MAPPING" "$WORK_DIR/payment-accounting-plan.json"
   moon run --target native cmd/accounting_link -- "$WORK_DIR/payment-accounting-plan.json" "$WORK_DIR/payment-accounting-receipt.json"
   apply_accounting payment-accounting "$WORK_DIR/payment-accounting-receipt.json"
 fi

@@ -24,7 +24,7 @@ python3 "$SCRIPT_DIR/erp_invoice_subledger_plan.py" \
   "$INVOICE_MAPPING" "$WORK_DIR/invoice-subledger-plan.json"
 moon run --target native cmd/invoice_subledger -- \
   "$WORK_DIR/invoice-subledger-plan.json" "$WORK_DIR/invoice-subledger-receipt.json"
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$WORK_DIR/invoice-subledger-receipt.json" "$ACCOUNTING_MAPPING" \
   "$WORK_DIR/invoice-accounting-link-plan.json"
 moon run --target native cmd/accounting_link -- \
@@ -44,7 +44,7 @@ python3 "$SCRIPT_DIR/erp_procurement_cohort_plan.py" \
   "$PROCUREMENT_MAPPING" "$WORK_DIR/procurement-plan.json"
 moon run --target native cmd/procurement_cohort -- \
   "$WORK_DIR/procurement-plan.json" "$WORK_DIR/procurement-receipt.json"
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$WORK_DIR/procurement-receipt.json" "$ACCOUNTING_MAPPING" \
   "$WORK_DIR/procurement-accounting-link-plan.json"
 moon run --target native cmd/accounting_link -- \

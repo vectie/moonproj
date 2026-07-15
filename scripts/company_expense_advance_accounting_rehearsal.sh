@@ -24,7 +24,7 @@ python3 "$SCRIPT_DIR/erp_expense_advance_cohort_plan.py" \
 moon run --target native cmd/expense_advance_cohort -- \
   "$WORK_DIR/expense-advance-plan.json" \
   "$WORK_DIR/expense-advance-receipt.json"
-python3 "$SCRIPT_DIR/erp_accounting_link_plan.py" \
+"$SCRIPT_DIR/erp_accounting_link_plan.sh" \
   "$WORK_DIR/expense-advance-receipt.json" "$ACCOUNTING_MAPPING" \
   "$WORK_DIR/accounting-link-plan.json"
 moon run --target native cmd/accounting_link -- \

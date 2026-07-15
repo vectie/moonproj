@@ -510,7 +510,7 @@ fi
 
 if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
   CBS_BUDGET_SOURCE_PLAN="$WORK_DIR/cbs-budget-source-plan.json"
-  python3 "$SCRIPT_DIR/erp_cbs_budget_plan.py" \
+  "$SCRIPT_DIR/erp_cbs_budget_plan.sh" \
     "$EXPORT_DIR" "$CBS_COST_MAPPING" "$CBS_BUDGET_SOURCE_MAPPING" \
     "$CBS_BUDGET_SOURCE_PLAN"
   echo "cbs_budget_source_plan=$CBS_BUDGET_SOURCE_PLAN"
@@ -677,7 +677,7 @@ fi
 
 if [ -n "$WARNING_SOURCE_MAPPING" ]; then
   WARNING_SOURCE_PLAN="$WORK_DIR/warning-source-plan.json"
-  python3 "$SCRIPT_DIR/erp_warning_plan.py" \
+  "$SCRIPT_DIR/erp_warning_plan.sh" \
     "$EXPORT_DIR" "$WARNING_SOURCE_MAPPING" "$WARNING_SOURCE_PLAN"
   echo "warning_source_plan=$WARNING_SOURCE_PLAN"
   WARNING_SOURCE_RECEIPT="$WORK_DIR/warning-source-receipt.json"

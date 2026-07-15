@@ -60,3 +60,4 @@ scripts/erp_delivery_progress_plan.sh
 scripts/erp_delivery_recognition_plan.sh
 scripts/erp_warning_plan.sh
 scripts/erp_cbs_cost_link_plan.sh
+scripts/erp_cbs_budget_plan.sh
