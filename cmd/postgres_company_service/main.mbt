@@ -15737,6 +15737,7 @@ async fn route(
             Json::string("notification_subscription_command"),
             Json::string("notification_config_command_candidate"),
             Json::string("webhook_config_command_candidate"),
+            Json::string("webhook_overdue_preview_read"),
             Json::string("ai_analytics_read"),
             Json::string("ai_hub_read"),
             Json::string("attachment_observation_read"),
@@ -15971,6 +15972,24 @@ async fn handle(
       return
     }
     None => ()
+  }
+  if webhook_scan_overdue_preview_spec(request.meth, path) {
+    let _ = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = webhook_scan_overdue_preview_response() catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    send_json(conn, request.meth, 200, result, false)
+    return
   }
   if notification_config_spec(request.meth, path) {
     let idempotency_key = header(request, "Idempotency-Key")

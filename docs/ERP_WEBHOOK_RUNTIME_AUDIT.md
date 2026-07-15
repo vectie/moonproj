@@ -11,6 +11,7 @@ itself send a message or scan overdue tickets.
 The PostgreSQL service and read-model adapter expose:
 
 - `/api/company/webhook/config` and `/api/company/source/webhook/config`
+- `/api/company/webhook/scan-overdue/preview` and its `/source` alias
 
 The response preserves the three-platform shape (`enabled`, `url`, `secret`,
 `hasSecret`) and adds source coverage. URL and secret values are redacted;
@@ -25,6 +26,13 @@ and `wecom`. It preserves the source `enabled`/optional URL/secret and
 digests. Candidate writes are idempotent and audited; they return
 `credentialsBound=false`, `providerExecution=false`, and no delivery,
 accounting, cash, or tax effects.
+
+The dry-run overdue preview now reads imported `sys_warning_ticket`,
+`sys_warning`, `sys_user`, and webhook parameter evidence. It preserves the
+source `no_overdue`, `no_platform_enabled`, and bounded preview payload states,
+with `dryRun=true` only when a provider-enabled source platform and overdue
+tickets are both present. It never updates tickets or sends a provider
+request.
 
 ## Remaining gates
 

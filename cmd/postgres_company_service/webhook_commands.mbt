@@ -168,6 +168,18 @@ fn webhook_mask_secret(value : String) -> String {
 }
 
 ///|
+async fn webhook_source_params() -> Map[String, String] raise CompanyServiceError {
+  let values : Map[String, String] = {}
+  for row in raw_source_rows("sys_param", 500) {
+    let key = webhook_param_value(row.payload, "pk")
+    if !key.is_empty() {
+      values.set(key, webhook_param_value(row.payload, "pv"))
+    }
+  }
+  values
+}
+
+///|
 fn webhook_config_entry(
   platform : String,
   enabled : Bool,
@@ -198,13 +210,7 @@ fn webhook_config_entry(
 async fn webhook_config_response_native() -> Json raise CompanyServiceError {
   let latest = webhook_projection_payloads()
   let by_platform : Map[String, Json] = {}
-  let source_values : Map[String, String] = {}
-  for row in raw_source_rows("sys_param", 500) {
-    let key = webhook_param_value(row.payload, "pk")
-    if !key.is_empty() {
-      source_values.set(key, webhook_param_value(row.payload, "pv"))
-    }
-  }
+  let source_values = webhook_source_params()
   for payload in latest {
     let platform = json_text(payload, "platform", "")
     if webhook_platform_valid(platform) {
@@ -471,4 +477,270 @@ async fn webhook_config_command(
       "idempotent_replay": Json::boolean(false),
     }),
   )
+}
+
+///|
+struct WebhookOverdueTicket {
+  ticket_id : String
+  title : String
+  assignee : String
+  due_date : String
+  days_overdue : Int
+}
+
+///|
+fn webhook_scan_overdue_preview_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Post &&
+  (
+    path == "/api/company/webhook/scan-overdue/preview" ||
+    path == "/api/company/source/webhook/scan-overdue/preview"
+  )
+}
+
+///|
+fn webhook_payload_text(
+  payload : Json,
+  key : String,
+  alternate : String,
+) -> String {
+  let value = json_text(payload, key, "")
+  if value.is_empty() {
+    json_text(payload, alternate, "")
+  } else {
+    value
+  }
+}
+
+///|
+fn webhook_positive_int(value : String) -> Int? {
+  if value.is_empty() {
+    return None
+  }
+  let mut result = 0
+  for char in value.iter() {
+    if char < '0' || char > '9' {
+      return None
+    }
+    result = result * 10 + char.to_int() - '0'.to_int()
+  }
+  Some(result)
+}
+
+///|
+fn webhook_civil_days(year : Int, month : Int, day : Int) -> Int {
+  let mut adjusted_year = year
+  if month <= 2 {
+    adjusted_year -= 1
+  }
+  let era = adjusted_year / 400
+  let year_of_era = adjusted_year - era * 400
+  let month_prime = month + (if month > 2 { -3 } else { 9 })
+  let day_of_year = (153 * month_prime + 2) / 5 + day - 1
+  let day_of_era = year_of_era * 365 +
+    year_of_era / 4 -
+    year_of_era / 100 +
+    day_of_year
+  era * 146097 + day_of_era
+}
+
+///|
+fn webhook_date_days(value : String) -> Int? {
+  if value.length() < 10 {
+    return None
+  }
+  let parts = value[:10]
+    .to_owned()
+    .split("-")
+    .map(fn(part) { part.to_owned() })
+    .to_array()
+  if parts.length() != 3 {
+    return None
+  }
+  let year = webhook_positive_int(parts[0])
+  let month = webhook_positive_int(parts[1])
+  let day = webhook_positive_int(parts[2])
+  match (year, month, day) {
+    (Some(y), Some(m), Some(d)) if m >= 1 && m <= 12 && d >= 1 && d <= 31 =>
+      Some(webhook_civil_days(y, m, d))
+    _ => None
+  }
+}
+
+///|
+fn webhook_overdue_days(today : String, due_date : String) -> Int {
+  match (webhook_date_days(today), webhook_date_days(due_date)) {
+    (Some(today_days), Some(due_days)) if today_days > due_days =>
+      today_days - due_days
+    _ => 0
+  }
+}
+
+///|
+async fn webhook_overdue_tickets() -> Array[WebhookOverdueTicket] raise CompanyServiceError {
+  let time_row = fields(
+    run_sql(
+      "SELECT to_char(current_date, 'YYYY-MM-DD'), to_char(current_timestamp - interval '24 hours', 'YYYY-MM-DD HH24:MI:SS')",
+    )
+    .trim()
+    .to_owned(),
+    2,
+  )
+  let today : String = time_row[0]
+  let cutoff : String = time_row[1]
+  let warnings : Map[String, Json] = {}
+  for row in raw_source_rows("sys_warning", 500) {
+    let guid = webhook_payload_text(row.payload, "warning_guid", "guid")
+    if !guid.is_empty() {
+      warnings.set(guid, row.payload)
+    }
+  }
+  let users : Map[String, Json] = {}
+  for row in raw_source_rows("sys_user", 500) {
+    let user_id = webhook_payload_text(row.payload, "user_id", "userId")
+    if !user_id.is_empty() {
+      users.set(user_id, row.payload)
+    }
+  }
+  let result : Array[WebhookOverdueTicket] = []
+  for row in raw_source_rows("sys_warning_ticket", 500) {
+    let status = webhook_payload_text(row.payload, "status", "state")
+    let due_date = webhook_payload_text(row.payload, "due_date", "dueDate")
+    let last_notified = webhook_payload_text(
+      row.payload,
+      "last_webhook_notified_at",
+      "lastWebhookNotifiedAt",
+    )
+    if status != "done" &&
+      due_date.length() >= 10 &&
+      due_date[:10] < today &&
+      (last_notified.is_empty() || last_notified < cutoff) {
+      let warning_guid = webhook_payload_text(
+        row.payload,
+        "warning_guid",
+        "warningGuid",
+      )
+      let warning = warnings.get(warning_guid).unwrap_or(Json::object({}))
+      let assignee_id = webhook_payload_text(
+        row.payload,
+        "assignee_user_id",
+        "assigneeUserId",
+      )
+      let user = users.get(assignee_id).unwrap_or(Json::object({}))
+      let ticket_id = webhook_payload_text(row.payload, "ticket_id", "ticketId")
+      let resolved_ticket_id = if ticket_id.is_empty() {
+        row.record_id
+      } else {
+        ticket_id
+      }
+      let title = webhook_payload_text(warning, "title", "name")
+      let assignee = {
+        let emp = webhook_payload_text(user, "emp_name", "empName")
+        if !emp.is_empty() {
+          emp
+        } else {
+          let name = webhook_payload_text(user, "user_name", "userName")
+          if !name.is_empty() {
+            name
+          } else {
+            assignee_id
+          }
+        }
+      }
+      if result.length() < 50 {
+        result.push({
+          ticket_id: resolved_ticket_id,
+          title: if title.is_empty() {
+            "(无标题)"
+          } else {
+            title
+          },
+          assignee,
+          due_date: due_date[:10].to_owned(),
+          days_overdue: webhook_overdue_days(today, due_date),
+        })
+      }
+    }
+  }
+  result.sort_by(fn(left, right) { left.due_date.compare(right.due_date) })
+  result
+}
+
+///|
+async fn webhook_scan_overdue_preview_response() -> Json raise CompanyServiceError {
+  let tickets = webhook_overdue_tickets()
+  let params = webhook_source_params()
+  let enabled_platforms : Array[Json] = []
+  for platform in webhook_platforms() {
+    let enabled = webhook_text_bool(
+      params.get("notify.webhook." + platform + ".enabled").unwrap_or(""),
+    )
+    let url = params.get("notify.webhook." + platform + ".url").unwrap_or("")
+    if enabled && !url.is_empty() {
+      enabled_platforms.push(Json::string(platform))
+    }
+  }
+  let data = if tickets.is_empty() {
+    Json::object({
+      "scanned": Json::number(0),
+      "sent": Json::boolean(false),
+      "reason": Json::string("no_overdue"),
+    })
+  } else if enabled_platforms.is_empty() {
+    Json::object({
+      "scanned": Json::number(tickets.length().to_double()),
+      "sent": Json::boolean(false),
+      "reason": Json::string("no_platform_enabled"),
+    })
+  } else {
+    let mut lines = ""
+    for ticket in tickets {
+      if !lines.is_empty() {
+        lines += "\n"
+      }
+      lines += "- #" +
+        ticket.ticket_id +
+        " " +
+        ticket.title +
+        " | 负责人 " +
+        ticket.assignee +
+        " | 截止 " +
+        ticket.due_date +
+        " | 已超 " +
+        ticket.days_overdue.to_string() +
+        " 天"
+    }
+    Json::object({
+      "scanned": Json::number(tickets.length().to_double()),
+      "sent": Json::boolean(false),
+      "dryRun": Json::boolean(true),
+      "payload": Json::object({
+        "title": Json::string(
+          "ERP 工单超期通知 — 共 " +
+          tickets.length().to_string() +
+          " 条",
+        ),
+        "content": Json::string(lines),
+      }),
+      "platforms": Json::array(enabled_platforms),
+    })
+  }
+  let coverage = observation_coverage([
+    "sys_warning_ticket", "sys_warning", "sys_user", "sys_param",
+  ])
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": data,
+    "source_kind": Json::string("imported_or_empty"),
+    "source_coverage": report_coverage(coverage),
+    "missing_or_empty_source_tables": Json::array(observation_missing(coverage)),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+    "delivery_effect": Json::boolean(false),
+    "query_execution": Json::boolean(false),
+  })
 }

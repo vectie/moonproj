@@ -39,7 +39,7 @@ for i in $(seq 1 30); do
   /bin/sleep 1
 done
 test "$ready" = 1
-psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_param', 'webhook-param-$SUFFIX-1', 1, '{\"pk\":\"notify.webhook.dingtalk.enabled\",\"pv\":\"1\"}'::jsonb, 'webhook-source-$SUFFIX-1'), ('legacy/raw/sys_param', 'webhook-param-$SUFFIX-2', 1, '{\"pk\":\"notify.webhook.dingtalk.url\",\"pv\":\"https://imported.example.invalid/hook\"}'::jsonb, 'webhook-source-$SUFFIX-2'), ('legacy/raw/sys_param', 'webhook-param-$SUFFIX-3', 1, '{\"pk\":\"notify.webhook.dingtalk.secret\",\"pv\":\"importedsecret\"}'::jsonb, 'webhook-source-$SUFFIX-3') ON CONFLICT (source_id) DO NOTHING;" >/dev/null
+psql -v ON_ERROR_STOP=1 -c "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('legacy/raw/sys_param', 'webhook-param-$SUFFIX-1', 1, '{\"pk\":\"notify.webhook.dingtalk.enabled\",\"pv\":\"1\"}'::jsonb, 'webhook-source-$SUFFIX-1'), ('legacy/raw/sys_param', 'webhook-param-$SUFFIX-2', 1, '{\"pk\":\"notify.webhook.dingtalk.url\",\"pv\":\"https://imported.example.invalid/hook\"}'::jsonb, 'webhook-source-$SUFFIX-2'), ('legacy/raw/sys_param', 'webhook-param-$SUFFIX-3', 1, '{\"pk\":\"notify.webhook.dingtalk.secret\",\"pv\":\"importedsecret\"}'::jsonb, 'webhook-source-$SUFFIX-3'), ('legacy/raw/sys_warning', 'webhook-warning-$SUFFIX', 1, '{\"warning_guid\":\"webhook-warning-$SUFFIX\",\"title\":\"Webhook overdue warning\",\"severity\":\"warning\"}'::jsonb, 'webhook-source-$SUFFIX-4'), ('legacy/raw/sys_warning_ticket', 'webhook-ticket-$SUFFIX', 1, '{\"ticket_id\":\"webhook-ticket-$SUFFIX\",\"warning_guid\":\"webhook-warning-$SUFFIX\",\"assignee_user_id\":\"user-admin-0001\",\"due_date\":\"2020-01-01\",\"status\":\"open\"}'::jsonb, 'webhook-source-$SUFFIX-5') ON CONFLICT (source_id) DO NOTHING;" >/dev/null
 
 SIGNATURE=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$SECRET" -hex | /usr/bin/sed 's/^.*= //')
 curl_common() {
@@ -64,6 +64,10 @@ test "$status" = 200
 
 curl_common "http://127.0.0.1:$PORT/api/company/source/webhook/config" >"$TMP_DIR/read.json"
 /usr/bin/jq -e '.data.feishu.enabled == false and .data.feishu.url == "" and .data.feishu.urlConfigured == true and .data.feishu.hasSecret == true and .data.dingtalk.enabled == true and .data.dingtalk.url == "已配置（已脱敏）" and .data.dingtalk.secret == "imp****ret" and .secret_values_redacted == true and (.data | tostring | contains("super-secret") | not) and (.data | tostring | contains("importedsecret") | not)' "$TMP_DIR/read.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/preview.json" -w '%{http_code}' -X POST "http://127.0.0.1:$PORT/api/company/source/webhook/scan-overdue/preview")
+test "$status" = 200
+/usr/bin/jq -e '.data.scanned == 1 and .data.sent == false and .data.dryRun == true and .data.platforms == ["dingtalk"] and (.data.payload.title | contains("1")) and (.data.payload.content | contains("Webhook overdue warning")) and .source_coverage.sys_warning_ticket == 1 and .provider_execution == false and .delivery_effect == false' "$TMP_DIR/preview.json" >/dev/null
 
 status=$(curl_common -o "$TMP_DIR/invalid.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: webhook-invalid-$SUFFIX" --data '{"enabled":true}' "http://127.0.0.1:$PORT/api/company/webhook/config/slack")
 test "$status" = 400

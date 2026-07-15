@@ -411,7 +411,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `webhook` | `GET` | `/config` | `/webhook-config` | `connected_webhook_read` | `accept_browser_webhook_scenario_and_production_identity` |
 | `webhook` | `PUT` | `/config/:platform` | `/webhook-config` | `connected_webhook_config_command_candidate` | `accept_browser_webhook_config_candidate_and_security_owner` |
 | `webhook` | `POST` | `/test/:platform` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
-| `webhook` | `POST` | `/scan-overdue/preview` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
+| `webhook` | `POST` | `/scan-overdue/preview` | `/webhook-config` | `connected_webhook_overdue_preview_read` | `accept_browser_webhook_preview_scenario_and_production_identity` |
 | `webhook` | `POST` | `/scan-overdue` | `/webhook-config` | `not_connected` | `implement_authenticated_command_and_audit` |
 | `workflow` | `GET` | `/tasks/mine` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `GET` | `/tasks/initiated` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |

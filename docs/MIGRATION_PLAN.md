@@ -850,7 +850,10 @@ empty-source metadata while preserving `authorizing=false`,
 ownership, test delivery, overdue scans, production identity, and
 notification-owner acceptance remain separate gates. The pure-shell
 `scripts/company_postgres_webhook_smoke.sh` covers create/replay/update,
-source aliases, redaction, and invalid-platform rejection.
+source aliases, redaction, invalid-platform rejection, and the dry-run
+`/scan-overdue/preview` no-source contract. The preview reads imported ticket,
+warning, user, and parameter evidence but never mutates tickets or invokes a
+provider.
 
 The report builder is now a bounded reporting vertical. `/report-builder` loads
 the source table/column/operator whitelist and saved-template list through

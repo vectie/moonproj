@@ -93,6 +93,7 @@
     "connected_warning_command": 1,
     "connected_warning_read": 1,
     "connected_webhook_config_command_candidate": 1,
+    "connected_webhook_overdue_preview_read": 1,
     "connected_webhook_read": 1,
     "connected_workflow_definition_read": 1,
     "read_only_fixture_no_source_api": 2
@@ -4593,8 +4594,8 @@
       "browser_route_paths": [
         "/webhook-config"
       ],
-      "action_state": "not_connected",
-      "required_next": "implement_authenticated_command_and_audit"
+      "action_state": "connected_webhook_overdue_preview_read",
+      "required_next": "accept_browser_webhook_preview_scenario_and_production_identity"
     },
     {
       "module": "webhook",
