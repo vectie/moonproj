@@ -2034,6 +2034,16 @@ Execute the remainder in this order:
     assignment weights, and the exact workflow-assignment plan envelope.
     Assignments remain configuration-only and non-authorizing; effective
     decision-time capability checks remain mandatory.
+
+3a.19. **Native delivery-progress planner (2026-07-16).**
+    `cmd/delivery_progress_plan` and `scripts/erp_delivery_progress_plan.sh`
+    now replace the export-backed Python task-report compiler in the
+    PostgreSQL cohort path. The native planner preserves task/project joins,
+    explicit target mapping, half-even progress normalization, evidence/value
+    validation, deterministic quarantine reasons, and the exact delivery-
+    progress plan envelope. Native import remains Draft-only evidence; delivery
+    acceptance, recognition, cost, budget, cash, and task-state effects remain
+    separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

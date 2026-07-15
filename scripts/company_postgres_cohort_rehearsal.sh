@@ -189,7 +189,7 @@ if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then
 fi
 
 if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
-  python3 "$SCRIPT_DIR/erp_delivery_progress_plan.py" "$EXPORT_DIR" "$DELIVERY_PROGRESS_MAPPING" "$WORK_DIR/delivery-progress-plan.json"
+  "$SCRIPT_DIR/erp_delivery_progress_plan.sh" "$EXPORT_DIR" "$DELIVERY_PROGRESS_MAPPING" "$WORK_DIR/delivery-progress-plan.json"
   moon run --target native cmd/delivery_progress -- "$WORK_DIR/delivery-progress-plan.json" "$WORK_DIR/delivery-progress-receipt.json"
   apply_projection delivery-progress "$WORK_DIR/delivery-progress-receipt.json"
 fi
