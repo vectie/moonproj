@@ -294,14 +294,6 @@ fn notification_tables() -> Array[String] {
 }
 
 ///|
-async fn notification_config_response() -> Json raise CompanyServiceError {
-  observation_envelope(
-    Json::object({ "configured": Json::array([]) }),
-    observation_coverage(notification_tables()),
-  )
-}
-
-///|
 async fn notification_empty_rows_response() -> Json raise CompanyServiceError {
   observation_envelope(
     Json::array([]),

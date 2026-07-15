@@ -798,14 +798,18 @@ The current export has no notification source rows, so successful reads show
 explicit empty-source states while five imported users remain available for
 scope coverage. Signed-user subscription create/update/delete aliases and
 message read/read-all aliases now persist idempotent local projections with
-source-shaped readback, tombstones, and imported-message read overlays, while
-imported `sys_warning_subscription`/`sys_message` rows remain read-only and
-delivery/provider/accounting/cash/tax effects remain false. Configuration
-writes, digest dispatch, provider calls, consent/retry policy, production
-identity, browser acceptance, and owner acceptance remain separate gates.
-`scripts/company_postgres_notification_smoke.sh` proves create/replay/list,
-source-alias update/delete, message read/read-all, invalid-channel rejection,
-and PostgreSQL cleanup without Python.
+source-shaped readback, tombstones, and imported-message read overlays. A
+super-user, allow-listed `PUT /api/company/notify/config` candidate also
+persists redacted key status and replay/audit evidence without binding
+credentials or invoking providers. Imported
+`sys_warning_subscription`/`sys_message` rows remain read-only and
+delivery/provider/accounting/cash/tax effects remain false. Managed
+credentials, delivery, digest dispatch, provider calls, consent/retry policy,
+production identity, browser acceptance, and owner acceptance remain separate
+gates. `scripts/company_postgres_notification_smoke.sh` proves
+create/replay/list, source-alias update/delete, message read/read-all, config
+candidate/replay/readback, invalid-channel rejection, secret redaction, and
+PostgreSQL cleanup without Python.
 
 The next admin read family covers OCR configuration status and error-log
 metadata. `/ocr-config` loads provider definitions, current scene, and

@@ -17,6 +17,7 @@ DELETE_KEY="notify-sub-delete-$SUFFIX"
 READ_KEY="notify-message-read-$SUFFIX"
 READ_ALL_KEY="notify-message-all-$SUFFIX"
 MESSAGE_GUID="imported-message-$SUFFIX"
+CONFIG_KEY="notify-config-$SUFFIX"
 
 psql() {
   PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
@@ -26,7 +27,7 @@ psql() {
 cleanup() {
   if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; fi
   psql -v ON_ERROR_STOP=0 -c \
-    "DELETE FROM company_record WHERE source_id LIKE '%notification:%$SUFFIX%' OR source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$DELETE_KEY%' OR source_id LIKE '%$READ_KEY%' OR source_id LIKE '%$READ_ALL_KEY%' OR source_id = 'notification-source-$SUFFIX'; DELETE FROM company_aggregate_projection WHERE aggregate_id LIKE '%$SUFFIX%';" \
+    "DELETE FROM company_record WHERE source_id LIKE '%notification:%$SUFFIX%' OR source_id LIKE '%$CREATE_KEY%' OR source_id LIKE '%$UPDATE_KEY%' OR source_id LIKE '%$DELETE_KEY%' OR source_id LIKE '%$READ_KEY%' OR source_id LIKE '%$READ_ALL_KEY%' OR source_id = 'notification-source-$SUFFIX' OR source_id LIKE '%$CONFIG_KEY%'; DELETE FROM company_aggregate_projection WHERE aggregate_id LIKE '%$SUFFIX%' OR source_event_id = 'notification:config_update:$CONFIG_KEY';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -83,6 +84,18 @@ test "$status" = 200
 
 curl_common "http://127.0.0.1:$PORT/api/company/source/notify/messages" >"$TMP_DIR/messages.json"
 /usr/bin/jq -e '.data.total == 1 and (.data.rows | any(.[]; .msg_guid == "'"$MESSAGE_GUID"'" and (.is_read == 1 or .isRead == true)))' "$TMP_DIR/messages.json" >/dev/null
+
+config_body='{"notify.email.enabled":true,"ai.llm.key":"super-secret","unknown.option":"ignored"}'
+status=$(curl_common -o "$TMP_DIR/config.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: $CONFIG_KEY" --data "$config_body" "http://127.0.0.1:$PORT/api/company/source/notify/config")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.updated == 2 and (.data.entries | any(.[]; .key == "ai.llm.key" and .redacted == true and .value == null)) and (.data.entries | any(.[]; .key == "notify.email.enabled" and .value == "true")) and (.data | tostring | contains("super-secret") | not)' "$TMP_DIR/config.json" >/dev/null
+
+status=$(curl_common -o "$TMP_DIR/config-replay.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: $CONFIG_KEY" --data "$config_body" "http://127.0.0.1:$PORT/api/company/notify/config")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.updated == 2' "$TMP_DIR/config-replay.json" >/dev/null
+
+curl_common "http://127.0.0.1:$PORT/api/company/source/notify/config" >"$TMP_DIR/config-read.json"
+/usr/bin/jq -e '(.data.configured | any(.[]; .key == "ai.llm.key" and .redacted == true and .value == null)) and (.data.configured | any(.[]; .key == "notify.email.enabled" and .value == "true")) and (.data | tostring | contains("super-secret") | not)' "$TMP_DIR/config-read.json" >/dev/null
 
 status=$(curl_common -o "$TMP_DIR/invalid.json" -w '%{http_code}' -X POST -H "Idempotency-Key: notify-invalid-$SUFFIX" --data '{"channels":["sms"]}' "http://127.0.0.1:$PORT/api/company/notify/subscriptions")
 test "$status" = 400

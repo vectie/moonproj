@@ -54,16 +54,26 @@ source row and does not synthesize missing messages.
 The current PostgreSQL export has no imported rows for sys_message,
 sys_warning_subscription, sys_param, sys_email_outbox, or
 sys_warning_digest_log. It has five imported sys_user rows, which are
-reported as coverage for user-scoped reads. Configuration values are never
-returned; only allow-listed configured-key status can be exposed, with
-password/key/secret/token values redacted. Provider discovery is metadata-only
-and always reports provider_execution=false.
+reported as coverage for user-scoped reads. Secret configuration values are
+never returned; only allow-listed configured-key status and non-secret
+candidate values can be exposed, with password/key/secret/token values
+redacted. Provider discovery is metadata-only and always reports
+provider_execution=false.
+
+`PUT /api/company/notify/config` (and the `/api/company/source` alias) is now a
+signed super-user configuration-candidate boundary. It stores only an
+allow-listed, redacted projection with idempotent replay and audit evidence;
+`credentialsBound=false`, `providerExecution=false`, and delivery/accounting/
+cash/tax effects remain false. The smoke script covers candidate write,
+replay, readback, and secret redaction.
 
 ## Not yet connected
 
 The following source actions remain explicitly outside this read slice:
 
-- configuration writes and webhook tests;
+- webhook tests; managed credential binding and provider configuration remain
+  gated even though the redacted notification-config candidate write is
+  connected;
 - digest dispatch, email test/redelivery, and provider test calls;
 - notification outbox delivery, retry/consent policy, and workflow effects;
 - production identity, browser acceptance, and owner reconciliation.

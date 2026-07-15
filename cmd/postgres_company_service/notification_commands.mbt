@@ -5,7 +5,9 @@
 /// the user's read state and subscription intent without delivering messages,
 /// invoking webhooks/email/LLM providers, or changing financial state.
 fn notification_projection_type(value : String) -> Bool {
-  value == "notification_message" || value == "notification_subscription"
+  value == "notification_message" ||
+  value == "notification_subscription" ||
+  value == "notification_config"
 }
 
 ///|
@@ -649,4 +651,235 @@ fn notification_command_envelope(
     "delivery_effect": Json::boolean(false),
     "query_execution": Json::boolean(false),
   })
+}
+
+///|
+/// Configuration candidates are allow-listed and redacted.  They do not
+/// replace the managed provider secret store or enable delivery.
+fn notification_config_keys() -> Array[String] {
+  [
+    "notify.webhook.url", "notify.webhook.kind", "notify.email.from", "notify.email.enabled",
+    "notify.email.smtp.host", "notify.email.smtp.port", "notify.email.smtp.user",
+    "notify.email.smtp.pass", "notify.email.smtp.secure", "ai.ocr.provider", "ai.ocr.http.url",
+    "ai.llm.provider", "ai.llm.key", "ai.llm.model", "ai.llm.endpoint", "ai.llm.fallback_providers",
+    "notify.digest.enabled", "notify.digest.hour", "notify.ticket_email.enabled",
+    "notify.ticket_webhook.enabled",
+  ]
+}
+
+///|
+fn notification_config_secret(key : String) -> Bool {
+  key.has_suffix(".pass") ||
+  key.has_suffix(".key") ||
+  key.has_suffix(".secret") ||
+  key.has_suffix(".token")
+}
+
+///|
+fn notification_value_text(value : Json) -> String {
+  match value {
+    String(text) => text
+    Number(number, ..) => number.to_string()
+    True => "true"
+    False => "false"
+    Null => ""
+    _ => value.stringify()
+  }
+}
+
+///|
+fn notification_config_spec(
+  request_method : @http.RequestMethod,
+  path : String,
+) -> Bool {
+  request_method is @http.Put &&
+  (
+    path == "/api/company/notify/config" ||
+    path == "/api/company/source/notify/config"
+  )
+}
+
+///|
+async fn notification_config_command(
+  body : Json,
+  actor_id : String,
+  idempotency_key : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(idempotency_key) {
+    raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  let actor = rbac_require_super(actor_id)
+  let values : Map[String, Json] = match body {
+    Object(fields) => fields
+    _ => raise reject(422, "notification config must be an object")
+  }
+  let entries : Array[Json] = []
+  let request_entries : Array[Json] = []
+  for key, value in values {
+    if notification_config_keys().contains(key) {
+      let text = notification_value_text(value)
+      if text.length() > 4096 {
+        raise reject(422, "notification config value is too large")
+      }
+      let digest = @crypto.bytes_to_hex_string(
+        @crypto.sha256(@encoding/utf8.encode(text)),
+      )
+      let secret = notification_config_secret(key)
+      entries.push(
+        Json::object({
+          "key": Json::string(key),
+          "configured": Json::boolean(!text.is_empty()),
+          "redacted": Json::boolean(secret),
+          "value": if secret {
+            Json::null()
+          } else {
+            Json::string(text)
+          },
+        }),
+      )
+      request_entries.push(
+        Json::object({
+          "key": Json::string(key),
+          "digest": Json::string(digest),
+          "configured": Json::boolean(!text.is_empty()),
+        }),
+      )
+    }
+  }
+  let request = Json::object({
+    "command_type": Json::string("config_update"),
+    "actor_id": Json::string(actor),
+    "entries": Json::array(request_entries),
+  })
+  match existing_company_command(idempotency_key) {
+    Some(existing) => {
+      if !json_equal(
+          json_field(existing, "request").unwrap_or(Json::null()),
+          request,
+        ) {
+        raise reject(
+          409, "Idempotency-Key was already used for another request",
+        )
+      }
+      return (
+        200,
+        Json::object({
+          "success": Json::boolean(true),
+          "code": Json::number(0),
+          "command": existing,
+          "data": json_field(existing, "result").unwrap_or(Json::null()),
+          "idempotent_replay": Json::boolean(true),
+        }),
+      )
+    }
+    None => ()
+  }
+  let aggregate_id = "notification-config"
+  let current = notification_latest_projection(
+    "notification_config", aggregate_id,
+  )
+  let revision = match current {
+    Some((_, value)) => value + 1
+    None => 1
+  }
+  let event_id = "notification:config_update:" + idempotency_key
+  let audit_id = event_id + ":audit"
+  let result = Json::object({
+    "updated": Json::number(entries.length().to_double()),
+    "entries": Json::array(entries),
+    "revision": Json::number(revision.to_double()),
+    "actorId": Json::string(actor),
+    "sourceKind": Json::string("command_candidate"),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(true),
+    "credentialsBound": Json::boolean(false),
+    "providerExecution": Json::boolean(false),
+    "delivery_effect": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+  let command_payload = Json::object({
+    "kind": Json::string("company_command"),
+    "command_family": Json::string("notification_config"),
+    "command_type": Json::string("config_update"),
+    "idempotency_key": Json::string(idempotency_key),
+    "aggregate_type": Json::string("notification_config"),
+    "aggregate_id": Json::string(aggregate_id),
+    "actor_id": Json::string(actor),
+    "request": request,
+    "result": result,
+  })
+  let payload = Json::object({
+    "aggregate_id": Json::string(aggregate_id),
+    "state": Json::string("active"),
+    "sourceKind": Json::string("command_candidate"),
+    "actorId": Json::string(actor),
+    "entries": Json::array(entries),
+    "credentialsBound": Json::boolean(false),
+    "event_id": Json::string(event_id),
+    "result": result,
+  })
+  let audit = Json::object({
+    "audit_id": Json::string(audit_id),
+    "action": Json::string("notification.config_update"),
+    "aggregate_type": Json::string("notification_config"),
+    "aggregate_id": Json::string(aggregate_id),
+    "actor_id": Json::string(actor),
+    "event_id": Json::string(event_id),
+    "revision": Json::number(revision.to_double()),
+    "credentials_bound": Json::boolean(false),
+    "provider_execution": Json::boolean(false),
+  })
+  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+    @postgres.sql_literal(event_id) +
+    ", 4, " +
+    @postgres.sql_literal(command_payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:command:" + idempotency_key) +
+    ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('notification_config', " +
+    @postgres.sql_literal(aggregate_id) +
+    ", " +
+    revision.to_string() +
+    ", " +
+    @postgres.sql_literal(payload.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal(event_id) +
+    ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
+    @postgres.sql_literal(audit_id) +
+    ", 4, " +
+    @postgres.sql_literal(audit.stringify()) +
+    "::jsonb, " +
+    @postgres.sql_literal("moonproj:audit:" + event_id) +
+    ") ON CONFLICT (source_id) DO NOTHING; COMMIT;"
+  let _ = run_sql(sql)
+  (
+    200,
+    Json::object({
+      "success": Json::boolean(true),
+      "code": Json::number(0),
+      "command": command_payload,
+      "data": result,
+      "idempotent_replay": Json::boolean(false),
+    }),
+  )
+}
+
+///|
+async fn notification_config_response_native() -> Json raise CompanyServiceError {
+  let coverage = observation_coverage(notification_tables())
+  let mut configured : Array[Json] = []
+  let mut command_count = 0
+  for payload in notification_projection_payloads("notification_config") {
+    command_count += 1
+    match json_field(payload, "entries") {
+      Some(Array(entries)) => configured = entries
+      _ => ()
+    }
+  }
+  notification_command_envelope(
+    Json::object({ "configured": Json::array(configured) }),
+    coverage,
+    command_count,
+  )
 }
