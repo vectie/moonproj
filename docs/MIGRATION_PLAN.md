@@ -1936,6 +1936,16 @@ Execute the remainder in this order:
     envelope. Statement import remains a separate native domain boundary;
     movement matching, ledger reconciliation, accounting, cash, period close,
     and provider effects remain disabled.
+
+3a.9. **Native financing-facility map planner (2026-07-16).**
+    `cmd/financing_facility_plan` and `scripts/erp_financing_facility_plan.sh`
+    now replace the Python facility-map compiler in the PostgreSQL cohort path.
+    The native planner preserves reviewed-input gating, recursive
+    secret-shaped-key rejection, facility uniqueness, limit/rate/day bounds,
+    draw/repayment consistency, expected-state validation, and the exact
+    financing-facility plan envelope. Facility lifecycle promotion remains a
+    separate native domain boundary; lender, cash, accounting, tax, covenant,
+    and period-close effects remain disabled.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

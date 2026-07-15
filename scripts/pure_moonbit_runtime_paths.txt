@@ -46,3 +46,4 @@ scripts/erp_source_export_request.sh
 scripts/erp_accounting_link_plan.sh
 scripts/erp_tax_filing_plan.sh
 scripts/erp_bank_statement_plan.sh
+scripts/erp_financing_facility_plan.sh
