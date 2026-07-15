@@ -64,6 +64,8 @@ request workflow_mine '/api/company/source/workflow/tasks/mine?userId=user-lmj-0
 request workflow_initiated '/api/company/source/workflow/tasks/initiated?userId=user-lmj-0001'
 request workflow_history '/api/company/source/workflow/tasks/my-history?userId=user-lmj-0001'
 request workflow_biz '/api/company/source/workflow/instances/by-biz?bizType=contract&bizDataGuid=ht-tj-001'
+request dynamic '/api/company/cost/dynamic-cost?projGuid=proj-0001'
+request dynamic_remarks '/api/company/source/cost/dynamic-cost/cost-001/remarks'
 
 /usr/bin/jq -e '
   .success == true and
@@ -123,5 +125,18 @@ request workflow_biz '/api/company/source/workflow/instances/by-biz?bizType=cont
   .success == true and .data == null and
   .source_coverage.wf_process_instance == 0 and .authorizing == false
 ' "$TMP_DIR/workflow_biz.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and (.data.items | length) == 7 and
+  .data.summary.A_targetCost == 35900000 and
+  .data.summary.B_dtCost == 36350000 and
+  .data.summary.endCount == 6 and
+  .source_coverage.cb_cost == 7 and .authorizing == false
+' "$TMP_DIR/dynamic.json" >/dev/null
+/usr/bin/jq -e '
+  .success == true and .data.costCode == "CB-101" and
+  .data.costName == "建安工程" and
+  .source_coverage.cb_cost == 7 and
+  .persisted == false and .authorizing == false
+' "$TMP_DIR/dynamic_remarks.json" >/dev/null
 
-echo "native source contract/payment/budget/workflow read smoke passed"
+echo "native source contract/payment/budget/workflow/dynamic-cost read smoke passed"

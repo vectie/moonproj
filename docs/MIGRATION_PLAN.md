@@ -810,6 +810,10 @@ Workflow task/instance observations are now native as well: pending,
 initiated, history, business-instance lookup, and instance detail preserve the
 empty `wf_process_instance`/`wf_step_action` boundary, explicit scope, and
 source-compatible 404/null behavior without enabling approval or assignment.
+The native service also owns the dynamic-cost read and source remark boundary,
+including the seven-row A/B/C/D/E/F/G/H calculation, command projection merge,
+rounded summary metrics, and missing-subject 404. These are read-only and do
+not reserve budget, mutate CBS, post accounting, release cash, or write tax.
 
 **Representative browser acceptance checkpoint (2026-07-14).** A local
 read-model server was run against PostgreSQL with the Warren-built Rabbita

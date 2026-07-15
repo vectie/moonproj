@@ -609,6 +609,27 @@ fn json_int(value : Json, key : String, fallback : Int) -> Int {
 }
 
 ///|
+fn round_places(value : Double, places : Int) -> Double {
+  let factor = if places == 2 {
+    100.0
+  } else if places == 4 {
+    10000.0
+  } else {
+    1.0
+  }
+  let adjusted = if value >= 0.0 {
+    value * factor + 0.5
+  } else {
+    value * factor - 0.5
+  }
+  if adjusted > 2140000000.0 || adjusted < -2140000000.0 {
+    value
+  } else {
+    adjusted.to_int().to_double() / factor
+  }
+}
+
+///|
 struct CostSourceRows {
   contracts : Array[SourceRow]
   applies : Array[SourceRow]
@@ -2383,6 +2404,327 @@ async fn workflow_instance_by_biz(
 }
 
 ///|
+struct DynamicSourceRows {
+  costs : Array[SourceRow]
+  projects : Array[SourceRow]
+}
+
+///|
+async fn dynamic_source_rows() -> DynamicSourceRows raise CompanyServiceError {
+  let costs = raw_source_rows("cb_cost", 500)
+  let projects = raw_source_rows("ep_project", 500)
+  { costs, projects }
+}
+
+///|
+fn dynamic_project_name(rows : Array[SourceRow], project_id : String) -> String {
+  source_name(rows, "proj_name", "proj_guid", project_id)
+}
+
+///|
+fn dynamic_item(
+  payload : Json,
+  project_name : String,
+  source_kind : String,
+  source_id : String,
+) -> Json {
+  let command = source_kind == "command"
+  let target = if command {
+    json_int(payload, "target_cost_minor", 0).to_double() / 100.0
+  } else {
+    json_double(payload, "target_cost", 0.0)
+  }
+  let alteration = if command {
+    json_int(payload, "ht_alter_amount_minor", 0).to_double() / 100.0
+  } else {
+    json_double(payload, "ht_alter_amount", 0.0)
+  }
+  let committed = if command {
+    json_int(payload, "zt_cost_minor", 0).to_double() / 100.0
+  } else {
+    json_double(payload, "zt_cost", 0.0)
+  }
+  let budget = if command {
+    json_int(payload, "dfs_budget_minor", 0).to_double() / 100.0
+  } else {
+    json_double(payload, "dfs_budget", 0.0)
+  }
+  let change = if command {
+    json_int(payload, "yg_alter_minor", 0).to_double() / 100.0
+  } else {
+    json_double(payload, "yg_alter", 0.0)
+  }
+  let dynamic = round_places(alteration + committed + budget + change, 2)
+  let deviation = if target > 0.0 {
+    Json::number(round_places((target - dynamic) / target * 100.0, 4))
+  } else {
+    Json::null()
+  }
+  let cost_id = json_text(
+    payload,
+    if command {
+      "cost_id"
+    } else {
+      "cost_guid"
+    },
+    source_id,
+  )
+  let cost_code = json_text(payload, "cost_code", cost_id)
+  let source_fields : Map[String, Json] = {
+    "costGuid": Json::string(cost_id),
+    "costCode": Json::string(cost_code),
+    "costName": Json::string(json_text(payload, "cost_name", cost_id)),
+    "costLevel": Json::number(json_int(payload, "cost_level", 0).to_double()),
+    "parentCostGuid": Json::string(
+      json_text(
+        payload,
+        if command {
+          "parent_cost_id"
+        } else {
+          "parent_cost_guid"
+        },
+        "",
+      ),
+    ),
+    "isEndCost": Json::boolean(json_bool(payload, "is_end_cost", true)),
+    "A_targetCost": Json::number(target),
+    "B_dtCost": Json::number(dynamic),
+    "C_deviationPct": deviation,
+    "D_htAlterAmount": Json::number(alteration),
+    "E_ztCost": Json::number(committed),
+    "F_dfsBudget": Json::number(budget),
+    "G_ygAlter": Json::number(change),
+    "H_layoutSpare": Json::number(round_places(target - dynamic, 2)),
+    "remarks": Json::string(json_text(payload, "remarks", "")),
+    "projectName": Json::string(project_name),
+    "sourceKind": Json::string(source_kind),
+  }
+  if command {
+    source_fields.set(
+      "sourceId",
+      Json::string("moonproj:command:dynamic_cost:" + cost_id),
+    )
+    source_fields.set("command_projection", Json::boolean(true))
+    source_fields.set("authorizing", Json::boolean(false))
+    source_fields.set("persisted", Json::boolean(true))
+    source_fields.set("provider_execution", Json::boolean(false))
+    source_fields.set("cash_effect", Json::boolean(false))
+    source_fields.set("accounting_effect", Json::boolean(false))
+    source_fields.set("tax_effect", Json::boolean(false))
+  }
+  Json::object(source_fields)
+}
+
+///|
+async fn dynamic_command_items(
+  project_id : String,
+  project_name : String,
+) -> Array[Json] raise CompanyServiceError {
+  let output = run_sql(
+    [
+      "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex')",
+      "FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload",
+      "FROM company_aggregate_projection WHERE aggregate_type = 'dynamic_cost_command'",
+      "ORDER BY aggregate_id, revision DESC) latest",
+      "WHERE coalesce(payload->>'state', '') <> 'deleted' AND payload->>'project_id' = " +
+      @postgres.sql_literal(project_id),
+      "ORDER BY aggregate_id LIMIT 500",
+    ].join("\n"),
+  )
+  let result : Array[Json] = []
+  for line_view in output.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let row = fields(line, 2)
+      let payload = @json.parse(decode_hex(row[1])) catch {
+        _ => raise fail("invalid dynamic-cost command projection JSON")
+      }
+      result.push(
+        dynamic_item(payload, project_name, "command", decode_hex(row[0])),
+      )
+    }
+  }
+  result
+}
+
+///|
+async fn dynamic_cost_response(
+  project_id : String,
+) -> Json raise CompanyServiceError {
+  if !valid_identifier(project_id) {
+    raise fail("invalid project_id")
+  }
+  let rows = dynamic_source_rows()
+  let project_name = dynamic_project_name(rows.projects, project_id)
+  let items : Array[Json] = []
+  for row in rows.costs {
+    let payload = row.payload
+    if json_text(payload, "proj_guid", "") == project_id &&
+      json_field(payload, "deleted_at") is None {
+      items.push(dynamic_item(payload, project_name, "imported", row.record_id))
+    }
+  }
+  let command_items = dynamic_command_items(project_id, project_name)
+  for item in command_items {
+    items.push(item)
+  }
+  items.sort_by(fn(left, right) {
+    let order = json_text(left, "costCode", "").lexical_compare(
+      json_text(right, "costCode", ""),
+    )
+    if order == 0 {
+      json_text(left, "costGuid", "").lexical_compare(
+        json_text(right, "costGuid", ""),
+      )
+    } else {
+      order
+    }
+  })
+  let end_rows = items.filter(fn(item) { json_bool(item, "isEndCost", false) })
+  let target_total = round_places(
+    end_rows.fold(init=0.0, fn(sum, item) {
+      sum + json_double(item, "A_targetCost", 0.0)
+    }),
+    2,
+  )
+  let dynamic_total = round_places(
+    end_rows.fold(init=0.0, fn(sum, item) {
+      sum + json_double(item, "B_dtCost", 0.0)
+    }),
+    2,
+  )
+  let deviation = if target_total > 0.0 {
+    Json::number(
+      round_places((target_total - dynamic_total) / target_total * 100.0, 4),
+    )
+  } else {
+    Json::null()
+  }
+  let coverage = Json::object({
+    "cb_cost": Json::number(rows.costs.length().to_double()),
+    "ep_project": Json::number(rows.projects.length().to_double()),
+  })
+  let missing : Array[Json] = []
+  if rows.costs.is_empty() {
+    missing.push(Json::string("cb_cost"))
+  }
+  if rows.projects.is_empty() {
+    missing.push(Json::string("ep_project"))
+  }
+  Json::object({
+    "success": Json::boolean(true),
+    "code": Json::number(0),
+    "data": Json::object({
+      "items": Json::array(items),
+      "summary": Json::object({
+        "A_targetCost": Json::number(target_total),
+        "B_dtCost": Json::number(dynamic_total),
+        "C_deviationPct": deviation,
+        "H_layoutSpare": Json::number(
+          round_places(target_total - dynamic_total, 2),
+        ),
+        "endCount": Json::number(end_rows.length().to_double()),
+        "projectName": Json::string(project_name),
+      }),
+    }),
+    "source_kind": Json::string("imported_or_command"),
+    "source_coverage": coverage,
+    "missing_or_empty_source_tables": Json::array(missing),
+    "authorizing": Json::boolean(false),
+    "persisted": Json::boolean(false),
+    "command_projection": Json::boolean(!command_items.is_empty()),
+    "provider_execution": Json::boolean(false),
+    "cash_effect": Json::boolean(false),
+    "accounting_effect": Json::boolean(false),
+    "tax_effect": Json::boolean(false),
+  })
+}
+
+///|
+async fn dynamic_cost_remarks_response(
+  cost_id : String,
+) -> (Int, Json) raise CompanyServiceError {
+  if !valid_identifier(cost_id) {
+    raise fail("invalid cost_id")
+  }
+  let rows = dynamic_source_rows()
+  let mut selected : (Json, String)? = None
+  for row in rows.costs {
+    let payload = row.payload
+    if json_text(payload, "cost_guid", row.record_id) == cost_id &&
+      json_field(payload, "deleted_at") is None {
+      selected = Some((payload, "imported"))
+    }
+  }
+  if selected is None {
+    let output = run_sql(
+      "SELECT encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'dynamic_cost_command' AND aggregate_id = " +
+      @postgres.sql_literal(cost_id) +
+      " ORDER BY revision DESC LIMIT 1",
+    )
+    let trimmed = output.trim().to_owned()
+    if !trimmed.is_empty() {
+      let payload = @json.parse(decode_hex(trimmed)) catch {
+        _ => raise fail("invalid dynamic-cost command projection JSON")
+      }
+      if json_text(payload, "state", "") != "deleted" {
+        selected = Some((payload, "command"))
+      }
+    }
+  }
+  match selected {
+    None =>
+      (
+        404,
+        Json::object({
+          "success": Json::boolean(false),
+          "code": Json::number(43001),
+          "message": Json::string("科目不存在"),
+        }),
+      )
+    Some((payload, source_kind)) => {
+      let project_id = json_text(
+        payload,
+        if source_kind == "command" {
+          "project_id"
+        } else {
+          "proj_guid"
+        },
+        "",
+      )
+      let project_name = dynamic_project_name(rows.projects, project_id)
+      let command = source_kind == "command"
+      (
+        200,
+        Json::object({
+          "success": Json::boolean(true),
+          "code": Json::number(0),
+          "data": Json::object({
+            "costCode": Json::string(json_text(payload, "cost_code", "")),
+            "costName": Json::string(json_text(payload, "cost_name", "")),
+            "remarks": Json::string(json_text(payload, "remarks", "")),
+            "projectName": Json::string(project_name),
+            "sourceKind": Json::string(source_kind),
+          }),
+          "source_kind": Json::string(source_kind),
+          "source_coverage": Json::object({
+            "cb_cost": Json::number(rows.costs.length().to_double()),
+            "ep_project": Json::number(rows.projects.length().to_double()),
+          }),
+          "authorizing": Json::boolean(false),
+          "persisted": Json::boolean(command),
+          "command_projection": Json::boolean(command),
+          "provider_execution": Json::boolean(false),
+          "cash_effect": Json::boolean(false),
+          "accounting_effect": Json::boolean(false),
+          "tax_effect": Json::boolean(false),
+        }),
+      )
+    }
+  }
+}
+
+///|
 async fn contract_items(
   contract_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
@@ -2910,6 +3252,22 @@ async fn route(
     let instance_id = path[workflow_instance_prefix.length():].to_owned()
     return workflow_instance_detail(instance_id)
   }
+  let dynamic_remarks_prefix = "/api/company/source/cost/dynamic-cost/"
+  if path.has_prefix(dynamic_remarks_prefix) && path.has_suffix("/remarks") {
+    let cost_id = path[dynamic_remarks_prefix.length():path.length() -
+    "/remarks".length()].to_owned()
+    return dynamic_cost_remarks_response(cost_id)
+  }
+  if path == "/api/company/cost/dynamic-cost" {
+    let project_id = query_decoded(query, "projGuid").unwrap_or("")
+    if project_id.is_empty() {
+      return (
+        422,
+        Json::object({ "error": Json::string("projGuid is required") }),
+      )
+    }
+    return (200, dynamic_cost_response(project_id))
+  }
   let source_contract_prefix = "/api/company/source/cost/contracts/"
   if path == "/api/company/source/cost/contracts" {
     let contract_id = query_alias_decoded(query, "contractGuid", "contract_id")
@@ -2998,6 +3356,7 @@ async fn route(
             Json::string("initiated_document_observation_read"),
             Json::string("budget_scope_observation_read"),
             Json::string("workflow_observation_read"),
+            Json::string("dynamic_cost_observation_read"),
             Json::string("contract_read"),
             Json::string("payment_application_read"),
             Json::string("payment_eligibility_read"),
