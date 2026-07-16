@@ -1338,6 +1338,8 @@ struct Model {
   attachment_download_note : String
   attachment_delete_note : String
   marketing_loaded : Bool
+  marketing_project_id : String
+  marketing_tab : String
   marketing_campaign_rows : Array[Array[String]]
   marketing_placement_rows : Array[Array[String]]
   marketing_channel_rows : Array[Array[String]]
@@ -1912,7 +1914,12 @@ enum Msg {
   AttachmentDeleteFailed
   MarketingLoaded(String, String)
   MarketingLoadFailed(String)
+  SelectMarketingProject(String)
+  SelectMarketingTab(String)
   CreateMarketingCampaign
+  CreateMarketingPlacement
+  CreateMarketingChannel
+  CreateMarketingMaterial
   MarketingCommandFinished(String)
   MarketingCommandFailed
   InboxLoaded(String)
@@ -2481,6 +2488,8 @@ fn initial_model() -> Model {
     attachment_download_note: "附件下载边界尚未检查",
     attachment_delete_note: "删除候选尚未运行 · 对象存储与负责人确认保持关闭",
     marketing_loaded: false,
+    marketing_project_id: "proj-0001",
+    marketing_tab: "campaigns",
     marketing_campaign_rows: [],
     marketing_placement_rows: [],
     marketing_channel_rows: [],
@@ -5566,6 +5575,21 @@ fn marketing_rows_from_body(
 }
 
 ///|
+fn marketing_sum(rows : Array[Array[String]], index : Int) -> String {
+  let mut total = 0.0
+  for row in rows {
+    if index < row.length() {
+      let parsed = @json.parse(row[index]) catch { _ => Json::null() }
+      match parsed {
+        Json::Number(value, ..) => total = total + value
+        _ => ()
+      }
+    }
+  }
+  total.to_string()
+}
+
+///|
 fn inbox_from_body(
   body : String,
 ) -> (Bool, Array[Array[String]], String, String) {
@@ -8552,15 +8576,19 @@ fn issue_attachment_delete(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
 }
 
 ///|
-fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+fn load_marketing_for(
+  emit : @rabbita.Emit[Msg],
+  family : String,
+  project_id : String,
+) -> Cmd {
   let path = if family == "campaigns" {
-    "/api/company/marketing/campaigns?projGuid=proj-0001"
+    "/api/company/marketing/campaigns?projGuid=" + project_id
   } else if family == "placements" {
     "/api/company/marketing/placements"
   } else if family == "channels" {
     "/api/company/marketing/channels"
   } else {
-    "/api/company/marketing/materials?projGuid=proj-0001"
+    "/api/company/marketing/materials?projGuid=" + project_id
   }
   @http.get(path).expect_text(result => {
     match result {
@@ -8575,6 +8603,48 @@ fn issue_marketing_campaign_create(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.post("/api/company/marketing/campaigns")
   .with_text(
     "{\"idempotency_key\":\"rabbita-marketing-campaign-create-v1\",\"campaignGuid\":\"CAMP-RABBITA-LOCAL\",\"campaignCode\":\"CAMP-RABBITA-LOCAL\",\"projGuid\":\"proj-0001\",\"name\":\"Rabbita 本地营销活动\",\"campaignType\":\"推广活动\",\"budget\":\"12345.67\",\"startDate\":\"2026-07-16\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"scope\":\"project:proj-0001\",\"capability\":\"marketing:campaign:create\",\"max_amount_minor\":2000000}}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(MarketingCommandFinished(body))
+      Err(_) => emit(MarketingCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_marketing_placement_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/marketing/placements")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-marketing-placement-create-v1\",\"placementGuid\":\"PLAC-RABBITA-LOCAL\",\"placementCode\":\"PLAC-RABBITA-LOCAL\",\"campaignGuid\":\"CAMP-RABBITA-LOCAL\",\"channelGuid\":\"CH-RABBITA-LOCAL\",\"channelName\":\"Rabbita 本地渠道\",\"amount\":\"1000\",\"placeDate\":\"2026-07-16\",\"durationDays\":30,\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"scope\":\"project:proj-0001\",\"capability\":\"marketing:placement:create\",\"max_amount_minor\":2000000}}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(MarketingCommandFinished(body))
+      Err(_) => emit(MarketingCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_marketing_channel_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/marketing/channels")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-marketing-channel-create-v1\",\"channelGuid\":\"CH-RABBITA-LOCAL\",\"channelCode\":\"CH-RABBITA-LOCAL\",\"name\":\"Rabbita 本地渠道\",\"channelType\":\"线上\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"scope\":\"project:proj-0001\",\"capability\":\"marketing:channel:create\",\"max_amount_minor\":0}}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(MarketingCommandFinished(body))
+      Err(_) => emit(MarketingCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_marketing_material_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/marketing/materials")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-marketing-material-create-v1\",\"materialGuid\":\"MAT-RABBITA-LOCAL\",\"materialCode\":\"MAT-RABBITA-LOCAL\",\"projGuid\":\"proj-0001\",\"name\":\"Rabbita 本地物料\",\"materialType\":\"现场包装\",\"unitCost\":\"100\",\"quantity\":1,\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"scope\":\"project:proj-0001\",\"capability\":\"marketing:material:create\",\"max_amount_minor\":2000000}}",
   )
   .expect_text(result => {
     match result {
@@ -10771,7 +10841,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/attachments" {
         load_attachments(emit, model)
       } else if path == "/marketing" {
-        load_marketing(emit, "campaigns")
+        @cmd.batch([
+          load_projects(emit),
+          load_marketing_for(emit, "campaigns", model.marketing_project_id),
+        ])
       } else if path == "/inbox" {
         load_inbox(emit)
       } else if path == "/notify-config" {
@@ -14760,11 +14833,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let command = if !loaded {
         none
       } else if family == "campaigns" {
-        load_marketing(emit, "placements")
+        load_marketing_for(emit, "placements", model.marketing_project_id)
       } else if family == "placements" {
-        load_marketing(emit, "channels")
+        load_marketing_for(emit, "channels", model.marketing_project_id)
       } else if family == "channels" {
-        load_marketing(emit, "materials")
+        load_marketing_for(emit, "materials", model.marketing_project_id)
       } else {
         none
       }
@@ -14843,15 +14916,48 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           " 源读模型不可用 · 使用设计快照",
         },
       )
+    SelectMarketingProject(project_id) =>
+      (
+        load_marketing_for(emit, "campaigns", project_id),
+        {
+          ..model,
+          marketing_project_id: project_id,
+          marketing_loaded: false,
+          marketing_campaign_rows: [],
+          marketing_placement_rows: [],
+          marketing_channel_rows: [],
+          marketing_material_rows: [],
+          marketing_note: "正在读取项目营销数据…",
+        },
+      )
+    SelectMarketingTab(tab) => (none, { ..model, marketing_tab: tab })
     CreateMarketingCampaign =>
       (
         issue_marketing_campaign_create(emit),
         { ..model, marketing_note: "正在写入本地营销活动命令…" },
       )
+    CreateMarketingPlacement =>
+      (
+        issue_marketing_placement_create(emit),
+        { ..model, marketing_note: "正在写入本地投放命令…" },
+      )
+    CreateMarketingChannel =>
+      (
+        issue_marketing_channel_create(emit),
+        { ..model, marketing_note: "正在写入本地渠道命令…" },
+      )
+    CreateMarketingMaterial =>
+      (
+        issue_marketing_material_create(emit),
+        { ..model, marketing_note: "正在写入本地物料命令…" },
+      )
     MarketingCommandFinished(body) =>
       (
-        if body.contains("\"campaign\"") {
-          load_marketing(emit, "campaigns")
+        if body.contains("\"campaign\"") ||
+          body.contains("\"placement\"") ||
+          body.contains("\"channel\"") ||
+          body.contains("\"material\"") {
+          load_marketing_for(emit, "campaigns", model.marketing_project_id)
         } else {
           none
         },
@@ -26683,12 +26789,26 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   } else {
     "18"
   }
-  let placement_count = if model.marketing_loaded {
-    model.marketing_placement_count
+  let budget_total = if model.marketing_loaded {
+    marketing_sum(model.marketing_campaign_rows, 3)
   } else {
     "—"
   }
-  let lead_count = if model.marketing_loaded { "—" } else { "3,842" }
+  let actual_total = if model.marketing_loaded {
+    marketing_sum(model.marketing_campaign_rows, 4)
+  } else {
+    "—"
+  }
+  let placement_total = if model.marketing_loaded {
+    marketing_sum(model.marketing_placement_rows, 3)
+  } else {
+    "—"
+  }
+  let lead_count = if model.marketing_loaded {
+    marketing_sum(model.marketing_placement_rows, 6)
+  } else {
+    "3,842"
+  }
   page_shell(
     "营销管理",
     "SALES / MARKETING",
@@ -26699,8 +26819,43 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(CreateMarketingCampaign),
         "＋ 新建营销活动（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateMarketingPlacement),
+        "＋ 新增投放（待授权）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateMarketingChannel),
+        "＋ 新增渠道（待授权）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateMarketingMaterial),
+        "＋ 新增物料（待授权）",
+      ),
     ],
     div <| [
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目:"),
+        if model.project_rows.length() == 0 {
+          span(class="erp-info-tag", model.marketing_project_id)
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.marketing_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectMarketingProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
       div(class="erp-stat-grid") <| [
         metric(
           "营销活动数",
@@ -26713,14 +26868,22 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "metric-blue",
         ),
         metric(
-          "投放记录",
-          placement_count,
-          if model.marketing_loaded {
-            "源表导入记录"
-          } else {
-            "本年度 ¥1,286 万"
-          },
-          "metric-blue",
+          "活动总预算",
+          "¥" + budget_total,
+          "源表预算合计（元）",
+          "metric-green",
+        ),
+        metric(
+          "活动已花",
+          "¥" + actual_total,
+          "源表已花合计（元）",
+          "metric-orange",
+        ),
+        metric(
+          "投放总额",
+          "¥" + placement_total,
+          "源表投放合计（元）",
+          "metric-purple",
         ),
         metric(
           "有效线索",
@@ -26734,38 +26897,74 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
       ],
       div(class="erp-tabs") <| [
-        button(class="erp-tab is-active", "营销活动"),
-        button(class="erp-tab", "投放记录"),
-        button(class="erp-tab", "营销渠道"),
-        button(class="erp-tab", "营销物料"),
+        button(
+          class=if model.marketing_tab == "campaigns" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectMarketingTab("campaigns")),
+          "营销活动",
+        ),
+        button(
+          class=if model.marketing_tab == "placements" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectMarketingTab("placements")),
+          "投放记录",
+        ),
+        button(
+          class=if model.marketing_tab == "channels" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectMarketingTab("channels")),
+          "营销渠道",
+        ),
+        button(
+          class=if model.marketing_tab == "materials" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectMarketingTab("materials")),
+          "营销物料",
+        ),
       ],
-      table_panel(
-        "营销活动",
-        if model.marketing_loaded {
-          model.marketing_note
-        } else {
-          "v3.8 · R19 营销费用 · " + model.marketing_note
-        },
-        data_table(
-          [
-            "编号", "活动名称", "类型", "预算(元)", "已花(元)", "周期",
-            "状态", "挂 CBS",
-          ],
-          campaign_rows,
-        ),
-      ),
-      table_panel(
-        "投放记录",
-        "渠道效果和实际花费",
-        data_table(
-          [
-            "编号", "所属活动", "投放渠道", "金额(元)", "投放日",
-            "曝光", "线索",
-          ],
-          placement_rows,
-        ),
-      ),
-      if model.marketing_loaded {
+      if model.marketing_tab == "campaigns" {
+        table_panel(
+          "营销活动",
+          if model.marketing_loaded {
+            model.marketing_note
+          } else {
+            "v3.8 · R19 营销费用 · " + model.marketing_note
+          },
+          data_table(
+            [
+              "编号", "活动名称", "类型", "预算(元)", "已花(元)", "周期",
+              "状态", "挂 CBS",
+            ],
+            campaign_rows,
+          ),
+        )
+      } else if model.marketing_tab == "placements" {
+        table_panel(
+          "投放记录",
+          "渠道效果和实际花费 · " +
+          model.marketing_placement_count +
+          " 条",
+          data_table(
+            [
+              "编号", "所属活动", "投放渠道", "金额(元)", "投放日",
+              "曝光", "线索",
+            ],
+            placement_rows,
+          ),
+        )
+      } else if model.marketing_tab == "channels" {
         table_panel(
           "营销渠道",
           "源表渠道与投放次数 · " +
@@ -26781,9 +26980,6 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           ),
         )
       } else {
-        @html.nothing
-      },
-      if model.marketing_loaded {
         table_panel(
           "营销物料",
           "源表物料与成本 · " + model.marketing_material_count + " 条",
@@ -26795,8 +26991,6 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
             material_rows,
           ),
         )
-      } else {
-        @html.nothing
       },
     ],
   )

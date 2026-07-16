@@ -43,15 +43,21 @@ reads succeed; its designer campaign/placement rows are retained only as
 transport-failure fallback. The reviewed synthetic marketing cohort remains a
 separate target rehearsal and is not promoted as imported ERP production data.
 
-Rabbita `/marketing` now exposes the bounded local campaign-create action. It
-uses the native PostgreSQL command projection and reloads the live campaign
-read after success; imported rows, budget/CBS reservation, and external
-provider effects remain unchanged.
+Rabbita `/marketing` now loads all four live families in sequence, loads the
+project master list, supports project switching, exposes source-shaped tabs
+for campaigns/placements/channels/materials, and derives the five designer KPI
+cards from the live rows. It also exposes bounded local create actions for all
+four families; each action uses the native PostgreSQL command projection and
+reloads the live read after success. The current Rabbita action payloads are
+deliberately fixed candidates (the Vue dialog fields are not yet ported), so
+imported rows, budget/CBS reservation, and external provider effects remain
+unchanged.
 
 ## Open gates
 
 Campaign/placement/channel/material local create/update/delete/effect commands
-are now covered by service and trusted-gateway smoke tests, but browser
-production identity and named-owner acceptance remain open. Budget/CBS
-reservation, spend accounting, cash, attribution, provider execution, and
-source-export reconciliation remain unimplemented external-effect gates.
+are now covered by service and trusted-gateway smoke tests, but the browser
+still needs the Vue form fields, campaign delete, and placement-effect controls
+plus production identity and named-owner acceptance. Budget/CBS reservation,
+spend accounting, cash, attribution, provider execution, and source-export
+reconciliation remain unimplemented external-effect gates.
