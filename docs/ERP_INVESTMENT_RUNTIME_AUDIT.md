@@ -71,6 +71,9 @@ same native owner gate.
 The version-create panel now carries source fields for name, copy-from, remark,
 and activate. The native command explicitly keeps copy cloning and durable
 version ownership behind the investment-owner gate.
+The index-create panel now carries source fields for dimension, full code, name,
+parent code, unit, value, and remark; required code/name validation happens in
+Rabbita, while native version ownership and durable index creation remain gated.
 
 ## Evidence
 

@@ -1016,6 +1016,13 @@ struct Model {
   investment_new_version_copy_from : String
   investment_new_version_remark : String
   investment_new_version_activate : Bool
+  investment_new_index_dimension : String
+  investment_new_index_full_code : String
+  investment_new_index_name : String
+  investment_new_index_parent_code : String
+  investment_new_index_unit : String
+  investment_new_index_value : String
+  investment_new_index_remark : String
   investment_dimension_count : String
   investment_total : String
   investment_revenue : String
@@ -1534,6 +1541,13 @@ enum Msg {
   InputInvestmentVersionCopyFrom(String)
   InputInvestmentVersionRemark(String)
   ToggleInvestmentVersionActivate
+  InputInvestmentIndexDimension(String)
+  InputInvestmentIndexFullCode(String)
+  InputInvestmentIndexName(String)
+  InputInvestmentIndexParentCode(String)
+  InputInvestmentIndexUnit(String)
+  InputInvestmentIndexValue(String)
+  InputInvestmentIndexRemark(String)
   InputInvestmentExcelFileSelected(String)
   InputInvestmentExcelVersionName(String)
   ToggleInvestmentExcelActivate
@@ -2016,6 +2030,13 @@ fn initial_model() -> Model {
     investment_new_version_copy_from: "",
     investment_new_version_remark: "Rabbita 版本创建候选",
     investment_new_version_activate: false,
+    investment_new_index_dimension: "investment",
+    investment_new_index_full_code: "",
+    investment_new_index_name: "",
+    investment_new_index_parent_code: "",
+    investment_new_index_unit: "万元",
+    investment_new_index_value: "0",
+    investment_new_index_remark: "Rabbita 指标创建候选",
     investment_dimension_count: "0",
     investment_total: "0",
     investment_revenue: "0",
@@ -7146,6 +7167,18 @@ fn issue_investment_command(
       "activate": Json::boolean(model.investment_new_version_activate),
       "remark": Json::string(model.investment_new_version_remark),
     }).stringify()
+  } else if command_type == "index_create" {
+    Json::object({
+      "idempotency_key": Json::string("rabbita-investment-index-create-v1"),
+      "indexGuid": Json::string("INV-RABBITA-INDEX"),
+      "dimension": Json::string(model.investment_new_index_dimension),
+      "fullCode": Json::string(model.investment_new_index_full_code),
+      "indexName": Json::string(model.investment_new_index_name),
+      "parentCode": Json::string(model.investment_new_index_parent_code),
+      "unit": Json::string(model.investment_new_index_unit),
+      "indexValue": investment_edit_value_json(model.investment_new_index_value),
+      "remark": Json::string(model.investment_new_index_remark),
+    }).stringify()
   } else if command_type == "index_update" {
     Json::object({
       "idempotency_key": Json::string("rabbita-investment-index-update-v1"),
@@ -11747,6 +11780,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_new_version_activate: !model.investment_new_version_activate,
         },
       )
+    InputInvestmentIndexDimension(value) =>
+      (none, { ..model, investment_new_index_dimension: value })
+    InputInvestmentIndexFullCode(value) =>
+      (none, { ..model, investment_new_index_full_code: value })
+    InputInvestmentIndexName(value) =>
+      (none, { ..model, investment_new_index_name: value })
+    InputInvestmentIndexParentCode(value) =>
+      (none, { ..model, investment_new_index_parent_code: value })
+    InputInvestmentIndexUnit(value) =>
+      (none, { ..model, investment_new_index_unit: value })
+    InputInvestmentIndexValue(value) =>
+      (none, { ..model, investment_new_index_value: value })
+    InputInvestmentIndexRemark(value) =>
+      (none, { ..model, investment_new_index_remark: value })
     InvestmentImportsLoaded(body) => {
       let (loaded, rows, note) = investment_import_rows_from_body(body)
       (
@@ -12208,13 +12255,24 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     RequestInvestmentIndexCreate =>
-      (
-        issue_investment_command(emit, model, "index_create"),
-        {
-          ..model,
-          investment_command_note: "正在创建本地投资指标候选 · 不触发估值…",
-        },
-      )
+      if model.investment_new_index_full_code.trim().is_empty() ||
+        model.investment_new_index_name.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            investment_command_note: "请先填写指标编码和名称",
+          },
+        )
+      } else {
+        (
+          issue_investment_command(emit, model, "index_create"),
+          {
+            ..model,
+            investment_command_note: "正在创建本地投资指标候选 · 不触发估值…",
+          },
+        )
+      }
     RequestInvestmentIndexUpdate =>
       (
         issue_investment_command(emit, model, "index_update"),
@@ -19748,6 +19806,81 @@ fn investment_version_create_panel(
 }
 
 ///|
+fn investment_index_create_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  section(class="erp-detail-card") <| [
+    div(class="erp-panel-heading") <| [
+      h2("新建测算指标候选"),
+      span(
+        class="erp-info-tag",
+        "编码/名称必填 · 指标写入和估值影响均需负责人确认",
+      ),
+    ],
+    div(class="erp-form-grid") <| [
+      editable_form_field(
+        "维度",
+        model.investment_new_index_dimension,
+        "investment / tax / financing",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexDimension(value)),
+      ),
+      editable_form_field(
+        "编码",
+        model.investment_new_index_full_code,
+        "例如 Tax.Local",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexFullCode(value)),
+      ),
+      editable_form_field(
+        "名称",
+        model.investment_new_index_name,
+        "指标名称",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexName(value)),
+      ),
+      editable_form_field(
+        "父级编码",
+        model.investment_new_index_parent_code,
+        "可省略",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexParentCode(value)),
+      ),
+      editable_form_field(
+        "单位",
+        model.investment_new_index_unit,
+        "万元 / % / 日期序号",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexUnit(value)),
+      ),
+      editable_form_field(
+        "指标值",
+        model.investment_new_index_value,
+        "例如 100",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexValue(value)),
+      ),
+      editable_form_field(
+        "备注",
+        model.investment_new_index_remark,
+        "指标说明",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentIndexRemark(value)),
+      ),
+    ],
+    div(class="erp-command-bar") <| [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(RequestInvestmentIndexCreate),
+        "提交指标创建候选",
+      ),
+    ],
+    p(class="erp-source-note", model.investment_command_note),
+  ]
+}
+
+///|
 fn investment_sensitivity_table(model : Model) -> @html.Html {
   if model.investment_sensitivity_loaded {
     let rows : Array[Array[String]] = []
@@ -19968,6 +20101,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       investment_project_context(emit, model),
       investment_version_context(emit, model),
       investment_version_create_panel(emit, model),
+      investment_index_create_panel(emit, model),
       investment_excel_panel(emit, model),
       investment_import_history_panel(emit, model),
       investment_runtime_table(emit, model),
