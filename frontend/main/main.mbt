@@ -780,6 +780,31 @@ struct WorkflowObservationRow {
   initiated_at : String
   decision : String
   source_kind : String
+  initiator_name : String
+  completed_at : String
+  last_action_time : String
+  current_step_order : String
+  current_step_name : String
+}
+
+///|
+struct WorkflowTicketRow {
+  ticket_id : String
+  warning_guid : String
+  status : String
+  note : String
+  due_date : String
+  created_at : String
+  created_by : String
+  handled_at : String
+  assignee_user_id : String
+  source_kind : String
+  rule_code : String
+  rule_name : String
+  severity : String
+  biz_type : String
+  biz_data_guid : String
+  title : String
 }
 
 ///|
@@ -1372,6 +1397,10 @@ struct Model {
   workflow_pending_rows : Array[WorkflowObservationRow]
   workflow_initiated_rows : Array[WorkflowObservationRow]
   workflow_history_rows : Array[WorkflowObservationRow]
+  workflow_task_tab : String
+  workflow_tickets_loaded : Bool
+  workflow_ticket_rows : Array[WorkflowTicketRow]
+  workflow_ticket_note : String
   workflow_observation_note : String
   workflow_command_note : String
   projects_loaded : Bool
@@ -1913,6 +1942,9 @@ enum Msg {
   WorkflowObservationInitiatedLoaded(String)
   WorkflowObservationHistoryLoaded(String)
   WorkflowObservationLoadFailed
+  WorkflowTicketsLoaded(String)
+  WorkflowTicketsLoadFailed
+  SelectWorkflowTab(String)
   StartWorkflowCandidate
   ApproveWorkflowCandidate
   RejectWorkflowCandidate
@@ -2460,6 +2492,10 @@ fn initial_model() -> Model {
     workflow_pending_rows: [],
     workflow_initiated_rows: [],
     workflow_history_rows: [],
+    workflow_task_tab: "pending",
+    workflow_tickets_loaded: false,
+    workflow_ticket_rows: [],
+    workflow_ticket_note: "告警工单源读模型尚未加载",
     workflow_observation_note: "工作流实例源读模型尚未加载 · 使用设计快照",
     workflow_command_note: "本地工作流命令候选尚未执行",
     projects_loaded: false,
@@ -6600,7 +6636,24 @@ fn workflow_rows_from_body(body : String) -> Array[WorkflowProcessRow] {
 ///|
 fn workflow_observation_from_json(value : Json) -> WorkflowObservationRow? {
   match value {
-    Json::Object(fields) =>
+    Json::Object(fields) => {
+      let initiator_name = match fields.get("initiator") {
+        Some(Json::Object(initiator)) =>
+          json_object_text(
+            initiator,
+            "empName",
+            json_object_text(initiator, "userName", ""),
+          )
+        _ => ""
+      }
+      let current_step_order = match fields.get("currentStep") {
+        Some(Json::Object(step)) => json_object_text(step, "stepOrder", "0")
+        _ => json_object_text(fields, "currentStepOrder", "0")
+      }
+      let current_step_name = match fields.get("currentStep") {
+        Some(Json::Object(step)) => json_object_text(step, "stepName", "")
+        _ => ""
+      }
       Some({
         process_instance_guid: json_object_text(
           fields, "processInstanceGuid", "",
@@ -6616,7 +6669,13 @@ fn workflow_observation_from_json(value : Json) -> WorkflowObservationRow? {
           json_object_text(fields, "decision", ""),
         ),
         source_kind: json_object_text(fields, "sourceKind", "imported_or_empty"),
+        initiator_name,
+        completed_at: json_object_text(fields, "completedAt", ""),
+        last_action_time: json_object_text(fields, "myLastActionTime", ""),
+        current_step_order,
+        current_step_name,
       })
+    }
     _ => None
   }
 }
@@ -6631,6 +6690,54 @@ fn workflow_observation_rows_from_body(
     Json::Object(fields) =>
       for value in json_array_field(fields, "data") {
         match workflow_observation_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn workflow_ticket_from_json(value : Json) -> WorkflowTicketRow? {
+  match value {
+    Json::Object(fields) => {
+      let warning_fields = match fields.get("warning") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      Some({
+        ticket_id: json_object_text(fields, "ticketId", ""),
+        warning_guid: json_object_text(fields, "warningGuid", ""),
+        status: json_object_text(fields, "status", "open"),
+        note: json_object_text(fields, "note", ""),
+        due_date: json_object_text(fields, "dueDate", ""),
+        created_at: json_object_text(fields, "createdAt", ""),
+        created_by: json_object_text(fields, "createdBy", ""),
+        handled_at: json_object_text(fields, "handledAt", ""),
+        assignee_user_id: json_object_text(fields, "assigneeUserId", ""),
+        source_kind: json_object_text(fields, "sourceKind", "imported_or_empty"),
+        rule_code: json_object_text(warning_fields, "ruleCode", ""),
+        rule_name: json_object_text(warning_fields, "ruleName", ""),
+        severity: json_object_text(warning_fields, "severity", ""),
+        biz_type: json_object_text(warning_fields, "bizType", ""),
+        biz_data_guid: json_object_text(warning_fields, "bizDataGuid", ""),
+        title: json_object_text(warning_fields, "title", ""),
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn workflow_ticket_rows_from_body(body : String) -> Array[WorkflowTicketRow] {
+  let rows : Array[WorkflowTicketRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match workflow_ticket_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
         }
@@ -9011,6 +9118,16 @@ fn load_workflow_observation_history(
 }
 
 ///|
+fn load_workflow_tickets(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/source/warning/tickets/mine").expect_text(result => {
+    match result {
+      Ok(body) => emit(WorkflowTicketsLoaded(body))
+      Err(_) => emit(WorkflowTicketsLoadFailed)
+    }
+  })
+}
+
+///|
 fn issue_workflow_command(
   emit : @rabbita.Emit[Msg],
   command_type : String,
@@ -10355,7 +10472,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/loans" {
         load_loans(emit)
       } else if path == "/tasks" {
-        load_workflow(emit)
+        @cmd.batch([
+          load_workflow(emit),
+          load_workflow_observation_pending(emit, model.user_code),
+          load_workflow_observation_initiated(emit, model.user_code),
+          load_workflow_observation_history(emit, model.user_code),
+          load_workflow_tickets(emit),
+        ])
       } else if path == "/project-plan" {
         @cmd.batch([
           load_projects(emit),
@@ -15848,7 +15971,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     WorkflowLoaded(body) =>
       (
-        load_workflow_observation_pending(emit, model.user_code),
+        none,
         {
           ..model,
           workflow_loaded: true,
@@ -15858,7 +15981,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     WorkflowLoadFailed =>
       (
-        load_workflow_observation_pending(emit, model.user_code),
+        none,
         {
           ..model,
           workflow_loaded: false,
@@ -15868,7 +15991,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     WorkflowObservationPendingLoaded(body) =>
       (
-        load_workflow_observation_initiated(emit, model.user_code),
+        none,
         {
           ..model,
           workflow_pending_rows: workflow_observation_rows_from_body(body),
@@ -15877,7 +16000,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     WorkflowObservationInitiatedLoaded(body) =>
       (
-        load_workflow_observation_history(emit, model.user_code),
+        none,
         {
           ..model,
           workflow_initiated_rows: workflow_observation_rows_from_body(body),
@@ -15893,6 +16016,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           workflow_observation_note: "已加载 PostgreSQL 工作流实例/动作源观察 · 空源表保持为空",
         },
       )
+    WorkflowTicketsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          workflow_tickets_loaded: true,
+          workflow_ticket_rows: workflow_ticket_rows_from_body(body),
+          workflow_ticket_note: "已加载 PostgreSQL 告警工单源观察 · 命令仍受候选边界约束",
+        },
+      )
+    WorkflowTicketsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          workflow_tickets_loaded: false,
+          workflow_ticket_rows: [],
+          workflow_ticket_note: "告警工单源读模型不可用 · 使用设计快照",
+        },
+      )
+    SelectWorkflowTab(tab) => {
+      let command = if tab == "initiated" &&
+        model.workflow_initiated_rows.length() == 0 {
+        load_workflow_observation_initiated(emit, model.user_code)
+      } else if tab == "history" && model.workflow_history_rows.length() == 0 {
+        load_workflow_observation_history(emit, model.user_code)
+      } else if tab == "tickets" && !model.workflow_tickets_loaded {
+        load_workflow_tickets(emit)
+      } else {
+        none
+      }
+      (command, { ..model, workflow_task_tab: tab })
+    }
     WorkflowObservationLoadFailed =>
       (
         none,
@@ -18893,41 +19049,149 @@ fn workflow_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn workflow_observation_rows(model : Model) -> Array[Array[String]] {
-  if !model.workflow_observation_loaded {
-    return [
-      [
-        "设计快照 · 成都和锦里工程款", "付款审批", "陈志强",
-        "今天 09:18", "¥1,280,000", "高", "观察",
-      ],
-      [
-        "设计快照 · 2026-07 差旅费用报销", "费用审批", "程玉哲",
-        "昨天 16:42", "¥8,560", "中", "观察",
-      ],
-    ]
-  }
-  let rows : Array[Array[String]] = []
-  for row in model.workflow_pending_rows {
-    rows.push([
-      row.process_instance_guid + " · " + row.biz_data_guid,
-      row.biz_type,
-      row.process_name,
+fn workflow_observation_rows_for(
+  rows : Array[WorkflowObservationRow],
+) -> Array[Array[String]] {
+  let result : Array[Array[String]] = []
+  for row in rows {
+    result.push([
+      row.process_name +
+      " · " +
+      row.biz_type +
+      " · " +
+      row.process_instance_guid,
+      row.current_step_order +
+      (if row.current_step_name == "" {
+        ""
+      } else {
+        " · " + row.current_step_name
+      }),
+      if row.initiator_name == "" {
+        "—"
+      } else {
+        row.initiator_name
+      },
       row.initiated_at,
-      "—",
+      row.biz_data_guid,
       row.status + (if row.decision == "" { "" } else { " · " + row.decision }),
-      "源观察 · " + row.source_kind,
+      if row.last_action_time == "" {
+        row.completed_at
+      } else {
+        row.last_action_time
+      },
+      "观察 · " + row.source_kind,
+    ])
+  }
+  if result.length() == 0 {
+    result.push([
+      "—", "—", "—", "—", "—", "无源实例", "—", "source rows=0",
+    ])
+  }
+  result
+}
+
+///|
+fn workflow_ticket_table_rows(model : Model) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  for ticket in model.workflow_ticket_rows {
+    rows.push([
+      ticket.ticket_id +
+      (if ticket.warning_guid == "" {
+        ""
+      } else {
+        " · " + ticket.warning_guid
+      }),
+      (if ticket.title == "" { ticket.rule_name } else { ticket.title }) +
+      (if ticket.rule_code == "" { "" } else { " · " + ticket.rule_code }),
+      ticket.severity,
+      ticket.status,
+      ticket.due_date,
+      if ticket.assignee_user_id == "" {
+        "—"
+      } else {
+        ticket.assignee_user_id
+      },
+      ticket.created_at +
+      (if ticket.created_by == "" { "" } else { " · " + ticket.created_by }),
+      if ticket.handled_at == "" {
+        ticket.note
+      } else {
+        ticket.handled_at
+      },
+      ticket.source_kind +
+      (if ticket.biz_type == "" {
+        ""
+      } else {
+        " · " + ticket.biz_type + "/" + ticket.biz_data_guid
+      }),
     ])
   }
   if rows.length() == 0 {
     rows.push([
-      "—", "—", "—", "—", "—", "无源实例", "source wf_process_instance=0",
+      "—", "—", "—", "—", "—", "—", "—", "无源工单", "source rows=0",
     ])
   }
   rows
 }
 
 ///|
+fn workflow_task_table(
+  title : String,
+  subtitle : String,
+  rows : Array[WorkflowObservationRow],
+) -> @html.Html {
+  table_panel(
+    title,
+    subtitle,
+    data_table(
+      [
+        "流程 / 业务类型", "当前步骤", "发起人", "发起时间", "业务单据",
+        "状态 / 我的决定", "最近动作", "来源",
+      ],
+      workflow_observation_rows_for(rows),
+    ),
+  )
+}
+
+///|
 fn tasks_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let task_content = if model.workflow_task_tab == "initiated" {
+    workflow_task_table(
+      "已发起流程",
+      "只显示当前用户发起的流程实例 · 源读模型不授予操作权限",
+      model.workflow_initiated_rows,
+    )
+  } else if model.workflow_task_tab == "history" {
+    workflow_task_table(
+      "审批历史",
+      "按当前用户动作过滤 · 详情与附件仍保持源观察边界",
+      model.workflow_history_rows,
+    )
+  } else if model.workflow_task_tab == "tickets" {
+    table_panel(
+      "告警任务",
+      model.workflow_ticket_note +
+      " · 告警任务命令不会触发通知、资金、会计或税务",
+      data_table(
+        [
+          "工单", "告警", "等级", "状态", "截止时间", "负责人", "创建时间",
+          "处理备注", "来源",
+        ],
+        workflow_ticket_table_rows(model),
+      ),
+    )
+  } else {
+    workflow_task_table(
+      "待办事项",
+      "按 PostgreSQL 源任务观察展示 · 审批动作仍标记为候选",
+      if model.workflow_observation_loaded ||
+        model.workflow_pending_rows.length() > 0 {
+        model.workflow_pending_rows
+      } else {
+        []
+      },
+    )
+  }
   page_shell(
     "我的待办",
     "WORKFLOW",
@@ -18958,6 +19222,31 @@ fn tasks_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(TransferWorkflowCandidate),
         "转办（候选）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateWarningTicket),
+        "创建告警工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(HandleWarningTicket),
+        "开始处理工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CompleteWarningTicket),
+        "完成工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ReassignWarningTicket),
+        "转派工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExtendWarningTicket),
+        "延期工单（候选）",
+      ),
     ],
     div <| [
       div(class="erp-runtime-banner", [
@@ -18985,22 +19274,50 @@ fn tasks_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         p(model.workflow_command_note),
       ]),
       div(class="erp-tabs") <| [
-        button(class="erp-tab is-active", "待办 (8)"),
-        button(class="erp-tab", "已发起"),
-        button(class="erp-tab", "审批历史"),
-        button(class="erp-tab", "告警任务"),
-      ],
-      table_panel(
-        "待办事项",
-        "按优先级排序",
-        data_table(
-          [
-            "事项", "类型", "发起人", "提交时间", "金额", "优先级",
-            "操作",
-          ],
-          workflow_observation_rows(model),
+        button(
+          class=if model.workflow_task_tab == "pending" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWorkflowTab("pending")),
+          "待办 (" + model.workflow_pending_rows.length().to_string() + ")",
         ),
-      ),
+        button(
+          class=if model.workflow_task_tab == "initiated" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWorkflowTab("initiated")),
+          "已发起 (" +
+          model.workflow_initiated_rows.length().to_string() +
+          ")",
+        ),
+        button(
+          class=if model.workflow_task_tab == "history" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWorkflowTab("history")),
+          "审批历史 (" +
+          model.workflow_history_rows.length().to_string() +
+          ")",
+        ),
+        button(
+          class=if model.workflow_task_tab == "tickets" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWorkflowTab("tickets")),
+          "告警任务 (" +
+          model.workflow_ticket_rows.length().to_string() +
+          ")",
+        ),
+      ],
+      task_content,
       workflow_runtime_table(model),
     ],
   )

@@ -19,7 +19,8 @@ remain read-only; local commands never claim to be a source-engine promotion.
 |---|---|---|
 | Process definition list | `/api/company/workflow/process-defs` | source-preserving read |
 | Process preview | `/api/company/workflow/process-defs/:processKey/preview` | source-preserving read |
-| Rabbita task page | `/tasks` | definition read plus explicit empty-instance evidence |
+| Rabbita task page | `/tasks` | source-shaped pending/initiated/history tabs plus explicit empty-instance evidence |
+| Rabbita warning tasks | `/api/company/source/warning/tickets/mine` | source-shaped ticket queue; transitions remain local candidates |
 | My pending tasks | `/api/company/source/workflow/tasks/mine?userCode=<code>` | empty-safe source observation |
 | Initiated tasks | `/api/company/source/workflow/tasks/initiated?userCode=<code>` | empty-safe source observation |
 | My task history | `/api/company/source/workflow/tasks/my-history?userCode=<code>` | empty-safe source observation |
@@ -42,11 +43,11 @@ workflow mutation remain gated.
   assignees with imported user labels, and zero instance/action rows.
 - The loan preview returns the five source-defined loan approval steps while
   retaining `instances_available=0` and `actions_available=0`.
-- Rabbita `/tasks` shows the connected definition rows, imported assignee names,
-  and chains pending, initiated, and history source observations. With the
-  current export those lists are empty and the page says
-  `wf_process_instance=0` instead of presenting the designer cards as source
-  approval work.
+- Rabbita `/tasks` now renders live pending, initiated, history, and warning-task
+  tabs from the PostgreSQL source endpoints. With the current export the workflow
+  lists and ticket queue are empty-safe (`source rows=0`) instead of presenting
+  designer cards as source approval work; imported workflow fields include current
+  step, initiator, completion, and last-action evidence when present.
 - The PostgreSQL read-model server now serves the same definition endpoint as
   the authenticated service; a browser recheck rendered both imported
   definitions, twelve steps, six assignee links, and zero instance/action
