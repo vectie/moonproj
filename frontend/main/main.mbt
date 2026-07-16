@@ -313,6 +313,24 @@ struct SalesSubscriptionRow {
 }
 
 ///|
+struct SalesContractRow {
+  scontract_guid : String
+  scontract_code : String
+  customer_guid : String
+  customer_name : String
+  phone : String
+  proj_guid : String
+  building_no : String
+  unit_no : String
+  area : String
+  total_price : String
+  payment_type : String
+  signed_date : String
+  state : String
+  source_kind : String
+}
+
+///|
 struct InvoiceRow {
   invoice_no : String
   counterparty : String
@@ -1175,6 +1193,10 @@ struct Model {
   sales_subscription_sub_amount : String
   sales_subscription_sub_date : String
   sales_subscription_payment_type : String
+  sales_contract_rows : Array[SalesContractRow]
+  sales_contract_loaded : Bool
+  sales_contract_project_id : String
+  sales_contract_state : String
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
@@ -1872,6 +1894,8 @@ enum Msg {
   ConvertSalesSubscription(String)
   SalesSubscriptionCommandFinished(String)
   SalesSubscriptionCommandFailed
+  SelectSalesContractProject(String)
+  SelectSalesContractState(String)
   CreateSalesMortgage
   ApproveSalesMortgage
   ReleaseSalesMortgage
@@ -2458,6 +2482,10 @@ fn initial_model() -> Model {
     sales_subscription_sub_amount: "0",
     sales_subscription_sub_date: "2026-07-16",
     sales_subscription_payment_type: "按揭",
+    sales_contract_rows: [],
+    sales_contract_loaded: false,
+    sales_contract_project_id: "",
+    sales_contract_state: "",
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
@@ -4124,6 +4152,68 @@ fn sales_parse_number(value : String) -> Double {
     Json::Number(number, ..) => number
     _ => 0.0
   }
+}
+
+///|
+fn sales_contract_from_json(value : Json) -> SalesContractRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        scontract_guid: json_object_text(
+          fields,
+          "scontract_guid",
+          json_object_text(fields, "contract_guid", ""),
+        ),
+        scontract_code: json_object_text(
+          fields,
+          "scontract_code",
+          json_object_text(fields, "agreement_id", "—"),
+        ),
+        customer_guid: json_object_text(fields, "customer_guid", "—"),
+        customer_name: json_object_text(fields, "customer_name", "—"),
+        phone: json_object_text(fields, "phone", "—"),
+        proj_guid: json_object_text(fields, "proj_guid", ""),
+        building_no: json_object_text(fields, "building_no", "—"),
+        unit_no: json_object_text(fields, "unit_no", "—"),
+        area: json_object_text(fields, "area", "0"),
+        total_price: json_object_text(fields, "total_price", "0"),
+        payment_type: json_object_text(fields, "payment_type", "—"),
+        signed_date: json_object_text(fields, "signed_date", ""),
+        state: json_object_text(
+          fields,
+          "state",
+          json_object_text(fields, "status", "draft"),
+        ),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn sales_contract_rows_from_body(body : String) -> Array[SalesContractRow] {
+  let rows : Array[SalesContractRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("data") {
+        Some(Json::Array(values)) => values
+        _ =>
+          match fields.get("items") {
+            Some(Json::Array(values)) => values
+            _ => []
+          }
+      }
+      for value in values {
+        match sales_contract_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
 }
 
 ///|
@@ -11853,7 +11943,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           load_sales_for(emit, "customers", "", ""),
         ])
       } else if path == "/sales/contracts" {
-        load_sales(emit, "contracts")
+        @cmd.batch([
+          load_projects(emit),
+          load_sales_for(emit, "contracts", model.sales_contract_project_id, ""),
+        ])
       } else if path == "/sales/mortgages" {
         load_sales(emit, "mortgages")
       } else if path == "/sales/revenues" {
@@ -13399,6 +13492,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           } else {
             model.sales_subscription_loaded
           },
+          sales_contract_rows: if family == "contracts" {
+            sales_contract_rows_from_body(body)
+          } else {
+            model.sales_contract_rows
+          },
+          sales_contract_loaded: if family == "contracts" {
+            true
+          } else {
+            model.sales_contract_loaded
+          },
           sales_note: "已加载 PostgreSQL 销售源读模型 · 空表保持可见 · 导入记录保持只读",
         },
       )
@@ -13424,6 +13527,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             false
           } else {
             model.sales_subscription_loaded
+          },
+          sales_contract_rows: if family == "contracts" {
+            []
+          } else {
+            model.sales_contract_rows
+          },
+          sales_contract_loaded: if family == "contracts" {
+            false
+          } else {
+            model.sales_contract_loaded
           },
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
         },
@@ -13777,6 +13890,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_subscription_command_note: "认筹命令服务不可用或请求不满足边界",
         },
       )
+    SelectSalesContractProject(project_id) =>
+      (
+        load_sales_for(emit, "contracts", project_id, ""),
+        {
+          ..model,
+          sales_contract_project_id: project_id,
+          sales_contract_rows: [],
+          sales_contract_loaded: false,
+          sales_loaded: false,
+          sales_note: "正在读取所选项目的签约档案…",
+        },
+      )
+    SelectSalesContractState(state) =>
+      (none, { ..model, sales_contract_state: state })
     CreateSalesMortgage =>
       (
         issue_sales_mortgage_command(emit, model, "create"),
@@ -22458,12 +22585,16 @@ fn ai_stats_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
   let active = if family == "subscriptions" {
     model.sales_subscription_loaded
+  } else if family == "contracts" {
+    model.sales_contract_loaded
   } else {
     model.sales_loaded && model.sales_family == family
   }
   let row_count = if active {
     if family == "subscriptions" {
       model.sales_subscription_rows.length().to_string()
+    } else if family == "contracts" {
+      model.sales_contract_rows.length().to_string()
     } else {
       model.sales_rows.length().to_string()
     }
@@ -22475,6 +22606,17 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
     match model.sales_subscription_rows.get(0) {
       Some(row) =>
         " · " + row.sub_code + " · " + row.state + " · " + row.source_kind
+      None => ""
+    }
+  } else if family == "contracts" {
+    match model.sales_contract_rows.get(0) {
+      Some(row) =>
+        " · " +
+        row.scontract_code +
+        " · " +
+        row.state +
+        " · " +
+        row.source_kind
       None => ""
     }
   } else {
@@ -23065,44 +23207,171 @@ fn sales_subscriptions_view(
 }
 
 ///|
+fn sales_contract_state_label(state : String) -> String {
+  match state {
+    "signed" => "已签约"
+    "refunded" => "已退房"
+    "completed" => "已完成"
+    "draft" => "待备案"
+    _ => state
+  }
+}
+
+///|
+fn sales_contract_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.sales_contract_rows {
+    if !model.sales_contract_state.is_empty() &&
+      row.state != model.sales_contract_state {
+      continue
+    }
+    let actions : Array[@html.Html] = if row.source_kind == "command" &&
+      row.state == "signed" {
+      [
+        button(
+          class="erp-link-btn",
+          on_click=emit(CreateSalesMortgage),
+          "办按揭",
+        ),
+        button(
+          class="erp-link-btn is-warning",
+          on_click=emit(CreateSalesRefund),
+          "退房",
+        ),
+      ]
+    } else {
+      [span(class="erp-source-note", "源行只读")]
+    }
+    rows.push(
+      tr <| [
+        td(row.scontract_code),
+        td(row.customer_name + " · " + row.customer_guid),
+        td(row.phone),
+        td(row.building_no + " - " + row.unit_no),
+        td(row.area),
+        td(row.total_price),
+        td(row.payment_type),
+        td(row.signed_date),
+        td(sales_contract_state_label(row.state) + " · " + row.source_kind),
+        td <| actions,
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("暂无签约源记录"),
+        td("—"),
+      ],
+    )
+  }
+  table_panel(
+    "销售合同",
+    model.sales_note +
+    " · " +
+    model.sales_contract_rows.length().to_string() +
+    " 条 · 导入合同保持只读",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "签约号", "客户", "电话", "房号", "面积㎡", "总价(元)",
+          "付款方式", "签约日", "状态", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
 fn sales_contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "签约管理",
     "SALES / CONTRACTS",
     "管理销售合同、付款方式、签约日期和回款状态，与销售回款和发票联动。",
-    [
-      nav_button(
-        emit, "/sales/contracts", "erp-primary-btn", "＋ 新建签约",
-      ),
-    ],
+    [],
     div <| [
       sales_runtime_banner(model, "contracts"),
-      sales_projection_table(model, "contracts"),
-      filter_bar("签约号 / 客户 / 房号"),
-      table_panel(
-        "销售合同",
-        "本月签约 42 套",
-        data_table(
-          [
-            "签约号", "客户", "电话", "房号", "面积㎡", "总价(元)",
-            "付款方式", "签约日", "状态",
-          ],
-          [
-            [
-              "SC-260713-004", "陈敏", "158****9920", "3#-901", "89.20", "1,971,320",
-              "按揭", "2026-07-13", "已签约",
-            ],
-            [
-              "SC-260712-016", "刘洋", "136****2840", "1#-1203", "116.80", "2,172,480",
-              "组合贷", "2026-07-12", "已签约",
-            ],
-            [
-              "SC-260710-008", "张伟", "133****5701", "6#-602", "78.40", "1,372,000",
-              "一次性", "2026-07-10", "待备案",
-            ],
-          ],
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目筛选:"),
+        if model.project_rows.length() == 0 {
+          span(
+            class="erp-info-tag",
+            if model.sales_contract_project_id.is_empty() {
+              "全部项目"
+            } else {
+              model.sales_contract_project_id
+            },
+          )
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.sales_contract_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectSalesContractProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "状态筛选:"),
+        button(
+          class=if model.sales_contract_state.is_empty() {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesContractState("")),
+          "全部",
         ),
-      ),
+        button(
+          class=if model.sales_contract_state == "signed" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesContractState("signed")),
+          "已签约",
+        ),
+        button(
+          class=if model.sales_contract_state == "completed" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesContractState("completed")),
+          "已完成",
+        ),
+        button(
+          class=if model.sales_contract_state == "refunded" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesContractState("refunded")),
+          "已退房",
+        ),
+      ],
+      sales_contract_table(emit, model),
+      div(class="erp-stat-grid") <| [
+        metric("本月签约", "42", "签约金额 ¥8,640 万", "metric-blue"),
+        metric("待备案", "8", "需补齐合同资料", "metric-blue"),
+        metric("已完成", "126", "年度累计", "metric-green"),
+      ],
     ],
   )
 }
