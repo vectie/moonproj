@@ -1493,6 +1493,9 @@ enum Msg {
   ResetAdminUserPassword
   RbacUserResetFinished(String)
   RbacUserResetFailed
+  UpdateAdminUser
+  RbacUserUpdateFinished(String)
+  RbacUserUpdateFailed
   DeleteLocalRole
   RbacRoleDeleteFinished(String)
   RbacRoleDeleteFailed
@@ -7250,6 +7253,20 @@ fn issue_rbac_role_delete(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_rbac_user_update(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.put("/api/company/rbac/users/user-admin-0001")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-rbac-user-update-v1\",\"empName\":\"Rabbita 管理员（已复核）\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacUserUpdateFinished(body))
+      Err(_) => emit(RbacUserUpdateFailed)
+    }
+  })
+}
+
+///|
 fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/roles").expect_text(result => {
     match result {
@@ -12375,6 +12392,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           rbac_roles_note: "本地角色删除服务不可用、角色不存在或被网关拒绝",
+        },
+      )
+    UpdateAdminUser =>
+      (
+        issue_rbac_user_update(emit),
+        {
+          ..model,
+          users_note: "正在提交用户资料更新候选 · 不改变认证授权…",
+        },
+      )
+    RbacUserUpdateFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_users(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          users_note: if body.contains("\"authorizing\":false") {
+            "用户资料更新候选已写入本地投影 · 认证授权仍未改变"
+          } else {
+            "用户资料更新命令已返回 · 请复核授权边界"
+          },
+        },
+      )
+    RbacUserUpdateFailed =>
+      (
+        none,
+        {
+          ..model,
+          users_note: "用户资料更新服务不可用或被网关拒绝",
         },
       )
     RbacRolesLoaded(body) =>
@@ -20190,6 +20239,11 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-ghost-btn",
         on_click=emit(ResetAdminUserPassword),
         "重置密码（候选）",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(UpdateAdminUser),
+        "更新用户资料（候选）",
       ),
       button(
         class="erp-ghost-btn",
