@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/task_promotion_plan"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror TaskPromotionPlanError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+} derive(@debug.Debug)
+
+// Types and methods
+type TaskRow
+
+// Type aliases
+
+// Traits
+

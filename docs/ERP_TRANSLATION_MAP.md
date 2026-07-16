@@ -387,13 +387,13 @@ employee evidence. It remains a plan for the MoonBit domain importers, not a
 shortcut around them. `cmd/promote` is the native application boundary: it
 refuses quarantined plans, calls the explicit target importers, and writes a
 domain-promotion receipt for the accepted cohort.
-`scripts/erp_lifecycle_promotion_plan.py` adds a second reviewable plan for
+The native `scripts/erp_lifecycle_promotion_plan.sh` adds a second reviewable plan for
 project masters and lifecycle instances. Its native promotion first creates
 projects, then replays only the ordered current stage under explicit
 `project:advance` authority; source progress and dates remain preserved
 evidence. The current fixture reaches `development` and `design` for its two
 projects and refuses incomplete stage maps.
-`scripts/erp_task_promotion_plan.py` now promotes the dependency-ordered task
+The native `scripts/erp_task_promotion_plan.sh` now promotes the dependency-ordered task
 structures for both projects through `migration/erp.import_project_tasks`.
 It deliberately does not replay task state/progress: the source child-state
 history is not compatible with the target dependency invariant and remains

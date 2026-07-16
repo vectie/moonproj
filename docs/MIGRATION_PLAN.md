@@ -2165,6 +2165,24 @@ Execute the remainder in this order:
     quarantine reasons, and the exact promotion envelopes. Credential import,
     privilege grants, network-field recovery, and audit policy remain separate
     gates.
+3a.33. **Native workflow/lifecycle/task-structure planners (2026-07-16).**
+    `cmd/workflow_promotion_plan`, `cmd/lifecycle_promotion_plan`, and
+    `cmd/task_promotion_plan`, exposed by shell wrappers, now replace the
+    corresponding Python typed-cohort compilers. The native planners preserve
+    explicit workflow capability and lifecycle stage mappings, project and
+    task identity joins, deterministic step/task ordering, half-even progress
+    normalization, dependency checks, and the exact promotion envelopes.
+    Workflow synchronization, lifecycle semantics, task-state mutation,
+    authority, accounting, and cutover approval remain separate gates.
+3a.34. **Native typed-evidence planner (2026-07-16).**
+    `cmd/typed_evidence_promotion_plan` and
+    `scripts/erp_typed_evidence_promotion_plan.sh` now replace the typed
+    evidence Python compiler in the rehearsal. The native planner preserves
+    the six-table allow-list, recursive secret-shaped-key quarantine, source
+    identity and raw numeric representation, deterministic reasons, and the
+    exact typed-evidence plan envelope. Evidence remains queryable preservation
+    only; workflow, authority, economic state, and cutover approval remain
+    separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

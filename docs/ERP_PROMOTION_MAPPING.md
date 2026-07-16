@@ -65,12 +65,13 @@ separate `scripts/erp_advance_offset_promotion_plan.py` requires an
 the matching imported advance; the fixture replays `off-001` for 150,000 minor
 units.
 
-The typed workflow cohort uses
-`scripts/erp_workflow_promotion_plan.py` and the same native `cmd/promote`
+The typed workflow cohort uses the native
+`scripts/erp_workflow_promotion_plan.sh` and the same native `cmd/promote`
 boundary. All 12 source steps require capability mappings; a missing mapping
 quarantines the affected process definition.
 
-The project/lifecycle cohort uses `scripts/erp_lifecycle_promotion_plan.py`.
+The project/lifecycle cohort uses the native
+`scripts/erp_lifecycle_promotion_plan.sh`.
 Its mapping file reuses `principal_by_bu` and adds
 `lifecycle_stage_by_code`; this is mandatory because the ERP's `acquisition`
 and `planning` labels do not have a safe one-to-one meaning in the target.
@@ -82,7 +83,8 @@ to target events. With the reviewed fixture map the final stages are
 `development` for `proj-0001` and `design` for `proj-0002`; removing a stage
 mapping quarantines the affected project before any receipt is written.
 
-The task-structure cohort uses `scripts/erp_task_promotion_plan.py`. It
+The task-structure cohort uses the native
+`scripts/erp_task_promotion_plan.sh`. It
 promotes 7 tasks for `proj-0001` and 2 tasks for `proj-0002` only after
 dependency identities and parent ordering are checked. Source status and
 progress remain in the typed envelope; they are not replayed automatically.

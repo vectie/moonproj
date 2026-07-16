@@ -38,9 +38,9 @@ run_cohort() {
   echo "${label}_projection_replay=$replay"
 }
 
-run_cohort workflow erp_workflow_promotion_plan.py
-run_cohort lifecycle erp_lifecycle_promotion_plan.py
-run_cohort task-structure erp_task_promotion_plan.py
+run_cohort workflow erp_workflow_promotion_plan.sh
+run_cohort lifecycle erp_lifecycle_promotion_plan.sh
+run_cohort task-structure erp_task_promotion_plan.sh
 
 run_task_state_clean() {
   label=task-state-project2
@@ -100,7 +100,7 @@ TASK_STATE_EVIDENCE_REPLAY="$WORK_DIR/task-state-exception-evidence-projection-r
   "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" > "$TASK_STATE_EVIDENCE_REPLAY"
 echo "task_state_exception_evidence_projection_replay=$TASK_STATE_EVIDENCE_REPLAY"
 
-run_cohort evidence erp_typed_evidence_promotion_plan.py
+run_cohort evidence erp_typed_evidence_promotion_plan.sh
 run_cohort investment erp_investment_promotion_plan.py
 
 INVESTMENT_EVALUATION_RECEIPT="$WORK_DIR/investment-evaluation-promotion.json"
