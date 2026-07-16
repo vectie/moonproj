@@ -44,9 +44,13 @@ organization.
   network data, and other authentication secrets.
 - Rabbita `/profile` loads the read model for the active user code while
   preserving the designer tabs, form layout, subscriptions table, and
-  initiated-document table. A source/provenance note makes the read-only
-  boundary visible, and imported rows replace the sample documents when they
-  exist.
+  initiated-document table. The name field is editable and sends the source
+  `empName`/`userName` profile command; the password card sends the source
+  `{oldPassword,newPassword}` shape, validates confirmation and minimum
+  length locally, and clears password inputs after a successful credential
+  projection before logging the session out to the login screen. A
+  source/provenance note makes the PostgreSQL command boundary visible, and
+  imported rows replace the sample documents when they exist.
 - The service and trusted-gateway smokes cover the imported `admin` record,
   super-user flag, coverage counts, the empty preference observation, the
   preference set/replay/read/delete command path,
@@ -62,11 +66,12 @@ organization.
 
 ## Remaining gates
 
-Profile updates, password changes, role administration, managed
-issuer/audience validation, session-store durability, token rotation, browser
-acceptance, and security-owner approval remain separate gates. Preference
-commands are limited to the signed user's local projection and are not an
-authorization or identity mutation. The trusted-upstream mode is an
-identity-bound rehearsal seam; it is evidence of source translation and
-gateway binding, not authorization to mutate identity data or approve
-workflows.
+Role administration, managed issuer/audience validation, session-store
+durability, token rotation, browser production-identity acceptance, and
+security-owner approval remain separate gates. Profile/password commands are
+still signed local projections: they do not import legacy credentials or
+authorize downstream work. Preference commands are limited to the signed
+user's local projection and are not an authorization mutation. The
+trusted-upstream mode is an identity-bound rehearsal seam; it is evidence of
+source translation and gateway binding, not authorization to mutate identity
+data or approve workflows.

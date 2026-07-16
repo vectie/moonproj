@@ -1138,7 +1138,10 @@ struct Model {
   profile_user_id : String
   profile_user_code : String
   profile_user_name : String
-  profile_emp_name : String
+  profile_edit_name : String
+  profile_password_old : String
+  profile_password_new : String
+  profile_password_confirm : String
   profile_bu_guid : String
   profile_bu_name : String
   profile_dept_name : String
@@ -1221,6 +1224,7 @@ enum Msg {
   SessionAuthenticated
   SessionAdapterFallback
   SessionLoginRejected(String)
+  ProfilePasswordLoggedOut
   ExpensesLoaded(String)
   ExpensesLoadFailed
   ExpenseDetailLoaded(String)
@@ -1572,6 +1576,10 @@ enum Msg {
   ProfileInitiatedLoaded(String)
   ProfileInitiatedLoadFailed
   UpdateProfile
+  InputProfileName(String)
+  InputProfilePasswordOld(String)
+  InputProfilePasswordNew(String)
+  InputProfilePasswordConfirm(String)
   ProfileCommandFinished(String)
   ProfileCommandFailed
   ChangePassword
@@ -2025,7 +2033,10 @@ fn initial_model() -> Model {
     profile_user_id: "user-admin-0001",
     profile_user_code: "admin",
     profile_user_name: "系统管理员",
-    profile_emp_name: "系统管理员",
+    profile_edit_name: "系统管理员",
+    profile_password_old: "",
+    profile_password_new: "",
+    profile_password_confirm: "",
     profile_bu_guid: "bu-group-0001",
     profile_bu_name: "集团总部",
     profile_dept_name: "数字化中心",
@@ -7530,11 +7541,14 @@ fn load_profile_initiated(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd 
 }
 
 ///|
-fn issue_profile_update(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_profile_update(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let body = Json::object({
+    "idempotency_key": Json::string("rabbita-auth-profile-" + import_nonce()),
+    "empName": Json::string(model.profile_edit_name),
+    "userName": Json::string(model.profile_user_name),
+  }).stringify()
   @http.put("/api/company/auth/profile")
-  .with_text(
-    "{\"idempotency_key\":\"rabbita-auth-profile-v1\",\"empName\":\"系统管理员（已更新）\",\"userName\":\"系统管理员\"}",
-  )
+  .with_text(body)
   .expect_text(result => {
     match result {
       Ok(body) => emit(ProfileCommandFinished(body))
@@ -7544,16 +7558,26 @@ fn issue_profile_update(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_password_change(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_password_change(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let body = Json::object({
+    "idempotency_key": Json::string("rabbita-auth-password-" + import_nonce()),
+    "oldPassword": Json::string(model.profile_password_old),
+    "newPassword": Json::string(model.profile_password_new),
+  }).stringify()
   @http.post("/api/company/auth/change-password")
-  .with_text(
-    "{\"idempotency_key\":\"rabbita-auth-password-v1\",\"currentPassword\":\"rabbita-current\",\"newPassword\":\"rabbita-next-password\"}",
-  )
+  .with_text(body)
   .expect_text(result => {
     match result {
       Ok(body) => emit(ProfileCommandFinished(body))
       Err(_) => emit(ProfileCommandFailed)
     }
+  })
+}
+
+///|
+fn logout_after_password_change(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/session/logout").expect_text(_ => {
+    emit(ProfilePasswordLoggedOut)
   })
 }
 
@@ -8748,6 +8772,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, user_code, password, show_demo: false })
     InputUser(value) => (none, { ..model, user_code: value })
     InputPassword(value) => (none, { ..model, password: value })
+    InputProfileName(value) => (none, { ..model, profile_edit_name: value })
+    InputProfilePasswordOld(value) =>
+      (none, { ..model, profile_password_old: value })
+    InputProfilePasswordNew(value) =>
+      (none, { ..model, profile_password_new: value })
+    InputProfilePasswordConfirm(value) =>
+      (none, { ..model, profile_password_confirm: value })
     Navigate(path) => {
       let command = if path == "/dashboard" ||
         path == "/dashboard-v3" ||
@@ -8949,6 +8980,17 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           page: "/login",
           api_status: "登录失败",
           api_note: body,
+        },
+      )
+    ProfilePasswordLoggedOut =>
+      (
+        none,
+        {
+          ..model,
+          authenticated: false,
+          page: "/login",
+          api_status: "密码已更新",
+          api_note: "请使用新密码重新登录",
         },
       )
     ApiLoaded =>
@@ -13192,15 +13234,63 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           report_builder_command_note: "报表模板命令服务不可用或拒绝了请求",
         },
       )
-    UpdateProfile => (issue_profile_update(emit), model)
-    ChangePassword => (issue_password_change(emit), model)
-    ProfileCommandFinished(body) =>
+    UpdateProfile =>
+      if model.profile_edit_name.trim().is_empty() {
+        (none, { ..model, profile_command_note: "姓名不能为空" })
+      } else {
+        (
+          issue_profile_update(emit, model),
+          { ..model, profile_command_note: "正在保存个人资料…" },
+        )
+      }
+    ChangePassword =>
+      if model.profile_password_old.length() < 6 ||
+        model.profile_password_new.length() < 6 {
+        (
+          none,
+          {
+            ..model,
+            profile_command_note: "旧密码和新密码至少需要 6 位",
+          },
+        )
+      } else if model.profile_password_new != model.profile_password_confirm {
+        (none, { ..model, profile_command_note: "两次新密码不一致" })
+      } else {
+        (
+          issue_password_change(emit, model),
+          {
+            ..model,
+            profile_command_note: "正在验证旧密码并提交改密命令…",
+          },
+        )
+      }
+    ProfileCommandFinished(body) => {
+      let credential_changed = body.contains("credentialChanged")
       (
-        load_profile(emit, model.user_code),
+        if credential_changed {
+          logout_after_password_change(emit)
+        } else {
+          load_profile(emit, model.user_code)
+        },
         {
           ..model,
+          profile_password_old: if body.contains("credentialChanged") {
+            ""
+          } else {
+            model.profile_password_old
+          },
+          profile_password_new: if body.contains("credentialChanged") {
+            ""
+          } else {
+            model.profile_password_new
+          },
+          profile_password_confirm: if body.contains("credentialChanged") {
+            ""
+          } else {
+            model.profile_password_confirm
+          },
           profile_command_note: if body.contains("credentialChanged") {
-            "密码变更候选已写入 PostgreSQL · 凭据值已脱敏，生产认证绑定仍待接入"
+            "密码已写入 PostgreSQL · 凭据值已脱敏；请用新密码重新登录"
           } else if body.contains("empName") {
             "个人资料命令已写入 PostgreSQL · 读模型正在刷新"
           } else {
@@ -13208,6 +13298,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
+    }
     ProfileCommandFailed =>
       (
         none,
@@ -13227,7 +13318,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             profile_user_id: values[0],
             profile_user_code: values[1],
             profile_user_name: values[2],
-            profile_emp_name: values[3],
+            profile_edit_name: values[3],
             profile_bu_guid: values[4],
             profile_bu_name: values[5],
             profile_dept_name: values[6],
@@ -19935,6 +20026,20 @@ fn form_field(
 }
 
 ///|
+fn editable_form_field(
+  label_text : String,
+  value : String,
+  placeholder : String,
+  input_type : @html.InputType,
+  on_input : @rabbita.Emit[String],
+) -> @html.Html {
+  div(class="erp-form-field") <| [
+    label(class="erp-field-label", label_text),
+    input(input_type~, value~, placeholder~, class="erp-form-input", on_input~),
+  ]
+}
+
+///|
 fn detail_toolbar(
   emit : @rabbita.Emit[Msg],
   back_path : String,
@@ -22016,7 +22121,13 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         div(class="erp-form-grid") <| [
           form_field("账号", model.profile_user_code, "用户编码"),
           form_field("用户 ID", model.profile_user_id, "内部标识"),
-          form_field("姓名", model.profile_emp_name, "姓名"),
+          editable_form_field(
+            "姓名",
+            model.profile_edit_name,
+            "姓名",
+            @html.InputType::Text,
+            emit.map(value => InputProfileName(value)),
+          ),
           form_field("显示名", model.profile_user_name, "用户名称"),
           form_field("所属公司", model.profile_bu_name, "所属公司"),
           form_field("所属部门", model.profile_dept_name, "所属部门"),
@@ -22025,6 +22136,46 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           form_field("联系电话", "138****0000", "联系电话"),
           form_field("最后登录", model.profile_last_login, "最后登录"),
         ],
+      ],
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("修改密码"),
+          span(class="erp-info-tag", "旧密码校验 · PostgreSQL 凭据"),
+        ],
+        div(class="erp-form-grid") <| [
+          editable_form_field(
+            "旧密码",
+            model.profile_password_old,
+            "请输入当前密码",
+            @html.InputType::Password,
+            emit.map(value => InputProfilePasswordOld(value)),
+          ),
+          editable_form_field(
+            "新密码",
+            model.profile_password_new,
+            "至少 6 位",
+            @html.InputType::Password,
+            emit.map(value => InputProfilePasswordNew(value)),
+          ),
+          editable_form_field(
+            "确认新密码",
+            model.profile_password_confirm,
+            "再次输入新密码",
+            @html.InputType::Password,
+            emit.map(value => InputProfilePasswordConfirm(value)),
+          ),
+        ],
+        div(class="erp-inline-actions") <| [
+          button(
+            class="erp-primary-btn",
+            on_click=emit(ChangePassword),
+            "更新密码",
+          ),
+        ],
+        p(
+          class="erp-source-note",
+          "更新后将退出当前会话，请使用新密码重新登录。",
+        ),
       ],
       p(
         class="erp-dashboard-note",
