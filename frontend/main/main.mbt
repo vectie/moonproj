@@ -1237,6 +1237,16 @@ struct Model {
   sales_revenue_project_id : String
   sales_revenue_filter_status : String
   sales_revenue_keyword : String
+  sales_revenue_form_open : Bool
+  sales_revenue_editing_id : String
+  sales_revenue_form_project : String
+  sales_revenue_form_customer : String
+  sales_revenue_form_amount : String
+  sales_revenue_form_date : String
+  sales_revenue_form_status : String
+  sales_revenue_form_payment_type : String
+  sales_revenue_form_contract_no : String
+  sales_revenue_form_remark : String
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
@@ -1941,6 +1951,10 @@ enum Msg {
   SelectSalesRevenueStatus(String)
   InputSalesRevenueKeyword(String)
   QuerySalesRevenue
+  OpenSalesRevenueEdit(String)
+  CloseSalesRevenueForm
+  InputSalesRevenueField(String, String)
+  SubmitSalesRevenueForm
   CreateSalesMortgage
   ApproveSalesMortgage
   ReleaseSalesMortgage
@@ -2539,6 +2553,16 @@ fn initial_model() -> Model {
     sales_revenue_project_id: "",
     sales_revenue_filter_status: "",
     sales_revenue_keyword: "",
+    sales_revenue_form_open: false,
+    sales_revenue_editing_id: "",
+    sales_revenue_form_project: "",
+    sales_revenue_form_customer: "",
+    sales_revenue_form_amount: "0",
+    sales_revenue_form_date: "2026-07-16",
+    sales_revenue_form_status: "expected",
+    sales_revenue_form_payment_type: "首付",
+    sales_revenue_form_contract_no: "",
+    sales_revenue_form_remark: "",
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
@@ -11076,15 +11100,80 @@ fn issue_sales_refund_command(
 }
 
 ///|
-fn sales_revenue_command_body(command_type : String) -> String {
-  if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-sales-revenue-create-v1\",\"revenue_id\":\"REV-RABBITA-LOCAL\",\"revenue_code\":\"SR-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"customer_name\":\"Rabbita 本地回款演示\",\"amount_minor\":456700,\"receive_date\":\"2026-07-14\",\"status\":\"expected\",\"payment_type\":\"bank\",\"contract_no\":\"SCT-RABBITA-LOCAL\",\"remark\":\"本地回款登记演示\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:create\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":500000}}"
-  } else if command_type == "update" {
-    "{\"idempotency_key\":\"rabbita-sales-revenue-update-v1\",\"customer_name\":\"Rabbita 本地回款演示（已核对）\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:update\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":0}}"
-  } else if command_type == "confirm_received" {
-    "{\"idempotency_key\":\"rabbita-sales-revenue-confirm-v1\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:confirm_received\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":0}}"
+fn sales_revenue_command_body(
+  command_type : String,
+  model : Model,
+  nonce : String,
+) -> String {
+  let project_id = if model.sales_revenue_form_project.is_empty() {
+    "proj-0001"
   } else {
-    "{\"idempotency_key\":\"rabbita-sales-revenue-delete-v1\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:delete\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":0}}"
+    model.sales_revenue_form_project
+  }
+  let scope = "project:" + project_id
+  let amount_minor = (sales_parse_number(model.sales_revenue_form_amount) *
+  100.0).to_int()
+  let revenue_id = if model.sales_revenue_editing_id.is_empty() {
+    "REV-RABBITA-" + nonce
+  } else {
+    model.sales_revenue_editing_id
+  }
+  let capability = if command_type == "create" {
+    "sales:revenue:create"
+  } else if command_type == "update" {
+    "sales:revenue:update"
+  } else if command_type == "confirm_received" {
+    "sales:revenue:confirm_received"
+  } else {
+    "sales:revenue:delete"
+  }
+  let authority = Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string("co-rabbita"),
+    "actor_id": Json::string("rabbita-user"),
+    "capability": Json::string(capability),
+    "scope": Json::string(scope),
+    "max_amount_minor": Json::number(50000000.0),
+  })
+  if command_type == "create" {
+    Json::object({
+      "idempotency_key": Json::string("rabbita-sales-revenue-create-" + nonce),
+      "revenue_id": Json::string(revenue_id),
+      "revenue_code": Json::string("SR-" + nonce),
+      "proj_guid": Json::string(project_id),
+      "customer_name": Json::string(model.sales_revenue_form_customer),
+      "amount_minor": Json::number(amount_minor.to_double()),
+      "receive_date": Json::string(model.sales_revenue_form_date),
+      "status": Json::string(model.sales_revenue_form_status),
+      "payment_type": Json::string(model.sales_revenue_form_payment_type),
+      "contract_no": Json::string(model.sales_revenue_form_contract_no),
+      "remark": Json::string(model.sales_revenue_form_remark),
+      "principal_id": Json::string("co-rabbita"),
+      "scope": Json::string(scope),
+      "authority": authority,
+    }).stringify()
+  } else if command_type == "update" {
+    Json::object({
+      "idempotency_key": Json::string("rabbita-sales-revenue-update-" + nonce),
+      "customer_name": Json::string(model.sales_revenue_form_customer),
+      "amount_minor": Json::number(amount_minor.to_double()),
+      "receive_date": Json::string(model.sales_revenue_form_date),
+      "payment_type": Json::string(model.sales_revenue_form_payment_type),
+      "contract_no": Json::string(model.sales_revenue_form_contract_no),
+      "remark": Json::string(model.sales_revenue_form_remark),
+      "principal_id": Json::string("co-rabbita"),
+      "scope": Json::string(scope),
+      "authority": authority,
+    }).stringify()
+  } else {
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-sales-revenue-" + command_type + "-" + nonce,
+      ),
+      "principal_id": Json::string("co-rabbita"),
+      "scope": Json::string(scope),
+      "authority": authority,
+    }).stringify()
   }
 }
 
@@ -11104,9 +11193,16 @@ fn issue_sales_revenue_command(
   } else {
     "/api/company/sales/revenues/" + model.sales_revenue_id + "/" + suffix
   }
-  @http.post(path)
-  .with_text(sales_revenue_command_body(command_type))
-  .expect_text(result => {
+  let nonce = import_nonce()
+  let body = sales_revenue_command_body(command_type, model, nonce)
+  let request = if command_type == "update" {
+    @http.put(path).with_text(body)
+  } else if command_type == "delete" {
+    @http.delete(path)
+  } else {
+    @http.post(path).with_text(body)
+  }
+  request.expect_text(result => {
     match result {
       Ok(body) => emit(SalesRevenueCommandFinished(body))
       Err(_) => emit(SalesRevenueCommandFailed)
@@ -14155,6 +14251,119 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_note: "正在查询回款源记录…",
         },
       )
+    OpenSalesRevenueEdit(revenue_id) => {
+      let mut project = model.sales_revenue_project_id
+      let mut customer = ""
+      let mut amount = "0"
+      let mut date = "2026-07-16"
+      let mut status = "expected"
+      let mut payment_type = "首付"
+      let mut contract_no = ""
+      let mut remark = ""
+      for row in model.sales_revenue_rows {
+        if row.revenue_guid == revenue_id {
+          project = row.proj_guid
+          customer = row.customer_name
+          amount = row.amount
+          date = row.receive_date
+          status = row.status
+          payment_type = row.payment_type
+          contract_no = row.contract_no
+          remark = row.remark
+        }
+      }
+      (
+        none,
+        {
+          ..model,
+          sales_revenue_form_open: true,
+          sales_revenue_editing_id: revenue_id,
+          sales_revenue_form_project: project,
+          sales_revenue_form_customer: customer,
+          sales_revenue_form_amount: amount,
+          sales_revenue_form_date: date,
+          sales_revenue_form_status: status,
+          sales_revenue_form_payment_type: payment_type,
+          sales_revenue_form_contract_no: contract_no,
+          sales_revenue_form_remark: remark,
+        },
+      )
+    }
+    CloseSalesRevenueForm => (none, { ..model, sales_revenue_form_open: false })
+    InputSalesRevenueField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          sales_revenue_form_project: if field == "project" {
+            value
+          } else {
+            model.sales_revenue_form_project
+          },
+          sales_revenue_form_customer: if field == "customer" {
+            value
+          } else {
+            model.sales_revenue_form_customer
+          },
+          sales_revenue_form_amount: if field == "amount" {
+            value
+          } else {
+            model.sales_revenue_form_amount
+          },
+          sales_revenue_form_date: if field == "date" {
+            value
+          } else {
+            model.sales_revenue_form_date
+          },
+          sales_revenue_form_status: if field == "status" {
+            value
+          } else {
+            model.sales_revenue_form_status
+          },
+          sales_revenue_form_payment_type: if field == "payment_type" {
+            value
+          } else {
+            model.sales_revenue_form_payment_type
+          },
+          sales_revenue_form_contract_no: if field == "contract_no" {
+            value
+          } else {
+            model.sales_revenue_form_contract_no
+          },
+          sales_revenue_form_remark: if field == "remark" {
+            value
+          } else {
+            model.sales_revenue_form_remark
+          },
+        },
+      )
+    SubmitSalesRevenueForm =>
+      if model.sales_revenue_form_project.trim().is_empty() ||
+        model.sales_revenue_form_customer.trim().is_empty() ||
+        sales_parse_number(model.sales_revenue_form_amount) <= 0.0 {
+        (
+          none,
+          {
+            ..model,
+            sales_revenue_command_note: "项目、客户和正数金额不能为空",
+          },
+        )
+      } else {
+        let command_type = if model.sales_revenue_editing_id.is_empty() {
+          "create"
+        } else {
+          "update"
+        }
+        (
+          issue_sales_revenue_command(emit, model, command_type),
+          {
+            ..model,
+            sales_revenue_form_open: false,
+            sales_revenue_state: "pending",
+            sales_revenue_command_note: "正在登记本地回款 · 校验销售/财务 authority…",
+          },
+        )
+      }
     CreateSalesMortgage =>
       (
         issue_sales_mortgage_command(emit, model, "create"),
@@ -14299,19 +14508,29 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     CreateSalesRevenue =>
-      if model.sales_revenue_state == "new" ||
-        model.sales_revenue_state == "error" {
-        (
-          issue_sales_revenue_command(emit, model, "create"),
-          {
-            ..model,
-            sales_revenue_state: "pending",
-            sales_revenue_command_note: "正在登记本地回款 · 校验销售/财务 authority…",
+      (
+        none,
+        {
+          ..model,
+          sales_revenue_form_open: true,
+          sales_revenue_editing_id: "",
+          sales_revenue_form_project: if model.sales_revenue_project_id.is_empty() {
+            model.project_rows
+            .get(0)
+            .map(row => row.project_id)
+            .unwrap_or("proj-0001")
+          } else {
+            model.sales_revenue_project_id
           },
-        )
-      } else {
-        (none, model)
-      }
+          sales_revenue_form_customer: "",
+          sales_revenue_form_amount: "0",
+          sales_revenue_form_date: "2026-07-16",
+          sales_revenue_form_status: "expected",
+          sales_revenue_form_payment_type: "首付",
+          sales_revenue_form_contract_no: "",
+          sales_revenue_form_remark: "",
+        },
+      )
     UpdateSalesRevenue =>
       if model.sales_revenue_state == "expected" {
         (
@@ -14363,9 +14582,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         "observed"
       }
       (
-        load_sales(emit, "revenues"),
+        load_sales_for(
+          emit,
+          "revenues",
+          model.sales_revenue_project_id,
+          model.sales_revenue_keyword,
+        ),
         {
           ..model,
+          sales_revenue_form_open: false,
           sales_revenue_state: next_state,
           sales_revenue_command_note: "已写入 PostgreSQL · 回款命令完成 · 审计凭证已生成",
         },
@@ -30463,6 +30688,99 @@ fn sales_revenue_status_label(status : String) -> String {
 }
 
 ///|
+fn sales_revenue_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.sales_revenue_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2(
+          if model.sales_revenue_editing_id.is_empty() {
+            "新增回款"
+          } else {
+            "编辑回款"
+          },
+        ),
+        span(class="erp-source-note", model.sales_revenue_command_note),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "项目 GUID",
+          model.sales_revenue_form_project,
+          "项目 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("project", value)),
+        ),
+        editable_form_field(
+          "客户名",
+          model.sales_revenue_form_customer,
+          "客户或房号",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("customer", value)),
+        ),
+        editable_form_field(
+          "金额(元)",
+          model.sales_revenue_form_amount,
+          "正数",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("amount", value)),
+        ),
+        editable_form_field(
+          "到账日期",
+          model.sales_revenue_form_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("date", value)),
+        ),
+        editable_form_field(
+          "状态",
+          model.sales_revenue_form_status,
+          "expected / received",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("status", value)),
+        ),
+        editable_form_field(
+          "付款类型",
+          model.sales_revenue_form_payment_type,
+          "首付 / 按揭 / 全款",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("payment_type", value)),
+        ),
+        editable_form_field(
+          "销售合同号",
+          model.sales_revenue_form_contract_no,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("contract_no", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.sales_revenue_form_remark,
+          "收款说明",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRevenueField("remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseSalesRevenueForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitSalesRevenueForm),
+          "保存",
+        ),
+      ],
+    ]
+  }
+}
+
+///|
 fn sales_revenue_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let rows : Array[@html.Html] = []
   for row in model.sales_revenue_rows {
@@ -30486,7 +30804,7 @@ fn sales_revenue_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       let command_buttons : Array[@html.Html] = [
         button(
           class="erp-link-btn",
-          on_click=emit(UpdateSalesRevenue),
+          on_click=emit(OpenSalesRevenueEdit(row.revenue_guid)),
           "编辑",
         ),
       ]
@@ -30701,6 +31019,7 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "查询",
         ),
       ],
+      sales_revenue_form_view(emit, model),
       div(class="erp-stat-grid") <| [
         metric("本月到账", "¥6,820 万", "126 笔", "metric-blue"),
         metric(
