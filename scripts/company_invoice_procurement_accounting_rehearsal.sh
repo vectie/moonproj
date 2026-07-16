@@ -69,10 +69,10 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/invoice-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/invoice-postgres-replay.json"
-  python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-    "$WORK_DIR/invoice-accounting-link-receipt.json" --backend postgres \
-    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
-    --database-name "$PG_DATABASE" > "$WORK_DIR/invoice-postgres-parity.json"
+  "$SCRIPT_DIR/company_postgres_accounting_link_parity.sh" \
+    "$WORK_DIR/invoice-accounting-link-receipt.json" --host "$PG_HOST" \
+    --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
+    > "$WORK_DIR/invoice-postgres-parity.json"
   "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$WORK_DIR/procurement-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
@@ -81,10 +81,10 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/procurement-accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/procurement-postgres-replay.json"
-  python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-    "$WORK_DIR/procurement-accounting-link-receipt.json" --backend postgres \
-    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
-    --database-name "$PG_DATABASE" > "$WORK_DIR/procurement-postgres-parity.json"
+  "$SCRIPT_DIR/company_postgres_accounting_link_parity.sh" \
+    "$WORK_DIR/procurement-accounting-link-receipt.json" --host "$PG_HOST" \
+    --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
+    > "$WORK_DIR/procurement-postgres-parity.json"
 fi
 
 printf '%s\n' "work_dir=$WORK_DIR"

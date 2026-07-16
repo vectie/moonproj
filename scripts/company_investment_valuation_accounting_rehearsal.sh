@@ -50,9 +50,9 @@ if [ -n "$PG_DATABASE" ]; then
   "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \
     "$ACCOUNTING_RECEIPT" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE" > "$WORK_DIR/postgres-replay.json"
-  python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-    "$ACCOUNTING_RECEIPT" --backend postgres --host "$PG_HOST" --port "$PG_PORT" \
-    --user "$PG_USER" --database-name "$PG_DATABASE" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_parity.sh" \
+    "$ACCOUNTING_RECEIPT" --host "$PG_HOST" --port "$PG_PORT" \
+    --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-parity.json"
 fi
 

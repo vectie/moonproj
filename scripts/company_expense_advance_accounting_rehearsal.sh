@@ -55,16 +55,16 @@ if [ -n "$PG_DATABASE" ]; then
     "$WORK_DIR/accounting-link-receipt.json" --host "$PG_HOST" \
     --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
     > "$WORK_DIR/postgres-replay.json"
-  python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-    "$WORK_DIR/accounting-link-receipt.json" --backend postgres \
-    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
-    --database-name "$PG_DATABASE" > "$WORK_DIR/postgres-parity.json"
-  python3 "$SCRIPT_DIR/company_postgres_accounting_reconciliation.py" \
+  "$SCRIPT_DIR/company_postgres_accounting_link_parity.sh" \
+    "$WORK_DIR/accounting-link-receipt.json" --host "$PG_HOST" \
+    --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE" \
+    > "$WORK_DIR/postgres-parity.json"
+  "$SCRIPT_DIR/company_postgres_accounting_reconciliation.sh" \
     "$WORK_DIR/expense-advance-receipt.json" \
     "$WORK_DIR/accounting-link-plan.json" \
     "$WORK_DIR/accounting-link-receipt.json" \
     "$WORK_DIR/postgres-reconciliation.json" --host "$PG_HOST" \
-    --port "$PG_PORT" --user "$PG_USER" --database-name "$PG_DATABASE"
+    --port "$PG_PORT" --user "$PG_USER" --database "$PG_DATABASE"
 fi
 
 printf '%s\n' "work_dir=$WORK_DIR"
