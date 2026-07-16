@@ -62,6 +62,9 @@ The version list now preserves source version metadata (current flag, creator,
 timestamp, remark, and source kind), and selecting a version reloads its grouped
 indices. Profit summary remains the source project-current-version endpoint,
 just as in the ERP route, so the UI does not claim a non-current summary.
+Each grouped index now carries its source `indexGuid` into a row-level selection
+control; update/delete candidates target the selected index while remaining
+owner-gated.
 
 ## Evidence
 

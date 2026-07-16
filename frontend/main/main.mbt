@@ -501,6 +501,7 @@ struct AdminDictOptionRow {
 
 ///|
 struct InvestmentIndexRow {
+  index_guid : String
   dimension : String
   index_name : String
   full_code : String
@@ -1008,6 +1009,7 @@ struct Model {
   investment_version_name : String
   investment_version_rows : Array[InvestmentVersionRow]
   investment_index_rows : Array[InvestmentIndexRow]
+  investment_index_selected : String
   investment_dimension_count : String
   investment_total : String
   investment_revenue : String
@@ -1519,6 +1521,7 @@ enum Msg {
   InvestmentExplainFinished(String)
   InvestmentExplainFailed
   SelectInvestmentVersion(String)
+  SelectInvestmentIndex(String)
   InputInvestmentExcelFileSelected(String)
   InputInvestmentExcelVersionName(String)
   ToggleInvestmentExcelActivate
@@ -1994,6 +1997,7 @@ fn initial_model() -> Model {
     investment_version_name: "",
     investment_version_rows: [],
     investment_index_rows: [],
+    investment_index_selected: "",
     investment_dimension_count: "0",
     investment_total: "0",
     investment_revenue: "0",
@@ -4027,6 +4031,7 @@ fn investment_index_rows_from_body(
               match item {
                 Json::Object(row) =>
                   rows.push({
+                    index_guid: json_object_text(row, "indexGuid", ""),
                     dimension: dimension_name,
                     index_name: json_object_text(row, "indexName", ""),
                     full_code: json_object_text(row, "fullCode", ""),
@@ -7030,8 +7035,16 @@ fn issue_investment_command(
   model : Model,
   command_type : String,
 ) -> Cmd {
-  let version_id = "INV-RABBITA-V2"
-  let index_id = "INV-RABBITA-INDEX"
+  let version_id = if model.investment_version_id.is_empty() {
+    "INV-RABBITA-V2"
+  } else {
+    model.investment_version_id
+  }
+  let index_id = if model.investment_index_selected.is_empty() {
+    "INV-RABBITA-INDEX"
+  } else {
+    model.investment_index_selected
+  }
   let project_id = model.investment_project_id
   let (path, body) = if command_type == "version_create" {
     (
@@ -11553,6 +11566,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_version_name: "",
           investment_version_rows: [],
           investment_index_rows: [],
+          investment_index_selected: "",
           investment_imports_loaded: false,
           investment_import_rows: [],
           investment_import_selected: "",
@@ -11610,10 +11624,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             investment_version_id: version_id,
             investment_version_name: version_name,
             investment_loaded: false,
+            investment_index_selected: "",
             investment_note: "正在读取所选投资版本指标…",
           },
         )
       }
+    SelectInvestmentIndex(index_id) =>
+      (
+        none,
+        {
+          ..model,
+          investment_index_selected: index_id,
+          investment_command_note: if index_id.is_empty() {
+            model.investment_command_note
+          } else {
+            "已选择指标 " +
+            index_id +
+            " · 更新/删除仍需投资负责人确认"
+          },
+        },
+      )
     InvestmentImportsLoaded(body) => {
       let (loaded, rows, note) = investment_import_rows_from_body(body)
       (
@@ -19219,18 +19249,30 @@ fn cost_dashboard_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn investment_runtime_table(model : Model) -> @html.Html {
+fn investment_runtime_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
   if model.investment_loaded {
-    let rows : Array[Array[String]] = []
+    let rendered : Array[@html.Html] = []
     for row in model.investment_index_rows {
-      rows.push([
-        row.dimension,
-        row.full_code,
-        row.index_name,
-        row.index_value,
-        row.unit,
-        row.source_kind,
-      ])
+      rendered.push(
+        tr <| [
+          td(row.dimension),
+          td(row.full_code),
+          td(row.index_name),
+          td(row.index_value),
+          td(row.unit),
+          td(row.source_kind + " · " + row.index_guid),
+          td <| [
+            button(
+              class="erp-ghost-btn",
+              on_click=emit(SelectInvestmentIndex(row.index_guid)),
+              "选择指标",
+            ),
+          ],
+        ],
+      )
     }
     table_panel(
       "投资指标（" +
@@ -19241,11 +19283,20 @@ fn investment_runtime_table(model : Model) -> @html.Html {
       model.investment_version_name +
       " (" +
       model.investment_version_id +
-      ")",
-      data_table(
-        ["维度", "编码", "指标", "值", "单位", "来源"],
-        rows,
-      ),
+      ") · " +
+      (if model.investment_index_selected.is_empty() {
+        "未选择指标"
+      } else {
+        "已选择 " + model.investment_index_selected
+      }),
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "维度", "编码", "指标", "值", "单位", "来源 / ID", "操作",
+          ]),
+        ],
+        tbody <| rendered,
+      ],
     )
   } else {
     table_panel(
@@ -19704,7 +19755,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       investment_version_context(emit, model),
       investment_excel_panel(emit, model),
       investment_import_history_panel(emit, model),
-      investment_runtime_table(model),
+      investment_runtime_table(emit, model),
       investment_sensitivity_table(model),
       investment_profit_actual_panel(model),
       div(class="erp-runtime-banner", [
