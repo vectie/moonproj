@@ -9,7 +9,9 @@
 async fn rbac_projection_payloads(
   aggregate_type : String,
 ) -> Array[Json] raise CompanyServiceError {
-  if aggregate_type != "rbac_role" && aggregate_type != "rbac_user_roles" {
+  if aggregate_type != "rbac_role" &&
+    aggregate_type != "rbac_user_roles" &&
+    aggregate_type != "rbac_user" {
     raise fail("unsupported RBAC projection type")
   }
   let output = run_sql(
@@ -520,7 +522,8 @@ fn rbac_user_command_spec(
 async fn rbac_user_exists(user_id : String) -> Bool raise CompanyServiceError {
   raw_source_rows("sys_user", 500).any(fn(row) {
     json_text(row.payload, "user_id", row.record_id) == user_id
-  })
+  }) ||
+  rbac_latest_projection("rbac_user", user_id) is Some(_)
 }
 
 ///|
@@ -675,13 +678,30 @@ async fn rbac_user_command(
     }
     None => ()
   }
+  let current = rbac_latest_projection("rbac_user", aggregate_id)
+  let next_revision = match current {
+    Some((_, revision)) => revision + 1
+    None => 1
+  }
+  let next_payload : Json = {
+    let fields : Map[String, Json] = match current {
+      Some((Object(values), _)) => values
+      _ => {}
+    }
+    match changes {
+      Object(values) => values.each((key, value) => fields.set(key, value))
+      _ => ()
+    }
+    fields.set("source_kind", Json::string("command"))
+    Json::object(fields)
+  }
   let event_id = "rbac:" + command_type + ":" + idempotency_key
   let audit_id = event_id + ":audit"
   let result = Json::object({
     "aggregate_type": Json::string("rbac_user"),
     "aggregate_id": Json::string(aggregate_id),
     "state": Json::string("active"),
-    "revision": Json::number(1.0),
+    "revision": Json::number(next_revision.to_double()),
     "event_id": Json::string(event_id),
     "audit_id": Json::string(audit_id),
     "actor_id": Json::string(actor_id),
@@ -726,8 +746,10 @@ async fn rbac_user_command(
     @postgres.sql_literal("moonproj:command:" + idempotency_key) +
     ") ON CONFLICT (source_id) DO NOTHING; INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('rbac_user', " +
     @postgres.sql_literal(aggregate_id) +
-    ", 1, " +
-    @postgres.sql_literal(changes.stringify()) +
+    ", " +
+    next_revision.to_string() +
+    ", " +
+    @postgres.sql_literal(next_payload.stringify()) +
     "::jsonb, " +
     @postgres.sql_literal(event_id) +
     ") ON CONFLICT DO NOTHING; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +

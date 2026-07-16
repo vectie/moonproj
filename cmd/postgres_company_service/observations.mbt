@@ -2385,6 +2385,36 @@ fn rbac_role_item(
 }
 
 ///|
+fn rbac_command_user_item(
+  payload : Json,
+  units : Array[SourceRow],
+  roles : Array[Json],
+  source_kind : String,
+) -> Json {
+  let user_id = report_text(payload, "user_id", "")
+  let user_code = report_text(payload, "user_code", user_id)
+  let bu_guid = report_text(payload, "bu_guid", "")
+  let dept_guid = report_text(payload, "dept_guid", "")
+  Json::object({
+    "userId": Json::string(user_id),
+    "userCode": Json::string(user_code),
+    "empName": Json::string(
+      report_text(payload, "emp_name", report_text(payload, "user_name", "")),
+    ),
+    "isSuperUser": Json::boolean(json_bool(payload, "is_super_user", false)),
+    "enabled": Json::boolean(json_bool(payload, "enabled", true)),
+    "buGuid": Json::string(bu_guid),
+    "buName": Json::string(unit_name(units, bu_guid)),
+    "deptGuid": Json::string(dept_guid),
+    "deptName": Json::string(unit_name(units, dept_guid)),
+    "roles": Json::array(roles),
+    "rolesSourceStatus": Json::string("COMMAND_PROJECTION"),
+    "sourceKind": Json::string(source_kind),
+    "commandProjection": Json::boolean(true),
+  })
+}
+
+///|
 fn rbac_role_codes_for_user(
   user_id : String,
   assignments : Array[SourceRow],
@@ -2501,6 +2531,20 @@ async fn rbac_users_response() -> Json raise CompanyServiceError {
         "commandProjection": Json::boolean(command_override),
       }),
     )
+  }
+  let command_users = rbac_projection_payloads("rbac_user")
+  for payload in command_users {
+    let user_code = report_text(payload, "user_code", "")
+    let user_id = report_text(payload, "user_id", "")
+    if !user_code.is_empty() &&
+      !users.any(fn(row) {
+        json_text(row.payload, "user_code", "") == user_code
+      }) {
+      let (role_codes, _) = rbac_role_codes_for_user(
+        user_id, assignments, command_assignments,
+      )
+      items.push(rbac_command_user_item(payload, units, role_codes, "command"))
+    }
   }
   items.sort_by(fn(left, right) {
     report_text(left, "userCode", "").compare(

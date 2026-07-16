@@ -238,11 +238,19 @@ async fn auth_current_user(
   }
   let users = raw_source_rows("sys_user", 100)
   let units = raw_source_rows("mu_business_unit", 100)
-  let selected = find_user(users, user_code)
+  let selected = match find_user(users, user_code) {
+    Some(row) => Some((row.payload, row.record_id, "imported"))
+    None =>
+      match auth_local_user_projection(user_code) {
+        Some((payload, _)) =>
+          Some((payload, json_text(payload, "user_id", ""), "command"))
+        None => None
+      }
+  }
   match selected {
     None => None
-    Some(row) => {
-      let payload = auth_profile_overlay(row.payload, user_code)
+    Some((source_payload, record_id, source_kind)) => {
+      let payload = auth_profile_overlay(source_payload, user_code)
       let bu_guid = json_text(payload, "bu_guid", "")
       let dept_guid = json_text(payload, "dept_guid", "")
       Some(
@@ -250,7 +258,7 @@ async fn auth_current_user(
           "success": Json::boolean(true),
           "code": Json::number(0),
           "data": Json::object({
-            "userId": Json::string(json_text(payload, "user_id", row.record_id)),
+            "userId": Json::string(json_text(payload, "user_id", record_id)),
             "userCode": Json::string(user_code),
             "userName": Json::string(json_text(payload, "user_name", "")),
             "empName": Json::string(
@@ -271,9 +279,9 @@ async fn auth_current_user(
             "lastLoginTime": Json::string(
               json_text(payload, "last_login_time", ""),
             ),
-            "sourceKind": Json::string("imported"),
+            "sourceKind": Json::string(source_kind),
           }),
-          "source_kind": Json::string("imported"),
+          "source_kind": Json::string(source_kind),
           "source_coverage": Json::object({
             "sys_user": Json::number(users.length().to_double()),
             "mu_business_unit": Json::number(units.length().to_double()),

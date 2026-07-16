@@ -46,6 +46,39 @@ async fn auth_latest_projection(
 }
 
 ///|
+async fn auth_local_user_projection(
+  user_code : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  let output = run_sql(
+    "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, revision, payload FROM company_aggregate_projection WHERE aggregate_type = 'rbac_user' AND payload->>'user_code' = " +
+    @postgres.sql_literal(user_code) +
+    " ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 1",
+  )
+  let value = output.trim().to_owned()
+  if value.is_empty() {
+    return None
+  }
+  let row = fields(value, 2)
+  let payload = @json.parse(decode_hex(row[1])) catch {
+    _ => raise fail("invalid local RBAC user JSON")
+  }
+  if json_text(payload, "state", "active") == "deleted" {
+    return None
+  }
+  Some((payload, parse_decimal(row[0])))
+}
+
+///|
+async fn auth_password_projection(
+  user_code : String,
+) -> (Json, Int)? raise CompanyServiceError {
+  match auth_latest_projection("auth_credential", user_code) {
+    Some(value) => Some(value)
+    None => auth_local_user_projection(user_code)
+  }
+}
+
+///|
 /// Verify a command-owned credential without issuing a session. The gateway
 /// owns the HttpOnly session; this endpoint only proves the PostgreSQL-backed
 /// credential and returns a redacted authentication envelope.
@@ -84,7 +117,7 @@ async fn auth_login(body : Json) -> (Int, Json) raise CompanyServiceError {
       }),
     )
   }
-  let credential = match auth_latest_projection("auth_credential", user_code) {
+  let credential = match auth_password_projection(user_code) {
     Some((payload, revision)) => (payload, revision)
     None =>
       return (

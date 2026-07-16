@@ -15,8 +15,10 @@ not issue bearer tokens. Login now verifies the latest PostgreSQL credential
 projection and returns a redacted authenticated envelope; the trusted gateway
 turns that proof into an HttpOnly session. Users without a command-owned
 credential still receive the explicit `auth_lifecycle_candidate` 409, while
-the development fixture remains a compatibility fallback. Production identity,
-imported credential migration, managed session storage, and security-owner
-acceptance remain unported. The trusted gateway and Rabbita profile actions
-cover the persisted profile/password command boundary. Read-only preferences
-and initiated-document observations remain separate native surfaces.
+command-owned users created from RBAC now merge into `/rbac/users` and can
+authenticate with their stored digest. The development fixture remains a
+compatibility fallback. Production identity, imported credential migration,
+managed session storage, and security-owner acceptance remain unported. The
+trusted gateway and Rabbita profile actions cover the persisted profile/password
+command boundary. Read-only preferences and initiated-document observations
+remain separate native surfaces.

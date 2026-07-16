@@ -27,6 +27,7 @@ USER_UPDATE_KEY="rbac-user-update-$SMOKE_SUFFIX"
 USER_TOGGLE_KEY="rbac-user-toggle-$SMOKE_SUFFIX"
 USER_RESET_KEY="rbac-user-reset-$SMOKE_SUFFIX"
 LOCAL_USER_ID="local-user-$USER_CREATE_KEY"
+LOCAL_USER_CODE="moonproj-smoke-user-$SMOKE_SUFFIX"
 USER_ID="user-admin-0001"
 
 cleanup() {
@@ -127,7 +128,7 @@ test "$status" = 200
 /usr/bin/jq -e '.data.roles | index("'$ROLE_CODE'")' "$TMP_DIR/me.json" >/dev/null
 /usr/bin/jq -e '(.data.permissions | index("dashboard:read")) != null and .authorization_candidate == true and .authorizing == false' "$TMP_DIR/me.json" >/dev/null
 
-user_body="{\"userCode\":\"moonproj-smoke-user-$SMOKE_SUFFIX\",\"empName\":\"Moonproj User\",\"password\":\"secret-not-returned\"}"
+user_body="{\"userCode\":\"$LOCAL_USER_CODE\",\"empName\":\"Moonproj User\",\"password\":\"secret-not-returned\"}"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-create.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
@@ -135,6 +136,21 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-create.json" -w '%{http_code}' \
   --data "$user_body" "http://127.0.0.1:$PORT/api/company/rbac/users")
 test "$status" = 201
 /usr/bin/jq -e '.rbac.aggregate_id == "'"$LOCAL_USER_ID"'" and .rbac.credential_values_redacted == true and (.command.request.changes.password == null)' "$TMP_DIR/user-create.json" >/dev/null
+
+/usr/bin/curl -fsS -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/rbac/users" >"$TMP_DIR/users-with-local.json"
+/usr/bin/jq -e --arg code "$LOCAL_USER_CODE" --arg id "$LOCAL_USER_ID" \
+  '.data | any(.[]; .userCode == $code and .userId == $id and .sourceKind == "command" and .commandProjection == true)' \
+  "$TMP_DIR/users-with-local.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/local-login.json" -w '%{http_code}' -X POST \
+  -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' \
+  --data "{\"user_code\":\"$LOCAL_USER_CODE\",\"password\":\"secret-not-returned\"}" \
+  "http://127.0.0.1:$PORT/api/company/auth/login")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$LOCAL_USER_CODE" \
+  '.authenticated == true and .actor_id == $code and .identity_source == "postgresql_credential" and .credentialValuesRedacted == true' \
+  "$TMP_DIR/local-login.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/user-update.json" -w '%{http_code}' \
   -X PUT -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
