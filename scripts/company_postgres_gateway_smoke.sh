@@ -183,6 +183,15 @@ test "$status" = 200
   '.success == true and .data.provider == "native-deterministic" and .data.seriesCount == 1 and .data.gapWeekCount == 1 and .data.totalGap == 1200000 and .provider_execution == false and .persisted == false and .authorizing == false' \
   "$TMP_DIR/cashflow-explain.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/investment-explain.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/investment/projects/proj-0001/ai-explain")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .data.provider == "native-deterministic" and .data.revenue == 18500 and .data.netProfit == 2890 and .provider_execution == false and .persisted == false and .authorizing == false' \
+  "$TMP_DIR/investment-explain.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \

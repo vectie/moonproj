@@ -918,6 +918,8 @@ struct Model {
   investment_actual_missing_table_count : String
   investment_actual_note : String
   investment_note : String
+  investment_explain_note : String
+  investment_explain_text : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
   audit_action_rows : Array[AuditActionRow]
@@ -1303,6 +1305,9 @@ enum Msg {
   InvestmentSensitivityLoaded(String)
   InvestmentProfitActualLoaded(String)
   InvestmentLoadFailed
+  ExplainInvestment
+  InvestmentExplainFinished(String)
+  InvestmentExplainFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
@@ -1637,6 +1642,8 @@ fn initial_model() -> Model {
     investment_actual_missing_table_count: "0",
     investment_actual_note: "实际利润对比尚未加载 · 保持审批边界",
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
+    investment_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
+    investment_explain_text: "等待投资解释候选",
     audit_loaded: false,
     audit_rows: [],
     audit_action_rows: [],
@@ -3598,6 +3605,20 @@ fn investment_profit_from_body(body : String) -> Array[String] {
     _ => ()
   }
   values
+}
+
+///|
+fn investment_explain_text_from_body(body : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          json_object_text(data, "explain", "投资解释候选响应为空")
+        _ => "投资解释候选响应为空"
+      }
+    _ => "投资解释候选响应无效"
+  }
 }
 
 ///|
@@ -6160,6 +6181,18 @@ fn load_investment_profit_actual(emit : @rabbita.Emit[Msg]) -> Cmd {
       }
     },
   )
+}
+
+///|
+fn issue_investment_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/investment/projects/proj-0001/ai-explain")
+  .with_text("{}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentExplainFinished(body))
+      Err(_) => emit(InvestmentExplainFailed)
+    }
+  })
 }
 
 ///|
@@ -9636,6 +9669,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_actual_missing_table_count: "0",
           investment_actual_note: "实际利润源边界不可用 · 保持审批边界",
           investment_note: "投资测算读模型不可用 · 使用设计快照",
+          investment_explain_note: "解释候选不可用 · provider/LLM 保持关闭",
+          investment_explain_text: "投资解释候选不可用",
+        },
+      )
+    ExplainInvestment =>
+      (
+        issue_investment_explain(emit),
+        {
+          ..model,
+          investment_explain_note: "正在生成确定性投资解释 · 不调用 provider/LLM…",
+        },
+      )
+    InvestmentExplainFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_explain_note: if body.contains(
+              "\"provider\":\"native-deterministic\"",
+            ) {
+            "投资解释候选已生成 · native-deterministic · 不持久化、不授权"
+          } else {
+            "投资解释候选响应已返回 · provider/LLM 未执行"
+          },
+          investment_explain_text: investment_explain_text_from_body(body),
+        },
+      )
+    InvestmentExplainFailed =>
+      (
+        none,
+        {
+          ..model,
+          investment_explain_note: "投资解释候选不可用 · provider/LLM 保持关闭",
+          investment_explain_text: "投资解释候选不可用",
         },
       )
     AuditLoaded(body) => {
@@ -15045,12 +15112,26 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(Navigate("/investment")),
         "刷新测算",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExplainInvestment),
+        "生成可行性解释",
+      ),
     ],
     div <| [
       stats,
       investment_runtime_table(model),
       investment_sensitivity_table(model),
       investment_profit_actual_panel(model),
+      div(class="erp-runtime-banner", [
+        strong("投资解释候选"),
+        span(" · " + model.investment_explain_note),
+      ]),
+      table_panel(
+        "解释结果",
+        "只读摘要 · 不持久化 prompt",
+        data_table(["结果"], [[model.investment_explain_text]]),
+      ),
     ],
   )
 }

@@ -309,6 +309,12 @@ fn command_path_allowed(
       path == "/api/company/source/ai-hub/explain" ||
       path == "/api/company/cashflow/ai-explain" ||
       path == "/api/company/source/cashflow/ai-explain" ||
+      path_with_identifier_suffix(
+        "/api/company/investment/projects/", "/ai-explain", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/investment/projects/", "/ai-explain", path,
+      ) ||
       path == "/api/company/admin/dict/options" ||
       path == "/api/company/source/admin/dict/options" ||
       path == "/api/company/admin/sys-param" ||
@@ -1003,7 +1009,13 @@ async fn handle(
             path != "/api/company/ai-hub/explain" &&
             path != "/api/company/source/ai-hub/explain" &&
             path != "/api/company/cashflow/ai-explain" &&
-            path != "/api/company/source/cashflow/ai-explain"
+            path != "/api/company/source/cashflow/ai-explain" &&
+            !path_with_identifier_suffix(
+              "/api/company/investment/projects/", "/ai-explain", path,
+            ) &&
+            !path_with_identifier_suffix(
+              "/api/company/source/investment/projects/", "/ai-explain", path,
+            )
           )
         let (body, key) = if request.meth is @http.Get ||
           request.meth is @http.Head {

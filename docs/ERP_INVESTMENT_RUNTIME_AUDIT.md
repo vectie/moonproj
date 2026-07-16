@@ -45,6 +45,9 @@ summary. It also loads six deterministic sensitivity scenarios and mounts the
 source-compatible `profit-actual` response as an explicit non-authorizing
 boundary panel; the original project comparison table remains an offline
 fallback.
+It also exposes the deterministic feasibility explanation candidate and renders
+the returned summary while keeping provider execution, prompt persistence, and
+financial effects disabled; the trusted gateway smoke covers the browser path.
 
 ## Evidence
 
