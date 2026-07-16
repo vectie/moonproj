@@ -47,6 +47,7 @@ MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
 MOONPROJ_SESSION_SECRET="gateway-smoke-session-secret" \
 MOONPROJ_DEV_USER="gateway-smoke-user" \
 MOONPROJ_DEV_PASSWORD="gateway-smoke-password" \
+MOONPROJ_DEV_ACTOR_ID="limingjin" \
 "$ROOT/scripts/company_postgres_gateway.sh" \
   --port "$GATEWAY_PORT" \
   --service-port "$SERVICE_PORT" >"$TMP_DIR/gateway.log" 2>&1 &
@@ -87,8 +88,48 @@ test "$status" = 501
 
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/session" >"$TMP_DIR/session.json"
-/usr/bin/jq -e '.authenticated == true and .actor_id == "rabbita-user"' \
+/usr/bin/jq -e '.authenticated == true and .actor_id == "limingjin"' \
   "$TMP_DIR/session.json" >/dev/null
+
+gateway_import_suffix=$(/bin/date +%s)
+gateway_import_project_code="PRJ-GW-IMPORT-$gateway_import_suffix"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/import-project-template.csv" -w '%{http_code}' \
+  -b "$TMP_DIR/cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/import/project/template")
+test "$status" = 200
+/usr/bin/grep -F 'projCode,projName,projShortName,buCode,projStatus,beginDate' \
+  "$TMP_DIR/import-project-template.csv" >/dev/null
+gateway_import_project_body="{\"rows\":[{\"projCode\":\"$gateway_import_project_code\",\"projName\":\"gateway import project\",\"buCode\":\"TJGS\",\"projStatus\":\"initiation\"}],\"dryRun\":true}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/import-project-dry-run.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-import-project-dry-$gateway_import_suffix" \
+  --data "$gateway_import_project_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/import/project")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$gateway_import_project_code" \
+  '.success == true and .data.mode == "dryRun" and .data.rowsAccepted == 1 and .data.persisted == false and .authorizing == false and .data.ok[0].projCode == $code' \
+  "$TMP_DIR/import-project-dry-run.json" >/dev/null
+gateway_import_project_body="{\"rows\":[{\"projCode\":\"$gateway_import_project_code\",\"projName\":\"gateway import project\",\"buCode\":\"TJGS\",\"projStatus\":\"initiation\"}],\"dryRun\":false}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/import-project.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-import-project-$gateway_import_suffix" \
+  --data "$gateway_import_project_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/import/project")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$gateway_import_project_code" \
+  '.success == true and .data.mode == "commit" and .data.rowsAccepted == 1 and .data.persisted == true and .data.ok[0].projCode == $code' \
+  "$TMP_DIR/import-project.json" >/dev/null
+gateway_import_contract_code="CT-GW-IMPORT-$gateway_import_suffix"
+gateway_import_contract_body="{\"rows\":[{\"contractCode\":\"$gateway_import_contract_code\",\"contractName\":\"gateway import contract\",\"projCode\":\"$gateway_import_project_code\",\"buCode\":\"TJGS\",\"signDate\":\"2026-07-16\",\"htAmount\":1}],\"dryRun\":false}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/import-contract.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-import-contract-$gateway_import_suffix" \
+  --data "$gateway_import_contract_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/import/contract")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$gateway_import_contract_code" \
+  '.success == true and .data.mode == "commit" and .data.rowsAccepted == 1 and .data.persisted == true and .data.ok[0].contractCode == $code' \
+  "$TMP_DIR/import-contract.json" >/dev/null
 
 gateway_customer_suffix=$(/bin/date +%s)
 gateway_customer_id="CUS-GW-SMOKE-$gateway_customer_suffix"

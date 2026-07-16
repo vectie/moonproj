@@ -1162,6 +1162,7 @@ struct Model {
   project_rows : Array[ProjectRow]
   project_detail : ProjectRow?
   project_note : String
+  import_template_note : String
 }
 
 ///|
@@ -1598,6 +1599,9 @@ enum Msg {
   ProjectsLoadFailed
   ProjectLoaded(String)
   ProjectLoadFailed
+  DownloadImportTemplate(String)
+  ImportTemplateDownloaded(String, @dom.Blob)
+  ImportTemplateDownloadFailed(String)
 }
 
 ///|
@@ -2030,6 +2034,7 @@ fn initial_model() -> Model {
     project_rows: [],
     project_detail: None,
     project_note: "项目主数据读模型尚未加载",
+    import_template_note: "项目/合同 CSV 模板尚未下载",
   }
 }
 
@@ -7819,6 +7824,16 @@ fn load_projects(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(ProjectsLoaded(body))
       Err(_) => emit(ProjectsLoadFailed)
+    }
+  })
+}
+
+///|
+fn issue_import_template(emit : @rabbita.Emit[Msg], biz_type : String) -> Cmd {
+  @http.get("/api/company/import/" + biz_type + "/template").expect_blob(result => {
+    match result {
+      Ok(blob) => emit(ImportTemplateDownloaded(biz_type, blob))
+      Err(_) => emit(ImportTemplateDownloadFailed(biz_type))
     }
   })
 }
@@ -13698,6 +13713,48 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           project_note: "项目详情读模型不可用 · 使用已审核快照",
         },
       )
+    DownloadImportTemplate(biz_type) =>
+      (
+        issue_import_template(emit, biz_type),
+        {
+          ..model,
+          import_template_note: (if biz_type == "project" {
+            "项目"
+          } else {
+            "合同"
+          }) +
+          " CSV 模板下载中…",
+        },
+      )
+    ImportTemplateDownloaded(biz_type, blob) =>
+      (
+        {
+          download_blob(blob, biz_type + "_template.csv")
+          none
+        },
+        {
+          ..model,
+          import_template_note: (if biz_type == "project" {
+            "项目"
+          } else {
+            "合同"
+          }) +
+          " CSV 模板已下载 · 可提交至 native 批量导入边界",
+        },
+      )
+    ImportTemplateDownloadFailed(biz_type) =>
+      (
+        none,
+        {
+          ..model,
+          import_template_note: (if biz_type == "project" {
+            "项目"
+          } else {
+            "合同"
+          }) +
+          " CSV 模板下载失败 · 服务或网关不可用",
+        },
+      )
     CreateLoan =>
       if model.loan_state == "pending" || model.loan_state == "Draft" {
         (none, model)
@@ -15363,6 +15420,11 @@ fn project_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       nav_button(
         emit, "/projects/CD-HJL", "erp-primary-btn", "＋ 新建项目",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(DownloadImportTemplate("project")),
+        "下载导入模板",
+      ),
     ],
     div <| [
       div(class="erp-runtime-banner", [
@@ -15374,6 +15436,7 @@ fn project_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           },
         ),
         span(" · " + model.project_note),
+        span(" · " + model.import_template_note),
       ]),
       div(class="erp-stat-grid") <| [
         metric("项目总数", "15", "在建项目", "metric-blue"),
@@ -16692,6 +16755,11 @@ fn contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "统一查看采购、工程、营销和咨询合同的签订、付款、发票与履约状态。",
     [
       button(class="erp-secondary-btn", "导出合同台帐"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(DownloadImportTemplate("contract")),
+        "下载导入模板",
+      ),
       nav_button(
         emit, "/contracts/CT-RABBITA-LOCAL", "erp-primary-btn", "＋ 新建合同",
       ),
@@ -16705,7 +16773,7 @@ fn contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       filter_bar("合同编号 / 项目 / 供应商"),
       table_panel(
         "合同列表",
-        model.contract_note,
+        model.contract_note + " · " + model.import_template_note,
         contract_table(emit, rows),
       ),
     ],

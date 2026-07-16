@@ -20,6 +20,10 @@ Contract batches now use the same native command boundary: project and business
 unit references are resolved, contract rows are normalized, and command-owned
 contract projections plus audit receipts commit in one transaction. The source
 contract list merges these rows and idempotent replay returns the original
-result. The remaining acceptance work is production identity and owner review.
+result. The native MoonBit gateway now allow-lists both import POST aliases and
+forwards the authenticated template/command flow with a signed PostgreSQL
+actor; the trusted gateway smoke covers template download, project dry-run,
+and project commit. The remaining acceptance work is the Rabbita CSV picker,
+production identity, and owner review.
 Neither import path posts accounting, releases
 cash, invokes providers, or calculates tax.

@@ -456,6 +456,10 @@ fn command_path_allowed(
       ) ||
       path == "/api/company/cost/dynamic-cost" ||
       path == "/api/company/source/mdm/projects" ||
+      path == "/api/company/import/project" ||
+      path == "/api/company/source/import/project" ||
+      path == "/api/company/import/contract" ||
+      path == "/api/company/source/import/contract" ||
       path == "/api/company/source/auth/prefs" ||
       path == "/api/company/notify/subscriptions" ||
       path == "/api/company/source/notify/subscriptions" ||
