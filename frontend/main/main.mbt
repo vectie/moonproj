@@ -990,6 +990,7 @@ struct Model {
   warning_note : String
   warning_action_state : String
   warning_action_note : String
+  warning_rule_preview_note : String
   warning_action_guid : String
   attachments_loaded : Bool
   attachment_rows : Array[AttachmentRow]
@@ -1376,6 +1377,9 @@ enum Msg {
   IgnoreWarning
   WarningCommandFinished(String)
   WarningCommandFailed
+  PreviewWarningCustomRule
+  WarningCustomRulePreviewFinished(String)
+  WarningCustomRulePreviewFailed
   AttachmentsLoaded(String)
   AttachmentsLoadFailed
   AttachmentStatsLoaded(String)
@@ -1755,6 +1759,7 @@ fn initial_model() -> Model {
     warning_note: "预警读模型尚未加载 · 使用设计快照",
     warning_action_state: "未执行",
     warning_action_note: "告警处理命令仍未执行",
+    warning_rule_preview_note: "自定义规则预览尚未执行",
     warning_action_guid: "",
     attachments_loaded: false,
     attachment_rows: [],
@@ -6570,6 +6575,20 @@ fn issue_warning_command(
 }
 
 ///|
+fn issue_warning_custom_rule_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/warning/custom-rules/preview")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-warning-custom-preview-v1\",\"sqlTemplate\":\"SELECT 1\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WarningCustomRulePreviewFinished(body))
+      Err(_) => emit(WarningCustomRulePreviewFailed)
+    }
+  })
+}
+
+///|
 fn load_attachments(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/attachments/all").expect_text(result => {
     match result {
@@ -10567,6 +10586,37 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           warning_action_state: "error",
           warning_action_note: "告警处理命令服务不可用或拒绝了请求",
+        },
+      )
+    PreviewWarningCustomRule =>
+      (
+        issue_warning_custom_rule_preview(emit),
+        {
+          ..model,
+          warning_rule_preview_note: "正在检查自定义规则 SQL 预览边界…",
+        },
+      )
+    WarningCustomRulePreviewFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          warning_rule_preview_note: if body.contains(
+              "\"queryExecution\":false",
+            ) &&
+            body.contains("\"persisted\":false") {
+            "自定义规则预览已返回 · SQL 已摘要化 · 不执行查询、不持久化"
+          } else {
+            "自定义规则预览已返回 · 请复核查询边界"
+          },
+        },
+      )
+    WarningCustomRulePreviewFailed =>
+      (
+        none,
+        {
+          ..model,
+          warning_rule_preview_note: "自定义规则预览服务不可用或被网关拒绝",
         },
       )
     AttachmentsLoaded(body) => {
@@ -17504,12 +17554,19 @@ fn warning_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn warning_rules_view(model : Model) -> @html.Html {
+fn warning_rules_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "告警规则 DSL",
     "ANALYSIS / RULES",
     "用可审计的规则表达式配置阈值、通知对象和自动关闭条件。",
-    [button(class="erp-primary-btn", "＋ 新建规则")],
+    [
+      button(class="erp-primary-btn", "＋ 新建规则"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(PreviewWarningCustomRule),
+        "预览自定义规则（干运行）",
+      ),
+    ],
     div <| [
       table_panel(
         "规则列表",
@@ -17545,6 +17602,7 @@ fn warning_rules_view(model : Model) -> @html.Html {
       ),
       section(class="erp-code-card") <| [
         span(class="erp-page-eyebrow", "RULE PREVIEW"),
+        p(model.warning_rule_preview_note),
         p(
           "when project.cost_variance_ratio > 0.05 then warning('成本偏差', owner=project.cost_owner)",
         ),
@@ -20551,7 +20609,7 @@ fn business_view(
       "/reports" => reports_view(emit, model)
       "/report-builder" => report_builder_view(emit, model)
       "/warning" => warning_view(emit, model)
-      "/warning-rules" => warning_rules_view(model)
+      "/warning-rules" => warning_rules_view(emit, model)
       "/cashflow" => cashflow_view(emit, model)
       "/inbox" => inbox_view(emit, model)
       "/attachments" => attachments_view(emit, model)

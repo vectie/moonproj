@@ -347,6 +347,8 @@ fn command_path_allowed(
       path == "/api/company/source/notify/llm-test" ||
       path_with_identifier_suffix("/api/company/warning/", "/resolve", path) ||
       path_with_identifier_suffix("/api/company/warning/", "/ignore", path) ||
+      path == "/api/company/warning/custom-rules/preview" ||
+      path == "/api/company/source/warning/custom-rules/preview" ||
       path == "/api/company/attachments/upload" ||
       path == "/api/company/source/attachments/upload" ||
       path_with_identifier("/api/company/attachments/re-extract/", path) ||

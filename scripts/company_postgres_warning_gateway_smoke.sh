@@ -92,4 +92,11 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/replay.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .warning.state == "resolved"' "$TMP_DIR/replay.json" >/dev/null
 
-echo "native MoonBit warning gateway/resolve smoke passed"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-preview.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"warning-custom-preview-gateway","sqlTemplate":"SELECT 1"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/custom-rules/preview")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .data.total == 0 and .data.queryExecution == false and .data.persisted == false and .authorizing == false and .source_kind == "warning_custom_rule_preview_candidate"' "$TMP_DIR/custom-preview.json" >/dev/null
+
+echo "native MoonBit warning gateway/resolve/custom-preview smoke passed"

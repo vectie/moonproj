@@ -422,7 +422,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `warning` | `GET` | `/custom-rules` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `POST` | `/custom-rules` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` |
 | `warning` | `DELETE` | `/custom-rules/:code` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` |
-| `warning` | `POST` | `/custom-rules/preview` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_preview_candidate` | `accept_browser_warning_custom_rule_preview_scenario_and_warning_owner` |
+| `warning` | `POST` | `/custom-rules/preview` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_preview_candidate` | `accept_browser_warning_custom_rule_preview_scenario_and_warning_owner` (Rabbita dry-run action now wired) |
 | `warning` | `GET` | `/rule-templates` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `POST` | `/:guid/to-ticket` | `/warning`, `/warning-rules` | `connected_warning_ticket_command_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` |
 | `warning` | `GET` | `/tickets/mine` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
