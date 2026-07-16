@@ -75,6 +75,18 @@ test "native gateway validates identifiers and path boundaries" {
   )
   assert_true(
     command_path_allowed(
+      @http.Post,
+      "/api/company/investment/excel-imports/IMPORT-RABBITA-LOCAL/index-upsert",
+    ),
+  )
+  assert_true(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/source/investment/excel-imports/IMPORT-RABBITA-LOCAL/index-upsert",
+    ),
+  )
+  assert_true(
+    command_path_allowed(
       @http.Put,
       "/api/company/investment/projects/proj-0001/subject-mappings",
     ),
