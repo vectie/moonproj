@@ -1084,6 +1084,17 @@ struct Model {
   dynamic_cost_spare : String
   dynamic_cost_end_count : String
   dynamic_cost_note : String
+  dynamic_cost_create_code : String
+  dynamic_cost_create_name : String
+  dynamic_cost_create_level : String
+  dynamic_cost_create_parent : String
+  dynamic_cost_create_target : String
+  dynamic_cost_create_contract_change : String
+  dynamic_cost_create_in_transit : String
+  dynamic_cost_create_budget : String
+  dynamic_cost_create_estimate_change : String
+  dynamic_cost_create_remarks : String
+  dynamic_cost_command_note : String
   cost_dashboard_loaded : Bool
   cost_dashboard_rows : Array[CostDashboardRow]
   cost_dashboard_project_name : String
@@ -1599,6 +1610,19 @@ enum Msg {
   AuditLoadFailed
   DynamicCostLoaded(String)
   DynamicCostLoadFailed
+  InputDynamicCostCreateCode(String)
+  InputDynamicCostCreateName(String)
+  InputDynamicCostCreateLevel(String)
+  InputDynamicCostCreateParent(String)
+  InputDynamicCostCreateTarget(String)
+  InputDynamicCostCreateContractChange(String)
+  InputDynamicCostCreateInTransit(String)
+  InputDynamicCostCreateBudget(String)
+  InputDynamicCostCreateEstimateChange(String)
+  InputDynamicCostCreateRemarks(String)
+  RequestDynamicCostCreate
+  DynamicCostCommandFinished(String)
+  DynamicCostCommandFailed
   CostDashboardLoaded(String)
   CostDashboardLoadFailed
   CashflowLoaded(String)
@@ -2118,6 +2142,17 @@ fn initial_model() -> Model {
     dynamic_cost_spare: "0",
     dynamic_cost_end_count: "0",
     dynamic_cost_note: "动态成本读模型尚未加载 · 使用设计快照",
+    dynamic_cost_create_code: "",
+    dynamic_cost_create_name: "",
+    dynamic_cost_create_level: "2",
+    dynamic_cost_create_parent: "",
+    dynamic_cost_create_target: "0",
+    dynamic_cost_create_contract_change: "0",
+    dynamic_cost_create_in_transit: "0",
+    dynamic_cost_create_budget: "0",
+    dynamic_cost_create_estimate_change: "0",
+    dynamic_cost_create_remarks: "",
+    dynamic_cost_command_note: "动态成本科目命令候选尚未运行",
     cost_dashboard_loaded: false,
     cost_dashboard_rows: [],
     cost_dashboard_project_name: "",
@@ -7277,6 +7312,41 @@ fn load_dynamic_cost(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(DynamicCostLoaded(body))
       Err(_) => emit(DynamicCostLoadFailed)
+    }
+  })
+}
+
+///|
+fn dynamic_cost_create_body(model : Model) -> String {
+  Json::object({
+    "idempotency_key": Json::string("rabbita-dynamic-cost-create-v1"),
+    "projGuid": Json::string("proj-0001"),
+    "costCode": Json::string(model.dynamic_cost_create_code),
+    "costName": Json::string(model.dynamic_cost_create_name),
+    "costLevel": investment_edit_value_json(model.dynamic_cost_create_level),
+    "parentCostGuid": Json::string(model.dynamic_cost_create_parent),
+    "isEndCost": Json::boolean(true),
+    "targetCost": investment_edit_value_json(model.dynamic_cost_create_target),
+    "htAlterAmount": investment_edit_value_json(
+      model.dynamic_cost_create_contract_change,
+    ),
+    "ztCost": investment_edit_value_json(model.dynamic_cost_create_in_transit),
+    "dfsBudget": investment_edit_value_json(model.dynamic_cost_create_budget),
+    "ygAlter": investment_edit_value_json(
+      model.dynamic_cost_create_estimate_change,
+    ),
+    "remarks": Json::string(model.dynamic_cost_create_remarks),
+  }).stringify()
+}
+
+///|
+fn issue_dynamic_cost_create(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/company/cost/dynamic-cost")
+  .with_text(dynamic_cost_create_body(model))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(DynamicCostCommandFinished(body))
+      Err(_) => emit(DynamicCostCommandFailed)
     }
   })
 }
@@ -12579,6 +12649,65 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dynamic_cost_loaded: false,
           dynamic_cost_rows: [],
           dynamic_cost_note: "动态成本读模型不可用 · 使用设计快照",
+        },
+      )
+    InputDynamicCostCreateCode(value) =>
+      (none, { ..model, dynamic_cost_create_code: value })
+    InputDynamicCostCreateName(value) =>
+      (none, { ..model, dynamic_cost_create_name: value })
+    InputDynamicCostCreateLevel(value) =>
+      (none, { ..model, dynamic_cost_create_level: value })
+    InputDynamicCostCreateParent(value) =>
+      (none, { ..model, dynamic_cost_create_parent: value })
+    InputDynamicCostCreateTarget(value) =>
+      (none, { ..model, dynamic_cost_create_target: value })
+    InputDynamicCostCreateContractChange(value) =>
+      (none, { ..model, dynamic_cost_create_contract_change: value })
+    InputDynamicCostCreateInTransit(value) =>
+      (none, { ..model, dynamic_cost_create_in_transit: value })
+    InputDynamicCostCreateBudget(value) =>
+      (none, { ..model, dynamic_cost_create_budget: value })
+    InputDynamicCostCreateEstimateChange(value) =>
+      (none, { ..model, dynamic_cost_create_estimate_change: value })
+    InputDynamicCostCreateRemarks(value) =>
+      (none, { ..model, dynamic_cost_create_remarks: value })
+    RequestDynamicCostCreate =>
+      if model.dynamic_cost_create_code.trim().is_empty() ||
+        model.dynamic_cost_create_name.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            dynamic_cost_command_note: "请先填写科目编码和名称",
+          },
+        )
+      } else {
+        (
+          issue_dynamic_cost_create(emit, model),
+          {
+            ..model,
+            dynamic_cost_command_note: "正在提交成本科目创建候选…",
+          },
+        )
+      }
+    DynamicCostCommandFinished(body) =>
+      (
+        load_dynamic_cost(emit),
+        {
+          ..model,
+          dynamic_cost_command_note: if body.contains("\"persisted\":true") {
+            "成本科目候选已写入 PostgreSQL 投影 · CBS/预算/现金/会计/税务仍未执行"
+          } else {
+            "成本科目候选已返回 · 请复核 owner 边界"
+          },
+        },
+      )
+    DynamicCostCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          dynamic_cost_command_note: "成本科目命令服务不可用或被权限/源状态拒绝",
         },
       )
     CostDashboardLoaded(body) => {
@@ -20407,6 +20536,102 @@ fn dynamic_cost_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn dynamic_cost_create_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  section(class="erp-detail-card") <| [
+    div(class="erp-panel-heading") <| [
+      h2("新增成本科目候选"),
+      span(
+        class="erp-info-tag",
+        "源字段映射 · command 行可写，导入 cb_cost 行保持只读",
+      ),
+    ],
+    div(class="erp-form-grid") <| [
+      editable_form_field(
+        "科目编码",
+        model.dynamic_cost_create_code,
+        "如 CB-107-XX",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateCode(value)),
+      ),
+      editable_form_field(
+        "科目名称",
+        model.dynamic_cost_create_name,
+        "成本科目名称",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateName(value)),
+      ),
+      editable_form_field(
+        "科目层级",
+        model.dynamic_cost_create_level,
+        "1 - 5",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateLevel(value)),
+      ),
+      editable_form_field(
+        "父科目 GUID",
+        model.dynamic_cost_create_parent,
+        "可选 parentCostGuid",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateParent(value)),
+      ),
+      editable_form_field(
+        "A 目标成本",
+        model.dynamic_cost_create_target,
+        "targetCost",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateTarget(value)),
+      ),
+      editable_form_field(
+        "D 合约+变更",
+        model.dynamic_cost_create_contract_change,
+        "htAlterAmount",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateContractChange(value)),
+      ),
+      editable_form_field(
+        "E 在途",
+        model.dynamic_cost_create_in_transit,
+        "ztCost",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateInTransit(value)),
+      ),
+      editable_form_field(
+        "F 待发生",
+        model.dynamic_cost_create_budget,
+        "dfsBudget",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateBudget(value)),
+      ),
+      editable_form_field(
+        "G 预估变更",
+        model.dynamic_cost_create_estimate_change,
+        "ygAlter",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateEstimateChange(value)),
+      ),
+      editable_form_field(
+        "备注",
+        model.dynamic_cost_create_remarks,
+        "成本口径备注",
+        @html.InputType::Text,
+        emit.map(value => InputDynamicCostCreateRemarks(value)),
+      ),
+    ],
+    div(class="erp-command-bar") <| [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(RequestDynamicCostCreate),
+        "提交科目创建候选",
+      ),
+    ],
+    p(class="erp-source-note", model.dynamic_cost_command_note),
+  ]
+}
+
+///|
 fn dynamic_cost_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let stats = if model.dynamic_cost_loaded {
     div(class="erp-stat-grid") <| [
@@ -20451,6 +20676,7 @@ fn dynamic_cost_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       stats,
       filter_bar("项目 / 成本科目 / 变更编号"),
       dynamic_cost_table(model),
+      dynamic_cost_create_panel(emit, model),
     ],
   )
 }

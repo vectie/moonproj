@@ -33,6 +33,13 @@ command-owned rows. Imported `cb_cost` rows remain read-only; command rows are
 merged into the dynamic-cost read with `sourceKind=command`, immutable
 revisions, audit receipts, and explicit no-cash/accounting/tax markers.
 
+Rabbita now renders the source create form on `/dynamic-cost` with project
+scope `proj-0001`, cost code/name/level/parent, A/D/E/F/G amount fields, and
+remarks. Submission uses the same source-shaped native command, then reloads
+the live read model so the new command row is visible without a fixture
+fallback. The page reports the CBS/budget/financial no-effect boundary next to
+the form.
+
 ## Evidence
 
 - PostgreSQL source read: seven rows, six end-cost rows, target
