@@ -8,6 +8,8 @@ frontend/main
 scripts/company_postgres_accounting_link_apply.sh
 scripts/company_postgres_accounting_link_parity.sh
 scripts/company_postgres_accounting_reconciliation.sh
+cmd/postgres_exact_projection_parity
+scripts/company_postgres_exact_projection_parity.sh
 scripts/company_postgres_accounting_cohort_rehearsal.sh
 scripts/company_postgres_contract_smoke.sh
 scripts/company_postgres_dynamic_cost_smoke.sh

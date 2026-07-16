@@ -2249,6 +2249,12 @@ Execute the remainder in this order:
     validation, principal/amount/currency continuity, durable SQLite identity,
     integrity, and the `reconciled` report. The Python reconciliation bridge
     remains frozen comparison evidence.
+3a.43. **Native PostgreSQL exact projection parity adapter (2026-07-16).**
+    `cmd/postgres_exact_projection_parity` consolidates the repeated exact
+    candidate checks for nine reviewed cohorts. It validates cohort-specific
+    target types, compares durable projection multiplicity and canonical
+    candidate payloads, and emits the existing domain-specific parity format;
+    the PostgreSQL cohort rehearsal now invokes the native wrapper.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

@@ -277,10 +277,10 @@ if [ -n "$OPENING_CONTROL_MAPPING" ]; then
   moon run --target native cmd/opening_control -- \
     "$WORK_DIR/opening-control-plan.json" "$WORK_DIR/opening-control-receipt.json"
   apply_projection opening-control "$WORK_DIR/opening-control-receipt.json"
-  python3 "$SCRIPT_DIR/company_opening_control_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/opening-control-receipt.json" \
     "$WORK_DIR/opening-control-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -290,10 +290,10 @@ if [ -n "$TAX_FILING_MAPPING" ]; then
   moon run --target native cmd/tax_filing -- \
     "$WORK_DIR/tax-filing-plan.json" "$WORK_DIR/tax-filing-receipt.json"
   apply_projection tax-filing "$WORK_DIR/tax-filing-receipt.json"
-  python3 "$SCRIPT_DIR/company_tax_filing_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/tax-filing-receipt.json" \
     "$WORK_DIR/tax-filing-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -303,10 +303,10 @@ if [ -n "$BANK_STATEMENT_MAPPING" ]; then
   moon run --target native cmd/bank_statement -- \
     "$WORK_DIR/bank-statement-plan.json" "$WORK_DIR/bank-statement-receipt.json"
   apply_projection bank-statement "$WORK_DIR/bank-statement-receipt.json"
-  python3 "$SCRIPT_DIR/company_bank_statement_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/bank-statement-receipt.json" \
     "$WORK_DIR/bank-statement-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -316,10 +316,10 @@ if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
   moon run --target native cmd/financing_facility -- \
     "$WORK_DIR/financing-facility-plan.json" "$WORK_DIR/financing-facility-receipt.json"
   apply_projection financing-facility "$WORK_DIR/financing-facility-receipt.json"
-  python3 "$SCRIPT_DIR/company_financing_facility_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/financing-facility-receipt.json" \
     "$WORK_DIR/financing-facility-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -329,10 +329,10 @@ if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
   moon run --target native cmd/asset_lifecycle -- \
     "$WORK_DIR/asset-lifecycle-plan.json" "$WORK_DIR/asset-lifecycle-receipt.json"
   apply_projection asset-lifecycle "$WORK_DIR/asset-lifecycle-receipt.json"
-  python3 "$SCRIPT_DIR/company_asset_lifecycle_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/asset-lifecycle-receipt.json" \
     "$WORK_DIR/asset-lifecycle-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -342,10 +342,10 @@ if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
   moon run --target native cmd/treasury_plan_dispatch -- \
     "$WORK_DIR/treasury-plan-dispatch-plan.json" "$WORK_DIR/treasury-plan-dispatch-receipt.json"
   apply_projection treasury-plan-dispatch "$WORK_DIR/treasury-plan-dispatch-receipt.json"
-  python3 "$SCRIPT_DIR/company_treasury_plan_dispatch_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/treasury-plan-dispatch-receipt.json" \
     "$WORK_DIR/treasury-plan-dispatch-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -355,10 +355,10 @@ if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
   moon run --target native cmd/invoice_subledger -- \
     "$WORK_DIR/invoice-subledger-plan.json" "$WORK_DIR/invoice-subledger-receipt.json"
   apply_projection invoice-subledger "$WORK_DIR/invoice-subledger-receipt.json"
-  python3 "$SCRIPT_DIR/company_invoice_subledger_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/invoice-subledger-receipt.json" \
     "$WORK_DIR/invoice-subledger-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -368,10 +368,10 @@ if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
   moon run --target native cmd/procurement_cohort -- \
     "$WORK_DIR/procurement-cohort-plan.json" "$WORK_DIR/procurement-cohort-receipt.json"
   apply_projection procurement-cohort "$WORK_DIR/procurement-cohort-receipt.json"
-  python3 "$SCRIPT_DIR/company_procurement_cohort_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/procurement-cohort-receipt.json" \
     "$WORK_DIR/procurement-cohort-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
@@ -381,10 +381,10 @@ if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
   moon run --target native cmd/investment_performance -- \
     "$WORK_DIR/investment-performance-plan.json" "$WORK_DIR/investment-performance-receipt.json"
   apply_projection investment-performance "$WORK_DIR/investment-performance-receipt.json"
-  python3 "$SCRIPT_DIR/company_investment_performance_parity.py" \
+  "$SCRIPT_DIR/company_postgres_exact_projection_parity.sh" \
     "$WORK_DIR/investment-performance-receipt.json" \
     "$WORK_DIR/investment-performance-postgres-exact-parity.json" \
-    --backend postgres --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
+    --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
     --database "$PG_DATABASE"
 fi
 
