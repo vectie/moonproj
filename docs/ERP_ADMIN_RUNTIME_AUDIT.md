@@ -61,7 +61,10 @@ The user roster preserves five imported identities and organization labels;
 is inferred from the super-user flag.
 The Rabbita `/users` screen consumes that roster read and keeps its role and
 permission panels as an explicitly offline design snapshot; it does not treat
-the imported super-user flag as target authority.
+the imported super-user flag as target authority. Its new-user form now sends
+account/name/password-digest input plus organization and super-user review
+fields to the signed local RBAC candidate; imported identities remain
+read-only.
 The Rabbita `/audit-log` screen now consumes the two imported login rows and
 the `login × 2` action aggregate through the read-only adapter. It keeps the
 source IP redaction and append-only presentation; filtering, retention,
@@ -99,8 +102,9 @@ are digest-only and no OCR provider or credential binding is enabled.
   replay, digest-only value handling, and no provider/cash/accounting/tax effect.
 - The parity matrix marks the source `GET /rbac/users` roster as
   `connected_rbac_user_read`; role and permission endpoints remain gated.
-- The parity matrix marks `/users` as `connected_rbac_user_read`; the
-  production identity and super-user owner scenario remain required.
+- The parity matrix marks `/users` as `connected_rbac_user_read` plus the
+  local user-create candidate; the production identity and super-user owner
+  scenario remain required.
 - The parity matrix marks `/audit-log` as `connected_admin_audit_read`; audit
   retention/export ownership and the production super-user scenario remain
   required.

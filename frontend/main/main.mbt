@@ -972,6 +972,7 @@ struct ProfileSubscriptionRow {
 
 ///|
 struct UserRosterRow {
+  user_id : String
   user_code : String
   emp_name : String
   bu_name : String
@@ -1887,6 +1888,13 @@ struct Model {
   users_loaded : Bool
   user_roster_rows : Array[UserRosterRow]
   users_note : String
+  users_form_open : Bool
+  users_form_user_code : String
+  users_form_emp_name : String
+  users_form_password : String
+  users_form_bu_guid : String
+  users_form_dept_guid : String
+  users_form_is_super_user : Bool
   rbac_roles_loaded : Bool
   rbac_role_rows : Array[Array[String]]
   rbac_roles_note : String
@@ -2611,7 +2619,11 @@ enum Msg {
   ChangePassword
   UsersLoaded(String)
   UsersLoadFailed
-  CreateLocalUser
+  OpenUserCreate
+  CloseUserForm
+  InputUserFormField(String, String)
+  ToggleUserFormSuper
+  SaveUserForm
   RbacUserCommandFinished(String)
   RbacUserCommandFailed
   CreateLocalRole
@@ -3414,6 +3426,13 @@ fn initial_model() -> Model {
     users_loaded: false,
     user_roster_rows: [],
     users_note: "身份读模型尚未加载 · 使用设计快照",
+    users_form_open: false,
+    users_form_user_code: "",
+    users_form_emp_name: "",
+    users_form_password: "",
+    users_form_bu_guid: "",
+    users_form_dept_guid: "",
+    users_form_is_super_user: false,
     rbac_roles_loaded: false,
     rbac_role_rows: [],
     rbac_roles_note: "角色读模型尚未加载 · 使用设计快照",
@@ -8172,6 +8191,7 @@ fn user_roster_rows_from_body(body : String) -> Array[UserRosterRow] {
         match value {
           Json::Object(row) =>
             rows.push({
+              user_id: json_object_text(row, "userId", ""),
               user_code: json_object_text(row, "userCode", ""),
               emp_name: json_object_text(row, "empName", ""),
               bu_name: json_object_text(row, "buName", "—"),
@@ -11708,11 +11728,20 @@ fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_rbac_user_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_rbac_user_create(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let body = Json::object({
+    "idempotency_key": Json::string(
+      "rabbita-rbac-user-create-" + import_nonce(),
+    ),
+    "userCode": Json::string(model.users_form_user_code),
+    "empName": Json::string(model.users_form_emp_name),
+    "password": Json::string(model.users_form_password),
+    "buGuid": Json::string(model.users_form_bu_guid),
+    "deptGuid": Json::string(model.users_form_dept_guid),
+    "isSuperUser": Json::boolean(model.users_form_is_super_user),
+  }).stringify()
   @http.post("/api/company/rbac/users")
-  .with_text(
-    "{\"idempotency_key\":\"rabbita-rbac-user-create-v1\",\"userCode\":\"rabbita-local-user\",\"empName\":\"Rabbita 本地用户\",\"password\":\"not-returned\"}",
-  )
+  .with_text(body)
   .expect_text(result => {
     match result {
       Ok(body) => emit(RbacUserCommandFinished(body))
@@ -21749,14 +21778,72 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           users_note: "身份读模型不可用 · 使用已审核快照",
         },
       )
-    CreateLocalUser =>
+    OpenUserCreate =>
       (
-        issue_rbac_user_create(emit),
+        none,
         {
           ..model,
-          users_note: "正在创建本地 RBAC 用户候选 · 凭据只保留摘要…",
+          users_form_open: true,
+          users_form_user_code: "",
+          users_form_emp_name: "",
+          users_form_password: "",
+          users_form_bu_guid: "",
+          users_form_dept_guid: "",
+          users_form_is_super_user: false,
         },
       )
+    CloseUserForm => (none, { ..model, users_form_open: false })
+    InputUserFormField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          users_form_user_code: if field == "user_code" {
+            value
+          } else {
+            model.users_form_user_code
+          },
+          users_form_emp_name: if field == "emp_name" {
+            value
+          } else {
+            model.users_form_emp_name
+          },
+          users_form_password: if field == "password" {
+            value
+          } else {
+            model.users_form_password
+          },
+          users_form_bu_guid: if field == "bu_guid" {
+            value
+          } else {
+            model.users_form_bu_guid
+          },
+          users_form_dept_guid: if field == "dept_guid" {
+            value
+          } else {
+            model.users_form_dept_guid
+          },
+        },
+      )
+    ToggleUserFormSuper =>
+      (
+        none,
+        { ..model, users_form_is_super_user: !model.users_form_is_super_user },
+      )
+    SaveUserForm =>
+      if model.users_form_user_code.trim().is_empty() {
+        (none, { ..model, users_note: "用户编码不能为空" })
+      } else if model.users_form_emp_name.trim().is_empty() {
+        (none, { ..model, users_note: "员工姓名不能为空" })
+      } else {
+        (
+          issue_rbac_user_create(emit, model),
+          {
+            ..model,
+            users_note: "正在提交用户创建候选 · 凭据只保存摘要…",
+          },
+        )
+      }
     RbacUserCommandFinished(body) =>
       (
         if body.contains("\"persisted\":true") {
@@ -21766,6 +21853,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
         {
           ..model,
+          users_form_open: false,
           users_note: if body.contains("\"credential_values_redacted\":true") {
             "本地用户候选已写入 PostgreSQL · 凭据已摘要化 · 不改变当前授权"
           } else {
@@ -37527,7 +37615,7 @@ fn user_roster_table(model : Model) -> @html.Html {
         role_display,
         row.super_user,
         row.enabled,
-        "只读 · " + row.source_kind,
+        "只读 · " + row.source_kind + " · " + row.user_id,
       ])
     }
     table_panel(
@@ -37651,6 +37739,85 @@ fn rbac_permission_catalog_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn user_create_form(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  if !model.users_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新建用户"),
+        span(class="erp-info-tag", "PostgreSQL RBAC 候选"),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "账号",
+          model.users_form_user_code,
+          "用户编码",
+          @html.InputType::Text,
+          emit.map(value => InputUserFormField("user_code", value)),
+        ),
+        editable_form_field(
+          "姓名",
+          model.users_form_emp_name,
+          "员工姓名",
+          @html.InputType::Text,
+          emit.map(value => InputUserFormField("emp_name", value)),
+        ),
+        editable_form_field(
+          "初始密码",
+          model.users_form_password,
+          "留空使用服务默认",
+          @html.InputType::Password,
+          emit.map(value => InputUserFormField("password", value)),
+        ),
+        editable_form_field(
+          "所属公司",
+          model.users_form_bu_guid,
+          "business unit GUID（可空）",
+          @html.InputType::Text,
+          emit.map(value => InputUserFormField("bu_guid", value)),
+        ),
+        editable_form_field(
+          "所属部门",
+          model.users_form_dept_guid,
+          "department GUID（可空）",
+          @html.InputType::Text,
+          emit.map(value => InputUserFormField("dept_guid", value)),
+        ),
+        div(class="erp-form-field") <| [
+          label(class="erp-field-label", "超级用户"),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(ToggleUserFormSuper),
+            if model.users_form_is_super_user {
+              "是 · 点击取消"
+            } else {
+              "否 · 点击开启"
+            },
+          ),
+        ],
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SaveUserForm),
+          "保存用户",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CloseUserForm),
+          "取消",
+        ),
+      ],
+      p(
+        class="erp-source-note",
+        "密码仅写入摘要，命令不直接改变当前认证授权；导入身份行保持只读。",
+      ),
+    ]
+  }
+}
+
+///|
 fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "用户/角色管理",
@@ -37659,8 +37826,8 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     [
       button(
         class="erp-primary-btn",
-        on_click=emit(CreateLocalUser),
-        "＋ 新建用户（本地候选）",
+        on_click=emit(OpenUserCreate),
+        "＋ 新建用户",
       ),
       button(
         class="erp-secondary-btn",
@@ -37694,6 +37861,7 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ),
     ],
     div <| [
+      user_create_form(emit, model),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "用户管理"),
         button(class="erp-tab", "角色管理"),
