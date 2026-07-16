@@ -357,6 +357,14 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.providerGuid == "'"$gateway_supplier_id"'" and .provider.sourceKind == "command"' \
   "$TMP_DIR/supplier-create.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-check-sign.json" -w '%{http_code}' \
+  -b "$TMP_DIR/cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/srm/providers/$gateway_supplier_id/check-sign")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$gateway_supplier_id" \
+  '.success == true and .decision == "derived_command_preview" and .data.providerGuid == $id and .data.allow == true and .data.requireExtraApprove == false and .data.sourceKind == "command" and .data.risk.rating == "C" and .persisted == false and .provider_execution == false and .authorizing == false' \
+  "$TMP_DIR/supplier-check-sign.json" >/dev/null
+
 status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-submit-review.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   -H "Idempotency-Key: gateway-supplier-submit-review-$gateway_supplier_suffix" \

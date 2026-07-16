@@ -85,6 +85,10 @@ request() {
 
 supplier_body="{\"providerGuid\":\"$SUPPLIER_ID\",\"providerCode\":\"SUP-TENDER-$SMOKE_SUFFIX\",\"providerName\":\"tender qualified supplier\",\"mainCategoryCode\":\"CAT-SMOKE\"}"
 request supplier_create POST /api/company/source/srm/providers 201 "$supplier_body" "tender-supplier-create-$SMOKE_SUFFIX"
+request supplier_check_sign GET "/api/company/srm/providers/$SUPPLIER_ID/check-sign" 200
+/usr/bin/jq -e --arg id "$SUPPLIER_ID" \
+  '.success == true and .decision == "derived_command_preview" and .data.providerGuid == $id and .data.allow == true and .data.requireExtraApprove == false and .data.sourceKind == "command" and .data.risk.rating == "C" and .persisted == false and .provider_execution == false and .authorizing == false' \
+  "$TMP_DIR/supplier_check_sign.json" >/dev/null
 request supplier_submit POST "/api/company/suppliers/$SUPPLIER_ID/submit_review" 200 '{}' "tender-supplier-submit-$SMOKE_SUFFIX"
 request supplier_review POST "/api/company/suppliers/$SUPPLIER_ID/review" 200 '{"evaluation":"qualified","reason":"tender smoke qualification"}' "tender-supplier-review-$SMOKE_SUFFIX"
 

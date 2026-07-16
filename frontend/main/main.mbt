@@ -808,6 +808,7 @@ struct Model {
   supplier_detail_risk_contract_count : String
   supplier_detail_risk_overdue_count : String
   supplier_detail_risk_note : String
+  supplier_check_sign_note : String
   supplier_stats_loaded : Bool
   supplier_stats_total : String
   supplier_stats_contract_rows : String
@@ -1248,6 +1249,9 @@ enum Msg {
   SupplierDetailLoadFailed
   SupplierDetailRiskLoaded(String)
   SupplierDetailRiskLoadFailed
+  RequestSupplierCheckSign
+  SupplierCheckSignFinished(String)
+  SupplierCheckSignFailed
   SupplierStatsLoaded(String)
   SupplierStatsLoadFailed
   SupplierRiskLoaded(String)
@@ -1667,6 +1671,7 @@ fn initial_model() -> Model {
     supplier_detail_risk_contract_count: "0",
     supplier_detail_risk_overdue_count: "0",
     supplier_detail_risk_note: "供应商源风险详情尚未加载 · 使用设计快照",
+    supplier_check_sign_note: "供应商签约校验边界尚未检查",
     supplier_stats_loaded: false,
     supplier_stats_total: "0",
     supplier_stats_contract_rows: "0",
@@ -8176,6 +8181,17 @@ fn load_supplier_detail_risk(
 }
 
 ///|
+fn issue_supplier_check_sign(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.get("/api/company/srm/providers/" + model.supplier_id + "/check-sign").expect_text(result => {
+      match result {
+        Ok(body) => emit(SupplierCheckSignFinished(body))
+        Err(_) => emit(SupplierCheckSignFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_supplier_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/srm/stats/overview").expect_text(result => {
     match result {
@@ -9424,6 +9440,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             load_supplier_detail_risk(emit, detail.provider_guid),
             {
               ..model,
+              supplier_id: detail.provider_guid,
               supplier_detail_loaded: true,
               supplier_detail: Some(detail),
               supplier_detail_note: "已加载 PostgreSQL 供应商源详情 · 关联组织与合同只读",
@@ -9485,6 +9502,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           supplier_detail_risk_contract_count: "0",
           supplier_detail_risk_overdue_count: "0",
           supplier_detail_risk_note: "供应商源风险详情不可用 · 使用设计快照",
+        },
+      )
+    RequestSupplierCheckSign =>
+      (
+        issue_supplier_check_sign(emit, model),
+        {
+          ..model,
+          supplier_check_sign_note: "正在检查供应商签约边界 · 不授权签署…",
+        },
+      )
+    SupplierCheckSignFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          supplier_check_sign_note: if body.contains(
+              "\"decision\":\"derived_command_preview\"",
+            ) {
+            "供应商签约校验为本地派生预览 · procurement owner 仍需审批 · 未持久化风险"
+          } else if body.contains("\"decision\":\"gated\"") {
+            "导入供应商已到采购负责人审批门 · 未执行签约校验"
+          } else if body.contains("\"code\":43001") {
+            "供应商签约校验返回源-404 · 未生成替代记录"
+          } else {
+            "供应商签约校验响应已返回 · 请复核授权边界"
+          },
+        },
+      )
+    SupplierCheckSignFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_check_sign_note: "供应商签约校验服务不可用或被网关拒绝",
         },
       )
     SupplierStatsLoaded(body) => {
@@ -20312,7 +20363,14 @@ fn provider_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
     } else {
       detail.category_name
     }),
-    [detail_toolbar(emit, "/srm/providers", "保存供应商")],
+    [
+      detail_toolbar(emit, "/srm/providers", "保存供应商"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestSupplierCheckSign),
+        "检查签约边界（待采购负责人）",
+      ),
+    ],
     div <| [
       div(class="erp-runtime-banner", [
         strong(
@@ -20323,6 +20381,11 @@ fn provider_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
           },
         ),
         span(" · " + source_note),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("供应商签约校验"),
+        span(" · " + model.supplier_check_sign_note),
+        span(" · 不签署合同、不调用 provider、不改变采购授权"),
       ]),
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [

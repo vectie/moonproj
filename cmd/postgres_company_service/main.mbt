@@ -15956,6 +15956,13 @@ async fn route(
   if path == "/api/company/srm/risk-board" {
     return (200, supplier_risk_board_source_response())
   }
+  let supplier_check_sign_prefix = "/api/company/srm/providers/"
+  if path.has_prefix(supplier_check_sign_prefix) &&
+    path.has_suffix("/check-sign") {
+    let provider_guid = path[supplier_check_sign_prefix.length():path.length() -
+    "/check-sign".length()].to_owned()
+    return supplier_check_sign_response(provider_guid)
+  }
   if path == "/api/company/supplier-risk-board" {
     return (200, supplier_command_risk_board_response())
   }
