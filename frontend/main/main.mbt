@@ -1478,6 +1478,9 @@ enum Msg {
   ProfileInitiatedLoadFailed
   UsersLoaded(String)
   UsersLoadFailed
+  CreateLocalUser
+  RbacUserCommandFinished(String)
+  RbacUserCommandFailed
   RbacRolesLoaded(String)
   RbacRolesLoadFailed
   RbacCatalogLoaded(String)
@@ -7152,6 +7155,20 @@ fn load_users(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_rbac_user_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/rbac/users")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-rbac-user-create-v1\",\"userCode\":\"rabbita-local-user\",\"empName\":\"Rabbita 本地用户\",\"password\":\"not-returned\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacUserCommandFinished(body))
+      Err(_) => emit(RbacUserCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/roles").expect_text(result => {
     match result {
@@ -12091,6 +12108,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           users_loaded: false,
           user_roster_rows: [],
           users_note: "身份读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateLocalUser =>
+      (
+        issue_rbac_user_create(emit),
+        {
+          ..model,
+          users_note: "正在创建本地 RBAC 用户候选 · 凭据只保留摘要…",
+        },
+      )
+    RbacUserCommandFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_users(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          users_note: if body.contains("\"credential_values_redacted\":true") {
+            "本地用户候选已写入 PostgreSQL · 凭据已摘要化 · 不改变当前授权"
+          } else {
+            "本地用户命令已返回 · 请复核授权边界"
+          },
+        },
+      )
+    RbacUserCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          users_note: "本地用户命令服务不可用或被网关拒绝",
         },
       )
     RbacRolesLoaded(body) =>
@@ -19876,12 +19925,18 @@ fn rbac_permission_catalog_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn users_view(model : Model) -> @html.Html {
+fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "用户/角色管理",
     "SYSTEM / USERS",
     "管理用户身份、组织范围和角色权限；超级用户标记不会直接迁移为目标权限。",
-    [button(class="erp-primary-btn", "＋ 新建用户")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateLocalUser),
+        "＋ 新建用户（本地候选）",
+      ),
+    ],
     div <| [
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "用户管理"),
@@ -20820,7 +20875,7 @@ fn business_view(
       "/audit-log" => audit_view(emit, model)
       "/error-log" => error_view(model)
       "/system-health" => health_view(emit, model)
-      "/users" => users_view(model)
+      "/users" => users_view(emit, model)
       "/admin" => admin_view(emit, model)
       "/ocr-config" => ocr_view(emit, model)
       "/webhook-config" => webhook_view(emit, model)
