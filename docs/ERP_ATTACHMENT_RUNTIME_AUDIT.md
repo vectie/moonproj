@@ -52,4 +52,7 @@ The trusted PostgreSQL gateway now forwards the upload candidate, and the
 Rabbita attachment header exposes the same bounded control. The candidate
 returns the existing no-multipart/object-storage boundary without persistence;
 `scripts/company_postgres_attachment_gateway_smoke.sh` proves authenticated
-forwarding and the 409 no-side-effect response.
+forwarding and the 409 no-side-effect response. Rabbita now also exposes the
+OCR re-extraction candidate, selecting the first imported attachment when one
+exists and otherwise showing the explicit source-404 boundary; the same smoke
+proves dynamic gateway forwarding without OCR/provider execution or persistence.

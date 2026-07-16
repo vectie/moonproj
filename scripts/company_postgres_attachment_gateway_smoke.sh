@@ -61,4 +61,11 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/upload.json" -w '%{http_code}' -X POST \
 test "$status" = 409
 /usr/bin/jq -e '.code == 43002 and .data.multipartAccepted == false and .persisted == false and .authorizing == false and .provider_execution == false' "$TMP_DIR/upload.json" >/dev/null
 
-echo "native MoonBit attachment upload gateway boundary smoke passed"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/reextract.json" -w '%{http_code}' -X POST \
+  -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/attachments/re-extract/ATT-RABBITA-LOCAL")
+test "$status" = 404
+/usr/bin/jq -e '.code == 43001 and .persisted == false and .authorizing == false and .provider_execution == false' "$TMP_DIR/reextract.json" >/dev/null
+
+echo "native MoonBit attachment upload/re-extract gateway boundary smoke passed"

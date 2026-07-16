@@ -331,6 +331,8 @@ fn command_path_allowed(
       path_with_identifier_suffix("/api/company/warning/", "/ignore", path) ||
       path == "/api/company/attachments/upload" ||
       path == "/api/company/source/attachments/upload" ||
+      path_with_identifier("/api/company/attachments/re-extract/", path) ||
+      path_with_identifier("/api/company/source/attachments/re-extract/", path) ||
       path_with_identifier("/api/company/webhook/test/", path) ||
       path_with_identifier("/api/company/source/webhook/test/", path) ||
       path == "/api/company/source/invoice/in" ||
@@ -1019,7 +1021,11 @@ async fn handle(
               "/api/company/source/investment/projects/", "/ai-explain", path,
             ) &&
             path != "/api/company/plan/ai-suggest-plan" &&
-            path != "/api/company/source/plan/ai-suggest-plan"
+            path != "/api/company/source/plan/ai-suggest-plan" &&
+            !path_with_identifier("/api/company/attachments/re-extract/", path) &&
+            !path_with_identifier(
+              "/api/company/source/attachments/re-extract/", path,
+            )
           )
         let (body, key) = if request.meth is @http.Get ||
           request.meth is @http.Head {

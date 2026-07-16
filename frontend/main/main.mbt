@@ -993,6 +993,8 @@ struct Model {
   attachment_pending : String
   attachment_missing_table_count : String
   attachment_note : String
+  attachment_action_guid : String
+  attachment_action_note : String
   marketing_loaded : Bool
   marketing_campaign_rows : Array[Array[String]]
   marketing_placement_rows : Array[Array[String]]
@@ -1359,6 +1361,9 @@ enum Msg {
   RequestAttachmentUpload
   AttachmentCommandFinished(String)
   AttachmentCommandFailed
+  RequestAttachmentReextract
+  AttachmentReextractFinished(String)
+  AttachmentReextractFailed
   MarketingLoaded(String, String)
   MarketingLoadFailed(String)
   CreateMarketingCampaign
@@ -1722,6 +1727,8 @@ fn initial_model() -> Model {
     attachment_pending: "0",
     attachment_missing_table_count: "0",
     attachment_note: "附件源读模型尚未加载 · 使用设计快照",
+    attachment_action_guid: "ATT-RABBITA-LOCAL",
+    attachment_action_note: "OCR 重提取候选尚未运行 · provider/OCR 保持关闭",
     marketing_loaded: false,
     marketing_campaign_rows: [],
     marketing_placement_rows: [],
@@ -6485,6 +6492,20 @@ fn issue_attachment_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_attachment_reextract(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post(
+    "/api/company/attachments/re-extract/" + model.attachment_action_guid,
+  )
+  .with_text("{}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(AttachmentReextractFinished(body))
+      Err(_) => emit(AttachmentReextractFailed)
+    }
+  })
+}
+
+///|
 fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "campaigns" {
     "/api/company/marketing/campaigns?projGuid=proj-0001"
@@ -10257,6 +10278,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           attachments_loaded: loaded,
           attachment_rows: rows,
+          attachment_action_guid: if rows.length() > 0 {
+            rows[0].att_guid
+          } else {
+            model.attachment_action_guid
+          },
           attachment_total: total,
           attachment_missing_table_count: missing,
           attachment_note: if loaded {
@@ -10346,6 +10372,36 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           attachment_note: "附件上传候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestAttachmentReextract =>
+      (
+        issue_attachment_reextract(emit, model),
+        {
+          ..model,
+          attachment_action_note: "正在检查 OCR 重提取边界 · 不读取二进制、不调用 OCR…",
+        },
+      )
+    AttachmentReextractFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          attachment_action_note: if body.contains("\"wouldReExtract\":true") {
+            "OCR 重提取候选已返回 · provider/OCR 未执行 · 不持久化元数据"
+          } else if body.contains("\"code\":43001") {
+            "OCR 重提取候选已验证 · 当前附件源不存在 · 不执行 provider/OCR"
+          } else {
+            "OCR 重提取候选响应已返回 · provider/OCR 未执行"
+          },
+        },
+      )
+    AttachmentReextractFailed =>
+      (
+        none,
+        {
+          ..model,
+          attachment_action_note: "OCR 重提取候选服务不可用或被网关拒绝",
         },
       )
     MarketingLoaded(family, body) => {
@@ -18675,6 +18731,11 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(RequestAttachmentUpload),
         "＋ 上传附件（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestAttachmentReextract),
+        "检查 OCR 重提取（待授权）",
+      ),
     ],
     div <| [
       div(class="erp-stat-grid") <| [
@@ -18725,6 +18786,11 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           rows,
         ),
       ),
+      div(class="erp-runtime-banner", [
+        strong("OCR 重提取候选"),
+        span(" · " + model.attachment_action_note),
+        span(" · 记录 " + model.attachment_action_guid),
+      ]),
     ],
   )
 }
