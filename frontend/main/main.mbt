@@ -1041,6 +1041,7 @@ struct Model {
   ocr_missing_table_count : String
   ocr_note : String
   ocr_command_note : String
+  provider_test_note : String
   error_loaded : Bool
   error_rows : Array[Array[String]]
   error_total : String
@@ -1456,6 +1457,10 @@ enum Msg {
   TestOcrProvider
   OcrCommandFinished(String)
   OcrCommandFailed
+  TestLlmProvider
+  TestNotifyLlmProvider
+  ProviderCommandFinished(String, String)
+  ProviderCommandFailed(String)
   ErrorLogLoaded(String)
   ErrorLogLoadFailed
   AiStatsOverviewLoaded(String)
@@ -1877,6 +1882,7 @@ fn initial_model() -> Model {
     ocr_missing_table_count: "0",
     ocr_note: "OCR 源读模型尚未加载 · 使用设计快照",
     ocr_command_note: "OCR 测试命令尚未执行",
+    provider_test_note: "LLM/provider 测试命令尚未执行",
     error_loaded: false,
     error_rows: [],
     error_total: "0",
@@ -7049,6 +7055,28 @@ fn issue_ocr_provider_test(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_ai_provider_test(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+  let path = if family == "llm" {
+    "/api/company/source/admin/llm/test"
+  } else {
+    "/api/company/source/notify/llm-test"
+  }
+  let body = if family == "llm" {
+    "{\"idempotency_key\":\"rabbita-llm-test-v1\",\"provider\":\"mock\",\"model\":\"native-preview\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-notify-llm-test-v1\",\"provider\":\"mock\",\"model\":\"native-preview\"}"
+  }
+  @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(value) => emit(ProviderCommandFinished(family, value))
+      Err(_) => emit(ProviderCommandFailed(family))
+    }
+  })
+}
+
+///|
 fn load_error_log(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/error-log?limit=100").expect_text(result => {
     match result {
@@ -11992,6 +12020,48 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           ocr_command_note: "OCR 测试被服务、权限或 provider 配置拒绝",
+        },
+      )
+    TestLlmProvider =>
+      (
+        issue_ai_provider_test(emit, "llm"),
+        {
+          ..model,
+          provider_test_note: "正在提交管理端 LLM provider 干运行测试…",
+        },
+      )
+    TestNotifyLlmProvider =>
+      (
+        issue_ai_provider_test(emit, "notify-llm"),
+        {
+          ..model,
+          provider_test_note: "正在提交通知 LLM provider 干运行测试…",
+        },
+      )
+    ProviderCommandFinished(family, body) =>
+      (
+        none,
+        {
+          ..model,
+          provider_test_note: if body.contains("\"providerExecution\":false") {
+            (if family == "llm" { "管理端 LLM" } else { "通知 LLM" }) +
+            " 测试候选已记录 · provider 未执行 · 密钥未返回"
+          } else {
+            "provider 测试候选已返回 · 请复核响应边界"
+          },
+        },
+      )
+    ProviderCommandFailed(family) =>
+      (
+        none,
+        {
+          ..model,
+          provider_test_note: (if family == "llm" {
+            "管理端 LLM"
+          } else {
+            "通知 LLM"
+          }) +
+          " 测试被服务、权限或 provider 配置拒绝",
         },
       )
     ErrorLogLoaded(body) => {
@@ -21299,6 +21369,16 @@ fn ocr_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         "测试连接（干运行）",
       ),
       button(
+        class="erp-secondary-btn",
+        on_click=emit(TestLlmProvider),
+        "测试 LLM（干运行）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TestNotifyLlmProvider),
+        "测试通知 LLM（干运行）",
+      ),
+      button(
         class="erp-primary-btn",
         on_click=emit(SaveOcrConfig),
         "保存配置（待授权）",
@@ -21376,6 +21456,11 @@ fn ocr_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           provider_rows,
         ),
       ),
+      div(class="erp-runtime-banner", [
+        strong("AI provider 命令门"),
+        span(" · " + model.provider_test_note),
+        span(" · OCR/LLM 均不调用外部 provider，不返回密钥"),
+      ]),
       table_panel(
         "最近识别任务",
         if model.ocr_loaded {
