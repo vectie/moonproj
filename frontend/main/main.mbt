@@ -997,6 +997,7 @@ struct LoanRow {
   apply_date : String
   pay_unit : String
   source_kind : String
+  offsets : Array[Array[String]]
 }
 
 ///|
@@ -8151,6 +8152,9 @@ fn loan_from_json(value : Json) -> LoanRow? {
         apply_date: json_object_text(fields, "apply_date", ""),
         pay_unit: json_object_text(fields, "pay_unit", ""),
         source_kind: json_object_text(fields, "source_kind", "imported"),
+        offsets: loan_offset_rows_from_json(
+          fields.get("offsets").unwrap_or(Json::array([])),
+        ),
       })
     _ => None
   }
@@ -8166,6 +8170,29 @@ fn loan_rows_from_body(body : String) -> Array[LoanRow] {
         match loan_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn loan_offset_rows_from_json(value : Json) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  match value {
+    Json::Array(values) =>
+      for value in values {
+        match value {
+          Json::Object(fields) =>
+            rows.push([
+              json_object_text(fields, "offset_date", "—"),
+              json_object_text(fields, "offset_amount", "0"),
+              json_object_text(fields, "remark", "—"),
+              json_object_text(fields, "operator_name", "—"),
+              json_object_text(fields, "source_kind", "imported"),
+            ])
+          _ => ()
         }
       }
     _ => ()
@@ -34163,6 +34190,10 @@ fn loan_editor_view(
     Some(row) => row.remain_amount
     None => "0"
   }
+  let offset_rows = match source_row {
+    Some(row) => row.offsets
+    None => []
+  }
   let actions : Array[@html.Html] = [
     nav_button(emit, "/loans", "erp-ghost-btn", "‹ 返回列表"),
   ]
@@ -34442,6 +34473,26 @@ fn loan_editor_view(
             "提交冲账候选后只更新 PostgreSQL 借款投影，不执行现金、会计或税务处理",
           ),
         ]
+      } else {
+        @html.nothing
+      },
+      if detail {
+        table_panel(
+          "冲账记录",
+          "PostgreSQL loan_offset · imported/command 来源保持可见",
+          data_table(
+            ["冲账日期", "金额", "备注", "操作人", "来源"],
+            if offset_rows.length() == 0 {
+              [
+                [
+                  "—", "—", "当前借款没有冲账记录", "—", "源表为空",
+                ],
+              ]
+            } else {
+              offset_rows
+            },
+          ),
+        )
       } else {
         @html.nothing
       },
