@@ -73,6 +73,18 @@ test "native gateway validates identifiers and path boundaries" {
       "/api/company/source/investment/projects/proj-0001/excel-imports",
     ),
   )
+  assert_true(
+    command_path_allowed(
+      @http.Put,
+      "/api/company/investment/projects/proj-0001/subject-mappings",
+    ),
+  )
+  assert_true(
+    command_path_allowed(
+      @http.Put,
+      "/api/company/source/investment/projects/proj-0001/subject-mappings",
+    ),
+  )
 }
 
 ///|

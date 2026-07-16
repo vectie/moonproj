@@ -192,6 +192,15 @@ test "$status" = 200
   '.success == true and .data.provider == "native-deterministic" and .data.revenue == 18500 and .data.netProfit == 2890 and .provider_execution == false and .persisted == false and .authorizing == false' \
   "$TMP_DIR/investment-explain.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/investment-subject-mappings.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"gateway-investment-subject-mappings-smoke","dryRun":true,"items":[{"group":"revenue","subjectCode":"INV-REVENUE","subjectName":"项目销售收入"}]}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/investment/projects/proj-0001/subject-mappings")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .data.dryRun == true and .data.wouldUpdate == 1 and .persisted == false and .provider_execution == false and .authorizing == false' \
+  "$TMP_DIR/investment-subject-mappings.json" >/dev/null
+
 status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/plan-ai-suggest.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   --data '{"projType":"住宅","scale":"中型","region":"全国","beginDate":"2026-08-01"}' \

@@ -381,7 +381,13 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/cost/milestones/", path) ||
       path_with_identifier("/api/company/source/cost/dynamic-cost/", path) ||
       path_with_identifier("/api/company/source/mdm/projects/", path) ||
-      path_with_identifier("/api/company/source/auth/prefs/", path)
+      path_with_identifier("/api/company/source/auth/prefs/", path) ||
+      path_with_identifier_suffix(
+        "/api/company/investment/projects/", "/subject-mappings", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/investment/projects/", "/subject-mappings", path,
+      )
     @http.Patch =>
       path_with_identifier("/api/company/source/srm/providers/", path) ||
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||

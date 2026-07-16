@@ -923,6 +923,7 @@ struct Model {
   investment_explain_note : String
   investment_explain_text : String
   investment_upload_note : String
+  investment_mapping_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
   audit_action_rows : Array[AuditActionRow]
@@ -1321,6 +1322,9 @@ enum Msg {
   RequestInvestmentExcelUpload
   InvestmentExcelUploadFinished(String)
   InvestmentExcelUploadFailed
+  RequestInvestmentSubjectMappings
+  InvestmentSubjectMappingsFinished(String)
+  InvestmentSubjectMappingsFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
@@ -1669,6 +1673,7 @@ fn initial_model() -> Model {
     investment_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     investment_explain_text: "等待投资解释候选",
     investment_upload_note: "Excel 工作簿上传候选尚未运行 · 二进制解析保持关闭",
+    investment_mapping_note: "科目映射候选尚未运行 · 投资主数据保持只读",
     audit_loaded: false,
     audit_rows: [],
     audit_action_rows: [],
@@ -6237,6 +6242,20 @@ fn issue_investment_excel_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_investment_subject_mappings(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.put("/api/company/investment/projects/proj-0001/subject-mappings")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-investment-subject-mappings-v1\",\"dryRun\":true,\"items\":[{\"group\":\"revenue\",\"subjectCode\":\"INV-REVENUE\",\"subjectName\":\"项目销售收入\"}]}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentSubjectMappingsFinished(body))
+      Err(_) => emit(InvestmentSubjectMappingsFailed)
+    }
+  })
+}
+
+///|
 fn load_audit_logs(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/audit/logs?limit=100").expect_text(result => {
     match result {
@@ -9827,6 +9846,36 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           investment_upload_note: "Excel 上传候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestInvestmentSubjectMappings =>
+      (
+        issue_investment_subject_mappings(emit),
+        {
+          ..model,
+          investment_mapping_note: "正在检查科目映射边界 · 不写入投资主数据、不触发估值…",
+        },
+      )
+    InvestmentSubjectMappingsFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_mapping_note: if body.contains("\"wouldUpdate\"") {
+            "科目映射候选已返回 · 仅 dry-run 预览 · 未写入投资主数据"
+          } else if body.contains("\"code\":46003") {
+            "科目映射候选已验证 · 需要投资负责人确认 · 未写入"
+          } else {
+            "科目映射候选响应已返回 · 未写入投资主数据"
+          },
+        },
+      )
+    InvestmentSubjectMappingsFailed =>
+      (
+        none,
+        {
+          ..model,
+          investment_mapping_note: "科目映射候选服务不可用或被网关拒绝",
         },
       )
     AuditLoaded(body) => {
@@ -15422,6 +15471,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(RequestInvestmentExcelUpload),
         "检查 Excel 上传（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentSubjectMappings),
+        "检查科目映射（待授权）",
+      ),
     ],
     div <| [
       stats,
@@ -15435,6 +15489,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div(class="erp-runtime-banner", [
         strong("Excel 上传候选"),
         span(" · " + model.investment_upload_note),
+        span(" · 项目 proj-0001"),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("科目映射候选"),
+        span(" · " + model.investment_mapping_note),
         span(" · 项目 proj-0001"),
       ]),
       table_panel(
