@@ -859,6 +859,16 @@ struct CbsVersionRow {
 }
 
 ///|
+struct CbsR0Row {
+  ref_id : String
+  name : String
+  amount : String
+  r_code : String
+  l3_code : String
+  selected_l3 : String
+}
+
+///|
 struct FundPlanRow {
   plan_guid : String
   proj_guid : String
@@ -1570,6 +1580,7 @@ struct Model {
   cbs_tab : String
   cbs_plan_version : String
   cbs_version_rows : Array[CbsVersionRow]
+  cbs_r0_rows : Array[CbsR0Row]
   cbs_form_open : String
   cbs_new_version_name : String
   cbs_clone_base : String
@@ -2239,6 +2250,8 @@ enum Msg {
   CbsVersionsLoadFailed
   CbsR0Loaded(String)
   CbsR0LoadFailed
+  InputCbsR0L3(String, String)
+  ResolveCbsR0(String)
   SelectCbsProject(String)
   SelectCbsVersion(String)
   OpenCbsForm(String)
@@ -2974,6 +2987,7 @@ fn initial_model() -> Model {
     cbs_tab: "dict",
     cbs_plan_version: "baseline",
     cbs_version_rows: [],
+    cbs_r0_rows: [],
     cbs_form_open: "",
     cbs_new_version_name: "调整版",
     cbs_clone_base: "baseline",
@@ -6329,16 +6343,32 @@ fn cbs_versions_from_body(
 }
 
 ///|
-fn cbs_r0_from_body(body : String) -> (Bool, String) {
+fn cbs_r0_from_body(body : String) -> (Bool, Array[CbsR0Row]) {
+  let rows : Array[CbsR0Row] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
     Json::Object(fields) =>
       match fields.get("data") {
-        Some(Json::Object(data)) =>
-          (true, json_array_field(data, "items").length().to_string())
-        _ => (false, "0")
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "items") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  ref_id: json_object_text(row, "refId", ""),
+                  name: json_object_text(row, "name", ""),
+                  amount: json_object_text(row, "amount", "0"),
+                  r_code: json_object_text(row, "rCode", "R0"),
+                  l3_code: json_object_text(row, "l3Code", ""),
+                  selected_l3: "",
+                })
+              _ => ()
+            }
+          }
+          (true, rows)
+        }
+        _ => (false, rows)
       }
-    _ => (false, "0")
+    _ => (false, rows)
   }
 }
 
@@ -9605,11 +9635,35 @@ fn issue_cbs_command(
 }
 
 ///|
-fn load_cbs_r0(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/cbs/r0/queue?projGuid=proj-0001").expect_text(result => {
+fn load_cbs_r0_for(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/cbs/r0/queue?projGuid=" + project_id).expect_text(result => {
     match result {
       Ok(body) => emit(CbsR0Loaded(body))
       Err(_) => emit(CbsR0LoadFailed)
+    }
+  })
+}
+
+///|
+fn issue_cbs_r0_resolve(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  row : CbsR0Row,
+) -> Cmd {
+  let body = Json::object({
+    "idempotency_key": Json::string("rabbita-cbs-r0-" + import_nonce()),
+    "refKind": Json::string("contract"),
+    "refId": Json::string(row.ref_id),
+    "l3Code": Json::string(row.selected_l3),
+    "projGuid": Json::string(model.cbs_project_id),
+    "actor_id": Json::string(model.user_code),
+  }).stringify()
+  @http.post("/api/company/cbs/r0/resolve")
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(CbsCommandFinished(body))
+      Err(_) => emit(CbsCommandFailed)
     }
   })
 }
@@ -12824,6 +12878,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           load_projects(emit),
           load_cbs_versions(emit, model.cbs_project_id),
           load_cbs_for(emit, model.cbs_project_id, model.cbs_plan_version),
+          load_cbs_r0_for(emit, model.cbs_project_id),
         ])
       } else if path == "/fund/plan" {
         @cmd.batch([
@@ -17396,6 +17451,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         @cmd.batch([
           load_cbs_versions(emit, model.cbs_project_id),
           load_cbs_for(emit, model.cbs_project_id, model.cbs_plan_version),
+          load_cbs_r0_for(emit, model.cbs_project_id),
         ]),
         {
           ..model,
@@ -17420,7 +17476,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
       (
         if loaded {
-          load_cbs_r0(emit)
+          load_cbs_r0_for(emit, model.cbs_project_id)
         } else {
           none
         },
@@ -17445,10 +17501,58 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     CbsR0Loaded(body) => {
-      let (loaded, count) = cbs_r0_from_body(body)
-      (none, { ..model, cbs_r0_count: if loaded { count } else { "0" } })
+      let (loaded, rows) = cbs_r0_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          cbs_r0_rows: rows,
+          cbs_r0_count: if loaded {
+            rows.length().to_string()
+          } else {
+            "0"
+          },
+        },
+      )
     }
-    CbsR0LoadFailed => (none, { ..model, cbs_r0_count: "0" })
+    CbsR0LoadFailed => (none, { ..model, cbs_r0_rows: [], cbs_r0_count: "0" })
+    InputCbsR0L3(ref_id, value) =>
+      (
+        none,
+        {
+          ..model,
+          cbs_r0_rows: model.cbs_r0_rows.map(row => {
+            if row.ref_id == ref_id {
+              { ..row, selected_l3: value }
+            } else {
+              row
+            }
+          }),
+        },
+      )
+    ResolveCbsR0(ref_id) => {
+      let mut selected : CbsR0Row? = None
+      for row in model.cbs_r0_rows {
+        if row.ref_id == ref_id {
+          selected = Some(row)
+        }
+      }
+      match selected {
+        Some(row) if row.selected_l3 != "" =>
+          (
+            issue_cbs_r0_resolve(emit, model, row),
+            { ..model, cbs_command_note: "正在提交 R0 CBS 归类候选…" },
+          )
+        _ =>
+          (
+            none,
+            {
+              ..model,
+              cbs_command_note: "请先在 R0 行输入 CBS 三级编码",
+            },
+          )
+      }
+    }
     FundLoaded(body) => {
       let (loaded, rows, missing_table_count) = fund_from_body(body)
       (
@@ -28641,6 +28745,65 @@ fn cbs_dict_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn cbs_r0_runtime_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.cbs_r0_rows {
+    rows.push(
+      tr <| [
+        td(row.ref_id),
+        td(row.name),
+        td(row.amount),
+        td(row.r_code),
+        td(row.l3_code),
+        td(
+          input(
+            input_type=@html.InputType::Text,
+            value=row.selected_l3,
+            placeholder="03-01.01",
+            class="erp-form-input",
+            on_input=emit.map(value => InputCbsR0L3(row.ref_id, value)),
+          ),
+        ),
+        td(
+          button(
+            class="erp-link-btn is-success",
+            disabled=row.selected_l3.is_empty(),
+            on_click=emit(ResolveCbsR0(row.ref_id)),
+            "归类候选",
+          ),
+        ),
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("R0 桶已清空"),
+        td("0"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+      ],
+    )
+  }
+  table_panel(
+    "R0 待归类队列 (" + model.cbs_r0_count + ")",
+    "没有 r_code 的合同 · 归类只写入本地解析投影，不修改导入合同",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "合同 GUID", "合同名称", "金额", "当前 R", "当前 L3", "目标 CBS L3",
+          "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
 fn cbs_view(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -28661,6 +28824,8 @@ fn cbs_view(
     cbs_versions_runtime_table(emit, model)
   } else if tab == "dict" {
     cbs_dict_runtime_table(model)
+  } else if tab == "r0" {
+    cbs_r0_runtime_table(emit, model)
   } else {
     cbs_runtime_table(model)
   }
