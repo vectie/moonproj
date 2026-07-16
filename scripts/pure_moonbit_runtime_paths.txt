@@ -34,6 +34,8 @@ cmd/sqlite_accounting_link_apply
 scripts/company_sqlite_accounting_link_apply.sh
 cmd/sqlite_accounting_link_parity
 scripts/company_sqlite_accounting_link_parity.sh
+cmd/sqlite_accounting_reconciliation
+scripts/company_sqlite_accounting_reconciliation.sh
 scripts/company_postgres_read_model.sh
 scripts/company_postgres_read_model_server.sh
 scripts/company_postgres_service.sh

@@ -167,7 +167,7 @@ if [ -n "$MAPPING_PATH" ]; then
     "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_REPLAY"
     echo "accounting_link_replay=$ACCOUNTING_REPLAY"
     ACCOUNTING_RECONCILIATION="$WORK_DIR/accounting-reconciliation.json"
-    "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+    "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.sh" \
       "$DOMAIN_PROMOTION" "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT" "$TARGET_DB" "$ACCOUNTING_RECONCILIATION"
     echo "accounting_reconciliation=$ACCOUNTING_RECONCILIATION"
     if [ -n "$ACCOUNTING_POSTING_MAPPING" ]; then
@@ -441,7 +441,7 @@ if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ADVANCE_OFFSET_ACCOUNTING_REPLAY"
   echo "advance_offset_accounting_replay=$ADVANCE_OFFSET_ACCOUNTING_REPLAY"
   ADVANCE_OFFSET_RECONCILIATION="$WORK_DIR/advance-offset-accounting-reconciliation.json"
-  "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+  "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.sh" \
     "$ADVANCE_OFFSET_PROMOTION" "$ADVANCE_OFFSET_ACCOUNTING_PLAN" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT" "$TARGET_DB" "$ADVANCE_OFFSET_RECONCILIATION"
   echo "advance_offset_accounting_reconciliation=$ADVANCE_OFFSET_RECONCILIATION"
 fi
@@ -466,7 +466,7 @@ if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
   "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$PAYMENT_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$PAYMENT_ACCOUNTING_REPLAY"
   echo "payment_accounting_replay=$PAYMENT_ACCOUNTING_REPLAY"
   PAYMENT_RECONCILIATION="$WORK_DIR/payment-accounting-reconciliation.json"
-  "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+  "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.sh" \
     "$PAYMENT_PROMOTION" "$PAYMENT_ACCOUNTING_PLAN" "$PAYMENT_ACCOUNTING_RECEIPT" "$TARGET_DB" "$PAYMENT_RECONCILIATION"
   echo "payment_accounting_reconciliation=$PAYMENT_RECONCILIATION"
 fi
@@ -610,7 +610,7 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
       "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_ACCOUNTING_REPLAY"
     echo "delivery_recognition_accounting_replay=$DELIVERY_RECOGNITION_ACCOUNTING_REPLAY"
     DELIVERY_RECOGNITION_RECONCILIATION="$WORK_DIR/delivery-recognition-accounting-reconciliation.json"
-    "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+    "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.sh" \
       "$DELIVERY_RECOGNITION_RECEIPT" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_PLAN" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" \

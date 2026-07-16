@@ -2243,6 +2243,12 @@ Execute the remainder in this order:
     receipt-to-row event/source/journal/principal identity and emit the
     historical parity envelope. SQLite accounting cohorts use the native
     checker; the Python checker remains frozen comparison evidence.
+3a.42. **Native SQLite accounting reconciliation adapter (2026-07-16).**
+    `cmd/sqlite_accounting_reconciliation` and its shell wrapper now preserve
+    the source-to-journal reconciliation contract: domain/plan/receipt
+    validation, principal/amount/currency continuity, durable SQLite identity,
+    integrity, and the `reconciled` report. The Python reconciliation bridge
+    remains frozen comparison evidence.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

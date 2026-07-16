@@ -40,7 +40,7 @@ moon run --target native cmd/accounting_link -- \
 "$SCRIPT_DIR/company_sqlite_accounting_link_parity.sh" \
   "$WORK_DIR/accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-parity.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_reconciliation.sh" \
   "$WORK_DIR/expense-advance-receipt.json" \
   "$WORK_DIR/accounting-link-plan.json" \
   "$WORK_DIR/accounting-link-receipt.json" "$SQLITE_DATABASE" \
