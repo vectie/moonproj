@@ -738,6 +738,27 @@ struct FundPlanRow {
 }
 
 ///|
+struct FundGapRow {
+  period : String
+  plan_in : String
+  plan_out : String
+  net : String
+  cum_net : String
+  gap : String
+}
+
+///|
+struct FundDispatchRow {
+  dispatch_code : String
+  dispatch_date : String
+  from_proj : String
+  to_proj : String
+  amount : String
+  reason : String
+  state : String
+}
+
+///|
 struct WarningRow {
   warning_guid : String
   rule_code : String
@@ -1301,9 +1322,14 @@ struct Model {
   cbs_missing_table_count : String
   cbs_note : String
   fund_loaded : Bool
+  fund_project_id : String
+  fund_tab : String
   fund_rows : Array[FundPlanRow]
+  fund_gap_rows : Array[FundGapRow]
+  fund_dispatch_rows : Array[FundDispatchRow]
   fund_gap_series_count : String
   fund_dispatch_count : String
+  fund_missing_table_count : String
   fund_note : String
   fund_plan_id : String
   fund_dispatch_id : String
@@ -1858,6 +1884,8 @@ enum Msg {
   FundGapLoadFailed
   FundDispatchLoaded(String)
   FundDispatchLoadFailed
+  SelectFundProject(String)
+  SelectFundTab(String)
   CreateFundPlan
   UpdateFundPlan
   DeleteFundPlan
@@ -2451,9 +2479,14 @@ fn initial_model() -> Model {
     cbs_missing_table_count: "0",
     cbs_note: "CBS 读模型尚未加载 · 使用设计快照",
     fund_loaded: false,
+    fund_project_id: "proj-0001",
+    fund_tab: "plans",
     fund_rows: [],
+    fund_gap_rows: [],
+    fund_dispatch_rows: [],
     fund_gap_series_count: "0",
     fund_dispatch_count: "0",
+    fund_missing_table_count: "0",
     fund_note: "资金计划读模型尚未加载 · 使用设计快照",
     fund_plan_id: "",
     fund_dispatch_id: "",
@@ -5294,17 +5327,75 @@ fn fund_from_body(body : String) -> (Bool, Array[FundPlanRow], String) {
 }
 
 ///|
-fn fund_count_from_body(body : String, field : String) -> (Bool, String) {
+
+///|
+fn fund_gap_from_body(body : String) -> (Bool, Array[FundGapRow], String) {
+  let rows : Array[FundGapRow] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
-    Json::Object(fields) =>
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
       match fields.get("data") {
-        Some(Json::Object(data)) =>
-          (true, json_array_field(data, field).length().to_string())
-        Some(Json::Array(items)) => (true, items.length().to_string())
-        _ => (false, "0")
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "series") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  period: json_object_text(row, "period", "—"),
+                  plan_in: json_object_text(row, "planIn", "0"),
+                  plan_out: json_object_text(row, "planOut", "0"),
+                  net: json_object_text(row, "net", "0"),
+                  cum_net: json_object_text(row, "cumNet", "0"),
+                  gap: json_object_text(row, "gap", "0"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
       }
-    _ => (false, "0")
+    }
+    _ => (false, rows, "0")
+  }
+}
+
+///|
+fn fund_dispatch_rows_from_body(
+  body : String,
+) -> (Bool, Array[FundDispatchRow], String) {
+  let rows : Array[FundDispatchRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let missing = json_array_field(fields, "missing_or_empty_source_tables")
+        .length()
+        .to_string()
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  dispatch_code: json_object_text(row, "dispatch_code", "—"),
+                  dispatch_date: json_object_text(row, "dispatch_date", "—"),
+                  from_proj: json_object_text(row, "from_proj", "—"),
+                  to_proj: json_object_text(row, "to_proj", "—"),
+                  amount: json_object_text(row, "amount", "0"),
+                  reason: json_object_text(row, "reason", "—"),
+                  state: json_object_text(row, "state", "pending"),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, missing)
+        }
+        _ => (false, rows, missing)
+      }
+    }
+    _ => (false, rows, "0")
   }
 }
 
@@ -8216,8 +8307,8 @@ fn load_cbs_r0(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_fund(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/fund/plans?projGuid=proj-0001").expect_text(result => {
+fn load_fund_for(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/fund/plans?projGuid=" + project_id).expect_text(result => {
     match result {
       Ok(body) => emit(FundLoaded(body))
       Err(_) => emit(FundLoadFailed)
@@ -8226,13 +8317,14 @@ fn load_fund(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_fund_gap(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/fund/gap-analysis?projGuid=proj-0001").expect_text(result => {
-    match result {
-      Ok(body) => emit(FundGapLoaded(body))
-      Err(_) => emit(FundGapLoadFailed)
-    }
-  })
+fn load_fund_gap_for(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/fund/gap-analysis?projGuid=" + project_id).expect_text(result => {
+      match result {
+        Ok(body) => emit(FundGapLoaded(body))
+        Err(_) => emit(FundGapLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
@@ -10835,7 +10927,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         path == "/cbs/approval-config" {
         load_cbs(emit)
       } else if path == "/fund/plan" {
-        load_fund(emit)
+        @cmd.batch([
+          load_projects(emit),
+          load_fund_for(emit, model.fund_project_id),
+        ])
       } else if path == "/warning" || path == "/warning-rules" {
         load_warnings(emit)
       } else if path == "/attachments" {
@@ -14196,7 +14291,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let (loaded, rows, missing_table_count) = fund_from_body(body)
       (
         if loaded {
-          load_fund_gap(emit)
+          load_fund_gap_for(emit, model.fund_project_id)
         } else {
           none
         },
@@ -14204,6 +14299,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           fund_loaded: loaded,
           fund_rows: rows,
+          fund_missing_table_count: missing_table_count,
           fund_note: if loaded {
             "已加载 PostgreSQL 资金计划源读模型 · 计划/调度保持只读 · 空源表 " +
             missing_table_count
@@ -14224,22 +14320,57 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     FundGapLoaded(body) => {
-      let (loaded, count) = fund_count_from_body(body, "series")
+      let (loaded, rows, missing) = fund_gap_from_body(body)
       (
         if loaded {
           load_fund_dispatches(emit)
         } else {
           none
         },
-        { ..model, fund_gap_series_count: if loaded { count } else { "0" } },
+        {
+          ..model,
+          fund_gap_rows: rows,
+          fund_gap_series_count: if loaded {
+            rows.length().to_string()
+          } else {
+            "0"
+          },
+          fund_missing_table_count: missing,
+        },
       )
     }
     FundGapLoadFailed => (none, { ..model, fund_gap_series_count: "0" })
     FundDispatchLoaded(body) => {
-      let (loaded, count) = fund_count_from_body(body, "")
-      (none, { ..model, fund_dispatch_count: if loaded { count } else { "0" } })
+      let (loaded, rows, missing) = fund_dispatch_rows_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          fund_dispatch_rows: rows,
+          fund_dispatch_count: if loaded {
+            rows.length().to_string()
+          } else {
+            "0"
+          },
+          fund_missing_table_count: missing,
+        },
+      )
     }
     FundDispatchLoadFailed => (none, { ..model, fund_dispatch_count: "0" })
+    SelectFundProject(project_id) =>
+      (
+        load_fund_for(emit, project_id),
+        {
+          ..model,
+          fund_project_id: project_id,
+          fund_loaded: false,
+          fund_rows: [],
+          fund_gap_rows: [],
+          fund_dispatch_rows: [],
+          fund_note: "正在读取项目资金计划…",
+        },
+      )
+    SelectFundTab(tab) => (none, { ..model, fund_tab: tab })
     CreateFundPlan =>
       if model.fund_plan_id != "" {
         (none, model)
@@ -14328,7 +14459,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       } else {
         (
-          load_fund(emit),
+          load_fund_for(emit, model.fund_project_id),
           {
             ..model,
             fund_plan_id: if is_plan && next_state == "deleted" {
@@ -23140,14 +23271,67 @@ fn cbs_view(model : Model, path : String) -> @html.Html {
 
 ///|
 fn fund_runtime_table(model : Model) -> @html.Html {
-  let rows : Array[Array[String]] = []
-  if model.fund_loaded {
-    if model.fund_rows.length() == 0 {
-      rows.push([
-        "—", "—", "本次导出没有资金计划源记录", "—", "—", "—",
-        "imported_or_empty",
-      ])
+  if model.fund_tab == "gap" {
+    let rows : Array[Array[String]] = []
+    if model.fund_gap_rows.length() == 0 {
+      rows.push(["—", "0", "0", "0", "0", "0"])
     } else {
+      for row in model.fund_gap_rows {
+        rows.push([
+          row.period,
+          row.plan_in,
+          row.plan_out,
+          row.net,
+          row.cum_net,
+          row.gap,
+        ])
+      }
+    }
+    table_panel(
+      "缺口分析 (" + model.fund_gap_series_count + ")",
+      "项目 " +
+      model.fund_project_id +
+      " · 空源表 " +
+      model.fund_missing_table_count,
+      data_table(
+        [
+          "期间", "计划收入(万)", "计划支出(万)", "本期净流(万)",
+          "累计净流(万)", "缺口(万)",
+        ],
+        rows,
+      ),
+    )
+  } else if model.fund_tab == "dispatches" {
+    let rows : Array[Array[String]] = []
+    if model.fund_dispatch_rows.length() == 0 {
+      rows.push(["—", "—", "—", "—", "0", "无源记录", "—"])
+    } else {
+      for row in model.fund_dispatch_rows {
+        rows.push([
+          row.dispatch_code,
+          row.dispatch_date,
+          row.from_proj,
+          row.to_proj,
+          row.amount,
+          row.reason,
+          row.state,
+        ])
+      }
+    }
+    table_panel(
+      "资金调度 (" + model.fund_dispatch_count + ")",
+      "调度记录源读模型 · 空源表 " + model.fund_missing_table_count,
+      data_table(
+        [
+          "编号", "调度日", "来源项目", "目标项目", "金额(万)", "原因",
+          "状态",
+        ],
+        rows,
+      ),
+    )
+  } else {
+    let mut rows : Array[Array[String]] = []
+    if model.fund_loaded && model.fund_rows.length() > 0 {
       for row in model.fund_rows {
         rows.push([
           row.plan_period,
@@ -23159,38 +23343,29 @@ fn fund_runtime_table(model : Model) -> @html.Html {
           row.state,
         ])
       }
+    } else if model.fund_loaded {
+      rows.push([
+        "—", "—", "本次导出没有资金计划源记录", "—", "0", "0",
+        "源表为空",
+      ])
+    } else {
+      rows = [
+        [
+          "2026-08", "收入", "回款", "成都和锦里", "2460", "0", "设计快照",
+        ],
+        [
+          "2026-08", "支出", "工程款", "成都和锦里", "2180", "0", "设计快照",
+        ],
+      ]
     }
     table_panel(
-      "PostgreSQL 资金计划 (" + model.fund_rows.length().to_string() + ")",
-      model.fund_note +
-      " · 缺口期间 " +
-      model.fund_gap_series_count +
-      " · 调度 " +
-      model.fund_dispatch_count,
+      "收支计划 (" + model.fund_rows.length().to_string() + ")",
+      model.fund_note + " · 项目 " + model.fund_project_id,
       data_table(
-        ["期间", "方向", "类别", "项目", "计划", "实际", "状态"],
+        [
+          "期间", "方向", "类别", "项目", "计划(万)", "实际(万)", "状态",
+        ],
         rows,
-      ),
-    )
-  } else {
-    table_panel(
-      "月度资金计划",
-      "设计快照 · 等待 PostgreSQL 源读模型",
-      data_table(
-        [
-          "项目 / 公司", "期初余额", "计划流入", "计划流出", "期末余额",
-          "缺口", "负责人", "状态",
-        ],
-        [
-          [
-            "成都和锦里", "¥1,820 万", "¥2,460 万", "¥2,180 万", "¥2,100 万",
-            "—", "陈志强", "正常",
-          ],
-          [
-            "重庆南山居", "¥860 万", "¥1,120 万", "¥1,360 万", "¥620 万",
-            "¥180 万", "刘松", "关注",
-          ],
-        ],
       ),
     )
   }
@@ -23262,6 +23437,26 @@ fn fund_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         span(" · " + model.fund_note),
         span(" · " + model.fund_command_note),
       ]),
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目:"),
+        if model.project_rows.length() == 0 {
+          span(class="erp-info-tag", model.fund_project_id)
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.fund_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectFundProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
       div(class="erp-stat-grid") <| [
         metric(
           "本月可用资金",
@@ -23296,6 +23491,47 @@ fn fund_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
             "预计 8 月出现"
           },
           "metric-green",
+        ),
+        metric(
+          "缺口期间",
+          model.fund_gap_series_count,
+          "gap-analysis 源读模型",
+          "metric-orange",
+        ),
+        metric(
+          "资金调度",
+          model.fund_dispatch_count,
+          "dispatches 源读模型",
+          "metric-purple",
+        ),
+      ],
+      div(class="erp-tabs") <| [
+        button(
+          class=if model.fund_tab == "plans" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectFundTab("plans")),
+          "收支计划",
+        ),
+        button(
+          class=if model.fund_tab == "gap" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectFundTab("gap")),
+          "缺口分析",
+        ),
+        button(
+          class=if model.fund_tab == "dispatches" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectFundTab("dispatches")),
+          "资金调度",
         ),
       ],
       fund_runtime_table(model),

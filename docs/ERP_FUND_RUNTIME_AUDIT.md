@@ -17,6 +17,14 @@ Imported rows are read-only. The controlled export has no `fund_plan` or
 `fund_dispatch` rows, so successful reads show an explicit empty-source state;
 designer liquidity figures are retained only as a transport-failure fallback.
 
+Rabbita `/fund/plan` now loads the project master list alongside all three
+fund families, supports project switching, and mirrors the source tabs for
+收支计划, 缺口分析, and 资金调度. The live gap series and dispatch rows are
+rendered from PostgreSQL rather than collapsed to counts; the five KPI cards
+show the corresponding source counts. The existing command buttons remain
+bounded candidate actions with fixed demo payloads, so the Vue plan/dispatch
+dialogs and row-level edit/delete/approve controls are still open.
+
 The local command boundary is deliberately a planning projection, not a
 treasury integration:
 
