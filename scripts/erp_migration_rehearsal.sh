@@ -820,35 +820,35 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + 2))
   fi
   if [ -n "$OPENING_CONTROL_MAPPING" ]; then
-    OPENING_CONTROL_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["controls"]))' "$WORK_DIR/opening-control-plan.json")
+    OPENING_CONTROL_COUNT=$(jq '.controls | length' "$WORK_DIR/opening-control-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + OPENING_CONTROL_COUNT))
   fi
   if [ -n "$TAX_FILING_MAPPING" ]; then
-    TAX_FILING_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["filings"]))' "$WORK_DIR/tax-filing-plan.json")
+    TAX_FILING_COUNT=$(jq '.filings | length' "$WORK_DIR/tax-filing-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + TAX_FILING_COUNT))
   fi
   if [ -n "$BANK_STATEMENT_MAPPING" ]; then
-    BANK_STATEMENT_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["statements"]))' "$WORK_DIR/bank-statement-plan.json")
+    BANK_STATEMENT_COUNT=$(jq '.statements | length' "$WORK_DIR/bank-statement-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + BANK_STATEMENT_COUNT))
   fi
   if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
-    FINANCING_FACILITY_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["facilities"]))' "$WORK_DIR/financing-facility-plan.json")
+    FINANCING_FACILITY_COUNT=$(jq '.facilities | length' "$WORK_DIR/financing-facility-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + FINANCING_FACILITY_COUNT))
   fi
   if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
-    ASSET_LIFECYCLE_COUNT=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["assets"]))' "$WORK_DIR/asset-lifecycle-plan.json")
+    ASSET_LIFECYCLE_COUNT=$(jq '.assets | length' "$WORK_DIR/asset-lifecycle-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + ASSET_LIFECYCLE_COUNT))
   fi
   if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
-    TREASURY_PLAN_DISPATCH_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["cash_plans"]) + len(p["fund_dispatches"]))' "$WORK_DIR/treasury-plan-dispatch-plan.json")
+    TREASURY_PLAN_DISPATCH_COUNT=$(jq '(.cash_plans | length) + (.fund_dispatches | length)' "$WORK_DIR/treasury-plan-dispatch-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + TREASURY_PLAN_DISPATCH_COUNT))
   fi
   if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
-    INVOICE_SUBLEDGER_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["customer_invoices"]) * 2 + len(p["supplier_payables"]))' "$WORK_DIR/invoice-subledger-plan.json")
+    INVOICE_SUBLEDGER_COUNT=$(jq '(.customer_invoices | length) * 2 + (.supplier_payables | length)' "$WORK_DIR/invoice-subledger-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + INVOICE_SUBLEDGER_COUNT))
   fi
   if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
-    PROCUREMENT_COHORT_COUNT=$(python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); print(len(p["suppliers"]) + len(p["tenders"]) * 2)' "$WORK_DIR/procurement-cohort-plan.json")
+    PROCUREMENT_COHORT_COUNT=$(jq '(.suppliers | length) + (.tenders | length) * 2' "$WORK_DIR/procurement-cohort-plan.json")
     EXPECTED_PROJECTIONS=$((EXPECTED_PROJECTIONS + PROCUREMENT_COHORT_COUNT))
   fi
   if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
