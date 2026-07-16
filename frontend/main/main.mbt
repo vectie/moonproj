@@ -1493,6 +1493,9 @@ enum Msg {
   ResetAdminUserPassword
   RbacUserResetFinished(String)
   RbacUserResetFailed
+  DeleteLocalRole
+  RbacRoleDeleteFinished(String)
+  RbacRoleDeleteFailed
   RbacRolesLoaded(String)
   RbacRolesLoadFailed
   RbacCatalogLoaded(String)
@@ -7235,6 +7238,18 @@ fn issue_rbac_user_reset(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_rbac_role_delete(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.delete(
+    "/api/company/rbac/roles/rabbita-local-role?idempotency_key=rabbita-rbac-role-delete-v1",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacRoleDeleteFinished(body))
+      Err(_) => emit(RbacRoleDeleteFailed)
+    }
+  })
+}
+
+///|
 fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/roles").expect_text(result => {
     match result {
@@ -12329,6 +12344,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (
         none,
         { ..model, users_note: "密码重置服务不可用或被网关拒绝" },
+      )
+    DeleteLocalRole =>
+      (
+        issue_rbac_role_delete(emit),
+        {
+          ..model,
+          rbac_roles_note: "正在删除本地 RBAC 角色候选 · 导入角色不会删除…",
+        },
+      )
+    RbacRoleDeleteFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_rbac_roles(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          rbac_roles_note: if body.contains("\"state\":\"deleted\"") {
+            "本地角色删除候选已写入 PostgreSQL · 导入/system 角色保持只读"
+          } else {
+            "本地角色删除命令已返回 · 请复核保护边界"
+          },
+        },
+      )
+    RbacRoleDeleteFailed =>
+      (
+        none,
+        {
+          ..model,
+          rbac_roles_note: "本地角色删除服务不可用、角色不存在或被网关拒绝",
+        },
       )
     RbacRolesLoaded(body) =>
       (
@@ -20143,6 +20190,11 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-ghost-btn",
         on_click=emit(ResetAdminUserPassword),
         "重置密码（候选）",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(DeleteLocalRole),
+        "删除本地角色（候选）",
       ),
     ],
     div <| [
