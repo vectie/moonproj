@@ -37,8 +37,11 @@ source coverage and `authorizing=false`; provider execution remains disabled.
 - `invoice_in` and `invoice_out` both return zero imported rows for `proj-0001`.
 - The tax-ledger read returns zero monthly rows while preserving its source
   shape.
-- Rabbita `/invoice` chains incoming, outgoing, and tax-ledger reads and shows
-  the source observation alongside the existing designer layout.
+- Rabbita `/invoice` loads projects plus incoming, outgoing, and tax-ledger
+  reads, supports project switching, mirrors the three source tabs, renders
+  live invoice/tax rows, and derives the three headline totals from those
+  rows. The source Vue dialog fields and row-level delete/register controls
+  remain the next browser slice.
 - `scripts/company_postgres_source_read_smoke.sh` verifies all three reads
   without mutating PostgreSQL.
 - `scripts/company_postgres_invoice_smoke.sh` verifies authority validation,

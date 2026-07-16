@@ -80,6 +80,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Workflow command state: `connected_workflow_command_candidate` **5** (start, approve, reject, cosigner, transfer); browser/production identity and operations-owner acceptance remain required.
 - Browser action delta: Rabbita `/marketing` now loads all four PostgreSQL resource families, switches the source project, exposes source-shaped tabs and five live KPI cards, and provides bounded candidate create actions for campaigns, placements, channels, and materials. Vue form fields plus delete/effect controls remain the next browser slice.
 - Browser action delta: Rabbita `/fund/plan` now loads projects plus plans, gap-analysis series, and dispatch rows; project switching and the three source tabs are live. Candidate command buttons remain fixed-payload seams until the Vue dialogs and row-level actions are ported.
+- Browser action delta: Rabbita `/invoice` now loads projects plus incoming/outgoing invoices and the tax ledger, supports project switching, mirrors all three source tabs, and renders live rows and totals. Vue invoice dialogs and row-level mutations remain open.
 
 ## Browser routes
 

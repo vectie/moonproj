@@ -267,6 +267,29 @@ struct SalesRow {
 }
 
 ///|
+struct InvoiceRow {
+  invoice_no : String
+  counterparty : String
+  invoice_date : String
+  total_amount : String
+  tax_amount : String
+  tax_rate : String
+  invoice_type : String
+  state : String
+  source_kind : String
+}
+
+///|
+struct InvoiceTaxRow {
+  period : String
+  total_in : String
+  tax_in : String
+  total_out : String
+  tax_out : String
+  net_tax : String
+}
+
+///|
 struct DeliveryProgressRow {
   progress_id : String
   project_id : String
@@ -1078,6 +1101,11 @@ struct Model {
   sales_revenue_state : String
   sales_revenue_command_note : String
   invoice_source_loaded : Bool
+  invoice_project_id : String
+  invoice_tab : String
+  invoice_in_rows : Array[InvoiceRow]
+  invoice_out_rows : Array[InvoiceRow]
+  invoice_tax_rows : Array[InvoiceTaxRow]
   invoice_source_in_count : String
   invoice_source_out_count : String
   invoice_source_tax_count : String
@@ -1712,6 +1740,8 @@ enum Msg {
   InvoiceSourceOutLoaded(String)
   InvoiceSourceTaxLoaded(String)
   InvoiceSourceLoadFailed
+  SelectInvoiceProject(String)
+  SelectInvoiceTab(String)
   DeliverySourceProgressLoaded(String)
   DeliverySourceOutputsLoaded(String)
   DeliverySourceLoadFailed
@@ -2235,6 +2265,11 @@ fn initial_model() -> Model {
     sales_revenue_state: "new",
     sales_revenue_command_note: "本地回款登记需要销售/财务 authority；不会自动释放现金或过账",
     invoice_source_loaded: false,
+    invoice_project_id: "proj-0001",
+    invoice_tab: "in",
+    invoice_in_rows: [],
+    invoice_out_rows: [],
+    invoice_tax_rows: [],
     invoice_source_in_count: "0",
     invoice_source_out_count: "0",
     invoice_source_tax_count: "0",
@@ -3693,6 +3728,75 @@ fn invoice_tax_row_count_from_body(body : String) -> String {
       }
     _ => "0"
   }
+}
+
+///|
+fn invoice_rows_from_body(
+  body : String,
+  direction : String,
+) -> Array[InvoiceRow] {
+  let rows : Array[InvoiceRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("data") {
+        Some(Json::Array(items)) => items
+        _ => []
+      }
+      for value in values {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              invoice_no: json_object_text(row, "invoiceNo", "—"),
+              counterparty: if direction == "in" {
+                json_object_text(row, "providerName", "—")
+              } else {
+                json_object_text(row, "customerName", "—")
+              },
+              invoice_date: json_object_text(row, "invoiceDate", "—"),
+              total_amount: json_object_text(row, "totalAmount", "0"),
+              tax_amount: json_object_text(row, "taxAmount", "0"),
+              tax_rate: json_object_text(row, "taxRate", "0"),
+              invoice_type: json_object_text(row, "invoiceType", "—"),
+              state: json_object_text(row, "state", "—"),
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn invoice_tax_rows_from_body(body : String) -> Array[InvoiceTaxRow] {
+  let rows : Array[InvoiceTaxRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          for value in json_array_field(data, "rows") {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  period: json_object_text(row, "period", "—"),
+                  total_in: json_object_text(row, "totalIn", "0"),
+                  tax_in: json_object_text(row, "taxIn", "0"),
+                  total_out: json_object_text(row, "totalOut", "0"),
+                  tax_out: json_object_text(row, "taxOut", "0"),
+                  net_tax: json_object_text(row, "netTax", "0"),
+                })
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
 }
 
 ///|
@@ -7388,28 +7492,39 @@ fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
-fn load_invoice_source_in(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/invoice/in?projGuid=proj-0001").expect_text(result => {
-    match result {
-      Ok(body) => emit(InvoiceSourceInLoaded(body))
-      Err(_) => emit(InvoiceSourceLoadFailed)
-    }
-  })
+fn load_invoice_source_in_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/source/invoice/in?projGuid=" + project_id).expect_text(result => {
+      match result {
+        Ok(body) => emit(InvoiceSourceInLoaded(body))
+        Err(_) => emit(InvoiceSourceLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
-fn load_invoice_source_out(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/invoice/out?projGuid=proj-0001").expect_text(result => {
-    match result {
-      Ok(body) => emit(InvoiceSourceOutLoaded(body))
-      Err(_) => emit(InvoiceSourceLoadFailed)
-    }
-  })
+fn load_invoice_source_out_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/source/invoice/out?projGuid=" + project_id).expect_text(result => {
+      match result {
+        Ok(body) => emit(InvoiceSourceOutLoaded(body))
+        Err(_) => emit(InvoiceSourceLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
-fn load_invoice_source_tax(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/invoice/tax-ledger?projGuid=proj-0001").expect_text(result => {
+fn load_invoice_source_tax_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/source/invoice/tax-ledger?projGuid=" + project_id).expect_text(result => {
       match result {
         Ok(body) => emit(InvoiceSourceTaxLoaded(body))
         Err(_) => emit(InvoiceSourceLoadFailed)
@@ -10880,7 +10995,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/sales/revenues" {
         load_sales(emit, "revenues")
       } else if path == "/invoice" {
-        load_invoice_source_in(emit)
+        @cmd.batch([
+          load_projects(emit),
+          load_invoice_source_in_for(emit, model.invoice_project_id),
+        ])
       } else if path == "/ai-stats" {
         load_ai_stats_overview(emit)
       } else if path == "/ai-hub" {
@@ -12537,14 +12655,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     InvoiceSourceInLoaded(body) =>
       (
-        load_invoice_source_out(emit),
+        load_invoice_source_out_for(emit, model.invoice_project_id),
         {
           ..model,
           sales_loaded: true,
           sales_family: "invoices",
           sales_rows: sales_rows_from_body(body),
+          invoice_in_rows: invoice_rows_from_body(body, "in"),
           invoice_source_loaded: false,
-          invoice_source_in_count: sales_rows_from_body(body)
+          invoice_source_in_count: invoice_rows_from_body(body, "in")
           .length()
           .to_string(),
           invoice_source_out_count: "0",
@@ -12557,10 +12676,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let rows = model.sales_rows
       let out_count = append_sales_rows(rows, body)
       (
-        load_invoice_source_tax(emit),
+        load_invoice_source_tax_for(emit, model.invoice_project_id),
         {
           ..model,
           sales_rows: rows,
+          invoice_out_rows: invoice_rows_from_body(body, "out"),
           invoice_source_out_count: out_count.to_string(),
           sales_note: "已加载 PostgreSQL 进项/销项发票源读模型 · 正在读取税务台账",
           invoice_source_note: "进项/销项源已连接 · 导入行只读 · 本地登记需授权 · 正在读取税务台账",
@@ -12573,6 +12693,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           invoice_source_loaded: true,
+          invoice_tax_rows: invoice_tax_rows_from_body(body),
           invoice_source_tax_count: invoice_tax_row_count_from_body(body),
           sales_note: "已加载 PostgreSQL 发票与税务台账源读模型 · 空表保持可见",
           invoice_source_note: "导入行只读 · 本地登记需授权 · 进项 " +
@@ -12596,6 +12717,24 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_note: "发票源读模型不可用 · 使用设计快照",
         },
       )
+    SelectInvoiceProject(project_id) =>
+      (
+        load_invoice_source_in_for(emit, project_id),
+        {
+          ..model,
+          invoice_project_id: project_id,
+          invoice_source_loaded: false,
+          invoice_in_rows: [],
+          invoice_out_rows: [],
+          invoice_tax_rows: [],
+          invoice_source_in_count: "0",
+          invoice_source_out_count: "0",
+          invoice_source_tax_count: "0",
+          sales_rows: [],
+          invoice_source_note: "正在读取项目发票与税务台账…",
+        },
+      )
+    SelectInvoiceTab(tab) => (none, { ..model, invoice_tab: tab })
     DeliverySourceProgressLoaded(body) =>
       (
         load_delivery_source_outputs(emit),
@@ -23540,14 +23679,136 @@ fn fund_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn invoice_view(model : Model) -> @html.Html {
+fn invoice_sum(rows : Array[InvoiceRow], tax : Bool) -> String {
+  let mut total = 0.0
+  for row in rows {
+    let value = if tax { row.tax_amount } else { row.total_amount }
+    let parsed = @json.parse(value) catch { _ => Json::null() }
+    match parsed {
+      Json::Number(number, ..) => total = total + number
+      _ => ()
+    }
+  }
+  total.to_string()
+}
+
+///|
+fn invoice_runtime_table(model : Model, direction : String) -> @html.Html {
+  let source_rows = if direction == "in" {
+    model.invoice_in_rows
+  } else {
+    model.invoice_out_rows
+  }
+  let rows : Array[Array[String]] = []
+  if source_rows.length() == 0 {
+    rows.push(["—", "—", "—", "—", "0", "0", "0", "—", "源表为空"])
+  } else {
+    for row in source_rows {
+      rows.push([
+        row.invoice_no,
+        row.counterparty,
+        row.invoice_date,
+        row.total_amount,
+        row.tax_amount,
+        row.tax_rate,
+        row.invoice_type,
+        row.state,
+        row.source_kind,
+      ])
+    }
+  }
+  table_panel(
+    if direction == "in" {
+      "进项发票（采购）"
+    } else {
+      "销项发票（销售）"
+    },
+    "项目 " +
+    model.invoice_project_id +
+    " · " +
+    source_rows.length().to_string() +
+    " 条 · 导入行只读",
+    data_table(
+      [
+        "发票号",
+        if direction == "in" {
+          "供应商"
+        } else {
+          "客户"
+        },
+        "开票日",
+        "金额(含税)",
+        "税额",
+        "税率",
+        "类型",
+        "状态",
+        "来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn invoice_tax_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.invoice_tax_rows.length() == 0 {
+    rows.push(["—", "0", "0", "0", "0", "0"])
+  } else {
+    for row in model.invoice_tax_rows {
+      rows.push([
+        row.period,
+        row.total_in,
+        row.tax_in,
+        row.total_out,
+        row.tax_out,
+        row.net_tax,
+      ])
+    }
+  }
+  table_panel(
+    "税务台账（月度）",
+    "项目 " +
+    model.invoice_project_id +
+    " · " +
+    model.invoice_source_tax_count +
+    " 行",
+    data_table(
+      [
+        "月份", "进项总额", "进项税额", "销项总额", "销项税额",
+        "应缴增值税（销-进）",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn invoice_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let in_total = if model.invoice_source_loaded {
+    "¥" + invoice_sum(model.invoice_in_rows, false)
+  } else {
+    "¥1,286 万"
+  }
+  let out_total = if model.invoice_source_loaded {
+    "¥" + invoice_sum(model.invoice_out_rows, false)
+  } else {
+    "¥—"
+  }
+  let tax_total = if model.invoice_source_loaded {
+    invoice_sum(model.invoice_out_rows, true)
+  } else {
+    "—"
+  }
   page_shell(
     "发票管理",
     "FINANCE / INVOICE",
     "管理进项、销项发票的识别、验真、关联合同和入账状态。",
-    [button(class="erp-primary-btn", "＋ 录入发票")],
+    [
+      button(class="erp-primary-btn", "＋ 录入进项（待授权）"),
+      button(class="erp-secondary-btn", "＋ 开销项（待授权）"),
+    ],
     div <| [
-      sales_runtime_banner(model, "invoices"),
       div(class="erp-runtime-banner", [
         strong(
           if model.invoice_source_loaded {
@@ -23566,35 +23827,81 @@ fn invoice_view(model : Model) -> @html.Html {
       ]),
       sales_projection_table(model, "invoices"),
       div(class="erp-stat-grid") <| [
-        metric("本月进项", "¥1,286 万", "218 张", "metric-blue"),
-        metric("待验真", "14", "金额 ¥82 万", "metric-blue"),
-        metric("待入账", "36", "已关联合同", "metric-green"),
-      ],
-      filter_bar("发票号码 / 供应商 / 合同编号"),
-      table_panel(
-        "发票列表",
-        "最近上传",
-        data_table(
-          [
-            "发票号码", "发票类型", "供应商", "金额", "税额", "关联合同",
-            "开票日期", "状态",
-          ],
-          [
-            [
-              "04400193 2687", "增值税专票", "中建三局", "¥1,165,138",
-              "¥135,155", "HT-CD-260701", "2026-07-12", "待验真",
-            ],
-            [
-              "04400193 2682", "增值税专票", "众成广告", "¥339,623", "¥19,977",
-              "HT-CQ-260628", "2026-07-11", "已入账",
-            ],
-            [
-              "04400192 9114", "增值税专票", "绿城园林", "¥816,514", "¥94,739",
-              "HT-SY-260615", "2026-07-09", "已验真",
-            ],
-          ],
+        metric(
+          "进项总额",
+          in_total,
+          model.invoice_source_in_count + " 张",
+          "metric-blue",
         ),
-      ),
+        metric(
+          "销项总额",
+          out_total,
+          model.invoice_source_out_count + " 张",
+          "metric-green",
+        ),
+        metric(
+          "应缴增值税",
+          "¥" + tax_total,
+          "税务台账汇总",
+          "metric-orange",
+        ),
+      ],
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目:"),
+        if model.project_rows.length() == 0 {
+          span(class="erp-info-tag", model.invoice_project_id)
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.invoice_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectInvoiceProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
+      div(class="erp-tabs") <| [
+        button(
+          class=if model.invoice_tab == "in" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectInvoiceTab("in")),
+          "进项发票（采购）",
+        ),
+        button(
+          class=if model.invoice_tab == "out" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectInvoiceTab("out")),
+          "销项发票（销售）",
+        ),
+        button(
+          class=if model.invoice_tab == "tax" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectInvoiceTab("tax")),
+          "税务台账（月度）",
+        ),
+      ],
+      if model.invoice_tab == "in" {
+        invoice_runtime_table(model, "in")
+      } else if model.invoice_tab == "out" {
+        invoice_runtime_table(model, "out")
+      } else {
+        invoice_tax_table(model)
+      },
     ],
   )
 }
@@ -28978,7 +29285,7 @@ fn business_view(
       "/cbs/r0-queue" => cbs_view(model, path)
       "/cbs/approval-config" => cbs_view(model, path)
       "/fund/plan" => fund_plan_view(emit, model)
-      "/invoice" => invoice_view(model)
+      "/invoice" => invoice_view(emit, model)
       "/expenses" => expenses_view(emit, model)
       "/expenses/new" => expense_editor_view(emit, model, false)
       "/expenses/EXP-260712-008" => expense_editor_view(emit, model, true)
