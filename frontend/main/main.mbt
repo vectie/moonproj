@@ -1033,6 +1033,7 @@ struct Model {
   notify_digest_count : String
   notify_missing_table_count : String
   notify_note : String
+  notify_email_note : String
   ocr_loaded : Bool
   ocr_provider : String
   ocr_scene : String
@@ -1443,6 +1444,10 @@ enum Msg {
   DispatchNotifyDigest
   NotifyDigestDispatchFinished(String)
   NotifyDigestDispatchFailed
+  TestNotifyEmail
+  RedeliverNotifyEmail
+  NotifyEmailCommandFinished(String, String)
+  NotifyEmailCommandFailed(String)
   NotifyConfigLoaded(String)
   NotifyOutboxLoaded(String)
   NotifyDigestPreviewLoaded(String)
@@ -1874,6 +1879,7 @@ fn initial_model() -> Model {
     notify_digest_count: "0",
     notify_missing_table_count: "0",
     notify_note: "通知配置源读模型尚未加载 · 使用设计快照",
+    notify_email_note: "邮件命令候选尚未执行",
     ocr_loaded: false,
     ocr_provider: "mock",
     ocr_scene: "auto",
@@ -7017,6 +7023,31 @@ fn issue_notify_digest_dispatch(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_notify_email_command(
+  emit : @rabbita.Emit[Msg],
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "test" {
+    "/api/company/source/notify/email-outbox/test"
+  } else {
+    "/api/company/source/notify/email-outbox/EMAIL-RABBITA-LOCAL/redeliver"
+  }
+  let body = if command_type == "test" {
+    "{\"idempotency_key\":\"rabbita-notify-email-test-v1\",\"to\":\"qa@example.com\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-notify-email-redeliver-v1\"}"
+  }
+  @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(value) => emit(NotifyEmailCommandFinished(command_type, value))
+      Err(_) => emit(NotifyEmailCommandFailed(command_type))
+    }
+  })
+}
+
+///|
 fn load_ocr(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/ocr/status").expect_text(result => {
     match result {
@@ -11795,6 +11826,56 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           notify_note: "通知摘要派发候选服务不可用或被网关拒绝",
+        },
+      )
+    TestNotifyEmail =>
+      (
+        issue_notify_email_command(emit, "test"),
+        {
+          ..model,
+          notify_email_note: "正在提交邮件测试候选 · 不入队、不发送…",
+        },
+      )
+    RedeliverNotifyEmail =>
+      (
+        issue_notify_email_command(emit, "redeliver"),
+        {
+          ..model,
+          notify_email_note: "正在提交邮件重投候选 · 不入队、不发送…",
+        },
+      )
+    NotifyEmailCommandFinished(command_type, body) =>
+      (
+        if command_type == "test" && body.contains("\"dryRun\":true") {
+          load_notify(emit, "outbox")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_email_note: if body.contains("\"providerExecution\":false") {
+            (if command_type == "test" {
+              "邮件测试"
+            } else {
+              "邮件重投"
+            }) +
+            "候选已记录 · provider/投递未执行 · 收件人已脱敏"
+          } else {
+            "邮件候选已返回 · 请复核投递边界"
+          },
+        },
+      )
+    NotifyEmailCommandFailed(command_type) =>
+      (
+        none,
+        {
+          ..model,
+          notify_email_note: (if command_type == "test" {
+            "邮件测试"
+          } else {
+            "邮件重投"
+          }) +
+          "被服务、权限或源队列状态拒绝",
         },
       )
     NotifyConfigLoaded(body) => {
@@ -21260,6 +21341,16 @@ fn notify_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(DispatchNotifyDigest),
         "检查摘要派发（干运行）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TestNotifyEmail),
+        "测试邮件（干运行）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RedeliverNotifyEmail),
+        "重投邮件（干运行）",
+      ),
     ],
     div <| [
       section(class="erp-detail-card") <| [
@@ -21323,6 +21414,11 @@ fn notify_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           digest_rows,
         ),
       ),
+      div(class="erp-runtime-banner", [
+        strong("邮件投递命令门"),
+        span(" · " + model.notify_email_note),
+        span(" · outbox/provider/SMTP 均未执行"),
+      ]),
     ],
   )
 }

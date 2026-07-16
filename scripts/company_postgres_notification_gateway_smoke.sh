@@ -23,6 +23,7 @@ SUFFIX=$(/bin/date +%s)
 COMMAND_KEY="notification-gateway-$SUFFIX"
 SUBSCRIPTION_KEY="notification-subscription-gateway-$SUFFIX"
 DIGEST_KEY="notification-digest-gateway-$SUFFIX"
+EMAIL_KEY="notification-email-gateway-$SUFFIX"
 
 cleanup() {
   if [ -n "$GATEWAY_PID" ]; then
@@ -34,7 +35,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'notification_message' AND aggregate_id = 'message-all:admin') OR (aggregate_type = 'notification_subscription' AND aggregate_id = 'sub-$SUBSCRIPTION_KEY') OR (aggregate_type = 'notification_digest_dispatch' AND aggregate_id = '$DIGEST_KEY'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:notification:message_read_all:$COMMAND_KEY', 'moonproj:command:$SUBSCRIPTION_KEY', 'moonproj:audit:notification:subscription_create:$SUBSCRIPTION_KEY', 'moonproj:command:$DIGEST_KEY', 'moonproj:audit:notification:digest_dispatch:$DIGEST_KEY');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'notification_message' AND aggregate_id = 'message-all:admin') OR (aggregate_type = 'notification_subscription' AND aggregate_id = 'sub-$SUBSCRIPTION_KEY') OR (aggregate_type = 'notification_digest_dispatch' AND aggregate_id = '$DIGEST_KEY') OR (aggregate_type = 'notification_email_test' AND aggregate_id = '$EMAIL_KEY'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:notification:message_read_all:$COMMAND_KEY', 'moonproj:command:$SUBSCRIPTION_KEY', 'moonproj:audit:notification:subscription_create:$SUBSCRIPTION_KEY', 'moonproj:command:$DIGEST_KEY', 'moonproj:audit:notification:digest_dispatch:$DIGEST_KEY', 'moonproj:command:$EMAIL_KEY', 'moonproj:audit:notification:email_test:$EMAIL_KEY');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -112,4 +113,24 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/digest-replay.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .data.sent == false and .data.dryRun == true' "$TMP_DIR/digest-replay.json" >/dev/null
 
-echo "native MoonBit notification read-all/digest gateway smoke passed"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/email-test.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $EMAIL_KEY" --data '{"to":"qa@example.com"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/notify/email-outbox/test")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.queued == false and .data.wouldQueue == true and .data.dryRun == true and .data.to == "已配置（已脱敏）" and .data.providerExecution == false and .data.delivery_effect == false' "$TMP_DIR/email-test.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/email-test-replay.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $EMAIL_KEY" --data '{"to":"qa@example.com"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/notify/email-outbox/test")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.wouldQueue == true' "$TMP_DIR/email-test-replay.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/email-redeliver-missing.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"notification-email-redeliver-missing"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/notify/email-outbox/EMAIL-NOT-IMPORTED/redeliver")
+test "$status" = 404
+
+echo "native MoonBit notification read-all/digest/email gateway smoke passed"
