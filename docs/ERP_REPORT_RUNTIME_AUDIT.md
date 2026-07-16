@@ -31,7 +31,12 @@ metadata/list/run/create/delete behavior. Signed
 `report_share` revisions; public `/api/company/share/:token/meta|data` reads
 serve only the five allow-listed reports, require forwarded TLS, and record
 access revisions. Tokens are deterministic local SHA-256 identifiers for
-replayable evidence, not a production credential issuer.
+replayable evidence, not a production credential issuer. Rabbita now exposes
+the source sharing controls inline on `/reports` (create, list, and revoke)
+and displays the generated read-only path without pretending it is a managed
+public URL. The `/share/:token` page now loads public meta/data through the
+same native public endpoints and renders the selected report instead of a
+fixture-only snapshot.
 
 ## Current evidence
 

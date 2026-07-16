@@ -413,6 +413,21 @@ struct ReportStageRow {
 }
 
 ///|
+struct ReportShareRow {
+  token : String
+  report_key : String
+  report_label : String
+  title : String
+  created_at : String
+  expires_at : String
+  never_expires : String
+  access_count : String
+  revoked : String
+  expired : String
+  source_kind : String
+}
+
+///|
 struct DashboardFunnelRow {
   stage_name : String
   count : String
@@ -1097,6 +1112,24 @@ struct Model {
   report_slow_step_rows : Array[ReportSlowStepRow]
   report_stage_rows : Array[ReportStageRow]
   report_stage_names : Array[String]
+  report_share_dialog : Bool
+  report_share_list_open : Bool
+  report_share_title : String
+  report_share_days : String
+  report_share_result_token : String
+  report_share_result_url : String
+  report_share_rows : Array[ReportShareRow]
+  report_share_note : String
+  share_loaded : Bool
+  share_meta_loaded : Bool
+  share_token : String
+  share_report_key : String
+  share_report_label : String
+  share_title : String
+  share_expires_at : String
+  share_never_expires : Bool
+  share_data_body : String
+  share_note : String
   report_supplier_count : String
   report_approval_count : String
   reports_note : String
@@ -1677,6 +1710,23 @@ enum Msg {
   ReportsLoadFailed
   SelectReportTab(String)
   ExportReportsCsv
+  OpenReportShare
+  CloseReportShare
+  InputReportShareTitle(String)
+  SelectReportShareDays(String)
+  CreateReportShare
+  ReportShareCreated(String)
+  ReportShareCreateFailed(String)
+  OpenReportShareList
+  CloseReportShareList
+  ReportSharesLoaded(String)
+  ReportSharesLoadFailed
+  RevokeReportShare(String)
+  ReportShareRevoked(String)
+  ReportShareRevokeFailed(String)
+  ShareMetaLoaded(String)
+  ShareDataLoaded(String)
+  ShareLoadFailed(String)
   DashboardOverviewLoaded(String)
   DashboardFunnelLoaded(String)
   DashboardAnomaliesLoaded(String)
@@ -2199,6 +2249,24 @@ fn initial_model() -> Model {
     report_slow_step_rows: [],
     report_stage_rows: [],
     report_stage_names: [],
+    report_share_dialog: false,
+    report_share_list_open: false,
+    report_share_title: "",
+    report_share_days: "7",
+    report_share_result_token: "",
+    report_share_result_url: "",
+    report_share_rows: [],
+    report_share_note: "报表分享尚未执行",
+    share_loaded: false,
+    share_meta_loaded: false,
+    share_token: "",
+    share_report_key: "",
+    share_report_label: "",
+    share_title: "",
+    share_expires_at: "",
+    share_never_expires: false,
+    share_data_body: "",
+    share_note: "分享报表尚未加载",
     report_supplier_count: "0",
     report_approval_count: "0",
     reports_note: "核心报表读模型尚未加载",
@@ -10601,7 +10669,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     }
     Navigate(path) => {
-      let command = if path == "/dashboard" ||
+      let command = if path.has_prefix("/share/") {
+        load_share_meta(emit, share_token_from_path(path))
+      } else if path == "/dashboard" ||
         path == "/dashboard-v3" ||
         path == "/cockpit" {
         load_dashboard_overview(emit)
@@ -10753,6 +10823,48 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           authenticated: true,
           page: path,
           mobile_nav: false,
+          share_loaded: false,
+          share_meta_loaded: false,
+          share_token: if path.has_prefix("/share/") {
+            share_token_from_path(path)
+          } else {
+            model.share_token
+          },
+          share_report_key: if path.has_prefix("/share/") {
+            ""
+          } else {
+            model.share_report_key
+          },
+          share_report_label: if path.has_prefix("/share/") {
+            ""
+          } else {
+            model.share_report_label
+          },
+          share_title: if path.has_prefix("/share/") {
+            ""
+          } else {
+            model.share_title
+          },
+          share_expires_at: if path.has_prefix("/share/") {
+            ""
+          } else {
+            model.share_expires_at
+          },
+          share_never_expires: if path.has_prefix("/share/") {
+            false
+          } else {
+            model.share_never_expires
+          },
+          share_data_body: if path.has_prefix("/share/") {
+            ""
+          } else {
+            model.share_data_body
+          },
+          share_note: if path.has_prefix("/share/") {
+            "正在加载公开分享元数据…"
+          } else {
+            model.share_note
+          },
           contract_id,
           expense_id,
           expense_detail_loaded: if path.has_prefix("/expenses/") &&
@@ -12424,6 +12536,176 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           reports_note: "已导出当前报表 CSV · PostgreSQL 源数据仍保持只读",
         },
       )
+    OpenReportShare =>
+      (
+        none,
+        {
+          ..model,
+          report_share_dialog: true,
+          report_share_result_token: "",
+          report_share_result_url: "",
+          report_share_title: if model.report_tab == "cost" {
+            "R1 集团成本汇总"
+          } else if model.report_tab == "contract" {
+            "R2 合同付款台账"
+          } else if model.report_tab == "supplier" {
+            "R3 供应商合作分析"
+          } else if model.report_tab == "approval" {
+            "R4 审批效率分析"
+          } else {
+            "R5 项目阶段进度大盘"
+          },
+          report_share_days: "7",
+          report_share_note: "分享表单已打开 · 仅允许五类核心报表",
+        },
+      )
+    CloseReportShare => (none, { ..model, report_share_dialog: false })
+    InputReportShareTitle(value) =>
+      (none, { ..model, report_share_title: value })
+    SelectReportShareDays(value) =>
+      (none, { ..model, report_share_days: value })
+    CreateReportShare =>
+      (
+        issue_report_share_create(emit, model),
+        {
+          ..model,
+          report_share_note: "正在创建本地报表分享候选 · 公开读取仍受 HTTPS/过期/撤销边界约束",
+        },
+      )
+    ReportShareCreated(body) => {
+      let token = report_share_token_from_body(body)
+      (
+        load_report_shares(emit),
+        {
+          ..model,
+          report_share_dialog: true,
+          report_share_result_token: token,
+          report_share_result_url: if token == "" {
+            ""
+          } else {
+            "#/share/" + token
+          },
+          report_share_note: if token == "" {
+            "分享命令已返回 · 未找到 token，请复核响应"
+          } else {
+            "分享链接已生成 · 持有人可只读查看当前报表"
+          },
+        },
+      )
+    }
+    ReportShareCreateFailed(note) =>
+      (none, { ..model, report_share_note: note })
+    OpenReportShareList =>
+      (
+        load_report_shares(emit),
+        {
+          ..model,
+          report_share_list_open: true,
+          report_share_note: "正在加载本人创建的分享链接…",
+        },
+      )
+    CloseReportShareList => (none, { ..model, report_share_list_open: false })
+    ReportSharesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          report_share_rows: report_share_rows_from_body(body),
+          report_share_note: "已加载本人报表分享链接 · 可撤销命令不会修改报表数据",
+        },
+      )
+    ReportSharesLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          report_share_rows: [],
+          report_share_note: "分享链接读模型不可用或需要已认证用户",
+        },
+      )
+    RevokeReportShare(token) =>
+      (
+        issue_report_share_revoke(emit, token),
+        {
+          ..model,
+          report_share_note: "正在撤销分享链接 " + token + "…",
+        },
+      )
+    ReportShareRevoked(body) =>
+      (
+        load_report_shares(emit),
+        {
+          ..model,
+          report_share_note: if body.contains("\"persisted\":true") {
+            "分享链接已撤销 · 报表数据保持只读"
+          } else {
+            "撤销命令已返回 · 请复核状态"
+          },
+        },
+      )
+    ReportShareRevokeFailed(note) =>
+      (none, { ..model, report_share_note: note })
+    ShareMetaLoaded(body) => {
+      let parsed = @json.parse(body) catch { _ => Json::null() }
+      match parsed {
+        Json::Object(fields) =>
+          match fields.get("data") {
+            Some(Json::Object(data)) =>
+              (
+                load_share_data(emit, model.share_token),
+                {
+                  ..model,
+                  share_meta_loaded: true,
+                  share_report_key: json_object_text(data, "reportKey", ""),
+                  share_report_label: json_object_text(data, "reportLabel", ""),
+                  share_title: json_object_text(data, "title", ""),
+                  share_expires_at: json_object_text(data, "expiresAt", ""),
+                  share_never_expires: json_object_text(
+                    data, "neverExpires", "false",
+                  ) ==
+                  "true",
+                  share_note: "分享元数据已加载 · 正在读取只读报表数据",
+                },
+              )
+            _ =>
+              (
+                none,
+                {
+                  ..model,
+                  share_meta_loaded: false,
+                  share_note: if body.contains("链接已撤销") {
+                    "分享链接已撤销"
+                  } else if body.contains("链接已过期") {
+                    "分享链接已过期"
+                  } else {
+                    "分享链接不存在或元数据不可用"
+                  },
+                },
+              )
+          }
+        _ =>
+          (
+            none,
+            {
+              ..model,
+              share_meta_loaded: false,
+              share_note: "分享元数据响应无效",
+            },
+          )
+      }
+    }
+    ShareDataLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          share_loaded: true,
+          share_data_body: body,
+          share_note: "公开报表数据已加载 · 不需要登录、不提供写入权限",
+        },
+      )
+    ShareLoadFailed(note) =>
+      (none, { ..model, share_loaded: false, share_note: note })
     DashboardOverviewLoaded(body) => {
       let (loaded, values) = dashboard_overview_from_body(body)
       if loaded {
@@ -23459,13 +23741,548 @@ fn report_csv(model : Model) -> String {
 }
 
 ///|
+fn report_share_rows_from_body(body : String) -> Array[ReportShareRow] {
+  let rows : Array[ReportShareRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              token: json_object_text(row, "token", ""),
+              report_key: json_object_text(row, "reportKey", ""),
+              report_label: json_object_text(row, "reportLabel", ""),
+              title: json_object_text(row, "title", ""),
+              created_at: json_object_text(row, "createdAt", ""),
+              expires_at: json_object_text(row, "expiresAt", ""),
+              never_expires: if json_object_text(row, "neverExpires", "false") ==
+                "true" {
+                "永久"
+              } else {
+                ""
+              },
+              access_count: json_object_text(row, "accessCount", "0"),
+              revoked: if json_object_text(row, "revoked", "false") == "true" {
+                "已撤销"
+              } else {
+                ""
+              },
+              expired: if json_object_text(row, "expired", "false") == "true" {
+                "已过期"
+              } else {
+                ""
+              },
+              source_kind: json_object_text(row, "sourceKind", "command"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn report_share_token_from_body(body : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => json_object_text(data, "token", "")
+        _ => ""
+      }
+    _ => ""
+  }
+}
+
+///|
+fn report_share_create_body(model : Model) -> String {
+  let expires = if model.report_share_days == "0" {
+    "null"
+  } else {
+    model.report_share_days
+  }
+  "{\"reportKey\":\"" +
+  model.report_tab +
+  "\",\"title\":\"" +
+  model.report_share_title.replace(old="\"", new="\\\"") +
+  "\",\"expiresInDays\":" +
+  expires +
+  ",\"idempotency_key\":\"rabbita-report-share-create-v1\"}"
+}
+
+///|
+fn load_report_shares(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/reports/shares").expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportSharesLoaded(body))
+      Err(_) => emit(ReportSharesLoadFailed)
+    }
+  })
+}
+
+///|
+fn issue_report_share_create(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/company/reports/shares")
+  .with_text(report_share_create_body(model))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportShareCreated(body))
+      Err(_) =>
+        emit(ReportShareCreateFailed("分享服务不可用或被网关拒绝"))
+    }
+  })
+}
+
+///|
+fn issue_report_share_revoke(emit : @rabbita.Emit[Msg], token : String) -> Cmd {
+  @http.delete(
+    "/api/company/reports/shares/" +
+    token +
+    "?idempotency_key=rabbita-report-share-revoke-" +
+    token,
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportShareRevoked(body))
+      Err(_) =>
+        emit(ReportShareRevokeFailed("撤销服务不可用或被网关拒绝"))
+    }
+  })
+}
+
+///|
+fn share_token_from_path(path : String) -> String {
+  if path.has_prefix("/share/") {
+    path[7:].to_owned()
+  } else {
+    ""
+  }
+}
+
+///|
+fn load_share_meta(emit : @rabbita.Emit[Msg], token : String) -> Cmd {
+  @http.get("/api/company/share/" + token + "/meta").expect_text(result => {
+    match result {
+      Ok(body) => emit(ShareMetaLoaded(body))
+      Err(_) => emit(ShareLoadFailed("分享元数据加载失败"))
+    }
+  })
+}
+
+///|
+fn load_share_data(emit : @rabbita.Emit[Msg], token : String) -> Cmd {
+  @http.get("/api/company/share/" + token + "/data").expect_text(result => {
+    match result {
+      Ok(body) => emit(ShareDataLoaded(body))
+      Err(_) => emit(ShareLoadFailed("分享报表数据加载失败"))
+    }
+  })
+}
+
+///|
+fn share_cost_table(body : String) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          for value in json_array_field(data, "rows") {
+            match report_cost_from_json(value) {
+              Some(row) =>
+                rows.push([
+                  row.bu_name,
+                  row.proj_code,
+                  row.proj_name,
+                  row.target_cost,
+                  row.dynamic_cost,
+                  row.deviation_pct + "%",
+                  row.spare,
+                ])
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  table_panel(
+    "R1 集团成本汇总",
+    "分享数据 · 只读公开快照",
+    data_table(
+      [
+        "公司", "项目编码", "项目名称", "目标", "动态", "偏差%",
+        "余量",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn share_contract_table(body : String) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match report_contract_from_json(value) {
+          Some(row) =>
+            rows.push([
+              row.contract_code,
+              row.contract_name,
+              row.bu_name,
+              row.provider,
+              row.current_amount,
+              row.paid_total,
+              row.remain_amount,
+              row.paid_pct + "%",
+            ])
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  table_panel(
+    "R2 合同付款台账",
+    "分享数据 · 只读公开快照",
+    data_table(
+      [
+        "合同编号", "合同名称", "公司", "乙方", "合同金额", "已付",
+        "未付", "付款率",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn share_supplier_table(body : String) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match report_supplier_from_json(value) {
+          Some(row) =>
+            rows.push([
+              row.provider_name,
+              row.category_name,
+              row.eval_result,
+              row.contract_count,
+              row.bu_count,
+              row.proj_count,
+              row.total_amount,
+              row.recent_amount,
+            ])
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  table_panel(
+    "R3 供应商合作分析",
+    "分享数据 · 只读公开快照",
+    data_table(
+      [
+        "供应商", "类别", "评级", "合作笔数", "跨公司", "跨项目",
+        "累计金额", "近 1 年",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn share_approval_table(body : String) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          for value in json_array_field(data, "byType") {
+            match report_approval_from_json(value) {
+              Some(row) =>
+                rows.push([
+                  row.biz_type,
+                  row.total,
+                  row.completed,
+                  row.rejected,
+                  row.running,
+                  row.overdue,
+                  row.avg_days,
+                  row.reject_rate + "%",
+                ])
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  table_panel(
+    "R4 审批效率分析",
+    "分享数据 · 只读公开快照",
+    data_table(
+      [
+        "业务类型", "总数", "已完成", "已驳回", "进行中", "超期",
+        "平均天数", "驳回率",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
+fn share_stage_table(body : String) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  let stage_names : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          for value in json_array_field(data, "stages") {
+            match value {
+              Json::Object(stage) =>
+                stage_names.push(
+                  json_object_text(
+                    stage,
+                    "name",
+                    json_object_text(stage, "code", ""),
+                  ),
+                )
+              _ => ()
+            }
+          }
+          for value in json_array_field(data, "projects") {
+            match report_stage_from_json(value) {
+              Some(project) => {
+                let row : Array[String] = [
+                  project.proj_name,
+                  project.bu_name,
+                  project.proj_status,
+                ]
+                for cell in project.cells {
+                  row.push(cell.status + " " + cell.progress_pct + "%")
+                }
+                rows.push(row)
+              }
+              None => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  let headers : Array[String] = ["项目", "公司", "状态"]
+  for name in stage_names {
+    headers.push(name)
+  }
+  table_panel(
+    "R5 项目阶段进度大盘",
+    "分享数据 · 只读公开快照",
+    data_table(headers, rows),
+  )
+}
+
+///|
+fn share_data_table(model : Model) -> @html.Html {
+  if !model.share_loaded {
+    div(class="erp-runtime-empty", model.share_note)
+  } else if model.share_report_key == "cost" {
+    share_cost_table(model.share_data_body)
+  } else if model.share_report_key == "contract" {
+    share_contract_table(model.share_data_body)
+  } else if model.share_report_key == "supplier" {
+    share_supplier_table(model.share_data_body)
+  } else if model.share_report_key == "approval" {
+    share_approval_table(model.share_data_body)
+  } else if model.share_report_key == "stage" {
+    share_stage_table(model.share_data_body)
+  } else {
+    div(class="erp-runtime-empty", "未知报表类型")
+  }
+}
+
+///|
 fn reports_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let share_panel = if model.report_share_dialog {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("生成分享链接"),
+        span(class="erp-info-tag", "五类核心报表 · 只读公开快照"),
+      ],
+      editable_form_field(
+        "分享标题",
+        model.report_share_title,
+        "给收件人看的标题（可空）",
+        @html.InputType::Text,
+        emit.map(value => InputReportShareTitle(value)),
+      ),
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "有效期"),
+        button(
+          class=if model.report_share_days == "1" {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(SelectReportShareDays("1")),
+          "1 天",
+        ),
+        button(
+          class=if model.report_share_days == "7" {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(SelectReportShareDays("7")),
+          "7 天（默认）",
+        ),
+        button(
+          class=if model.report_share_days == "30" {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(SelectReportShareDays("30")),
+          "30 天",
+        ),
+        button(
+          class=if model.report_share_days == "0" {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(SelectReportShareDays("0")),
+          "永久",
+        ),
+      ],
+      div(class="erp-command-bar") <| [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateReportShare),
+          "生成链接",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CloseReportShare),
+          "关闭",
+        ),
+      ],
+      p(class="erp-source-note", model.report_share_note),
+      if model.report_share_result_url == "" {
+        div(class="erp-source-note", "")
+      } else {
+        table_panel(
+          "分享链接已生成",
+          "复制下面的只读路径；过期或撤销后自动失效",
+          data_table(["报表", "链接", "token"], [
+            [
+              model.report_tab,
+              model.report_share_result_url,
+              model.report_share_result_token,
+            ],
+          ]),
+        )
+      },
+    ]
+  } else {
+    div(class="erp-source-note", "")
+  }
+  let share_list_panel = if model.report_share_list_open {
+    let rendered_rows : Array[@html.Html] = []
+    for row in model.report_share_rows {
+      let status = if row.revoked != "" {
+        row.revoked
+      } else if row.expired != "" {
+        row.expired
+      } else {
+        "有效"
+      }
+      rendered_rows.push(
+        tr <| [
+          td(row.report_label + " · " + row.report_key),
+          td(row.title),
+          td(row.created_at),
+          td(
+            if row.never_expires == "永久" {
+              "永久"
+            } else {
+              row.expires_at
+            },
+          ),
+          td(row.access_count),
+          td(status),
+          td(row.token),
+          td(row.source_kind),
+          td(
+            if row.revoked == "" && row.expired == "" {
+              button(
+                class="erp-ghost-btn",
+                on_click=emit(RevokeReportShare(row.token)),
+                "撤销",
+              )
+            } else {
+              span("—")
+            },
+          ),
+        ],
+      )
+    }
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("我的分享链接"),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CloseReportShareList),
+          "关闭",
+        ),
+      ],
+      table_panel(
+        "分享记录",
+        model.report_share_note +
+        " · 撤销只写入分享投影，不改报表数据",
+        table(class="erp-data-table") <| [
+          thead <| [
+            table_header([
+              "报表", "标题", "创建时间", "到期", "访问数", "状态",
+              "token", "来源", "操作",
+            ]),
+          ],
+          tbody <| rendered_rows,
+        ],
+      ),
+      div(class="erp-command-bar") <| [
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(Navigate("/reports")),
+          "刷新分享列表",
+        ),
+      ],
+    ]
+  } else {
+    div(class="erp-source-note", "")
+  }
   page_shell(
     "报表中心",
     "ANALYSIS / REPORTS",
     "按主题打开经营、成本、资金、销售与项目报表，统一查看口径和更新时间。",
     [
-      button(class="erp-secondary-btn", "管理收藏"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(OpenReportShare),
+        "分享链接",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(OpenReportShareList),
+        "我的分享",
+      ),
       button(
         class="erp-secondary-btn",
         on_click=emit(ExportReportsCsv),
@@ -23584,16 +24401,18 @@ fn reports_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
       ],
       reports_data_tables(model),
+      share_panel,
+      share_list_panel,
     ],
   )
 }
 
 ///|
-fn share_view(path : String) -> @html.Html {
-  let token = if path.has_prefix("/share/") {
-    path[7:].to_owned()
+fn share_view(model : Model, path : String) -> @html.Html {
+  let token = if model.share_token == "" {
+    share_token_from_path(path)
   } else {
-    "demo-cost"
+    model.share_token
   }
   div(class="erp-share-page") <| [
     div(class="erp-share-bar") <| [
@@ -23601,41 +24420,40 @@ fn share_view(path : String) -> @html.Html {
         span(class="erp-share-brand", "ERP · 分享报表"),
         span(class="erp-share-note", "只读公开快照 · 不需要登录"),
       ],
-      span(class="erp-share-token", "链接 \{token}"),
+      span(class="erp-share-token", "链接 " + token),
     ],
     div(class="erp-share-meta") <| [
-      h1("集团成本汇总"),
-      span(class="erp-status-tag is-success", "成本月报"),
-      span(class="erp-share-expiry", "永不过期 · 数据期间 2026-07"),
-    ],
-    table_panel(
-      "R1 集团成本汇总",
-      "分享链接只展示已审核投影，不提供业务写入或导出权限",
-      data_table(
-        [
-          "公司", "项目编码", "项目名称", "目标成本", "动态成本",
-          "偏差%", "布置余地",
-        ],
-        [
-          [
-            "成都公司", "CD-HJL", "成都和锦里", "¥1860 万", "¥2016 万",
-            "+8.4%", "¥42 万",
-          ],
-          [
-            "重庆公司", "CQ-NSJ", "重庆南山居", "¥1240 万", "¥1261 万",
-            "+1.7%", "¥86 万",
-          ],
-          [
-            "沈阳公司", "SY-HSY", "沈阳和山苑", "¥980 万", "¥966 万",
-            "-1.4%", "¥58 万",
-          ],
-          [
-            "集团合计", "—", "3 个项目", "¥4080 万", "¥4243 万", "+4.0%",
-            "¥186 万",
-          ],
-        ],
+      h1(
+        if model.share_title == "" {
+          "分享报表"
+        } else {
+          model.share_title
+        },
       ),
-    ),
+      span(
+        class="erp-status-tag is-success",
+        if model.share_report_label == "" {
+          "加载中"
+        } else {
+          model.share_report_label
+        },
+      ),
+      span(
+        class="erp-share-expiry",
+        if model.share_never_expires {
+          "永不过期"
+        } else if model.share_expires_at == "" {
+          "等待元数据"
+        } else {
+          "到期 " + model.share_expires_at
+        },
+      ),
+    ],
+    if model.share_meta_loaded {
+      share_data_table(model)
+    } else {
+      div(class="erp-runtime-empty", model.share_note)
+    },
     div(
       class="erp-share-footer",
       "本页面由 ERP 报表分享链接生成 · 数据来自 PostgreSQL 投影读模型 · 仅链接持有者可访问",
@@ -27526,7 +28344,7 @@ fn business_view(
   model : Model,
 ) -> @html.Html {
   if path.has_prefix("/share/") {
-    share_view(path)
+    share_view(model, path)
   } else if path.has_prefix("/projects/") {
     project_detail_view(emit, model)
   } else if path.has_prefix("/contracts/") {
@@ -27703,7 +28521,7 @@ fn app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 ///|
 fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   if model.page.has_prefix("/share/") {
-    share_view(model.page)
+    share_view(model, model.page)
   } else if model.authenticated {
     app_view(emit, model)
   } else {
