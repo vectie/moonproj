@@ -68,10 +68,16 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/reextract.json" -w '%{http_code}' -X POS
 test "$status" = 404
 /usr/bin/jq -e '.code == 43001 and .persisted == false and .authorizing == false and .provider_execution == false' "$TMP_DIR/reextract.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/download.json" -w '%{http_code}' \
+  -b "$TMP_DIR/cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/attachments/download/ATT-RABBITA-LOCAL")
+test "$status" = 404
+/usr/bin/jq -e '.code == 43001 and .downloadable == false and .binary_storage == "not_imported" and .authorizing == false' "$TMP_DIR/download.json" >/dev/null
+
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/delete.json" -w '%{http_code}' -X DELETE \
   -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/attachments/ATT-RABBITA-LOCAL")
 test "$status" = 409
 /usr/bin/jq -e '.code == 43003 and .data.deleted == false and .persisted == false and .authorizing == false and .provider_execution == false' "$TMP_DIR/delete.json" >/dev/null
 
-echo "native MoonBit attachment upload/re-extract/delete gateway boundary smoke passed"
+echo "native MoonBit attachment upload/re-extract/download/delete gateway boundary smoke passed"

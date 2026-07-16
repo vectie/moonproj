@@ -1005,6 +1005,7 @@ struct Model {
   attachment_note : String
   attachment_action_guid : String
   attachment_action_note : String
+  attachment_download_note : String
   attachment_delete_note : String
   marketing_loaded : Bool
   marketing_campaign_rows : Array[Array[String]]
@@ -1424,6 +1425,9 @@ enum Msg {
   RequestAttachmentUpload
   AttachmentCommandFinished(String)
   AttachmentCommandFailed
+  RequestAttachmentDownload
+  AttachmentDownloadFinished(String)
+  AttachmentDownloadFailed
   RequestAttachmentReextract
   AttachmentReextractFinished(String)
   AttachmentReextractFailed
@@ -1856,6 +1860,7 @@ fn initial_model() -> Model {
     attachment_note: "附件源读模型尚未加载 · 使用设计快照",
     attachment_action_guid: "ATT-RABBITA-LOCAL",
     attachment_action_note: "OCR 重提取候选尚未运行 · provider/OCR 保持关闭",
+    attachment_download_note: "附件下载边界尚未检查",
     attachment_delete_note: "删除候选尚未运行 · 对象存储与负责人确认保持关闭",
     marketing_loaded: false,
     marketing_campaign_rows: [],
@@ -6882,6 +6887,17 @@ fn issue_attachment_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_attachment_download(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.get("/api/company/attachments/download/" + model.attachment_action_guid).expect_text(result => {
+      match result {
+        Ok(body) => emit(AttachmentDownloadFinished(body))
+        Err(_) => emit(AttachmentDownloadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn issue_attachment_reextract(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
   @http.post(
     "/api/company/attachments/re-extract/" + model.attachment_action_guid,
@@ -11574,6 +11590,36 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           attachment_note: "附件上传候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestAttachmentDownload =>
+      (
+        issue_attachment_download(emit, model),
+        {
+          ..model,
+          attachment_download_note: "正在检查附件下载边界 · 不读取二进制…",
+        },
+      )
+    AttachmentDownloadFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          attachment_download_note: if body.contains(
+              "\"binary_storage\":\"not_imported\"",
+            ) {
+            "附件下载已到达 source-404 边界 · binary storage 未迁移 · 不返回字节"
+          } else {
+            "附件下载候选已返回 · 请复核二进制所有权边界"
+          },
+        },
+      )
+    AttachmentDownloadFailed =>
+      (
+        none,
+        {
+          ..model,
+          attachment_download_note: "附件下载服务不可用或被网关拒绝",
         },
       )
     RequestAttachmentReextract =>
@@ -20755,6 +20801,11 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ),
       button(
         class="erp-secondary-btn",
+        on_click=emit(RequestAttachmentDownload),
+        "检查附件下载（待授权）",
+      ),
+      button(
+        class="erp-secondary-btn",
         on_click=emit(RequestAttachmentDelete),
         "检查附件删除（待授权）",
       ),
@@ -20817,6 +20868,11 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         strong("附件删除候选"),
         span(" · " + model.attachment_delete_note),
         span(" · 记录 " + model.attachment_action_guid),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("附件下载边界"),
+        span(" · " + model.attachment_download_note),
+        span(" · binary/object storage 未迁移"),
       ]),
     ],
   )
