@@ -118,6 +118,9 @@ render explicit empty-source/definition states after successful reads.
   the service accepts the body idempotency form used by same-origin Rabbita
   requests, and `scripts/company_postgres_admin_sys_param_gateway_smoke.sh`
   proves create/replay through the authenticated super-user gateway.
+- The native gateway now also forwards the canonical/source OCR and LLM test
+  aliases. `scripts/company_postgres_ai_provider_gateway_smoke.sh` proves the
+  signed super-user dry-run path and confirms provider secrets stay redacted.
 - The parity matrix marks `/ocr-config` and `/error-log` as connected
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.

@@ -46,6 +46,7 @@ scripts/company_postgres_service.sh
 scripts/company_postgres_admin_dictionary_smoke.sh
 scripts/company_postgres_admin_sys_param_smoke.sh
 scripts/company_postgres_admin_sys_param_gateway_smoke.sh
+scripts/company_postgres_ai_provider_gateway_smoke.sh
 scripts/company_postgres_sales_revenue_smoke.sh
 scripts/company_postgres_source_read_smoke.sh
 scripts/company_postgres_dashboard_smoke.sh

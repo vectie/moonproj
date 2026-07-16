@@ -308,6 +308,12 @@ fn command_path_allowed(
       path == "/api/company/source/admin/dict/options" ||
       path == "/api/company/admin/sys-param" ||
       path == "/api/company/source/admin/sys-param" ||
+      path == "/api/company/admin/ocr/test" ||
+      path == "/api/company/source/admin/ocr/test" ||
+      path == "/api/company/admin/llm/test" ||
+      path == "/api/company/source/admin/llm/test" ||
+      path == "/api/company/notify/llm-test" ||
+      path == "/api/company/source/notify/llm-test" ||
       path == "/api/company/source/invoice/in" ||
       path == "/api/company/source/invoice/out" ||
       path == "/api/company/source/cost/payment-applies" ||
