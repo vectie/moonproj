@@ -316,6 +316,8 @@ fn command_path_allowed(
       path == "/api/company/source/notify/llm-test" ||
       path_with_identifier_suffix("/api/company/warning/", "/resolve", path) ||
       path_with_identifier_suffix("/api/company/warning/", "/ignore", path) ||
+      path == "/api/company/attachments/upload" ||
+      path == "/api/company/source/attachments/upload" ||
       path_with_identifier("/api/company/webhook/test/", path) ||
       path_with_identifier("/api/company/source/webhook/test/", path) ||
       path == "/api/company/source/invoice/in" ||

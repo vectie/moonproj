@@ -1301,6 +1301,9 @@ enum Msg {
   AttachmentsLoadFailed
   AttachmentStatsLoaded(String)
   AttachmentStatsLoadFailed
+  RequestAttachmentUpload
+  AttachmentCommandFinished(String)
+  AttachmentCommandFailed
   MarketingLoaded(String, String)
   MarketingLoadFailed(String)
   InboxLoaded(String)
@@ -6309,6 +6312,18 @@ fn load_attachment_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_attachment_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/attachments/upload")
+  .with_text("{\"idempotency_key\":\"rabbita-attachment-upload-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(AttachmentCommandFinished(body))
+      Err(_) => emit(AttachmentCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "campaigns" {
     "/api/company/marketing/campaigns?projGuid=proj-0001"
@@ -9663,6 +9678,31 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           attachment_note: "附件统计不可用 · 保留已加载附件源状态",
+        },
+      )
+    RequestAttachmentUpload =>
+      (
+        issue_attachment_upload(emit),
+        { ..model, attachment_note: "正在检查附件上传边界…" },
+      )
+    AttachmentCommandFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          attachment_note: if body.contains("\"multipartAccepted\":false") {
+            "上传候选已到达 native 服务 · 当前不接受 multipart · 对象存储与负责人确认仍待完成"
+          } else {
+            "附件命令候选已返回 · 保持二进制与外部存储边界"
+          },
+        },
+      )
+    AttachmentCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          attachment_note: "附件上传候选服务不可用或被网关拒绝",
         },
       )
     MarketingLoaded(family, body) => {
@@ -17508,7 +17548,7 @@ fn inbox_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn attachments_view(model : Model) -> @html.Html {
+fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let source_rows : Array[Array[String]] = []
   for row in model.attachment_rows {
     source_rows.push([
@@ -17564,7 +17604,13 @@ fn attachments_view(model : Model) -> @html.Html {
     "附件中心",
     "SYSTEM / ATTACHMENTS",
     "搜索合同、发票、报销和项目证据，查看 AI 识别状态与业务关联。",
-    [button(class="erp-primary-btn", "＋ 上传附件（待授权）")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(RequestAttachmentUpload),
+        "＋ 上传附件（待授权）",
+      ),
+    ],
     div <| [
       div(class="erp-stat-grid") <| [
         metric(
@@ -18883,7 +18929,7 @@ fn business_view(
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)
       "/inbox" => inbox_view(model)
-      "/attachments" => attachments_view(model)
+      "/attachments" => attachments_view(emit, model)
       "/notify-config" => notify_view(model)
       "/audit-log" => audit_view(emit, model)
       "/error-log" => error_view(model)

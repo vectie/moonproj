@@ -47,3 +47,9 @@ object deletion, provider-backed OCR re-extraction, retention,
 malware scanning, object-store ownership, production identity, and owner
 acceptance remain unimplemented gates. No attachment migration cutover is
 authorized by this read-only slice.
+
+The trusted PostgreSQL gateway now forwards the upload candidate, and the
+Rabbita attachment header exposes the same bounded control. The candidate
+returns the existing no-multipart/object-storage boundary without persistence;
+`scripts/company_postgres_attachment_gateway_smoke.sh` proves authenticated
+forwarding and the 409 no-side-effect response.
