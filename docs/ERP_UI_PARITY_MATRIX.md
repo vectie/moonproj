@@ -31,6 +31,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now calls the native subject-mapping dry-run candidate; investment master-data writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native plan-line edit dry-run candidate; investment plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.
+- Browser action delta: Rabbita `/investment` now calls the native Excel plan-line import dry-run candidate; plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.
 - API-state delta: `connected_auth_command_candidate` **2** now covers persisted logout/profile commands; `auth_lifecycle_candidate` **2** remains for login/password change gates. The API-state JSON ledger remains authoritative.

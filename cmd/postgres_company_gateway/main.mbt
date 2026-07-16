@@ -327,6 +327,12 @@ fn command_path_allowed(
       path_with_identifier_suffix(
         "/api/company/source/investment/excel-imports/", "/index-upsert", path,
       ) ||
+      path_with_identifier_suffix(
+        "/api/company/investment/excel-imports/", "/plan-lines/import", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/investment/excel-imports/", "/plan-lines/import", path,
+      ) ||
       path == "/api/company/plan/ai-suggest-plan" ||
       path == "/api/company/source/plan/ai-suggest-plan" ||
       path == "/api/company/admin/dict/options" ||

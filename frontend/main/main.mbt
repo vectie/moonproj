@@ -926,6 +926,7 @@ struct Model {
   investment_mapping_note : String
   investment_plan_line_note : String
   investment_index_upsert_note : String
+  investment_plan_line_import_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
   audit_action_rows : Array[AuditActionRow]
@@ -1333,6 +1334,9 @@ enum Msg {
   RequestInvestmentIndexUpsert
   InvestmentIndexUpsertFinished(String)
   InvestmentIndexUpsertFailed
+  RequestInvestmentPlanLineImport
+  InvestmentPlanLineImportFinished(String)
+  InvestmentPlanLineImportFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
@@ -1684,6 +1688,7 @@ fn initial_model() -> Model {
     investment_mapping_note: "科目映射候选尚未运行 · 投资主数据保持只读",
     investment_plan_line_note: "计划行编辑候选尚未运行 · 投资计划保持只读",
     investment_index_upsert_note: "Excel 指标 upsert 候选尚未运行 · 投资指标保持只读",
+    investment_plan_line_import_note: "Excel 计划行导入候选尚未运行 · 投资计划保持只读",
     audit_loaded: false,
     audit_rows: [],
     audit_action_rows: [],
@@ -6296,6 +6301,22 @@ fn issue_investment_index_upsert(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_investment_plan_line_import(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post(
+    "/api/company/investment/excel-imports/IMPORT-RABBITA-LOCAL/plan-lines/import",
+  )
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-investment-plan-line-import-v1\",\"dryRun\":true,\"replaceExisting\":false}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentPlanLineImportFinished(body))
+      Err(_) => emit(InvestmentPlanLineImportFailed)
+    }
+  })
+}
+
+///|
 fn load_audit_logs(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/audit/logs?limit=100").expect_text(result => {
     match result {
@@ -9980,6 +10001,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           investment_index_upsert_note: "Excel 指标 upsert 候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestInvestmentPlanLineImport =>
+      (
+        issue_investment_plan_line_import(emit),
+        {
+          ..model,
+          investment_plan_line_import_note: "正在检查 Excel 计划行导入边界 · 不解析二进制、不写入计划…",
+        },
+      )
+    InvestmentPlanLineImportFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_plan_line_import_note: if body.contains("\"wouldInsert\"") {
+            "Excel 计划行导入候选已返回 · 仅 dry-run 预览 · 未写入计划"
+          } else if body.contains("\"code\":43001") {
+            "Excel 计划行导入候选已验证 · 当前导入记录不存在 · 未写入"
+          } else if body.contains("\"code\":46002") {
+            "Excel 计划行导入候选已验证 · 需要投资负责人确认 · 未写入"
+          } else {
+            "Excel 计划行导入候选响应已返回 · 未写入计划"
+          },
+        },
+      )
+    InvestmentPlanLineImportFailed =>
+      (
+        none,
+        {
+          ..model,
+          investment_plan_line_import_note: "Excel 计划行导入候选服务不可用或被网关拒绝",
         },
       )
     AuditLoaded(body) => {
@@ -15590,6 +15643,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(RequestInvestmentIndexUpsert),
         "检查指标 upsert（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentPlanLineImport),
+        "检查计划行导入（待授权）",
+      ),
     ],
     div <| [
       stats,
@@ -15618,6 +15676,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div(class="erp-runtime-banner", [
         strong("Excel 指标 upsert 候选"),
         span(" · " + model.investment_index_upsert_note),
+        span(" · 导入 IMPORT-RABBITA-LOCAL"),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("Excel 计划行导入候选"),
+        span(" · " + model.investment_plan_line_import_note),
         span(" · 导入 IMPORT-RABBITA-LOCAL"),
       ]),
       table_panel(
