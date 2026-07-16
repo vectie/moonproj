@@ -75,7 +75,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/users` now calls native user toggle and password-reset candidates; authentication state is not changed and password values are never returned.
 - Browser action delta: Rabbita `/users` now calls the native local-role deletion candidate; imported/system roles remain protected.
 - Browser action delta: Rabbita `/users` now calls the native user-profile update candidate; imported identity rows remain protected.
-- Browser action delta: Rabbita `/profile` now calls native profile-update and password-transition commands through the trusted gateway; profile/password receipts are persisted with redacted credential evidence and remain non-authorizing.
+- Browser action delta: Rabbita `/profile` now loads live notification subscriptions, renders command-owned rows with the source unsubscribe action, protects imported rows as read-only, and still calls native profile-update/password-transition commands through the trusted gateway with redacted credential evidence.
 - Browser action delta: Rabbita `/login` now reaches the native PostgreSQL credential verifier through the gateway; command-owned credentials establish the HttpOnly session, while the development fixture remains a fallback when no imported credential projection exists.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.

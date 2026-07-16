@@ -960,6 +960,17 @@ struct InitiatedRow {
 }
 
 ///|
+struct ProfileSubscriptionRow {
+  sub_id : String
+  rule_code : String
+  biz_type : String
+  severity_min : String
+  channels : String
+  enabled : String
+  source_kind : String
+}
+
+///|
 struct UserRosterRow {
   user_code : String
   emp_name : String
@@ -1876,6 +1887,9 @@ struct Model {
   profile_initiated_loaded : Bool
   profile_initiated_rows : Array[InitiatedRow]
   profile_initiated_note : String
+  profile_subscriptions_loaded : Bool
+  profile_subscription_rows : Array[ProfileSubscriptionRow]
+  profile_subscriptions_note : String
   health_loaded : Bool
   health_table_rows : Array[HealthTableRow]
   health_source_table_count : String
@@ -2548,6 +2562,9 @@ enum Msg {
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
   ProfileInitiatedLoadFailed
+  ProfileSubscriptionsLoaded(String)
+  ProfileSubscriptionsLoadFailed
+  DeleteProfileSubscription(String)
   UpdateProfile
   InputProfileName(String)
   InputProfilePasswordOld(String)
@@ -3361,6 +3378,9 @@ fn initial_model() -> Model {
     profile_initiated_loaded: false,
     profile_initiated_rows: [],
     profile_initiated_note: "本人发起读模型尚未加载 · 使用设计快照",
+    profile_subscriptions_loaded: false,
+    profile_subscription_rows: [],
+    profile_subscriptions_note: "通知订阅读模型尚未加载 · 使用设计快照",
     health_loaded: false,
     health_table_rows: [],
     health_source_table_count: "0",
@@ -7086,6 +7106,54 @@ fn notify_subscriptions_from_body(
     }
     _ => (false, rows, "0")
   }
+}
+
+///|
+fn profile_subscription_rows_from_body(
+  body : String,
+) -> Array[ProfileSubscriptionRow] {
+  let rows : Array[ProfileSubscriptionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              sub_id: json_object_text(
+                row,
+                "subId",
+                json_object_text(row, "sub_id", ""),
+              ),
+              rule_code: json_object_text(
+                row,
+                "ruleCode",
+                json_object_text(row, "rule_code", "全部规则"),
+              ),
+              biz_type: json_object_text(
+                row,
+                "bizType",
+                json_object_text(row, "biz_type", "全部业务"),
+              ),
+              severity_min: json_object_text(
+                row,
+                "severityMin",
+                json_object_text(row, "severity_min", "—"),
+              ),
+              channels: json_object_text(row, "channels", "—"),
+              enabled: if json_object_text(row, "enabled", "false") == "true" {
+                "启用"
+              } else {
+                "停用"
+              },
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
 }
 
 ///|
@@ -11359,6 +11427,20 @@ fn load_profile_initiated(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd 
 }
 
 ///|
+fn load_profile_subscriptions(
+  emit : @rabbita.Emit[Msg],
+  user_code : String,
+) -> Cmd {
+  let code = if user_code == "" { "admin" } else { user_code }
+  @http.get("/api/company/notify/subscriptions?userCode=" + code).expect_text(result => {
+    match result {
+      Ok(body) => emit(ProfileSubscriptionsLoaded(body))
+      Err(_) => emit(ProfileSubscriptionsLoadFailed)
+    }
+  })
+}
+
+///|
 fn issue_profile_update(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
   let body = Json::object({
     "idempotency_key": Json::string("rabbita-auth-profile-" + import_nonce()),
@@ -11616,6 +11698,26 @@ fn load_loan_attachments(emit : @rabbita.Emit[Msg], loan_id : String) -> Cmd {
     match result {
       Ok(body) => emit(LoanAttachmentsLoaded(body))
       Err(_) => emit(LoanAttachmentsLoadFailed)
+    }
+  })
+}
+
+///|
+fn issue_profile_subscription_delete(
+  emit : @rabbita.Emit[Msg],
+  subscription_id : String,
+) -> Cmd {
+  @http.delete(
+    "/api/company/source/notify/subscriptions/" +
+    subscription_id +
+    "?idempotency_key=rabbita-profile-sub-delete-" +
+    subscription_id +
+    "-" +
+    import_nonce(),
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(NotifyCommandFinished(body))
+      Err(_) => emit(NotifyCommandFailed)
     }
   })
 }
@@ -13695,7 +13797,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/error-log" {
         load_error_log(emit)
       } else if path == "/profile" {
-        load_profile(emit, model.user_code)
+        @cmd.batch([
+          load_profile(emit, model.user_code),
+          load_profile_subscriptions(emit, model.user_code),
+        ])
       } else if path == "/system-health" {
         load_health_tables(emit)
       } else if path == "/loans" {
@@ -19984,6 +20089,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
+    ProfileSubscriptionsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          profile_subscriptions_loaded: true,
+          profile_subscription_rows: profile_subscription_rows_from_body(body),
+          profile_subscriptions_note: "已加载 PostgreSQL 通知订阅 · command 行可退订，导入行保持只读",
+        },
+      )
+    ProfileSubscriptionsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          profile_subscriptions_loaded: false,
+          profile_subscription_rows: [],
+          profile_subscriptions_note: "通知订阅读模型不可用 · 使用设计快照",
+        },
+      )
     CreateNotifySubscription =>
       (
         issue_notify_subscription_create(emit),
@@ -19991,8 +20116,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     NotifyCommandFinished(body) =>
       (
-        if body.contains("\"subId\"") {
-          load_notify(emit, "subscriptions")
+        if body.contains("\"subId\"") ||
+          body.contains("\"commandType\":\"subscription_delete\"") {
+          @cmd.batch([
+            load_notify(emit, "subscriptions"),
+            load_profile_subscriptions(emit, model.user_code),
+          ])
         } else {
           none
         },
@@ -20005,6 +20134,18 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
+    DeleteProfileSubscription(subscription_id) =>
+      if subscription_id.is_empty() {
+        (none, model)
+      } else {
+        (
+          issue_profile_subscription_delete(emit, subscription_id),
+          {
+            ..model,
+            profile_subscriptions_note: "正在退订通知规则候选…",
+          },
+        )
+      }
     NotifyCommandFailed =>
       (
         none,
@@ -37176,6 +37317,77 @@ fn profile_initiated_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn profile_subscription_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.profile_subscriptions_loaded {
+    table_panel(
+      "我的订阅",
+      "设计快照 · " + model.profile_subscriptions_note,
+      data_table(
+        ["规则", "业务", "最低级别", "通道", "状态", "操作"],
+        [
+          [
+            "cost_variance", "成本", "warning", "站内信 + 企业微信", "启用",
+            "通知配置",
+          ],
+        ],
+      ),
+    )
+  } else {
+    let rows : Array[@html.Html] = []
+    for row in model.profile_subscription_rows {
+      let action = if row.source_kind == "command" && !row.sub_id.is_empty() {
+        button(
+          class="erp-link-btn is-warning",
+          on_click=emit(DeleteProfileSubscription(row.sub_id)),
+          "退订",
+        )
+      } else {
+        span(class="erp-source-note", "源行只读")
+      }
+      rows.push(
+        tr <| [
+          td(row.rule_code),
+          td(row.biz_type),
+          td(row.severity_min),
+          td(row.channels),
+          td(row.enabled),
+          td(action),
+        ],
+      )
+    }
+    if rows.length() == 0 {
+      rows.push(
+        tr <| [
+          td("—"),
+          td("—"),
+          td("—"),
+          td("—"),
+          td("无源记录"),
+          td("—"),
+        ],
+      )
+    }
+    table_panel(
+      "我的订阅 (" +
+      model.profile_subscription_rows.length().to_string() +
+      ")",
+      model.profile_subscriptions_note,
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "规则", "业务", "最低级别", "通道", "状态", "操作",
+          ]),
+        ],
+        tbody <| rows,
+      ],
+    )
+  }
+}
+
+///|
 fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "个人中心",
@@ -37280,26 +37492,7 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-dashboard-note",
         model.profile_note + " · " + model.profile_command_note,
       ),
-      table_panel(
-        "我的订阅",
-        "异常预警通知规则",
-        data_table(
-          ["规则", "业务", "级别下限", "通道", "状态", "操作"],
-          [
-            [
-              "cost_variance", "成本", "warning", "站内信 + 企业微信", "启用",
-              "编辑",
-            ],
-            [
-              "task_overdue", "项目任务", "warning", "站内信", "启用", "编辑",
-            ],
-            [
-              "cash_gap", "资金计划", "critical", "邮件 + 站内信", "启用",
-              "编辑",
-            ],
-          ],
-        ),
-      ),
+      profile_subscription_table(emit, model),
       profile_initiated_table(model),
     ],
   )
