@@ -2273,6 +2273,12 @@ Execute the remainder in this order:
     explicit mapping requirements, half-even monetary conversion, parent and
     project identity checks, deterministic reasons/warnings, and exact plan
     envelope; a synthetic five-row oracle comparison is byte-equivalent.
+3a.47. **Native ERP relationship/orphan audit (2026-07-16).**
+    `cmd/relationship_audit` and `scripts/erp_relationship_audit.sh` now run
+    the reviewed 60-relationship map through SQLite, preserving nullable
+    reference semantics, distinct orphan values, counts, and the
+    non-authorizing report. Against the authoritative snapshot it reports
+    216 references and zero orphans, byte-equivalent to the Python oracle.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

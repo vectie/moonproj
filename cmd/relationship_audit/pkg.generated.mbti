@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/relationship_audit"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror RelationshipAuditError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+} derive(@debug.Debug)
+
+// Types and methods
+type Record
+
+type Relation
+
+// Type aliases
+
+// Traits
+
