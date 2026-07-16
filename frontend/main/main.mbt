@@ -1380,6 +1380,9 @@ enum Msg {
   IgnoreWarning
   WarningCommandFinished(String)
   WarningCommandFailed
+  PreviewWarningScan
+  WarningScanPreviewFinished(String)
+  WarningScanPreviewFailed
   PreviewWarningCustomRule
   WarningCustomRulePreviewFinished(String)
   WarningCustomRulePreviewFailed
@@ -6592,6 +6595,18 @@ fn issue_warning_custom_rule_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_warning_scan_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/warning/scan")
+  .with_text("{\"idempotency_key\":\"rabbita-warning-scan-preview-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WarningScanPreviewFinished(body))
+      Err(_) => emit(WarningScanPreviewFailed)
+    }
+  })
+}
+
+///|
 fn load_attachments(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/attachments/all").expect_text(result => {
     match result {
@@ -10633,6 +10648,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           warning_action_state: "error",
           warning_action_note: "告警处理命令服务不可用或拒绝了请求",
+        },
+      )
+    PreviewWarningScan =>
+      (
+        issue_warning_scan_preview(emit),
+        {
+          ..model,
+          warning_note: "正在运行预警扫描预览 · 不写入告警、不发送通知…",
+        },
+      )
+    WarningScanPreviewFinished(body) =>
+      (
+        if body.contains("\"dryRun\":true") {
+          load_warnings(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          warning_note: if body.contains("\"persisted\":false") &&
+            body.contains("\"notificationsSent\":0") {
+            "预警扫描预览已返回 · 不写入、不发送通知、不调用 provider"
+          } else {
+            "预警扫描候选已返回 · 请复核执行边界"
+          },
+        },
+      )
+    WarningScanPreviewFailed =>
+      (
+        none,
+        {
+          ..model,
+          warning_note: "预警扫描预览服务不可用或被网关拒绝",
         },
       )
     PreviewWarningCustomRule =>
@@ -17535,6 +17583,11 @@ fn warning_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-ghost-btn",
         on_click=emit(IgnoreWarning),
         "忽略当前告警",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(PreviewWarningScan),
+        "扫描预览（干运行）",
       ),
       button(class="erp-primary-btn", "配置规则"),
     ],

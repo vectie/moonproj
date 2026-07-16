@@ -78,6 +78,13 @@ fi
   "http://127.0.0.1:$GATEWAY_PORT/api/company/warning?status=open" >"$TMP_DIR/warnings.json"
 /usr/bin/jq -e '.data.rows | any(.[]; .warningGuid == "'"$WARNING_GUID"'")' "$TMP_DIR/warnings.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/scan-preview.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"warning-scan-preview-gateway"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/scan")
+test "$status" = 200
+/usr/bin/jq -e '.data.dryRun == true and .data.rulesRun == 12 and .data.persisted == false and .data.providerExecution == false and .data.queryExecution == false and .data.notificationsSent == 0 and .authorizing == false' "$TMP_DIR/scan-preview.json" >/dev/null
+
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/resolve.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   --data "{\"idempotency_key\":\"$COMMAND_KEY\",\"note\":\"gateway warning smoke\"}" \
@@ -99,4 +106,4 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-preview.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.success == true and .data.total == 0 and .data.queryExecution == false and .data.persisted == false and .authorizing == false and .source_kind == "warning_custom_rule_preview_candidate"' "$TMP_DIR/custom-preview.json" >/dev/null
 
-echo "native MoonBit warning gateway/resolve/custom-preview smoke passed"
+echo "native MoonBit warning gateway/scan/resolve/custom-preview smoke passed"
