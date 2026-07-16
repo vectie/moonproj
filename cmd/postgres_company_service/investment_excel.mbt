@@ -817,6 +817,11 @@ async fn investment_plan_line_update_candidate(
           "success": Json::boolean(false),
           "code": Json::number(43001),
           "message": Json::string("计划行不存在"),
+          "source_kind": Json::string("investment_plan_line_update_candidate"),
+          "dry_run": Json::boolean(true),
+          "provider_execution": Json::boolean(false),
+          "persisted": Json::boolean(false),
+          "authorizing": Json::boolean(false),
         }),
       )
     Some(value) =>

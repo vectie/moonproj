@@ -387,7 +387,9 @@ fn command_path_allowed(
       ) ||
       path_with_identifier_suffix(
         "/api/company/source/investment/projects/", "/subject-mappings", path,
-      )
+      ) ||
+      path_with_identifier("/api/company/investment/plan-lines/", path) ||
+      path_with_identifier("/api/company/source/investment/plan-lines/", path)
     @http.Patch =>
       path_with_identifier("/api/company/source/srm/providers/", path) ||
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||

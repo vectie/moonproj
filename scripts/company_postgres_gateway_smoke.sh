@@ -201,6 +201,15 @@ test "$status" = 200
   '.success == true and .data.dryRun == true and .data.wouldUpdate == 1 and .persisted == false and .provider_execution == false and .authorizing == false' \
   "$TMP_DIR/investment-subject-mappings.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/investment-plan-line-update.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"gateway-investment-plan-line-update-smoke","dryRun":true,"subject":"项目销售收入","status":"adjusted"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/investment/plan-lines/PLAN-RABBITA-LOCAL")
+test "$status" = 404
+/usr/bin/jq -e \
+  '.code == 43001 and .persisted == false' \
+  "$TMP_DIR/investment-plan-line-update.json" >/dev/null
+
 status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/plan-ai-suggest.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   --data '{"projType":"住宅","scale":"中型","region":"全国","beginDate":"2026-08-01"}' \

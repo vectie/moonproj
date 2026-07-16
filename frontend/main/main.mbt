@@ -924,6 +924,7 @@ struct Model {
   investment_explain_text : String
   investment_upload_note : String
   investment_mapping_note : String
+  investment_plan_line_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
   audit_action_rows : Array[AuditActionRow]
@@ -1325,6 +1326,9 @@ enum Msg {
   RequestInvestmentSubjectMappings
   InvestmentSubjectMappingsFinished(String)
   InvestmentSubjectMappingsFailed
+  RequestInvestmentPlanLineUpdate
+  InvestmentPlanLineUpdateFinished(String)
+  InvestmentPlanLineUpdateFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
@@ -1674,6 +1678,7 @@ fn initial_model() -> Model {
     investment_explain_text: "等待投资解释候选",
     investment_upload_note: "Excel 工作簿上传候选尚未运行 · 二进制解析保持关闭",
     investment_mapping_note: "科目映射候选尚未运行 · 投资主数据保持只读",
+    investment_plan_line_note: "计划行编辑候选尚未运行 · 投资计划保持只读",
     audit_loaded: false,
     audit_rows: [],
     audit_action_rows: [],
@@ -6256,6 +6261,20 @@ fn issue_investment_subject_mappings(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_investment_plan_line_update(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.put("/api/company/investment/plan-lines/PLAN-RABBITA-LOCAL")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-investment-plan-line-update-v1\",\"dryRun\":true,\"subject\":\"项目销售收入\",\"status\":\"adjusted\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentPlanLineUpdateFinished(body))
+      Err(_) => emit(InvestmentPlanLineUpdateFailed)
+    }
+  })
+}
+
+///|
 fn load_audit_logs(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/audit/logs?limit=100").expect_text(result => {
     match result {
@@ -9876,6 +9895,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           investment_mapping_note: "科目映射候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestInvestmentPlanLineUpdate =>
+      (
+        issue_investment_plan_line_update(emit),
+        {
+          ..model,
+          investment_plan_line_note: "正在检查计划行编辑边界 · 不写入计划、不触发估值…",
+        },
+      )
+    InvestmentPlanLineUpdateFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_plan_line_note: if body.contains("\"wouldUpdate\":true") {
+            "计划行编辑候选已返回 · 仅 dry-run 预览 · 未写入投资计划"
+          } else if body.contains("\"code\":43001") {
+            "计划行编辑候选已验证 · 当前计划行源记录不存在 · 未写入"
+          } else if body.contains("\"code\":46004") {
+            "计划行编辑候选已验证 · 需要投资负责人确认 · 未写入"
+          } else {
+            "计划行编辑候选响应已返回 · 未写入投资计划"
+          },
+        },
+      )
+    InvestmentPlanLineUpdateFailed =>
+      (
+        none,
+        {
+          ..model,
+          investment_plan_line_note: "计划行编辑候选服务不可用或被网关拒绝",
         },
       )
     AuditLoaded(body) => {
@@ -15476,6 +15527,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(RequestInvestmentSubjectMappings),
         "检查科目映射（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentPlanLineUpdate),
+        "检查计划行编辑（待授权）",
+      ),
     ],
     div <| [
       stats,
@@ -15495,6 +15551,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         strong("科目映射候选"),
         span(" · " + model.investment_mapping_note),
         span(" · 项目 proj-0001"),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("计划行编辑候选"),
+        span(" · " + model.investment_plan_line_note),
+        span(" · 计划行 PLAN-RABBITA-LOCAL"),
       ]),
       table_panel(
         "解释结果",
