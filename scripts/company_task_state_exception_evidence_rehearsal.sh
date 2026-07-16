@@ -30,13 +30,13 @@ EVIDENCE_MAPPING="$WORK_DIR/task-state-evidence-mapping.json"
 moon run --target native cmd/task_state_evidence -- \
   "$WORK_DIR/task-state-exception-review.json" \
   "$WORK_DIR/task-state-exception-evidence-receipt.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/task-state-exception-evidence-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
 "$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/task-state-exception-evidence-receipt.json" "$SQLITE_DATABASE" \
   "$WORK_DIR/sqlite-parity.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/task-state-exception-evidence-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-replay.json"
 

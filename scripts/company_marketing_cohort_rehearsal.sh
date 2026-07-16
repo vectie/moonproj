@@ -22,13 +22,13 @@ rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
   "$MARKETING_MAPPING" "$WORK_DIR/marketing-cohort-plan.json"
 moon run --target native cmd/marketing_cohort -- \
   "$WORK_DIR/marketing-cohort-plan.json" "$WORK_DIR/marketing-cohort-receipt.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/marketing-cohort-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
 "$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/marketing-cohort-receipt.json" "$SQLITE_DATABASE" \
   "$WORK_DIR/sqlite-parity.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/marketing-cohort-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-replay.json"
 
