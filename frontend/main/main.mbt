@@ -2043,6 +2043,7 @@ enum Msg {
   OpenDeliveryForm(String)
   CloseDeliveryForm
   InputDeliveryField(String, String)
+  SelectDeliveryContract(String)
   CreateDeliveryProgress
   ReportDeliveryProgress
   AcceptDeliveryProgress
@@ -15273,7 +15274,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     SelectInvoiceTab(tab) => (none, { ..model, invoice_tab: tab })
     SelectDeliveryProject(project_id) =>
       (
-        load_delivery(emit, project_id),
+        @cmd.batch([load_delivery(emit, project_id), load_contracts(emit)]),
         {
           ..model,
           delivery_project_id: project_id,
@@ -20516,6 +20517,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     CloseDeliveryForm => (none, { ..model, delivery_form_open: "" })
+    SelectDeliveryContract(contract_id) =>
+      (
+        none,
+        {
+          ..model,
+          delivery_contract_id: contract_id,
+          delivery_output_contract_id: contract_id,
+        },
+      )
     InputDeliveryField(field, value) =>
       (
         none,
@@ -22891,6 +22901,33 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
+fn delivery_contract_picker(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let choices : Array[@html.Html] = []
+  for row in model.contract_rows {
+    if row.project_id == model.delivery_project_id {
+      choices.push(
+        button(
+          class="erp-project-chip",
+          on_click=emit(SelectDeliveryContract(row.contract_id)),
+          row.contract_code + " · " + row.contract_name,
+        ),
+      )
+    }
+  }
+  if choices.length() == 0 {
+    span(
+      class="erp-source-note",
+      "项目合同尚未加载或源表为空 · 可直接填写合同 GUID",
+    )
+  } else {
+    div(class="erp-project-picker") <| choices
+  }
+}
+
+///|
 fn delivery_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   if model.delivery_form_open == "progress" {
     section(class="erp-detail-card") <| [
@@ -22937,6 +22974,7 @@ fn delivery_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           @html.InputType::Text,
           emit.map(value => InputDeliveryField("contract_id", value)),
         ),
+        delivery_contract_picker(emit, model),
         editable_form_field(
           "备注",
           model.delivery_remark,
@@ -23024,6 +23062,7 @@ fn delivery_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           @html.InputType::Text,
           emit.map(value => InputDeliveryField("output_contract_id", value)),
         ),
+        delivery_contract_picker(emit, model),
         editable_form_field(
           "期间",
           model.delivery_output_period,
