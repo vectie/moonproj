@@ -37,6 +37,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
 - Browser action delta: Rabbita `/warning-rules` now calls native custom-rule create/delete candidates; SQL is hashed/redacted, imported/system rules remain protected, and no query/provider execution occurs.
 - Browser action delta: Rabbita `/tasks` now calls native workflow start/approve/reject/cosign/transfer candidates; command projections are workflow-only and do not synchronize business records, notify, call providers, or post cash/accounting/tax effects.
+- Browser action delta: Rabbita `/warning` now calls native warning-ticket create/status/reassign/extend candidates; ticket completion can append the warning resolution overlay while notifications, webhooks, and providers remain disabled.
 - Browser action delta: Rabbita `/webhook-config` now calls the native overdue-scan preview and receipt candidates; delivery and ticket mutation remain disabled.
 - Browser action delta: Rabbita `/users` now calls the native local-user creation candidate; imported identities remain read-only and credential values are redacted.
 - Browser action delta: Rabbita `/users` now calls the native local-role creation candidate; imported/system roles remain protected and authorization stays non-authorizing.
@@ -436,11 +437,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `warning` | `DELETE` | `/custom-rules/:code` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` (Rabbita candidate action now wired) |
 | `warning` | `POST` | `/custom-rules/preview` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_preview_candidate` | `accept_browser_warning_custom_rule_preview_scenario_and_warning_owner` (Rabbita dry-run action now wired) |
 | `warning` | `GET` | `/rule-templates` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
-| `warning` | `POST` | `/:guid/to-ticket` | `/warning`, `/warning-rules` | `connected_warning_ticket_command_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` |
+| `warning` | `POST` | `/:guid/to-ticket` | `/warning`, `/warning-rules` | `connected_warning_ticket_command_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` (Rabbita candidate action now wired) |
 | `warning` | `GET` | `/tickets/mine` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
-| `warning` | `PATCH` | `/tickets/:id/status` | `/warning`, `/warning-rules` | `connected_warning_ticket_transition_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` |
-| `warning` | `PATCH` | `/tickets/:id/reassign` | `/warning`, `/warning-rules` | `connected_warning_ticket_transition_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` |
-| `warning` | `PATCH` | `/tickets/:id/extend` | `/warning`, `/warning-rules` | `connected_warning_ticket_transition_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` |
+| `warning` | `PATCH` | `/tickets/:id/status` | `/warning`, `/warning-rules` | `connected_warning_ticket_transition_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` (Rabbita candidate action now wired) |
+| `warning` | `PATCH` | `/tickets/:id/reassign` | `/warning`, `/warning-rules` | `connected_warning_ticket_transition_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` (Rabbita candidate action now wired) |
+| `warning` | `PATCH` | `/tickets/:id/extend` | `/warning`, `/warning-rules` | `connected_warning_ticket_transition_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` (Rabbita candidate action now wired) |
 | `webhook` | `GET` | `/config` | `/webhook-config` | `connected_webhook_read` | `accept_browser_webhook_scenario_and_production_identity` |
 | `webhook` | `PUT` | `/config/:platform` | `/webhook-config` | `connected_webhook_config_command_candidate` | `accept_browser_webhook_config_candidate_and_security_owner` |
 | `webhook` | `POST` | `/test/:platform` | `/webhook-config` | `connected_webhook_test_delivery_candidate` | `accept_browser_webhook_test_candidate_and_security_owner` |

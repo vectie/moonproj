@@ -25,6 +25,12 @@ WARNING_GUID="source:W005:proj-0002"
 CUSTOM_CODE="XGWSMOKE"
 CUSTOM_CREATE_KEY="warning-custom-create-$SUFFIX"
 CUSTOM_DELETE_KEY="warning-custom-delete-$SUFFIX"
+TICKET_CREATE_KEY="warning-gateway-ticket-create-$SUFFIX"
+TICKET_ID="local-ticket-$TICKET_CREATE_KEY"
+TICKET_HANDLING_KEY="warning-gateway-ticket-handling-$SUFFIX"
+TICKET_EXTEND_KEY="warning-gateway-ticket-extend-$SUFFIX"
+TICKET_REASSIGN_KEY="warning-gateway-ticket-reassign-$SUFFIX"
+TICKET_DONE_KEY="warning-gateway-ticket-done-$SUFFIX"
 
 cleanup() {
   if [ -n "$GATEWAY_PID" ]; then
@@ -36,7 +42,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_custom_rule' AND aggregate_id = '$CUSTOM_CODE'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:warning:resolve:$COMMAND_KEY', 'moonproj:command:$CUSTOM_CREATE_KEY', 'moonproj:audit:warning:custom_rule_create:$CUSTOM_CREATE_KEY', 'moonproj:command:$CUSTOM_DELETE_KEY', 'moonproj:audit:warning:custom_rule_delete:$CUSTOM_DELETE_KEY');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_custom_rule' AND aggregate_id = '$CUSTOM_CODE') OR (aggregate_type = 'warning_ticket' AND aggregate_id = '$TICKET_ID'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:warning:resolve:$COMMAND_KEY', 'moonproj:command:$CUSTOM_CREATE_KEY', 'moonproj:audit:warning:custom_rule_create:$CUSTOM_CREATE_KEY', 'moonproj:command:$CUSTOM_DELETE_KEY', 'moonproj:audit:warning:custom_rule_delete:$CUSTOM_DELETE_KEY', 'moonproj:command:$TICKET_CREATE_KEY', 'moonproj:audit:warning:ticket_create:$TICKET_CREATE_KEY', 'moonproj:command:$TICKET_HANDLING_KEY', 'moonproj:audit:warning:ticket_status:$TICKET_HANDLING_KEY', 'moonproj:command:$TICKET_EXTEND_KEY', 'moonproj:audit:warning:ticket_extend:$TICKET_EXTEND_KEY', 'moonproj:command:$TICKET_REASSIGN_KEY', 'moonproj:audit:warning:ticket_reassign:$TICKET_REASSIGN_KEY', 'moonproj:command:$TICKET_DONE_KEY', 'moonproj:audit:warning:ticket_status:$TICKET_DONE_KEY');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -88,6 +94,43 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/scan-preview.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.data.dryRun == true and .data.rulesRun == 12 and .data.persisted == false and .data.providerExecution == false and .data.queryExecution == false and .data.notificationsSent == 0 and .authorizing == false' "$TMP_DIR/scan-preview.json" >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $TICKET_CREATE_KEY" \
+  --data '{"assigneeUserId":"user-admin-0001","note":"gateway warning ticket","dueDate":"2030-01-01"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/$WARNING_GUID/to-ticket")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$TICKET_ID" \
+  '.warning.ticketId == $id and .warning.status == "open" and .warning.persisted == true and .warning.notificationSent == false and .warning.webhookSent == false' \
+  "$TMP_DIR/ticket-create.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-handling.json" -w '%{http_code}' \
+  -X PATCH -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $TICKET_HANDLING_KEY" --data '{"status":"handling","note":"gateway handling"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$TICKET_ID" \
+  '.ticket.ticketId == $id and .ticket.status == "handling" and .ticket.transition == "status" and .ticket.notificationSent == false' \
+  "$TMP_DIR/ticket-handling.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-extend.json" -w '%{http_code}' \
+  -X PATCH -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $TICKET_EXTEND_KEY" --data '{"newDueDate":"2030-02-01","reason":"gateway extension"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/tickets/$TICKET_ID/extend")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$TICKET_ID" \
+  '.ticket.ticketId == $id and .ticket.dueDate == "2030-02-01" and .ticket.transition == "extend"' \
+  "$TMP_DIR/ticket-extend.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-reassign.json" -w '%{http_code}' \
+  -X PATCH -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $TICKET_REASSIGN_KEY" --data '{"newAssigneeUserId":"user-lmj-0001","reason":"gateway reassignment"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/tickets/$TICKET_ID/reassign")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$TICKET_ID" \
+  '.ticket.ticketId == $id and .ticket.assigneeUserId == "user-lmj-0001" and .ticket.status == "open" and .ticket.transition == "reassign"' \
+  "$TMP_DIR/ticket-reassign.json" >/dev/null
+
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/resolve.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   --data "{\"idempotency_key\":\"$COMMAND_KEY\",\"note\":\"gateway warning smoke\"}" \
@@ -101,6 +144,15 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/replay.json" -w '%{http_code}' \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/warning/$WARNING_GUID/resolve")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .warning.state == "resolved"' "$TMP_DIR/replay.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/ticket-done.json" -w '%{http_code}' \
+  -X PATCH -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $TICKET_DONE_KEY" --data '{"status":"done","note":"gateway completed"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/tickets/$TICKET_ID/status")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$TICKET_ID" \
+  '.ticket.ticketId == $id and .ticket.status == "done" and .ticket.warningResolved == true and .ticket.notificationSent == false and .ticket.webhookSent == false' \
+  "$TMP_DIR/ticket-done.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-preview.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \

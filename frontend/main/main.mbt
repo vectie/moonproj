@@ -993,6 +993,7 @@ struct Model {
   warning_action_note : String
   warning_rule_preview_note : String
   warning_rule_command_note : String
+  warning_ticket_note : String
   warning_action_guid : String
   attachments_loaded : Bool
   attachment_rows : Array[AttachmentRow]
@@ -1401,6 +1402,13 @@ enum Msg {
   DeleteWarningCustomRule
   WarningCustomRuleCommandFinished(String)
   WarningCustomRuleCommandFailed
+  CreateWarningTicket
+  HandleWarningTicket
+  CompleteWarningTicket
+  ReassignWarningTicket
+  ExtendWarningTicket
+  WarningTicketCommandFinished(String, String)
+  WarningTicketCommandFailed(String)
   AttachmentsLoaded(String)
   AttachmentsLoadFailed
   AttachmentStatsLoaded(String)
@@ -1817,6 +1825,7 @@ fn initial_model() -> Model {
     warning_action_note: "告警处理命令仍未执行",
     warning_rule_preview_note: "自定义规则预览尚未执行",
     warning_rule_command_note: "自定义规则命令尚未执行",
+    warning_ticket_note: "告警工单候选尚未执行",
     warning_action_guid: "",
     attachments_loaded: false,
     attachment_rows: [],
@@ -6747,6 +6756,65 @@ fn issue_warning_custom_rule_command(
 }
 
 ///|
+fn issue_warning_ticket_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let warning_guid = if model.warning_action_guid.is_empty() {
+    "source:W005:proj-0002"
+  } else {
+    model.warning_action_guid
+  }
+  let ticket_id = "local-ticket-rabbita-warning-ticket-create-v1"
+  let (path, body) = if command_type == "create" {
+    (
+      "/api/company/source/warning/" + warning_guid + "/to-ticket",
+      "{\"idempotency_key\":\"rabbita-warning-ticket-create-v1\",\"assigneeUserId\":\"user-admin-0001\",\"note\":\"Rabbita 本地告警工单候选\",\"dueDate\":\"2030-01-01\"}",
+    )
+  } else if command_type == "handling" {
+    (
+      "/api/company/source/warning/tickets/" + ticket_id + "/status",
+      "{\"idempotency_key\":\"rabbita-warning-ticket-handling-v1\",\"status\":\"handling\",\"note\":\"Rabbita 已开始处理\"}",
+    )
+  } else if command_type == "done" {
+    (
+      "/api/company/source/warning/tickets/" + ticket_id + "/status",
+      "{\"idempotency_key\":\"rabbita-warning-ticket-done-v1\",\"status\":\"done\",\"note\":\"Rabbita 已完成处理\"}",
+    )
+  } else if command_type == "reassign" {
+    (
+      "/api/company/source/warning/tickets/" + ticket_id + "/reassign",
+      "{\"idempotency_key\":\"rabbita-warning-ticket-reassign-v1\",\"newAssigneeUserId\":\"user-lmj-0001\",\"reason\":\"Rabbita 本地转派候选\"}",
+    )
+  } else {
+    (
+      "/api/company/source/warning/tickets/" + ticket_id + "/extend",
+      "{\"idempotency_key\":\"rabbita-warning-ticket-extend-v1\",\"newDueDate\":\"2030-02-01\",\"reason\":\"Rabbita 本地延期候选\"}",
+    )
+  }
+  if command_type == "create" {
+    @http.post(path)
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(WarningTicketCommandFinished(command_type, value))
+        Err(_) => emit(WarningTicketCommandFailed(command_type))
+      }
+    })
+  } else {
+    @http.patch(path)
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(WarningTicketCommandFinished(command_type, value))
+        Err(_) => emit(WarningTicketCommandFailed(command_type))
+      }
+    })
+  }
+}
+
+///|
 fn issue_warning_scan_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.post("/api/company/source/warning/scan")
   .with_text("{\"idempotency_key\":\"rabbita-warning-scan-preview-v1\"}")
@@ -11133,6 +11201,72 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           warning_rule_command_note: "自定义规则命令服务不可用或被网关拒绝",
+        },
+      )
+    CreateWarningTicket =>
+      (
+        issue_warning_ticket_command(emit, model, "create"),
+        {
+          ..model,
+          warning_ticket_note: "正在创建本地告警工单候选 · 不发送通知或 webhook…",
+        },
+      )
+    HandleWarningTicket =>
+      (
+        issue_warning_ticket_command(emit, model, "handling"),
+        {
+          ..model,
+          warning_ticket_note: "正在推进本地工单处理候选 · 仅写入工单投影…",
+        },
+      )
+    CompleteWarningTicket =>
+      (
+        issue_warning_ticket_command(emit, model, "done"),
+        {
+          ..model,
+          warning_ticket_note: "正在完成本地工单候选 · 告警解析仅写入本地状态…",
+        },
+      )
+    ReassignWarningTicket =>
+      (
+        issue_warning_ticket_command(emit, model, "reassign"),
+        {
+          ..model,
+          warning_ticket_note: "正在转派本地工单候选 · 不触发外部通知…",
+        },
+      )
+    ExtendWarningTicket =>
+      (
+        issue_warning_ticket_command(emit, model, "extend"),
+        {
+          ..model,
+          warning_ticket_note: "正在延期本地工单候选 · 仅更新 due date…",
+        },
+      )
+    WarningTicketCommandFinished(command_type, body) =>
+      (
+        load_warnings(emit),
+        {
+          ..model,
+          warning_ticket_note: if body.contains("\"persisted\":true") {
+            "告警工单 " +
+            command_type +
+            " 候选已持久化 · notification/webhook/cash/accounting/tax 均未执行"
+          } else {
+            "告警工单 " +
+            command_type +
+            " 候选已返回 · 请复核执行边界"
+          },
+        },
+      )
+    WarningTicketCommandFailed(command_type) =>
+      (
+        none,
+        {
+          ..model,
+          warning_ticket_note: "告警工单 " +
+          command_type +
+          " 服务不可用或被网关拒绝",
         },
       )
     AttachmentsLoaded(body) => {
@@ -18414,6 +18548,31 @@ fn warning_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(PreviewWarningScan),
         "扫描预览（干运行）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateWarningTicket),
+        "建工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(HandleWarningTicket),
+        "开始处理（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CompleteWarningTicket),
+        "完成工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ReassignWarningTicket),
+        "转派工单（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExtendWarningTicket),
+        "延期工单（候选）",
+      ),
       button(class="erp-primary-btn", "配置规则"),
     ],
     div <| [
@@ -18437,6 +18596,7 @@ fn warning_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           " · " +
           model.warning_action_note,
         ),
+        p(model.warning_ticket_note),
       ]),
       div(class="erp-stat-grid") <| [
         metric(

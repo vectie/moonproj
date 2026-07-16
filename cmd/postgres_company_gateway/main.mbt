@@ -377,6 +377,10 @@ fn command_path_allowed(
       path == "/api/company/source/notify/llm-test" ||
       path_with_identifier_suffix("/api/company/warning/", "/resolve", path) ||
       path_with_identifier_suffix("/api/company/warning/", "/ignore", path) ||
+      path_with_identifier_suffix("/api/company/warning/", "/to-ticket", path) ||
+      path_with_identifier_suffix(
+        "/api/company/source/warning/", "/to-ticket", path,
+      ) ||
       path == "/api/company/warning/scan" ||
       path == "/api/company/source/warning/scan" ||
       path == "/api/company/warning/custom-rules" ||
@@ -476,7 +480,25 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/srm/providers/", path) ||
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||
       path_with_identifier("/api/company/admin/dict/options/", path) ||
-      path_with_identifier("/api/company/source/admin/dict/options/", path)
+      path_with_identifier("/api/company/source/admin/dict/options/", path) ||
+      path_with_identifier_suffix(
+        "/api/company/warning/tickets/", "/status", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/warning/tickets/", "/status", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/warning/tickets/", "/reassign", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/warning/tickets/", "/reassign", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/warning/tickets/", "/extend", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/warning/tickets/", "/extend", path,
+      )
     @http.Delete =>
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/loans/", path) ||
