@@ -2240,14 +2240,11 @@ enum Msg {
   CbsR0Loaded(String)
   CbsR0LoadFailed
   SelectCbsProject(String)
-  SelectCbsTab(String)
   SelectCbsVersion(String)
   OpenCbsForm(String)
   CloseCbsForm
   InputCbsField(String, String)
   CloneCbsVersion
-  FreezeCbsVersion
-  ActivateCbsVersion
   FreezeCbsVersionFor(String)
   ActivateCbsVersionFor(String)
   CreateCbsDict
@@ -17235,7 +17232,6 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           cbs_command_note: "正在读取所选项目 CBS 版本与字典…",
         },
       )
-    SelectCbsTab(tab) => (none, { ..model, cbs_tab: tab })
     SelectCbsVersion(version) =>
       (
         load_cbs_for(emit, model.cbs_project_id, version),
@@ -17316,16 +17312,6 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           cbs_form_open: "",
           cbs_command_note: "正在提交 CBS 调整版克隆候选…",
         },
-      )
-    FreezeCbsVersion =>
-      (
-        issue_cbs_command(emit, model, "version_freeze"),
-        { ..model, cbs_command_note: "正在提交 CBS 冻结候选…" },
-      )
-    ActivateCbsVersion =>
-      (
-        issue_cbs_command(emit, model, "version_activate"),
-        { ..model, cbs_command_note: "正在提交 CBS 激活候选…" },
       )
     FreezeCbsVersionFor(version) =>
       (
