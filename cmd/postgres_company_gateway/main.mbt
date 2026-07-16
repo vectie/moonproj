@@ -404,7 +404,9 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||
       path_with_identifier("/api/company/marketing/campaigns/", path) ||
       path_with_identifier("/api/company/marketing/channels/", path) ||
-      path_with_identifier("/api/company/marketing/materials/", path)
+      path_with_identifier("/api/company/marketing/materials/", path) ||
+      path_with_identifier("/api/company/attachments/", path) ||
+      path_with_identifier("/api/company/source/attachments/", path)
     _ => false
   }
 }
@@ -1006,7 +1008,14 @@ async fn handle(
             }
           }
         }
-        let require_key = !(request.meth is @http.Post) ||
+        let require_key = if request.meth is @http.Delete &&
+          (
+            path_with_identifier("/api/company/attachments/", path) ||
+            path_with_identifier("/api/company/source/attachments/", path)
+          ) {
+          false
+        } else {
+          !(request.meth is @http.Post) ||
           (
             path != "/api/company/budget-check" &&
             path != "/api/company/export/excel" &&
@@ -1027,6 +1036,7 @@ async fn handle(
               "/api/company/source/attachments/re-extract/", path,
             )
           )
+        }
         let (body, key) = if request.meth is @http.Get ||
           request.meth is @http.Head {
           (body, None)

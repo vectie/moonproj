@@ -995,6 +995,7 @@ struct Model {
   attachment_note : String
   attachment_action_guid : String
   attachment_action_note : String
+  attachment_delete_note : String
   marketing_loaded : Bool
   marketing_campaign_rows : Array[Array[String]]
   marketing_placement_rows : Array[Array[String]]
@@ -1364,6 +1365,9 @@ enum Msg {
   RequestAttachmentReextract
   AttachmentReextractFinished(String)
   AttachmentReextractFailed
+  RequestAttachmentDelete
+  AttachmentDeleteFinished(String)
+  AttachmentDeleteFailed
   MarketingLoaded(String, String)
   MarketingLoadFailed(String)
   CreateMarketingCampaign
@@ -1729,6 +1733,7 @@ fn initial_model() -> Model {
     attachment_note: "附件源读模型尚未加载 · 使用设计快照",
     attachment_action_guid: "ATT-RABBITA-LOCAL",
     attachment_action_note: "OCR 重提取候选尚未运行 · provider/OCR 保持关闭",
+    attachment_delete_note: "删除候选尚未运行 · 对象存储与负责人确认保持关闭",
     marketing_loaded: false,
     marketing_campaign_rows: [],
     marketing_placement_rows: [],
@@ -6506,6 +6511,17 @@ fn issue_attachment_reextract(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
 }
 
 ///|
+fn issue_attachment_delete(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.delete("/api/company/attachments/" + model.attachment_action_guid).expect_text(result => {
+      match result {
+        Ok(body) => emit(AttachmentDeleteFinished(body))
+        Err(_) => emit(AttachmentDeleteFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "campaigns" {
     "/api/company/marketing/campaigns?projGuid=proj-0001"
@@ -10402,6 +10418,34 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           attachment_action_note: "OCR 重提取候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestAttachmentDelete =>
+      (
+        issue_attachment_delete(emit, model),
+        {
+          ..model,
+          attachment_delete_note: "正在检查附件删除边界 · 不删除二进制、不写入元数据…",
+        },
+      )
+    AttachmentDeleteFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          attachment_delete_note: if body.contains("\"code\":43003") {
+            "附件删除候选已验证 · 需要对象存储所有权与负责人确认 · 未执行删除"
+          } else {
+            "附件删除候选响应已返回 · 未执行删除"
+          },
+        },
+      )
+    AttachmentDeleteFailed =>
+      (
+        none,
+        {
+          ..model,
+          attachment_delete_note: "附件删除候选服务不可用或被网关拒绝",
         },
       )
     MarketingLoaded(family, body) => {
@@ -18736,6 +18780,11 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(RequestAttachmentReextract),
         "检查 OCR 重提取（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestAttachmentDelete),
+        "检查附件删除（待授权）",
+      ),
     ],
     div <| [
       div(class="erp-stat-grid") <| [
@@ -18789,6 +18838,11 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div(class="erp-runtime-banner", [
         strong("OCR 重提取候选"),
         span(" · " + model.attachment_action_note),
+        span(" · 记录 " + model.attachment_action_guid),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("附件删除候选"),
+        span(" · " + model.attachment_delete_note),
         span(" · 记录 " + model.attachment_action_guid),
       ]),
     ],

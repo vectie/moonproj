@@ -49,6 +49,18 @@ test "native gateway validates identifiers and path boundaries" {
   assert_true(
     command_path_allowed(@http.Delete, "/api/company/plan/tasks/PT-1"),
   )
+  assert_true(
+    command_path_allowed(
+      @http.Delete,
+      "/api/company/attachments/ATT-RABBITA-LOCAL",
+    ),
+  )
+  assert_true(
+    command_path_allowed(
+      @http.Delete,
+      "/api/company/source/attachments/ATT-RABBITA-LOCAL",
+    ),
+  )
 }
 
 ///|

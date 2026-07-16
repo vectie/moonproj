@@ -68,4 +68,10 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/reextract.json" -w '%{http_code}' -X POS
 test "$status" = 404
 /usr/bin/jq -e '.code == 43001 and .persisted == false and .authorizing == false and .provider_execution == false' "$TMP_DIR/reextract.json" >/dev/null
 
-echo "native MoonBit attachment upload/re-extract gateway boundary smoke passed"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/delete.json" -w '%{http_code}' -X DELETE \
+  -b "$TMP_DIR/cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/attachments/ATT-RABBITA-LOCAL")
+test "$status" = 409
+/usr/bin/jq -e '.code == 43003 and .data.deleted == false and .persisted == false and .authorizing == false and .provider_execution == false' "$TMP_DIR/delete.json" >/dev/null
+
+echo "native MoonBit attachment upload/re-extract/delete gateway boundary smoke passed"
