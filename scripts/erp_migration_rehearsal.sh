@@ -728,25 +728,25 @@ if [ -n "$ACCESS_PLAN" ]; then
 fi
 
 ROW_COVERAGE="$WORK_DIR/row-coverage.json"
-python3 "$SCRIPT_DIR/erp_row_coverage.py" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
+"$SCRIPT_DIR/erp_row_coverage.sh" "$EXPORT_DIR" "$WORK_DIR" "$ROW_COVERAGE"
 echo "row_coverage=$ROW_COVERAGE"
 BUSINESS_ACCEPTANCE="$WORK_DIR/business-acceptance.json"
-python3 "$SCRIPT_DIR/company_business_acceptance_check.py" \
+"$SCRIPT_DIR/company_business_acceptance_check.sh" \
   "$WORK_DIR" "$BUSINESS_ACCEPTANCE_MANIFEST" "$BUSINESS_ACCEPTANCE"
 echo "business_acceptance=$BUSINESS_ACCEPTANCE"
 SHADOW_PERIOD="$WORK_DIR/shadow-period.json"
-python3 "$SCRIPT_DIR/company_shadow_period_check.py" \
+"$SCRIPT_DIR/company_shadow_period_check.sh" \
   "$WORK_DIR" "$SHADOW_PERIOD_MANIFEST" "$SHADOW_PERIOD"
 echo "shadow_period=$SHADOW_PERIOD"
 
 if [ -n "$PRODUCTION_MANIFEST" ]; then
   PRODUCTION_DEPLOYMENT_GATE="$WORK_DIR/production-deployment-gate.json"
-  "$SCRIPT_DIR/company_production_deployment_check.py" \
+  "$SCRIPT_DIR/company_production_deployment_check.sh" \
     "$PRODUCTION_MANIFEST" "$PRODUCTION_DEPLOYMENT_GATE"
   echo "production_deployment_gate=$PRODUCTION_DEPLOYMENT_GATE"
   if [ -n "$PRODUCTION_SERVICE_MANIFEST" ]; then
     PRODUCTION_SERVICE_GATE="$WORK_DIR/production-service-gate.json"
-    python3 "$SCRIPT_DIR/company_production_service_check.py" \
+    "$SCRIPT_DIR/company_production_service_check.sh" \
       "$PRODUCTION_SERVICE_MANIFEST" "$PRODUCTION_DEPLOYMENT_GATE" \
       "$PRODUCTION_SERVICE_GATE"
     echo "production_service_gate=$PRODUCTION_SERVICE_GATE"

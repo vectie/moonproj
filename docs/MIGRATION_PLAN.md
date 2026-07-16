@@ -2303,6 +2303,44 @@ Execute the remainder in this order:
     emits the existing `backup_restore_verified` envelope; a synthetic
     company database is byte-equivalent to the historical oracle after
     removing only path values.
+3a.51. **Native ERP row-coverage evidence (2026-07-16).**
+    `cmd/row_coverage` and `scripts/erp_row_coverage.sh` now replace the
+    Python source-coverage checker. Native MoonBit validates snapshot/full
+    export manifests, non-empty table primary-key identity and uniqueness,
+    direct accepted receipt identities, and the three governed nested-count
+    contracts for workflow, investment, and parameter plans. The shell only
+    enumerates the work-evidence JSON paths; the exact coverage report remains
+    non-authorizing and matches the historical oracle on the authoritative
+    26-table/120-row export.
+3a.52. **Native business-acceptance decision gate (2026-07-16).**
+    `cmd/business_acceptance_check` and
+    `scripts/company_business_acceptance_check.sh` now replace the Python
+    owner-packet validator. Native MoonBit rejects secret-shaped manifest
+    keys, validates the export-contract/row-coverage evidence boundary, binds
+    the source snapshot hash, enforces the five required owner roles and
+    decision allow-list, and preserves pending/deferred/rejected/accepted
+    decision sets with `shadow_authorized` and `cutover_authorized` false
+    until the explicit owner packet is complete. The pending fixture is
+    byte-equivalent to the historical oracle.
+3a.53. **Native read-only shadow-period gate (2026-07-16).**
+    `cmd/shadow_period_check` and `scripts/company_shadow_period_check.sh`
+    now replace the Python shadow validator. Native MoonBit enforces the
+    legacy-authoritative/read-only target contract, bounded period and
+    comparison settings, non-empty dimensions, all supplied parity reports in
+    `shadow_verified` state, verified row coverage, reconciliation evidence
+    with no cash/period side effects, and the owner shadow decision. The
+    resulting artifact keeps `target_mutations_allowed=false` and
+    `cutover_authorized=false`.
+3a.54. **Native managed-production deployment/service gates (2026-07-16).**
+    `cmd/production_deployment_check` and `cmd/production_service_check`, with
+    their shell wrappers, now replace the two Python operational validators.
+    The native gates reject raw DSNs and secret-shaped keys, require
+    PostgreSQL, validated environment-variable references, TLS/certificate
+    verification, bounded pools/timeouts, encrypted cross-region backup and
+    restore controls, private authenticated HTTPS service binding, fixed
+    read-only endpoints, no arbitrary SQL, and corroborated owner approvals.
+    They preserve the explicit `ready_for_owner_review` /
+    `ready_for_service_review` states until approvals authorize deployment.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
