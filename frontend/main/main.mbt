@@ -333,6 +333,11 @@ struct ReportCostRow {
   target_cost : String
   dynamic_cost : String
   deviation_pct : String
+  spare : String
+  d_amount : String
+  e_amount : String
+  f_amount : String
+  g_amount : String
   source_kind : String
 }
 
@@ -340,8 +345,12 @@ struct ReportCostRow {
 struct ReportContractRow {
   contract_code : String
   contract_name : String
+  bu_name : String
+  proj_name : String
   provider : String
+  sign_date : String
   current_amount : String
+  applied_total : String
   paid_total : String
   remain_amount : String
   paid_pct : String
@@ -349,11 +358,57 @@ struct ReportContractRow {
 }
 
 ///|
+struct ReportSupplierRow {
+  provider_name : String
+  short_name : String
+  category_name : String
+  eval_result : String
+  contract_count : String
+  bu_count : String
+  proj_count : String
+  total_amount : String
+  recent_amount : String
+  source_kind : String
+}
+
+///|
+struct ReportApprovalRow {
+  biz_type : String
+  total : String
+  completed : String
+  rejected : String
+  running : String
+  overdue : String
+  avg_days : String
+  reject_rate : String
+}
+
+///|
+struct ReportSlowStepRow {
+  step_name : String
+  emp_name : String
+  avg_days : String
+  count : String
+}
+
+///|
+struct ReportStageCell {
+  stage_code : String
+  stage_name : String
+  status : String
+  progress_pct : String
+}
+
+///|
 struct ReportStageRow {
+  proj_guid : String
   proj_code : String
   proj_name : String
   bu_name : String
   proj_status : String
+  begin_date : String
+  end_date : String
+  cells : Array[ReportStageCell]
   source_kind : String
 }
 
@@ -1034,9 +1089,14 @@ struct Model {
   plan_delay_note : String
   plan_delay_rows : Array[Array[String]]
   reports_loaded : Bool
+  report_tab : String
   report_cost_rows : Array[ReportCostRow]
   report_contract_rows : Array[ReportContractRow]
+  report_supplier_rows : Array[ReportSupplierRow]
+  report_approval_rows : Array[ReportApprovalRow]
+  report_slow_step_rows : Array[ReportSlowStepRow]
   report_stage_rows : Array[ReportStageRow]
+  report_stage_names : Array[String]
   report_supplier_count : String
   report_approval_count : String
   reports_note : String
@@ -1615,6 +1675,8 @@ enum Msg {
   DeliveryCommandFailed
   ReportsLoaded(String)
   ReportsLoadFailed
+  SelectReportTab(String)
+  ExportReportsCsv
   DashboardOverviewLoaded(String)
   DashboardFunnelLoaded(String)
   DashboardAnomaliesLoaded(String)
@@ -2129,9 +2191,14 @@ fn initial_model() -> Model {
     plan_delay_note: "尚未计算延期影响",
     plan_delay_rows: [],
     reports_loaded: false,
+    report_tab: "cost",
     report_cost_rows: [],
     report_contract_rows: [],
+    report_supplier_rows: [],
+    report_approval_rows: [],
+    report_slow_step_rows: [],
     report_stage_rows: [],
+    report_stage_names: [],
     report_supplier_count: "0",
     report_approval_count: "0",
     reports_note: "核心报表读模型尚未加载",
@@ -3667,6 +3734,11 @@ fn report_cost_from_json(value : Json) -> ReportCostRow? {
         target_cost: json_object_text(fields, "targetCost", "0"),
         dynamic_cost: json_object_text(fields, "dynamicCost", "0"),
         deviation_pct: json_object_text(fields, "deviationPct", "0"),
+        spare: json_object_text(fields, "spare", "0"),
+        d_amount: json_object_text(fields, "d", "0"),
+        e_amount: json_object_text(fields, "e", "0"),
+        f_amount: json_object_text(fields, "f", "0"),
+        g_amount: json_object_text(fields, "g", "0"),
         source_kind: json_object_text(fields, "source_kind", "imported"),
       })
     _ => None
@@ -3680,8 +3752,12 @@ fn report_contract_from_json(value : Json) -> ReportContractRow? {
       Some({
         contract_code: json_object_text(fields, "contractCode", ""),
         contract_name: json_object_text(fields, "contractName", ""),
+        bu_name: json_object_text(fields, "buName", ""),
+        proj_name: json_object_text(fields, "projName", ""),
         provider: json_object_text(fields, "provider", ""),
+        sign_date: json_object_text(fields, "signDate", ""),
         current_amount: json_object_text(fields, "currentAmount", "0"),
+        applied_total: json_object_text(fields, "appliedTotal", "0"),
         paid_total: json_object_text(fields, "paidTotal", "0"),
         remain_amount: json_object_text(fields, "remainAmount", "0"),
         paid_pct: json_object_text(fields, "paidPct", "0"),
@@ -3692,18 +3768,176 @@ fn report_contract_from_json(value : Json) -> ReportContractRow? {
 }
 
 ///|
-fn report_stage_from_json(value : Json) -> ReportStageRow? {
+fn report_supplier_from_json(value : Json) -> ReportSupplierRow? {
   match value {
     Json::Object(fields) =>
       Some({
-        proj_code: json_object_text(fields, "projCode", ""),
-        proj_name: json_object_text(fields, "projName", ""),
-        bu_name: json_object_text(fields, "buName", ""),
-        proj_status: json_object_text(fields, "projStatus", ""),
+        provider_name: json_object_text(fields, "providerName", ""),
+        short_name: json_object_text(fields, "shortName", ""),
+        category_name: json_object_text(fields, "categoryName", ""),
+        eval_result: json_object_text(fields, "evalResult", ""),
+        contract_count: json_object_text(fields, "contractCount", "0"),
+        bu_count: json_object_text(fields, "buCount", "0"),
+        proj_count: json_object_text(fields, "projCount", "0"),
+        total_amount: json_object_text(fields, "totalAmount", "0"),
+        recent_amount: json_object_text(fields, "recentAmount", "0"),
         source_kind: json_object_text(fields, "source_kind", "imported"),
       })
     _ => None
   }
+}
+
+///|
+fn report_approval_from_json(value : Json) -> ReportApprovalRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        biz_type: json_object_text(fields, "bizType", ""),
+        total: json_object_text(fields, "total", "0"),
+        completed: json_object_text(fields, "completed", "0"),
+        rejected: json_object_text(fields, "rejected", "0"),
+        running: json_object_text(fields, "running", "0"),
+        overdue: json_object_text(fields, "overdue", "0"),
+        avg_days: json_object_text(fields, "avgDays", "—"),
+        reject_rate: json_object_text(fields, "rejectRate", "0"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn report_slow_step_from_json(value : Json) -> ReportSlowStepRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        step_name: json_object_text(fields, "stepName", ""),
+        emp_name: json_object_text(fields, "empName", ""),
+        avg_days: json_object_text(fields, "avgDays", "0"),
+        count: json_object_text(fields, "count", "0"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn report_stage_cell_from_json(value : Json) -> ReportStageCell? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        stage_code: json_object_text(fields, "stageCode", ""),
+        stage_name: json_object_text(fields, "stageName", ""),
+        status: json_object_text(fields, "status", "pending"),
+        progress_pct: json_object_text(fields, "progressPct", "0"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn report_stage_from_json(value : Json) -> ReportStageRow? {
+  match value {
+    Json::Object(fields) => {
+      let cells : Array[ReportStageCell] = []
+      for value in json_array_field(fields, "cells") {
+        match report_stage_cell_from_json(value) {
+          Some(row) => cells.push(row)
+          None => ()
+        }
+      }
+      Some({
+        proj_guid: json_object_text(fields, "projGuid", ""),
+        proj_code: json_object_text(fields, "projCode", ""),
+        proj_name: json_object_text(fields, "projName", ""),
+        bu_name: json_object_text(fields, "buName", ""),
+        proj_status: json_object_text(fields, "projStatus", ""),
+        begin_date: json_object_text(fields, "beginDate", ""),
+        end_date: json_object_text(fields, "endDate", ""),
+        cells,
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn report_supplier_rows_from_body(body : String) -> Array[ReportSupplierRow] {
+  let rows : Array[ReportSupplierRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("supplier_analysis") {
+        Some(Json::Array(values)) =>
+          for value in values {
+            match report_supplier_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn report_approval_rows_from_body(
+  body : String,
+) -> (Array[ReportApprovalRow], Array[ReportSlowStepRow]) {
+  let rows : Array[ReportApprovalRow] = []
+  let slow_steps : Array[ReportSlowStepRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("approval_efficiency") {
+        Some(Json::Object(approval)) => {
+          for value in json_array_field(approval, "byType") {
+            match report_approval_from_json(value) {
+              Some(row) => rows.push(row)
+              None => ()
+            }
+          }
+          for value in json_array_field(approval, "slowSteps") {
+            match report_slow_step_from_json(value) {
+              Some(row) => slow_steps.push(row)
+              None => ()
+            }
+          }
+        }
+        _ => ()
+      }
+    _ => ()
+  }
+  (rows, slow_steps)
+}
+
+///|
+fn report_stage_names_from_body(body : String) -> Array[String] {
+  let names : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("project_stage_matrix") {
+        Some(Json::Object(matrix)) =>
+          for value in json_array_field(matrix, "stages") {
+            match value {
+              Json::Object(stage) =>
+                names.push(
+                  json_object_text(
+                    stage,
+                    "name",
+                    json_object_text(stage, "code", ""),
+                  ),
+                )
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  names
 }
 
 ///|
@@ -12138,14 +12372,21 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let (costs, contracts, stages, supplier_count, approval_count) = reports_from_body(
         body,
       )
+      let suppliers = report_supplier_rows_from_body(body)
+      let (approval_rows, slow_steps) = report_approval_rows_from_body(body)
       (
         none,
         {
           ..model,
           reports_loaded: true,
+          report_tab: model.report_tab,
           report_cost_rows: costs,
           report_contract_rows: contracts,
+          report_supplier_rows: suppliers,
+          report_approval_rows: approval_rows,
+          report_slow_step_rows: slow_steps,
           report_stage_rows: stages,
+          report_stage_names: report_stage_names_from_body(body),
           report_supplier_count: supplier_count,
           report_approval_count: approval_count,
           reports_note: "已加载 PostgreSQL 核心报表 · 源数据覆盖与缺口保持可见",
@@ -12158,10 +12399,29 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           reports_loaded: false,
+          report_supplier_rows: [],
+          report_approval_rows: [],
+          report_slow_step_rows: [],
           report_cost_rows: [],
           report_contract_rows: [],
           report_stage_rows: [],
+          report_stage_names: [],
           reports_note: "核心报表读模型不可用 · 使用已审核快照",
+        },
+      )
+    SelectReportTab(tab) => (none, { ..model, report_tab: tab })
+    ExportReportsCsv =>
+      (
+        {
+          download_text(
+            report_csv(model),
+            "报表-" + model.report_tab + ".csv",
+          )
+          none
+        },
+        {
+          ..model,
+          reports_note: "已导出当前报表 CSV · PostgreSQL 源数据仍保持只读",
         },
       )
     DashboardOverviewLoaded(body) => {
@@ -22919,6 +23179,7 @@ fn reports_runtime_banner(model : Model) -> @html.Html {
 
 ///|
 fn reports_data_tables(model : Model) -> @html.Html {
+  let tab = model.report_tab
   let cost_rows : Array[Array[String]] = []
   for row in model.report_cost_rows {
     cost_rows.push([
@@ -22928,6 +23189,11 @@ fn reports_data_tables(model : Model) -> @html.Html {
       row.target_cost,
       row.dynamic_cost,
       row.deviation_pct + "%",
+      row.spare,
+      row.d_amount,
+      row.e_amount,
+      row.f_amount,
+      row.g_amount,
       row.source_kind,
     ])
   }
@@ -22936,8 +23202,12 @@ fn reports_data_tables(model : Model) -> @html.Html {
     contract_rows.push([
       row.contract_code,
       row.contract_name,
+      row.bu_name,
+      row.proj_name,
       row.provider,
+      row.sign_date,
       row.current_amount,
+      row.applied_total,
       row.paid_total,
       row.remain_amount,
       row.paid_pct + "%",
@@ -22946,46 +23216,246 @@ fn reports_data_tables(model : Model) -> @html.Html {
   }
   let stage_rows : Array[Array[String]] = []
   for row in model.report_stage_rows {
-    stage_rows.push([
+    let values : Array[String] = [
+      row.proj_name + " · " + row.proj_guid,
       row.bu_name,
       row.proj_code,
-      row.proj_name,
       row.proj_status,
+      row.begin_date + " → " + row.end_date,
+    ]
+    for cell in row.cells {
+      values.push(
+        cell.stage_code + " · " + cell.status + " " + cell.progress_pct + "%",
+      )
+    }
+    values.push(row.source_kind)
+    stage_rows.push(values)
+  }
+  let supplier_rows : Array[Array[String]] = []
+  for row in model.report_supplier_rows {
+    supplier_rows.push([
+      row.provider_name,
+      row.short_name,
+      row.category_name,
+      row.eval_result,
+      row.contract_count,
+      row.bu_count,
+      row.proj_count,
+      row.total_amount,
+      row.recent_amount,
       row.source_kind,
     ])
   }
-  div <| [
-    table_panel(
-      "R1 集团成本汇总",
-      "目标/动态成本来自导入源表 · 仅固定读模型",
-      data_table(
-        [
-          "公司", "项目编码", "项目名称", "目标成本", "动态成本",
-          "偏差%", "来源",
-        ],
-        cost_rows,
-      ),
-    ),
+  let approval_rows : Array[Array[String]] = []
+  for row in model.report_approval_rows {
+    approval_rows.push([
+      row.biz_type,
+      row.total,
+      row.completed,
+      row.rejected,
+      row.running,
+      row.overdue,
+      row.avg_days,
+      row.reject_rate + "%",
+    ])
+  }
+  let slow_rows : Array[Array[String]] = []
+  for row in model.report_slow_step_rows {
+    slow_rows.push([row.step_name, row.emp_name, row.avg_days, row.count])
+  }
+  if tab == "contract" {
     table_panel(
       "R2 合同付款台账",
-      "合同金额、已付、未付与付款率",
+      "滚动展示合同当前金额 / 已申请 / 已付 / 未付 / 付款率 · " +
+      model.reports_note,
       data_table(
         [
-          "合同", "名称", "乙方", "当前金额", "已付", "未付", "付款率",
-          "来源",
+          "合同", "名称", "公司", "项目", "乙方", "签订日期", "当前金额",
+          "已申请", "已付", "未付", "付款率", "来源",
         ],
         contract_rows,
       ),
-    ),
+    )
+  } else if tab == "supplier" {
     table_panel(
-      "R5 项目阶段矩阵",
-      "阶段明细由项目生命周期源表计算",
+      "R3 供应商合作分析",
+      "按累计合作金额排序 · 仅显示有合同的供应商",
       data_table(
-        ["公司", "项目编码", "项目名称", "当前阶段", "来源"],
-        stage_rows,
+        [
+          "供应商", "简称", "类别", "评级", "合作笔数", "跨公司数",
+          "跨项目数", "累计金额", "近 1 年", "来源",
+        ],
+        supplier_rows,
       ),
-    ),
-  ]
+    )
+  } else if tab == "approval" {
+    div <| [
+      table_panel(
+        "R4 审批效率分析",
+        "按业务类型汇总流程实例 · 空源表保持可见",
+        data_table(
+          [
+            "业务类型", "总数", "已完成", "已驳回", "进行中", "超 7 天未结",
+            "平均处理天数", "驳回率",
+          ],
+          approval_rows,
+        ),
+      ),
+      table_panel(
+        "最慢节点 TOP 10",
+        "单步骤平均耗时 · 当前源数据可能没有足够样本",
+        data_table(
+          ["节点", "责任人", "平均耗时", "样本数"],
+          slow_rows,
+        ),
+      ),
+    ]
+  } else if tab == "stage" {
+    let headers : Array[String] = [
+      "项目", "公司", "项目编码", "项目状态", "计划区间",
+    ]
+    for stage_name in model.report_stage_names {
+      headers.push(stage_name)
+    }
+    headers.push("来源")
+    table_panel(
+      "R5 项目阶段进度大盘",
+      "绿色已完成 / 黄色进行中 / 灰色待启动 · 阶段单元格保留进度证据",
+      data_table(headers, stage_rows),
+    )
+  } else {
+    table_panel(
+      "R1 集团成本汇总",
+      "按项目展示目标 vs 动态成本 (D+E+F+G) · 偏差小于 0 为超目标",
+      data_table(
+        [
+          "公司", "项目编码", "项目名称", "目标 A", "动态 B", "偏差 C%",
+          "余量 H", "D 合约", "E 在途", "F 未定", "G 预期", "来源",
+        ],
+        cost_rows,
+      ),
+    )
+  }
+}
+
+///|
+fn report_csv(model : Model) -> String {
+  let lines : Array[String] = []
+  if model.report_tab == "contract" {
+    lines.push(
+      "合同编号,合同名称,公司,项目,乙方,签订日期,当前金额,已申请,已付,未付,付款率,来源",
+    )
+    for row in model.report_contract_rows {
+      lines.push(
+        [
+          row.contract_code,
+          row.contract_name,
+          row.bu_name,
+          row.proj_name,
+          row.provider,
+          row.sign_date,
+          row.current_amount,
+          row.applied_total,
+          row.paid_total,
+          row.remain_amount,
+          row.paid_pct,
+          row.source_kind,
+        ]
+        .map(value => "\"" + value.replace(old="\"", new="\"\"") + "\"")
+        .join(","),
+      )
+    }
+  } else if model.report_tab == "supplier" {
+    lines.push(
+      "供应商,简称,类别,评级,合作笔数,跨公司数,跨项目数,累计金额,近1年,来源",
+    )
+    for row in model.report_supplier_rows {
+      lines.push(
+        [
+          row.provider_name,
+          row.short_name,
+          row.category_name,
+          row.eval_result,
+          row.contract_count,
+          row.bu_count,
+          row.proj_count,
+          row.total_amount,
+          row.recent_amount,
+          row.source_kind,
+        ]
+        .map(value => "\"" + value.replace(old="\"", new="\"\"") + "\"")
+        .join(","),
+      )
+    }
+  } else if model.report_tab == "approval" {
+    lines.push(
+      "业务类型,总数,已完成,已驳回,进行中,超7天未结,平均处理天数,驳回率",
+    )
+    for row in model.report_approval_rows {
+      lines.push(
+        [
+          row.biz_type,
+          row.total,
+          row.completed,
+          row.rejected,
+          row.running,
+          row.overdue,
+          row.avg_days,
+          row.reject_rate,
+        ]
+        .map(value => "\"" + value.replace(old="\"", new="\"\"") + "\"")
+        .join(","),
+      )
+    }
+  } else if model.report_tab == "stage" {
+    lines.push(
+      "项目,公司,项目编码,状态,计划区间,阶段进度,来源",
+    )
+    for row in model.report_stage_rows {
+      lines.push(
+        [
+          row.proj_name + " · " + row.proj_guid,
+          row.bu_name,
+          row.proj_code,
+          row.proj_status,
+          row.begin_date + " → " + row.end_date,
+          row.cells
+          .map(fn(cell) {
+            cell.stage_name + ":" + cell.status + " " + cell.progress_pct + "%"
+          })
+          .join(" · "),
+          row.source_kind,
+        ]
+        .map(value => "\"" + value.replace(old="\"", new="\"\"") + "\"")
+        .join(","),
+      )
+    }
+  } else {
+    lines.push(
+      "公司,项目编码,项目名称,目标A,动态B,偏差C%,余量H,D合约,E在途,F未定,G预期,来源",
+    )
+    for row in model.report_cost_rows {
+      lines.push(
+        [
+          row.bu_name,
+          row.proj_code,
+          row.proj_name,
+          row.target_cost,
+          row.dynamic_cost,
+          row.deviation_pct,
+          row.spare,
+          row.d_amount,
+          row.e_amount,
+          row.f_amount,
+          row.g_amount,
+          row.source_kind,
+        ]
+        .map(value => "\"" + value.replace(old="\"", new="\"\"") + "\"")
+        .join(","),
+      )
+    }
+  }
+  lines.join("\n")
 }
 
 ///|
@@ -22994,7 +23464,14 @@ fn reports_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "报表中心",
     "ANALYSIS / REPORTS",
     "按主题打开经营、成本、资金、销售与项目报表，统一查看口径和更新时间。",
-    [button(class="erp-secondary-btn", "管理收藏")],
+    [
+      button(class="erp-secondary-btn", "管理收藏"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExportReportsCsv),
+        "导出当前报表 CSV",
+      ),
+    ],
     div <| [
       reports_runtime_banner(model),
       div(class="erp-report-grid") <| [
@@ -23049,6 +23526,63 @@ fn reports_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           ],
         ),
       ),
+      div(class="erp-tabs") <| [
+        button(
+          class=if model.report_tab == "cost" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectReportTab("cost")),
+          "R1 集团成本汇总 (" +
+          model.report_cost_rows.length().to_string() +
+          ")",
+        ),
+        button(
+          class=if model.report_tab == "contract" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectReportTab("contract")),
+          "R2 合同付款台账 (" +
+          model.report_contract_rows.length().to_string() +
+          ")",
+        ),
+        button(
+          class=if model.report_tab == "supplier" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectReportTab("supplier")),
+          "R3 供应商分析 (" +
+          model.report_supplier_rows.length().to_string() +
+          ")",
+        ),
+        button(
+          class=if model.report_tab == "approval" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectReportTab("approval")),
+          "R4 审批效率 (" +
+          model.report_approval_rows.length().to_string() +
+          ")",
+        ),
+        button(
+          class=if model.report_tab == "stage" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectReportTab("stage")),
+          "R5 项目阶段矩阵 (" +
+          model.report_stage_rows.length().to_string() +
+          ")",
+        ),
+      ],
       reports_data_tables(model),
     ],
   )

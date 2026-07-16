@@ -23,8 +23,9 @@ from accounting posting, cash, tax filing, and period close.
 
 `/api/company/reports/overview` bundles the five reads and returns source-table
 coverage plus missing-table names. The Rabbita `/reports` route loads that
-overview and renders connected cost, contract, and stage rows while showing
-the supplier/approval coverage counts. The report-builder route now has native
+overview and now renders source-shaped five-tab cost, contract, supplier,
+approval, and stage views, with active-tab CSV export while showing source
+coverage. The report-builder route now has native
 metadata/list/run/create/delete behavior. Signed
 `/api/company/reports/shares` create/list/revoke commands use command-owned
 `report_share` revisions; public `/api/company/share/:token/meta|data` reads
@@ -43,8 +44,9 @@ replayable evidence, not a production credential issuer.
   workflow tables exist but contain zero `wf_process_instance` and
   `wf_step_action` rows. Supplier analysis and approval efficiency therefore
   correctly return empty source-backed results rather than invented data.
-- The parity matrix marks `/reports` as `connected_report_read`; share commands
-  and public reads are now native but remain bounded by the local token and
+- The parity matrix marks `/reports` as `connected_report_read`; Rabbita now
+  exposes the five source tabs and active-tab CSV export. Share commands and
+  public reads are now native but remain bounded by the local token and
   projection model.
 - The Rabbita `/ai-stats` action now calls the native XLSX endpoint through the
   PostgreSQL gateway and downloads a bounded AI-summary workbook in the
