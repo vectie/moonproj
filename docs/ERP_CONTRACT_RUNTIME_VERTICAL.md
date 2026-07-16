@@ -70,7 +70,10 @@ requires its in-memory HttpOnly session and signs `rabbita-user` before the
 service accepts a command. The Rabbita contracts list is wired to load live
 rows; the detail route is wired to load live fields and milestones, and the
 local “new contract” form is wired for create → submit → reject → resubmit →
-approve.
+approve. The detail route also mirrors the source payment-milestone form and
+offers trigger-event/delete actions. These controls deliberately stop at the
+PostgreSQL command projection and display the no-payment/no-accounting/no-tax
+boundary in the page state.
 
 ## Acceptance evidence
 

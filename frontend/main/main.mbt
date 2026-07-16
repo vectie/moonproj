@@ -843,6 +843,14 @@ struct Model {
   contract_id : String
   contract_state : String
   contract_note : String
+  contract_milestone_node_name : String
+  contract_milestone_trigger_type : String
+  contract_milestone_trigger_value : String
+  contract_milestone_plan_date : String
+  contract_milestone_plan_amount : String
+  contract_milestone_plan_pct : String
+  contract_milestone_notes : String
+  contract_milestone_command_note : String
   payment_applies_loaded : Bool
   payment_apply_rows : Array[PaymentApplyRow]
   payment_apply_id : String
@@ -1383,6 +1391,18 @@ enum Msg {
   ApproveContract
   ContractCommandFinished(String)
   ContractCommandFailed
+  InputContractMilestoneNodeName(String)
+  InputContractMilestoneTriggerType(String)
+  InputContractMilestoneTriggerValue(String)
+  InputContractMilestonePlanDate(String)
+  InputContractMilestonePlanAmount(String)
+  InputContractMilestonePlanPct(String)
+  InputContractMilestoneNotes(String)
+  RequestContractMilestoneCreate
+  ContractMilestoneTrigger(String)
+  ContractMilestoneDelete(String)
+  ContractMilestoneCommandFinished(String)
+  ContractMilestoneCommandFailed
   PaymentAppliesLoaded(String)
   PaymentAppliesLoadFailed
   CreatePaymentApply
@@ -1857,6 +1877,14 @@ fn initial_model() -> Model {
     contract_id: "CT-RABBITA-LOCAL",
     contract_state: "new",
     contract_note: "先保存草稿，再提交审批",
+    contract_milestone_node_name: "",
+    contract_milestone_trigger_type: "time",
+    contract_milestone_trigger_value: "",
+    contract_milestone_plan_date: "",
+    contract_milestone_plan_amount: "0",
+    contract_milestone_plan_pct: "0",
+    contract_milestone_notes: "",
+    contract_milestone_command_note: "付款节点命令候选尚未运行",
     payment_applies_loaded: false,
     payment_apply_rows: [],
     payment_apply_id: "PAY-RABBITA-LOCAL",
@@ -9509,6 +9537,76 @@ fn issue_contract_command(
 }
 
 ///|
+fn contract_milestone_create_body(model : Model) -> String {
+  Json::object({
+    "idempotency_key": Json::string("rabbita-contract-milestone-create-v1"),
+    "contractGuid": Json::string(model.contract_id),
+    "nodeName": Json::string(model.contract_milestone_node_name),
+    "triggerType": Json::string(model.contract_milestone_trigger_type),
+    "triggerValue": Json::string(model.contract_milestone_trigger_value),
+    "planDate": Json::string(model.contract_milestone_plan_date),
+    "planAmount": investment_edit_value_json(
+      model.contract_milestone_plan_amount,
+    ),
+    "planPct": investment_edit_value_json(model.contract_milestone_plan_pct),
+    "notes": Json::string(model.contract_milestone_notes),
+  }).stringify()
+}
+
+///|
+fn issue_contract_milestone_create(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  @http.post(
+    "/api/company/source/cost/contracts/" + model.contract_id + "/milestones",
+  )
+  .with_text(contract_milestone_create_body(model))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ContractMilestoneCommandFinished(body))
+      Err(_) => emit(ContractMilestoneCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_contract_milestone_action(
+  emit : @rabbita.Emit[Msg],
+  milestone_id : String,
+  action : String,
+) -> Cmd {
+  let key = "rabbita-contract-milestone-" + action + "-v1"
+  let path = if action == "trigger-event" {
+    "/api/company/source/cost/milestones/" + milestone_id + "/trigger-event"
+  } else {
+    "/api/company/source/cost/milestones/" + milestone_id
+  }
+  if action == "delete" {
+    @http.delete(path + "?idempotency_key=" + key).expect_text(result => {
+      match result {
+        Ok(body) => emit(ContractMilestoneCommandFinished(body))
+        Err(_) => emit(ContractMilestoneCommandFailed)
+      }
+    })
+  } else {
+    @http.post(path)
+    .with_text(
+      Json::object({
+        "idempotency_key": Json::string(key),
+        "notes": Json::string("Rabbita 合同节点事件候选"),
+      }).stringify(),
+    )
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(ContractMilestoneCommandFinished(body))
+        Err(_) => emit(ContractMilestoneCommandFailed)
+      }
+    })
+  }
+}
+
+///|
 fn session_login_body(model : Model) -> String {
   Json::object({
     "user_code": Json::string(model.user_code),
@@ -10063,6 +10161,97 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           contract_state: "error",
           contract_note: "公司合同命令服务不可用或拒绝了请求",
+        },
+      )
+    InputContractMilestoneNodeName(value) =>
+      (none, { ..model, contract_milestone_node_name: value })
+    InputContractMilestoneTriggerType(value) =>
+      (none, { ..model, contract_milestone_trigger_type: value })
+    InputContractMilestoneTriggerValue(value) =>
+      (none, { ..model, contract_milestone_trigger_value: value })
+    InputContractMilestonePlanDate(value) =>
+      (none, { ..model, contract_milestone_plan_date: value })
+    InputContractMilestonePlanAmount(value) =>
+      (none, { ..model, contract_milestone_plan_amount: value })
+    InputContractMilestonePlanPct(value) =>
+      (none, { ..model, contract_milestone_plan_pct: value })
+    InputContractMilestoneNotes(value) =>
+      (none, { ..model, contract_milestone_notes: value })
+    RequestContractMilestoneCreate =>
+      if model.contract_id.is_empty() ||
+        model.contract_milestone_node_name.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            contract_milestone_command_note: "请先填写合同和节点名称",
+          },
+        )
+      } else {
+        (
+          issue_contract_milestone_create(emit, model),
+          {
+            ..model,
+            contract_milestone_command_note: "正在提交付款节点创建候选…",
+          },
+        )
+      }
+    ContractMilestoneTrigger(milestone_id) =>
+      if milestone_id.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            contract_milestone_command_note: "节点缺少 milestoneGuid",
+          },
+        )
+      } else {
+        (
+          issue_contract_milestone_action(emit, milestone_id, "trigger-event"),
+          {
+            ..model,
+            contract_milestone_command_note: "正在提交节点事件候选…",
+          },
+        )
+      }
+    ContractMilestoneDelete(milestone_id) =>
+      if milestone_id.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            contract_milestone_command_note: "节点缺少 milestoneGuid",
+          },
+        )
+      } else {
+        (
+          issue_contract_milestone_action(emit, milestone_id, "delete"),
+          {
+            ..model,
+            contract_milestone_command_note: "正在提交节点删除候选…",
+          },
+        )
+      }
+    ContractMilestoneCommandFinished(body) =>
+      (
+        load_contract(emit, "/contracts/" + model.contract_id),
+        {
+          ..model,
+          contract_milestone_command_note: if body.contains(
+              "\"persisted\":true",
+            ) {
+            "合同节点候选已写入 PostgreSQL 投影 · 付款/现金/会计/税务仍未执行"
+          } else {
+            "合同节点候选已返回 · 请复核 owner 边界"
+          },
+        },
+      )
+    ContractMilestoneCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          contract_milestone_command_note: "合同节点命令服务不可用或被权限/源状态拒绝",
         },
       )
     PaymentAppliesLoaded(body) =>
@@ -22347,6 +22536,131 @@ fn project_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
+fn contract_milestone_create_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  section(class="erp-detail-card") <| [
+    div(class="erp-panel-heading") <| [
+      h2("新增付款节点候选"),
+      span(
+        class="erp-info-tag",
+        "节点创建、事件打点和删除均保留 owner/付款边界",
+      ),
+    ],
+    div(class="erp-form-grid") <| [
+      editable_form_field(
+        "节点名称",
+        model.contract_milestone_node_name,
+        "例如 主体结构 30%",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestoneNodeName(value)),
+      ),
+      editable_form_field(
+        "触发类型",
+        model.contract_milestone_trigger_type,
+        "time / progress / event",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestoneTriggerType(value)),
+      ),
+      editable_form_field(
+        "触发值",
+        model.contract_milestone_trigger_value,
+        "日期、进度或事件编码",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestoneTriggerValue(value)),
+      ),
+      editable_form_field(
+        "计划日期",
+        model.contract_milestone_plan_date,
+        "YYYY-MM-DD",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestonePlanDate(value)),
+      ),
+      editable_form_field(
+        "计划金额",
+        model.contract_milestone_plan_amount,
+        "例如 1200000",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestonePlanAmount(value)),
+      ),
+      editable_form_field(
+        "计划比例",
+        model.contract_milestone_plan_pct,
+        "例如 30",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestonePlanPct(value)),
+      ),
+      editable_form_field(
+        "备注",
+        model.contract_milestone_notes,
+        "节点说明",
+        @html.InputType::Text,
+        emit.map(value => InputContractMilestoneNotes(value)),
+      ),
+    ],
+    div(class="erp-command-bar") <| [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(RequestContractMilestoneCreate),
+        "提交节点创建候选",
+      ),
+    ],
+    p(class="erp-source-note", model.contract_milestone_command_note),
+  ]
+}
+
+///|
+fn contract_milestone_action_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if model.contract_milestones.length() == 0 {
+    div(
+      class="erp-runtime-empty",
+      "当前合同没有可操作的源付款节点",
+    )
+  } else {
+    let rendered : Array[@html.Html] = []
+    for row in model.contract_milestones {
+      rendered.push(
+        tr <| [
+          td(row.node_name + " · " + row.milestone_id),
+          td(row.trigger_type),
+          td(row.plan_amount_display),
+          td(row.plan_pct_bps + " bps"),
+          td <| [
+            button(
+              class="erp-ghost-btn",
+              on_click=emit(ContractMilestoneTrigger(row.milestone_id)),
+              "事件打点候选",
+            ),
+            button(
+              class="erp-ghost-btn",
+              on_click=emit(ContractMilestoneDelete(row.milestone_id)),
+              "删除候选",
+            ),
+          ],
+        ],
+      )
+    }
+    table_panel(
+      "付款节点命令",
+      model.contract_milestone_command_note +
+      " · imported/command 行均受 owner 门控",
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "节点 / ID", "触发", "计划金额", "比例", "操作",
+          ]),
+        ],
+        tbody <| rendered,
+      ],
+    )
+  }
+}
+
+///|
 fn contract_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let fallback = fallback_contract_rows()[0]
   let draft_row = {
@@ -22525,6 +22839,8 @@ fn contract_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
           milestones,
         ),
       ),
+      contract_milestone_action_table(emit, model),
+      contract_milestone_create_panel(emit, model),
     ],
   )
 }
