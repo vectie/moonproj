@@ -1232,6 +1232,21 @@ struct Model {
   sales_mortgage_rows : Array[SalesMortgageRow]
   sales_mortgage_loaded : Bool
   sales_mortgage_filter_state : String
+  sales_mortgage_form_open : Bool
+  sales_mortgage_form_contract : String
+  sales_mortgage_form_customer : String
+  sales_mortgage_form_bank : String
+  sales_mortgage_form_amount : String
+  sales_mortgage_form_years : String
+  sales_mortgage_form_rate : String
+  sales_mortgage_form_date : String
+  sales_mortgage_form_remark : String
+  sales_refund_form_open : Bool
+  sales_refund_form_contract : String
+  sales_refund_form_customer : String
+  sales_refund_form_reason : String
+  sales_refund_form_amount : String
+  sales_refund_form_date : String
   sales_revenue_rows : Array[SalesRevenueRow]
   sales_revenue_loaded : Bool
   sales_revenue_project_id : String
@@ -1947,6 +1962,14 @@ enum Msg {
   SelectSalesContractProject(String)
   SelectSalesContractState(String)
   SelectSalesMortgageState(String)
+  OpenSalesMortgageForm(String, String, String)
+  CloseSalesMortgageForm
+  InputSalesMortgageField(String, String)
+  SubmitSalesMortgageForm
+  OpenSalesRefundForm(String, String, String)
+  CloseSalesRefundForm
+  InputSalesRefundField(String, String)
+  SubmitSalesRefundForm
   SelectSalesRevenueProject(String)
   SelectSalesRevenueStatus(String)
   InputSalesRevenueKeyword(String)
@@ -2548,6 +2571,21 @@ fn initial_model() -> Model {
     sales_mortgage_rows: [],
     sales_mortgage_loaded: false,
     sales_mortgage_filter_state: "",
+    sales_mortgage_form_open: false,
+    sales_mortgage_form_contract: "",
+    sales_mortgage_form_customer: "",
+    sales_mortgage_form_bank: "建设银行",
+    sales_mortgage_form_amount: "0",
+    sales_mortgage_form_years: "30",
+    sales_mortgage_form_rate: "0.0485",
+    sales_mortgage_form_date: "2026-07-16",
+    sales_mortgage_form_remark: "",
+    sales_refund_form_open: false,
+    sales_refund_form_contract: "",
+    sales_refund_form_customer: "",
+    sales_refund_form_reason: "",
+    sales_refund_form_amount: "0",
+    sales_refund_form_date: "2026-07-16",
     sales_revenue_rows: [],
     sales_revenue_loaded: false,
     sales_revenue_project_id: "",
@@ -11048,6 +11086,7 @@ fn issue_sales_mortgage_command(
   model : Model,
   command_type : String,
 ) -> Cmd {
+  let nonce = import_nonce()
   let path = if command_type == "create" {
     "/api/company/sales/mortgages"
   } else {
@@ -11057,7 +11096,23 @@ fn issue_sales_mortgage_command(
     command_type
   }
   let body = if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-sales-mortgage-create-v1\",\"mortgage_guid\":\"MTG-RABBITA-LOCAL\",\"mortgage_code\":\"MTG-RABBITA-LOCAL\",\"scontract_guid\":\"SCT-RABBITA-LOCAL\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"bank_name\":\"建设银行\",\"loan_amount\":1673000,\"loan_years\":30,\"rate\":0.0345,\"apply_date\":\"2026-07-16\",\"remark\":\"Rabbita 本地按揭命令演示\"}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-sales-mortgage-create-" + nonce),
+      "mortgage_guid": Json::string(model.sales_mortgage_id),
+      "mortgage_code": Json::string(model.sales_mortgage_id),
+      "scontract_guid": Json::string(model.sales_mortgage_form_contract),
+      "customer_guid": Json::string(model.sales_mortgage_form_customer),
+      "bank_name": Json::string(model.sales_mortgage_form_bank),
+      "loan_amount": Json::number(
+        sales_parse_number(model.sales_mortgage_form_amount),
+      ),
+      "loan_years": Json::number(
+        sales_parse_number(model.sales_mortgage_form_years),
+      ),
+      "rate": Json::number(sales_parse_number(model.sales_mortgage_form_rate)),
+      "apply_date": Json::string(model.sales_mortgage_form_date),
+      "remark": Json::string(model.sales_mortgage_form_remark),
+    }).stringify()
   } else if command_type == "approve" {
     "{\"idempotency_key\":\"rabbita-sales-mortgage-approve-v1\"}"
   } else {
@@ -11079,13 +11134,25 @@ fn issue_sales_refund_command(
   model : Model,
   command_type : String,
 ) -> Cmd {
+  let nonce = import_nonce()
   let path = if command_type == "create" {
     "/api/company/sales/refunds"
   } else {
     "/api/company/sales/refunds/" + model.sales_refund_id + "/approve"
   }
   let body = if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-sales-refund-create-v1\",\"refund_guid\":\"RF-RABBITA-LOCAL\",\"refund_code\":\"RF-RABBITA-LOCAL\",\"scontract_guid\":\"SCT-RABBITA-LOCAL\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"reason\":\"Rabbita 本地退款申请演示\",\"refund_amount\":120000,\"refund_date\":\"2026-07-16\"}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-sales-refund-create-" + nonce),
+      "refund_guid": Json::string(model.sales_refund_id),
+      "refund_code": Json::string(model.sales_refund_id),
+      "scontract_guid": Json::string(model.sales_refund_form_contract),
+      "customer_guid": Json::string(model.sales_refund_form_customer),
+      "reason": Json::string(model.sales_refund_form_reason),
+      "refund_amount": Json::number(
+        sales_parse_number(model.sales_refund_form_amount),
+      ),
+      "refund_date": Json::string(model.sales_refund_form_date),
+    }).stringify()
   } else {
     "{\"idempotency_key\":\"rabbita-sales-refund-approve-v1\"}"
   }
@@ -14364,13 +14431,107 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
-    CreateSalesMortgage =>
+    OpenSalesMortgageForm(contract_id, customer_id, amount) =>
       (
-        issue_sales_mortgage_command(emit, model, "create"),
+        none,
         {
           ..model,
-          sales_mortgage_state: "pending",
-          sales_mortgage_command_note: "正在写入本地按揭申请命令…",
+          sales_mortgage_form_open: true,
+          sales_mortgage_form_contract: contract_id,
+          sales_mortgage_form_customer: customer_id,
+          sales_mortgage_form_amount: amount,
+          sales_mortgage_form_bank: "建设银行",
+          sales_mortgage_form_years: "30",
+          sales_mortgage_form_rate: "0.0485",
+          sales_mortgage_form_date: "2026-07-16",
+          sales_mortgage_form_remark: "",
+        },
+      )
+    CloseSalesMortgageForm =>
+      (none, { ..model, sales_mortgage_form_open: false })
+    InputSalesMortgageField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          sales_mortgage_form_contract: if field == "contract" {
+            value
+          } else {
+            model.sales_mortgage_form_contract
+          },
+          sales_mortgage_form_customer: if field == "customer" {
+            value
+          } else {
+            model.sales_mortgage_form_customer
+          },
+          sales_mortgage_form_bank: if field == "bank" {
+            value
+          } else {
+            model.sales_mortgage_form_bank
+          },
+          sales_mortgage_form_amount: if field == "amount" {
+            value
+          } else {
+            model.sales_mortgage_form_amount
+          },
+          sales_mortgage_form_years: if field == "years" {
+            value
+          } else {
+            model.sales_mortgage_form_years
+          },
+          sales_mortgage_form_rate: if field == "rate" {
+            value
+          } else {
+            model.sales_mortgage_form_rate
+          },
+          sales_mortgage_form_date: if field == "date" {
+            value
+          } else {
+            model.sales_mortgage_form_date
+          },
+          sales_mortgage_form_remark: if field == "remark" {
+            value
+          } else {
+            model.sales_mortgage_form_remark
+          },
+        },
+      )
+    SubmitSalesMortgageForm =>
+      if model.sales_mortgage_form_contract.trim().is_empty() ||
+        model.sales_mortgage_form_bank.trim().is_empty() ||
+        sales_parse_number(model.sales_mortgage_form_amount) <= 0.0 {
+        (
+          none,
+          {
+            ..model,
+            sales_mortgage_command_note: "合同、银行和正数贷款金额不能为空",
+          },
+        )
+      } else {
+        (
+          issue_sales_mortgage_command(emit, model, "create"),
+          {
+            ..model,
+            sales_mortgage_form_open: false,
+            sales_mortgage_state: "pending",
+            sales_mortgage_command_note: "正在写入本地按揭申请命令…",
+          },
+        )
+      }
+    CreateSalesMortgage =>
+      (
+        none,
+        {
+          ..model,
+          sales_mortgage_form_open: true,
+          sales_mortgage_form_contract: "SCT-RABBITA-LOCAL",
+          sales_mortgage_form_customer: "CUS-RABBITA-LOCAL",
+          sales_mortgage_form_bank: "建设银行",
+          sales_mortgage_form_amount: "1673000",
+          sales_mortgage_form_years: "30",
+          sales_mortgage_form_rate: "0.0345",
+          sales_mortgage_form_date: "2026-07-16",
+          sales_mortgage_form_remark: "Rabbita 本地按揭命令演示",
         },
       )
     ApproveSalesMortgage =>
@@ -14435,15 +14596,86 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_mortgage_command_note: "按揭命令服务不可用、状态不允许或请求被拒绝",
         },
       )
-    CreateSalesRefund =>
-      if model.sales_refund_state == "new" ||
-        model.sales_refund_state == "error" {
+    OpenSalesRefundForm(contract_id, customer_id, amount) =>
+      (
+        none,
+        {
+          ..model,
+          sales_refund_form_open: true,
+          sales_refund_form_contract: contract_id,
+          sales_refund_form_customer: customer_id,
+          sales_refund_form_reason: "",
+          sales_refund_form_amount: amount,
+          sales_refund_form_date: "2026-07-16",
+        },
+      )
+    CloseSalesRefundForm => (none, { ..model, sales_refund_form_open: false })
+    InputSalesRefundField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          sales_refund_form_contract: if field == "contract" {
+            value
+          } else {
+            model.sales_refund_form_contract
+          },
+          sales_refund_form_customer: if field == "customer" {
+            value
+          } else {
+            model.sales_refund_form_customer
+          },
+          sales_refund_form_reason: if field == "reason" {
+            value
+          } else {
+            model.sales_refund_form_reason
+          },
+          sales_refund_form_amount: if field == "amount" {
+            value
+          } else {
+            model.sales_refund_form_amount
+          },
+          sales_refund_form_date: if field == "date" {
+            value
+          } else {
+            model.sales_refund_form_date
+          },
+        },
+      )
+    SubmitSalesRefundForm =>
+      if model.sales_refund_form_contract.trim().is_empty() ||
+        model.sales_refund_form_reason.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            sales_refund_command_note: "合同和退房原因不能为空",
+          },
+        )
+      } else {
         (
           issue_sales_refund_command(emit, model, "create"),
           {
             ..model,
+            sales_refund_form_open: false,
             sales_refund_state: "pending",
             sales_refund_command_note: "正在写入本地退款申请 · 不触发合同/回款/现金…",
+          },
+        )
+      }
+    CreateSalesRefund =>
+      if model.sales_refund_state == "new" ||
+        model.sales_refund_state == "error" {
+        (
+          none,
+          {
+            ..model,
+            sales_refund_form_open: true,
+            sales_refund_form_contract: "SCT-RABBITA-LOCAL",
+            sales_refund_form_customer: "CUS-RABBITA-LOCAL",
+            sales_refund_form_reason: "个人原因",
+            sales_refund_form_amount: "120000",
+            sales_refund_form_date: "2026-07-16",
           },
         )
       } else {
@@ -23736,12 +23968,24 @@ fn sales_contract_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
       [
         button(
           class="erp-link-btn",
-          on_click=emit(CreateSalesMortgage),
+          on_click=emit(
+            OpenSalesMortgageForm(
+              row.scontract_guid,
+              row.customer_guid,
+              row.total_price,
+            ),
+          ),
           "办按揭",
         ),
         button(
           class="erp-link-btn is-warning",
-          on_click=emit(CreateSalesRefund),
+          on_click=emit(
+            OpenSalesRefundForm(
+              row.scontract_guid,
+              row.customer_guid,
+              row.total_price,
+            ),
+          ),
           "退房",
         ),
       ]
@@ -24005,6 +24249,93 @@ fn sales_mortgage_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
+fn sales_mortgage_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.sales_mortgage_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("申请按揭"),
+        span(class="erp-source-note", model.sales_mortgage_command_note),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "销售合同号",
+          model.sales_mortgage_form_contract,
+          "必填",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("contract", value)),
+        ),
+        editable_form_field(
+          "客户 GUID",
+          model.sales_mortgage_form_customer,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("customer", value)),
+        ),
+        editable_form_field(
+          "贷款银行",
+          model.sales_mortgage_form_bank,
+          "必填",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("bank", value)),
+        ),
+        editable_form_field(
+          "贷款金额",
+          model.sales_mortgage_form_amount,
+          "元",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("amount", value)),
+        ),
+        editable_form_field(
+          "贷款年限",
+          model.sales_mortgage_form_years,
+          "年",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("years", value)),
+        ),
+        editable_form_field(
+          "利率",
+          model.sales_mortgage_form_rate,
+          "例如 0.0345",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("rate", value)),
+        ),
+        editable_form_field(
+          "申请日期",
+          model.sales_mortgage_form_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("date", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.sales_mortgage_form_remark,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputSalesMortgageField("remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseSalesMortgageForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitSalesMortgageForm),
+          "提交申请",
+        ),
+      ],
+    ]
+  }
+}
+
+///|
 fn sales_mortgages_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "按揭办理",
@@ -24017,6 +24348,7 @@ fn sales_mortgages_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
         strong("本地按揭命令"),
         span(" · " + model.sales_mortgage_command_note),
       ]),
+      sales_mortgage_form_view(emit, model),
       div(class="erp-command-bar") <| [
         span(class="erp-source-note", "状态筛选:"),
         button(
@@ -30876,6 +31208,72 @@ fn sales_revenue_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
+fn sales_refund_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.sales_refund_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("退房申请"),
+        span(class="erp-source-note", model.sales_refund_command_note),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "销售合同号",
+          model.sales_refund_form_contract,
+          "必填",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRefundField("contract", value)),
+        ),
+        editable_form_field(
+          "客户 GUID",
+          model.sales_refund_form_customer,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRefundField("customer", value)),
+        ),
+        editable_form_field(
+          "退房原因",
+          model.sales_refund_form_reason,
+          "必填",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRefundField("reason", value)),
+        ),
+        editable_form_field(
+          "退款金额",
+          model.sales_refund_form_amount,
+          "元",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRefundField("amount", value)),
+        ),
+        editable_form_field(
+          "退款日期",
+          model.sales_refund_form_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputSalesRefundField("date", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseSalesRefundForm),
+          "取消",
+        ),
+        button(
+          class="erp-danger-btn",
+          on_click=emit(SubmitSalesRefundForm),
+          "提交退房",
+        ),
+      ],
+    ]
+  }
+}
+
+///|
 fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "销售回款 (R6)",
@@ -30905,6 +31303,7 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div <| [
       sales_runtime_banner(model, "revenues"),
+      sales_refund_form_view(emit, model),
       div(class="erp-inline-actions") <| [
         button(
           class="erp-secondary-btn",
