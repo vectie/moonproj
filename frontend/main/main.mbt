@@ -510,6 +510,18 @@ struct InvestmentIndexRow {
 }
 
 ///|
+struct InvestmentVersionRow {
+  version_guid : String
+  version_name : String
+  version_no : String
+  is_current : Bool
+  creator_name : String
+  created_at : String
+  remark : String
+  source_kind : String
+}
+
+///|
 struct InvestmentSensitivityCase {
   name : String
   irr : String
@@ -994,6 +1006,7 @@ struct Model {
   investment_loaded : Bool
   investment_version_id : String
   investment_version_name : String
+  investment_version_rows : Array[InvestmentVersionRow]
   investment_index_rows : Array[InvestmentIndexRow]
   investment_dimension_count : String
   investment_total : String
@@ -1505,6 +1518,7 @@ enum Msg {
   ExplainInvestment
   InvestmentExplainFinished(String)
   InvestmentExplainFailed
+  SelectInvestmentVersion(String)
   InputInvestmentExcelFileSelected(String)
   InputInvestmentExcelVersionName(String)
   ToggleInvestmentExcelActivate
@@ -1978,6 +1992,7 @@ fn initial_model() -> Model {
     investment_loaded: false,
     investment_version_id: "",
     investment_version_name: "",
+    investment_version_rows: [],
     investment_index_rows: [],
     investment_dimension_count: "0",
     investment_total: "0",
@@ -3963,6 +3978,35 @@ fn investment_version_from_body(body : String) -> (String, String) {
     _ => ()
   }
   (version_id, version_name)
+}
+
+///|
+fn investment_version_rows_from_body(
+  body : String,
+) -> Array[InvestmentVersionRow] {
+  let rows : Array[InvestmentVersionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              version_guid: json_object_text(row, "versionGuid", ""),
+              version_name: json_object_text(row, "versionName", ""),
+              version_no: json_object_text(row, "versionNo", "0"),
+              is_current: json_object_text(row, "isCurrent", "false") == "true",
+              creator_name: json_object_text(row, "creatorName", ""),
+              created_at: json_object_text(row, "createdAt", ""),
+              remark: json_object_text(row, "remark", ""),
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
 }
 
 ///|
@@ -11505,6 +11549,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_project_id: project_id,
           investment_project_name: project_name,
           investment_loaded: false,
+          investment_version_id: "",
+          investment_version_name: "",
+          investment_version_rows: [],
+          investment_index_rows: [],
           investment_imports_loaded: false,
           investment_import_rows: [],
           investment_import_selected: "",
@@ -11515,6 +11563,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     }
     InvestmentVersionsLoaded(body) => {
       let (version_id, version_name) = investment_version_from_body(body)
+      let version_rows = investment_version_rows_from_body(body)
       if version_id == "" {
         (
           none,
@@ -11522,6 +11571,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             ..model,
             investment_loaded: false,
             investment_note: "投资版本源数据为空 · 使用设计快照",
+            investment_version_rows: version_rows,
           },
         )
       } else {
@@ -11531,11 +11581,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             ..model,
             investment_version_id: version_id,
             investment_version_name: version_name,
+            investment_version_rows: version_rows,
             investment_note: "已加载 PostgreSQL 投资版本 · 正在读取指标",
           },
         )
       }
     }
+    SelectInvestmentVersion(version_id) =>
+      if version_id.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            investment_note: "版本记录缺少 versionGuid · 无法读取指标",
+          },
+        )
+      } else {
+        let mut version_name = version_id
+        for row in model.investment_version_rows {
+          if row.version_guid == version_id {
+            version_name = row.version_name
+          }
+        }
+        (
+          load_investment_indices(emit, version_id),
+          {
+            ..model,
+            investment_version_id: version_id,
+            investment_version_name: version_name,
+            investment_loaded: false,
+            investment_note: "正在读取所选投资版本指标…",
+          },
+        )
+      }
     InvestmentImportsLoaded(body) => {
       let (loaded, rows, note) = investment_import_rows_from_body(body)
       (
@@ -11719,6 +11797,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_loaded: false,
           investment_version_id: "",
           investment_version_name: "",
+          investment_version_rows: [],
           investment_index_rows: [],
           investment_sensitivity_loaded: false,
           investment_sensitivity_cases: [],
@@ -19354,6 +19433,56 @@ fn investment_project_context(
 }
 
 ///|
+fn investment_version_context(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if model.investment_version_rows.length() == 0 {
+    div(
+      class="erp-runtime-empty",
+      "当前项目没有可显示的投资版本 · 版本写入仍需负责人授权",
+    )
+  } else {
+    let controls : Array[@html.Html] = []
+    for row in model.investment_version_rows {
+      controls.push(
+        button(
+          class=if row.version_guid == model.investment_version_id {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(SelectInvestmentVersion(row.version_guid)),
+          row.version_name +
+          " · v" +
+          row.version_no +
+          (if row.is_current { " · 当前" } else { "" }) +
+          " · " +
+          row.source_kind +
+          (if row.creator_name.is_empty() {
+            ""
+          } else {
+            " · " + row.creator_name
+          }) +
+          (if row.created_at.is_empty() { "" } else { " · " + row.created_at }) +
+          (if row.remark.is_empty() { "" } else { " · " + row.remark }),
+        ),
+      )
+    }
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("测算版本"),
+        span(
+          class="erp-info-tag",
+          "指标读取随版本切换 · 创建/激活/删除保持候选",
+        ),
+      ],
+      div(class="erp-command-bar") <| controls,
+    ]
+  }
+}
+
+///|
 fn investment_sensitivity_table(model : Model) -> @html.Html {
   if model.investment_sensitivity_loaded {
     let rows : Array[Array[String]] = []
@@ -19572,6 +19701,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     div <| [
       stats,
       investment_project_context(emit, model),
+      investment_version_context(emit, model),
       investment_excel_panel(emit, model),
       investment_import_history_panel(emit, model),
       investment_runtime_table(model),

@@ -58,6 +58,10 @@ financial effects disabled; the trusted gateway smoke covers the browser path.
 Investment reads now follow the selected project from the PostgreSQL project
 master instead of silently reusing `proj-0001`; project/version/import context
 is visible before any candidate command is submitted.
+The version list now preserves source version metadata (current flag, creator,
+timestamp, remark, and source kind), and selecting a version reloads its grouped
+indices. Profit summary remains the source project-current-version endpoint,
+just as in the ERP route, so the UI does not claim a non-current summary.
 
 ## Evidence
 
