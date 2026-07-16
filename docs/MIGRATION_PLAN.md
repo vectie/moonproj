@@ -2394,7 +2394,8 @@ Execute the remainder in this order:
     controls for command-owned overlays while imported rows stay read-only.
     The native gateway now allow-lists both POST/PATCH aliases and Rabbita
     exposes the bounded create/update controls against that authenticated
-    boundary. Browser production identity, full source export, and
+    boundary; it also forwards both generic `sys_param` POST aliases with
+    body-idempotency support. Browser production identity, full source export, and
     governance-owner acceptance remain open.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,

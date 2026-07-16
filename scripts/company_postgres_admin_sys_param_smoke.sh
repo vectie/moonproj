@@ -61,8 +61,8 @@ fi
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/param.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $COMMAND_KEY" \
-  --data "{\"code\":\"$PARAM_CODE\",\"value\":\"mock\"}" \
+  -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$COMMAND_KEY\",\"code\":\"$PARAM_CODE\",\"value\":\"mock\"}" \
   "http://127.0.0.1:$PORT/api/company/admin/sys-param")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == false and .admin.code == "'"$PARAM_CODE"'" and .admin.valueConfigured == true and .admin.valueRedacted == true and .admin.authorizing == false and .admin.provider_execution == false and .admin.cashEffect == false' "$TMP_DIR/param.json" >/dev/null
@@ -70,8 +70,8 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/replay.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $COMMAND_KEY" \
-  --data "{\"code\":\"$PARAM_CODE\",\"value\":\"mock\"}" \
+  -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$COMMAND_KEY\",\"code\":\"$PARAM_CODE\",\"value\":\"mock\"}" \
   "http://127.0.0.1:$PORT/api/company/source/admin/sys-param")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .admin.code == "'"$PARAM_CODE"'"' "$TMP_DIR/replay.json" >/dev/null
@@ -79,8 +79,8 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/secret.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $SECRET_KEY" \
-  --data "{\"code\":\"$SECRET_CODE\",\"value\":\"raw-secret-must-not-return\"}" \
+  -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$SECRET_KEY\",\"code\":\"$SECRET_CODE\",\"value\":\"raw-secret-must-not-return\"}" \
   "http://127.0.0.1:$PORT/api/company/admin/sys-param")
 test "$status" = 200
 /usr/bin/jq -e '.admin.sensitive == true and .admin.valueRedacted == true and (.command.request.value == null) and (.command.request.value_digest != null)' "$TMP_DIR/secret.json" >/dev/null
@@ -88,8 +88,8 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/invalid.json" -w '%{http_code}' \
   -X POST -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H 'Idempotency-Key: admin-param-invalid' \
-  --data '{"code":"bad key","value":"x"}' \
+  -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"admin-param-invalid","code":"bad key","value":"x"}' \
   "http://127.0.0.1:$PORT/api/company/admin/sys-param")
 test "$status" = 400
 

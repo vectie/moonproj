@@ -306,6 +306,8 @@ fn command_path_allowed(
       path == "/api/company/reports/templates/run" ||
       path == "/api/company/admin/dict/options" ||
       path == "/api/company/source/admin/dict/options" ||
+      path == "/api/company/admin/sys-param" ||
+      path == "/api/company/source/admin/sys-param" ||
       path == "/api/company/source/invoice/in" ||
       path == "/api/company/source/invoice/out" ||
       path == "/api/company/source/cost/payment-applies" ||
