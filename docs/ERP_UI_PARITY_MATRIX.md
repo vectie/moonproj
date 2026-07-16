@@ -36,6 +36,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel plan-line import dry-run candidate; plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls native version/index lifecycle candidates (create, activate, delete, create-index, update-index, delete-index); imported rows remain read-only and lifecycle commands do not trigger valuation, cash, accounting, or tax effects.
+- Browser action delta: Rabbita `/tender` now exposes source tender state-advance and award candidates through the trusted gateway; forward-only state, qualified-supplier, bid-match, contract, cash, accounting, and tax boundaries remain explicit.
 - Browser action delta: Rabbita `/srm/providers` now calls the native supplier risk-rescore command; imported provider rows remain protected and provider execution remains disabled.
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
 - Browser action delta: Rabbita `/warning-rules` now calls native custom-rule create/delete candidates; SQL is hashed/redacted, imported/system rules remain protected, and no query/provider execution occurs.

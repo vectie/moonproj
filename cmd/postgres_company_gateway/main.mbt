@@ -310,6 +310,7 @@ fn command_path_allowed(
       path.has_prefix("/api/company/tenders/") ||
       path == "/api/company/source/tender/tenders" ||
       path.has_prefix("/api/company/source/tender/tenders/") ||
+      path == "/api/company/source/tender/awards" ||
       path == "/api/company/source/srm/providers" ||
       path == "/api/company/srm/providers/rescore-all" ||
       path == "/api/company/source/srm/providers/rescore-all" ||
@@ -492,6 +493,9 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/cost/dynamic-cost/", path) ||
       path_with_identifier("/api/company/source/mdm/projects/", path) ||
       path_with_identifier("/api/company/source/auth/prefs/", path) ||
+      path_with_identifier_suffix(
+        "/api/company/source/tender/tenders/", "/state", path,
+      ) ||
       path_with_identifier_suffix(
         "/api/company/investment/projects/", "/subject-mappings", path,
       ) ||

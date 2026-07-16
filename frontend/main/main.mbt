@@ -777,6 +777,7 @@ struct Model {
   tender_source_award_count : String
   tender_source_split_count : String
   tender_source_note : String
+  tender_source_command_note : String
   suppliers_loaded : Bool
   supplier_rows : Array[SupplierRow]
   supplier_source_loaded : Bool
@@ -1229,6 +1230,10 @@ enum Msg {
   CancelTender
   TenderCommandFinished(String)
   TenderCommandFailed
+  AdvanceSourceTender
+  AwardSourceTender
+  TenderSourceCommandFinished(String, String)
+  TenderSourceCommandFailed(String)
   SuppliersLoaded(String)
   SuppliersLoadFailed
   SupplierSourceLoaded(String)
@@ -1623,6 +1628,7 @@ fn initial_model() -> Model {
     tender_source_award_count: "0",
     tender_source_split_count: "0",
     tender_source_note: "源招标/定标/分判观察尚未加载 · 使用设计快照",
+    tender_source_command_note: "源招标命令候选尚未执行",
     suppliers_loaded: false,
     supplier_rows: [],
     supplier_source_loaded: false,
@@ -8283,6 +8289,41 @@ fn issue_tender_command(
 }
 
 ///|
+fn issue_source_tender_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  if command_type == "state" {
+    @http.put(
+      "/api/company/source/tender/tenders/" + model.tender_id + "/state",
+    )
+    .with_text(
+      "{\"idempotency_key\":\"rabbita-tender-source-state-v1\",\"state\":\"publishing\"}",
+    )
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(TenderSourceCommandFinished(command_type, body))
+        Err(_) => emit(TenderSourceCommandFailed(command_type))
+      }
+    })
+  } else {
+    @http.post("/api/company/source/tender/awards")
+    .with_text(
+      "{\"idempotency_key\":\"rabbita-tender-source-award-v1\",\"tenderGuid\":\"" +
+      model.tender_id +
+      "\",\"providerGuid\":\"SUP-RABBITA-LOCAL\",\"providerName\":\"Rabbita 本地供应商候选\",\"awardAmount\":\"1050000.00\",\"awardDate\":\"2026-07-16\",\"remark\":\"Rabbita 源定标候选\"}",
+    )
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(TenderSourceCommandFinished(command_type, body))
+        Err(_) => emit(TenderSourceCommandFailed(command_type))
+      }
+    })
+  }
+}
+
+///|
 fn payment_apply_state_label(state : String) -> String {
   match state {
     "draft" => "草稿"
@@ -9189,6 +9230,66 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           tender_state: "error",
           tender_note: "公司合约规划命令服务不可用或拒绝了请求",
+        },
+      )
+    AdvanceSourceTender =>
+      if model.tender_id == "" {
+        (none, model)
+      } else {
+        (
+          issue_source_tender_command(emit, model, "state"),
+          {
+            ..model,
+            tender_source_command_note: "正在提交源招标状态推进候选…",
+          },
+        )
+      }
+    AwardSourceTender =>
+      if model.tender_id == "" {
+        (none, model)
+      } else {
+        (
+          issue_source_tender_command(emit, model, "award"),
+          {
+            ..model,
+            tender_source_command_note: "正在提交源定标候选 · 校验供应商资格…",
+          },
+        )
+      }
+    TenderSourceCommandFinished(command_type, body) =>
+      (
+        if command_type == "award" {
+          load_tender_source_awards(emit)
+        } else {
+          load_tenders(emit)
+        },
+        {
+          ..model,
+          tender_source_command_note: if body.contains(
+              "\"source_kind\":\"command\"",
+            ) {
+            (if command_type == "award" {
+              "源定标"
+            } else {
+              "源状态推进"
+            }) +
+            "候选已写入 PostgreSQL · workflow/contract/cash/accounting/tax 未执行"
+          } else {
+            "源招标命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    TenderSourceCommandFailed(command_type) =>
+      (
+        none,
+        {
+          ..model,
+          tender_source_command_note: (if command_type == "award" {
+            "源定标"
+          } else {
+            "源状态推进"
+          }) +
+          "候选被服务、权限、状态或供应商资格拒绝",
         },
       )
     SuppliersLoaded(body) =>
@@ -17343,6 +17444,16 @@ fn tender_actions(
       on_click=emit(CreateTender),
       "＋ 新建合约规划",
     ),
+    button(
+      class="erp-secondary-btn",
+      on_click=emit(AdvanceSourceTender),
+      "源状态推进（候选）",
+    ),
+    button(
+      class="erp-secondary-btn",
+      on_click=emit(AwardSourceTender),
+      "源定标（候选）",
+    ),
   ]
   match model.tender_state {
     "planning" =>
@@ -17442,6 +17553,13 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         " · award 需通过供应商资格与投标匹配校验",
         tender_table(rows),
       ),
+      div(class="erp-runtime-banner", [
+        strong("源招采命令门"),
+        span(" · " + model.tender_source_command_note),
+        span(
+          " · 资格/状态候选不触发合同、workflow、cash、accounting、tax",
+        ),
+      ]),
     ],
   )
 }

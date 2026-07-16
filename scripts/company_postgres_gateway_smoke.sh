@@ -349,6 +349,28 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.providerGuid == "'"$gateway_supplier_id"'" and .provider.sourceKind == "command"' \
   "$TMP_DIR/supplier-create.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-submit-review.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-supplier-submit-review-$gateway_supplier_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/suppliers/$gateway_supplier_id/submit_review")
+test "$status" = 200
+/usr/bin/jq -e '.supplier.state == "pending_review"' "$TMP_DIR/supplier-submit-review.json" >/dev/null || {
+  /bin/cat "$TMP_DIR/supplier-submit-review.json"
+  exit 1
+}
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-review.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-supplier-review-$gateway_supplier_suffix" \
+  --data '{"evaluation":"qualified","reason":"gateway tender qualification"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/suppliers/$gateway_supplier_id/review")
+test "$status" = 200
+/usr/bin/jq -e '.supplier.evaluation == "qualified" and .supplier.state == "active"' "$TMP_DIR/supplier-review.json" >/dev/null || {
+  /bin/cat "$TMP_DIR/supplier-review.json"
+  exit 1
+}
+
 status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-rescore.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   -H "Idempotency-Key: gateway-supplier-rescore-$gateway_supplier_suffix" \
@@ -442,7 +464,7 @@ test "$status" = 200
 
 gateway_tender_suffix=$(/bin/date +%s)
 gateway_tender_id="TD-GW-SMOKE-$gateway_tender_suffix"
-gateway_tender_body="{\"tenderGuid\":\"$gateway_tender_id\",\"projGuid\":\"CD-HJL\",\"tenderName\":\"gateway tender smoke\",\"category\":\"construction\",\"estimatedAmount\":\"123.45\",\"planPublishDate\":\"2026-07-15\"}"
+gateway_tender_body="{\"tenderGuid\":\"$gateway_tender_id\",\"projGuid\":\"CD-HJL\",\"tenderName\":\"gateway tender smoke\",\"category\":\"construction\",\"estimatedAmount\":\"123.45\",\"planPublishDate\":\"2026-07-15\",\"bids\":[{\"supplierId\":\"$gateway_supplier_id\",\"amount_minor\":10000}]}"
 status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-create.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   -H "Idempotency-Key: gateway-tender-create-$gateway_tender_suffix" \
@@ -452,6 +474,32 @@ test "$status" = 201
 /usr/bin/jq -e --arg id "$gateway_tender_id" \
   '.success == true and .data.tenderGuid == $id and .source_kind == "command"' \
   "$TMP_DIR/tender-create.json" >/dev/null
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-state-publishing.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-tender-state-publishing-$gateway_tender_suffix" \
+  --data '{"state":"publishing"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/tender/tenders/$gateway_tender_id/state")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .tender.state == "publishing" and .source_kind == "command"' "$TMP_DIR/tender-state-publishing.json" >/dev/null
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-state-bidding.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-tender-state-bidding-$gateway_tender_suffix" \
+  --data '{"state":"bidding"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/tender/tenders/$gateway_tender_id/state")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .tender.state == "bidding" and .source_kind == "command"' "$TMP_DIR/tender-state-bidding.json" >/dev/null
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/tender-source-award.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-tender-source-award-$gateway_tender_suffix" \
+  --data "{\"tenderGuid\":\"$gateway_tender_id\",\"providerGuid\":\"$gateway_supplier_id\",\"providerName\":\"gateway smoke supplier\",\"awardAmount\":\"100.00\",\"awardDate\":\"2026-07-16\"}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/tender/awards")
+test "$status" = 200
+/usr/bin/jq -e --arg tender "$gateway_tender_id" --arg supplier "$gateway_supplier_id" \
+  '.success == true and .data.tenderGuid == $tender and .data.providerGuid == $supplier and .data.awardAmount == 100 and .source_kind == "command"' \
+  "$TMP_DIR/tender-source-award.json" >/dev/null
 
 gateway_split_id="SPLIT-GW-SMOKE-$gateway_tender_suffix"
 gateway_split_body="{\"splitGuid\":\"$gateway_split_id\",\"parentContractGuid\":\"ht-tj-001\",\"splitName\":\"gateway split smoke\",\"splitAmount\":\"12.34\",\"splitPct\":\"10.00\"}"
