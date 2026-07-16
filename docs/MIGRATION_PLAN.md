@@ -2352,6 +2352,16 @@ Execute the remainder in this order:
     the fail-closed `moonproj.erp.cutover-gate.v1` artifact. On the partial
     authoritative rehearsal its JSON is oracle-equivalent, with technical
     failures and `cutover_authorized=false` preserved.
+3a.56. **Full native rehearsal closure (2026-07-16).**
+    Running `scripts/erp_migration_rehearsal.sh` with the reviewed
+    `typed_cohort_mapping.json`, `accounting_link_mapping.json`, and
+    `advance_offset_mapping.json` now completes the entire native rehearsal:
+    all 120 exported rows reach an explicit disposition, the durable target
+    contains 97 aggregate projections and 4 accounting links, period-close
+    evidence is ready, and the native cutover gate reports
+    `ready_for_business_acceptance`. The artifact still keeps
+    `cutover_authorized=false` and `shadow_pending_owner`; this is technical
+    migration readiness, not an owner approval or production deployment.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

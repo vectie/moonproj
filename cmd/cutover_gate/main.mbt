@@ -800,7 +800,7 @@ fn run(
   replay_paths = replay_paths +
     path_list(work_dir + "/typed-cohorts", "-projection-replay.json")
   let replay_values : Array[Json] = []
-  for path in unique_paths(replay_paths) {
+  for path in replay_paths {
     match try_json(path) {
       Some(value) =>
         replay_values.push(
