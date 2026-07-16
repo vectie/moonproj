@@ -1832,6 +1832,12 @@ struct Model {
   webhook_missing_table_count : String
   webhook_note : String
   webhook_command_note : String
+  webhook_tab : String
+  webhook_edit_enabled : Bool
+  webhook_edit_url : String
+  webhook_edit_secret : String
+  webhook_url_dirty : Bool
+  webhook_secret_dirty : Bool
   report_builder_loaded : Bool
   report_builder_table_rows : Array[Array[String]]
   report_builder_template_rows : Array[Array[String]]
@@ -2515,6 +2521,9 @@ enum Msg {
   WebhookLoaded(String)
   WebhookLoadFailed
   SaveWebhookConfig
+  SelectWebhookPlatform(String)
+  ToggleWebhookEnabled
+  InputWebhookField(String, String)
   WebhookConfigCommandFinished(String)
   WebhookConfigCommandFailed
   TestWebhookDelivery
@@ -3308,6 +3317,12 @@ fn initial_model() -> Model {
     webhook_missing_table_count: "0",
     webhook_note: "Webhook 配置源读模型尚未加载 · 使用设计快照",
     webhook_command_note: "Webhook 测试命令尚未执行",
+    webhook_tab: "wecom",
+    webhook_edit_enabled: false,
+    webhook_edit_url: "",
+    webhook_edit_secret: "__keep__",
+    webhook_url_dirty: false,
+    webhook_secret_dirty: false,
     report_builder_loaded: false,
     report_builder_table_rows: [],
     report_builder_template_rows: [],
@@ -7612,6 +7627,31 @@ fn webhook_config_from_body(
 }
 
 ///|
+fn webhook_platform_label(platform : String) -> String {
+  if platform == "feishu" {
+    "飞书"
+  } else if platform == "dingtalk" {
+    "钉钉"
+  } else {
+    "企微"
+  }
+}
+
+///|
+fn webhook_row_for_platform(
+  rows : Array[Array[String]],
+  platform : String,
+) -> Array[String] {
+  let label = webhook_platform_label(platform)
+  for row in rows {
+    if row.length() > 0 && row[0] == label {
+      return row
+    }
+  }
+  [label, "未启用", "— 未配置 —", "未设置", "imported_or_empty"]
+}
+
+///|
 fn report_builder_meta_from_body(
   body : String,
 ) -> (Bool, Array[Array[String]], String, String) {
@@ -11162,11 +11202,23 @@ fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_webhook_config_save(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.put("/api/company/source/webhook/config/wecom")
-  .with_text(
-    "{\"idempotency_key\":\"rabbita-webhook-config-save-v1\",\"enabled\":true,\"secret\":\"__keep__\"}",
+fn issue_webhook_config_save(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let fields : Map[String, Json] = {}
+  fields.set(
+    "idempotency_key",
+    Json::string(
+      "rabbita-webhook-config-save-" + model.webhook_tab + "-" + import_nonce(),
+    ),
   )
+  fields.set("enabled", Json::boolean(model.webhook_edit_enabled))
+  if model.webhook_url_dirty {
+    fields.set("url", Json::string(model.webhook_edit_url))
+  }
+  if model.webhook_secret_dirty {
+    fields.set("secret", Json::string(model.webhook_edit_secret))
+  }
+  @http.put("/api/company/source/webhook/config/" + model.webhook_tab)
+  .with_text(Json::object(fields).stringify())
   .expect_text(result => {
     match result {
       Ok(body) => emit(WebhookConfigCommandFinished(body))
@@ -11176,8 +11228,8 @@ fn issue_webhook_config_save(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_webhook_test(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.post("/api/company/webhook/test/wecom")
+fn issue_webhook_test(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/company/webhook/test/" + model.webhook_tab)
   .with_text(
     "{\"idempotency_key\":\"rabbita-webhook-test-v1\",\"title\":\"Rabbita 干运行测试\",\"content\":\"不会发送到外部 provider\"}",
   )
@@ -20671,6 +20723,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     WebhookLoaded(body) => {
       let (loaded, rows, missing, note) = webhook_config_from_body(body)
+      let active_row = webhook_row_for_platform(rows, model.webhook_tab)
       (
         none,
         {
@@ -20683,6 +20736,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           } else {
             "Webhook 配置响应无效 · 使用设计快照"
           },
+          webhook_edit_enabled: active_row[1] == "已启用",
+          webhook_edit_url: "",
+          webhook_edit_secret: "__keep__",
+          webhook_url_dirty: false,
+          webhook_secret_dirty: false,
         },
       )
     }
@@ -20696,9 +20754,57 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           webhook_note: "Webhook 配置读模型不可用 · 使用设计快照",
         },
       )
+    SelectWebhookPlatform(platform) => {
+      let active_row = webhook_row_for_platform(model.webhook_rows, platform)
+      (
+        none,
+        {
+          ..model,
+          webhook_tab: if platform == "feishu" || platform == "dingtalk" {
+            platform
+          } else {
+            "wecom"
+          },
+          webhook_edit_enabled: active_row[1] == "已启用",
+          webhook_edit_url: "",
+          webhook_edit_secret: "__keep__",
+          webhook_url_dirty: false,
+          webhook_secret_dirty: false,
+        },
+      )
+    }
+    ToggleWebhookEnabled =>
+      (none, { ..model, webhook_edit_enabled: !model.webhook_edit_enabled })
+    InputWebhookField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          webhook_edit_url: if field == "url" {
+            value
+          } else {
+            model.webhook_edit_url
+          },
+          webhook_edit_secret: if field == "secret" {
+            value
+          } else {
+            model.webhook_edit_secret
+          },
+          webhook_url_dirty: if field == "url" {
+            true
+          } else {
+            model.webhook_url_dirty
+          },
+          webhook_secret_dirty: if field == "secret" {
+            true
+          } else {
+            model.webhook_secret_dirty
+          },
+        },
+      )
     SaveWebhookConfig =>
       (
-        issue_webhook_config_save(emit),
+        issue_webhook_config_save(emit, model),
         {
           ..model,
           webhook_command_note: "正在写入 Webhook 配置候选…",
@@ -20730,7 +20836,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     TestWebhookDelivery =>
       (
-        issue_webhook_test(emit),
+        issue_webhook_test(emit, model),
         {
           ..model,
           webhook_command_note: "正在提交 Webhook 干运行测试…",
@@ -37533,8 +37639,12 @@ fn webhook_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ["钉钉", "未启用", "— 未配置 —", "未设置", "设计快照"],
     ]
   }
-  let active_row = if model.webhook_loaded && model.webhook_rows.length() > 0 {
-    model.webhook_rows[0]
+  let active_row = if model.webhook_loaded {
+    webhook_row_for_platform(model.webhook_rows, model.webhook_tab)
+  } else if model.webhook_tab == "feishu" {
+    ["飞书", "未启用", "— 未配置 —", "未设置", "设计快照"]
+  } else if model.webhook_tab == "dingtalk" {
+    ["钉钉", "未启用", "— 未配置 —", "未设置", "设计快照"]
   } else {
     [
       "企微", "已启用", "https://qyapi.weixin.qq.com/••••", "••••••••",
@@ -37584,9 +37694,33 @@ fn webhook_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div <| [
       div(class="erp-tabs") <| [
-        button(class="erp-tab is-active", "企业微信"),
-        button(class="erp-tab", "飞书"),
-        button(class="erp-tab", "钉钉"),
+        button(
+          class=if model.webhook_tab == "wecom" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWebhookPlatform("wecom")),
+          "企业微信",
+        ),
+        button(
+          class=if model.webhook_tab == "feishu" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWebhookPlatform("feishu")),
+          "飞书",
+        ),
+        button(
+          class=if model.webhook_tab == "dingtalk" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectWebhookPlatform("dingtalk")),
+          "钉钉",
+        ),
       ],
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
@@ -37601,6 +37735,43 @@ fn webhook_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           form_field("通知范围", "项目任务", "业务范围"),
           form_field("重试策略", "3 次 / 5 分钟", "失败重试"),
         ],
+        div(class="erp-inline-actions") <| [
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(ToggleWebhookEnabled),
+            if model.webhook_edit_enabled {
+              "已启用 · 点击停用"
+            } else {
+              "未启用 · 点击启用"
+            },
+          ),
+        ],
+        div(class="erp-form-grid") <| [
+          editable_form_field(
+            "Webhook URL",
+            model.webhook_edit_url,
+            if active_row[2] == "— 未配置 —" {
+              "请输入完整 URL"
+            } else {
+              "已配置 · 如需更换请重新输入"
+            },
+            @html.InputType::Text,
+            emit.map(value => InputWebhookField("url", value)),
+          ),
+          editable_form_field(
+            "密钥",
+            model.webhook_edit_secret,
+            "__keep__ 表示保留原密钥；留空表示清除",
+            @html.InputType::Password,
+            emit.map(value => InputWebhookField("secret", value)),
+          ),
+        ],
+        p(
+          class="erp-source-note",
+          "平台 " +
+          model.webhook_tab +
+          " · URL/密钥只提交摘要命令，不绑定凭据、不调用 provider",
+        ),
       ],
       table_panel(
         "三平台配置源读",
