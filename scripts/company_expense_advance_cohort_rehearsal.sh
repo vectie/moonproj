@@ -22,13 +22,13 @@ rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 moon run --target native cmd/expense_advance_cohort -- \
   "$WORK_DIR/expense-advance-plan.json" \
   "$WORK_DIR/expense-advance-receipt.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/expense-advance-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
 "$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/expense-advance-receipt.json" "$SQLITE_DATABASE" \
   "$WORK_DIR/sqlite-parity.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/expense-advance-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-replay.json"
 

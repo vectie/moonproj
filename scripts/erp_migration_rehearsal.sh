@@ -145,13 +145,13 @@ if [ -n "$MAPPING_PATH" ]; then
   moon run --target native cmd/promote -- "$PROMOTION_PLAN" "$DOMAIN_PROMOTION"
   echo "domain_promotion=$DOMAIN_PROMOTION"
   PROJECTION_APPLY="$WORK_DIR/projection-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$DOMAIN_PROMOTION" "$TARGET_DB" > "$PROJECTION_APPLY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$DOMAIN_PROMOTION" "$TARGET_DB" > "$PROJECTION_APPLY"
   echo "projection_apply=$PROJECTION_APPLY"
   PROJECTION_PARITY="$WORK_DIR/projection-parity.json"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$DOMAIN_PROMOTION" "$TARGET_DB" "$PROJECTION_PARITY"
   echo "projection_parity=$PROJECTION_PARITY"
   PROJECTION_REPLAY="$WORK_DIR/projection-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$DOMAIN_PROMOTION" "$TARGET_DB" > "$PROJECTION_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$DOMAIN_PROMOTION" "$TARGET_DB" > "$PROJECTION_REPLAY"
   echo "projection_replay=$PROJECTION_REPLAY"
   if [ -n "$ACCOUNTING_MAPPING" ]; then
     ACCOUNTING_PLAN="$WORK_DIR/accounting-link-plan.json"
@@ -181,7 +181,7 @@ if [ -n "$MAPPING_PATH" ]; then
         "$ACCOUNTING_POSTING_PLAN" "$ACCOUNTING_POSTING_RECEIPT"
       echo "accounting_posting_receipt=$ACCOUNTING_POSTING_RECEIPT"
       ACCOUNTING_POSTING_APPLY="$WORK_DIR/accounting-posting-apply.json"
-      "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+      "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
         "$ACCOUNTING_POSTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_POSTING_APPLY"
       echo "accounting_posting_apply=$ACCOUNTING_POSTING_APPLY"
       ACCOUNTING_POSTING_PARITY="$WORK_DIR/accounting-posting-parity.json"
@@ -189,7 +189,7 @@ if [ -n "$MAPPING_PATH" ]; then
         "$ACCOUNTING_POSTING_RECEIPT" "$TARGET_DB" "$ACCOUNTING_POSTING_PARITY"
       echo "accounting_posting_parity=$ACCOUNTING_POSTING_PARITY"
       ACCOUNTING_POSTING_REPLAY="$WORK_DIR/accounting-posting-replay.json"
-      "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+      "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
         "$ACCOUNTING_POSTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_POSTING_REPLAY"
       echo "accounting_posting_replay=$ACCOUNTING_POSTING_REPLAY"
     fi
@@ -206,7 +206,7 @@ if [ -n "$OPENING_CONTROL_MAPPING" ]; then
     "$OPENING_CONTROL_PLAN" "$OPENING_CONTROL_RECEIPT"
   echo "opening_control_receipt=$OPENING_CONTROL_RECEIPT"
   OPENING_CONTROL_APPLY="$WORK_DIR/opening-control-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$OPENING_CONTROL_RECEIPT" "$TARGET_DB" > "$OPENING_CONTROL_APPLY"
   echo "opening_control_apply=$OPENING_CONTROL_APPLY"
   OPENING_CONTROL_PARITY="$WORK_DIR/opening-control-parity.json"
@@ -215,7 +215,7 @@ if [ -n "$OPENING_CONTROL_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "opening_control_parity=$OPENING_CONTROL_PARITY"
   OPENING_CONTROL_REPLAY="$WORK_DIR/opening-control-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$OPENING_CONTROL_RECEIPT" "$TARGET_DB" > "$OPENING_CONTROL_REPLAY"
   echo "opening_control_replay=$OPENING_CONTROL_REPLAY"
 fi
@@ -230,7 +230,7 @@ if [ -n "$TAX_FILING_MAPPING" ]; then
     "$TAX_FILING_PLAN" "$TAX_FILING_RECEIPT"
   echo "tax_filing_receipt=$TAX_FILING_RECEIPT"
   TAX_FILING_APPLY="$WORK_DIR/tax-filing-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$TAX_FILING_RECEIPT" "$TARGET_DB" > "$TAX_FILING_APPLY"
   echo "tax_filing_apply=$TAX_FILING_APPLY"
   TAX_FILING_PARITY="$WORK_DIR/tax-filing-parity.json"
@@ -239,7 +239,7 @@ if [ -n "$TAX_FILING_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "tax_filing_parity=$TAX_FILING_PARITY"
   TAX_FILING_REPLAY="$WORK_DIR/tax-filing-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$TAX_FILING_RECEIPT" "$TARGET_DB" > "$TAX_FILING_REPLAY"
   echo "tax_filing_replay=$TAX_FILING_REPLAY"
 fi
@@ -254,7 +254,7 @@ if [ -n "$BANK_STATEMENT_MAPPING" ]; then
     "$BANK_STATEMENT_PLAN" "$BANK_STATEMENT_RECEIPT"
   echo "bank_statement_receipt=$BANK_STATEMENT_RECEIPT"
   BANK_STATEMENT_APPLY="$WORK_DIR/bank-statement-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" > "$BANK_STATEMENT_APPLY"
   echo "bank_statement_apply=$BANK_STATEMENT_APPLY"
   BANK_STATEMENT_PARITY="$WORK_DIR/bank-statement-parity.json"
@@ -263,7 +263,7 @@ if [ -n "$BANK_STATEMENT_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "bank_statement_parity=$BANK_STATEMENT_PARITY"
   BANK_STATEMENT_REPLAY="$WORK_DIR/bank-statement-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" > "$BANK_STATEMENT_REPLAY"
   echo "bank_statement_replay=$BANK_STATEMENT_REPLAY"
 fi
@@ -278,7 +278,7 @@ if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
     "$FINANCING_FACILITY_PLAN" "$FINANCING_FACILITY_RECEIPT"
   echo "financing_facility_receipt=$FINANCING_FACILITY_RECEIPT"
   FINANCING_FACILITY_APPLY="$WORK_DIR/financing-facility-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" > "$FINANCING_FACILITY_APPLY"
   echo "financing_facility_apply=$FINANCING_FACILITY_APPLY"
   FINANCING_FACILITY_PARITY="$WORK_DIR/financing-facility-parity.json"
@@ -287,7 +287,7 @@ if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "financing_facility_parity=$FINANCING_FACILITY_PARITY"
   FINANCING_FACILITY_REPLAY="$WORK_DIR/financing-facility-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" > "$FINANCING_FACILITY_REPLAY"
   echo "financing_facility_replay=$FINANCING_FACILITY_REPLAY"
 fi
@@ -302,7 +302,7 @@ if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
     "$ASSET_LIFECYCLE_PLAN" "$ASSET_LIFECYCLE_RECEIPT"
   echo "asset_lifecycle_receipt=$ASSET_LIFECYCLE_RECEIPT"
   ASSET_LIFECYCLE_APPLY="$WORK_DIR/asset-lifecycle-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" > "$ASSET_LIFECYCLE_APPLY"
   echo "asset_lifecycle_apply=$ASSET_LIFECYCLE_APPLY"
   ASSET_LIFECYCLE_PARITY="$WORK_DIR/asset-lifecycle-parity.json"
@@ -311,7 +311,7 @@ if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "asset_lifecycle_parity=$ASSET_LIFECYCLE_PARITY"
   ASSET_LIFECYCLE_REPLAY="$WORK_DIR/asset-lifecycle-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" > "$ASSET_LIFECYCLE_REPLAY"
   echo "asset_lifecycle_replay=$ASSET_LIFECYCLE_REPLAY"
 fi
@@ -326,7 +326,7 @@ if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
     "$TREASURY_PLAN_DISPATCH_PLAN" "$TREASURY_PLAN_DISPATCH_RECEIPT"
   echo "treasury_plan_dispatch_receipt=$TREASURY_PLAN_DISPATCH_RECEIPT"
   TREASURY_PLAN_DISPATCH_APPLY="$WORK_DIR/treasury-plan-dispatch-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" > "$TREASURY_PLAN_DISPATCH_APPLY"
   echo "treasury_plan_dispatch_apply=$TREASURY_PLAN_DISPATCH_APPLY"
   TREASURY_PLAN_DISPATCH_PARITY="$WORK_DIR/treasury-plan-dispatch-parity.json"
@@ -335,7 +335,7 @@ if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "treasury_plan_dispatch_parity=$TREASURY_PLAN_DISPATCH_PARITY"
   TREASURY_PLAN_DISPATCH_REPLAY="$WORK_DIR/treasury-plan-dispatch-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" > "$TREASURY_PLAN_DISPATCH_REPLAY"
   echo "treasury_plan_dispatch_replay=$TREASURY_PLAN_DISPATCH_REPLAY"
 fi
@@ -350,7 +350,7 @@ if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
     "$INVOICE_SUBLEDGER_PLAN" "$INVOICE_SUBLEDGER_RECEIPT"
   echo "invoice_subledger_receipt=$INVOICE_SUBLEDGER_RECEIPT"
   INVOICE_SUBLEDGER_APPLY="$WORK_DIR/invoice-subledger-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" > "$INVOICE_SUBLEDGER_APPLY"
   echo "invoice_subledger_apply=$INVOICE_SUBLEDGER_APPLY"
   INVOICE_SUBLEDGER_PARITY="$WORK_DIR/invoice-subledger-parity.json"
@@ -359,7 +359,7 @@ if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "invoice_subledger_parity=$INVOICE_SUBLEDGER_PARITY"
   INVOICE_SUBLEDGER_REPLAY="$WORK_DIR/invoice-subledger-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" > "$INVOICE_SUBLEDGER_REPLAY"
   echo "invoice_subledger_replay=$INVOICE_SUBLEDGER_REPLAY"
 fi
@@ -374,7 +374,7 @@ if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
     "$PROCUREMENT_COHORT_PLAN" "$PROCUREMENT_COHORT_RECEIPT"
   echo "procurement_cohort_receipt=$PROCUREMENT_COHORT_RECEIPT"
   PROCUREMENT_COHORT_APPLY="$WORK_DIR/procurement-cohort-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" > "$PROCUREMENT_COHORT_APPLY"
   echo "procurement_cohort_apply=$PROCUREMENT_COHORT_APPLY"
   PROCUREMENT_COHORT_PARITY="$WORK_DIR/procurement-cohort-parity.json"
@@ -383,7 +383,7 @@ if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "procurement_cohort_parity=$PROCUREMENT_COHORT_PARITY"
   PROCUREMENT_COHORT_REPLAY="$WORK_DIR/procurement-cohort-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" > "$PROCUREMENT_COHORT_REPLAY"
   echo "procurement_cohort_replay=$PROCUREMENT_COHORT_REPLAY"
 fi
@@ -398,7 +398,7 @@ if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
     "$INVESTMENT_PERFORMANCE_PLAN" "$INVESTMENT_PERFORMANCE_RECEIPT"
   echo "investment_performance_receipt=$INVESTMENT_PERFORMANCE_RECEIPT"
   INVESTMENT_PERFORMANCE_APPLY="$WORK_DIR/investment-performance-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$INVESTMENT_PERFORMANCE_RECEIPT" "$TARGET_DB" > "$INVESTMENT_PERFORMANCE_APPLY"
   echo "investment_performance_apply=$INVESTMENT_PERFORMANCE_APPLY"
   INVESTMENT_PERFORMANCE_PARITY="$WORK_DIR/investment-performance-parity.json"
@@ -407,7 +407,7 @@ if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
     --backend sqlite --database "$TARGET_DB"
   echo "investment_performance_parity=$INVESTMENT_PERFORMANCE_PARITY"
   INVESTMENT_PERFORMANCE_REPLAY="$WORK_DIR/investment-performance-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$INVESTMENT_PERFORMANCE_RECEIPT" "$TARGET_DB" > "$INVESTMENT_PERFORMANCE_REPLAY"
   echo "investment_performance_replay=$INVESTMENT_PERFORMANCE_REPLAY"
 fi
@@ -420,13 +420,13 @@ if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
   moon run --target native cmd/promote -- "$ADVANCE_OFFSET_PLAN" "$ADVANCE_OFFSET_PROMOTION"
   echo "advance_offset_promotion=$ADVANCE_OFFSET_PROMOTION"
   ADVANCE_OFFSET_APPLY="$WORK_DIR/advance-offset-projection-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$ADVANCE_OFFSET_PROMOTION" "$TARGET_DB" > "$ADVANCE_OFFSET_APPLY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$ADVANCE_OFFSET_PROMOTION" "$TARGET_DB" > "$ADVANCE_OFFSET_APPLY"
   echo "advance_offset_projection_apply=$ADVANCE_OFFSET_APPLY"
   ADVANCE_OFFSET_PARITY="$WORK_DIR/advance-offset-projection-parity.json"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$ADVANCE_OFFSET_PROMOTION" "$TARGET_DB" "$ADVANCE_OFFSET_PARITY"
   echo "advance_offset_projection_parity=$ADVANCE_OFFSET_PARITY"
   ADVANCE_OFFSET_REPLAY="$WORK_DIR/advance-offset-projection-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$ADVANCE_OFFSET_PROMOTION" "$TARGET_DB" > "$ADVANCE_OFFSET_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$ADVANCE_OFFSET_PROMOTION" "$TARGET_DB" > "$ADVANCE_OFFSET_REPLAY"
   echo "advance_offset_projection_replay=$ADVANCE_OFFSET_REPLAY"
   ADVANCE_OFFSET_ACCOUNTING_PLAN="$WORK_DIR/advance-offset-accounting-link-plan.json"
   "$SCRIPT_DIR/erp_accounting_link_plan.sh" "$ADVANCE_OFFSET_PROMOTION" "$ADVANCE_OFFSET_MAPPING" "$ADVANCE_OFFSET_ACCOUNTING_PLAN"
@@ -479,13 +479,13 @@ if [ -n "$CBS_COST_MAPPING" ]; then
   moon run --target native cmd/cbs_link -- "$CBS_COST_PLAN" "$CBS_COST_RECEIPT"
   echo "cbs_cost_link_receipt=$CBS_COST_RECEIPT"
   CBS_COST_APPLY="$WORK_DIR/cbs-cost-link-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$CBS_COST_RECEIPT" "$TARGET_DB" > "$CBS_COST_APPLY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$CBS_COST_RECEIPT" "$TARGET_DB" > "$CBS_COST_APPLY"
   echo "cbs_cost_link_apply=$CBS_COST_APPLY"
   CBS_COST_PARITY="$WORK_DIR/cbs-cost-link-parity.json"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$CBS_COST_RECEIPT" "$TARGET_DB" "$CBS_COST_PARITY"
   echo "cbs_cost_link_parity=$CBS_COST_PARITY"
   CBS_COST_REPLAY="$WORK_DIR/cbs-cost-link-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$CBS_COST_RECEIPT" "$TARGET_DB" > "$CBS_COST_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$CBS_COST_RECEIPT" "$TARGET_DB" > "$CBS_COST_REPLAY"
   echo "cbs_cost_link_replay=$CBS_COST_REPLAY"
 fi
 
@@ -495,7 +495,7 @@ if [ -n "$CBS_BUDGET_PLAN" ]; then
     "$CBS_BUDGET_PLAN" "$CBS_BUDGET_RECEIPT"
   echo "cbs_budget_receipt=$CBS_BUDGET_RECEIPT"
   CBS_BUDGET_APPLY="$WORK_DIR/cbs-budget-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$CBS_BUDGET_RECEIPT" "$TARGET_DB" > "$CBS_BUDGET_APPLY"
   echo "cbs_budget_apply=$CBS_BUDGET_APPLY"
   CBS_BUDGET_PARITY="$WORK_DIR/cbs-budget-parity.json"
@@ -503,7 +503,7 @@ if [ -n "$CBS_BUDGET_PLAN" ]; then
     "$CBS_BUDGET_RECEIPT" "$TARGET_DB" "$CBS_BUDGET_PARITY"
   echo "cbs_budget_parity=$CBS_BUDGET_PARITY"
   CBS_BUDGET_REPLAY="$WORK_DIR/cbs-budget-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$CBS_BUDGET_RECEIPT" "$TARGET_DB" > "$CBS_BUDGET_REPLAY"
   echo "cbs_budget_replay=$CBS_BUDGET_REPLAY"
 fi
@@ -519,7 +519,7 @@ if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
     "$CBS_BUDGET_SOURCE_PLAN" "$CBS_BUDGET_SOURCE_RECEIPT"
   echo "cbs_budget_source_receipt=$CBS_BUDGET_SOURCE_RECEIPT"
   CBS_BUDGET_SOURCE_APPLY="$WORK_DIR/cbs-budget-source-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$CBS_BUDGET_SOURCE_RECEIPT" "$TARGET_DB" > "$CBS_BUDGET_SOURCE_APPLY"
   echo "cbs_budget_source_apply=$CBS_BUDGET_SOURCE_APPLY"
   CBS_BUDGET_SOURCE_PARITY="$WORK_DIR/cbs-budget-source-parity.json"
@@ -527,7 +527,7 @@ if [ -n "$CBS_BUDGET_SOURCE_MAPPING" ]; then
     "$CBS_BUDGET_SOURCE_RECEIPT" "$TARGET_DB" "$CBS_BUDGET_SOURCE_PARITY"
   echo "cbs_budget_source_parity=$CBS_BUDGET_SOURCE_PARITY"
   CBS_BUDGET_SOURCE_REPLAY="$WORK_DIR/cbs-budget-source-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$CBS_BUDGET_SOURCE_RECEIPT" "$TARGET_DB" > "$CBS_BUDGET_SOURCE_REPLAY"
   echo "cbs_budget_source_replay=$CBS_BUDGET_SOURCE_REPLAY"
 fi
@@ -540,13 +540,13 @@ if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then
   moon run --target native cmd/workflow_assignment -- "$WORKFLOW_ASSIGNMENT_PLAN" "$WORKFLOW_ASSIGNMENT_RECEIPT"
   echo "workflow_assignment_receipt=$WORKFLOW_ASSIGNMENT_RECEIPT"
   WORKFLOW_ASSIGNMENT_APPLY="$WORK_DIR/workflow-assignment-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$WORKFLOW_ASSIGNMENT_RECEIPT" "$TARGET_DB" > "$WORKFLOW_ASSIGNMENT_APPLY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$WORKFLOW_ASSIGNMENT_RECEIPT" "$TARGET_DB" > "$WORKFLOW_ASSIGNMENT_APPLY"
   echo "workflow_assignment_apply=$WORKFLOW_ASSIGNMENT_APPLY"
   WORKFLOW_ASSIGNMENT_PARITY="$WORK_DIR/workflow-assignment-parity.json"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$WORKFLOW_ASSIGNMENT_RECEIPT" "$TARGET_DB" "$WORKFLOW_ASSIGNMENT_PARITY"
   echo "workflow_assignment_parity=$WORKFLOW_ASSIGNMENT_PARITY"
   WORKFLOW_ASSIGNMENT_REPLAY="$WORK_DIR/workflow-assignment-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$WORKFLOW_ASSIGNMENT_RECEIPT" "$TARGET_DB" > "$WORKFLOW_ASSIGNMENT_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$WORKFLOW_ASSIGNMENT_RECEIPT" "$TARGET_DB" > "$WORKFLOW_ASSIGNMENT_REPLAY"
   echo "workflow_assignment_replay=$WORKFLOW_ASSIGNMENT_REPLAY"
 fi
 
@@ -558,13 +558,13 @@ if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
   moon run --target native cmd/delivery_progress -- "$DELIVERY_PROGRESS_PLAN" "$DELIVERY_PROGRESS_RECEIPT"
   echo "delivery_progress_receipt=$DELIVERY_PROGRESS_RECEIPT"
   DELIVERY_PROGRESS_APPLY="$WORK_DIR/delivery-progress-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$DELIVERY_PROGRESS_RECEIPT" "$TARGET_DB" > "$DELIVERY_PROGRESS_APPLY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$DELIVERY_PROGRESS_RECEIPT" "$TARGET_DB" > "$DELIVERY_PROGRESS_APPLY"
   echo "delivery_progress_apply=$DELIVERY_PROGRESS_APPLY"
   DELIVERY_PROGRESS_PARITY="$WORK_DIR/delivery-progress-parity.json"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$DELIVERY_PROGRESS_RECEIPT" "$TARGET_DB" "$DELIVERY_PROGRESS_PARITY"
   echo "delivery_progress_parity=$DELIVERY_PROGRESS_PARITY"
   DELIVERY_PROGRESS_REPLAY="$WORK_DIR/delivery-progress-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$DELIVERY_PROGRESS_RECEIPT" "$TARGET_DB" > "$DELIVERY_PROGRESS_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$DELIVERY_PROGRESS_RECEIPT" "$TARGET_DB" > "$DELIVERY_PROGRESS_REPLAY"
   echo "delivery_progress_replay=$DELIVERY_PROGRESS_REPLAY"
 fi
 
@@ -578,7 +578,7 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
     "$DELIVERY_RECOGNITION_PLAN" "$DELIVERY_RECOGNITION_RECEIPT"
   echo "delivery_recognition_receipt=$DELIVERY_RECOGNITION_RECEIPT"
   DELIVERY_RECOGNITION_APPLY="$WORK_DIR/delivery-recognition-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$DELIVERY_RECOGNITION_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_APPLY"
   echo "delivery_recognition_apply=$DELIVERY_RECOGNITION_APPLY"
   DELIVERY_RECOGNITION_PARITY="$WORK_DIR/delivery-recognition-parity.json"
@@ -586,7 +586,7 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
     "$DELIVERY_RECOGNITION_RECEIPT" "$TARGET_DB" "$DELIVERY_RECOGNITION_PARITY"
   echo "delivery_recognition_parity=$DELIVERY_RECOGNITION_PARITY"
   DELIVERY_RECOGNITION_REPLAY="$WORK_DIR/delivery-recognition-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$DELIVERY_RECOGNITION_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_REPLAY"
   echo "delivery_recognition_replay=$DELIVERY_RECOGNITION_REPLAY"
   if [ -n "$DELIVERY_RECOGNITION_ACCOUNTING_MAPPING" ]; then
@@ -625,7 +625,7 @@ if [ -n "$CONSOLIDATED_REPORT_PLAN" ]; then
     "$CONSOLIDATED_REPORT_PLAN" "$CONSOLIDATED_REPORT_RECEIPT"
   echo "consolidated_report_receipt=$CONSOLIDATED_REPORT_RECEIPT"
   CONSOLIDATED_REPORT_APPLY="$WORK_DIR/consolidated-report-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$CONSOLIDATED_REPORT_RECEIPT" "$TARGET_DB" > "$CONSOLIDATED_REPORT_APPLY"
   echo "consolidated_report_apply=$CONSOLIDATED_REPORT_APPLY"
   CONSOLIDATED_REPORT_PARITY="$WORK_DIR/consolidated-report-parity.json"
@@ -633,7 +633,7 @@ if [ -n "$CONSOLIDATED_REPORT_PLAN" ]; then
     "$CONSOLIDATED_REPORT_RECEIPT" "$TARGET_DB" "$CONSOLIDATED_REPORT_PARITY"
   echo "consolidated_report_parity=$CONSOLIDATED_REPORT_PARITY"
   CONSOLIDATED_REPORT_REPLAY="$WORK_DIR/consolidated-report-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$CONSOLIDATED_REPORT_RECEIPT" "$TARGET_DB" > "$CONSOLIDATED_REPORT_REPLAY"
   echo "consolidated_report_replay=$CONSOLIDATED_REPORT_REPLAY"
 fi
@@ -644,7 +644,7 @@ if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
     "$INVESTMENT_BENCHMARK_PLAN" "$INVESTMENT_BENCHMARK_RECEIPT"
   echo "investment_benchmark_receipt=$INVESTMENT_BENCHMARK_RECEIPT"
   INVESTMENT_BENCHMARK_APPLY="$WORK_DIR/investment-benchmark-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$INVESTMENT_BENCHMARK_RECEIPT" "$TARGET_DB" > "$INVESTMENT_BENCHMARK_APPLY"
   echo "investment_benchmark_apply=$INVESTMENT_BENCHMARK_APPLY"
   INVESTMENT_BENCHMARK_PARITY="$WORK_DIR/investment-benchmark-parity.json"
@@ -652,7 +652,7 @@ if [ -n "$INVESTMENT_BENCHMARK_PLAN" ]; then
     "$INVESTMENT_BENCHMARK_RECEIPT" "$TARGET_DB" "$INVESTMENT_BENCHMARK_PARITY"
   echo "investment_benchmark_parity=$INVESTMENT_BENCHMARK_PARITY"
   INVESTMENT_BENCHMARK_REPLAY="$WORK_DIR/investment-benchmark-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$INVESTMENT_BENCHMARK_RECEIPT" "$TARGET_DB" > "$INVESTMENT_BENCHMARK_REPLAY"
   echo "investment_benchmark_replay=$INVESTMENT_BENCHMARK_REPLAY"
 fi
@@ -662,7 +662,7 @@ if [ -n "$WARNING_PLAN" ]; then
   moon run --target native cmd/warning -- "$WARNING_PLAN" "$WARNING_RECEIPT"
   echo "warning_receipt=$WARNING_RECEIPT"
   WARNING_APPLY="$WORK_DIR/warning-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$WARNING_RECEIPT" "$TARGET_DB" > "$WARNING_APPLY"
   echo "warning_apply=$WARNING_APPLY"
   WARNING_PARITY="$WORK_DIR/warning-parity.json"
@@ -670,7 +670,7 @@ if [ -n "$WARNING_PLAN" ]; then
     "$WARNING_RECEIPT" "$TARGET_DB" "$WARNING_PARITY"
   echo "warning_parity=$WARNING_PARITY"
   WARNING_REPLAY="$WORK_DIR/warning-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$WARNING_RECEIPT" "$TARGET_DB" > "$WARNING_REPLAY"
   echo "warning_replay=$WARNING_REPLAY"
 fi
@@ -685,7 +685,7 @@ if [ -n "$WARNING_SOURCE_MAPPING" ]; then
     "$WARNING_SOURCE_PLAN" "$WARNING_SOURCE_RECEIPT"
   echo "warning_source_receipt=$WARNING_SOURCE_RECEIPT"
   WARNING_SOURCE_APPLY="$WORK_DIR/warning-source-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$WARNING_SOURCE_RECEIPT" "$TARGET_DB" > "$WARNING_SOURCE_APPLY"
   echo "warning_source_apply=$WARNING_SOURCE_APPLY"
   WARNING_SOURCE_PARITY="$WORK_DIR/warning-source-parity.json"
@@ -693,7 +693,7 @@ if [ -n "$WARNING_SOURCE_MAPPING" ]; then
     "$WARNING_SOURCE_RECEIPT" "$TARGET_DB" "$WARNING_SOURCE_PARITY"
   echo "warning_source_parity=$WARNING_SOURCE_PARITY"
   WARNING_SOURCE_REPLAY="$WORK_DIR/warning-source-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$WARNING_SOURCE_RECEIPT" "$TARGET_DB" > "$WARNING_SOURCE_REPLAY"
   echo "warning_source_replay=$WARNING_SOURCE_REPLAY"
 fi
@@ -704,7 +704,7 @@ if [ -n "$NOTIFICATION_PLAN" ]; then
     "$NOTIFICATION_PLAN" "$NOTIFICATION_RECEIPT"
   echo "notification_receipt=$NOTIFICATION_RECEIPT"
   NOTIFICATION_APPLY="$WORK_DIR/notification-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$NOTIFICATION_RECEIPT" "$TARGET_DB" > "$NOTIFICATION_APPLY"
   echo "notification_apply=$NOTIFICATION_APPLY"
   NOTIFICATION_PARITY="$WORK_DIR/notification-parity.json"
@@ -712,7 +712,7 @@ if [ -n "$NOTIFICATION_PLAN" ]; then
     "$NOTIFICATION_RECEIPT" "$TARGET_DB" "$NOTIFICATION_PARITY"
   echo "notification_parity=$NOTIFICATION_PARITY"
   NOTIFICATION_REPLAY="$WORK_DIR/notification-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$NOTIFICATION_RECEIPT" "$TARGET_DB" > "$NOTIFICATION_REPLAY"
   echo "notification_replay=$NOTIFICATION_REPLAY"
 fi
@@ -723,7 +723,7 @@ if [ -n "$ACCESS_PLAN" ]; then
     "$ACCESS_PLAN" "$ACCESS_RECEIPT"
   echo "access_receipt=$ACCESS_RECEIPT"
   ACCESS_APPLY="$WORK_DIR/access-apply.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$ACCESS_RECEIPT" "$TARGET_DB" > "$ACCESS_APPLY"
   echo "access_apply=$ACCESS_APPLY"
   ACCESS_PARITY="$WORK_DIR/access-parity.json"
@@ -731,7 +731,7 @@ if [ -n "$ACCESS_PLAN" ]; then
     "$ACCESS_RECEIPT" "$TARGET_DB" "$ACCESS_PARITY"
   echo "access_parity=$ACCESS_PARITY"
   ACCESS_REPLAY="$WORK_DIR/access-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
     "$ACCESS_RECEIPT" "$TARGET_DB" > "$ACCESS_REPLAY"
   echo "access_replay=$ACCESS_REPLAY"
 fi

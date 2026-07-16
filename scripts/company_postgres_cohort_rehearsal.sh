@@ -81,12 +81,12 @@ rm -f "$SQLITE_DB" "$SQLITE_DB.pending"
   "$EXPORT_DIR" "$MAPPING_PATH" "$WORK_DIR/promotion-plan.json"
 moon run --target native cmd/promote -- \
   "$WORK_DIR/promotion-plan.json" "$WORK_DIR/domain-promotion.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" > "$WORK_DIR/base-sqlite-projection-apply.json"
 "$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" \
   "$WORK_DIR/base-sqlite-projection-parity.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" > "$WORK_DIR/base-sqlite-projection-replay.json"
 "$SCRIPT_DIR/company_postgres_projection_apply.sh" \
   "$WORK_DIR/domain-promotion.json" \

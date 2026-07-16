@@ -23,13 +23,13 @@ rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
 moon run --target native cmd/contract_milestone -- \
   "$WORK_DIR/contract-milestone-plan.json" \
   "$WORK_DIR/contract-milestone-receipt.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/contract-milestone-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
 "$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/contract-milestone-receipt.json" "$SQLITE_DATABASE" \
   "$WORK_DIR/sqlite-parity.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+python3 "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$WORK_DIR/contract-milestone-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-replay.json"
 

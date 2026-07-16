@@ -107,7 +107,8 @@ immutable record store and the durable file boundary for a generic company
 record envelope. `scripts/company_sqlite_rehearsal.py` applies the same four
 schema gates to SQLite, persists the sanitized raw-envelope cohort in one
 transaction, records a migration receipt, reopens the file, and proves an
-identical replay is idempotent. `scripts/company_sqlite_projection_apply.py`
+identical replay is idempotent. The native
+`scripts/company_sqlite_projection_apply.sh` wrapper
 then consumes only a native, domain-validated promotion receipt and persists
 immutable aggregate revisions plus a projection receipt with idempotent replay.
 The executable `scripts/company_postgres_service.py` now provides the local

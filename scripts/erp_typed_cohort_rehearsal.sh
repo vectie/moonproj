@@ -29,12 +29,12 @@ run_cohort() {
   echo "${label}_plan=$plan"
   moon run --target native cmd/promote -- "$plan" "$receipt"
   echo "${label}_promotion=$receipt"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$apply"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$receipt" "$TARGET_DB" > "$apply"
   echo "${label}_projection_apply=$apply"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$receipt" "$TARGET_DB" "$parity"
   echo "${label}_projection_parity=$parity"
   replay="$WORK_DIR/$label-projection-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$replay"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$receipt" "$TARGET_DB" > "$replay"
   echo "${label}_projection_replay=$replay"
 }
 
@@ -57,12 +57,12 @@ run_task_state_clean() {
   echo "${label}_plan=$plan"
   moon run --target native cmd/promote -- "$plan" "$receipt"
   echo "${label}_promotion=$receipt"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$apply"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$receipt" "$TARGET_DB" > "$apply"
   echo "${label}_projection_apply=$apply"
   "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$receipt" "$TARGET_DB" "$parity"
   echo "${label}_projection_parity=$parity"
   replay="$WORK_DIR/$label-projection-replay.json"
-  "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$replay"
+  "$SCRIPT_DIR/company_sqlite_projection_apply.sh" "$receipt" "$TARGET_DB" > "$replay"
   echo "${label}_projection_replay=$replay"
 }
 
@@ -88,7 +88,7 @@ moon run --target native cmd/task_state_evidence -- \
   "$TASK_STATE_EXCEPTION_REVIEW" "$TASK_STATE_EVIDENCE_RECEIPT"
 echo "task_state_exception_evidence_promotion=$TASK_STATE_EVIDENCE_RECEIPT"
 TASK_STATE_EVIDENCE_APPLY="$WORK_DIR/task-state-exception-evidence-projection-apply.json"
-"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" > "$TASK_STATE_EVIDENCE_APPLY"
 echo "task_state_exception_evidence_projection_apply=$TASK_STATE_EVIDENCE_APPLY"
 TASK_STATE_EVIDENCE_PARITY="$WORK_DIR/task-state-exception-evidence-projection-parity.json"
@@ -96,7 +96,7 @@ TASK_STATE_EVIDENCE_PARITY="$WORK_DIR/task-state-exception-evidence-projection-p
   "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" "$TASK_STATE_EVIDENCE_PARITY"
 echo "task_state_exception_evidence_projection_parity=$TASK_STATE_EVIDENCE_PARITY"
 TASK_STATE_EVIDENCE_REPLAY="$WORK_DIR/task-state-exception-evidence-projection-replay.json"
-"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" > "$TASK_STATE_EVIDENCE_REPLAY"
 echo "task_state_exception_evidence_projection_replay=$TASK_STATE_EVIDENCE_REPLAY"
 
@@ -108,7 +108,7 @@ moon run --target native cmd/investment_model_eval -- \
   "$WORK_DIR/investment-promotion.json" "$INVESTMENT_EVALUATION_RECEIPT"
 echo "investment_evaluation_promotion=$INVESTMENT_EVALUATION_RECEIPT"
 INVESTMENT_EVALUATION_APPLY="$WORK_DIR/investment-evaluation-projection-apply.json"
-"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" > "$INVESTMENT_EVALUATION_APPLY"
 echo "investment_evaluation_projection_apply=$INVESTMENT_EVALUATION_APPLY"
 INVESTMENT_EVALUATION_PARITY="$WORK_DIR/investment-evaluation-projection-parity.json"
@@ -116,7 +116,7 @@ INVESTMENT_EVALUATION_PARITY="$WORK_DIR/investment-evaluation-projection-parity.
   "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" "$INVESTMENT_EVALUATION_PARITY"
 echo "investment_evaluation_projection_parity=$INVESTMENT_EVALUATION_PARITY"
 INVESTMENT_EVALUATION_REPLAY="$WORK_DIR/investment-evaluation-projection-replay.json"
-"$SCRIPT_DIR/company_sqlite_projection_apply.py" \
+"$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
   "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" > "$INVESTMENT_EVALUATION_REPLAY"
 echo "investment_evaluation_projection_replay=$INVESTMENT_EVALUATION_REPLAY"
 

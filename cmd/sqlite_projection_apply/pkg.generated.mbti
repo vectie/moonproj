@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/sqlite_projection_apply"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+}
+
+// Values
+
+// Errors
+pub(all) suberror SqliteProjectionApplyError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+} derive(@debug.Debug)
+
+// Types and methods
+type ProjectionItem
+
+type ProjectionRow
+
+type Receipt
+
+// Type aliases
+
+// Traits

@@ -2208,6 +2208,18 @@ Execute the remainder in this order:
     source identities, and emits the exact projection-parity envelope. SQLite
     projection apply, raw rehearsal, accounting-link, and broader
     reconciliation adapters remain the next bridge ports.
+3a.38. **Native SQLite projection apply adapter (2026-07-16).**
+    `cmd/sqlite_projection_apply` and
+    `scripts/company_sqlite_projection_apply.sh` now replace the SQLite
+    projection Python adapter in the rehearsal drivers. MoonBit validates the
+    domain receipt, recursively rejects secret-shaped candidates, preserves
+    canonical JSON/event identity and revision ordering, computes the
+    cohort-scoped baseline/applied hashes, and emits the transaction-bound
+    SQLite SQL plan; the shell invokes only SQLite for execution and passes
+    reopened rows back to MoonBit for durability verification. Exact first-run
+    and zero-insert replay behavior match the historical adapter. Raw staging,
+    accounting-link, reconciliation, and managed PostgreSQL ownership remain
+    separate ports.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
