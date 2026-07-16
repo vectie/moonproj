@@ -1306,6 +1306,8 @@ struct Model {
   delivery_tab : String
   delivery_progress_rows : Array[DeliveryProgressRow]
   delivery_output_rows : Array[DeliveryOutputRow]
+  delivery_source_progress_rows : Array[DeliveryProgressRow]
+  delivery_source_output_rows : Array[DeliveryOutputRow]
   delivery_task_rows : Array[DeliveryTaskRow]
   delivery_report_rows : Array[DeliveryReportRow]
   delivery_note : String
@@ -2651,6 +2653,8 @@ fn initial_model() -> Model {
     delivery_tab: "progress",
     delivery_progress_rows: [],
     delivery_output_rows: [],
+    delivery_source_progress_rows: [],
+    delivery_source_output_rows: [],
     delivery_task_rows: [],
     delivery_report_rows: [],
     delivery_note: "工程进度/项目计划读模型尚未加载",
@@ -4603,6 +4607,42 @@ fn delivery_output_from_json(value : Json) -> DeliveryOutputRow? {
       })
     _ => None
   }
+}
+
+///|
+fn delivery_source_progress_from_body(
+  body : String,
+) -> Array[DeliveryProgressRow] {
+  let rows : Array[DeliveryProgressRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match delivery_progress_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn delivery_source_outputs_from_body(body : String) -> Array[DeliveryOutputRow] {
+  let rows : Array[DeliveryOutputRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match delivery_output_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    _ => ()
+  }
+  rows
 }
 
 ///|
@@ -15129,6 +15169,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_source_loaded: false,
           delivery_progress_rows: [],
           delivery_output_rows: [],
+          delivery_source_progress_rows: [],
+          delivery_source_output_rows: [],
           delivery_task_rows: [],
           delivery_report_rows: [],
           delivery_note: "正在读取所选项目的工程进度…",
@@ -15136,30 +15178,36 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectDeliveryTab(tab) => (none, { ..model, delivery_tab: tab })
-    DeliverySourceProgressLoaded(body) =>
+    DeliverySourceProgressLoaded(body) => {
+      let rows = delivery_source_progress_from_body(body)
       (
         load_delivery_source_outputs_for(emit, model.delivery_project_id),
         {
           ..model,
           delivery_source_loaded: false,
-          delivery_source_progress_count: source_data_row_count(body).to_string(),
+          delivery_source_progress_rows: rows,
+          delivery_source_progress_count: rows.length().to_string(),
           delivery_source_note: "ERP 源进度已读取 · 继续读取源产值",
         },
       )
-    DeliverySourceOutputsLoaded(body) =>
+    }
+    DeliverySourceOutputsLoaded(body) => {
+      let rows = delivery_source_outputs_from_body(body)
       (
         load_delivery_overview_for(emit, model.delivery_project_id),
         {
           ..model,
           delivery_source_loaded: true,
-          delivery_source_output_count: source_data_row_count(body).to_string(),
+          delivery_source_output_rows: rows,
+          delivery_source_output_count: rows.length().to_string(),
           delivery_source_note: "ERP 源进度 " +
           model.delivery_source_progress_count +
           " 行 · 源产值 " +
-          source_data_row_count(body).to_string() +
+          rows.length().to_string() +
           " 行 · 空表保持可见",
         },
       )
+    }
     DeliverySourceLoadFailed =>
       (
         load_delivery_overview_for(emit, model.delivery_project_id),
@@ -15194,6 +15242,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_loaded: false,
           delivery_progress_rows: [],
           delivery_output_rows: [],
+          delivery_source_progress_rows: [],
+          delivery_source_output_rows: [],
           delivery_task_rows: [],
           delivery_report_rows: [],
           delivery_note: "工程进度/项目计划读模型不可用 · 使用已审核快照",
@@ -22078,11 +22128,16 @@ fn project_plan_csv(model : Model) -> String {
 
 ///|
 fn delivery_progress_table(model : Model) -> @html.Html {
-  if !model.delivery_loaded {
+  let rows_to_render = if model.delivery_source_progress_rows.length() > 0 {
+    model.delivery_source_progress_rows
+  } else {
+    model.delivery_progress_rows
+  }
+  if !model.delivery_loaded && rows_to_render.length() == 0 {
     div(class="erp-runtime-empty", "等待 PostgreSQL 工程进度投影")
   } else {
     let rows : Array[Array[String]] = []
-    for row in model.delivery_progress_rows {
+    for row in rows_to_render {
       rows.push([
         row.progress_id,
         row.project_id,
@@ -22099,8 +22154,16 @@ fn delivery_progress_table(model : Model) -> @html.Html {
       ])
     }
     table_panel(
-      "当前 PostgreSQL 工程进度",
-      "源记录只读 · 本地命令需要证据并保留审计",
+      if model.delivery_source_progress_rows.length() > 0 {
+        "ERP 源工程进度"
+      } else {
+        "当前 PostgreSQL 工程进度"
+      },
+      if model.delivery_source_progress_rows.length() > 0 {
+        "源记录只读 · 项目范围 " + model.delivery_project_id
+      } else {
+        "源记录只读 · 本地命令需要证据并保留审计"
+      },
       data_table(
         [
           "记录", "项目", "楼栋", "阶段", "计划日期", "实际日期",
@@ -22115,7 +22178,12 @@ fn delivery_progress_table(model : Model) -> @html.Html {
 ///|
 fn delivery_outputs_table(model : Model) -> @html.Html {
   let rows : Array[Array[String]] = []
-  for row in model.delivery_output_rows {
+  let rows_to_render = if model.delivery_source_output_rows.length() > 0 {
+    model.delivery_source_output_rows
+  } else {
+    model.delivery_output_rows
+  }
+  for row in rows_to_render {
     rows.push([
       row.output_id,
       row.project_id,
@@ -22129,8 +22197,16 @@ fn delivery_outputs_table(model : Model) -> @html.Html {
     ])
   }
   table_panel(
-    "产值确认",
-    "确认不等于入账 · 需要独立证据",
+    if model.delivery_source_output_rows.length() > 0 {
+      "ERP 源产值确认"
+    } else {
+      "产值确认"
+    },
+    if model.delivery_source_output_rows.length() > 0 {
+      "源记录只读 · 项目范围 " + model.delivery_project_id
+    } else {
+      "确认不等于入账 · 需要独立证据"
+    },
     data_table(
       [
         "记录", "项目", "合同", "期间", "申报产值", "确认产值", "状态",
