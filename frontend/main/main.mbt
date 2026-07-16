@@ -806,6 +806,49 @@ struct ProjectRow {
 }
 
 ///|
+struct ProjectStageRow {
+  stage_code : String
+  stage_name : String
+  stage_order : String
+  status : String
+  progress_pct : String
+  planned_start : String
+  planned_end : String
+  actual_start : String
+  actual_end : String
+  source_kind : String
+}
+
+///|
+struct ProjectKpi {
+  progress_avg : String
+  progress_done : String
+  progress_total_nodes : String
+  progress_overdue_nodes : String
+  cost_deviation_pct : String
+  cost_dynamic : String
+  cost_target : String
+  contract_total : String
+  contract_count : String
+  payment_paid_ratio : String
+  payment_paid_total : String
+  payment_apply_total : String
+  cash_this_month_plan : String
+  profit_irr : String
+  profit_net_profit : String
+  profit_npv : String
+  approval_avg_days : String
+}
+
+///|
+struct ProjectAnomalyRow {
+  severity : String
+  title : String
+  detail : String
+  suggestion : String
+}
+
+///|
 struct ImportCsvData {
   headers : Array[String]
   preview_rows : Array[Array[String]]
@@ -1334,6 +1377,13 @@ struct Model {
   projects_loaded : Bool
   project_rows : Array[ProjectRow]
   project_detail : ProjectRow?
+  project_stage_rows : Array[ProjectStageRow]
+  project_kpi_loaded : Bool
+  project_kpi : ProjectKpi
+  project_kpi_note : String
+  project_anomalies_loaded : Bool
+  project_anomaly_rows : Array[ProjectAnomalyRow]
+  project_anomaly_note : String
   project_note : String
   import_template_note : String
   import_biz_type : String
@@ -1877,6 +1927,12 @@ enum Msg {
   ProjectsLoadFailed
   ProjectLoaded(String)
   ProjectLoadFailed
+  ProjectStagesLoaded(String)
+  ProjectStagesLoadFailed
+  ProjectKpiLoaded(String)
+  ProjectKpiLoadFailed
+  ProjectAnomaliesLoaded(String)
+  ProjectAnomaliesLoadFailed
   DownloadImportTemplate(String)
   ImportTemplateDownloaded(String, @dom.Blob)
   ImportTemplateDownloadFailed(String)
@@ -2409,6 +2465,31 @@ fn initial_model() -> Model {
     projects_loaded: false,
     project_rows: [],
     project_detail: None,
+    project_stage_rows: [],
+    project_kpi_loaded: false,
+    project_kpi: {
+      progress_avg: "0",
+      progress_done: "0",
+      progress_total_nodes: "0",
+      progress_overdue_nodes: "0",
+      cost_deviation_pct: "0",
+      cost_dynamic: "0",
+      cost_target: "0",
+      contract_total: "0",
+      contract_count: "0",
+      payment_paid_ratio: "0",
+      payment_paid_total: "0",
+      payment_apply_total: "0",
+      cash_this_month_plan: "0",
+      profit_irr: "",
+      profit_net_profit: "",
+      profit_npv: "",
+      approval_avg_days: "",
+    },
+    project_kpi_note: "项目 KPI 尚未加载",
+    project_anomalies_loaded: false,
+    project_anomaly_rows: [],
+    project_anomaly_note: "项目风险预警尚未加载",
     project_note: "项目主数据读模型尚未加载",
     import_template_note: "项目/合同 CSV 模板尚未下载",
     import_biz_type: "",
@@ -6638,6 +6719,128 @@ fn project_detail_from_body(body : String) -> ProjectRow? {
 }
 
 ///|
+fn project_stage_rows_from_body(body : String) -> Array[ProjectStageRow] {
+  let rows : Array[ProjectStageRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(root) => {
+      let data = match root.get("data") {
+        Some(Json::Object(value)) => value
+        _ => root
+      }
+      for value in json_array_field(data, "stages") {
+        match value {
+          Json::Object(fields) =>
+            rows.push({
+              stage_code: json_object_text(fields, "stageCode", ""),
+              stage_name: json_object_text(fields, "stageName", ""),
+              stage_order: json_object_text(fields, "stageOrder", "0"),
+              status: json_object_text(fields, "status", "pending"),
+              progress_pct: json_object_text(fields, "progressPct", "0"),
+              planned_start: json_object_text(fields, "plannedStart", ""),
+              planned_end: json_object_text(fields, "plannedEnd", ""),
+              actual_start: json_object_text(fields, "actualStart", ""),
+              actual_end: json_object_text(fields, "actualEnd", ""),
+              source_kind: json_object_text(fields, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn project_kpi_from_body(body : String) -> ProjectKpi? {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(root) => {
+      let data = match root.get("data") {
+        Some(Json::Object(value)) => value
+        _ => return None
+      }
+      let kpi = match data.get("kpi") {
+        Some(Json::Object(value)) => value
+        _ => return None
+      }
+      let progress = match kpi.get("progress") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      let cost = match kpi.get("cost") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      let contract = match kpi.get("contract") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      let payment = match kpi.get("payment") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      let cash = match kpi.get("cash") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      let profit = match kpi.get("profit") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      let approval = match kpi.get("approval") {
+        Some(Json::Object(value)) => value
+        _ => {}
+      }
+      Some({
+        progress_avg: json_object_text(progress, "avgProgress", "0"),
+        progress_done: json_object_text(progress, "done", "0"),
+        progress_total_nodes: json_object_text(progress, "totalNodes", "0"),
+        progress_overdue_nodes: json_object_text(progress, "overdueNodes", "0"),
+        cost_deviation_pct: json_object_text(cost, "deviationPct", "0"),
+        cost_dynamic: json_object_text(cost, "dynamic", "0"),
+        cost_target: json_object_text(cost, "target", "0"),
+        contract_total: json_object_text(contract, "totalAmount", "0"),
+        contract_count: json_object_text(contract, "count", "0"),
+        payment_paid_ratio: json_object_text(payment, "paidRatio", "0"),
+        payment_paid_total: json_object_text(payment, "paidTotal", "0"),
+        payment_apply_total: json_object_text(payment, "applyTotal", "0"),
+        cash_this_month_plan: json_object_text(cash, "thisMonthPlan", "0"),
+        profit_irr: json_object_text(profit, "irr", ""),
+        profit_net_profit: json_object_text(profit, "netProfit", ""),
+        profit_npv: json_object_text(profit, "npv", ""),
+        approval_avg_days: json_object_text(approval, "avgDays", ""),
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+fn project_anomaly_rows_from_body(body : String) -> Array[ProjectAnomalyRow] {
+  let rows : Array[ProjectAnomalyRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              severity: json_object_text(row, "severity", "warning"),
+              title: json_object_text(row, "title", "项目风险预警"),
+              detail: json_object_text(row, "detail", ""),
+              suggestion: json_object_text(row, "suggestion", ""),
+            })
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
@@ -8972,6 +9175,55 @@ fn load_project(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
 }
 
 ///|
+fn project_id_from_path(path : String) -> String {
+  let parts = path.split("/").to_array()
+  if parts.length() > 2 {
+    if parts[2] == "CD-HJL" {
+      "proj-0001"
+    } else {
+      parts[2].to_owned()
+    }
+  } else {
+    "proj-0001"
+  }
+}
+
+///|
+fn load_project_stages(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/projects/" + project_id + "/lifecycle").expect_text(result => {
+    match result {
+      Ok(body) => emit(ProjectStagesLoaded(body))
+      Err(_) => emit(ProjectStagesLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_project_kpi(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/dashboard/project/" + project_id + "/kpi").expect_text(result => {
+      match result {
+        Ok(body) => emit(ProjectKpiLoaded(body))
+        Err(_) => emit(ProjectKpiLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_project_anomalies(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/dashboard/project/" + project_id + "/anomalies").expect_text(result => {
+      match result {
+        Ok(body) => emit(ProjectAnomaliesLoaded(body))
+        Err(_) => emit(ProjectAnomaliesLoadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn issue_sales_customer_create(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.post("/api/company/sales/customers")
   .with_text(
@@ -10005,7 +10257,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/projects" {
         load_projects(emit)
       } else if path.has_prefix("/projects/") {
-        load_project(emit, path)
+        let project_id = project_id_from_path(path)
+        @cmd.batch([
+          load_project(emit, "/projects/" + project_id),
+          load_project_stages(emit, project_id),
+          load_project_kpi(emit, project_id),
+          load_project_anomalies(emit, project_id),
+        ])
       } else if path == "/contracts" {
         load_contracts(emit)
       } else if path.has_prefix("/contracts/") {
@@ -15751,6 +16009,75 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           projects_loaded: false,
           project_detail: None,
           project_note: "项目详情读模型不可用 · 使用已审核快照",
+        },
+      )
+    ProjectStagesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          project_stage_rows: project_stage_rows_from_body(body),
+          project_note: "已加载 PostgreSQL 项目七阶段生命周期 · 导入记录保持只读",
+        },
+      )
+    ProjectStagesLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          project_stage_rows: [],
+          project_note: "项目生命周期读模型不可用 · 使用设计阶段快照",
+        },
+      )
+    ProjectKpiLoaded(body) =>
+      match project_kpi_from_body(body) {
+        Some(kpi) =>
+          (
+            none,
+            {
+              ..model,
+              project_kpi_loaded: true,
+              project_kpi: kpi,
+              project_kpi_note: "已加载 PostgreSQL 项目八维 KPI · 仅作源观察",
+            },
+          )
+        None =>
+          (
+            none,
+            {
+              ..model,
+              project_kpi_loaded: false,
+              project_kpi_note: "项目 KPI 响应无效 · 使用设计快照",
+            },
+          )
+      }
+    ProjectKpiLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          project_kpi_loaded: false,
+          project_kpi_note: "项目 KPI 读模型不可用 · 使用设计快照",
+        },
+      )
+    ProjectAnomaliesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          project_anomalies_loaded: true,
+          project_anomaly_rows: project_anomaly_rows_from_body(body),
+          project_anomaly_note: "已读取 PostgreSQL 项目异常观察 · 不触发 provider 或通知",
+        },
+      )
+    ProjectAnomaliesLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          project_anomalies_loaded: false,
+          project_anomaly_rows: [],
+          project_anomaly_note: "项目异常读模型不可用 · 使用设计快照",
         },
       )
     DownloadImportTemplate(biz_type) =>
@@ -23077,11 +23404,201 @@ fn project_detail_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn project_stage_status_text(status : String) -> String {
+  match status {
+    "done" => "已完成"
+    "in_progress" => "进行中"
+    "pending" => "未开始"
+    "blocked" => "阻塞"
+    _ => status
+  }
+}
+
+///|
+fn project_lifecycle_panel(model : Model) -> @html.Html {
+  if model.project_stage_rows.length() == 0 {
+    table_panel(
+      "生命周期节点",
+      "项目生命周期源为空 · 使用设计快照",
+      data_table(
+        [
+          "阶段", "计划日期", "实际日期", "责任人", "状态", "证据",
+        ],
+        [
+          [
+            "立项", "2024-01-15", "2024-01-15", "集团投资部", "已完成",
+            "立项批复",
+          ],
+          [
+            "规划设计", "2024-06-30", "2024-07-08", "设计管理部", "已完成",
+            "设计审查",
+          ],
+          [
+            "开发建设", "2025-01-01", "2025-01-08", "工程管理部", "进行中",
+            "施工许可证",
+          ],
+          [
+            "销售去化", "2026-08-01", "", "营销管理部", "待处理", "开盘计划",
+          ],
+        ],
+      ),
+    )
+  } else {
+    let rows : Array[Array[String]] = []
+    for stage in model.project_stage_rows {
+      rows.push([
+        stage.stage_order,
+        stage.stage_code + " · " + stage.stage_name,
+        project_stage_status_text(stage.status),
+        stage.progress_pct + "%",
+        stage.planned_start + " → " + stage.planned_end,
+        stage.actual_start + " → " + stage.actual_end,
+        stage.source_kind,
+      ])
+    }
+    table_panel(
+      "项目全周期 7 阶段",
+      model.project_note + " · 阶段状态与进度为 PostgreSQL 源观察",
+      data_table(
+        ["序号", "阶段", "状态", "进度", "计划", "实际", "来源"],
+        rows,
+      ),
+    )
+  }
+}
+
+///|
+fn project_kpi_panel(model : Model) -> @html.Html {
+  let kpi = model.project_kpi
+  if model.project_kpi_loaded {
+    div <| [
+      div(class="erp-stat-grid") <| [
+        metric(
+          "进度",
+          kpi.progress_avg + "%",
+          "关键节点 " +
+          kpi.progress_done +
+          "/" +
+          kpi.progress_total_nodes +
+          " 完成 · 延 " +
+          kpi.progress_overdue_nodes,
+          "metric-blue",
+        ),
+        metric(
+          "成本",
+          kpi.cost_deviation_pct + "%",
+          "动态 " + kpi.cost_dynamic + " / 目标 " + kpi.cost_target,
+          "metric-green",
+        ),
+        metric(
+          "合同",
+          kpi.contract_total,
+          kpi.contract_count + " 笔合同",
+          "metric-blue",
+        ),
+        metric(
+          "付款",
+          kpi.payment_paid_ratio + "%",
+          "已付 " +
+          kpi.payment_paid_total +
+          " / 申请 " +
+          kpi.payment_apply_total,
+          "metric-blue",
+        ),
+        metric(
+          "资金（本月计划）",
+          kpi.cash_this_month_plan,
+          "本月计划付款总额",
+          "metric-blue",
+        ),
+        metric(
+          "收益（IRR）",
+          if kpi.profit_irr.is_empty() {
+            "—"
+          } else {
+            kpi.profit_irr + "%"
+          },
+          if kpi.profit_net_profit.is_empty() {
+            "净利 / NPV 暂无源值"
+          } else {
+            "净利 " + kpi.profit_net_profit + " · NPV " + kpi.profit_npv
+          },
+          "metric-green",
+        ),
+        metric("质量", "—", "质量指标留接入位", "metric-blue"),
+        metric(
+          "审批效率",
+          if kpi.approval_avg_days.is_empty() {
+            "—"
+          } else {
+            kpi.approval_avg_days + " 天"
+          },
+          model.project_kpi_note,
+          "metric-blue",
+        ),
+      ],
+    ]
+  } else {
+    table_panel(
+      "当前阶段 KPI",
+      model.project_kpi_note,
+      data_table(["指标"], [["等待 PostgreSQL 项目 KPI"]]),
+    )
+  }
+}
+
+///|
+fn project_anomaly_panel(model : Model) -> @html.Html {
+  if model.project_anomalies_loaded && model.project_anomaly_rows.length() > 0 {
+    let rows : Array[Array[String]] = []
+    for anomaly in model.project_anomaly_rows {
+      rows.push([
+        anomaly.severity,
+        anomaly.title,
+        anomaly.detail,
+        anomaly.suggestion,
+      ])
+    }
+    table_panel(
+      "AI 风险预警",
+      model.project_anomaly_note + " · 规则触发版，provider 未执行",
+      data_table(["级别", "标题", "详情", "建议"], rows),
+    )
+  } else if model.project_anomalies_loaded {
+    div(class="erp-runtime-banner", [
+      strong("AI 风险预警"),
+      span(" · 当前项目无源异常 · " + model.project_anomaly_note),
+    ])
+  } else {
+    div(class="erp-source-note", model.project_anomaly_note)
+  }
+}
+
+///|
 fn project_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let detail = match model.project_detail {
+    Some(row) => row
+    None =>
+      {
+        project_id: "proj-0001",
+        project_code: "CD-HJL",
+        project_name: "成都和锦里",
+        bu_name: "成都公司",
+        proj_status: "开发建设",
+        begin_date: "2024-03-18",
+        current_stage: "开发建设",
+        task_count: "0",
+        source_kind: "snapshot",
+        lifecycle_text: "等待 PostgreSQL 项目详情投影",
+      }
+  }
   page_shell(
     "项目全周期",
     "PROJECT DETAIL",
-    "成都和锦里 · CD-HJL · 记录项目主数据、生命周期、计划、合同、成本与进度。",
+    detail.project_name +
+    " · " +
+    detail.project_code +
+    " · 记录项目主数据、生命周期、计划、合同、成本与进度。",
     [detail_toolbar(emit, "/projects", "保存项目")],
     div <| [
       div(class="erp-runtime-banner", [
@@ -23097,15 +23614,18 @@ fn project_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
           h2("项目基本信息"),
-          span(class="erp-status-tag is-success", "开发建设"),
+          span(
+            class="erp-status-tag is-success",
+            project_stage_status_text(detail.proj_status),
+          ),
         ],
         div(class="erp-form-grid") <| [
-          form_field("项目编码", "CD-HJL", "项目编码"),
-          form_field("项目名称", "成都和锦里", "项目名称"),
-          form_field("项目简称", "和锦里", "项目简称"),
-          form_field("所属公司", "成都公司", "所属公司"),
-          form_field("开始日期", "2024-03-18", "YYYY-MM-DD"),
-          form_field("当前阶段", "开发建设", "项目阶段"),
+          form_field("项目编码", detail.project_code, "项目编码"),
+          form_field("项目名称", detail.project_name, "项目名称"),
+          form_field("项目简称", detail.project_name, "项目简称"),
+          form_field("所属公司", detail.bu_name, "所属公司"),
+          form_field("开始日期", detail.begin_date, "YYYY-MM-DD"),
+          form_field("当前阶段", detail.current_stage, "项目阶段"),
         ],
       ],
       div(class="erp-tabs") <| [
@@ -23114,32 +23634,9 @@ fn project_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         button(class="erp-tab", "合同与成本"),
         button(class="erp-tab", "工程进度"),
       ],
-      table_panel(
-        "生命周期节点",
-        "变更均需保留操作人和证据",
-        data_table(
-          [
-            "阶段", "计划日期", "实际日期", "责任人", "状态", "证据",
-          ],
-          [
-            [
-              "立项", "2024-01-15", "2024-01-15", "集团投资部", "已完成",
-              "立项批复",
-            ],
-            [
-              "规划设计", "2024-06-30", "2024-07-08", "设计管理部", "已完成",
-              "设计审查",
-            ],
-            [
-              "开发建设", "2025-01-01", "2025-01-08", "工程管理部", "进行中",
-              "施工许可证",
-            ],
-            [
-              "销售去化", "2026-08-01", "", "营销管理部", "待处理", "开盘计划",
-            ],
-          ],
-        ),
-      ),
+      project_lifecycle_panel(model),
+      project_kpi_panel(model),
+      project_anomaly_panel(model),
       project_detail_runtime_table(model),
     ],
   )

@@ -30,7 +30,7 @@ comparison evidence only:
 | Task delay impact | `/api/company/tasks/:id/delay-impact` | source-compatible read |
 | AI plan suggestion | signed `POST /api/company/plan/ai-suggest-plan` and `/source` alias | deterministic seven-node candidate; no provider, persistence, or plan mutation |
 | Rabbita project list | `/projects` | connected read with designer fallback |
-| Rabbita project detail | `/projects/:guid` | connected read with designer fallback |
+| Rabbita project detail | `/projects/:guid` | connected lifecycle, KPI, and anomaly reads with designer fallback |
 | Rabbita project plan | `/project-plan` | source-shaped project scope picker, Gantt-style task timeline, key-node table, report/create-task forms, AI suggestion form, and delay-impact form backed by native PostgreSQL routes |
 
 The target now keeps imported task rows read-only while exposing a separate
@@ -64,7 +64,10 @@ evidence-gated boundary.
   the imported source payload and are marked `source_kind=imported`.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
   retaining the designer-built tables and forms as an explicitly labelled
-  fallback/preview.
+  fallback/preview. Project detail now also loads the seven-stage lifecycle,
+  eight-dimensional KPI response, and project anomaly response from the native
+  dashboard endpoints; these observations remain non-authorizing and do not
+  invoke providers or notifications.
   Rabbita `/project-plan` now loads the selected project's PostgreSQL task
   rows, renders source-shaped Gantt/table views with task owners/status/dates,
   submits evidence-gated reports, creates/updates/deletes local task
