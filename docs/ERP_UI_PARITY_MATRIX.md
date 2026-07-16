@@ -36,6 +36,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
 - Browser action delta: Rabbita `/webhook-config` now calls the native overdue-scan preview and receipt candidates; delivery and ticket mutation remain disabled.
 - Browser action delta: Rabbita `/users` now calls the native local-user creation candidate; imported identities remain read-only and credential values are redacted.
+- Browser action delta: Rabbita `/users` now calls the native local-role creation candidate; imported/system roles remain protected and authorization stays non-authorizing.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.
 - API-state delta: `connected_auth_command_candidate` **2** now covers persisted logout/profile commands; `auth_lifecycle_candidate` **2** remains for login/password change gates. The API-state JSON ledger remains authoritative.
@@ -361,7 +362,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `rbac` | `POST` | `/users/:userId/reset-password` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
 | `rbac` | `POST` | `/users/:userId/roles` | `/users` | `connected_rbac_role_assignment_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
 | `rbac` | `GET` | `/permission-catalog` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
-| `rbac` | `POST` | `/roles` | `/users` | `connected_rbac_role_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
+| `rbac` | `POST` | `/roles` | `/users` | `connected_rbac_role_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` (Rabbita local-role action now wired) |
 | `rbac` | `DELETE` | `/roles/:code` | `/users` | `connected_rbac_role_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
 | `reports` | `GET` | `/cost-summary` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |
 | `reports` | `GET` | `/contract-payment-ledger` | `/reports`, `/report-builder` | `connected_report_read` | `accept_browser_report_scenario_and_production_identity` |

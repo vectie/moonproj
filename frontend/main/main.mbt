@@ -1481,6 +1481,9 @@ enum Msg {
   CreateLocalUser
   RbacUserCommandFinished(String)
   RbacUserCommandFailed
+  CreateLocalRole
+  RbacRoleCommandFinished(String)
+  RbacRoleCommandFailed
   RbacRolesLoaded(String)
   RbacRolesLoadFailed
   RbacCatalogLoaded(String)
@@ -7169,6 +7172,20 @@ fn issue_rbac_user_create(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_rbac_role_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/rbac/roles")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-rbac-role-create-v1\",\"roleCode\":\"rabbita-local-role\",\"roleName\":\"Rabbita 本地角色\",\"dataScope\":\"self\",\"permissions\":[\"dashboard:read\"]}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacRoleCommandFinished(body))
+      Err(_) => emit(RbacRoleCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/roles").expect_text(result => {
     match result {
@@ -12140,6 +12157,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           users_note: "本地用户命令服务不可用或被网关拒绝",
+        },
+      )
+    CreateLocalRole =>
+      (
+        issue_rbac_role_create(emit),
+        {
+          ..model,
+          rbac_roles_note: "正在创建本地 RBAC 角色候选 · 不改变当前授权…",
+        },
+      )
+    RbacRoleCommandFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_rbac_roles(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          rbac_roles_note: if body.contains("\"authorizing\":false") {
+            "本地角色候选已写入 PostgreSQL · 仍需安全负责人批准授权"
+          } else {
+            "本地角色命令已返回 · 请复核授权边界"
+          },
+        },
+      )
+    RbacRoleCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          rbac_roles_note: "本地角色命令服务不可用或被网关拒绝",
         },
       )
     RbacRolesLoaded(body) =>
@@ -19935,6 +19984,11 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-primary-btn",
         on_click=emit(CreateLocalUser),
         "＋ 新建用户（本地候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateLocalRole),
+        "＋ 新建角色（本地候选）",
       ),
     ],
     div <| [

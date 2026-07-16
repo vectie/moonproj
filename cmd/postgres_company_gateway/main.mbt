@@ -284,6 +284,7 @@ fn command_path_allowed(
       path == "/api/company/srm/providers/rescore-all" ||
       path == "/api/company/source/srm/providers/rescore-all" ||
       path == "/api/company/rbac/users" ||
+      path == "/api/company/rbac/roles" ||
       path == "/api/company/suppliers" ||
       path.has_prefix("/api/company/suppliers/") ||
       path == "/api/company/tender-splits" ||
