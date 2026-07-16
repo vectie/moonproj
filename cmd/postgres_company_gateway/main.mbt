@@ -364,6 +364,32 @@ fn command_path_allowed(
       path == "/api/company/source/warning/custom-rules/preview" ||
       path == "/api/company/attachments/upload" ||
       path == "/api/company/source/attachments/upload" ||
+      path == "/api/company/workflow/instances" ||
+      path == "/api/company/source/workflow/instances" ||
+      path_with_identifier_suffix(
+        "/api/company/workflow/instances/", "/approve", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/workflow/instances/", "/approve", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/workflow/instances/", "/reject", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/workflow/instances/", "/reject", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/workflow/instances/", "/cosigners", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/workflow/instances/", "/cosigners", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/workflow/instances/", "/transfer", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/source/workflow/instances/", "/transfer", path,
+      ) ||
       path_with_identifier("/api/company/attachments/re-extract/", path) ||
       path_with_identifier("/api/company/source/attachments/re-extract/", path) ||
       path_with_identifier("/api/company/webhook/test/", path) ||

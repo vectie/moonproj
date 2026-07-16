@@ -35,6 +35,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/srm/providers` now calls the native supplier risk-rescore command; imported provider rows remain protected and provider execution remains disabled.
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
 - Browser action delta: Rabbita `/warning-rules` now calls native custom-rule create/delete candidates; SQL is hashed/redacted, imported/system rules remain protected, and no query/provider execution occurs.
+- Browser action delta: Rabbita `/tasks` now calls native workflow start/approve/reject/cosign/transfer candidates; command projections are workflow-only and do not synchronize business records, notify, call providers, or post cash/accounting/tax effects.
 - Browser action delta: Rabbita `/webhook-config` now calls the native overdue-scan preview and receipt candidates; delivery and ticket mutation remain disabled.
 - Browser action delta: Rabbita `/users` now calls the native local-user creation candidate; imported identities remain read-only and credential values are redacted.
 - Browser action delta: Rabbita `/users` now calls the native local-role creation candidate; imported/system roles remain protected and authorization stays non-authorizing.
@@ -448,11 +449,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `workflow` | `GET` | `/tasks/initiated` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `GET` | `/instances/by-biz` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `GET` | `/instances/:piGuid` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
-| `workflow` | `POST` | `/instances/:piGuid/approve` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` |
-| `workflow` | `POST` | `/instances/:piGuid/reject` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` |
+| `workflow` | `POST` | `/instances/:piGuid/approve` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` (Rabbita candidate action now wired) |
+| `workflow` | `POST` | `/instances/:piGuid/reject` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` (Rabbita candidate action now wired) |
 | `workflow` | `GET` | `/process-defs` | `/tasks` | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
 | `workflow` | `GET` | `/process-defs/:processKey/preview` | `/tasks` | `connected_workflow_definition_read` | `accept_browser_workflow_definition_scenario_and_production_identity` |
 | `workflow` | `GET` | `/tasks/my-history` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
-| `workflow` | `POST` | `/instances` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` |
-| `workflow` | `POST` | `/instances/:piGuid/cosigners` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` |
-| `workflow` | `POST` | `/instances/:piGuid/transfer` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` |
+| `workflow` | `POST` | `/instances` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` (Rabbita candidate action now wired) |
+| `workflow` | `POST` | `/instances/:piGuid/cosigners` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` (Rabbita candidate action now wired) |
+| `workflow` | `POST` | `/instances/:piGuid/transfer` | `/tasks` | `connected_workflow_command_candidate` | `accept_browser_workflow_command_candidate_and_operations_owner` (Rabbita candidate action now wired) |

@@ -1147,6 +1147,7 @@ struct Model {
   workflow_initiated_rows : Array[WorkflowObservationRow]
   workflow_history_rows : Array[WorkflowObservationRow]
   workflow_observation_note : String
+  workflow_command_note : String
   projects_loaded : Bool
   project_rows : Array[ProjectRow]
   project_detail : ProjectRow?
@@ -1530,6 +1531,13 @@ enum Msg {
   WorkflowObservationInitiatedLoaded(String)
   WorkflowObservationHistoryLoaded(String)
   WorkflowObservationLoadFailed
+  StartWorkflowCandidate
+  ApproveWorkflowCandidate
+  RejectWorkflowCandidate
+  CosignWorkflowCandidate
+  TransferWorkflowCandidate
+  WorkflowCommandFinished(String, String)
+  WorkflowCommandFailed(String)
   BudgetScopeLoaded(String)
   BudgetLoanBalanceLoaded(String)
   BudgetScopeLoadFailed
@@ -1954,6 +1962,7 @@ fn initial_model() -> Model {
     workflow_initiated_rows: [],
     workflow_history_rows: [],
     workflow_observation_note: "工作流实例源读模型尚未加载 · 使用设计快照",
+    workflow_command_note: "本地工作流命令候选尚未执行",
     projects_loaded: false,
     project_rows: [],
     project_detail: None,
@@ -7440,6 +7449,47 @@ fn load_workflow_observation_history(
 }
 
 ///|
+fn issue_workflow_command(
+  emit : @rabbita.Emit[Msg],
+  command_type : String,
+) -> Cmd {
+  let instance_id = "wf-rabbita-workflow-start-v1"
+  let (path, body) = if command_type == "start" {
+    (
+      "/api/company/source/workflow/instances", "{\"idempotency_key\":\"rabbita-workflow-start-v1\",\"processKey\":\"expense-approval\",\"bizType\":\"Expense\",\"bizDataGuid\":\"RABBITA-WORKFLOW-LOCAL\"}",
+    )
+  } else if command_type == "approve" {
+    (
+      "/api/company/source/workflow/instances/" + instance_id + "/approve",
+      "{\"idempotency_key\":\"rabbita-workflow-approve-v1\",\"comment\":\"Rabbita 本地工作流审批候选\"}",
+    )
+  } else if command_type == "reject" {
+    (
+      "/api/company/source/workflow/instances/" + instance_id + "/reject",
+      "{\"idempotency_key\":\"rabbita-workflow-reject-v1\",\"comment\":\"Rabbita 本地工作流驳回候选\"}",
+    )
+  } else if command_type == "cosign" {
+    (
+      "/api/company/source/workflow/instances/" + instance_id + "/cosigners",
+      "{\"idempotency_key\":\"rabbita-workflow-cosign-v1\",\"cosigners\":[\"admin\"]}",
+    )
+  } else {
+    (
+      "/api/company/source/workflow/instances/" + instance_id + "/transfer",
+      "{\"idempotency_key\":\"rabbita-workflow-transfer-v1\",\"toUserId\":\"admin\"}",
+    )
+  }
+  @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(value) => emit(WorkflowCommandFinished(command_type, value))
+      Err(_) => emit(WorkflowCommandFailed(command_type))
+    }
+  })
+}
+
+///|
 fn load_projects(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/projects").expect_text(result => {
     match result {
@@ -12725,6 +12775,72 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           workflow_observation_note: "工作流实例源读模型不可用 · 使用设计快照",
         },
       )
+    StartWorkflowCandidate =>
+      (
+        issue_workflow_command(emit, "start"),
+        {
+          ..model,
+          workflow_command_note: "正在发起本地工作流候选 · 不同步业务单据、不触发通知…",
+        },
+      )
+    ApproveWorkflowCandidate =>
+      (
+        issue_workflow_command(emit, "approve"),
+        {
+          ..model,
+          workflow_command_note: "正在提交本地审批候选 · 仅写入工作流投影…",
+        },
+      )
+    RejectWorkflowCandidate =>
+      (
+        issue_workflow_command(emit, "reject"),
+        {
+          ..model,
+          workflow_command_note: "正在提交本地驳回候选 · 仅写入工作流投影…",
+        },
+      )
+    CosignWorkflowCandidate =>
+      (
+        issue_workflow_command(emit, "cosign"),
+        {
+          ..model,
+          workflow_command_note: "正在提交本地会签候选 · 不调用外部执行器…",
+        },
+      )
+    TransferWorkflowCandidate =>
+      (
+        issue_workflow_command(emit, "transfer"),
+        {
+          ..model,
+          workflow_command_note: "正在提交本地转办候选 · 仅写入动作审计…",
+        },
+      )
+    WorkflowCommandFinished(command_type, body) =>
+      (
+        load_workflow_observation_pending(emit, model.user_code),
+        {
+          ..model,
+          workflow_command_note: if body.contains("\"persisted\":true") {
+            "工作流 " +
+            command_type +
+            " 候选已持久化 · provider/cash/accounting/tax 均未执行"
+          } else {
+            "工作流 " +
+            command_type +
+            " 候选已返回 · 请复核执行边界"
+          },
+        },
+      )
+    WorkflowCommandFailed(command_type) =>
+      (
+        none,
+        {
+          ..model,
+          workflow_command_note: "工作流 " +
+          command_type +
+          " 服务不可用或被网关拒绝",
+        },
+      )
     ProjectsLoaded(body) =>
       (
         none,
@@ -14892,12 +15008,38 @@ fn workflow_observation_rows(model : Model) -> Array[Array[String]] {
 }
 
 ///|
-fn tasks_view(model : Model) -> @html.Html {
+fn tasks_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "我的待办",
     "WORKFLOW",
     "集中处理报销、借款、付款申请与项目协同任务，查看发起记录和审批历史。",
-    [button(class="erp-primary-btn", "＋ 发起流程")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(StartWorkflowCandidate),
+        "＋ 发起流程（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ApproveWorkflowCandidate),
+        "审批（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RejectWorkflowCandidate),
+        "驳回（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CosignWorkflowCandidate),
+        "会签（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TransferWorkflowCandidate),
+        "转办（候选）",
+      ),
+    ],
     div <| [
       div(class="erp-runtime-banner", [
         strong(
@@ -14921,6 +15063,7 @@ fn tasks_view(model : Model) -> @html.Html {
           " · 历史 " +
           model.workflow_history_rows.length().to_string(),
         ),
+        p(model.workflow_command_note),
       ]),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "待办 (8)"),
@@ -21230,7 +21373,7 @@ fn business_view(
       "/projects/CD-HJL" => project_detail_view(emit, model)
       "/project-plan" => project_plan_view(emit, model)
       "/project/progress" => progress_view(emit, model)
-      "/tasks" => tasks_view(model)
+      "/tasks" => tasks_view(emit, model)
       "/sales/customers" => sales_customers_view(emit, model)
       "/sales/subscriptions" => sales_subscriptions_view(emit, model)
       "/sales/contracts" => sales_contracts_view(emit, model)
