@@ -11,7 +11,7 @@ fields, and source super-user bits are never imported.
 
 ## Native validation
 
-`scripts/erp_access_plan.py` compiles a complete source export and explicit
+`cmd/access_plan` through `scripts/erp_access_plan.sh` compiles a complete source export and explicit
 permission/identity/scope map into `moonproj.company.access-plan.v1`.
 `cmd/access_import` requires that plan with
 `reviewed=true`. It builds the local `AccessDirectory` through the normal

@@ -2371,6 +2371,15 @@ Execute the remainder in this order:
     rejection. Template and pending-validation artifacts are JSON-equivalent
     to the frozen Python oracle; promotion and cutover remain false until the
     source owner supplies the missing export or signs each empty disposition.
+3a.58. **Native reviewed access-plan compiler (2026-07-16).**
+    `cmd/access_plan` and `scripts/erp_access_plan.sh` now replace the Python
+    access planner. Native MoonBit reads the credential-free export tables,
+    parses legacy permission text/JSON shapes, applies explicit capability,
+    scope, principal, actor, amount-cap, system-role, and separation-rule
+    mappings, and emits `moonproj.company.access-plan.v1`. Empty-source and
+    synthetic role/assignment fixtures are JSON-equivalent to the frozen
+    Python oracle; `reviewed=false`/`scope_only` remains non-authorizing until
+    a complete source export and owner-reviewed mapping are supplied.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

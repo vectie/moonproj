@@ -28,7 +28,7 @@ named security/business acceptance. Password history remains excluded even in
 that later export.
 
 The reviewed native role/assignment boundary is executable through
-`scripts/erp_access_plan.py`, `cmd/access_import`, and
+`scripts/erp_access_plan.sh`, `cmd/access_plan`, `cmd/access_import`, and
 `ERP_ACCESS_BOUNDARY.md`. The checked-in access plan is synthetic because this
 snapshot has no role rows; the source planner reports `scope_only` instead of
 fabricating rows, while the fixture proves local authority validation and

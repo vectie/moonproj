@@ -80,6 +80,8 @@ scripts/erp_warning_plan.sh
 scripts/erp_cbs_cost_link_plan.sh
 scripts/erp_cbs_budget_plan.sh
 scripts/erp_advance_offset_promotion_plan.sh
+cmd/access_plan
+scripts/erp_access_plan.sh
 scripts/erp_accounting_post_plan.sh
 scripts/erp_investment_valuation_plan.sh
 scripts/erp_tax_accounting_plan.sh

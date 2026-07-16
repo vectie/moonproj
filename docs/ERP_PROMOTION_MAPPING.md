@@ -201,7 +201,7 @@ lifecycle history/catalog, and proceedings). These projections are queryable
 evidence only and cannot create authority, workflow state, or accounting
 meaning.
 
-Run `scripts/erp_access_plan.py` against the complete export with a reviewed
+Run `scripts/erp_access_plan.sh` against the complete export with a reviewed
 access map, then pass its plan (or the checked-in synthetic
 `scripts/fixtures/access_plan.example.json`) as the twenty-fourth SQLite
 wrapper argument or twenty-second PostgreSQL cohort-runner argument to run the
