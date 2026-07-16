@@ -358,6 +358,8 @@ fn command_path_allowed(
       path_with_identifier_suffix("/api/company/warning/", "/ignore", path) ||
       path == "/api/company/warning/scan" ||
       path == "/api/company/source/warning/scan" ||
+      path == "/api/company/warning/custom-rules" ||
+      path == "/api/company/source/warning/custom-rules" ||
       path == "/api/company/warning/custom-rules/preview" ||
       path == "/api/company/source/warning/custom-rules/preview" ||
       path == "/api/company/attachments/upload" ||
@@ -441,6 +443,8 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/mdm/projects/", path) ||
       path_with_identifier("/api/company/source/auth/prefs/", path) ||
       path_with_identifier("/api/company/rbac/roles/", path) ||
+      path_with_identifier("/api/company/warning/custom-rules/", path) ||
+      path_with_identifier("/api/company/source/warning/custom-rules/", path) ||
       path_with_identifier("/api/company/source/invoice/in/", path) ||
       path_with_identifier("/api/company/source/invoice/out/", path) ||
       path_with_identifier("/api/company/sales/customers/", path) ||
@@ -488,6 +492,11 @@ fn normalized_command_body(
   if body.length() == 0 {
     if require_key {
       let key = header(request, "Idempotency-Key")
+      let key = if key.is_empty() {
+        query_value(request.path, "idempotency_key").unwrap_or("")
+      } else {
+        key
+      }
       if key.is_empty() {
         raise fail("idempotency_key or Idempotency-Key is required")
       }

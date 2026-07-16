@@ -991,6 +991,7 @@ struct Model {
   warning_action_state : String
   warning_action_note : String
   warning_rule_preview_note : String
+  warning_rule_command_note : String
   warning_action_guid : String
   attachments_loaded : Bool
   attachment_rows : Array[AttachmentRow]
@@ -1386,6 +1387,10 @@ enum Msg {
   PreviewWarningCustomRule
   WarningCustomRulePreviewFinished(String)
   WarningCustomRulePreviewFailed
+  CreateWarningCustomRule
+  DeleteWarningCustomRule
+  WarningCustomRuleCommandFinished(String)
+  WarningCustomRuleCommandFailed
   AttachmentsLoaded(String)
   AttachmentsLoadFailed
   AttachmentStatsLoaded(String)
@@ -1793,6 +1798,7 @@ fn initial_model() -> Model {
     warning_action_state: "未执行",
     warning_action_note: "告警处理命令仍未执行",
     warning_rule_preview_note: "自定义规则预览尚未执行",
+    warning_rule_command_note: "自定义规则命令尚未执行",
     warning_action_guid: "",
     attachments_loaded: false,
     attachment_rows: [],
@@ -6622,6 +6628,34 @@ fn issue_warning_custom_rule_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_warning_custom_rule_command(
+  emit : @rabbita.Emit[Msg],
+  create : Bool,
+) -> Cmd {
+  if create {
+    @http.post("/api/company/source/warning/custom-rules")
+    .with_text(
+      "{\"idempotency_key\":\"rabbita-warning-custom-create-v1\",\"ruleCode\":\"XRABBITA\",\"ruleName\":\"Rabbita 本地规则\",\"severity\":\"warning\",\"bizType\":\"project\",\"sqlTemplate\":\"SELECT 1\",\"enabled\":true}",
+    )
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(WarningCustomRuleCommandFinished(body))
+        Err(_) => emit(WarningCustomRuleCommandFailed)
+      }
+    })
+  } else {
+    @http.delete(
+      "/api/company/source/warning/custom-rules/XRABBITA?idempotency_key=rabbita-warning-custom-delete-v1",
+    ).expect_text(result => {
+      match result {
+        Ok(body) => emit(WarningCustomRuleCommandFinished(body))
+        Err(_) => emit(WarningCustomRuleCommandFailed)
+      }
+    })
+  }
+}
+
+///|
 fn issue_warning_scan_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.post("/api/company/source/warning/scan")
   .with_text("{\"idempotency_key\":\"rabbita-warning-scan-preview-v1\"}")
@@ -10857,6 +10891,42 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           warning_rule_preview_note: "自定义规则预览服务不可用或被网关拒绝",
+        },
+      )
+    CreateWarningCustomRule =>
+      (
+        issue_warning_custom_rule_command(emit, true),
+        {
+          ..model,
+          warning_rule_command_note: "正在创建本地自定义规则候选…",
+        },
+      )
+    DeleteWarningCustomRule =>
+      (
+        issue_warning_custom_rule_command(emit, false),
+        {
+          ..model,
+          warning_rule_command_note: "正在删除本地自定义规则候选…",
+        },
+      )
+    WarningCustomRuleCommandFinished(body) =>
+      (
+        load_warning_rules(emit),
+        {
+          ..model,
+          warning_rule_command_note: if body.contains("\"state\":\"deleted\"") {
+            "本地自定义规则已删除 · 已写入命令与审计投影"
+          } else {
+            "本地自定义规则已创建 · SQL 仅保存摘要，不执行查询"
+          },
+        },
+      )
+    WarningCustomRuleCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          warning_rule_command_note: "自定义规则命令服务不可用或被网关拒绝",
         },
       )
     AttachmentsLoaded(body) => {
@@ -18092,6 +18162,16 @@ fn warning_rules_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(PreviewWarningCustomRule),
         "预览自定义规则（干运行）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateWarningCustomRule),
+        "新建自定义规则（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(DeleteWarningCustomRule),
+        "删除本地规则（候选）",
+      ),
     ],
     div <| [
       table_panel(
@@ -18129,6 +18209,7 @@ fn warning_rules_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       section(class="erp-code-card") <| [
         span(class="erp-page-eyebrow", "RULE PREVIEW"),
         p(model.warning_rule_preview_note),
+        p(model.warning_rule_command_note),
         p(
           "when project.cost_variance_ratio > 0.05 then warning('成本偏差', owner=project.cost_owner)",
         ),

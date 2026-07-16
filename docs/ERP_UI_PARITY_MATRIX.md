@@ -34,6 +34,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now calls the native Excel plan-line import dry-run candidate; plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/srm/providers` now calls the native supplier risk-rescore command; imported provider rows remain protected and provider execution remains disabled.
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
+- Browser action delta: Rabbita `/warning-rules` now calls native custom-rule create/delete candidates; SQL is hashed/redacted, imported/system rules remain protected, and no query/provider execution occurs.
 - Browser action delta: Rabbita `/webhook-config` now calls the native overdue-scan preview and receipt candidates; delivery and ticket mutation remain disabled.
 - Browser action delta: Rabbita `/users` now calls the native local-user creation candidate; imported identities remain read-only and credential values are redacted.
 - Browser action delta: Rabbita `/users` now calls the native local-role creation candidate; imported/system roles remain protected and authorization stays non-authorizing.
@@ -429,8 +430,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `warning` | `POST` | `/:guid/resolve` | `/warning`, `/warning-rules` | `connected_warning_command` | `accept_browser_warning_command_scenario_and_warning_owner` |
 | `warning` | `POST` | `/:guid/ignore` | `/warning`, `/warning-rules` | `connected_warning_command` | `accept_browser_warning_command_scenario_and_warning_owner` |
 | `warning` | `GET` | `/custom-rules` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
-| `warning` | `POST` | `/custom-rules` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` |
-| `warning` | `DELETE` | `/custom-rules/:code` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` |
+| `warning` | `POST` | `/custom-rules` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` (Rabbita candidate action now wired) |
+| `warning` | `DELETE` | `/custom-rules/:code` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_command_candidate` | `accept_browser_warning_custom_rule_scenario_and_warning_owner` (Rabbita candidate action now wired) |
 | `warning` | `POST` | `/custom-rules/preview` | `/warning`, `/warning-rules` | `connected_warning_custom_rule_preview_candidate` | `accept_browser_warning_custom_rule_preview_scenario_and_warning_owner` (Rabbita dry-run action now wired) |
 | `warning` | `GET` | `/rule-templates` | `/warning`, `/warning-rules` | `connected_warning_read` | `accept_browser_warning_scenario_and_production_identity` |
 | `warning` | `POST` | `/:guid/to-ticket` | `/warning`, `/warning-rules` | `connected_warning_ticket_command_candidate` | `accept_browser_warning_ticket_scenario_and_warning_owner` |

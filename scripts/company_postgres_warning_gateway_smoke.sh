@@ -22,6 +22,9 @@ GATEWAY_PID=""
 SUFFIX=$(/bin/date +%s)
 COMMAND_KEY="warning-gateway-$SUFFIX"
 WARNING_GUID="source:W005:proj-0002"
+CUSTOM_CODE="XGWSMOKE"
+CUSTOM_CREATE_KEY="warning-custom-create-$SUFFIX"
+CUSTOM_DELETE_KEY="warning-custom-delete-$SUFFIX"
 
 cleanup() {
   if [ -n "$GATEWAY_PID" ]; then
@@ -33,7 +36,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID'; DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:warning:resolve:$COMMAND_KEY');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'warning_state' AND aggregate_id = '$WARNING_GUID') OR (aggregate_type = 'warning_custom_rule' AND aggregate_id = '$CUSTOM_CODE'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:warning:resolve:$COMMAND_KEY', 'moonproj:command:$CUSTOM_CREATE_KEY', 'moonproj:audit:warning:custom_rule_create:$CUSTOM_CREATE_KEY', 'moonproj:command:$CUSTOM_DELETE_KEY', 'moonproj:audit:warning:custom_rule_delete:$CUSTOM_DELETE_KEY');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -105,5 +108,32 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-preview.json" -w '%{http_code}' \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/custom-rules/preview")
 test "$status" = 200
 /usr/bin/jq -e '.success == true and .data.total == 0 and .data.queryExecution == false and .data.persisted == false and .authorizing == false and .source_kind == "warning_custom_rule_preview_candidate"' "$TMP_DIR/custom-preview.json" >/dev/null
+
+custom_body="{\"ruleCode\":\"$CUSTOM_CODE\",\"ruleName\":\"Gateway smoke custom rule\",\"severity\":\"warning\",\"bizType\":\"project\",\"sqlTemplate\":\"SELECT 1\",\"enabled\":true}"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $CUSTOM_CREATE_KEY" --data "$custom_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/custom-rules")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$CUSTOM_CODE" \
+  '.warning.ruleCode == $code and .warning.custom == true and .warning.sqlTemplateRedacted == true and .warning.query_execution == false and .warning.authorizing == false and .idempotent_replay == false' \
+  "$TMP_DIR/custom-create.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-replay.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $CUSTOM_CREATE_KEY" --data "$custom_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/warning/custom-rules")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$CUSTOM_CODE" \
+  '.warning.ruleCode == $code and .idempotent_replay == true' "$TMP_DIR/custom-replay.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/custom-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $CUSTOM_DELETE_KEY" --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/warning/custom-rules/$CUSTOM_CODE")
+test "$status" = 200
+/usr/bin/jq -e --arg code "$CUSTOM_CODE" \
+  '.warning.ruleCode == $code and .warning.state == "deleted" and .warning.query_execution == false and .idempotent_replay == false' \
+  "$TMP_DIR/custom-delete.json" >/dev/null
 
 echo "native MoonBit warning gateway/scan/resolve/custom-preview smoke passed"
