@@ -1155,6 +1155,21 @@ struct Model {
   expense_id : String
   expense_state : String
   expense_note : String
+  expense_subject : String
+  expense_apply_date : String
+  expense_apply_dept_id : String
+  expense_project_id : String
+  expense_pay_unit : String
+  expense_amount : String
+  expense_offset_amount : String
+  expense_detail_summary : String
+  expense_detail_date : String
+  expense_detail_amount : String
+  expense_split_user_id : String
+  expense_split_dept_id : String
+  expense_split_cost_subject : String
+  expense_split_proceeding_id : String
+  expense_split_amount : String
   expense_budget_check_note : String
   contracts_loaded : Bool
   contract_rows : Array[ContractRow]
@@ -1932,6 +1947,7 @@ enum Msg {
   ExpensesLoadFailed
   ExpenseDetailLoaded(String)
   ExpenseDetailLoadFailed
+  InputExpenseField(String, String)
   CreateExpense
   UpdateExpense
   VoidExpense
@@ -2591,6 +2607,21 @@ fn initial_model() -> Model {
     expense_id: "EXP-RABBITA-LOCAL",
     expense_state: "未创建",
     expense_note: "先保存草稿，再提交审批",
+    expense_subject: "",
+    expense_apply_date: "2026-07-16",
+    expense_apply_dept_id: "",
+    expense_project_id: "CD-HJL",
+    expense_pay_unit: "个人垫付",
+    expense_amount: "0",
+    expense_offset_amount: "0",
+    expense_detail_summary: "",
+    expense_detail_date: "2026-07-16",
+    expense_detail_amount: "0",
+    expense_split_user_id: "",
+    expense_split_dept_id: "",
+    expense_split_cost_subject: "travel",
+    expense_split_proceeding_id: "",
+    expense_split_amount: "0",
     expense_budget_check_note: "预算预检尚未运行",
     contracts_loaded: false,
     contract_rows: [],
@@ -7762,7 +7793,11 @@ fn expense_detail_rows_from_json(value : Json) -> Array[Array[String]] {
             rows.push([
               json_object_text(fields, "summary", "—"),
               json_object_text(fields, "amount", "0"),
-              json_object_text(fields, "occurDate", "—"),
+              json_object_text(
+                fields,
+                "occurDate",
+                json_object_text(fields, "occur_date", "—"),
+              ),
               json_object_text(fields, "detailGuid", "—"),
             ])
           _ => ()
@@ -7784,21 +7819,21 @@ fn expense_split_rows_from_json(value : Json) -> Array[Array[String]] {
             let user_name = match fields.get("user") {
               Some(Json::Object(user)) =>
                 json_object_text(user, "userName", "—")
-              _ => "—"
+              _ => json_object_text(fields, "user_guid", "—")
             }
             let dept_name = match fields.get("dept") {
               Some(Json::Object(dept)) =>
                 json_object_text(dept, "deptName", "—")
-              _ => "—"
+              _ => json_object_text(fields, "dept_guid", "—")
             }
             let cost_name = match fields.get("costSubject") {
               Some(Json::Object(cost)) => json_object_text(cost, "name", "—")
-              _ => "—"
+              _ => json_object_text(fields, "cost_subject_code", "—")
             }
             let proceeding_name = match fields.get("proceeding") {
               Some(Json::Object(proceeding)) =>
                 json_object_text(proceeding, "name", "—")
-              _ => "—"
+              _ => json_object_text(fields, "proceeding_guid", "—")
             }
             rows.push([
               user_name,
@@ -12643,6 +12678,146 @@ fn issue_payment_apply_command(
 }
 
 ///|
+fn expense_decimal(value : String) -> Double {
+  let parsed = @json.parse(value) catch { _ => Json::null() }
+  match parsed {
+    Json::Number(number, ..) => number
+    _ => 0.0
+  }
+}
+
+///|
+fn expense_amount_minor_json(value : String) -> Json {
+  Json::number(expense_decimal(value) * 100.0)
+}
+
+///|
+fn expense_command_id(body : String, fallback : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("expense") {
+        Some(Json::Object(expense)) =>
+          json_object_text(expense, "expense_id", fallback)
+        _ => fallback
+      }
+    _ => fallback
+  }
+}
+
+///|
+fn expense_command_body(model : Model, command_type : String) -> String {
+  let employee_id = if model.user_code.is_empty() {
+    "rabbita-user"
+  } else {
+    model.user_code
+  }
+  let expense_id = if model.expense_id == "EXP-RABBITA-LOCAL" ||
+    model.expense_id.is_empty() {
+    "EXP-RABBITA-" + import_nonce()
+  } else {
+    model.expense_id
+  }
+  if command_type == "create" {
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-expense-create-" + import_nonce(),
+      ),
+      "expense_id": Json::string(expense_id),
+      "employee_id": Json::string(employee_id),
+      "summary": Json::string(model.expense_subject),
+      "amount_minor": expense_amount_minor_json(model.expense_amount),
+      "currency": Json::string("CNY"),
+      "project_id": Json::string(model.expense_project_id),
+      "cost_subject": Json::string(model.expense_split_cost_subject),
+      "apply_date": Json::string(model.expense_apply_date),
+      "apply_dept_id": Json::string(model.expense_apply_dept_id),
+      "pay_unit": Json::string(model.expense_pay_unit),
+      "offset_amount_minor": expense_amount_minor_json(
+        model.expense_offset_amount,
+      ),
+      "details": Json::array([
+        Json::object({
+          "summary": Json::string(model.expense_detail_summary),
+          "amount": Json::number(expense_decimal(model.expense_detail_amount)),
+          "occur_date": Json::string(model.expense_detail_date),
+        }),
+      ]),
+      "splits": Json::array([
+        Json::object({
+          "user_guid": Json::string(model.expense_split_user_id),
+          "dept_guid": Json::string(model.expense_split_dept_id),
+          "cost_subject_code": Json::string(model.expense_split_cost_subject),
+          "proceeding_guid": Json::string(model.expense_split_proceeding_id),
+          "amount": Json::number(expense_decimal(model.expense_split_amount)),
+        }),
+      ]),
+    }).stringify()
+  } else if command_type == "update" {
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-expense-update-" + import_nonce(),
+      ),
+      "summary": Json::string(model.expense_subject),
+      "amount_minor": expense_amount_minor_json(model.expense_amount),
+      "project_id": Json::string(model.expense_project_id),
+      "cost_subject": Json::string(model.expense_split_cost_subject),
+      "apply_date": Json::string(model.expense_apply_date),
+      "apply_dept_id": Json::string(model.expense_apply_dept_id),
+      "pay_unit": Json::string(model.expense_pay_unit),
+      "offset_amount_minor": expense_amount_minor_json(
+        model.expense_offset_amount,
+      ),
+      "details": Json::array([
+        Json::object({
+          "summary": Json::string(model.expense_detail_summary),
+          "amount": Json::number(expense_decimal(model.expense_detail_amount)),
+          "occur_date": Json::string(model.expense_detail_date),
+        }),
+      ]),
+      "splits": Json::array([
+        Json::object({
+          "user_guid": Json::string(model.expense_split_user_id),
+          "dept_guid": Json::string(model.expense_split_dept_id),
+          "cost_subject_code": Json::string(model.expense_split_cost_subject),
+          "proceeding_guid": Json::string(model.expense_split_proceeding_id),
+          "amount": Json::number(expense_decimal(model.expense_split_amount)),
+        }),
+      ]),
+    }).stringify()
+  } else if command_type == "reject" {
+    "{\"idempotency_key\":\"rabbita-expense-reject-v1\",\"reason\":\"请补充发票与四维分摊\"}"
+  } else if command_type == "void" {
+    "{\"idempotency_key\":\"rabbita-expense-void-v1\",\"reason\":\"本地演示作废报销\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-expense-" + command_type + "-v1\"}"
+  }
+}
+
+///|
+fn issue_expense_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/expenses"
+  } else if command_type == "update" {
+    "/api/company/expenses/" + model.expense_id
+  } else {
+    "/api/company/expenses/" + model.expense_id + "/" + command_type
+  }
+  @http.post(path)
+  .with_text(expense_command_body(model, command_type))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ExpenseCommandFinished(body))
+      Err(_) => emit(ExpenseCommandFailed)
+    }
+  })
+}
+
+///|
 fn contract_state_label(state : String) -> String {
   match state {
     "draft" => "草稿"
@@ -13051,7 +13226,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/expenses" {
         load_expenses(emit, model.user_code)
       } else if path == "/expenses/new" {
-        load_budget_scope(emit, model.profile_bu_guid)
+        @cmd.batch([
+          load_budget_scope(emit, model.profile_bu_guid),
+          load_projects(emit),
+        ])
       } else if path.has_prefix("/expenses/") && path != "/expenses/new" {
         load_expense_detail(emit, path, model.user_code)
       } else if path == "/admin" {
@@ -21869,22 +22047,107 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           expense_detail_note: "报销详情源读模型不可用 · 使用设计快照",
         },
       )
+    InputExpenseField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          expense_subject: if field == "subject" {
+            value
+          } else {
+            model.expense_subject
+          },
+          expense_apply_date: if field == "date" {
+            value
+          } else {
+            model.expense_apply_date
+          },
+          expense_apply_dept_id: if field == "dept" {
+            value
+          } else {
+            model.expense_apply_dept_id
+          },
+          expense_project_id: if field == "project" {
+            value
+          } else {
+            model.expense_project_id
+          },
+          expense_pay_unit: if field == "pay_unit" {
+            value
+          } else {
+            model.expense_pay_unit
+          },
+          expense_amount: if field == "amount" {
+            value
+          } else {
+            model.expense_amount
+          },
+          expense_offset_amount: if field == "offset" {
+            value
+          } else {
+            model.expense_offset_amount
+          },
+          expense_detail_summary: if field == "detail_summary" {
+            value
+          } else {
+            model.expense_detail_summary
+          },
+          expense_detail_date: if field == "detail_date" {
+            value
+          } else {
+            model.expense_detail_date
+          },
+          expense_detail_amount: if field == "detail_amount" {
+            value
+          } else {
+            model.expense_detail_amount
+          },
+          expense_split_user_id: if field == "split_user" {
+            value
+          } else {
+            model.expense_split_user_id
+          },
+          expense_split_dept_id: if field == "split_dept" {
+            value
+          } else {
+            model.expense_split_dept_id
+          },
+          expense_split_cost_subject: if field == "split_cost" {
+            value
+          } else {
+            model.expense_split_cost_subject
+          },
+          expense_split_proceeding_id: if field == "split_proceeding" {
+            value
+          } else {
+            model.expense_split_proceeding_id
+          },
+          expense_split_amount: if field == "split_amount" {
+            value
+          } else {
+            model.expense_split_amount
+          },
+        },
+      )
     CreateExpense =>
-      if model.expense_state == "提交中" ||
+      if model.expense_subject.trim().is_empty() ||
+        expense_decimal(model.expense_amount) <= 0.0 ||
+        model.expense_apply_dept_id.trim().is_empty() ||
+        model.expense_detail_summary.trim().is_empty() ||
+        expense_decimal(model.expense_split_amount) <= 0.0 {
+        (
+          none,
+          {
+            ..model,
+            expense_note: "主题、申请部门、金额、明细与分摊必填",
+          },
+        )
+      } else if model.expense_state == "提交中" ||
         model.expense_state == "已提交" {
         (none, model)
       } else {
         (
-          @http.post("/api/company/expenses")
-          .with_text(
-            "{\"idempotency_key\":\"rabbita-expense-create-v1\",\"expense_id\":\"EXP-RABBITA-LOCAL\",\"employee_id\":\"rabbita-user\",\"summary\":\"成都项目现场出差\",\"amount_minor\":8560,\"currency\":\"CNY\",\"project_id\":\"CD-HJL\",\"cost_subject\":\"travel\"}",
-          )
-          .expect_text(result => {
-            match result {
-              Ok(body) => emit(ExpenseCommandFinished(body))
-              Err(_) => emit(ExpenseCommandFailed)
-            }
-          }),
+          issue_expense_command(emit, model, "create"),
           {
             ..model,
             expense_state: "提交中",
@@ -21898,9 +22161,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         (
           @http.put("/api/company/expenses/\{model.expense_id}")
-          .with_text(
-            "{\"idempotency_key\":\"rabbita-expense-update-v1\",\"subject\":\"成都项目现场出差（已补充说明）\"}",
-          )
+          .with_text(expense_command_body(model, "update"))
           .expect_text(result => {
             match result {
               Ok(body) => emit(ExpenseCommandFinished(body))
@@ -21942,7 +22203,18 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (
           @http.post("/api/company/budget-check")
           .with_text(
-            "{\"splits\":[{\"costSubjectCode\":\"CB-101\",\"amount\":8560}]}",
+            Json::object({
+              "splits": Json::array([
+                Json::object({
+                  "costSubjectCode": Json::string(
+                    model.expense_split_cost_subject,
+                  ),
+                  "amount": Json::number(
+                    expense_decimal(model.expense_split_amount),
+                  ),
+                }),
+              ]),
+            }).stringify(),
           )
           .expect_text(result => {
             match result {
@@ -21988,7 +22260,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           @http.post(
             "/api/company/expenses/\{model.expense_id}/submit-for-approval",
           )
-          .with_text("{\"idempotency_key\":\"rabbita-expense-submit-v1\"}")
+          .with_text(expense_command_body(model, "submit"))
           .expect_text(result => {
             match result {
               Ok(body) => emit(ExpenseCommandFinished(body))
@@ -22106,6 +22378,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           none,
           {
             ..model,
+            expense_id: expense_command_id(body, model.expense_id),
             expense_state: "草稿",
             expense_note: "已写入 PostgreSQL 草稿投影 · 可提交审批",
           },
@@ -33039,14 +33312,68 @@ fn contract_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 ///|
 fn expense_state_label(state : String) -> String {
   match state {
-    "Draft" => "草稿"
-    "Approving" => "审批中"
-    "Approved" => "已通过"
-    "Rejected" => "已驳回"
-    "Voided" => "已作废"
+    "Draft" | "draft" => "草稿"
+    "Approving" | "submitted" => "审批中"
+    "Approved" | "approved" => "已通过"
+    "Rejected" | "rejected" => "已驳回"
+    "Voided" | "voided" => "已作废"
     "" => "—"
     _ => state
   }
+}
+
+///|
+fn expense_balance_note(model : Model) -> String {
+  let payable = expense_decimal(model.expense_amount) -
+    expense_decimal(model.expense_offset_amount)
+  let split = expense_decimal(model.expense_split_amount)
+  let difference = split - payable
+  if difference > -0.001 && difference < 0.001 {
+    "分摊合计 " +
+    model.expense_split_amount +
+    " = 应付 " +
+    payable.to_string() +
+    " · 已平衡"
+  } else {
+    "分摊合计 " +
+    model.expense_split_amount +
+    " ≠ 应付 " +
+    payable.to_string() +
+    " · 差额 " +
+    difference.to_string()
+  }
+}
+
+///|
+fn expense_reference_chips(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let children : Array[@html.Html] = [
+    span(
+      class="erp-source-note",
+      "源项目/预算人员快捷选择 · 仍受命令 owner 门控",
+    ),
+  ]
+  for row in model.project_rows {
+    children.push(
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(InputExpenseField("project", row.project_id)),
+        row.project_code + " · " + row.project_name,
+      ),
+    )
+  }
+  for row in model.budget_scope_users {
+    children.push(
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(InputExpenseField("split_user", row.user_id)),
+        "使用人 " + row.emp_name,
+      ),
+    )
+  }
+  div(class="erp-command-bar", children)
 }
 
 ///|
@@ -33237,80 +33564,153 @@ fn expense_editor_view(
             span(class="erp-source-note", model.expense_note)
           },
         ],
-        div(class="erp-form-grid") <| [
-          form_field(
-            "报销单号",
-            if detail {
-              detail_values[0]
-            } else {
-              model.expense_id
-            },
-            "报销单号",
-          ),
-          form_field(
-            "费用类型",
-            if detail {
-              detail_values[1]
-            } else {
-              "差旅费"
-            },
-            "费用类型",
-          ),
-          form_field(
-            "费用摘要",
-            if detail {
-              detail_values[2]
-            } else {
-              "成都项目现场出差"
-            },
-            "摘要",
-          ),
-          form_field(
-            "费用金额",
-            if detail {
-              detail_values[3]
-            } else {
-              "8560"
-            },
-            "金额(元)",
-          ),
-          form_field(
-            "发生日期",
-            if detail {
-              detail_values[4]
-            } else {
-              "2026-07-12"
-            },
-            "YYYY-MM-DD",
-          ),
-          form_field(
-            "申请人",
-            if detail {
-              detail_values[5]
-            } else {
-              "—"
-            },
-            "申请人",
-          ),
-          form_field(
-            "申请部门",
-            if detail {
-              detail_values[6]
-            } else {
-              "—"
-            },
-            "申请部门",
-          ),
-          form_field(
-            "付款单位",
-            if detail {
-              detail_values[7]
-            } else {
-              "个人垫付"
-            },
-            "付款方式",
-          ),
-        ],
+        if detail {
+          div(class="erp-form-grid") <| [
+            form_field("报销单号", detail_values[0], "报销单号"),
+            form_field("费用类型", detail_values[1], "费用类型"),
+            form_field("费用摘要", detail_values[2], "摘要"),
+            form_field("费用金额", detail_values[3], "金额(元)"),
+            form_field("发生日期", detail_values[4], "YYYY-MM-DD"),
+            form_field("申请人", detail_values[5], "申请人"),
+            form_field("申请部门", detail_values[6], "申请部门"),
+            form_field("付款单位", detail_values[7], "付款方式"),
+          ]
+        } else {
+          div <| [
+            div(class="erp-form-grid") <| [
+              form_field("报销单号", model.expense_id, "保存后生成"),
+              editable_form_field(
+                "主题",
+                model.expense_subject,
+                "如：职称培训费用",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("subject", value)),
+              ),
+              editable_form_field(
+                "申请日期",
+                model.expense_apply_date,
+                "YYYY-MM-DD",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("date", value)),
+              ),
+              editable_form_field(
+                "申请部门",
+                model.expense_apply_dept_id,
+                "选择部门 GUID",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("dept", value)),
+              ),
+              editable_form_field(
+                "归属项目",
+                model.expense_project_id,
+                "项目级 CBS 字典",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("project", value)),
+              ),
+              editable_form_field(
+                "付款单位",
+                model.expense_pay_unit,
+                "法人单位或个人垫付",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("pay_unit", value)),
+              ),
+              editable_form_field(
+                "报销金额",
+                model.expense_amount,
+                "金额(元)",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("amount", value)),
+              ),
+              editable_form_field(
+                "冲账金额",
+                model.expense_offset_amount,
+                "借款冲抵(元)",
+                @html.InputType::Text,
+                emit.map(value => InputExpenseField("offset", value)),
+              ),
+            ],
+            section(class="erp-detail-card") <| [
+              div(class="erp-panel-heading") <| [
+                h2("报销明细"),
+                span(
+                  class="erp-source-note",
+                  "至少一条明细 · 当前表单先承载首行",
+                ),
+              ],
+              div(class="erp-form-grid") <| [
+                editable_form_field(
+                  "明细摘要",
+                  model.expense_detail_summary,
+                  "费用明细摘要",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("detail_summary", value)),
+                ),
+                editable_form_field(
+                  "明细金额",
+                  model.expense_detail_amount,
+                  "金额(元)",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("detail_amount", value)),
+                ),
+                editable_form_field(
+                  "发生日期",
+                  model.expense_detail_date,
+                  "YYYY-MM-DD",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("detail_date", value)),
+                ),
+              ],
+            ],
+            section(class="erp-detail-card") <| [
+              div(class="erp-panel-heading") <| [
+                h2("4 维归口分摊"),
+                span(
+                  class="erp-source-note",
+                  "谁用了 + 谁的钱 + 什么科目 + 属哪个事项",
+                ),
+              ],
+              div(class="erp-form-grid") <| [
+                editable_form_field(
+                  "费用使用人",
+                  model.expense_split_user_id,
+                  "userGuid",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("split_user", value)),
+                ),
+                editable_form_field(
+                  "责任部门",
+                  model.expense_split_dept_id,
+                  "deptGuid",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("split_dept", value)),
+                ),
+                editable_form_field(
+                  "CBS 科目",
+                  model.expense_split_cost_subject,
+                  "R/L3 或 costSubjectCode",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("split_cost", value)),
+                ),
+                editable_form_field(
+                  "所属事项",
+                  model.expense_split_proceeding_id,
+                  "proceedingGuid",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("split_proceeding", value)),
+                ),
+                editable_form_field(
+                  "分摊金额",
+                  model.expense_split_amount,
+                  "金额(元)",
+                  @html.InputType::Text,
+                  emit.map(value => InputExpenseField("split_amount", value)),
+                ),
+              ],
+              p(class="erp-source-note", expense_balance_note(model)),
+            ],
+            expense_reference_chips(emit, model),
+          ]
+        },
       ],
       if detail ||
         model.expense_state == "草稿" ||

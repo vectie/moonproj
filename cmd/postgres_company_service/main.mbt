@@ -793,21 +793,41 @@ fn expense_list_item(
   units : Array[SourceRow],
 ) -> Json {
   let payload = row.payload
-  let applied_by = json_text(payload, "applied_by", "")
+  let applied_by = json_text(
+    payload,
+    "applied_by",
+    json_text(payload, "employee_id", ""),
+  )
   let apply_dept = json_text(
     payload,
     "apply_dept_guid",
-    json_text(payload, "dept_guid", ""),
+    json_text(payload, "dept_guid", json_text(payload, "apply_dept_id", "")),
+  )
+  let expense_amount = json_number(
+    payload,
+    "expense_amount",
+    json_int(payload, "amount_minor", 0).to_double() / 100.0,
+  )
+  let offset_amount = json_number(
+    payload,
+    "offset_amount",
+    json_int(payload, "offset_amount_minor", 0).to_double() / 100.0,
   )
   Json::object({
     "expenseGuid": Json::string(expense_id(row)),
     "expenseCode": Json::string(json_text(payload, "expense_code", "")),
-    "subject": Json::string(json_text(payload, "subject", "")),
-    "applyState": Json::string(json_text(payload, "apply_state", "")),
+    "subject": Json::string(
+      json_text(payload, "subject", json_text(payload, "summary", "")),
+    ),
+    "applyState": Json::string(
+      json_text(payload, "apply_state", json_text(payload, "state", "")),
+    ),
     "payState": Json::string(json_text(payload, "pay_state", "")),
-    "expenseAmount": Json::number(json_number(payload, "expense_amount", 0.0)),
-    "offsetAmount": Json::number(json_number(payload, "offset_amount", 0.0)),
-    "payAmount": Json::number(json_number(payload, "pay_amount", 0.0)),
+    "expenseAmount": Json::number(expense_amount),
+    "offsetAmount": Json::number(offset_amount),
+    "payAmount": Json::number(
+      json_number(payload, "pay_amount", expense_amount - offset_amount),
+    ),
     "appliedByName": Json::string(expense_user_name(users, applied_by)),
     "applyDeptName": Json::string(expense_unit_name(units, apply_dept)),
     "applyDate": Json::string(json_text(payload, "apply_date", "")),
@@ -816,7 +836,25 @@ fn expense_list_item(
       json_text(payload, "process_instance_guid", ""),
     ),
     "createdAt": Json::string(json_text(payload, "created_at", "")),
-    "sourceKind": Json::string(json_text(payload, "source_kind", "imported")),
+    "details": match json_field(payload, "details") {
+      Some(value) => value
+      None => Json::null()
+    },
+    "splits": match json_field(payload, "splits") {
+      Some(value) => value
+      None => Json::null()
+    },
+    "sourceKind": Json::string(
+      json_text(
+        payload,
+        "source_kind",
+        if json_field(payload, "state") is Some(_) {
+          "command"
+        } else {
+          "imported"
+        },
+      ),
+    ),
   })
 }
 
@@ -1103,6 +1141,25 @@ async fn budget_expense_detail_response(
       )
     }
   }
+  match expense {
+    Some(Json::Object(fields)) => {
+      match fields.get("details") {
+        Some(Array(values)) =>
+          for value in values {
+            details.push(value)
+          }
+        _ => ()
+      }
+      match fields.get("splits") {
+        Some(Array(values)) =>
+          for value in values {
+            splits.push(value)
+          }
+        _ => ()
+      }
+    }
+    _ => ()
+  }
   Some(
     Json::object({
       "success": Json::boolean(true),
@@ -1340,6 +1397,30 @@ fn expense_positive_amount(body : Json) -> Int raise CompanyServiceError {
 }
 
 ///|
+fn expense_optional_source_field(
+  body : Json,
+  key : String,
+) -> Json raise CompanyServiceError {
+  match json_field(body, key) {
+    None => Json::null()
+    Some(value) =>
+      match value {
+        Null | Array(_) => value
+        _ => raise reject(422, key + " must be an array")
+      }
+  }
+}
+
+///|
+fn expense_offset_amount_field(body : Json) -> Json raise CompanyServiceError {
+  match json_field(body, "offset_amount_minor") {
+    Some(Number(number, ..)) if number >= 0.0 => Json::number(number)
+    None => Json::number(0.0)
+    _ => raise reject(422, "offset_amount_minor must be non-negative")
+  }
+}
+
+///|
 fn expense_command_request(
   command_type : String,
   expense_guid : String?,
@@ -1381,6 +1462,12 @@ fn expense_command_request(
       "currency": Json::string(currency),
       "project_id": expense_optional_identifier(body, "project_id"),
       "cost_subject": expense_optional_identifier(body, "cost_subject"),
+      "apply_date": Json::string(json_text(body, "apply_date", "")),
+      "apply_dept_id": expense_optional_identifier(body, "apply_dept_id"),
+      "pay_unit": Json::string(json_text(body, "pay_unit", "")),
+      "offset_amount_minor": expense_offset_amount_field(body),
+      "details": expense_optional_source_field(body, "details"),
+      "splits": expense_optional_source_field(body, "splits"),
       "actor_id": Json::string(actor_id),
     })
     return (id, request)
@@ -1423,6 +1510,39 @@ fn expense_command_request(
         changes.set(key, Json::string(value))
       }
       Some(_) => raise reject(422, key + " must be text")
+    }
+  }
+  for key in ["apply_date", "pay_unit"] {
+    match json_field(body, key) {
+      None => ()
+      Some(String(value)) => changes.set(key, Json::string(value))
+      Some(_) => raise reject(422, key + " must be text")
+    }
+  }
+  match json_field(body, "apply_dept_id") {
+    None => ()
+    Some(value) =>
+      changes.set(
+        "apply_dept_id",
+        match value {
+          Null => Json::null()
+          String(text) if text.is_empty() || valid_identifier(text) => value
+          String(_) =>
+            raise reject(422, "apply_dept_id contains unsupported characters")
+          _ => raise reject(422, "apply_dept_id must be text")
+        },
+      )
+  }
+  match json_field(body, "offset_amount_minor") {
+    None => ()
+    Some(Number(number, ..)) if number >= 0.0 =>
+      changes.set("offset_amount_minor", Json::number(number))
+    Some(_) => raise reject(422, "offset_amount_minor must be non-negative")
+  }
+  for key in ["details", "splits"] {
+    match json_field(body, key) {
+      None => ()
+      Some(_) => changes.set(key, expense_optional_source_field(body, key))
     }
   }
   if command_type == "update" && changes.is_empty() {

@@ -66,17 +66,25 @@ async fn budget_local_source_rows(
   let payloads = budget_projection_payloads(aggregate_type)
   let result : Array[SourceRow] = []
   for payload in payloads {
+    let primary_key = if aggregate_type == "budget_expense" {
+      "expense_guid"
+    } else if aggregate_type == "budget_expense_detail" {
+      "detail_guid"
+    } else {
+      "split_guid"
+    }
+    let fallback_key = if aggregate_type == "budget_expense" {
+      "expense_id"
+    } else if aggregate_type == "budget_expense_detail" {
+      "detail_id"
+    } else {
+      "split_id"
+    }
     result.push({
       record_id: json_text(
         payload,
-        if aggregate_type == "budget_expense" {
-          "expense_guid"
-        } else if aggregate_type == "budget_expense_detail" {
-          "detail_guid"
-        } else {
-          "split_guid"
-        },
-        "",
+        primary_key,
+        json_text(payload, fallback_key, ""),
       ),
       source_id: json_text(payload, "event_id", ""),
       payload,
