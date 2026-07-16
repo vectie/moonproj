@@ -1040,6 +1040,7 @@ struct Model {
   payment_apply_note : String
   payment_apply_eligibility_note : String
   tenders_loaded : Bool
+  tender_project_id : String
   tender_rows : Array[TenderRow]
   tender_id : String
   tender_state : String
@@ -1715,6 +1716,7 @@ enum Msg {
   TenderSourceAwardsLoaded(String)
   TenderSourceSplitsLoaded(String)
   TenderSourceLoadFailed
+  SelectTenderProject(String)
   CreateTender
   PublishTender
   OpenTenderBidding
@@ -2262,6 +2264,7 @@ fn initial_model() -> Model {
     payment_apply_note: "先保存付款申请草稿，再提交审批",
     payment_apply_eligibility_note: "尚未校验付款节点条件",
     tenders_loaded: false,
+    tender_project_id: "proj-0001",
     tender_rows: [],
     tender_id: "TD-RABBITA-LOCAL",
     tender_state: "new",
@@ -10840,8 +10843,8 @@ fn tender_state_label(state : String) -> String {
 }
 
 ///|
-fn load_tenders(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/tender/tenders?projGuid=proj-0001").expect_text(result => {
+fn load_tenders(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/source/tender/tenders?projGuid=" + project_id).expect_text(result => {
       match result {
         Ok(body) => emit(TenderSourceTendersLoaded(body))
         Err(_) => emit(TenderSourceLoadFailed)
@@ -10871,9 +10874,11 @@ fn load_tender_source_splits(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn tender_command_body(_model : Model, command_type : String) -> String {
+fn tender_command_body(model : Model, command_type : String) -> String {
   if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-tender-create-v1\",\"tender_id\":\"TD-RABBITA-LOCAL\",\"project_scope\":\"project:proj-0001\",\"name\":\"海教园主体结构工程招标\",\"category\":\"construction\",\"estimated_amount_minor\":120000000,\"currency\":\"CNY\",\"bids\":[{\"supplier_id\":\"SUP-RABBITA-LOCAL\",\"amount_minor\":105000000}]}"
+    "{\"idempotency_key\":\"rabbita-tender-create-v1\",\"tender_id\":\"TD-RABBITA-LOCAL\",\"project_scope\":\"project:" +
+    model.tender_project_id +
+    "\",\"name\":\"海教园主体结构工程招标\",\"category\":\"construction\",\"estimated_amount_minor\":120000000,\"currency\":\"CNY\",\"bids\":[{\"supplier_id\":\"SUP-RABBITA-LOCAL\",\"amount_minor\":105000000}]}"
   } else if command_type == "cancel" {
     "{\"idempotency_key\":\"rabbita-tender-cancel-v1\",\"reason\":\"本地演示撤回规划\"}"
   } else if command_type == "award" {
@@ -11343,7 +11348,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/payment-applies" {
         load_payment_applies(emit)
       } else if path == "/tender" {
-        load_tenders(emit)
+        @cmd.batch([
+          load_projects(emit),
+          load_tenders(emit, model.tender_project_id),
+        ])
       } else if path == "/srm/providers" {
         load_supplier_source(emit)
       } else if path.has_prefix("/srm/providers/") {
@@ -12058,6 +12066,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           payment_apply_eligibility_note: "付款节点校验服务不可用",
         },
       )
+    SelectTenderProject(project_id) =>
+      (
+        load_tenders(emit, project_id),
+        {
+          ..model,
+          tender_project_id: project_id,
+          tenders_loaded: false,
+          tender_rows: [],
+          tender_source_loaded: false,
+          tender_source_note: "正在读取所选项目的招采源观察…",
+          tender_note: "正在读取项目招标计划…",
+        },
+      )
     TenderSourceTendersLoaded(body) =>
       (
         load_tender_source_awards(emit),
@@ -12213,7 +12234,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, { ..model, tender_state: "error", tender_note: body })
       } else {
         (
-          load_tenders(emit),
+          load_tenders(emit, model.tender_project_id),
           {
             ..model,
             tender_state: next_state,
@@ -12260,7 +12281,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         if command_type == "award" {
           load_tender_source_awards(emit)
         } else {
-          load_tenders(emit)
+          load_tenders(emit, model.tender_project_id)
         },
         {
           ..model,
@@ -23581,12 +23602,36 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   } else {
     fallback_tender_rows()
   }
+  let project_picker : Array[@html.Html] = []
+  if model.project_rows.length() == 0 {
+    project_picker.push(
+      span(
+        class="erp-source-note",
+        "项目列表尚未加载 · 当前范围 " + model.tender_project_id,
+      ),
+    )
+  } else {
+    for project in model.project_rows {
+      project_picker.push(
+        button(
+          class=if project.project_id == model.tender_project_id {
+            "erp-project-chip is-active"
+          } else {
+            "erp-project-chip"
+          },
+          on_click=emit(SelectTenderProject(project.project_id)),
+          project.project_code + " · " + project.project_name,
+        ),
+      )
+    }
+  }
   page_shell(
     "合约规划",
     "COST / TENDER",
     "按项目和 CBS 科目编制合约规划，控制招采范围、预算和合同落地。",
     tender_actions(emit, model),
     div <| [
+      div(class="erp-project-picker") <| project_picker,
       div(class="erp-stat-grid") <| [
         metric(
           "规划数量",
