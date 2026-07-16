@@ -77,7 +77,7 @@ rm -f "$SQLITE_DB" "$SQLITE_DB.pending"
 "$SCRIPT_DIR/erp_typed_cohort_rehearsal.sh" \
   "$EXPORT_DIR" "$MAPPING_PATH" "$SQLITE_DB" "$TYPED_WORK_DIR" > "$WORK_DIR/typed-cohort.log"
 
-"$SCRIPT_DIR/erp_promotion_plan.py" \
+"$SCRIPT_DIR/erp_promotion_plan.sh" \
   "$EXPORT_DIR" "$MAPPING_PATH" "$WORK_DIR/promotion-plan.json"
 moon run --target native cmd/promote -- \
   "$WORK_DIR/promotion-plan.json" "$WORK_DIR/domain-promotion.json"

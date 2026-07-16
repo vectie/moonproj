@@ -2267,6 +2267,12 @@ Execute the remainder in this order:
     using the native exact candidate adapters, then emits the historical
     cross-domain envelope. The old Python cross-domain checker is frozen
     comparison evidence.
+3a.46. **Native mapped ERP promotion planner (2026-07-16).**
+    `cmd/promotion_plan` and `scripts/erp_promotion_plan.sh` now replace the
+    first-cohort Python planner. The port preserves the five-table allow-list,
+    explicit mapping requirements, half-even monetary conversion, parent and
+    project identity checks, deterministic reasons/warnings, and exact plan
+    envelope; a synthetic five-row oracle comparison is byte-equivalent.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

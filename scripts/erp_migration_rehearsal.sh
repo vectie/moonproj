@@ -139,7 +139,7 @@ echo "route_inventory=$ROUTE_INVENTORY"
 
 if [ -n "$MAPPING_PATH" ]; then
   PROMOTION_PLAN="$WORK_DIR/promotion-plan.json"
-  "$SCRIPT_DIR/erp_promotion_plan.py" "$EXPORT_DIR" "$MAPPING_PATH" "$PROMOTION_PLAN"
+  "$SCRIPT_DIR/erp_promotion_plan.sh" "$EXPORT_DIR" "$MAPPING_PATH" "$PROMOTION_PLAN"
   echo "promotion_plan=$PROMOTION_PLAN"
   DOMAIN_PROMOTION="$WORK_DIR/domain-promotion.json"
   moon run --target native cmd/promote -- "$PROMOTION_PLAN" "$DOMAIN_PROMOTION"
