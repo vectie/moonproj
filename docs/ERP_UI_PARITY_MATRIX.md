@@ -32,6 +32,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now calls the native plan-line edit dry-run candidate; investment plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel plan-line import dry-run candidate; plan persistence, valuation, cash, accounting, and tax effects remain disabled.
+- Browser action delta: Rabbita `/srm/providers` now calls the native supplier risk-rescore command; imported provider rows remain protected and provider execution remains disabled.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.
 - API-state delta: `connected_auth_command_candidate` **2** now covers persisted logout/profile commands; `auth_lifecycle_candidate` **2** remains for login/password change gates. The API-state JSON ledger remains authoritative.
@@ -400,7 +401,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `srm` | `PUT` | `/providers/:guid` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_source_command` | `accept_browser_supplier_source_command_scenario_and_procurement_owner` |
 | `srm` | `DELETE` | `/providers/:guid` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_source_command` | `accept_browser_supplier_source_command_scenario_and_procurement_owner` |
 | `srm` | `GET` | `/providers/:guid/risk` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
-| `srm` | `POST` | `/providers/rescore-all` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_rescore_command` | `accept_browser_supplier_risk_scenario_and_procurement_owner` |
+| `srm` | `POST` | `/providers/rescore-all` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_rescore_command` | `accept_browser_supplier_risk_scenario_and_procurement_owner` (Rabbita action now wired) |
 | `srm` | `GET` | `/risk-board` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
 | `srm` | `GET` | `/providers/:guid/check-sign` | `/srm/providers`, `/srm/providers/:guid`, `/srm/risk-board` | `connected_supplier_boundary` | `accept_supplier_signature_gate_and_procurement_owner` |
 | `tender` | `GET` | `/tenders` | `/tender` | `connected_tender_source_read` | `accept_browser_tender_source_scenario_and_production_identity` |

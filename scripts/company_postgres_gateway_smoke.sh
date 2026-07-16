@@ -308,6 +308,26 @@ test "$status" = 201
   '.success == true and .idempotent_replay == false and .data.providerGuid == "'"$gateway_supplier_id"'" and .provider.sourceKind == "command"' \
   "$TMP_DIR/supplier-create.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-rescore.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-supplier-rescore-$gateway_supplier_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/srm/providers/rescore-all")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == false and .data.updated >= 1 and .data.wouldUpdate >= 1 and .data.dryRun == false and .data.providerExecution == false and .persisted == true and .authorizing == false' \
+  "$TMP_DIR/supplier-rescore.json" >/dev/null
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/supplier-rescore-replay.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-supplier-rescore-$gateway_supplier_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/srm/providers/rescore-all")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .idempotent_replay == true and .data.dryRun == false and .data.providerExecution == false' \
+  "$TMP_DIR/supplier-rescore-replay.json" >/dev/null
+
 gateway_invoice_suffix=$(/bin/date +%s)
 gateway_invoice_id="INV-GW-SMOKE-$gateway_invoice_suffix"
 gateway_invoice_principal="co-gateway-invoice-smoke"

@@ -1246,6 +1246,9 @@ enum Msg {
   VoidSupplier
   SupplierCommandFinished(String)
   SupplierCommandFailed
+  RescoreSuppliers
+  SupplierRescoreFinished(String)
+  SupplierRescoreFailed
   SalesLoaded(String, String)
   SalesLoadFailed(String)
   CreateSalesCustomer
@@ -7698,6 +7701,18 @@ fn issue_supplier_command(
 }
 
 ///|
+fn issue_supplier_rescore(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/srm/providers/rescore-all")
+  .with_text("{\"idempotency_key\":\"rabbita-supplier-rescore-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SupplierRescoreFinished(body))
+      Err(_) => emit(SupplierRescoreFailed)
+    }
+  })
+}
+
+///|
 fn tender_state_label(state : String) -> String {
   match state {
     "planning" => "待规划"
@@ -9039,6 +9054,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           supplier_state: "error",
           supplier_note: "公司供应商命令服务不可用或拒绝了请求",
+        },
+      )
+    RescoreSuppliers =>
+      (
+        issue_supplier_rescore(emit),
+        {
+          ..model,
+          supplier_note: "正在重算供应商风险评分 · 不调用 provider…",
+        },
+      )
+    SupplierRescoreFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_suppliers(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          supplier_note: if body.contains("\"providerExecution\":false") {
+            "供应商风险重算已写入本地投影 · 导入供应商受保护 · 不调用 provider"
+          } else {
+            "供应商风险重算候选已返回 · 请复核执行边界"
+          },
+        },
+      )
+    SupplierRescoreFailed =>
+      (
+        none,
+        {
+          ..model,
+          supplier_note: "供应商风险重算服务不可用或被网关拒绝",
         },
       )
     SalesLoaded(family, body) =>
@@ -16241,6 +16288,11 @@ fn srm_providers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let actions : Array[@html.Html] = [
     nav_button(
       emit, "/srm/providers/SUP-00018", "erp-primary-btn", "＋ 新增供应商",
+    ),
+    button(
+      class="erp-secondary-btn",
+      on_click=emit(RescoreSuppliers),
+      "重算风险评分（候选）",
     ),
   ]
   match model.supplier_state {
