@@ -851,6 +851,8 @@ struct Model {
   plan_task_id : String
   plan_task_state : String
   plan_task_command_note : String
+  plan_ai_suggestion_note : String
+  plan_ai_suggestion_rows : Array[Array[String]]
   reports_loaded : Bool
   report_cost_rows : Array[ReportCostRow]
   report_contract_rows : Array[ReportContractRow]
@@ -1278,6 +1280,9 @@ enum Msg {
   DeletePlanTask
   PlanTaskCommandFinished(String)
   PlanTaskCommandFailed
+  SuggestProjectPlan
+  ProjectPlanSuggestionFinished(String)
+  ProjectPlanSuggestionFailed
   DeliveryCommandFinished(String)
   DeliveryCommandFailed
   ReportsLoaded(String)
@@ -1575,6 +1580,8 @@ fn initial_model() -> Model {
     plan_task_id: "",
     plan_task_state: "idle",
     plan_task_command_note: "项目计划任务命令尚未运行",
+    plan_ai_suggestion_note: "AI 计划建议尚未运行 · provider/LLM 保持关闭",
+    plan_ai_suggestion_rows: [],
     reports_loaded: false,
     report_cost_rows: [],
     report_contract_rows: [],
@@ -7356,6 +7363,20 @@ fn issue_plan_task_command(
 }
 
 ///|
+fn issue_project_plan_suggestion(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/plan/ai-suggest-plan")
+  .with_text(
+    "{\"projType\":\"住宅\",\"scale\":\"中型\",\"region\":\"全国\",\"beginDate\":\"2026-08-01\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ProjectPlanSuggestionFinished(body))
+      Err(_) => emit(ProjectPlanSuggestionFailed)
+    }
+  })
+}
+
+///|
 fn load_suppliers(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/suppliers").expect_text(result => {
     match result {
@@ -11862,6 +11883,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           plan_task_command_note: "项目计划任务命令服务不可用或拒绝了请求",
         },
       )
+    SuggestProjectPlan =>
+      (
+        issue_project_plan_suggestion(emit),
+        {
+          ..model,
+          plan_ai_suggestion_note: "正在生成七节点确定性计划建议 · 不调用 provider/LLM…",
+        },
+      )
+    ProjectPlanSuggestionFinished(body) => {
+      let rows = plan_ai_suggestion_rows_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          plan_ai_suggestion_rows: rows,
+          plan_ai_suggestion_note: if body.contains(
+              "\"provider\":\"native-deterministic\"",
+            ) {
+            "七节点计划建议已生成 · native-deterministic · 不持久化、不修改计划"
+          } else {
+            "计划建议响应已返回 · provider/LLM 未执行"
+          },
+        },
+      )
+    }
+    ProjectPlanSuggestionFailed =>
+      (
+        none,
+        {
+          ..model,
+          plan_ai_suggestion_note: "计划建议服务不可用 · provider/LLM 保持关闭",
+          plan_ai_suggestion_rows: [],
+        },
+      )
     CreateDeliveryProgress =>
       if model.delivery_progress_state == "new" {
         (
@@ -13385,6 +13440,33 @@ fn delivery_runtime_banner(model : Model) -> @html.Html {
 }
 
 ///|
+fn plan_ai_suggestion_rows_from_body(body : String) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          for value in json_array_field(data, "nodes") {
+            match value {
+              Json::Object(node) =>
+                rows.push([
+                  json_object_text(node, "name", "—"),
+                  json_object_text(node, "offsetDays", "0"),
+                  json_object_text(node, "ownerRole", "—"),
+                  json_object_text(node, "planEndDate", "—"),
+                ])
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn delivery_progress_table(model : Model) -> @html.Html {
   if !model.delivery_loaded {
     div(class="erp-runtime-empty", "等待 PostgreSQL 工程进度投影")
@@ -13502,6 +13584,20 @@ fn delivery_reports_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn plan_ai_suggestion_table(model : Model) -> @html.Html {
+  let rows = if model.plan_ai_suggestion_rows.length() == 0 {
+    [["—", "—", "—", "尚未生成"]]
+  } else {
+    model.plan_ai_suggestion_rows
+  }
+  table_panel(
+    "AI 计划建议候选",
+    model.plan_ai_suggestion_note + " · 不写入项目计划/工作流",
+    data_table(["节点", "偏移天数", "责任角色", "计划完成"], rows),
+  )
+}
+
+///|
 fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "项目计划",
@@ -13541,6 +13637,11 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(CreateDeliveryProgress),
         "＋ 新建进度记录",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(SuggestProjectPlan),
+        "生成 AI 计划建议",
+      ),
     ],
     div <| [
       delivery_runtime_banner(model),
@@ -13554,6 +13655,7 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         button(class="erp-tab", "里程碑"),
       ],
       delivery_tasks_table(model),
+      plan_ai_suggestion_table(model),
     ],
   )
 }

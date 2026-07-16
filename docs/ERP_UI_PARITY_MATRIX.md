@@ -24,6 +24,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/ai-hub` now calls the native deterministic explanation candidate; provider execution, prompt persistence, and business authorization remain disabled.
 - Browser action delta: Rabbita `/cashflow` now calls the native deterministic gap explanation candidate; provider execution, prompt persistence, and cash/accounting/tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native deterministic feasibility explanation candidate; provider execution, prompt persistence, and financial effects remain disabled.
+- Browser action delta: Rabbita `/project-plan` now calls the native seven-node deterministic plan suggestion candidate; provider execution, persistence, and plan/workflow mutation remain disabled.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.
 - API-state delta: `connected_auth_command_candidate` **2** now covers persisted logout/profile commands; `auth_lifecycle_candidate` **2** remains for login/password change gates. The API-state JSON ledger remains authoritative.

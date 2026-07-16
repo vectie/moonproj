@@ -192,6 +192,15 @@ test "$status" = 200
   '.success == true and .data.provider == "native-deterministic" and .data.revenue == 18500 and .data.netProfit == 2890 and .provider_execution == false and .persisted == false and .authorizing == false' \
   "$TMP_DIR/investment-explain.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/plan-ai-suggest.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"projType":"住宅","scale":"中型","region":"全国","beginDate":"2026-08-01"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/plan/ai-suggest-plan")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and (.data.nodes | length) == 7 and .data.nodes[0].planEndDate == "2026-08-01" and .data.nodes[6].planEndDate == "2027-08-01" and .data.providerExecution == false and .data.persisted == false and .data.authorizing == false' \
+  "$TMP_DIR/plan-ai-suggest.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \

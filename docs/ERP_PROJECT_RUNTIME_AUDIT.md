@@ -64,6 +64,9 @@ evidence-gated boundary.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
   retaining the designer-built tables and forms as an explicitly labelled
   fallback/preview.
+  Rabbita `/project-plan` now exposes the seven-node deterministic AI
+  suggestion candidate and renders its dates/owner roles without persisting or
+  mutating the plan; the trusted gateway smoke covers the browser path.
 - The native service and project-plan smoke cover MDM project
   create/replay/update/delete, local task create/replay/update/delete, and an
   evidence-gated report alias; the source-shaped project-plan readback merges
