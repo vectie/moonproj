@@ -1306,6 +1306,9 @@ enum Msg {
   AttachmentCommandFailed
   MarketingLoaded(String, String)
   MarketingLoadFailed(String)
+  CreateMarketingCampaign
+  MarketingCommandFinished(String)
+  MarketingCommandFailed
   InboxLoaded(String)
   InboxLoadFailed
   InboxUnreadLoaded(String)
@@ -6346,6 +6349,20 @@ fn load_marketing(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
+fn issue_marketing_campaign_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/marketing/campaigns")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-marketing-campaign-create-v1\",\"campaignGuid\":\"CAMP-RABBITA-LOCAL\",\"campaignCode\":\"CAMP-RABBITA-LOCAL\",\"projGuid\":\"proj-0001\",\"name\":\"Rabbita 本地营销活动\",\"campaignType\":\"推广活动\",\"budget\":\"12345.67\",\"startDate\":\"2026-07-16\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"scope\":\"project:proj-0001\",\"capability\":\"marketing:campaign:create\",\"max_amount_minor\":2000000}}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(MarketingCommandFinished(body))
+      Err(_) => emit(MarketingCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_inbox(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/notify/messages?userCode=admin&status=unread").expect_text(result => {
       match result {
@@ -9806,6 +9823,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           marketing_note: "营销 " +
           family +
           " 源读模型不可用 · 使用设计快照",
+        },
+      )
+    CreateMarketingCampaign =>
+      (
+        issue_marketing_campaign_create(emit),
+        { ..model, marketing_note: "正在写入本地营销活动命令…" },
+      )
+    MarketingCommandFinished(body) =>
+      (
+        if body.contains("\"campaign\"") {
+          load_marketing(emit, "campaigns")
+        } else {
+          none
+        },
+        {
+          ..model,
+          marketing_note: if body.contains("\"state\":\"planning\"") {
+            "营销活动命令已写入 PostgreSQL · 导入源行仍只读 · 无 provider/预算扣减"
+          } else {
+            "营销活动命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    MarketingCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          marketing_note: "营销活动命令服务不可用或被网关拒绝",
         },
       )
     InboxLoaded(body) => {
@@ -17327,7 +17373,7 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn marketing_view(model : Model) -> @html.Html {
+fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let campaign_rows = if model.marketing_loaded {
     if model.marketing_campaign_rows.length() == 0 {
       [["—", "—", "—", "0", "0", "—", "无源记录", "—"]]
@@ -17397,7 +17443,13 @@ fn marketing_view(model : Model) -> @html.Html {
     "营销管理",
     "SALES / MARKETING",
     "管理营销活动、投放记录、渠道与营销物料，预算和实际花费挂接 CBS。",
-    [button(class="erp-primary-btn", "＋ 新建营销活动（待授权）")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateMarketingCampaign),
+        "＋ 新建营销活动（待授权）",
+      ),
+    ],
     div <| [
       div(class="erp-stat-grid") <| [
         metric(
@@ -18950,7 +19002,7 @@ fn business_view(
       "/sales/contracts" => sales_contracts_view(emit, model)
       "/sales/mortgages" => sales_mortgages_view(model)
       "/sales/revenues" => sales_revenues_view(emit, model)
-      "/marketing" => marketing_view(model)
+      "/marketing" => marketing_view(emit, model)
       "/contracts" => contracts_view(emit, model)
       "/contracts/HT-CD-260701" => contract_detail_view(emit, model)
       "/payment-applies" => payment_applies_view(emit, model)

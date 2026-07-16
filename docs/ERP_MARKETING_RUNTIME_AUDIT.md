@@ -43,6 +43,11 @@ reads succeed; its designer campaign/placement rows are retained only as
 transport-failure fallback. The reviewed synthetic marketing cohort remains a
 separate target rehearsal and is not promoted as imported ERP production data.
 
+Rabbita `/marketing` now exposes the bounded local campaign-create action. It
+uses the native PostgreSQL command projection and reloads the live campaign
+read after success; imported rows, budget/CBS reservation, and external
+provider effects remain unchanged.
+
 ## Open gates
 
 Campaign/placement/channel/material local create/update/delete/effect commands
