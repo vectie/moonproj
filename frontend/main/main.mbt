@@ -279,6 +279,21 @@ struct SalesRow {
 }
 
 ///|
+struct SalesCustomerRow {
+  customer_guid : String
+  customer_code : String
+  customer_name : String
+  phone : String
+  id_card_no : String
+  proj_guid : String
+  source : String
+  remark : String
+  created_at : String
+  state : String
+  source_kind : String
+}
+
+///|
 struct InvoiceRow {
   invoice_no : String
   counterparty : String
@@ -1116,6 +1131,16 @@ struct Model {
   sales_loaded : Bool
   sales_family : String
   sales_rows : Array[SalesRow]
+  sales_customer_rows : Array[SalesCustomerRow]
+  sales_customer_project_id : String
+  sales_customer_keyword : String
+  sales_customer_form_open : Bool
+  sales_customer_edit_id : String
+  sales_customer_name : String
+  sales_customer_id_card_no : String
+  sales_customer_phone : String
+  sales_customer_source : String
+  sales_customer_remark : String
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
@@ -1794,7 +1819,14 @@ enum Msg {
   SupplierRescoreFailed
   SalesLoaded(String, String)
   SalesLoadFailed(String)
-  CreateSalesCustomer
+  SelectSalesCustomerProject(String)
+  InputSalesCustomerKeyword(String)
+  OpenSalesCustomerCreate
+  OpenSalesCustomerEdit(String)
+  CloseSalesCustomerForm
+  InputSalesCustomerField(String, String)
+  SubmitSalesCustomerForm
+  DeleteSalesCustomer(String)
   SalesCustomerCommandFinished(String)
   SalesCustomerCommandFailed
   CreateSalesSubscription
@@ -2361,6 +2393,16 @@ fn initial_model() -> Model {
     sales_loaded: false,
     sales_family: "",
     sales_rows: [],
+    sales_customer_rows: [],
+    sales_customer_project_id: "",
+    sales_customer_keyword: "",
+    sales_customer_form_open: false,
+    sales_customer_edit_id: "",
+    sales_customer_name: "",
+    sales_customer_id_card_no: "",
+    sales_customer_phone: "",
+    sales_customer_source: "案场",
+    sales_customer_remark: "",
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
@@ -3894,6 +3936,61 @@ fn sales_rows_from_body(body : String) -> Array[SalesRow] {
       }
       for value in values {
         match sales_row_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn sales_customer_from_json(value : Json) -> SalesCustomerRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        customer_guid: json_object_text(
+          fields,
+          "customer_guid",
+          json_object_text(fields, "customer_id", ""),
+        ),
+        customer_code: json_object_text(fields, "customer_code", "—"),
+        customer_name: json_object_text(
+          fields,
+          "customer_name",
+          json_object_text(fields, "name", "—"),
+        ),
+        phone: json_object_text(
+          fields,
+          "phone",
+          json_object_text(fields, "contact_reference", "—"),
+        ),
+        id_card_no: json_object_text(fields, "id_card_no", ""),
+        proj_guid: json_object_text(fields, "proj_guid", ""),
+        source: json_object_text(fields, "source", ""),
+        remark: json_object_text(fields, "remark", ""),
+        created_at: json_object_text(fields, "created_at", ""),
+        state: json_object_text(fields, "state", "active"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn sales_customer_rows_from_body(body : String) -> Array[SalesCustomerRow] {
+  let rows : Array[SalesCustomerRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("items") {
+        Some(Json::Array(values)) => values
+        _ => json_array_field(fields, "data")
+      }
+      for value in values {
+        match sales_customer_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
         }
@@ -7674,11 +7771,27 @@ fn project_anomaly_rows_from_body(body : String) -> Array[ProjectAnomalyRow] {
 }
 
 ///|
-fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+fn load_sales_for(
+  emit : @rabbita.Emit[Msg],
+  family : String,
+  project_id : String,
+  keyword : String,
+) -> Cmd {
   let path = if family == "invoices" {
     "/api/company/invoices"
   } else {
-    "/api/company/source/sales/" + family + "?projGuid=proj-0001"
+    let project_query = if project_id.trim().is_empty() {
+      ""
+    } else {
+      "?projGuid=" + project_id
+    }
+    let keyword_query = if family == "customers" && !keyword.trim().is_empty() {
+      (if project_query.is_empty() { "?keyword=" } else { "&keyword=" }) +
+      keyword
+    } else {
+      ""
+    }
+    "/api/company/source/sales/" + family + project_query + keyword_query
   }
   @http.get(path).expect_text(result => {
     match result {
@@ -7686,6 +7799,11 @@ fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
       Err(_) => emit(SalesLoadFailed(family))
     }
   })
+}
+
+///|
+fn load_sales(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
+  load_sales_for(emit, family, "proj-0001", "")
 }
 
 ///|
@@ -10383,12 +10501,65 @@ fn load_project_anomalies(
 }
 
 ///|
-fn issue_sales_customer_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_sales_customer_create(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let nonce = import_nonce()
   @http.post("/api/company/sales/customers")
   .with_text(
-    "{\"idempotency_key\":\"rabbita-sales-customer-create-v1\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"customer_code\":\"CUS-RABBITA-LOCAL\",\"customer_name\":\"Rabbita 本地客户演示\",\"phone\":\"13800000000\",\"proj_guid\":\"proj-0001\",\"bu_guid\":\"bu-group-0001\",\"source\":\"rabbita\",\"remark\":\"本地客户档案命令演示\"}",
+    Json::object({
+      "idempotency_key": Json::string("rabbita-sales-customer-create-" + nonce),
+      "customer_guid": Json::string("CUS-RABBITA-" + nonce),
+      "customer_code": Json::string("CUS-RABBITA-" + nonce),
+      "customer_name": Json::string(
+        if model.sales_customer_name.is_empty() {
+          "Rabbita 本地客户演示"
+        } else {
+          model.sales_customer_name
+        },
+      ),
+      "id_card_no": Json::string(model.sales_customer_id_card_no),
+      "phone": Json::string(model.sales_customer_phone),
+      "proj_guid": Json::string(model.sales_customer_project_id),
+      "bu_guid": Json::string("bu-group-0001"),
+      "source": Json::string(model.sales_customer_source),
+      "remark": Json::string(model.sales_customer_remark),
+    }).stringify(),
   )
   .expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesCustomerCommandFinished(body))
+      Err(_) => emit(SalesCustomerCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_sales_customer_update(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let nonce = import_nonce()
+  @http.put("/api/company/sales/customers/" + model.sales_customer_edit_id)
+  .with_text(
+    Json::object({
+      "idempotency_key": Json::string("rabbita-sales-customer-update-" + nonce),
+      "customerName": Json::string(model.sales_customer_name),
+      "idCardNo": Json::string(model.sales_customer_id_card_no),
+      "phone": Json::string(model.sales_customer_phone),
+      "source": Json::string(model.sales_customer_source),
+      "remark": Json::string(model.sales_customer_remark),
+    }).stringify(),
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesCustomerCommandFinished(body))
+      Err(_) => emit(SalesCustomerCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_sales_customer_delete(
+  emit : @rabbita.Emit[Msg],
+  customer_id : String,
+) -> Cmd {
+  @http.delete("/api/company/sales/customers/" + customer_id).expect_text(result => {
     match result {
       Ok(body) => emit(SalesCustomerCommandFinished(body))
       Err(_) => emit(SalesCustomerCommandFailed)
@@ -11480,7 +11651,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/srm/risk-board" {
         load_supplier_risk(emit)
       } else if path == "/sales/customers" {
-        load_sales(emit, "customers")
+        @cmd.batch([
+          load_projects(emit),
+          load_sales_for(
+            emit,
+            "customers",
+            model.sales_customer_project_id,
+            model.sales_customer_keyword,
+          ),
+        ])
       } else if path == "/sales/subscriptions" {
         load_sales(emit, "subscriptions")
       } else if path == "/sales/contracts" {
@@ -13015,6 +13194,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_loaded: true,
           sales_family: family,
           sales_rows: sales_rows_from_body(body),
+          sales_customer_rows: if family == "customers" {
+            sales_customer_rows_from_body(body)
+          } else {
+            model.sales_customer_rows
+          },
           sales_note: "已加载 PostgreSQL 销售源读模型 · 空表保持可见 · 导入记录保持只读",
         },
       )
@@ -13026,22 +13210,169 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_loaded: false,
           sales_family: family,
           sales_rows: [],
+          sales_customer_rows: if family == "customers" {
+            []
+          } else {
+            model.sales_customer_rows
+          },
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
         },
       )
-    CreateSalesCustomer =>
+    SelectSalesCustomerProject(project_id) =>
       (
-        issue_sales_customer_create(emit),
+        load_sales_for(
+          emit,
+          "customers",
+          project_id,
+          model.sales_customer_keyword,
+        ),
         {
           ..model,
-          sales_customer_command_note: "正在写入本地客户档案命令…",
+          sales_customer_project_id: project_id,
+          sales_loaded: false,
+          sales_customer_rows: [],
+          sales_note: "正在读取所选项目的客户档案…",
         },
       )
-    SalesCustomerCommandFinished(body) =>
+    InputSalesCustomerKeyword(value) =>
+      (none, { ..model, sales_customer_keyword: value })
+    OpenSalesCustomerCreate =>
       (
-        load_sales(emit, "customers"),
+        none,
         {
           ..model,
+          sales_customer_form_open: true,
+          sales_customer_edit_id: "",
+          sales_customer_name: "",
+          sales_customer_id_card_no: "",
+          sales_customer_phone: "",
+          sales_customer_source: "案场",
+          sales_customer_remark: "",
+        },
+      )
+    OpenSalesCustomerEdit(customer_id) => {
+      let mut name = ""
+      let mut id_card_no = ""
+      let mut phone = ""
+      let mut source = ""
+      let mut remark = ""
+      let mut project_id = model.sales_customer_project_id
+      for row in model.sales_customer_rows {
+        if row.customer_guid == customer_id {
+          name = row.customer_name
+          id_card_no = row.id_card_no
+          phone = row.phone
+          source = row.source
+          remark = row.remark
+          project_id = row.proj_guid
+        }
+      }
+      (
+        none,
+        {
+          ..model,
+          sales_customer_form_open: true,
+          sales_customer_edit_id: customer_id,
+          sales_customer_project_id: project_id,
+          sales_customer_name: name,
+          sales_customer_id_card_no: id_card_no,
+          sales_customer_phone: phone,
+          sales_customer_source: source,
+          sales_customer_remark: remark,
+        },
+      )
+    }
+    CloseSalesCustomerForm =>
+      (none, { ..model, sales_customer_form_open: false })
+    InputSalesCustomerField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          sales_customer_name: if field == "name" {
+            value
+          } else {
+            model.sales_customer_name
+          },
+          sales_customer_id_card_no: if field == "id_card_no" {
+            value
+          } else {
+            model.sales_customer_id_card_no
+          },
+          sales_customer_phone: if field == "phone" {
+            value
+          } else {
+            model.sales_customer_phone
+          },
+          sales_customer_project_id: if field == "project_id" {
+            value
+          } else {
+            model.sales_customer_project_id
+          },
+          sales_customer_source: if field == "source" {
+            value
+          } else {
+            model.sales_customer_source
+          },
+          sales_customer_remark: if field == "remark" {
+            value
+          } else {
+            model.sales_customer_remark
+          },
+        },
+      )
+    SubmitSalesCustomerForm =>
+      if model.sales_customer_name.trim().is_empty() ||
+        model.sales_customer_phone.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            sales_customer_command_note: "姓名和电话不能为空",
+          },
+        )
+      } else if model.sales_customer_edit_id.is_empty() {
+        (
+          issue_sales_customer_create(emit, model),
+          {
+            ..model,
+            sales_customer_form_open: false,
+            sales_customer_command_note: "正在写入本地客户档案命令…",
+          },
+        )
+      } else {
+        (
+          issue_sales_customer_update(emit, model),
+          {
+            ..model,
+            sales_customer_form_open: false,
+            sales_customer_command_note: "正在更新本地客户档案命令…",
+          },
+        )
+      }
+    DeleteSalesCustomer(customer_id) =>
+      if customer_id.is_empty() {
+        (none, model)
+      } else {
+        (
+          issue_sales_customer_delete(emit, customer_id),
+          {
+            ..model,
+            sales_customer_command_note: "正在提交客户归档/删除命令…",
+          },
+        )
+      }
+    SalesCustomerCommandFinished(body) =>
+      (
+        load_sales_for(
+          emit,
+          "customers",
+          model.sales_customer_project_id,
+          model.sales_customer_keyword,
+        ),
+        {
+          ..model,
+          sales_customer_form_open: false,
           sales_customer_command_note: if body.contains(
               "\"idempotent_replay\":true",
             ) {
@@ -21827,6 +22158,160 @@ fn sales_projection_table(model : Model, family : String) -> @html.Html {
 }
 
 ///|
+fn sales_customer_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.sales_customer_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2(
+          if model.sales_customer_edit_id.is_empty() {
+            "新增客户"
+          } else {
+            "编辑客户"
+          },
+        ),
+        span(class="erp-source-note", model.sales_customer_command_note),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "姓名",
+          model.sales_customer_name,
+          "客户姓名",
+          @html.InputType::Text,
+          emit.map(value => InputSalesCustomerField("name", value)),
+        ),
+        editable_form_field(
+          "电话",
+          model.sales_customer_phone,
+          "手机号",
+          @html.InputType::Text,
+          emit.map(value => InputSalesCustomerField("phone", value)),
+        ),
+        editable_form_field(
+          "身份证号",
+          model.sales_customer_id_card_no,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputSalesCustomerField("id_card_no", value)),
+        ),
+        editable_form_field(
+          "意向项目",
+          model.sales_customer_project_id,
+          "项目 GUID，可选",
+          @html.InputType::Text,
+          emit.map(value => InputSalesCustomerField("project_id", value)),
+        ),
+        editable_form_field(
+          "来源",
+          model.sales_customer_source,
+          "案场 / 渠道 / 网络",
+          @html.InputType::Text,
+          emit.map(value => InputSalesCustomerField("source", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.sales_customer_remark,
+          "跟进说明",
+          @html.InputType::Text,
+          emit.map(value => InputSalesCustomerField("remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseSalesCustomerForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitSalesCustomerForm),
+          if model.sales_customer_edit_id.is_empty() {
+            "新增"
+          } else {
+            "保存"
+          },
+        ),
+      ],
+    ]
+  }
+}
+
+///|
+fn sales_customer_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  if model.sales_customer_rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("暂无客户源记录"),
+      ],
+    )
+  } else {
+    for row in model.sales_customer_rows {
+      let actions : Array[@html.Html] = []
+      if row.source_kind == "command" {
+        actions.push(
+          button(
+            class="erp-link-btn",
+            on_click=emit(OpenSalesCustomerEdit(row.customer_guid)),
+            "编辑",
+          ),
+        )
+        actions.push(
+          button(
+            class="erp-link-btn is-warning",
+            on_click=emit(DeleteSalesCustomer(row.customer_guid)),
+            "删除",
+          ),
+        )
+      } else {
+        actions.push(span(class="erp-source-note", "源行只读"))
+      }
+      rows.push(
+        tr <| [
+          td(row.customer_code),
+          td(row.customer_name),
+          td(row.phone),
+          td(row.id_card_no),
+          td(row.proj_guid),
+          td(row.source),
+          td(row.state),
+          td(row.created_at),
+          td <| actions,
+        ],
+      )
+    }
+  }
+  table_panel(
+    "客户列表",
+    model.sales_note +
+    " · " +
+    model.sales_customer_rows.length().to_string() +
+    " 条 · 导入客户保持只读",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "客户号", "姓名", "电话", "身份证", "意向项目", "来源",
+          "状态", "登记时间", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
 fn sales_customers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "客户档案",
@@ -21835,7 +22320,7 @@ fn sales_customers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
     [
       button(
         class="erp-primary-btn",
-        on_click=emit(CreateSalesCustomer),
+        on_click=emit(OpenSalesCustomerCreate),
         "＋ 新增客户",
       ),
     ],
@@ -21845,36 +22330,49 @@ fn sales_customers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
         strong("本地客户命令"),
         span(" · " + model.sales_customer_command_note),
       ]),
-      sales_projection_table(model, "customers"),
-      filter_bar("客户姓名 / 手机号 / 客户编号"),
-      table_panel(
-        "客户列表",
-        "共 1,248 位客户",
-        data_table(
-          [
-            "客户编号", "客户姓名", "手机号", "意向项目", "意向房源",
-            "跟进状态", "最近联系",
-          ],
-          [
-            [
-              "CUS-20260701", "王晓峰", "138****6210", "成都和锦里", "2#-1802",
-              "重点跟进", "今天",
-            ],
-            [
-              "CUS-20260688", "赵文静", "186****4302", "重庆南山居", "5#-2101",
-              "已认筹", "昨天",
-            ],
-            [
-              "CUS-20260642", "李海涛", "139****0791", "沈阳和山苑", "—",
-              "待回访", "2026-07-11",
-            ],
-            [
-              "CUS-20260596", "陈敏", "158****9920", "天津海教园一期", "3#-901",
-              "已签约", "2026-07-08",
-            ],
-          ],
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目筛选:"),
+        if model.project_rows.length() == 0 {
+          span(
+            class="erp-info-tag",
+            if model.sales_customer_project_id.is_empty() {
+              "全部项目"
+            } else {
+              model.sales_customer_project_id
+            },
+          )
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.sales_customer_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectSalesCustomerProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
+      div(class="erp-inline-actions") <| [
+        input(
+          input_type=@html.InputType::Text,
+          value=model.sales_customer_keyword,
+          placeholder="姓名 / 电话 / 身份证",
+          class="erp-form-input",
+          on_input=emit.map(value => InputSalesCustomerKeyword(value)),
         ),
-      ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(Navigate("/sales/customers")),
+          "查询",
+        ),
+      ],
+      sales_customer_form_view(emit, model),
+      sales_customer_table(emit, model),
     ],
   )
 }
