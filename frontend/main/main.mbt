@@ -1638,6 +1638,12 @@ struct Model {
   marketing_material_type : String
   marketing_material_unit_cost : String
   marketing_material_quantity : String
+  marketing_effect_form_open : Bool
+  marketing_effect_id : String
+  marketing_effect_impressions : String
+  marketing_effect_clicks : String
+  marketing_effect_leads : String
+  marketing_effect_state : String
   marketing_campaign_rows : Array[Array[String]]
   marketing_placement_rows : Array[Array[String]]
   marketing_channel_rows : Array[Array[String]]
@@ -2288,6 +2294,10 @@ enum Msg {
   MarketingCommandFinished(String)
   MarketingCommandFailed
   DeleteMarketingCampaign(String)
+  OpenMarketingEffect(String)
+  CloseMarketingEffect
+  InputMarketingEffect(String, String)
+  SubmitMarketingEffect
   InboxLoaded(String)
   InboxLoadFailed
   InboxUnreadLoaded(String)
@@ -3005,6 +3015,12 @@ fn initial_model() -> Model {
     marketing_material_type: "现场包装",
     marketing_material_unit_cost: "100",
     marketing_material_quantity: "1",
+    marketing_effect_form_open: false,
+    marketing_effect_id: "",
+    marketing_effect_impressions: "0",
+    marketing_effect_clicks: "0",
+    marketing_effect_leads: "0",
+    marketing_effect_state: "completed",
     marketing_campaign_rows: [],
     marketing_placement_rows: [],
     marketing_channel_rows: [],
@@ -6588,6 +6604,14 @@ fn marketing_rows_from_body(
                     json_object_text(row, "placeDate", ""),
                     json_object_text(row, "impressions", "0"),
                     json_object_text(row, "leads", "0"),
+                    json_object_text(row, "placementGuid", ""),
+                    json_object_text(
+                      row,
+                      "sourceKind",
+                      json_object_text(row, "source_kind", "imported"),
+                    ),
+                    json_object_text(row, "clicks", "0"),
+                    json_object_text(row, "state", "placed"),
                   ])
                 } else if family == "channels" {
                   rows.push([
@@ -9933,6 +9957,36 @@ fn issue_marketing_campaign_delete(
   ).expect_text(result => {
     match result {
       Ok(body) => emit(MarketingCommandFinished(body))
+      Err(_) => emit(MarketingCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_marketing_placement_effect(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let path = "/api/company/marketing/placements/" +
+    model.marketing_effect_id +
+    "/effect"
+  let body = Json::object({
+    "idempotency_key": Json::string(
+      "rabbita-marketing-placement-effect-" + import_nonce(),
+    ),
+    "impressions": marketing_number(model.marketing_effect_impressions, 1.0),
+    "clicks": marketing_number(model.marketing_effect_clicks, 1.0),
+    "leads": marketing_number(model.marketing_effect_leads, 1.0),
+    "state": Json::string(model.marketing_effect_state),
+    "principal_id": Json::string("co-rabbita"),
+    "scope": Json::string("project:" + model.marketing_project_id),
+    "authority": marketing_authority(model, "marketing:placement:effect", 0.0),
+  }).stringify()
+  @http.put(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(response) => emit(MarketingCommandFinished(response))
       Err(_) => emit(MarketingCommandFailed)
     }
   })
@@ -18068,6 +18122,78 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (
           issue_marketing_campaign_delete(emit, campaign_id),
           { ..model, marketing_note: "正在作废本地营销活动命令…" },
+        )
+      }
+    OpenMarketingEffect(placement_id) => {
+      let mut impressions = model.marketing_effect_impressions
+      let mut clicks = model.marketing_effect_clicks
+      let mut leads = model.marketing_effect_leads
+      let mut state = model.marketing_effect_state
+      for row in model.marketing_placement_rows {
+        if row.length() > 10 && row[7] == placement_id {
+          impressions = row[5]
+          leads = row[6]
+          clicks = row[9]
+          state = row[10]
+        }
+      }
+      (
+        none,
+        {
+          ..model,
+          marketing_effect_form_open: true,
+          marketing_effect_id: placement_id,
+          marketing_effect_impressions: impressions,
+          marketing_effect_clicks: clicks,
+          marketing_effect_leads: leads,
+          marketing_effect_state: if state == "completed" {
+            "completed"
+          } else {
+            "placed"
+          },
+        },
+      )
+    }
+    CloseMarketingEffect =>
+      (none, { ..model, marketing_effect_form_open: false })
+    InputMarketingEffect(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          marketing_effect_impressions: if field == "impressions" {
+            value
+          } else {
+            model.marketing_effect_impressions
+          },
+          marketing_effect_clicks: if field == "clicks" {
+            value
+          } else {
+            model.marketing_effect_clicks
+          },
+          marketing_effect_leads: if field == "leads" {
+            value
+          } else {
+            model.marketing_effect_leads
+          },
+          marketing_effect_state: if field == "state" {
+            value
+          } else {
+            model.marketing_effect_state
+          },
+        },
+      )
+    SubmitMarketingEffect =>
+      if model.marketing_effect_id.is_empty() {
+        (none, model)
+      } else {
+        (
+          issue_marketing_placement_effect(emit, model),
+          {
+            ..model,
+            marketing_effect_form_open: false,
+            marketing_note: "正在写入投放效果命令…",
+          },
         )
       }
     CreateMarketingPlacement =>
@@ -32616,6 +32742,68 @@ fn marketing_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
+fn marketing_effect_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.marketing_effect_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("更新投放效果"),
+        span(
+          class="erp-source-note",
+          "仅命令投影可写 · 不触发 provider、预算、会计或税务效果",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "曝光",
+          model.marketing_effect_impressions,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputMarketingEffect("impressions", value)),
+        ),
+        editable_form_field(
+          "点击",
+          model.marketing_effect_clicks,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputMarketingEffect("clicks", value)),
+        ),
+        editable_form_field(
+          "线索",
+          model.marketing_effect_leads,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputMarketingEffect("leads", value)),
+        ),
+        editable_form_field(
+          "状态",
+          model.marketing_effect_state,
+          "placed / completed",
+          @html.InputType::Text,
+          emit.map(value => InputMarketingEffect("state", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseMarketingEffect),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitMarketingEffect),
+          "提交效果候选",
+        ),
+      ],
+    ]
+  }
+}
+
+///|
 fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let campaign_rows = if model.marketing_loaded {
     if model.marketing_campaign_rows.length() == 0 {
@@ -32645,7 +32833,12 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   }
   let placement_rows = if model.marketing_loaded {
     if model.marketing_placement_rows.length() == 0 {
-      [["—", "—", "—", "0", "—", "0", "无源记录"]]
+      [
+        [
+          "—", "—", "—", "0", "—", "0", "无源记录", "", "imported", "0",
+          "placed",
+        ],
+      ]
     } else {
       model.marketing_placement_rows
     }
@@ -32653,15 +32846,15 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     [
       [
         "PLC-260712-008", "成都和锦里开盘推广", "抖音", "¥180,000", "2026-07-12",
-        "286,000", "420",
+        "286,000", "420", "", "imported", "0", "placed",
       ],
       [
         "PLC-260708-004", "南山居线上投放", "SEM", "¥96,000", "2026-07-11",
-        "112,000", "186",
+        "112,000", "186", "", "imported", "0", "placed",
       ],
       [
         "PLC-260701-012", "成都和锦里开盘推广", "渠道分销", "¥240,000",
-        "—", "98", "—",
+        "—", "98", "", "imported", "0", "placed",
       ],
     ]
   }
@@ -32697,6 +32890,32 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         td(row[6]),
         td(row[7]),
         td(if row.length() > 9 { row[9] } else { "imported" }),
+        td(action),
+      ],
+    )
+  }
+  let placement_table_rows : Array[@html.Html] = []
+  for row in placement_rows {
+    let clicks = if row.length() > 9 { row[9] } else { "0" }
+    let source = if row.length() > 8 { row[8] } else { "imported" }
+    let action = if row.length() > 10 && row[7] != "" && row[8] == "command" {
+      button(
+        class="erp-link-btn",
+        on_click=emit(OpenMarketingEffect(row[7])),
+        "更新效果",
+      )
+    } else {
+      span(class="erp-source-note", "源行只读")
+    }
+    placement_table_rows.push(
+      tr <| [
+        td(row[0]),
+        td(row[1]),
+        td(row[2]),
+        td(row[3]),
+        td(row[4]),
+        td("曝光 " + row[5] + " · 点击 " + clicks + " · 线索 " + row[6]),
+        td(source),
         td(action),
       ],
     )
@@ -32774,6 +32993,7 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         },
       ],
       marketing_form_view(emit, model),
+      marketing_effect_form_view(emit, model),
       div(class="erp-stat-grid") <| [
         metric(
           "营销活动数",
@@ -32876,13 +33096,15 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "渠道效果和实际花费 · " +
           model.marketing_placement_count +
           " 条",
-          data_table(
-            [
-              "编号", "所属活动", "投放渠道", "金额(元)", "投放日",
-              "曝光", "线索",
+          table(class="erp-data-table") <| [
+            thead <| [
+              table_header([
+                "编号", "所属活动", "投放渠道", "金额(元)", "投放日",
+                "效果数据", "来源", "操作",
+              ]),
             ],
-            placement_rows,
-          ),
+            tbody <| placement_table_rows,
+          ],
         )
       } else if model.marketing_tab == "channels" {
         table_panel(
