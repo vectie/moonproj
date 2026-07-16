@@ -68,6 +68,9 @@ owner-gated.
 The selected-index panel now accepts a value and remark, serializes them into
 the source-shaped update candidate, and leaves imported index mutation to the
 same native owner gate.
+The version-create panel now carries source fields for name, copy-from, remark,
+and activate. The native command explicitly keeps copy cloning and durable
+version ownership behind the investment-owner gate.
 
 ## Evidence
 

@@ -1012,6 +1012,10 @@ struct Model {
   investment_index_selected : String
   investment_index_edit_value : String
   investment_index_edit_remark : String
+  investment_new_version_name : String
+  investment_new_version_copy_from : String
+  investment_new_version_remark : String
+  investment_new_version_activate : Bool
   investment_dimension_count : String
   investment_total : String
   investment_revenue : String
@@ -1526,6 +1530,10 @@ enum Msg {
   SelectInvestmentIndex(String)
   InputInvestmentIndexEditValue(String)
   InputInvestmentIndexEditRemark(String)
+  InputInvestmentVersionName(String)
+  InputInvestmentVersionCopyFrom(String)
+  InputInvestmentVersionRemark(String)
+  ToggleInvestmentVersionActivate
   InputInvestmentExcelFileSelected(String)
   InputInvestmentExcelVersionName(String)
   ToggleInvestmentExcelActivate
@@ -2004,6 +2012,10 @@ fn initial_model() -> Model {
     investment_index_selected: "",
     investment_index_edit_value: "",
     investment_index_edit_remark: "",
+    investment_new_version_name: "Rabbita 投资调整版",
+    investment_new_version_copy_from: "",
+    investment_new_version_remark: "Rabbita 版本创建候选",
+    investment_new_version_activate: false,
     investment_dimension_count: "0",
     investment_total: "0",
     investment_revenue: "0",
@@ -7125,7 +7137,16 @@ fn issue_investment_command(
       "{\"idempotency_key\":\"rabbita-investment-index-delete-v1\"}",
     )
   }
-  let body = if command_type == "index_update" {
+  let body = if command_type == "version_create" {
+    Json::object({
+      "idempotency_key": Json::string("rabbita-investment-version-create-v1"),
+      "versionGuid": Json::string("INV-RABBITA-V2"),
+      "versionName": Json::string(model.investment_new_version_name),
+      "copyFrom": Json::string(model.investment_new_version_copy_from),
+      "activate": Json::boolean(model.investment_new_version_activate),
+      "remark": Json::string(model.investment_new_version_remark),
+    }).stringify()
+  } else if command_type == "index_update" {
     Json::object({
       "idempotency_key": Json::string("rabbita-investment-index-update-v1"),
       "indexValue": investment_edit_value_json(
@@ -11712,6 +11733,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, investment_index_edit_value: value })
     InputInvestmentIndexEditRemark(value) =>
       (none, { ..model, investment_index_edit_remark: value })
+    InputInvestmentVersionName(value) =>
+      (none, { ..model, investment_new_version_name: value })
+    InputInvestmentVersionCopyFrom(value) =>
+      (none, { ..model, investment_new_version_copy_from: value })
+    InputInvestmentVersionRemark(value) =>
+      (none, { ..model, investment_new_version_remark: value })
+    ToggleInvestmentVersionActivate =>
+      (
+        none,
+        {
+          ..model,
+          investment_new_version_activate: !model.investment_new_version_activate,
+        },
+      )
     InvestmentImportsLoaded(body) => {
       let (loaded, rows, note) = investment_import_rows_from_body(body)
       (
@@ -12145,13 +12180,17 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     RequestInvestmentVersionCreate =>
-      (
-        issue_investment_command(emit, model, "version_create"),
-        {
-          ..model,
-          investment_command_note: "正在创建本地投资版本候选 · 不改变导入版本…",
-        },
-      )
+      if model.investment_new_version_name.trim().is_empty() {
+        (none, { ..model, investment_command_note: "请先填写版本名称" })
+      } else {
+        (
+          issue_investment_command(emit, model, "version_create"),
+          {
+            ..model,
+            investment_command_note: "正在创建本地投资版本候选 · 不改变导入版本…",
+          },
+        )
+      }
     RequestInvestmentVersionActivate =>
       (
         issue_investment_command(emit, model, "version_activate"),
@@ -19653,6 +19692,62 @@ fn investment_version_context(
 }
 
 ///|
+fn investment_version_create_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  section(class="erp-detail-card") <| [
+    div(class="erp-panel-heading") <| [
+      h2("新建测算版本候选"),
+      span(
+        class="erp-info-tag",
+        "复制指标、激活和持久化均需投资负责人确认",
+      ),
+    ],
+    div(class="erp-form-grid") <| [
+      editable_form_field(
+        "版本名称",
+        model.investment_new_version_name,
+        "例如 2027 年 1 月调整版",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentVersionName(value)),
+      ),
+      editable_form_field(
+        "复制来源",
+        model.investment_new_version_copy_from,
+        "可填 versionGuid；复制仍受门控",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentVersionCopyFrom(value)),
+      ),
+      editable_form_field(
+        "备注",
+        model.investment_new_version_remark,
+        "版本说明",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentVersionRemark(value)),
+      ),
+    ],
+    div(class="erp-command-bar") <| [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ToggleInvestmentVersionActivate),
+        if model.investment_new_version_activate {
+          "创建后激活：是"
+        } else {
+          "创建后激活：否"
+        },
+      ),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(RequestInvestmentVersionCreate),
+        "提交版本创建候选",
+      ),
+    ],
+    p(class="erp-source-note", model.investment_command_note),
+  ]
+}
+
+///|
 fn investment_sensitivity_table(model : Model) -> @html.Html {
   if model.investment_sensitivity_loaded {
     let rows : Array[Array[String]] = []
@@ -19872,6 +19967,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       stats,
       investment_project_context(emit, model),
       investment_version_context(emit, model),
+      investment_version_create_panel(emit, model),
       investment_excel_panel(emit, model),
       investment_import_history_panel(emit, model),
       investment_runtime_table(emit, model),
