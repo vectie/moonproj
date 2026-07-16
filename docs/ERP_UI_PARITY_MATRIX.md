@@ -127,10 +127,10 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 | `/project/progress` | `../views/ProjectProgress.vue` | `progress_view` | `connected_delivery_command_form` | `progress` | 2 / 5 | `connected_delivery_command` | `accept_browser_delivery_scenario_and_production_identity` |
 | `/invoice` | `../views/Invoice.vue` | `invoice_view` | `connected_invoice_read` | `invoice` | 3 / 4 | `connected_invoice_read` | `accept_browser_invoice_scenario_and_production_identity` |
 | `/tender` | `../views/TenderPlan.vue` | `tender_view` | `connected_tender_command_form` | `tender` | 3 / 5 | `connected_tender_command` | `accept_browser_tender_scenario_and_production_identity` |
-| `/cbs/dict` | `../views/CbsDict.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 10 / 20 | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
-| `/cbs/versions` | `../views/CbsVersions.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 10 / 20 | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
-| `/cbs/r0-queue` | `../views/CbsR0Queue.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 10 / 20 | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
-| `/cbs/approval-config` | `../views/ApprovalConfig.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 10 / 20 | `connected_cbs_read` | `accept_browser_cbs_scenario_and_production_identity` |
+| `/cbs/dict` | `../views/CbsDict.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 17 / 20 | `connected_cbs_read` + local commands | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `/cbs/versions` | `../views/CbsVersions.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 17 / 20 | `connected_cbs_read` + local commands | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `/cbs/r0-queue` | `../views/CbsR0Queue.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 16 / 20 | `connected_cbs_read` + resolution candidate | `accept_browser_cbs_command_scenario_and_finance_owner` |
+| `/cbs/approval-config` | `../views/ApprovalConfig.vue` | `cbs_view` | `connected_cbs_read` | `cbs` | 16 / 20 | `connected_cbs_read` + local commands | `accept_browser_cbs_command_scenario_and_finance_owner` |
 | `/srm/providers` | `../views/Providers.vue` | `srm_providers_view` | `connected_supplier_command_form` | `srm` | 9 / 5 | `connected_supplier_command` | `accept_browser_supplier_scenario_and_production_identity` |
 | `/srm/providers/:guid` | `../views/ProviderDetail.vue` | `provider_detail_view` | `connected_supplier_read` | `srm` | 9 / 5 | `connected_supplier_read` | `accept_browser_supplier_scenario_and_production_identity` |
 | `/srm/risk-board` | `../views/RiskBoard.vue` | `srm_risk_view` | `connected_supplier_risk_read` | `srm` | 9 / 5 | `connected_supplier_risk_read` | `accept_browser_supplier_risk_scenario_and_production_identity` |
