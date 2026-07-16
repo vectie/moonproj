@@ -1636,7 +1636,7 @@ identity, source reconciliation, browser interaction, and named-owner gates.
    only projection/receipt/audit evidence, and provider/cash/accounting/tax
    effects remain false. The Rabbita dictionary table is still read-only, so
    browser command controls and production identity are not yet accepted.
-   for the available governance rows (one group, five options, twelve quality
+   This covers the available governance rows (one group, five options, twelve quality
    rules with four unavailable dependencies, five imported users, two audit
    events, 29 health-table coverage rows, and an empty BPM pool). The profile
    vertical also preserves the source user's initiated-document rows (zero
@@ -2380,6 +2380,18 @@ Execute the remainder in this order:
     synthetic role/assignment fixtures are JSON-equivalent to the frozen
     Python oracle; `reviewed=false`/`scope_only` remains non-authorizing until
     a complete source export and owner-reviewed mapping are supplied.
+3a.59. **Native administrator dictionary CRUD boundary (2026-07-16).**
+    `cmd/postgres_company_service/admin_dictionary_commands.mbt` now ports the
+    source `/dict/options` POST/PATCH handlers into the PostgreSQL service. The
+    command boundary requires an enabled super-user and valid idempotency key,
+    keeps imported options immutable, validates group/code uniqueness, records
+    immutable local revisions plus command/audit receipts, and merges command
+    rows into source-shaped dictionary reads. Canonical and `/source` aliases,
+    create/update/read/replay, normal-value readback, and sensitive-value
+    digest redaction pass `scripts/company_postgres_admin_dictionary_smoke.sh`.
+    The command remains explicitly non-authorizing and has no provider, cash,
+    accounting, or tax effect; Rabbita action controls, production identity,
+    full source export, and governance-owner acceptance remain open.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

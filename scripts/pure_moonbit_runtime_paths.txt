@@ -43,6 +43,7 @@ scripts/company_sqlite_accounting_reconciliation.sh
 scripts/company_postgres_read_model.sh
 scripts/company_postgres_read_model_server.sh
 scripts/company_postgres_service.sh
+scripts/company_postgres_admin_dictionary_smoke.sh
 scripts/company_postgres_sales_revenue_smoke.sh
 scripts/company_postgres_source_read_smoke.sh
 scripts/company_postgres_dashboard_smoke.sh

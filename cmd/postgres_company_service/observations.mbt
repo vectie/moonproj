@@ -1829,6 +1829,35 @@ async fn admin_dict_options_response(
       )
     }
   }
+  for payload in admin_dict_command_payloads() {
+    let group = json_text(payload, "param_name", "")
+    if (match group_name {
+        Some(value) => group == value
+        None => true
+      }) &&
+      json_text(payload, "state", "active") != "deleted" {
+      items.push(
+        Json::object({
+          "paramGuid": Json::string(json_text(payload, "param_guid", "")),
+          "groupName": Json::string(group),
+          "code": Json::string(json_text(payload, "param_code", "")),
+          "value": json_field(payload, "param_value").unwrap_or(
+            Json::string(""),
+          ),
+          "displayOrder": json_field(payload, "display_order").unwrap_or(
+            Json::number(0),
+          ),
+          "enabled": json_field(payload, "enabled").unwrap_or(
+            Json::boolean(true),
+          ),
+          "sourceKind": Json::string("command"),
+          "commandProjection": Json::boolean(true),
+          "persisted": Json::boolean(true),
+          "authorizing": Json::boolean(false),
+        }),
+      )
+    }
+  }
   observation_envelope(Json::array(items), coverage)
 }
 

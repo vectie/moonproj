@@ -104,9 +104,12 @@ render explicit empty-source/definition states after successful reads.
   control surface.
 - The parity matrix marks `/admin` as `connected_admin_read`; source
   super-user scope and owner acceptance remain required.
-- The trusted gateway smoke exercises dictionary PATCH with the imported
-  `admin` super-user, verifies idempotent replay, and confirms the command
-  receipt/audit result is non-authorizing with no external effect.
+- The native PostgreSQL dictionary smoke exercises create/update/read through
+  canonical and `/source` aliases, verifies idempotent replay and immutable
+  command/audit projections, and confirms normal values are returned while
+  sensitive values remain digest-only; all results are non-authorizing with no
+  external effect. The trusted gateway smoke continues to cover the imported
+  `admin` super-user forwarding path.
 - The parity matrix marks `/ocr-config` and `/error-log` as connected
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.
