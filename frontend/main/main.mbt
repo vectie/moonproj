@@ -1131,6 +1131,7 @@ struct Model {
   loan_id : String
   loan_state : String
   loan_command_note : String
+  loan_workflow_sync_note : String
   workflow_loaded : Bool
   workflow_process_rows : Array[WorkflowProcessRow]
   workflow_note : String
@@ -1453,6 +1454,9 @@ enum Msg {
   SubmitLoan
   UpdateLoan
   VoidLoan
+  SyncLoanWorkflow
+  LoanWorkflowSyncFinished(String)
+  LoanWorkflowSyncFailed
   LoanCommandFinished(String)
   LoanCommandFailed
   WorkflowLoaded(String)
@@ -1869,6 +1873,7 @@ fn initial_model() -> Model {
     loan_id: "LOAN-RABBITA-LOCAL",
     loan_state: "new",
     loan_command_note: "本地借款命令需要员工范围 authority 与证据",
+    loan_workflow_sync_note: "工作流同步候选尚未运行 · wf_process_instance 源行保持只读",
     workflow_loaded: false,
     workflow_process_rows: [],
     workflow_note: "工作流定义读模型尚未加载",
@@ -7258,6 +7263,8 @@ fn loan_command_body(command_type : String) -> String {
     "{\"idempotency_key\":\"rabbita-loan-update-v1\",\"subject\":\"沈阳项目会议备用金（已补充用途）\",\"pay_unit\":\"个人备用金\",\"proj_guid\":\"proj-0001\"}"
   } else if command_type == "void" {
     "{\"idempotency_key\":\"rabbita-loan-void-v1\",\"reason\":\"本地演示撤回借款\"}"
+  } else if command_type == "sync_from_workflow" {
+    "{\"idempotency_key\":\"rabbita-loan-workflow-sync-v1\"}"
   } else {
     "{\"idempotency_key\":\"rabbita-loan-submit-v1\"}"
   }
@@ -7271,6 +7278,8 @@ fn issue_loan_command(
 ) -> Cmd {
   let suffix = if command_type == "submit" {
     "submit-for-approval"
+  } else if command_type == "sync_from_workflow" {
+    "sync-from-workflow"
   } else {
     command_type
   }
@@ -7285,6 +7294,18 @@ fn issue_loan_command(
     match result {
       Ok(body) => emit(LoanCommandFinished(body))
       Err(_) => emit(LoanCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_loan_workflow_sync(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/company/loans/" + model.loan_id + "/sync-from-workflow")
+  .with_text(loan_command_body("sync_from_workflow"))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(LoanWorkflowSyncFinished(body))
+      Err(_) => emit(LoanWorkflowSyncFailed)
     }
   })
 }
@@ -11866,6 +11887,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    SyncLoanWorkflow =>
+      if model.loan_id == "" {
+        (none, model)
+      } else {
+        (
+          issue_loan_workflow_sync(emit, model),
+          {
+            ..model,
+            loan_workflow_sync_note: "正在检查工作流同步边界 · 不写入借款、不触发审批…",
+          },
+        )
+      }
+    LoanWorkflowSyncFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          loan_workflow_sync_note: if body.contains("workflow synchronization") {
+            "工作流同步候选已验证 · wf_process_instance 源行不可用 · 未写入借款"
+          } else {
+            "工作流同步候选响应已返回 · 未触发审批"
+          },
+        },
+      )
+    LoanWorkflowSyncFailed =>
+      (
+        none,
+        {
+          ..model,
+          loan_workflow_sync_note: "工作流同步候选服务不可用或被网关拒绝",
+        },
+      )
     LoanCommandFinished(body) => {
       let next_state = if body.contains("\"state\":\"Approved\"") {
         "Approved"
@@ -16555,7 +16608,14 @@ fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "我的借款",
     "FINANCE / LOANS",
     "发起备用金和差旅借款，跟踪核销、还款以及个人可用额度。",
-    [nav_button(emit, "/loans/new", "erp-primary-btn", "＋ 新建借款")],
+    [
+      nav_button(emit, "/loans/new", "erp-primary-btn", "＋ 新建借款"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(SyncLoanWorkflow),
+        "检查工作流同步（待授权）",
+      ),
+    ],
     div <| [
       div(class="erp-runtime-banner", [
         strong(
@@ -16567,6 +16627,11 @@ fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
         span(" · " + model.loan_note),
         span(" · " + model.loan_command_note),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("工作流同步候选"),
+        span(" · " + model.loan_workflow_sync_note),
+        span(" · 借款 " + model.loan_id),
       ]),
       div(class="erp-stat-grid") <| [
         metric("未核销借款", "¥18,000", "2 笔", "metric-blue"),
@@ -17998,6 +18063,13 @@ fn loan_editor_view(
       )
     }
   } else if is_local {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(SyncLoanWorkflow),
+        "检查工作流同步（待授权）",
+      ),
+    )
     if model.loan_state == "Draft" {
       actions.push(
         button(
@@ -18043,6 +18115,10 @@ fn loan_editor_view(
         span(class="erp-status-tag is-pending", status_label),
         span(class="erp-source-note", note),
       ],
+      div(class="erp-runtime-banner", [
+        strong("工作流同步候选"),
+        span(" · " + model.loan_workflow_sync_note),
+      ]),
       div(class="erp-form-grid") <| [
         form_field(
           "借款单号",
