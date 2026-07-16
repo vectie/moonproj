@@ -473,7 +473,7 @@ fi
 
 if [ -n "$CBS_COST_MAPPING" ]; then
   CBS_COST_PLAN="$WORK_DIR/cbs-cost-link-plan.json"
-  "$SCRIPT_DIR/erp_cbs_cost_link_plan.py" "$EXPORT_DIR" "$CBS_COST_MAPPING" "$CBS_COST_PLAN"
+  "$SCRIPT_DIR/erp_cbs_cost_link_plan.sh" "$EXPORT_DIR" "$CBS_COST_MAPPING" "$CBS_COST_PLAN"
   echo "cbs_cost_link_plan=$CBS_COST_PLAN"
   CBS_COST_RECEIPT="$WORK_DIR/cbs-cost-link-receipt.json"
   moon run --target native cmd/cbs_link -- "$CBS_COST_PLAN" "$CBS_COST_RECEIPT"
@@ -534,7 +534,7 @@ fi
 
 if [ -n "$WORKFLOW_ASSIGNMENT_MAPPING" ]; then
   WORKFLOW_ASSIGNMENT_PLAN="$WORK_DIR/workflow-assignment-plan.json"
-  "$SCRIPT_DIR/erp_workflow_assignment_plan.py" "$EXPORT_DIR" "$WORKFLOW_ASSIGNMENT_MAPPING" "$WORKFLOW_ASSIGNMENT_PLAN"
+  "$SCRIPT_DIR/erp_workflow_assignment_plan.sh" "$EXPORT_DIR" "$WORKFLOW_ASSIGNMENT_MAPPING" "$WORKFLOW_ASSIGNMENT_PLAN"
   echo "workflow_assignment_plan=$WORKFLOW_ASSIGNMENT_PLAN"
   WORKFLOW_ASSIGNMENT_RECEIPT="$WORK_DIR/workflow-assignment-receipt.json"
   moon run --target native cmd/workflow_assignment -- "$WORKFLOW_ASSIGNMENT_PLAN" "$WORKFLOW_ASSIGNMENT_RECEIPT"
@@ -552,7 +552,7 @@ fi
 
 if [ -n "$DELIVERY_PROGRESS_MAPPING" ]; then
   DELIVERY_PROGRESS_PLAN="$WORK_DIR/delivery-progress-plan.json"
-  "$SCRIPT_DIR/erp_delivery_progress_plan.py" "$EXPORT_DIR" "$DELIVERY_PROGRESS_MAPPING" "$DELIVERY_PROGRESS_PLAN"
+  "$SCRIPT_DIR/erp_delivery_progress_plan.sh" "$EXPORT_DIR" "$DELIVERY_PROGRESS_MAPPING" "$DELIVERY_PROGRESS_PLAN"
   echo "delivery_progress_plan=$DELIVERY_PROGRESS_PLAN"
   DELIVERY_PROGRESS_RECEIPT="$WORK_DIR/delivery-progress-receipt.json"
   moon run --target native cmd/delivery_progress -- "$DELIVERY_PROGRESS_PLAN" "$DELIVERY_PROGRESS_RECEIPT"
@@ -570,7 +570,7 @@ fi
 
 if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
   DELIVERY_RECOGNITION_PLAN="$WORK_DIR/delivery-recognition-plan.json"
-  "$SCRIPT_DIR/erp_delivery_recognition_plan.py" \
+  "$SCRIPT_DIR/erp_delivery_recognition_plan.sh" \
     "$EXPORT_DIR" "$DELIVERY_RECOGNITION_MAPPING" "$DELIVERY_RECOGNITION_PLAN"
   echo "delivery_recognition_plan=$DELIVERY_RECOGNITION_PLAN"
   DELIVERY_RECOGNITION_RECEIPT="$WORK_DIR/delivery-recognition-receipt.json"
