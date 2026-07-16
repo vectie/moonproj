@@ -957,6 +957,8 @@ struct Model {
   cashflow_inflow_total : String
   cashflow_inflow_missing_table_count : String
   cashflow_inflow_note : String
+  cashflow_explain_note : String
+  cashflow_explain_text : String
   cbs_loaded : Bool
   cbs_rows : Array[CbsRow]
   cbs_plan_version : String
@@ -1312,6 +1314,9 @@ enum Msg {
   CashflowLoadFailed
   CashflowInflowLoaded(String)
   CashflowInflowLoadFailed
+  ExplainCashflow
+  CashflowExplainFinished(String)
+  CashflowExplainFailed
   CbsLoaded(String)
   CbsLoadFailed
   CbsR0Loaded(String)
@@ -1671,6 +1676,8 @@ fn initial_model() -> Model {
     cashflow_inflow_total: "0",
     cashflow_inflow_missing_table_count: "0",
     cashflow_inflow_note: "回款源读模型尚未加载",
+    cashflow_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
+    cashflow_explain_text: "等待现金流解释候选",
     cbs_loaded: false,
     cbs_rows: [],
     cbs_plan_version: "baseline",
@@ -3993,6 +4000,20 @@ fn cashflow_inflow_from_body(body : String) -> (Bool, String, String, String) {
 }
 
 ///|
+fn cashflow_explain_text_from_body(body : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          json_object_text(data, "explain", "现金流解释候选响应为空")
+        _ => "现金流解释候选响应为空"
+      }
+    _ => "现金流解释候选响应无效"
+  }
+}
+
+///|
 fn cbs_from_body(
   body : String,
 ) -> (Bool, Array[CbsRow], String, String, String) {
@@ -6203,6 +6224,20 @@ fn load_cashflow_inflow(emit : @rabbita.Emit[Msg]) -> Cmd {
       }
     },
   )
+}
+
+///|
+fn issue_cashflow_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/cashflow/ai-explain")
+  .with_text(
+    "{\"series\":[{\"month\":\"2026-08\",\"net\":-1200000}],\"gapWeeks\":[{\"week\":\"2026-W33\",\"gap\":1200000}]}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(CashflowExplainFinished(body))
+      Err(_) => emit(CashflowExplainFailed)
+    }
+  })
 }
 
 ///|
@@ -9783,6 +9818,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           cashflow_inflow_loaded: false,
           cashflow_inflow_total: "0",
           cashflow_inflow_note: "回款读模型不可用 · 保留空源状态",
+        },
+      )
+    ExplainCashflow =>
+      (
+        issue_cashflow_explain(emit),
+        {
+          ..model,
+          cashflow_explain_note: "正在生成确定性现金流解释 · 不调用 provider/LLM…",
+        },
+      )
+    CashflowExplainFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          cashflow_explain_note: if body.contains(
+              "\"provider\":\"native-deterministic\"",
+            ) {
+            "现金流解释候选已生成 · native-deterministic · 不持久化、不授权"
+          } else {
+            "现金流解释候选响应已返回 · provider/LLM 未执行"
+          },
+          cashflow_explain_text: cashflow_explain_text_from_body(body),
+        },
+      )
+    CashflowExplainFailed =>
+      (
+        none,
+        {
+          ..model,
+          cashflow_explain_note: "现金流解释候选不可用 · provider/LLM 保持关闭",
+          cashflow_explain_text: "现金流解释候选不可用",
         },
       )
     CbsLoaded(body) => {
@@ -16841,7 +16908,7 @@ fn cashflow_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn cashflow_view(model : Model) -> @html.Html {
+fn cashflow_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let planned = if model.cashflow_loaded {
     "¥" + model.cashflow_planned_total
   } else {
@@ -16882,6 +16949,11 @@ fn cashflow_view(model : Model) -> @html.Html {
     [
       button(class="erp-secondary-btn", "切换 30 / 90 天"),
       button(class="erp-secondary-btn", "导出预测"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExplainCashflow),
+        "生成缺口解释",
+      ),
     ],
     div <| [
       div(class="erp-runtime-banner", [
@@ -16938,6 +17010,15 @@ fn cashflow_view(model : Model) -> @html.Html {
         metric("最低余额", minimum_balance, minimum_note, "metric-blue"),
       ],
       cashflow_runtime_table(model),
+      div(class="erp-runtime-banner", [
+        strong("现金流解释候选"),
+        span(" · " + model.cashflow_explain_note),
+      ]),
+      table_panel(
+        "解释结果",
+        "只读摘要 · 不持久化 prompt",
+        data_table(["结果"], [[model.cashflow_explain_text]]),
+      ),
     ],
   )
 }
@@ -19742,7 +19823,7 @@ fn business_view(
       "/report-builder" => report_builder_view(emit, model)
       "/warning" => warning_view(emit, model)
       "/warning-rules" => warning_rules_view(model)
-      "/cashflow" => cashflow_view(model)
+      "/cashflow" => cashflow_view(emit, model)
       "/inbox" => inbox_view(emit, model)
       "/attachments" => attachments_view(emit, model)
       "/notify-config" => notify_view(emit, model)

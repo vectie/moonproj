@@ -307,6 +307,8 @@ fn command_path_allowed(
       path == "/api/company/export/excel" ||
       path == "/api/company/ai-hub/explain" ||
       path == "/api/company/source/ai-hub/explain" ||
+      path == "/api/company/cashflow/ai-explain" ||
+      path == "/api/company/source/cashflow/ai-explain" ||
       path == "/api/company/admin/dict/options" ||
       path == "/api/company/source/admin/dict/options" ||
       path == "/api/company/admin/sys-param" ||
@@ -999,7 +1001,9 @@ async fn handle(
             path != "/api/company/budget-check" &&
             path != "/api/company/export/excel" &&
             path != "/api/company/ai-hub/explain" &&
-            path != "/api/company/source/ai-hub/explain"
+            path != "/api/company/source/ai-hub/explain" &&
+            path != "/api/company/cashflow/ai-explain" &&
+            path != "/api/company/source/cashflow/ai-explain"
           )
         let (body, key) = if request.meth is @http.Get ||
           request.meth is @http.Head {

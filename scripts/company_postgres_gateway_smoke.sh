@@ -174,6 +174,15 @@ test "$status" = 200
   '.success == true and .data.provider == "native-deterministic" and .data.rowCount == 1 and .provider_execution == false and .persisted == false and .authorizing == false' \
   "$TMP_DIR/ai-hub-explain.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/cashflow-explain.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"series":[{"month":"2026-08","net":-1200000}],"gapWeeks":[{"week":"2026-W33","gap":1200000}]}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/cashflow/ai-explain")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .data.provider == "native-deterministic" and .data.seriesCount == 1 and .data.gapWeekCount == 1 and .data.totalGap == 1200000 and .provider_execution == false and .persisted == false and .authorizing == false' \
+  "$TMP_DIR/cashflow-explain.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \

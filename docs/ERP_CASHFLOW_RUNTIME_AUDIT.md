@@ -50,3 +50,6 @@ real provider integration remain separate migration gates. The
 current controlled export has no `sale_revenue`, milestone, or v3 CBS rows, so
 those endpoints truthfully return empty series/coverage instead of fabricated
 cash.
+Rabbita `/cashflow` now exposes the deterministic explanation candidate and
+renders its returned gap summary with the same no-provider/no-persistence
+boundary; the trusted gateway smoke covers the browser-facing forwarding path.
