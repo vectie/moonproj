@@ -13,10 +13,24 @@ struct Key {
 }
 
 ///|
+struct ExpectedCandidate {
+  key : Key
+  candidate : String
+}
+
+///|
+struct ActualCandidate {
+  key : Key
+  candidate : String
+}
+
+///|
 struct Receipt {
   source_snapshot_id : String
   mapping_version : String
+  cohort : String
   expected : Array[Key]
+  expected_candidates : Array[ExpectedCandidate]
 }
 
 ///|
@@ -90,22 +104,77 @@ fn load_receipt(path : String) -> Receipt raise SqliteProjectionParityError {
   }
   let snapshot = required_string(root, "source_snapshot_id", "receipt")
   let mapping = required_string(root, "mapping_version", "receipt")
+  let cohort = root
+    .get("cohort")
+    .map(fn(value) {
+      match value {
+        String(text) => text
+        _ => ""
+      }
+    })
+    .unwrap_or("")
   let accepted = required_array(root, "accepted_items", "receipt")
   if accepted.is_empty() {
     raise fail("promotion receipt has no accepted items")
   }
   let expected : Array[Key] = []
+  let expected_candidates : Array[ExpectedCandidate] = []
   for index in 0..<accepted.length() {
     let path = "receipt.accepted_items[" + index.to_string() + "]"
     let item = object(accepted[index], path)
-    expected.push({
+    let key : Key = {
       aggregate_type: required_string(item, "target_type", path),
       aggregate_id: required_string(item, "target_id", path),
       source_table: required_string(item, "source_table", path),
       source_id: required_string(item, "source_id", path),
-    })
+    }
+    expected.push(key)
+    match item.get("target_candidate") {
+      Some(candidate) =>
+        match candidate {
+          Object(_) =>
+            expected_candidates.push({ key, candidate: canonical(candidate) })
+          _ => raise fail("promotion candidate is not an object")
+        }
+      None => ()
+    }
   }
-  { source_snapshot_id: snapshot, mapping_version: mapping, expected }
+  {
+    source_snapshot_id: snapshot,
+    mapping_version: mapping,
+    cohort,
+    expected,
+    expected_candidates,
+  }
+}
+
+///|
+fn canonical(value : Json) -> String {
+  match value {
+    Null => "null"
+    True => "true"
+    False => "false"
+    String(text) => Json::string(text).stringify()
+    Number(number, repr~) =>
+      match repr {
+        Some(repr) => Json::number(number, repr~).stringify()
+        None => Json::number(number).stringify()
+      }
+    Array(items) => "[" + items.map(canonical).join(",") + "]"
+    Object(fields) => {
+      let keys = fields.keys().to_array()
+      keys.sort_by(fn(left, right) { left.lexical_compare(right) })
+      "{" +
+      keys
+      .map(fn(key) {
+        Json::string(key).stringify() +
+        ":" +
+        canonical(fields.get(key).unwrap())
+      })
+      .join(",") +
+      "}"
+    }
+  }
 }
 
 ///|
@@ -264,6 +333,199 @@ fn load_actual(path : String) -> Array[Key] raise SqliteProjectionParityError {
 }
 
 ///|
+fn decode_exact_actual(
+  path : String,
+) -> Array[ActualCandidate] raise SqliteProjectionParityError {
+  let content = @fs.read_file_to_string(path) catch {
+    error => raise SqliteProjectionParityError::Io(error)
+  }
+  let result : Array[ActualCandidate] = []
+  for line_view in content.split("\n") {
+    let line = line_view.to_owned()
+    if !line.is_empty() {
+      let values = line
+        .split("|")
+        .map(fn(value) { value.to_owned() })
+        .to_array()
+      if values.length() != 3 {
+        raise fail("unexpected SQLite exact projection output")
+      }
+      let payload = @json.parse(decode_hex(values[2])) catch {
+        _ => raise fail("projection payload is invalid JSON")
+      }
+      let fields = object(payload, "projection payload")
+      let candidate = match fields.get("candidate") {
+        Some(value) => value
+        None => raise fail("projection payload has no candidate")
+      }
+      let _ = object(candidate, "projection candidate")
+      let source_table = required_string(
+        fields, "source_table", "projection payload",
+      )
+      let source_id = required_string(fields, "source_id", "projection payload")
+      result.push({
+        key: {
+          aggregate_type: decode_hex(values[0]),
+          aggregate_id: decode_hex(values[1]),
+          source_table,
+          source_id,
+        },
+        candidate: canonical(candidate),
+      })
+    }
+  }
+  result
+}
+
+///|
+fn cohort_format(cohort : String) -> String {
+  match cohort {
+    "opening-control-v1" => "moonproj.erp.opening-control-parity.v1"
+    "tax-filing-v1" => "moonproj.erp.tax-filing-parity.v1"
+    "bank-statement-v1" => "moonproj.erp.bank-statement-parity.v1"
+    "financing-facility-v1" => "moonproj.erp.financing-facility-parity.v1"
+    "asset-lifecycle-v1" => "moonproj.erp.asset-lifecycle-parity.v1"
+    "treasury-plan-dispatch-v1" =>
+      "moonproj.erp.treasury-plan-dispatch-parity.v1"
+    "invoice-subledger-v1" => "moonproj.erp.invoice-subledger-parity.v1"
+    "procurement-cohort-v1" => "moonproj.erp.procurement-cohort-parity.v1"
+    "investment-performance-v1" =>
+      "moonproj.erp.investment-performance-parity.v1"
+    _ => ""
+  }
+}
+
+///|
+fn candidate_token(key : Key) -> String {
+  key_token(key)
+}
+
+///|
+fn key_from_candidate_token(value : String) -> Key {
+  let fields = value
+    .split("\u{1f}")
+    .map(fn(item) { item.to_owned() })
+    .to_array()
+  {
+    aggregate_type: fields[0],
+    aggregate_id: fields[1],
+    source_table: fields[2],
+    source_id: fields[3],
+  }
+}
+
+///|
+fn candidate_key_json(key : Key, count : Int) -> Json {
+  Json::array([
+    Json::string(key.aggregate_type),
+    Json::string(key.aggregate_id),
+    Json::string(key.source_table),
+    Json::string(key.source_id),
+    Json::number(count.to_double(), repr=count.to_string()),
+  ])
+}
+
+///|
+fn string_array(values : Array[String]) -> Json {
+  Json::array(values.map(fn(value) { Json::string(value) }))
+}
+
+///|
+fn sorted_strings(values : Array[String]) -> Array[String] {
+  let result = values.copy()
+  result.sort_by(fn(left, right) { left.lexical_compare(right) })
+  result
+}
+
+///|
+fn exact_compare(
+  receipt : Receipt,
+  actual : Array[ActualCandidate],
+  integrity : String,
+) -> Json {
+  let expected_counts : Map[String, Int] = {}
+  let actual_counts : Map[String, Int] = {}
+  let expected_values : Map[String, Array[String]] = {}
+  let actual_values : Map[String, Array[String]] = {}
+  for value in receipt.expected_candidates {
+    let key = candidate_token(value.key)
+    expected_counts.set(key, expected_counts.get(key).unwrap_or(0) + 1)
+    let candidates = expected_values.get(key).unwrap_or([])
+    candidates.push(value.candidate)
+    expected_values.set(key, candidates)
+  }
+  for value in actual {
+    let key = candidate_token(value.key)
+    actual_counts.set(key, actual_counts.get(key).unwrap_or(0) + 1)
+    let candidates = actual_values.get(key).unwrap_or([])
+    candidates.push(value.candidate)
+    actual_values.set(key, candidates)
+  }
+  let missing : Array[Json] = []
+  let extra : Array[Json] = []
+  for key, count in expected_counts {
+    let remaining = count - actual_counts.get(key).unwrap_or(0)
+    if remaining > 0 {
+      missing.push(candidate_key_json(key_from_candidate_token(key), remaining))
+    }
+  }
+  for key, count in actual_counts {
+    let remaining = count - expected_counts.get(key).unwrap_or(0)
+    if remaining > 0 {
+      extra.push(candidate_key_json(key_from_candidate_token(key), remaining))
+    }
+  }
+  let mismatches : Array[Json] = []
+  for key, expected_candidates in expected_values {
+    match actual_values.get(key) {
+      Some(actual_candidates) => {
+        let left = sorted_strings(expected_candidates)
+        let right = sorted_strings(actual_candidates)
+        if left != right {
+          let key_value = key_from_candidate_token(key)
+          mismatches.push(
+            Json::object({
+              "key": Json::array([
+                Json::string(key_value.aggregate_type),
+                Json::string(key_value.aggregate_id),
+                Json::string(key_value.source_table),
+                Json::string(key_value.source_id),
+              ]),
+              "expected": string_array(left),
+              "actual": string_array(right),
+            }),
+          )
+        }
+      }
+      None => ()
+    }
+  }
+  let exact = !receipt.expected_candidates.is_empty() &&
+    integrity == "ok" &&
+    missing.is_empty() &&
+    extra.is_empty() &&
+    mismatches.is_empty()
+  Json::object({
+    "format": Json::string(cohort_format(receipt.cohort)),
+    "source_snapshot_id": Json::string(receipt.source_snapshot_id),
+    "mapping_version": Json::string(receipt.mapping_version),
+    "state": Json::string(if exact { "shadow_verified" } else { "mismatch" }),
+    "integrity": Json::string(integrity),
+    "expected_items": Json::number(
+      receipt.expected_candidates.length().to_double(),
+      repr=receipt.expected_candidates.length().to_string(),
+    ),
+    "actual_items": Json::number(
+      actual.length().to_double(),
+      repr=actual.length().to_string(),
+    ),
+    "missing": Json::array(missing),
+    "extra": Json::array(extra),
+    "candidate_mismatches": Json::array(mismatches),
+  })
+}
+
+///|
 fn compare(receipt : Receipt, actual : Array[Key], integrity : String) -> Json {
   let (expected_counts, expected_unique) = counter(receipt.expected)
   let (actual_counts, actual_unique) = counter(actual)
@@ -313,34 +575,74 @@ fn main {
     error => {
       println("company SQLite projection parity failed: \{to_repr(error)}")
       @sys.exit(1)
-      { source_snapshot_id: "", mapping_version: "", expected: [] }
+      {
+        source_snapshot_id: "",
+        mapping_version: "",
+        cohort: "",
+        expected: [],
+        expected_candidates: [],
+      }
     }
   }
-  let actual = load_actual(args[3]) catch {
-    error => {
-      println("company SQLite projection parity failed: \{to_repr(error)}")
-      @sys.exit(1)
-      []
+  if args.length() >= 6 && args[5] == "exact" {
+    let actual = decode_exact_actual(args[3]) catch {
+      error => {
+        println(
+          "company SQLite exact projection parity failed: \{to_repr(error)}",
+        )
+        @sys.exit(1)
+        []
+      }
     }
-  }
-  let report = compare(receipt, actual, args[4])
-  @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
-    error => {
-      println("company SQLite projection parity failed: \{to_repr(error)}")
-      @sys.exit(1)
-    }
-  }
-  println(report.stringify())
-  match report {
-    Object(fields) =>
-      if fields
-        .get("state")
-        .map(fn(value) { value == Json::string("shadow_verified") })
-        .unwrap_or(false) {
-        ()
-      } else {
+    let report = exact_compare(receipt, actual, args[4])
+    @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
+      error => {
+        println(
+          "company SQLite exact projection parity failed: \{to_repr(error)}",
+        )
         @sys.exit(1)
       }
-    _ => @sys.exit(1)
+    }
+    println(report.stringify())
+    match report {
+      Object(fields) =>
+        if fields
+          .get("state")
+          .map(fn(value) { value == Json::string("shadow_verified") })
+          .unwrap_or(false) {
+          ()
+        } else {
+          @sys.exit(1)
+        }
+      _ => @sys.exit(1)
+    }
+  } else {
+    let actual = load_actual(args[3]) catch {
+      error => {
+        println("company SQLite projection parity failed: \{to_repr(error)}")
+        @sys.exit(1)
+        []
+      }
+    }
+    let report = compare(receipt, actual, args[4])
+    @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
+      error => {
+        println("company SQLite projection parity failed: \{to_repr(error)}")
+        @sys.exit(1)
+      }
+    }
+    println(report.stringify())
+    match report {
+      Object(fields) =>
+        if fields
+          .get("state")
+          .map(fn(value) { value == Json::string("shadow_verified") })
+          .unwrap_or(false) {
+          ()
+        } else {
+          @sys.exit(1)
+        }
+      _ => @sys.exit(1)
+    }
   }
 }

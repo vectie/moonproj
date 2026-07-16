@@ -28,6 +28,7 @@ scripts/company_postgres_projection_apply.sh
 scripts/company_postgres_projection_parity.sh
 cmd/sqlite_projection_parity
 scripts/company_sqlite_projection_parity.sh
+scripts/company_sqlite_exact_projection_parity.sh
 cmd/sqlite_projection_apply
 scripts/company_sqlite_projection_apply.sh
 cmd/sqlite_rehearsal

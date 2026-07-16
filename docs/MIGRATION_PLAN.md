@@ -2255,6 +2255,12 @@ Execute the remainder in this order:
     target types, compares durable projection multiplicity and canonical
     candidate payloads, and emits the existing domain-specific parity format;
     the PostgreSQL cohort rehearsal now invokes the native wrapper.
+3a.44. **Native SQLite exact projection parity mode (2026-07-16).**
+    `cmd/sqlite_projection_parity` now accepts an exact mode and compares the
+    canonical `candidate` payloads, not only projection identity. The new
+    `company_sqlite_exact_projection_parity.sh` wrapper replaces the nine
+    Python exact parity calls in `erp_migration_rehearsal.sh` and preserves the
+    cohort-specific parity envelopes.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

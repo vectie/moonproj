@@ -210,9 +210,8 @@ if [ -n "$OPENING_CONTROL_MAPPING" ]; then
     "$OPENING_CONTROL_RECEIPT" "$TARGET_DB" > "$OPENING_CONTROL_APPLY"
   echo "opening_control_apply=$OPENING_CONTROL_APPLY"
   OPENING_CONTROL_PARITY="$WORK_DIR/opening-control-parity.json"
-  python3 "$SCRIPT_DIR/company_opening_control_parity.py" \
-    "$OPENING_CONTROL_RECEIPT" "$OPENING_CONTROL_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$OPENING_CONTROL_RECEIPT" "$TARGET_DB" "$OPENING_CONTROL_PARITY"
   echo "opening_control_parity=$OPENING_CONTROL_PARITY"
   OPENING_CONTROL_REPLAY="$WORK_DIR/opening-control-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -234,9 +233,8 @@ if [ -n "$TAX_FILING_MAPPING" ]; then
     "$TAX_FILING_RECEIPT" "$TARGET_DB" > "$TAX_FILING_APPLY"
   echo "tax_filing_apply=$TAX_FILING_APPLY"
   TAX_FILING_PARITY="$WORK_DIR/tax-filing-parity.json"
-  python3 "$SCRIPT_DIR/company_tax_filing_parity.py" \
-    "$TAX_FILING_RECEIPT" "$TAX_FILING_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$TAX_FILING_RECEIPT" "$TARGET_DB" "$TAX_FILING_PARITY"
   echo "tax_filing_parity=$TAX_FILING_PARITY"
   TAX_FILING_REPLAY="$WORK_DIR/tax-filing-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -258,9 +256,8 @@ if [ -n "$BANK_STATEMENT_MAPPING" ]; then
     "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" > "$BANK_STATEMENT_APPLY"
   echo "bank_statement_apply=$BANK_STATEMENT_APPLY"
   BANK_STATEMENT_PARITY="$WORK_DIR/bank-statement-parity.json"
-  python3 "$SCRIPT_DIR/company_bank_statement_parity.py" \
-    "$BANK_STATEMENT_RECEIPT" "$BANK_STATEMENT_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$BANK_STATEMENT_RECEIPT" "$TARGET_DB" "$BANK_STATEMENT_PARITY"
   echo "bank_statement_parity=$BANK_STATEMENT_PARITY"
   BANK_STATEMENT_REPLAY="$WORK_DIR/bank-statement-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -282,9 +279,8 @@ if [ -n "$FINANCING_FACILITY_MAPPING" ]; then
     "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" > "$FINANCING_FACILITY_APPLY"
   echo "financing_facility_apply=$FINANCING_FACILITY_APPLY"
   FINANCING_FACILITY_PARITY="$WORK_DIR/financing-facility-parity.json"
-  python3 "$SCRIPT_DIR/company_financing_facility_parity.py" \
-    "$FINANCING_FACILITY_RECEIPT" "$FINANCING_FACILITY_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$FINANCING_FACILITY_RECEIPT" "$TARGET_DB" "$FINANCING_FACILITY_PARITY"
   echo "financing_facility_parity=$FINANCING_FACILITY_PARITY"
   FINANCING_FACILITY_REPLAY="$WORK_DIR/financing-facility-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -306,9 +302,8 @@ if [ -n "$ASSET_LIFECYCLE_MAPPING" ]; then
     "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" > "$ASSET_LIFECYCLE_APPLY"
   echo "asset_lifecycle_apply=$ASSET_LIFECYCLE_APPLY"
   ASSET_LIFECYCLE_PARITY="$WORK_DIR/asset-lifecycle-parity.json"
-  python3 "$SCRIPT_DIR/company_asset_lifecycle_parity.py" \
-    "$ASSET_LIFECYCLE_RECEIPT" "$ASSET_LIFECYCLE_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$ASSET_LIFECYCLE_RECEIPT" "$TARGET_DB" "$ASSET_LIFECYCLE_PARITY"
   echo "asset_lifecycle_parity=$ASSET_LIFECYCLE_PARITY"
   ASSET_LIFECYCLE_REPLAY="$WORK_DIR/asset-lifecycle-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -330,9 +325,8 @@ if [ -n "$TREASURY_PLAN_DISPATCH_MAPPING" ]; then
     "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" > "$TREASURY_PLAN_DISPATCH_APPLY"
   echo "treasury_plan_dispatch_apply=$TREASURY_PLAN_DISPATCH_APPLY"
   TREASURY_PLAN_DISPATCH_PARITY="$WORK_DIR/treasury-plan-dispatch-parity.json"
-  python3 "$SCRIPT_DIR/company_treasury_plan_dispatch_parity.py" \
-    "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TREASURY_PLAN_DISPATCH_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$TREASURY_PLAN_DISPATCH_RECEIPT" "$TARGET_DB" "$TREASURY_PLAN_DISPATCH_PARITY"
   echo "treasury_plan_dispatch_parity=$TREASURY_PLAN_DISPATCH_PARITY"
   TREASURY_PLAN_DISPATCH_REPLAY="$WORK_DIR/treasury-plan-dispatch-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -354,9 +348,8 @@ if [ -n "$INVOICE_SUBLEDGER_MAPPING" ]; then
     "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" > "$INVOICE_SUBLEDGER_APPLY"
   echo "invoice_subledger_apply=$INVOICE_SUBLEDGER_APPLY"
   INVOICE_SUBLEDGER_PARITY="$WORK_DIR/invoice-subledger-parity.json"
-  python3 "$SCRIPT_DIR/company_invoice_subledger_parity.py" \
-    "$INVOICE_SUBLEDGER_RECEIPT" "$INVOICE_SUBLEDGER_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$INVOICE_SUBLEDGER_RECEIPT" "$TARGET_DB" "$INVOICE_SUBLEDGER_PARITY"
   echo "invoice_subledger_parity=$INVOICE_SUBLEDGER_PARITY"
   INVOICE_SUBLEDGER_REPLAY="$WORK_DIR/invoice-subledger-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -378,9 +371,8 @@ if [ -n "$PROCUREMENT_COHORT_MAPPING" ]; then
     "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" > "$PROCUREMENT_COHORT_APPLY"
   echo "procurement_cohort_apply=$PROCUREMENT_COHORT_APPLY"
   PROCUREMENT_COHORT_PARITY="$WORK_DIR/procurement-cohort-parity.json"
-  python3 "$SCRIPT_DIR/company_procurement_cohort_parity.py" \
-    "$PROCUREMENT_COHORT_RECEIPT" "$PROCUREMENT_COHORT_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$PROCUREMENT_COHORT_RECEIPT" "$TARGET_DB" "$PROCUREMENT_COHORT_PARITY"
   echo "procurement_cohort_parity=$PROCUREMENT_COHORT_PARITY"
   PROCUREMENT_COHORT_REPLAY="$WORK_DIR/procurement-cohort-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
@@ -402,9 +394,8 @@ if [ -n "$INVESTMENT_PERFORMANCE_MAPPING" ]; then
     "$INVESTMENT_PERFORMANCE_RECEIPT" "$TARGET_DB" > "$INVESTMENT_PERFORMANCE_APPLY"
   echo "investment_performance_apply=$INVESTMENT_PERFORMANCE_APPLY"
   INVESTMENT_PERFORMANCE_PARITY="$WORK_DIR/investment-performance-parity.json"
-  python3 "$SCRIPT_DIR/company_investment_performance_parity.py" \
-    "$INVESTMENT_PERFORMANCE_RECEIPT" "$INVESTMENT_PERFORMANCE_PARITY" \
-    --backend sqlite --database "$TARGET_DB"
+  "$SCRIPT_DIR/company_sqlite_exact_projection_parity.sh" \
+    "$INVESTMENT_PERFORMANCE_RECEIPT" "$TARGET_DB" "$INVESTMENT_PERFORMANCE_PARITY"
   echo "investment_performance_parity=$INVESTMENT_PERFORMANCE_PARITY"
   INVESTMENT_PERFORMANCE_REPLAY="$WORK_DIR/investment-performance-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.sh" \
