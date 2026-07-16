@@ -4,7 +4,7 @@ Recorded: 2026-07-13
 Status: contract implemented; operations authorization pending
 
 The migration must run beside the working ERP before any record-class
-ownership transfer. `scripts/company_shadow_period_check.py` validates a
+ownership transfer. `cmd/shadow_period_check` with `scripts/company_shadow_period_check.sh` validates a
 versioned shadow manifest and the current technical evidence.
 
 The contract requires:

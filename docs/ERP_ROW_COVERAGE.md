@@ -4,7 +4,7 @@ Recorded: 2026-07-13
 Status: implemented for the available snapshot
 
 Aggregate projection counts are not enough to prove a migration covered every
-source row. `scripts/erp_row_coverage.py` now reads the credential-safe export
+source row. `cmd/row_coverage` with `scripts/erp_row_coverage.sh` now reads the credential-safe export
 and all native promotion/evidence receipts in a rehearsal work directory.
 
 It records, per source table:

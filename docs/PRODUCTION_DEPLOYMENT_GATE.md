@@ -26,8 +26,8 @@ The manifest must identify:
 - named operations, security, and finance approvals, each with an actor,
   decision timestamp, rationale, and evidence reference.
 
-The former `scripts/company_production_deployment_check.py` and
-`scripts/company_production_service_check.py` describe and validate this
+The native `cmd/production_deployment_check` and
+`cmd/production_service_check` commands with their shell wrappers validate this
 contract as frozen comparison evidence. They must not be executed by a
 supported build or deployment. Their checks fail closed on raw DSNs,
 secret-shaped fields, unsupported engines, missing backup/restore controls,

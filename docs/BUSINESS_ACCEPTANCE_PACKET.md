@@ -17,7 +17,7 @@ Required decisions:
 | `accounting-reconciliation` | finance | Accept the reviewed source-to-journal evidence and its non-posting boundary. |
 | `shadow-period` | operations | Approve the owner, duration, comparison reports, and rollback procedure for shadow operation. |
 
-`scripts/company_business_acceptance_check.py` validates decision IDs, owner
+`cmd/business_acceptance_check` with `scripts/company_business_acceptance_check.sh` validates decision IDs, owner
 roles, source snapshot identity, evidence references, and decision metadata. It
 accepts empty decisions as `acceptance_pending`; it never converts them into
 approval. The operations, finance, and shadow-period decisions must explicitly

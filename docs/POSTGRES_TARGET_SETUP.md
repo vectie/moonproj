@@ -121,7 +121,9 @@ approve, imported-row protection, and void behavior.
 The shell-only `scripts/company_postgres_dynamic_cost_smoke.sh` verifies native
 source-field dynamic-cost create/replay, project-scoped formula readback,
 remarks, update, imported-row protection, and void behavior.
-The former credential-free `company_production_service_check.py` is frozen
+The native `cmd/production_service_check` and
+`scripts/company_production_service_check.sh` now enforce the credential-free
+service contract; the former Python checker is frozen
 comparison evidence only. Its service-boundary requirements (bounded reusable
 pool, schema-matched readiness, private TLS-terminated binding,
 authentication, fixed read endpoints, and no arbitrary SQL or mutation routes)
