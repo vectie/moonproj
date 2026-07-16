@@ -331,6 +331,23 @@ struct SalesContractRow {
 }
 
 ///|
+struct SalesMortgageRow {
+  mortgage_guid : String
+  mortgage_code : String
+  customer_guid : String
+  customer_name : String
+  bank_name : String
+  loan_amount : String
+  loan_years : String
+  rate : String
+  apply_date : String
+  approval_date : String
+  release_date : String
+  state : String
+  source_kind : String
+}
+
+///|
 struct InvoiceRow {
   invoice_no : String
   counterparty : String
@@ -1197,6 +1214,9 @@ struct Model {
   sales_contract_loaded : Bool
   sales_contract_project_id : String
   sales_contract_state : String
+  sales_mortgage_rows : Array[SalesMortgageRow]
+  sales_mortgage_loaded : Bool
+  sales_mortgage_filter_state : String
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
@@ -1896,6 +1916,7 @@ enum Msg {
   SalesSubscriptionCommandFailed
   SelectSalesContractProject(String)
   SelectSalesContractState(String)
+  SelectSalesMortgageState(String)
   CreateSalesMortgage
   ApproveSalesMortgage
   ReleaseSalesMortgage
@@ -2486,6 +2507,9 @@ fn initial_model() -> Model {
     sales_contract_loaded: false,
     sales_contract_project_id: "",
     sales_contract_state: "",
+    sales_mortgage_rows: [],
+    sales_mortgage_loaded: false,
+    sales_mortgage_filter_state: "",
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
@@ -4206,6 +4230,59 @@ fn sales_contract_rows_from_body(body : String) -> Array[SalesContractRow] {
       }
       for value in values {
         match sales_contract_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn sales_mortgage_from_json(value : Json) -> SalesMortgageRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        mortgage_guid: json_object_text(
+          fields,
+          "mortgage_guid",
+          json_object_text(fields, "mortgage_id", ""),
+        ),
+        mortgage_code: json_object_text(fields, "mortgage_code", "—"),
+        customer_guid: json_object_text(fields, "customer_guid", "—"),
+        customer_name: json_object_text(fields, "customer_name", "—"),
+        bank_name: json_object_text(fields, "bank_name", "—"),
+        loan_amount: json_object_text(fields, "loan_amount", "0"),
+        loan_years: json_object_text(fields, "loan_years", "0"),
+        rate: json_object_text(fields, "rate", "0"),
+        apply_date: json_object_text(fields, "apply_date", ""),
+        approval_date: json_object_text(fields, "approval_date", ""),
+        release_date: json_object_text(fields, "release_date", ""),
+        state: json_object_text(fields, "state", "applying"),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn sales_mortgage_rows_from_body(body : String) -> Array[SalesMortgageRow] {
+  let rows : Array[SalesMortgageRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("data") {
+        Some(Json::Array(values)) => values
+        _ =>
+          match fields.get("items") {
+            Some(Json::Array(values)) => values
+            _ => []
+          }
+      }
+      for value in values {
+        match sales_mortgage_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
         }
@@ -13502,6 +13579,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           } else {
             model.sales_contract_loaded
           },
+          sales_mortgage_rows: if family == "mortgages" {
+            sales_mortgage_rows_from_body(body)
+          } else {
+            model.sales_mortgage_rows
+          },
+          sales_mortgage_loaded: if family == "mortgages" {
+            true
+          } else {
+            model.sales_mortgage_loaded
+          },
           sales_note: "已加载 PostgreSQL 销售源读模型 · 空表保持可见 · 导入记录保持只读",
         },
       )
@@ -13537,6 +13624,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             false
           } else {
             model.sales_contract_loaded
+          },
+          sales_mortgage_rows: if family == "mortgages" {
+            []
+          } else {
+            model.sales_mortgage_rows
+          },
+          sales_mortgage_loaded: if family == "mortgages" {
+            false
+          } else {
+            model.sales_mortgage_loaded
           },
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
         },
@@ -13904,6 +14001,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     SelectSalesContractState(state) =>
       (none, { ..model, sales_contract_state: state })
+    SelectSalesMortgageState(state) =>
+      (none, { ..model, sales_mortgage_filter_state: state })
     CreateSalesMortgage =>
       (
         issue_sales_mortgage_command(emit, model, "create"),
@@ -22587,6 +22686,8 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
     model.sales_subscription_loaded
   } else if family == "contracts" {
     model.sales_contract_loaded
+  } else if family == "mortgages" {
+    model.sales_mortgage_loaded
   } else {
     model.sales_loaded && model.sales_family == family
   }
@@ -22595,6 +22696,8 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
       model.sales_subscription_rows.length().to_string()
     } else if family == "contracts" {
       model.sales_contract_rows.length().to_string()
+    } else if family == "mortgages" {
+      model.sales_mortgage_rows.length().to_string()
     } else {
       model.sales_rows.length().to_string()
     }
@@ -22613,6 +22716,17 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
       Some(row) =>
         " · " +
         row.scontract_code +
+        " · " +
+        row.state +
+        " · " +
+        row.source_kind
+      None => ""
+    }
+  } else if family == "mortgages" {
+    match model.sales_mortgage_rows.get(0) {
+      Some(row) =>
+        " · " +
+        row.mortgage_code +
         " · " +
         row.state +
         " · " +
@@ -23409,6 +23523,96 @@ fn sales_mortgage_actions(
 }
 
 ///|
+fn sales_mortgage_state_label(state : String) -> String {
+  match state {
+    "applying" => "申请中"
+    "approved" => "已批贷"
+    "released" => "已放款"
+    "rejected" => "已拒贷"
+    _ => state
+  }
+}
+
+///|
+fn sales_mortgage_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.sales_mortgage_rows {
+    if !model.sales_mortgage_filter_state.is_empty() &&
+      row.state != model.sales_mortgage_filter_state {
+      continue
+    }
+    let actions : Array[@html.Html] = if row.source_kind == "command" &&
+      row.state == "applying" {
+      [
+        button(
+          class="erp-link-btn",
+          on_click=emit(ApproveSalesMortgage),
+          "批贷",
+        ),
+      ]
+    } else if row.source_kind == "command" && row.state == "approved" {
+      [
+        button(
+          class="erp-link-btn is-success",
+          on_click=emit(ReleaseSalesMortgage),
+          "放款",
+        ),
+      ]
+    } else {
+      [span(class="erp-source-note", "源行只读")]
+    }
+    rows.push(
+      tr <| [
+        td(row.mortgage_code),
+        td(row.customer_name + " · " + row.customer_guid),
+        td(row.bank_name),
+        td(row.loan_amount),
+        td(row.loan_years),
+        td(row.rate),
+        td(row.apply_date),
+        td(row.approval_date),
+        td(row.release_date),
+        td(sales_mortgage_state_label(row.state) + " · " + row.source_kind),
+        td <| actions,
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("暂无按揭源记录"),
+        td("—"),
+      ],
+    )
+  }
+  table_panel(
+    "按揭申请",
+    model.sales_note +
+    " · " +
+    model.sales_mortgage_rows.length().to_string() +
+    " 条 · 导入按揭保持只读",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "按揭号", "客户", "银行", "贷款额(元)", "年限", "利率",
+          "申请日", "批贷日", "放款日", "状态", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
 fn sales_mortgages_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "按揭办理",
@@ -23421,37 +23625,51 @@ fn sales_mortgages_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
         strong("本地按揭命令"),
         span(" · " + model.sales_mortgage_command_note),
       ]),
-      sales_projection_table(model, "mortgages"),
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "状态筛选:"),
+        button(
+          class=if model.sales_mortgage_filter_state.is_empty() {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesMortgageState("")),
+          "全部",
+        ),
+        button(
+          class=if model.sales_mortgage_filter_state == "applying" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesMortgageState("applying")),
+          "申请中",
+        ),
+        button(
+          class=if model.sales_mortgage_filter_state == "approved" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesMortgageState("approved")),
+          "已批贷",
+        ),
+        button(
+          class=if model.sales_mortgage_filter_state == "released" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesMortgageState("released")),
+          "已放款",
+        ),
+      ],
+      sales_mortgage_table(emit, model),
       div(class="erp-stat-grid") <| [
         metric("办理中", "68", "涉及 5 家银行", "metric-blue"),
         metric("本月放款", "¥3,860 万", "32 笔", "metric-green"),
         metric("资料待补", "7", "需客户跟进", "metric-blue"),
       ],
-      filter_bar("按揭号 / 客户 / 银行"),
-      table_panel(
-        "按揭申请",
-        "共 214 条",
-        data_table(
-          [
-            "按揭号", "客户", "银行", "贷款额(元)", "年限", "利率",
-            "申请日", "批贷日", "放款日", "状态",
-          ],
-          [
-            [
-              "MT-260701-019", "王晓峰", "建设银行", "1,673,000", "30 年",
-              "3.45%", "2026-07-01", "", "", "审批中",
-            ],
-            [
-              "MT-260628-008", "赵文静", "招商银行", "1,130,000", "30 年",
-              "3.45%", "2026-06-28", "2026-07-08", "", "待放款",
-            ],
-            [
-              "MT-260615-002", "陈敏", "工商银行", "1,380,000", "25 年", "3.55%",
-              "2026-06-15", "2026-06-22", "2026-07-03", "已放款",
-            ],
-          ],
-        ),
-      ),
     ],
   )
 }
