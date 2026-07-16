@@ -35,9 +35,9 @@ moon run --target native cmd/accounting_link -- \
   "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT"
 
 rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$ACCOUNTING_RECEIPT" "$SQLITE_DATABASE" > "$WORK_DIR/sqlite-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$ACCOUNTING_RECEIPT" "$SQLITE_DATABASE" > "$WORK_DIR/sqlite-replay.json"
 python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
   "$ACCOUNTING_RECEIPT" --backend sqlite --database "$SQLITE_DATABASE" \

@@ -2230,6 +2230,14 @@ Execute the remainder in this order:
     shell executes SQLite only and reopens the database for schema, count,
     uniqueness, integrity, and receipt checks; first-run and zero-insert
     replay match the historical adapter.
+3a.40. **Native SQLite accounting-link apply adapter (2026-07-16).**
+    `cmd/sqlite_accounting_link_apply` and
+    `scripts/company_sqlite_accounting_link_apply.sh` now validate reviewed
+    accounting-link receipts, emit conflict-checked transactional SQLite SQL,
+    preserve scoped event/source/journal/principal hashes, and verify durable
+    `AccountingLinked` receipts with zero-insert replay. SQLite accounting
+    cohort shells use this adapter; the Python implementation remains frozen
+    comparison evidence.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

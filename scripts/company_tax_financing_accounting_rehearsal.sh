@@ -35,10 +35,10 @@ moon run --target native cmd/tax_accounting_link -- \
 moon run --target native cmd/accounting_link -- \
   "$WORK_DIR/tax-accounting-link-plan.json" \
   "$WORK_DIR/tax-accounting-link-receipt.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/tax-accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/tax-sqlite-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/tax-accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/tax-sqlite-replay.json"
 python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
@@ -59,10 +59,10 @@ moon run --target native cmd/financing_accounting_link -- \
 moon run --target native cmd/accounting_link -- \
   "$WORK_DIR/financing-accounting-link-plan.json" \
   "$WORK_DIR/financing-accounting-link-receipt.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/financing-accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/financing-sqlite-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/financing-accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/financing-sqlite-replay.json"
 python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \

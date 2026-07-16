@@ -161,10 +161,10 @@ if [ -n "$MAPPING_PATH" ]; then
     moon run --target native cmd/accounting_link -- "$ACCOUNTING_PLAN" "$ACCOUNTING_RECEIPT"
     echo "accounting_link_receipt=$ACCOUNTING_RECEIPT"
     ACCOUNTING_APPLY="$WORK_DIR/accounting-link-apply.json"
-    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" "$ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_APPLY"
+    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_APPLY"
     echo "accounting_link_apply=$ACCOUNTING_APPLY"
     ACCOUNTING_REPLAY="$WORK_DIR/accounting-link-replay.json"
-    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" "$ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_REPLAY"
+    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ACCOUNTING_REPLAY"
     echo "accounting_link_replay=$ACCOUNTING_REPLAY"
     ACCOUNTING_RECONCILIATION="$WORK_DIR/accounting-reconciliation.json"
     "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
@@ -435,10 +435,10 @@ if [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
   moon run --target native cmd/accounting_link -- "$ADVANCE_OFFSET_ACCOUNTING_PLAN" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT"
   echo "advance_offset_accounting_receipt=$ADVANCE_OFFSET_ACCOUNTING_RECEIPT"
   ADVANCE_OFFSET_ACCOUNTING_APPLY="$WORK_DIR/advance-offset-accounting-link-apply.json"
-  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ADVANCE_OFFSET_ACCOUNTING_APPLY"
+  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ADVANCE_OFFSET_ACCOUNTING_APPLY"
   echo "advance_offset_accounting_apply=$ADVANCE_OFFSET_ACCOUNTING_APPLY"
   ADVANCE_OFFSET_ACCOUNTING_REPLAY="$WORK_DIR/advance-offset-accounting-link-replay.json"
-  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ADVANCE_OFFSET_ACCOUNTING_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$ADVANCE_OFFSET_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$ADVANCE_OFFSET_ACCOUNTING_REPLAY"
   echo "advance_offset_accounting_replay=$ADVANCE_OFFSET_ACCOUNTING_REPLAY"
   ADVANCE_OFFSET_RECONCILIATION="$WORK_DIR/advance-offset-accounting-reconciliation.json"
   "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
@@ -460,10 +460,10 @@ if [ -n "$PAYMENT_ACCOUNTING_MAPPING" ]; then
   moon run --target native cmd/accounting_link -- "$PAYMENT_ACCOUNTING_PLAN" "$PAYMENT_ACCOUNTING_RECEIPT"
   echo "payment_accounting_receipt=$PAYMENT_ACCOUNTING_RECEIPT"
   PAYMENT_ACCOUNTING_APPLY="$WORK_DIR/payment-accounting-link-apply.json"
-  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" "$PAYMENT_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$PAYMENT_ACCOUNTING_APPLY"
+  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$PAYMENT_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$PAYMENT_ACCOUNTING_APPLY"
   echo "payment_accounting_apply=$PAYMENT_ACCOUNTING_APPLY"
   PAYMENT_ACCOUNTING_REPLAY="$WORK_DIR/payment-accounting-link-replay.json"
-  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" "$PAYMENT_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$PAYMENT_ACCOUNTING_REPLAY"
+  "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" "$PAYMENT_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$PAYMENT_ACCOUNTING_REPLAY"
   echo "payment_accounting_replay=$PAYMENT_ACCOUNTING_REPLAY"
   PAYMENT_RECONCILIATION="$WORK_DIR/payment-accounting-reconciliation.json"
   "$SCRIPT_DIR/company_sqlite_accounting_reconciliation.py" \
@@ -602,11 +602,11 @@ if [ -n "$DELIVERY_RECOGNITION_MAPPING" ]; then
       "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT"
     echo "delivery_recognition_accounting_receipt=$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT"
     DELIVERY_RECOGNITION_ACCOUNTING_APPLY="$WORK_DIR/delivery-recognition-accounting-link-apply.json"
-    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_ACCOUNTING_APPLY"
     echo "delivery_recognition_accounting_apply=$DELIVERY_RECOGNITION_ACCOUNTING_APPLY"
     DELIVERY_RECOGNITION_ACCOUNTING_REPLAY="$WORK_DIR/delivery-recognition-accounting-link-replay.json"
-    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+    "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
       "$DELIVERY_RECOGNITION_ACCOUNTING_RECEIPT" "$TARGET_DB" > "$DELIVERY_RECOGNITION_ACCOUNTING_REPLAY"
     echo "delivery_recognition_accounting_replay=$DELIVERY_RECOGNITION_ACCOUNTING_REPLAY"
     DELIVERY_RECOGNITION_RECONCILIATION="$WORK_DIR/delivery-recognition-accounting-reconciliation.json"

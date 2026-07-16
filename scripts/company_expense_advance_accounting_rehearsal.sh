@@ -31,10 +31,10 @@ moon run --target native cmd/accounting_link -- \
   "$WORK_DIR/accounting-link-plan.json" \
   "$WORK_DIR/accounting-link-receipt.json"
 
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.py" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-replay.json"
 python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
