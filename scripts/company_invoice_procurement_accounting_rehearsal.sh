@@ -36,9 +36,9 @@ moon run --target native cmd/accounting_link -- \
 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/invoice-accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/invoice-sqlite-replay.json"
-python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-  "$WORK_DIR/invoice-accounting-link-receipt.json" --backend sqlite \
-  --database "$SQLITE_DATABASE" > "$WORK_DIR/invoice-sqlite-parity.json"
+"$SCRIPT_DIR/company_sqlite_accounting_link_parity.sh" \
+  "$WORK_DIR/invoice-accounting-link-receipt.json" "$SQLITE_DATABASE" \
+  > "$WORK_DIR/invoice-sqlite-parity.json"
 
   "$SCRIPT_DIR/erp_procurement_cohort_plan.sh" \
   "$PROCUREMENT_MAPPING" "$WORK_DIR/procurement-plan.json"
@@ -56,9 +56,9 @@ moon run --target native cmd/accounting_link -- \
 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$WORK_DIR/procurement-accounting-link-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/procurement-sqlite-replay.json"
-python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-  "$WORK_DIR/procurement-accounting-link-receipt.json" --backend sqlite \
-  --database "$SQLITE_DATABASE" > "$WORK_DIR/procurement-sqlite-parity.json"
+"$SCRIPT_DIR/company_sqlite_accounting_link_parity.sh" \
+  "$WORK_DIR/procurement-accounting-link-receipt.json" "$SQLITE_DATABASE" \
+  > "$WORK_DIR/procurement-sqlite-parity.json"
 
 if [ -n "$PG_DATABASE" ]; then
   "$SCRIPT_DIR/company_postgres_accounting_link_apply.sh" \

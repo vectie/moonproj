@@ -2238,6 +2238,11 @@ Execute the remainder in this order:
     `AccountingLinked` receipts with zero-insert replay. SQLite accounting
     cohort shells use this adapter; the Python implementation remains frozen
     comparison evidence.
+3a.41. **Native SQLite accounting-link parity adapter (2026-07-16).**
+    `cmd/sqlite_accounting_link_parity` and its shell wrapper now verify
+    receipt-to-row event/source/journal/principal identity and emit the
+    historical parity envelope. SQLite accounting cohorts use the native
+    checker; the Python checker remains frozen comparison evidence.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

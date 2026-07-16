@@ -39,8 +39,8 @@ rm -f "$SQLITE_DATABASE" "$SQLITE_DATABASE-wal" "$SQLITE_DATABASE-shm"
   "$ACCOUNTING_RECEIPT" "$SQLITE_DATABASE" > "$WORK_DIR/sqlite-apply.json"
 "$SCRIPT_DIR/company_sqlite_accounting_link_apply.sh" \
   "$ACCOUNTING_RECEIPT" "$SQLITE_DATABASE" > "$WORK_DIR/sqlite-replay.json"
-python3 "$SCRIPT_DIR/company_accounting_link_parity.py" \
-  "$ACCOUNTING_RECEIPT" --backend sqlite --database "$SQLITE_DATABASE" \
+"$SCRIPT_DIR/company_sqlite_accounting_link_parity.sh" \
+  "$ACCOUNTING_RECEIPT" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-parity.json"
 
 if [ -n "$PG_DATABASE" ]; then
