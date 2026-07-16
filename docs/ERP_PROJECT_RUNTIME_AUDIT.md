@@ -31,6 +31,7 @@ comparison evidence only:
 | AI plan suggestion | signed `POST /api/company/plan/ai-suggest-plan` and `/source` alias | deterministic seven-node candidate; no provider, persistence, or plan mutation |
 | Rabbita project list | `/projects` | connected read with designer fallback |
 | Rabbita project detail | `/projects/:guid` | connected read with designer fallback |
+| Rabbita project plan | `/project-plan` | source-shaped project scope picker, Gantt-style task timeline, key-node table, report/create-task forms, AI suggestion form, and delay-impact form backed by native PostgreSQL routes |
 
 The target now keeps imported task rows read-only while exposing a separate
 PostgreSQL-owned project-plan task command boundary:
@@ -64,9 +65,13 @@ evidence-gated boundary.
 - Rabbita `/projects` and `/projects/:guid` load live PostgreSQL rows while
   retaining the designer-built tables and forms as an explicitly labelled
   fallback/preview.
-  Rabbita `/project-plan` now exposes the seven-node deterministic AI
-  suggestion candidate and renders its dates/owner roles without persisting or
-  mutating the plan; the trusted gateway smoke covers the browser path.
+  Rabbita `/project-plan` now loads the selected project's PostgreSQL task
+  rows, renders source-shaped Gantt/table views with task owners/status/dates,
+  submits evidence-gated reports, creates/updates/deletes local task
+  projections, exposes the seven-node deterministic AI suggestion form, and
+  calculates delay impact without mutating the plan. The trusted gateway
+  smoke covers the native AI/task routes; browser production acceptance remains
+  open.
 - The native service and project-plan smoke cover MDM project
   create/replay/update/delete, local task create/replay/update/delete, and an
   evidence-gated report alias; the source-shaped project-plan readback merges
@@ -84,7 +89,7 @@ evidence-gated boundary.
 
 1. Run browser acceptance through production identity and verify BU/entity scope
    and lifecycle/task reconciliation against the source implementation.
-2. Bind the source-compatible plan/lifecycle reads and local task commands to
-   the full project-plan UI scenario, including evidence capture for reports.
+2. Run the full browser project-plan scenario with production identity,
+   including evidence capture for reports and responsive Gantt/table behavior.
 3. Obtain named project/operations owner acceptance before treating imported
    project state as target-owned.

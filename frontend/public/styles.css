@@ -214,6 +214,31 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-share-page .erp-table-panel { margin-top: 14px; }
 .erp-share-footer { padding: 18px 0 4px; color: #94a3b8; font-size: 11px; text-align: center; }
 
+/* ProjectPlan.vue parity: project scope, Gantt rows, task actions, and inline source forms. */
+.erp-project-picker { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.erp-project-chip { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; color: #475569; background: #fff; font-size: 11px; cursor: pointer; }
+.erp-project-chip.is-active { border-color: #2563eb; color: #1d4ed8; background: #eff6ff; }
+.erp-gantt { margin-top: 12px; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+.erp-gantt-axis { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #64748b; background: #f8fafc; font-size: 11px; }
+.erp-gantt-axis strong { color: #334155; }
+.erp-gantt-row { display: flex; min-height: 44px; border-bottom: 1px solid #f1f5f9; }
+.erp-gantt-row:last-child { border-bottom: 0; }
+.erp-gantt-row.is-subtask .erp-gantt-label { padding-left: 24px; }
+.erp-gantt-row.is-delayed { background: #fff7ed; }
+.erp-gantt-label { display: flex; flex-direction: column; justify-content: center; gap: 2px; width: 280px; flex-shrink: 0; padding: 6px 12px; border-right: 1px solid #e2e8f0; }
+.erp-gantt-label strong { overflow: hidden; color: #334155; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.erp-gantt-label span { color: #94a3b8; font-size: 10px; }
+.erp-gantt-track { display: flex; align-items: center; flex: 1; min-width: 160px; padding: 0 12px; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(16.666% - 1px), #f1f5f9 calc(16.666% - 1px), #f1f5f9 16.666%); }
+.erp-gantt-bar { min-width: 34px; height: 22px; padding: 0 8px; border: 0; border-radius: 4px; color: #fff; background: #94a3b8; font-size: 10px; font-weight: 700; cursor: pointer; }
+.erp-gantt-bar.status-done { background: #16a34a; }
+.erp-gantt-bar.status-in_progress { background: #2563eb; }
+.erp-gantt-bar.status-pending { background: #94a3b8; }
+.erp-gantt-bar.status-overdue, .erp-gantt-bar.status-blocked { background: #dc2626; }
+.erp-plan-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.erp-plan-form-grid .erp-detail-card { margin-top: 0; }
+.erp-link-btn { padding: 0 5px; border: 0; color: #2563eb; background: transparent; font-size: 11px; cursor: pointer; }
+.erp-link-btn.is-warning { color: #b45309; }
+
 @keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 1100px) {
@@ -248,6 +273,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-builder-options { grid-template-columns: 1fr 1fr; }
   .erp-form-grid { grid-template-columns: 1fr 1fr; }
   .erp-health-grid { grid-template-columns: 1fr 1fr; }
+  .erp-plan-form-grid { grid-template-columns: 1fr; }
+  .erp-gantt-label { width: 220px; }
   .erp-share-page { padding: 10px; }
   .erp-share-bar { padding: 13px 14px; }
   .login-brand-side { max-width: 100%; text-align: center; }
@@ -278,6 +305,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
   .erp-form-grid { grid-template-columns: 1fr; }
   .erp-detail-card { padding: 12px; }
   .erp-health-grid { grid-template-columns: 1fr; }
+  .erp-gantt-label { width: 180px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

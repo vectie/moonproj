@@ -44,6 +44,21 @@ extern "js" fn download_blob(blob : @dom.Blob, filename : String) -> Unit =
 
 ///|
 #cfg(target="js")
+extern "js" fn download_text(text : String, filename : String) -> Unit =
+  #| (text, filename) => {
+  #|   const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  #|   const url = URL.createObjectURL(blob);
+  #|   const anchor = document.createElement('a');
+  #|   anchor.href = url;
+  #|   anchor.download = filename;
+  #|   document.body.appendChild(anchor);
+  #|   anchor.click();
+  #|   anchor.remove();
+  #|   URL.revokeObjectURL(url);
+  #| }
+
+///|
+#cfg(target="js")
 extern "js" fn read_file_input_text(
   input_id : String,
   callback : (String) -> Unit,
@@ -283,12 +298,19 @@ struct DeliveryOutputRow {
 ///|
 struct DeliveryTaskRow {
   task_id : String
+  task_code : String
   task_name : String
   project_id : String
+  task_type : String
+  parent_task_id : String
   plan_begin_date : String
   plan_end_date : String
+  actual_begin_date : String
+  actual_end_date : String
   progress_pct : String
   status : String
+  owner_name : String
+  delayed : Bool
   source_kind : String
 }
 
@@ -880,11 +902,32 @@ struct Model {
   delivery_output_state : String
   delivery_task_id : String
   delivery_command_note : String
+  project_plan_project_id : String
   plan_task_id : String
   plan_task_state : String
   plan_task_command_note : String
   plan_ai_suggestion_note : String
   plan_ai_suggestion_rows : Array[Array[String]]
+  plan_ai_proj_type : String
+  plan_ai_scale : String
+  plan_ai_region : String
+  plan_ai_begin_date : String
+  plan_report_task_id : String
+  plan_report_task_name : String
+  plan_report_progress : String
+  plan_report_date : String
+  plan_report_summary : String
+  plan_create_task_code : String
+  plan_create_task_name : String
+  plan_create_task_type : String
+  plan_create_begin_date : String
+  plan_create_end_date : String
+  plan_create_owner : String
+  plan_create_remarks : String
+  plan_delay_task_id : String
+  plan_delay_days : String
+  plan_delay_note : String
+  plan_delay_rows : Array[Array[String]]
   reports_loaded : Bool
   report_cost_rows : Array[ReportCostRow]
   report_contract_rows : Array[ReportContractRow]
@@ -1214,6 +1257,25 @@ enum Msg {
   FillDemo(String, String)
   InputUser(String)
   InputPassword(String)
+  InputProjectPlanProject(String)
+  InputPlanAiProjectType(String)
+  InputPlanAiScale(String)
+  InputPlanAiRegion(String)
+  InputPlanAiBeginDate(String)
+  InputPlanReportProgress(String)
+  InputPlanReportDate(String)
+  InputPlanReportSummary(String)
+  SelectPlanTask(String, String)
+  InputPlanCreateTaskCode(String)
+  InputPlanCreateTaskName(String)
+  InputPlanCreateTaskType(String)
+  InputPlanCreateBeginDate(String)
+  InputPlanCreateEndDate(String)
+  InputPlanCreateOwner(String)
+  InputPlanCreateRemarks(String)
+  InputPlanDelayDays(String)
+  RunPlanDelayImpact
+  ExportPlanCsv
   Navigate(String)
   ToggleSidebar
   ToggleMobileNav
@@ -1356,6 +1418,8 @@ enum Msg {
   DeletePlanTask
   PlanTaskCommandFinished(String)
   PlanTaskCommandFailed
+  PlanDelayImpactFinished(String)
+  PlanDelayImpactFailed
   SuggestProjectPlan
   ProjectPlanSuggestionFinished(String)
   ProjectPlanSuggestionFailed
@@ -1775,11 +1839,32 @@ fn initial_model() -> Model {
     delivery_output_state: "new",
     delivery_task_id: "task-003",
     delivery_command_note: "导入任务保持只读；本地命令需要证据并写入审计",
+    project_plan_project_id: "proj-0001",
     plan_task_id: "",
     plan_task_state: "idle",
     plan_task_command_note: "项目计划任务命令尚未运行",
     plan_ai_suggestion_note: "AI 计划建议尚未运行 · provider/LLM 保持关闭",
     plan_ai_suggestion_rows: [],
+    plan_ai_proj_type: "住宅",
+    plan_ai_scale: "中型",
+    plan_ai_region: "全国",
+    plan_ai_begin_date: "2026-08-01",
+    plan_report_task_id: "task-003",
+    plan_report_task_name: "主体结构施工",
+    plan_report_progress: "0",
+    plan_report_date: "2026-07-16",
+    plan_report_summary: "",
+    plan_create_task_code: "",
+    plan_create_task_name: "",
+    plan_create_task_type: "task",
+    plan_create_begin_date: "2026-08-01",
+    plan_create_end_date: "",
+    plan_create_owner: "",
+    plan_create_remarks: "",
+    plan_delay_task_id: "",
+    plan_delay_days: "7",
+    plan_delay_note: "尚未计算延期影响",
+    plan_delay_rows: [],
     reports_loaded: false,
     report_cost_rows: [],
     report_contract_rows: [],
@@ -3128,12 +3213,19 @@ fn delivery_task_from_json(value : Json) -> DeliveryTaskRow? {
     Json::Object(fields) =>
       Some({
         task_id: json_object_text(fields, "task_id", ""),
+        task_code: json_object_text(fields, "task_code", ""),
         task_name: json_object_text(fields, "task_name", ""),
         project_id: json_object_text(fields, "project_id", ""),
+        task_type: json_object_text(fields, "task_type", "task"),
+        parent_task_id: json_object_text(fields, "parent_task_id", ""),
         plan_begin_date: json_object_text(fields, "plan_begin_date", ""),
         plan_end_date: json_object_text(fields, "plan_end_date", ""),
+        actual_begin_date: json_object_text(fields, "actual_begin_date", ""),
+        actual_end_date: json_object_text(fields, "actual_end_date", ""),
         progress_pct: json_object_text(fields, "progress_pct", "0"),
         status: json_object_text(fields, "status", "pending"),
+        owner_name: json_object_text(fields, "owner_name", ""),
+        delayed: json_object_text(fields, "delayed", "false") == "true",
         source_kind: json_object_text(fields, "source_kind", "imported"),
       })
     _ => None
@@ -6192,6 +6284,25 @@ fn load_invoice_source_tax(emit : @rabbita.Emit[Msg]) -> Cmd {
 
 ///|
 fn load_delivery(emit : @rabbita.Emit[Msg]) -> Cmd {
+  load_delivery_source_progress(emit)
+}
+
+///|
+fn load_delivery_for_project(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/delivery/overview?project_id=" + project_id).expect_text(result => {
+      match result {
+        Ok(body) => emit(DeliveryLoaded(body))
+        Err(_) => emit(DeliveryLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_delivery_source_progress(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/source/delivery/progress?projGuid=proj-0001").expect_text(result => {
       match result {
         Ok(body) => emit(DeliverySourceProgressLoaded(body))
@@ -8199,7 +8310,7 @@ fn issue_loan_workflow_sync(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
 }
 
 ///|
-fn delivery_command_body(command_type : String) -> String {
+fn delivery_command_body(model : Model, command_type : String) -> String {
   if command_type == "create_progress" {
     "{\"idempotency_key\":\"rabbita-delivery-progress-create-v1\",\"progress_id\":\"PROG-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"principal_id\":\"co-rabbita\",\"project_scope\":\"project:proj-0001\",\"stage\":\"主体结构\",\"plan_pct\":70,\"completed_value_minor\":125000,\"currency\":\"CNY\",\"evidence_ids\":[\"rabbita:progress:photo-001\"],\"remark\":\"本地进度命令演示\"}"
   } else if command_type == "report_progress" {
@@ -8213,7 +8324,24 @@ fn delivery_command_body(command_type : String) -> String {
   } else if command_type == "confirm_output" {
     "{\"idempotency_key\":\"rabbita-delivery-output-confirm-v1\",\"confirm_amount\":\"125000\",\"confirmed_at\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:output:acceptance-001\"]}"
   } else {
-    "{\"idempotency_key\":\"rabbita-delivery-task-report-v1\",\"report_id\":\"TASK-REPORT-RABBITA-LOCAL\",\"task_id\":\"task-003\",\"project_id\":\"proj-0001\",\"progress_pct\":70,\"report_date\":\"2026-07-13\",\"summary\":\"本地任务汇报演示\",\"evidence_ids\":[\"rabbita:task-report:001\"]}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-delivery-task-report-" + import_nonce(),
+      ),
+      "report_id": Json::string("TASK-REPORT-RABBITA-LOCAL"),
+      "task_id": Json::string(
+        if model.plan_report_task_id.is_empty() {
+          model.delivery_task_id
+        } else {
+          model.plan_report_task_id
+        },
+      ),
+      "project_id": Json::string(model.project_plan_project_id),
+      "progress_pct": Json::string(model.plan_report_progress),
+      "report_date": Json::string(model.plan_report_date),
+      "summary": Json::string(model.plan_report_summary),
+      "evidence_ids": Json::array([Json::string("rabbita:task-report:001")]),
+    }).stringify()
   }
 }
 
@@ -8236,10 +8364,10 @@ fn issue_delivery_command(
   } else if command_type == "confirm_output" {
     "/api/company/delivery/outputs/\{model.delivery_output_id}/confirm"
   } else {
-    "/api/company/delivery/tasks/\{model.delivery_task_id}/report"
+    "/api/company/plan/tasks/\{model.delivery_task_id}/report"
   }
   @http.post(path)
-  .with_text(delivery_command_body(command_type))
+  .with_text(delivery_command_body(model, command_type))
   .expect_text(result => {
     match result {
       Ok(body) => emit(DeliveryCommandFinished(body))
@@ -8249,28 +8377,63 @@ fn issue_delivery_command(
 }
 
 ///|
-fn plan_task_authority_json(model : Model, capability : String) -> String {
-  "{\"active\":true,\"principal_id\":\"principal-rabbita-plan\",\"actor_id\":\"" +
-  model.user_code +
-  "\",\"capability\":\"" +
-  capability +
-  "\",\"scope\":\"project:proj-0001\"}"
+fn plan_task_authority(model : Model, capability : String) -> Json {
+  Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string("principal-rabbita-plan"),
+    "actor_id": Json::string(model.user_code),
+    "capability": Json::string(capability),
+    "scope": Json::string("project:" + model.project_plan_project_id),
+  })
 }
 
 ///|
 fn plan_task_command_body(model : Model, command_type : String) -> String {
   if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-plan-task-create-v1\",\"task_id\":\"PT-RABBITA-LOCAL\",\"task_code\":\"PT-RABBITA-LOCAL\",\"task_name\":\"Rabbita 项目计划任务\",\"project_id\":\"proj-0001\",\"task_type\":\"task\",\"plan_begin_date\":\"2026-08-01\",\"plan_end_date\":\"2026-08-15\",\"remarks\":\"项目计划命令演示\",\"authority\":" +
-    plan_task_authority_json(model, "project:task:create") +
-    "}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-plan-task-create-" + import_nonce(),
+      ),
+      "task_id": Json::string("PT-RABBITA-LOCAL"),
+      "task_code": Json::string(
+        if model.plan_create_task_code.is_empty() {
+          "PT-RABBITA-LOCAL"
+        } else {
+          model.plan_create_task_code
+        },
+      ),
+      "task_name": Json::string(model.plan_create_task_name),
+      "project_id": Json::string(model.project_plan_project_id),
+      "task_type": Json::string(model.plan_create_task_type),
+      "plan_begin_date": Json::string(model.plan_create_begin_date),
+      "plan_end_date": Json::string(model.plan_create_end_date),
+      "owner_id": Json::string(model.plan_create_owner),
+      "remarks": Json::string(model.plan_create_remarks),
+      "authority": plan_task_authority(model, "project:task:create"),
+    }).stringify()
   } else if command_type == "update" {
-    "{\"idempotency_key\":\"rabbita-plan-task-update-v1\",\"taskName\":\"Rabbita 项目计划任务已复核\",\"progressPct\":25,\"authority\":" +
-    plan_task_authority_json(model, "project:task:update") +
-    "}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-plan-task-update-" + import_nonce(),
+      ),
+      "taskName": Json::string(
+        if model.plan_create_task_name.is_empty() {
+          "项目计划任务已复核"
+        } else {
+          model.plan_create_task_name
+        },
+      ),
+      "progressPct": Json::string(model.plan_report_progress),
+      "authority": plan_task_authority(model, "project:task:update"),
+    }).stringify()
   } else {
-    "{\"idempotency_key\":\"rabbita-plan-task-delete-v1\",\"reason\":\"项目计划命令演示撤回\",\"authority\":" +
-    plan_task_authority_json(model, "project:task:delete") +
-    "}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-plan-task-delete-" + import_nonce(),
+      ),
+      "reason": Json::string("项目计划命令演示撤回"),
+      "authority": plan_task_authority(model, "project:task:delete"),
+    }).stringify()
   }
 }
 
@@ -8309,15 +8472,38 @@ fn issue_plan_task_command(
 }
 
 ///|
-fn issue_project_plan_suggestion(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_project_plan_suggestion(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
   @http.post("/api/company/plan/ai-suggest-plan")
   .with_text(
-    "{\"projType\":\"住宅\",\"scale\":\"中型\",\"region\":\"全国\",\"beginDate\":\"2026-08-01\"}",
+    Json::object({
+      "projType": Json::string(model.plan_ai_proj_type),
+      "scale": Json::string(model.plan_ai_scale),
+      "region": Json::string(model.plan_ai_region),
+      "beginDate": Json::string(model.plan_ai_begin_date),
+    }).stringify(),
   )
   .expect_text(result => {
     match result {
       Ok(body) => emit(ProjectPlanSuggestionFinished(body))
       Err(_) => emit(ProjectPlanSuggestionFailed)
+    }
+  })
+}
+
+///|
+fn issue_plan_delay_impact(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.get(
+    "/api/company/tasks/" +
+    model.plan_delay_task_id +
+    "/delay-impact?delayDays=" +
+    model.plan_delay_days,
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(PlanDelayImpactFinished(body))
+      Err(_) => emit(PlanDelayImpactFailed)
     }
   })
 }
@@ -8772,6 +8958,72 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, user_code, password, show_demo: false })
     InputUser(value) => (none, { ..model, user_code: value })
     InputPassword(value) => (none, { ..model, password: value })
+    InputProjectPlanProject(value) =>
+      (
+        load_delivery_for_project(emit, value),
+        {
+          ..model,
+          project_plan_project_id: value,
+          delivery_loaded: false,
+          delivery_note: "正在读取所选项目的 PostgreSQL 计划…",
+        },
+      )
+    InputPlanAiProjectType(value) =>
+      (none, { ..model, plan_ai_proj_type: value })
+    InputPlanAiScale(value) => (none, { ..model, plan_ai_scale: value })
+    InputPlanAiRegion(value) => (none, { ..model, plan_ai_region: value })
+    InputPlanAiBeginDate(value) =>
+      (none, { ..model, plan_ai_begin_date: value })
+    InputPlanReportProgress(value) =>
+      (none, { ..model, plan_report_progress: value })
+    InputPlanReportDate(value) => (none, { ..model, plan_report_date: value })
+    InputPlanReportSummary(value) =>
+      (none, { ..model, plan_report_summary: value })
+    SelectPlanTask(task_id, task_name) =>
+      (
+        none,
+        {
+          ..model,
+          plan_report_task_id: task_id,
+          plan_report_task_name: task_name,
+          plan_delay_task_id: task_id,
+          delivery_task_id: task_id,
+        },
+      )
+    InputPlanCreateTaskCode(value) =>
+      (none, { ..model, plan_create_task_code: value })
+    InputPlanCreateTaskName(value) =>
+      (none, { ..model, plan_create_task_name: value })
+    InputPlanCreateTaskType(value) =>
+      (none, { ..model, plan_create_task_type: value })
+    InputPlanCreateBeginDate(value) =>
+      (none, { ..model, plan_create_begin_date: value })
+    InputPlanCreateEndDate(value) =>
+      (none, { ..model, plan_create_end_date: value })
+    InputPlanCreateOwner(value) => (none, { ..model, plan_create_owner: value })
+    InputPlanCreateRemarks(value) =>
+      (none, { ..model, plan_create_remarks: value })
+    InputPlanDelayDays(value) => (none, { ..model, plan_delay_days: value })
+    RunPlanDelayImpact =>
+      if model.plan_delay_task_id == "" {
+        (none, { ..model, plan_delay_note: "请先选择任务" })
+      } else {
+        (
+          issue_plan_delay_impact(emit, model),
+          { ..model, plan_delay_note: "正在计算延期影响…" },
+        )
+      }
+    ExportPlanCsv =>
+      (
+        {
+          download_text(
+            project_plan_csv(model),
+            "项目计划-" + model.project_plan_project_id + ".csv",
+          )
+          none
+        },
+        model,
+      )
     InputProfileName(value) => (none, { ..model, profile_edit_name: value })
     InputProfilePasswordOld(value) =>
       (none, { ..model, profile_password_old: value })
@@ -8873,7 +9125,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_loans(emit)
       } else if path == "/tasks" {
         load_workflow(emit)
-      } else if path == "/project-plan" || path == "/project/progress" {
+      } else if path == "/project-plan" {
+        @cmd.batch([
+          load_projects(emit),
+          load_delivery_for_project(emit, model.project_plan_project_id),
+        ])
+      } else if path == "/project/progress" {
         load_delivery(emit)
       } else {
         none
@@ -14241,6 +14498,17 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     CreatePlanTask =>
       if model.plan_task_id != "" || model.plan_task_state == "pending" {
         (none, model)
+      } else if model.plan_create_task_name.trim().is_empty() {
+        (none, { ..model, plan_task_command_note: "任务名称不能为空" })
+      } else if model.plan_create_begin_date.trim().is_empty() ||
+        model.plan_create_end_date.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            plan_task_command_note: "计划开始/完成日期不能为空",
+          },
+        )
       } else {
         (
           issue_plan_task_command(emit, model, "create"),
@@ -14292,7 +14560,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       } else {
         (
-          load_delivery(emit),
+          load_delivery_for_project(emit, model.project_plan_project_id),
           {
             ..model,
             plan_task_id: if next_state == "deleted" {
@@ -14317,7 +14585,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     SuggestProjectPlan =>
       (
-        issue_project_plan_suggestion(emit),
+        issue_project_plan_suggestion(emit, model),
         {
           ..model,
           plan_ai_suggestion_note: "正在生成七节点确定性计划建议 · 不调用 provider/LLM…",
@@ -14347,6 +14615,28 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           plan_ai_suggestion_note: "计划建议服务不可用 · provider/LLM 保持关闭",
           plan_ai_suggestion_rows: [],
+        },
+      )
+    PlanDelayImpactFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          plan_delay_note: if body.contains("\"impactCount\"") {
+            "延期影响已计算 · 仅提供计划分析，不修改任务"
+          } else {
+            "延期影响响应已返回 · 请复核源任务"
+          },
+          plan_delay_rows: plan_delay_rows_from_body(body),
+        },
+      )
+    PlanDelayImpactFailed =>
+      (
+        none,
+        {
+          ..model,
+          plan_delay_note: "延期影响服务不可用或任务不存在",
+          plan_delay_rows: [],
         },
       )
     CreateDeliveryProgress =>
@@ -14428,13 +14718,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, model)
       }
     ReportTaskProgress =>
-      (
-        issue_delivery_command(emit, model, "report_task"),
-        {
-          ..model,
-          delivery_command_note: "正在提交任务汇报（不直接修改导入任务状态）…",
-        },
-      )
+      if model.plan_report_task_id.trim().is_empty() {
+        (none, { ..model, delivery_command_note: "请先选择任务" })
+      } else if model.plan_report_progress.trim().is_empty() {
+        (none, { ..model, delivery_command_note: "汇报进度不能为空" })
+      } else {
+        (
+          issue_delivery_command(emit, model, "report_task"),
+          {
+            ..model,
+            delivery_task_id: model.plan_report_task_id,
+            delivery_command_note: "正在提交任务汇报（不直接修改导入任务状态）…",
+          },
+        )
+      }
     DeliveryCommandFinished(body) => {
       let next_state = if body.contains("\"state\":\"accepted\"") {
         "accepted"
@@ -14452,7 +14749,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         "observed"
       }
       (
-        load_delivery(emit),
+        @cmd.batch([
+          load_delivery(emit),
+          load_delivery_for_project(emit, model.project_plan_project_id),
+        ]),
         {
           ..model,
           delivery_progress_state: if body.contains("delivery_progress") {
@@ -16019,6 +16319,68 @@ fn plan_ai_suggestion_rows_from_body(body : String) -> Array[Array[String]] {
 }
 
 ///|
+fn plan_delay_rows_from_body(body : String) -> Array[Array[String]] {
+  let rows : Array[Array[String]] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          for value in json_array_field(data, "impact") {
+            match value {
+              Json::Object(item) =>
+                rows.push([
+                  json_object_text(item, "taskName", "—"),
+                  json_object_text(item, "taskType", "task"),
+                  json_object_text(item, "oldBegin", "—"),
+                  json_object_text(item, "newBegin", "—"),
+                  json_object_text(item, "oldEnd", "—"),
+                  json_object_text(item, "newEnd", "—"),
+                ])
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn project_plan_csv(model : Model) -> String {
+  let mut csv = "编码,名称,类型,项目,计划开始,计划完成,实际开始,实际完成,进度,状态,责任人,来源\n"
+  for task in model.delivery_task_rows {
+    csv = csv +
+      task.task_code +
+      "," +
+      task.task_name +
+      "," +
+      task.task_type +
+      "," +
+      task.project_id +
+      "," +
+      task.plan_begin_date +
+      "," +
+      task.plan_end_date +
+      "," +
+      task.actual_begin_date +
+      "," +
+      task.actual_end_date +
+      "," +
+      task.progress_pct +
+      "," +
+      project_plan_status_text(task.status) +
+      "," +
+      task.owner_name +
+      "," +
+      task.source_kind +
+      "\n"
+  }
+  csv
+}
+
+///|
 fn delivery_progress_table(model : Model) -> @html.Html {
   if !model.delivery_loaded {
     div(class="erp-runtime-empty", "等待 PostgreSQL 工程进度投影")
@@ -16084,34 +16446,6 @@ fn delivery_outputs_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn delivery_tasks_table(model : Model) -> @html.Html {
-  let rows : Array[Array[String]] = []
-  for row in model.delivery_task_rows {
-    rows.push([
-      row.task_id,
-      row.project_id,
-      row.task_name,
-      row.plan_begin_date,
-      row.plan_end_date,
-      row.progress_pct + "%",
-      row.status,
-      row.source_kind,
-    ])
-  }
-  table_panel(
-    "项目计划任务",
-    "导入任务状态保持只读 · 任务汇报单独留痕",
-    data_table(
-      [
-        "任务", "项目", "名称", "计划开始", "计划完成", "完成度",
-        "状态", "来源",
-      ],
-      rows,
-    ),
-  )
-}
-
-///|
 fn delivery_reports_table(model : Model) -> @html.Html {
   let rows : Array[Array[String]] = []
   for row in model.delivery_report_rows {
@@ -16150,6 +16484,368 @@ fn plan_ai_suggestion_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn project_plan_status_text(status : String) -> String {
+  match status {
+    "done" => "已完成"
+    "in_progress" => "进行中"
+    "pending" => "未开始"
+    "overdue" => "已延期"
+    "blocked" => "阻塞"
+    "deleted" => "已作废"
+    _ => status
+  }
+}
+
+///|
+fn project_plan_project_picker(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let buttons : Array[@html.Html] = []
+  if model.project_rows.length() == 0 {
+    buttons.push(
+      span(
+        class="erp-source-note",
+        "项目列表尚未加载 · 当前范围 " +
+        model.project_plan_project_id,
+      ),
+    )
+  } else {
+    for row in model.project_rows {
+      buttons.push(
+        button(
+          class=if row.project_id == model.project_plan_project_id {
+            "erp-project-chip is-active"
+          } else {
+            "erp-project-chip"
+          },
+          on_click=emit(InputProjectPlanProject(row.project_id)),
+          row.project_code + " · " + row.project_name,
+        ),
+      )
+    }
+  }
+  div(class="erp-project-picker") <| buttons
+}
+
+///|
+fn project_plan_gantt(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  if model.delivery_task_rows.length() == 0 {
+    rows.push(
+      div(class="erp-runtime-empty", "当前项目暂无计划任务源记录"),
+    )
+  } else {
+    for task in model.delivery_task_rows {
+      let task_label = if task.task_type == "key_node" {
+        "节点 · " + task.task_name
+      } else {
+        task.task_name
+      }
+      let width = if task.progress_pct == "0" {
+        "8%"
+      } else {
+        task.progress_pct + "%"
+      }
+      rows.push(
+        div(
+          class="erp-gantt-row" +
+            (if task.parent_task_id.is_empty() { "" } else { " is-subtask" }) +
+            (if task.delayed { " is-delayed" } else { "" }),
+        ) <| [
+          div(class="erp-gantt-label") <| [
+            strong(
+              (if task.parent_task_id.is_empty() { "" } else { "↳ " }) +
+              task_label,
+            ),
+            span(task.plan_begin_date + " → " + task.plan_end_date),
+            if task.owner_name.is_empty() {
+              span("")
+            } else {
+              span("@" + task.owner_name)
+            },
+          ],
+          div(class="erp-gantt-track") <| [
+            button(
+              class="erp-gantt-bar status-" + task.status,
+              style=["width: " + width],
+              on_click=emit(SelectPlanTask(task.task_id, task.task_name)),
+              task.progress_pct + "%",
+            ),
+          ],
+        ],
+      )
+    }
+  }
+  section(class="erp-gantt") <| [
+    div(class="erp-gantt-axis") <| [
+      strong("任务 / 责任人"),
+      span("计划时间轴 · " + model.project_plan_project_id),
+    ],
+    div(class="erp-gantt-body") <| rows,
+  ]
+}
+
+///|
+fn project_plan_task_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for task in model.delivery_task_rows {
+    rows.push(
+      tr <| [
+        td(task.task_code),
+        td(task.task_name),
+        td(task.task_type),
+        td(task.project_id),
+        td(task.plan_begin_date + " ~ " + task.plan_end_date),
+        td(
+          task.actual_begin_date +
+          (if task.actual_end_date.is_empty() {
+            ""
+          } else {
+            " ~ " + task.actual_end_date
+          }),
+        ),
+        td(task.progress_pct + "%"),
+        td(class="erp-status-tag", project_plan_status_text(task.status)),
+        td(task.owner_name),
+        td(task.source_kind),
+        td <| [
+          button(
+            class="erp-link-btn",
+            on_click=emit(SelectPlanTask(task.task_id, task.task_name)),
+            "回填",
+          ),
+          button(
+            class="erp-link-btn is-warning",
+            on_click=emit(SelectPlanTask(task.task_id, task.task_name)),
+            "延期影响",
+          ),
+        ],
+      ],
+    )
+  }
+  table_panel(
+    "关键节点清单",
+    "源计划任务只读 · 选择任务后可回填进度或计算延期影响",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "编码", "名称", "类型", "项目", "计划期间", "实际期间",
+          "进度", "状态", "责任人", "来源", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
+fn project_plan_forms(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  div(class="erp-plan-form-grid") <| [
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("进度汇报"),
+        span(class="erp-info-tag", model.delivery_command_note),
+      ],
+      form_field(
+        "任务",
+        model.plan_report_task_name,
+        "先在表格中选择任务",
+      ),
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "进度 %",
+          model.plan_report_progress,
+          "0 - 100",
+          @html.InputType::Text,
+          emit.map(value => InputPlanReportProgress(value)),
+        ),
+        editable_form_field(
+          "汇报日期",
+          model.plan_report_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputPlanReportDate(value)),
+        ),
+      ],
+      editable_form_field(
+        "工作说明",
+        model.plan_report_summary,
+        "本次汇报的工作内容",
+        @html.InputType::Text,
+        emit.map(value => InputPlanReportSummary(value)),
+      ),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(ReportTaskProgress),
+        "提交汇报",
+      ),
+    ],
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新建任务 / 节点"),
+        span(class="erp-info-tag", model.plan_task_command_note),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class=if model.plan_create_task_type == "task" {
+            "erp-project-chip is-active"
+          } else {
+            "erp-project-chip"
+          },
+          on_click=emit(InputPlanCreateTaskType("task")),
+          "普通任务",
+        ),
+        button(
+          class=if model.plan_create_task_type == "key_node" {
+            "erp-project-chip is-active"
+          } else {
+            "erp-project-chip"
+          },
+          on_click=emit(InputPlanCreateTaskType("key_node")),
+          "关键节点",
+        ),
+      ],
+      editable_form_field(
+        "名称",
+        model.plan_create_task_name,
+        "任务名称",
+        @html.InputType::Text,
+        emit.map(value => InputPlanCreateTaskName(value)),
+      ),
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "编码",
+          model.plan_create_task_code,
+          "可省略",
+          @html.InputType::Text,
+          emit.map(value => InputPlanCreateTaskCode(value)),
+        ),
+        editable_form_field(
+          "责任人",
+          model.plan_create_owner,
+          "用户 ID",
+          @html.InputType::Text,
+          emit.map(value => InputPlanCreateOwner(value)),
+        ),
+        editable_form_field(
+          "计划开始",
+          model.plan_create_begin_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputPlanCreateBeginDate(value)),
+        ),
+        editable_form_field(
+          "计划完成",
+          model.plan_create_end_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputPlanCreateEndDate(value)),
+        ),
+      ],
+      editable_form_field(
+        "备注",
+        model.plan_create_remarks,
+        "任务备注",
+        @html.InputType::Text,
+        emit.map(value => InputPlanCreateRemarks(value)),
+      ),
+      button(class="erp-primary-btn", on_click=emit(CreatePlanTask), "创建"),
+    ],
+  ]
+}
+
+///|
+fn project_plan_ai_and_delay(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let delay_rows : Array[@html.Html] = []
+  for row in model.plan_delay_rows {
+    delay_rows.push(table_row(row))
+  }
+  div(class="erp-plan-form-grid") <| [
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("AI 排程建议"),
+        span(class="erp-info-tag", "native-deterministic · 不自动写入"),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "项目类型",
+          model.plan_ai_proj_type,
+          "住宅 / 商业",
+          @html.InputType::Text,
+          emit.map(value => InputPlanAiProjectType(value)),
+        ),
+        editable_form_field(
+          "规模",
+          model.plan_ai_scale,
+          "小型 / 中型 / 大型",
+          @html.InputType::Text,
+          emit.map(value => InputPlanAiScale(value)),
+        ),
+        editable_form_field(
+          "区域",
+          model.plan_ai_region,
+          "天津 / 重庆",
+          @html.InputType::Text,
+          emit.map(value => InputPlanAiRegion(value)),
+        ),
+        editable_form_field(
+          "开始日期",
+          model.plan_ai_begin_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputPlanAiBeginDate(value)),
+        ),
+      ],
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(SuggestProjectPlan),
+        "生成 7 节点",
+      ),
+      plan_ai_suggestion_table(model),
+    ],
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("延期影响分析"),
+        span(class="erp-info-tag", "只读计算 · 不修改任务"),
+      ],
+      p(class="erp-source-note", "当前任务：" + model.plan_delay_task_id),
+      editable_form_field(
+        "延期天数",
+        model.plan_delay_days,
+        "1 - 365",
+        @html.InputType::Text,
+        emit.map(value => InputPlanDelayDays(value)),
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RunPlanDelayImpact),
+        "计算影响",
+      ),
+      p(class="erp-dashboard-note", model.plan_delay_note),
+      if model.plan_delay_rows.length() == 0 {
+        div(class="erp-runtime-empty", "暂无后续任务影响")
+      } else {
+        table(class="erp-data-table") <| [
+          thead <| [
+            table_header([
+              "后续任务", "类型", "原开始", "新开始", "原完成", "新完成",
+            ]),
+          ],
+          tbody <| delay_rows,
+        ]
+      },
+    ],
+  ]
+}
+
+///|
 fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "项目计划",
@@ -16158,19 +16854,24 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     [
       button(
         class="erp-secondary-btn",
-        on_click=emit(ReportTaskProgress),
-        "汇报当前任务",
+        on_click=emit(Navigate("/project-plan")),
+        "刷新计划",
       ),
       button(
         class="erp-secondary-btn",
-        on_click=emit(CreatePlanTask),
-        "＋ 新建计划任务",
+        on_click=emit(CreateDeliveryProgress),
+        "＋ 新建进度记录",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExportPlanCsv),
+        "导出 CSV",
       ),
       if model.plan_task_id != "" && model.plan_task_state != "pending" {
         button(
-          class="erp-secondary-btn",
+          class="erp-primary-btn",
           on_click=emit(UpdatePlanTask),
-          "更新计划任务",
+          "更新本地任务",
         )
       } else {
         span("")
@@ -16179,35 +16880,29 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         button(
           class="erp-secondary-btn",
           on_click=emit(DeletePlanTask),
-          "作废计划任务",
+          "作废本地任务",
         )
       } else {
         span("")
       },
-      button(
-        class="erp-primary-btn",
-        on_click=emit(CreateDeliveryProgress),
-        "＋ 新建进度记录",
-      ),
-      button(
-        class="erp-secondary-btn",
-        on_click=emit(SuggestProjectPlan),
-        "生成 AI 计划建议",
-      ),
     ],
     div <| [
       delivery_runtime_banner(model),
-      div(class="erp-runtime-banner", [
-        strong("项目计划命令"),
+      div(class="erp-runtime-banner") <| [
+        strong("PostgreSQL 项目计划"),
+        span(" · 项目 " + model.project_plan_project_id),
         span(" · " + model.plan_task_command_note),
-      ]),
+      ],
+      project_plan_project_picker(emit, model),
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "计划总览"),
         button(class="erp-tab", "甘特图"),
-        button(class="erp-tab", "里程碑"),
+        button(class="erp-tab", "关键节点"),
       ],
-      delivery_tasks_table(model),
-      plan_ai_suggestion_table(model),
+      project_plan_gantt(emit, model),
+      project_plan_task_table(emit, model),
+      project_plan_forms(emit, model),
+      project_plan_ai_and_delay(emit, model),
     ],
   )
 }
