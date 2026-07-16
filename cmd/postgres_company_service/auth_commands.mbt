@@ -16,6 +16,9 @@ fn auth_command_spec(
   if request_method is @http.Put && path == "/api/company/auth/profile" {
     return Some("profile")
   }
+  if request_method is @http.Post && path == "/api/company/auth/change-password" {
+    return Some("change_password")
+  }
   None
 }
 
@@ -80,6 +83,36 @@ fn auth_command_request(
       "actor_id": Json::string(actor_id),
     })
   }
+  if command_type == "change_password" {
+    let current_password = json_text(
+      body,
+      "currentPassword",
+      json_text(body, "current_password", ""),
+    )
+    let new_password = json_text(
+      body,
+      "newPassword",
+      json_text(body, "new_password", ""),
+    )
+    if current_password.length() < 6 || new_password.length() < 6 {
+      raise reject(
+        400, "currentPassword and newPassword must be at least 6 characters",
+      )
+    }
+    if current_password == new_password {
+      raise reject(400, "newPassword must differ from currentPassword")
+    }
+    return Json::object({
+      "command_type": Json::string(command_type),
+      "user_code": Json::string(actor_id),
+      "actor_id": Json::string(actor_id),
+      "current_password_digest": Json::string(
+        rbac_user_digest(current_password),
+      ),
+      "new_password_digest": Json::string(rbac_user_digest(new_password)),
+      "credential_values_redacted": Json::boolean(true),
+    })
+  }
   let emp_name = json_text(body, "empName", json_text(body, "emp_name", ""))
     .trim()
     .to_owned()
@@ -105,7 +138,9 @@ async fn auth_command(
   actor_id : String,
   idempotency_key : String,
 ) -> (Int, Json) raise CompanyServiceError {
-  if command_type != "logout" && command_type != "profile" {
+  if command_type != "logout" &&
+    command_type != "profile" &&
+    command_type != "change_password" {
     raise reject(404, "unsupported auth command")
   }
   if !valid_identifier(idempotency_key) {
@@ -143,6 +178,8 @@ async fn auth_command(
   }
   let aggregate_type = if command_type == "logout" {
     "auth_session"
+  } else if command_type == "change_password" {
+    "auth_credential"
   } else {
     "auth_profile"
   }
@@ -164,6 +201,24 @@ async fn auth_command(
       "source_kind": Json::string("command"),
       "event_id": Json::string(event_id),
       "updated_by": Json::string(actor_id),
+    })
+  } else if command_type == "change_password" {
+    Json::object({
+      "command_type": Json::string(command_type),
+      "user_code": Json::string(actor_id),
+      "state": Json::string("active"),
+      "source_kind": Json::string("command"),
+      "event_id": Json::string(event_id),
+      "updated_by": Json::string(actor_id),
+      "password_digest": json_field(request, "new_password_digest").unwrap_or(
+        Json::string(""),
+      ),
+      "password_history_digest": json_field(request, "current_password_digest").unwrap_or(
+        Json::string(""),
+      ),
+      "credential_configured": Json::boolean(true),
+      "credential_values_redacted": Json::boolean(true),
+      "credential_verified": Json::boolean(false),
     })
   } else {
     let emp_name = json_text(request, "emp_name", "")
@@ -191,6 +246,18 @@ async fn auth_command(
       "sourceKind": Json::string("command"),
       "persisted": Json::boolean(true),
       "authorizing": Json::boolean(false),
+    })
+  } else if command_type == "change_password" {
+    Json::object({
+      "userCode": Json::string(actor_id),
+      "credentialChanged": Json::boolean(true),
+      "credentialVerified": Json::boolean(false),
+      "passwordHistoryRecorded": Json::boolean(true),
+      "revision": Json::number(next_revision.to_double()),
+      "sourceKind": Json::string("command"),
+      "persisted": Json::boolean(true),
+      "authorizing": Json::boolean(false),
+      "credentialValuesRedacted": Json::boolean(true),
     })
   } else {
     Json::object({

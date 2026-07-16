@@ -16355,7 +16355,8 @@ async fn handle(
           return
         }
       }
-      let body = if command_type == "profile" {
+      let body = if command_type == "profile" ||
+        command_type == "change_password" {
         read_json_body(body_reader) catch {
           error => {
             let response = service_error_response(error)

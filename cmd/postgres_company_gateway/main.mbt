@@ -315,6 +315,8 @@ fn command_path_allowed(
       path == "/api/company/srm/providers/rescore-all" ||
       path == "/api/company/source/srm/providers/rescore-all" ||
       path == "/api/company/rbac/users" ||
+      path == "/api/company/auth/logout" ||
+      path == "/api/company/auth/change-password" ||
       path == "/api/company/rbac/roles" ||
       path_with_identifier_suffix("/api/company/rbac/users/", "/roles", path) ||
       path_with_identifier_suffix("/api/company/rbac/users/", "/toggle", path) ||
@@ -473,6 +475,7 @@ fn command_path_allowed(
         "/api/company/source/notify/messages/", "/read", path,
       )
     @http.Put =>
+      path == "/api/company/auth/profile" ||
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/rbac/users/", path) ||
       path_with_identifier("/api/company/loans/", path) ||

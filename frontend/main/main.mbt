@@ -1117,6 +1117,7 @@ struct Model {
   profile_last_login : String
   profile_source_kind : String
   profile_note : String
+  profile_command_note : String
   profile_initiated_loaded : Bool
   profile_initiated_rows : Array[InitiatedRow]
   profile_initiated_note : String
@@ -1530,6 +1531,10 @@ enum Msg {
   ProfileLoadFailed
   ProfileInitiatedLoaded(String)
   ProfileInitiatedLoadFailed
+  UpdateProfile
+  ProfileCommandFinished(String)
+  ProfileCommandFailed
+  ChangePassword
   UsersLoaded(String)
   UsersLoadFailed
   CreateLocalUser
@@ -1980,6 +1985,7 @@ fn initial_model() -> Model {
     profile_last_login: "2026-07-13 09:38",
     profile_source_kind: "设计快照",
     profile_note: "个人资料读模型尚未加载 · 使用设计快照",
+    profile_command_note: "个人资料命令尚未执行",
     profile_initiated_loaded: false,
     profile_initiated_rows: [],
     profile_initiated_note: "本人发起读模型尚未加载 · 使用设计快照",
@@ -7460,6 +7466,34 @@ fn load_profile_initiated(emit : @rabbita.Emit[Msg], user_code : String) -> Cmd 
     match result {
       Ok(body) => emit(ProfileInitiatedLoaded(body))
       Err(_) => emit(ProfileInitiatedLoadFailed)
+    }
+  })
+}
+
+///|
+fn issue_profile_update(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.put("/api/company/auth/profile")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-auth-profile-v1\",\"empName\":\"系统管理员（已更新）\",\"userName\":\"系统管理员\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ProfileCommandFinished(body))
+      Err(_) => emit(ProfileCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_password_change(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/auth/change-password")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-auth-password-v1\",\"currentPassword\":\"rabbita-current\",\"newPassword\":\"rabbita-next-password\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ProfileCommandFinished(body))
+      Err(_) => emit(ProfileCommandFailed)
     }
   })
 }
@@ -12994,6 +13028,30 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           report_builder_command_state: "error",
           report_builder_command_note: "报表模板命令服务不可用或拒绝了请求",
+        },
+      )
+    UpdateProfile => (issue_profile_update(emit), model)
+    ChangePassword => (issue_password_change(emit), model)
+    ProfileCommandFinished(body) =>
+      (
+        load_profile(emit, model.user_code),
+        {
+          ..model,
+          profile_command_note: if body.contains("credentialChanged") {
+            "密码变更候选已写入 PostgreSQL · 凭据值已脱敏，生产认证绑定仍待接入"
+          } else if body.contains("empName") {
+            "个人资料命令已写入 PostgreSQL · 读模型正在刷新"
+          } else {
+            "个人资料命令已完成"
+          },
+        },
+      )
+    ProfileCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          profile_command_note: "个人资料/密码命令被服务拒绝或暂时不可用",
         },
       )
     ProfileLoaded(body) => {
@@ -21475,11 +21533,21 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(Navigate("/profile")),
         "刷新资料",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(UpdateProfile),
+        "保存资料",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ChangePassword),
+        "修改密码",
+      ),
     ],
     div <| [
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "基本信息"),
-        button(class="erp-tab", "修改密码"),
+        button(class="erp-tab", on_click=emit(ChangePassword), "修改密码"),
         button(class="erp-tab", "我的订阅"),
         button(class="erp-tab", "我的发起 (6)"),
       ],
@@ -21510,8 +21578,7 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ],
       p(
         class="erp-dashboard-note",
-        model.profile_note +
-        " · 资料/密码/偏好写入仍需生产身份与命令授权",
+        model.profile_note + " · " + model.profile_command_note,
       ),
       table_panel(
         "我的订阅",

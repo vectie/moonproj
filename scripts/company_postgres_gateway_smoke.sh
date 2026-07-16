@@ -719,9 +719,29 @@ signature=$(
   -H "X-Moonproj-Identity: limingjin" \
   -H "X-Moonproj-Identity-Timestamp: $timestamp" \
   -H "X-Moonproj-Identity-Signature: $signature" \
+  -c "$TMP_DIR/trusted-cookies.txt" \
   "http://127.0.0.1:$TRUSTED_GATEWAY_PORT/api/session/login" >"$TMP_DIR/trusted-login.json"
 /usr/bin/jq -e '.authenticated == true and .actor_id == "limingjin" and .identity_source == "trusted_upstream"' \
   "$TMP_DIR/trusted-login.json" >/dev/null
 /usr/bin/grep -qi 'set-cookie: moonproj_session=.*secure' "$TMP_DIR/trusted-headers.txt"
+
+trusted_auth_suffix=$(/bin/date +%s)
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/auth-profile.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/trusted-cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-auth-profile-$trusted_auth_suffix" \
+  --data '{"empName":"Gateway Auth Profile","userName":"网关管理员"}' \
+  "http://127.0.0.1:$TRUSTED_GATEWAY_PORT/api/company/auth/profile")
+test "$status" = 200
+/usr/bin/jq -e '.auth.empName == "Gateway Auth Profile" and .auth.persisted == true and .auth.authorizing == false' \
+  "$TMP_DIR/auth-profile.json" >/dev/null
+
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/auth-password.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/trusted-cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-auth-password-$trusted_auth_suffix" \
+  --data '{"currentPassword":"gateway-current","newPassword":"gateway-next-password"}' \
+  "http://127.0.0.1:$TRUSTED_GATEWAY_PORT/api/company/auth/change-password")
+test "$status" = 200
+/usr/bin/jq -e '.auth.credentialChanged == true and .auth.passwordHistoryRecorded == true and .auth.persisted == true and .auth.credentialValuesRedacted == true' \
+  "$TMP_DIR/auth-password.json" >/dev/null
 
 echo "native MoonBit gateway session/proxy/trusted-identity smoke passed"

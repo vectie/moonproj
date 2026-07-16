@@ -345,6 +345,15 @@ test "$status" = 200
   "http://127.0.0.1:$PORT/api/company/auth/me?userCode=admin" \
   | /usr/bin/jq -e '.data.empName == "Native Boundary Profile" and .source_kind == "imported"' >/dev/null
 
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/password.json" -w '%{http_code}' -X POST \
+  -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: boundary-password-$SMOKE_SUFFIX" \
+  --data '{"currentPassword":"boundary-current","newPassword":"boundary-next-password"}' \
+  "http://127.0.0.1:$PORT/api/company/auth/change-password")
+test "$status" = 200
+/usr/bin/jq -e '.auth.credentialChanged == true and .auth.passwordHistoryRecorded == true and .auth.persisted == true and .auth.credentialValuesRedacted == true and .idempotent_replay == false' "$TMP_DIR/password.json" >/dev/null
+
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/logout.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \

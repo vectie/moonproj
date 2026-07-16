@@ -5,11 +5,16 @@ mutation. Native PostgreSQL now recognizes the same `/api/company/auth/*`
 boundaries. Login is reachable without a bearer token (subject to forwarded TLS)
 so the missing behavior is explicit rather than an authentication 401.
 
-Logout and profile now use signed local commands with idempotent PostgreSQL
-receipts, immutable `auth_session`/`auth_profile` revisions, audit events, and
-`/auth/me` profile overlay readback. They remain non-authorizing and do not
-issue bearer tokens. Login and password change return an explicit
+Logout, profile, and password change now use signed local commands with
+idempotent PostgreSQL receipts, immutable `auth_session`/`auth_profile`/
+`auth_credential` revisions, and audit events. Profile overlays continue to
+read back through `/auth/me`; password transitions persist only SHA-256 digest
+evidence and redacted history markers (`credentialVerified=false`) because the
+imported password store is not available. They remain non-authorizing and do
+not issue bearer tokens. Login still returns an explicit
 `auth_lifecycle_candidate` 409 with `sessionIssued=false` and `persisted=false`;
-password hashing/history, session/token issuance, production identity, and
-security-owner acceptance remain unported. Read-only preferences and
-initiated-document observations remain separate native surfaces.
+production identity, session/token issuance, imported credential verification,
+and security-owner acceptance remain unported. The trusted gateway and Rabbita
+profile actions now cover the persisted profile/password command boundary.
+Read-only preferences and initiated-document observations remain separate
+native surfaces.
