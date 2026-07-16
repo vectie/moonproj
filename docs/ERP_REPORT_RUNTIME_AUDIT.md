@@ -36,7 +36,8 @@ the source sharing controls inline on `/reports` (create, list, and revoke)
 and displays the generated read-only path without pretending it is a managed
 public URL. The `/share/:token` page now loads public meta/data through the
 same native public endpoints and renders the selected report instead of a
-fixture-only snapshot.
+fixture-only snapshot. The active report tab also reads and updates the
+source `fav_reports` preference via the signed user-scoped preference route.
 
 ## Current evidence
 

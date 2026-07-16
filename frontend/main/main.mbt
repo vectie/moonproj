@@ -1120,6 +1120,8 @@ struct Model {
   report_share_result_url : String
   report_share_rows : Array[ReportShareRow]
   report_share_note : String
+  report_favorite_loaded : Bool
+  report_favorite_keys : Array[String]
   share_loaded : Bool
   share_meta_loaded : Bool
   share_token : String
@@ -1724,6 +1726,10 @@ enum Msg {
   RevokeReportShare(String)
   ReportShareRevoked(String)
   ReportShareRevokeFailed(String)
+  ReportPreferencesLoaded(String)
+  ReportPreferencesLoadFailed
+  ToggleReportFavorite
+  ReportPreferenceUpdated(String)
   ShareMetaLoaded(String)
   ShareDataLoaded(String)
   ShareLoadFailed(String)
@@ -2257,6 +2263,8 @@ fn initial_model() -> Model {
     report_share_result_url: "",
     report_share_rows: [],
     report_share_note: "报表分享尚未执行",
+    report_favorite_loaded: false,
+    report_favorite_keys: [],
     share_loaded: false,
     share_meta_loaded: false,
     share_token: "",
@@ -10718,7 +10726,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/webhook-config" {
         load_webhook_config(emit)
       } else if path == "/reports" {
-        load_reports(emit)
+        @cmd.batch([
+          load_reports(emit),
+          load_report_preferences(emit, model.user_code),
+        ])
       } else if path == "/report-builder" {
         load_report_builder_meta(emit)
       } else if path == "/expenses" {
@@ -12522,6 +12533,49 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectReportTab(tab) => (none, { ..model, report_tab: tab })
+    ReportPreferencesLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          report_favorite_loaded: true,
+          report_favorite_keys: report_favorite_keys_from_body(body),
+          reports_note: model.reports_note + " · 已读取我的常用报表",
+        },
+      )
+    ReportPreferencesLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          report_favorite_loaded: false,
+          report_favorite_keys: [],
+          reports_note: model.reports_note + " · 常用报表偏好不可用",
+        },
+      )
+    ToggleReportFavorite =>
+      (
+        issue_report_preference_update(emit, model),
+        {
+          ..model,
+          report_favorite_keys: report_favorite_next_keys(model),
+          reports_note: "正在更新我的常用报表…",
+        },
+      )
+    ReportPreferenceUpdated(body) =>
+      (
+        none,
+        {
+          ..model,
+          report_favorite_loaded: true,
+          report_favorite_keys: report_favorite_keys_from_body(body),
+          reports_note: if body.contains("\"persisted\":true") {
+            "我的常用报表已更新 · 偏好命令不改变报表数据"
+          } else {
+            "常用报表命令已返回 · 请复核偏好状态"
+          },
+        },
+      )
     ExportReportsCsv =>
       (
         {
@@ -23456,6 +23510,10 @@ fn reports_runtime_banner(model : Model) -> @html.Html {
       " · 审批类型 " +
       model.report_approval_count,
     ),
+    span(
+      " · 常用偏好 " +
+      (if model.report_favorite_loaded { "已连接" } else { "未加载" }),
+    ),
   ])
 }
 
@@ -23818,6 +23876,100 @@ fn load_report_shares(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(ReportSharesLoaded(body))
       Err(_) => emit(ReportSharesLoadFailed)
+    }
+  })
+}
+
+///|
+fn report_favorite_keys_from_body(body : String) -> Array[String] {
+  let keys : Array[String] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let data = match fields.get("data") {
+        Some(Json::Object(value)) => value
+        _ =>
+          match fields.get("preference") {
+            Some(Json::Object(value)) => value
+            _ => {}
+          }
+      }
+      let values = match data.get("fav_reports") {
+        Some(Json::Array(items)) => items
+        _ =>
+          match data.get("value") {
+            Some(Json::Array(items)) => items
+            _ => []
+          }
+      }
+      for value in values {
+        match value {
+          Json::String(key) => keys.push(key)
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  keys
+}
+
+///|
+fn load_report_preferences(
+  emit : @rabbita.Emit[Msg],
+  user_code : String,
+) -> Cmd {
+  @http.get("/api/company/auth/prefs?userCode=" + user_code).expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportPreferencesLoaded(body))
+      Err(_) => emit(ReportPreferencesLoadFailed)
+    }
+  })
+}
+
+///|
+fn report_preference_body(model : Model) -> String {
+  let keys = report_favorite_next_keys(model)
+  let action = if model.report_favorite_keys.contains(model.report_tab) {
+    "remove"
+  } else {
+    "add"
+  }
+  let encoded = keys.map(value => "\"" + value + "\"").join(",")
+  "{\"value\":[" +
+  encoded +
+  "],\"idempotency_key\":\"rabbita-report-pref-fav-" +
+  model.report_tab +
+  "-" +
+  action +
+  "-v1\"}"
+}
+
+///|
+fn report_favorite_next_keys(model : Model) -> Array[String] {
+  let keys : Array[String] = []
+  for key in model.report_favorite_keys {
+    if key != model.report_tab {
+      keys.push(key)
+    }
+  }
+  if !model.report_favorite_keys.contains(model.report_tab) {
+    keys.push(model.report_tab)
+  }
+  keys
+}
+
+///|
+fn issue_report_preference_update(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  @http.put("/api/company/source/auth/prefs/fav_reports")
+  .with_text(report_preference_body(model))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ReportPreferenceUpdated(body))
+      Err(_) => emit(ReportPreferencesLoadFailed)
     }
   })
 }
@@ -24273,6 +24425,15 @@ fn reports_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "ANALYSIS / REPORTS",
     "按主题打开经营、成本、资金、销售与项目报表，统一查看口径和更新时间。",
     [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ToggleReportFavorite),
+        if model.report_favorite_keys.contains(model.report_tab) {
+          "★ 已收藏"
+        } else {
+          "☆ 加入常用"
+        },
+      ),
       button(
         class="erp-secondary-btn",
         on_click=emit(OpenReportShare),
