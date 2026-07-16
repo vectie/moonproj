@@ -517,6 +517,22 @@ struct InvestmentSensitivityCase {
 }
 
 ///|
+struct InvestmentImportRow {
+  import_guid : String
+  version_guid : String
+  version_name : String
+  file_name : String
+  file_size : String
+  sheet_count : String
+  non_empty_cells : String
+  formula_count : String
+  status : String
+  created_by_name : String
+  created_at : String
+  source_kind : String
+}
+
+///|
 struct AuditRow {
   log_id : String
   created_at : String
@@ -989,6 +1005,9 @@ struct Model {
   investment_sensitivity_loaded : Bool
   investment_sensitivity_cases : Array[InvestmentSensitivityCase]
   investment_sensitivity_note : String
+  investment_imports_loaded : Bool
+  investment_import_rows : Array[InvestmentImportRow]
+  investment_import_note : String
   investment_actual_loaded : Bool
   investment_actual_code : String
   investment_actual_message : String
@@ -1465,6 +1484,7 @@ enum Msg {
   InvestmentIndicesLoaded(String)
   InvestmentProfitLoaded(String)
   InvestmentSensitivityLoaded(String)
+  InvestmentImportsLoaded(String)
   InvestmentProfitActualLoaded(String)
   InvestmentLoadFailed
   ExplainInvestment
@@ -1954,6 +1974,9 @@ fn initial_model() -> Model {
     investment_sensitivity_loaded: false,
     investment_sensitivity_cases: [],
     investment_sensitivity_note: "投资敏感性读模型尚未加载 · 使用设计快照",
+    investment_imports_loaded: false,
+    investment_import_rows: [],
+    investment_import_note: "Excel 导入历史尚未加载 · 使用设计快照",
     investment_actual_loaded: false,
     investment_actual_code: "",
     investment_actual_message: "",
@@ -4024,6 +4047,46 @@ fn investment_sensitivity_from_body(
     _ => ()
   }
   (rows.length() > 0, rows, base_irr)
+}
+
+///|
+fn investment_import_rows_from_body(
+  body : String,
+) -> (Bool, Array[InvestmentImportRow], String) {
+  let rows : Array[InvestmentImportRow] = []
+  let mut loaded = false
+  let mut note = "Excel 导入历史响应为空"
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      loaded = true
+      let missing = json_array_field(fields, "missing_or_empty_source_tables").length()
+      note = "已加载 PostgreSQL Excel 导入历史 · 二进制内容不读取 · 空源表 " +
+        missing.to_string()
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              import_guid: json_object_text(row, "importGuid", ""),
+              version_guid: json_object_text(row, "versionGuid", ""),
+              version_name: json_object_text(row, "versionName", ""),
+              file_name: json_object_text(row, "fileName", ""),
+              file_size: json_object_text(row, "fileSize", "—"),
+              sheet_count: json_object_text(row, "sheetCount", "—"),
+              non_empty_cells: json_object_text(row, "nonEmptyCells", "—"),
+              formula_count: json_object_text(row, "formulaCount", "—"),
+              status: json_object_text(row, "status", ""),
+              created_by_name: json_object_text(row, "createdByName", ""),
+              created_at: json_object_text(row, "createdAt", ""),
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+            })
+          _ => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  (loaded, rows, note)
 }
 
 ///|
@@ -6535,6 +6598,17 @@ fn load_investment_versions(emit : @rabbita.Emit[Msg]) -> Cmd {
       Err(_) => emit(InvestmentLoadFailed)
     }
   })
+}
+
+///|
+fn load_investment_imports(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/investment/projects/proj-0001/excel-imports").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvestmentImportsLoaded(body))
+        Err(_) => emit(InvestmentLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
@@ -9262,7 +9336,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/users" {
         load_users(emit)
       } else if path == "/investment" {
-        load_investment_versions(emit)
+        @cmd.batch([
+          load_investment_versions(emit),
+          load_investment_imports(emit),
+        ])
       } else if path == "/audit-log" {
         load_audit_logs(emit)
       } else if path == "/dynamic-cost" {
@@ -11199,6 +11276,22 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       }
     }
+    InvestmentImportsLoaded(body) => {
+      let (loaded, rows, note) = investment_import_rows_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          investment_imports_loaded: loaded,
+          investment_import_rows: rows,
+          investment_import_note: if loaded {
+            note
+          } else {
+            "Excel 导入历史为空 · 源表只读"
+          },
+        },
+      )
+    }
     InvestmentIndicesLoaded(body) => {
       let (rows, dimension_count) = investment_index_rows_from_body(body)
       (
@@ -11293,6 +11386,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_sensitivity_loaded: false,
           investment_sensitivity_cases: [],
           investment_sensitivity_note: "投资敏感性读模型不可用 · 使用设计快照",
+          investment_imports_loaded: false,
+          investment_import_rows: [],
+          investment_import_note: "Excel 导入历史读模型不可用 · 使用设计快照",
           investment_actual_loaded: false,
           investment_actual_code: "",
           investment_actual_message: "实际利润边界不可用",
@@ -11578,7 +11674,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     InvestmentCommandFinished(command_type, body) =>
       (
-        load_investment_versions(emit),
+        @cmd.batch([
+          load_investment_versions(emit),
+          load_investment_imports(emit),
+        ]),
         {
           ..model,
           investment_command_note: if body.contains("\"persisted\":true") {
@@ -18759,6 +18858,48 @@ fn investment_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn investment_import_history_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.investment_import_rows.length() == 0 {
+    rows.push([
+      "—", "—", "—", "—", "—", "—", "—", "—", "暂无源导入记录",
+    ])
+  } else {
+    for row in model.investment_import_rows {
+      rows.push([
+        row.file_name + " · " + row.import_guid,
+        row.version_name + " · " + row.version_guid,
+        row.file_size,
+        row.sheet_count,
+        row.non_empty_cells,
+        row.formula_count,
+        row.status,
+        row.created_by_name,
+        row.created_at + " · " + row.source_kind,
+      ])
+    }
+  }
+  table_panel(
+    "Excel 导入历史（" +
+    (if model.investment_imports_loaded {
+      model.investment_import_rows.length().to_string()
+    } else {
+      "快照"
+    }) +
+    "）",
+    model.investment_import_note +
+    " · 仅显示元数据，不读取工作簿二进制",
+    data_table(
+      [
+        "文件 / 导入 ID", "导入版本", "文件大小", "工作表", "非空单元格",
+        "公式", "状态", "导入人", "导入时间 / 来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
 fn investment_sensitivity_table(model : Model) -> @html.Html {
   if model.investment_sensitivity_loaded {
     let rows : Array[Array[String]] = []
@@ -18977,6 +19118,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     div <| [
       stats,
       investment_excel_panel(emit, model),
+      investment_import_history_table(model),
       investment_runtime_table(model),
       investment_sensitivity_table(model),
       investment_profit_actual_panel(model),
