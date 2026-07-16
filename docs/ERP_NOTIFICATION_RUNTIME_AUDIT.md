@@ -56,6 +56,11 @@ the Rabbita `/inbox` action issues that bounded local projection. The dedicated
 `scripts/company_postgres_notification_gateway_smoke.sh` proves authenticated
 forwarding, replay equality, and the no-delivery/provider boundary.
 
+The Rabbita `/notify-config` header now issues the source subscription-create
+candidate. The gateway forwards both canonical and source subscription-create
+aliases; replay and the no-delivery/provider boundary are covered by the same
+gateway smoke.
+
 The current PostgreSQL export has no imported rows for sys_message,
 sys_warning_subscription, sys_param, sys_email_outbox, or
 sys_warning_digest_log. It has five imported sys_user rows, which are

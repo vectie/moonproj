@@ -21,6 +21,7 @@ SERVICE_PID=""
 GATEWAY_PID=""
 SUFFIX=$(/bin/date +%s)
 COMMAND_KEY="notification-gateway-$SUFFIX"
+SUBSCRIPTION_KEY="notification-subscription-gateway-$SUFFIX"
 
 cleanup() {
   if [ -n "$GATEWAY_PID" ]; then
@@ -32,7 +33,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE aggregate_type = 'notification_message' AND aggregate_id = 'message-all:admin'; DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:notification:message_read_all:$COMMAND_KEY');" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'notification_message' AND aggregate_id = 'message-all:admin') OR (aggregate_type = 'notification_subscription' AND aggregate_id = 'sub-$SUBSCRIPTION_KEY'); DELETE FROM company_record WHERE source_id IN ('moonproj:command:$COMMAND_KEY', 'moonproj:audit:notification:message_read_all:$COMMAND_KEY', 'moonproj:command:$SUBSCRIPTION_KEY', 'moonproj:audit:notification:subscription_create:$SUBSCRIPTION_KEY');" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -67,6 +68,20 @@ fi
   --data "{\"user_code\":\"$USER_CODE\",\"password\":\"$PASSWORD\"}" \
   "http://127.0.0.1:$GATEWAY_PORT/api/session/login" >"$TMP_DIR/login.json"
 /usr/bin/jq -e '.authenticated == true and .actor_id == "admin"' "$TMP_DIR/login.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subscription.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$SUBSCRIPTION_KEY\",\"ruleCode\":\"W005\",\"bizType\":\"expense\",\"severityMin\":\"warning\",\"channels\":[\"in_app\",\"webhook\"],\"enabled\":true}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/notify/subscriptions")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.subId == "sub-'"$SUBSCRIPTION_KEY"'" and .data.delivery_effect == false and .data.providerExecution == false' "$TMP_DIR/subscription.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/subscription-replay.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$SUBSCRIPTION_KEY\",\"ruleCode\":\"W005\",\"bizType\":\"expense\",\"severityMin\":\"warning\",\"channels\":[\"in_app\",\"webhook\"],\"enabled\":true}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/notify/subscriptions")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.subId == "sub-'"$SUBSCRIPTION_KEY"'"' "$TMP_DIR/subscription-replay.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/read-all.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \

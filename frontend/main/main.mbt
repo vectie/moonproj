@@ -1317,6 +1317,9 @@ enum Msg {
   InboxCommandFinished(String)
   InboxCommandFailed
   NotifySubscriptionsLoaded(String)
+  CreateNotifySubscription
+  NotifyCommandFinished(String)
+  NotifyCommandFailed
   NotifyConfigLoaded(String)
   NotifyOutboxLoaded(String)
   NotifyDigestPreviewLoaded(String)
@@ -6426,6 +6429,20 @@ fn load_notify(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
+fn issue_notify_subscription_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/notify/subscriptions")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-notify-subscription-create-v1\",\"ruleCode\":\"W005\",\"bizType\":\"expense\",\"severityMin\":\"warning\",\"channels\":[\"in_app\",\"webhook\"],\"enabled\":true}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(NotifyCommandFinished(body))
+      Err(_) => emit(NotifyCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_ocr(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/ocr/status").expect_text(result => {
     match result {
@@ -9974,6 +9991,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
+    CreateNotifySubscription =>
+      (
+        issue_notify_subscription_create(emit),
+        { ..model, notify_note: "正在写入本地通知订阅命令…" },
+      )
+    NotifyCommandFinished(body) =>
+      (
+        if body.contains("\"subId\"") {
+          load_notify(emit, "subscriptions")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_note: if body.contains("\"delivery_effect\":false") {
+            "通知订阅命令已写入 PostgreSQL · 不发送通知、不调用 provider"
+          } else {
+            "通知订阅命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    NotifyCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          notify_note: "通知订阅命令服务不可用或被网关拒绝",
+        },
+      )
     NotifyConfigLoaded(body) => {
       let (loaded, rows, configured, missing) = notify_config_from_body(body)
       (
@@ -18284,7 +18330,7 @@ fn profile_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn notify_view(model : Model) -> @html.Html {
+fn notify_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let subscription_rows = if model.notify_loaded {
     if model.notify_subscription_rows.length() == 0 {
       [["—", "—", "—", "—", "无源记录"]]
@@ -18356,7 +18402,13 @@ fn notify_view(model : Model) -> @html.Html {
     "通知配置 / 订阅",
     "SYSTEM / NOTIFICATIONS",
     "配置站内信、邮件和 Webhook 的通知规则；敏感凭据只由生产密钥服务托管。",
-    [button(class="erp-primary-btn", "＋ 新建规则（待授权）")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateNotifySubscription),
+        "＋ 新建规则（待授权）",
+      ),
+    ],
     div <| [
       section(class="erp-detail-card") <| [
         div(class="erp-panel-heading") <| [
@@ -19032,7 +19084,7 @@ fn business_view(
       "/cashflow" => cashflow_view(model)
       "/inbox" => inbox_view(emit, model)
       "/attachments" => attachments_view(emit, model)
-      "/notify-config" => notify_view(model)
+      "/notify-config" => notify_view(emit, model)
       "/audit-log" => audit_view(emit, model)
       "/error-log" => error_view(model)
       "/system-health" => health_view(emit, model)
