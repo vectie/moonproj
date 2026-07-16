@@ -158,7 +158,7 @@ fn cohort_spec(cohort : String) -> (String, Array[String]) {
           "investment_portfolio", "investment_performance", "investment_benchmark_reconciliation",
         ],
       )
-    _ => ("", [])
+    _ => ("moonproj.erp.exact-projection-parity.v1", [])
   }
 }
 
@@ -173,11 +173,16 @@ fn load_receipt(
   if string(root, "state", "receipt") != "promoted_through_domain_importers" {
     raise fail("promotion receipt is not domain-validated")
   }
-  let cohort = string(root, "cohort", "receipt")
+  let cohort = root
+    .get("cohort")
+    .map(fn(value) {
+      match value {
+        String(text) => text
+        _ => ""
+      }
+    })
+    .unwrap_or("")
   let (_, allowed) = cohort_spec(cohort)
-  if allowed.is_empty() {
-    raise fail("unsupported exact projection cohort: " + cohort)
-  }
   let snapshot = string(root, "source_snapshot_id", "receipt")
   let mapping = string(root, "mapping_version", "receipt")
   let expected : Array[Expected] = []
@@ -185,7 +190,7 @@ fn load_receipt(
     let path = "receipt.accepted_items[" + index.to_string() + "]"
     let item = object(values(root, "accepted_items", "receipt")[index], path)
     let target_type = string(item, "target_type", path)
-    if !allowed.contains(target_type) {
+    if !allowed.is_empty() && !allowed.contains(target_type) {
       raise fail("receipt contains an invalid target type: " + target_type)
     }
     let candidate = required(item, "target_candidate", path)

@@ -412,7 +412,7 @@ fi
 # cross-domain report additionally compares canonical projection payloads in
 # the isolated SQLite rehearsal and the PostgreSQL target.
 CROSS_DOMAIN_PARITY="$WORK_DIR/cross-domain-projection-parity.json"
-python3 "$SCRIPT_DIR/company_cross_domain_projection_parity.py" \
+"$SCRIPT_DIR/company_cross_domain_projection_parity.sh" \
   "$WORK_DIR" "$SQLITE_DB" "$CROSS_DOMAIN_PARITY" \
   --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE"

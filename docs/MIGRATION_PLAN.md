@@ -2261,6 +2261,12 @@ Execute the remainder in this order:
     `company_sqlite_exact_projection_parity.sh` wrapper replaces the nine
     Python exact parity calls in `erp_migration_rehearsal.sh` and preserves the
     cohort-specific parity envelopes.
+3a.45. **Shell/native cross-domain projection parity (2026-07-16).**
+    `company_cross_domain_projection_parity.sh` now enumerates all domain
+    promotion receipts and verifies each against both SQLite and PostgreSQL
+    using the native exact candidate adapters, then emits the historical
+    cross-domain envelope. The old Python cross-domain checker is frozen
+    comparison evidence.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
