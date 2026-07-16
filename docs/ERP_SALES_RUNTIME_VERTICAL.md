@@ -121,6 +121,9 @@ command through the authenticated gateway; imported customer rows remain
 read-only and the UI reports replay/no-downstream-effect status.
 Rabbita `/sales/subscriptions` likewise exposes the bounded local reservation
 create command; contract and revenue conversion remain explicitly pending.
+Rabbita `/sales/mortgages` now exposes local create, approve, and release
+candidates; release records a revenue-pending marker without touching banks,
+cash, accounting, or tax.
 
 The reviewed synthetic sales cohort contains one customer, converted
 subscription, fulfilled agreement, opened receivable, released mortgage, paid

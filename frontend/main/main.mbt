@@ -818,6 +818,9 @@ struct Model {
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
+  sales_mortgage_id : String
+  sales_mortgage_state : String
+  sales_mortgage_command_note : String
   sales_revenue_id : String
   sales_revenue_state : String
   sales_revenue_command_note : String
@@ -1230,6 +1233,11 @@ enum Msg {
   CreateSalesSubscription
   SalesSubscriptionCommandFinished(String)
   SalesSubscriptionCommandFailed
+  CreateSalesMortgage
+  ApproveSalesMortgage
+  ReleaseSalesMortgage
+  SalesMortgageCommandFinished(String)
+  SalesMortgageCommandFailed
   CreateSalesRevenue
   UpdateSalesRevenue
   ConfirmSalesRevenue
@@ -1512,6 +1520,9 @@ fn initial_model() -> Model {
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
+    sales_mortgage_id: "MTG-RABBITA-LOCAL",
+    sales_mortgage_state: "new",
+    sales_mortgage_command_note: "按揭命令尚未执行",
     sales_revenue_id: "REV-RABBITA-LOCAL",
     sales_revenue_state: "new",
     sales_revenue_command_note: "本地回款登记需要销售/财务 authority；不会自动释放现金或过账",
@@ -6987,6 +6998,37 @@ fn issue_sales_subscription_create(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_sales_mortgage_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/sales/mortgages"
+  } else {
+    "/api/company/sales/mortgages/" +
+    model.sales_mortgage_id +
+    "/" +
+    command_type
+  }
+  let body = if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-sales-mortgage-create-v1\",\"mortgage_guid\":\"MTG-RABBITA-LOCAL\",\"mortgage_code\":\"MTG-RABBITA-LOCAL\",\"scontract_guid\":\"SCT-RABBITA-LOCAL\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"bank_name\":\"建设银行\",\"loan_amount\":1673000,\"loan_years\":30,\"rate\":0.0345,\"apply_date\":\"2026-07-16\",\"remark\":\"Rabbita 本地按揭命令演示\"}"
+  } else if command_type == "approve" {
+    "{\"idempotency_key\":\"rabbita-sales-mortgage-approve-v1\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-sales-mortgage-release-v1\"}"
+  }
+  @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(response) => emit(SalesMortgageCommandFinished(response))
+      Err(_) => emit(SalesMortgageCommandFailed)
+    }
+  })
+}
+
+///|
 fn sales_revenue_command_body(command_type : String) -> String {
   if command_type == "create" {
     "{\"idempotency_key\":\"rabbita-sales-revenue-create-v1\",\"revenue_id\":\"REV-RABBITA-LOCAL\",\"revenue_code\":\"SR-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"customer_name\":\"Rabbita 本地回款演示\",\"amount_minor\":456700,\"receive_date\":\"2026-07-14\",\"status\":\"expected\",\"payment_type\":\"bank\",\"contract_no\":\"SCT-RABBITA-LOCAL\",\"remark\":\"本地回款登记演示\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:create\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":500000}}"
@@ -8730,6 +8772,77 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           sales_subscription_command_note: "认筹命令服务不可用或请求不满足边界",
+        },
+      )
+    CreateSalesMortgage =>
+      (
+        issue_sales_mortgage_command(emit, model, "create"),
+        {
+          ..model,
+          sales_mortgage_state: "pending",
+          sales_mortgage_command_note: "正在写入本地按揭申请命令…",
+        },
+      )
+    ApproveSalesMortgage =>
+      if model.sales_mortgage_state == "applying" {
+        (
+          issue_sales_mortgage_command(emit, model, "approve"),
+          {
+            ..model,
+            sales_mortgage_state: "pending",
+            sales_mortgage_command_note: "正在记录本地批贷候选…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ReleaseSalesMortgage =>
+      if model.sales_mortgage_state == "approved" {
+        (
+          issue_sales_mortgage_command(emit, model, "release"),
+          {
+            ..model,
+            sales_mortgage_state: "pending",
+            sales_mortgage_command_note: "正在记录本地放款候选 · 不调用银行/回款…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    SalesMortgageCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"released\"") {
+        "released"
+      } else if body.contains("\"state\":\"approved\"") {
+        "approved"
+      } else if body.contains("\"state\":\"applying\"") {
+        "applying"
+      } else {
+        model.sales_mortgage_state
+      }
+      (
+        load_sales(emit, "mortgages"),
+        {
+          ..model,
+          sales_mortgage_state: next_state,
+          sales_mortgage_command_note: if body.contains(
+              "\"idempotent_replay\":true",
+            ) {
+            "按揭命令已幂等重放 · 本地投影保持稳定"
+          } else if next_state == "released" {
+            "按揭放款候选已写入 PostgreSQL · 回款/银行/现金仍保持待处理"
+          } else {
+            "按揭命令已写入 PostgreSQL · provider 与下游回款未执行"
+          },
+        },
+      )
+    }
+    SalesMortgageCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          sales_mortgage_state: "error",
+          sales_mortgage_command_note: "按揭命令服务不可用、状态不允许或请求被拒绝",
         },
       )
     CreateSalesRevenue =>
@@ -13884,14 +13997,50 @@ fn sales_contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
-fn sales_mortgages_view(model : Model) -> @html.Html {
+fn sales_mortgage_actions(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Array[@html.Html] {
+  let actions : Array[@html.Html] = [
+    button(
+      class="erp-primary-btn",
+      on_click=emit(CreateSalesMortgage),
+      "＋ 新建按揭",
+    ),
+  ]
+  if model.sales_mortgage_state == "applying" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ApproveSalesMortgage),
+        "记录批贷候选",
+      ),
+    )
+  } else if model.sales_mortgage_state == "approved" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ReleaseSalesMortgage),
+        "记录放款候选",
+      ),
+    )
+  }
+  actions
+}
+
+///|
+fn sales_mortgages_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "按揭办理",
     "SALES / MORTGAGES",
     "跟进按揭申请、银行审批与放款节点，及时发现资料缺失和逾期申请。",
-    [button(class="erp-primary-btn", "＋ 新建按揭")],
+    sales_mortgage_actions(emit, model),
     div <| [
       sales_runtime_banner(model, "mortgages"),
+      div(class="erp-runtime-banner", [
+        strong("本地按揭命令"),
+        span(" · " + model.sales_mortgage_command_note),
+      ]),
       sales_projection_table(model, "mortgages"),
       div(class="erp-stat-grid") <| [
         metric("办理中", "68", "涉及 5 家银行", "metric-blue"),
@@ -19354,7 +19503,7 @@ fn business_view(
       "/sales/customers" => sales_customers_view(emit, model)
       "/sales/subscriptions" => sales_subscriptions_view(emit, model)
       "/sales/contracts" => sales_contracts_view(emit, model)
-      "/sales/mortgages" => sales_mortgages_view(model)
+      "/sales/mortgages" => sales_mortgages_view(emit, model)
       "/sales/revenues" => sales_revenues_view(emit, model)
       "/marketing" => marketing_view(emit, model)
       "/contracts" => contracts_view(emit, model)

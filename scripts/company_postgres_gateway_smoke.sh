@@ -116,6 +116,33 @@ test "$status" = 200
   '.success == true and .subscription.subGuid == $id and .subscription.state == "subscribed" and .persisted == true' \
   "$TMP_DIR/subscription-create.json" >/dev/null
 
+gateway_mortgage_suffix=$(/bin/date +%s)
+gateway_mortgage_id="MTG-GW-SMOKE-$gateway_mortgage_suffix"
+gateway_mortgage_body="{\"mortgageGuid\":\"$gateway_mortgage_id\",\"mortgageCode\":\"$gateway_mortgage_id\",\"scontractGuid\":\"SCT-GW-SMOKE-$gateway_mortgage_suffix\",\"customerGuid\":\"CUS-GW-SUB-$gateway_mortgage_suffix\",\"bankName\":\"gateway bank\",\"loanAmount\":1000000,\"loanYears\":30,\"rate\":0.0345,\"applyDate\":\"2026-07-16\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/mortgage-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-mortgage-create-$gateway_mortgage_suffix" \
+  --data "$gateway_mortgage_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/mortgages")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$gateway_mortgage_id" \
+  '.success == true and .mortgage.mortgageGuid == $id and .mortgage.state == "applying" and .persisted == true' \
+  "$TMP_DIR/mortgage-create.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/mortgage-approve.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-mortgage-approve-$gateway_mortgage_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/mortgages/$gateway_mortgage_id/approve")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .mortgage.state == "approved"' "$TMP_DIR/mortgage-approve.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/mortgage-release.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-mortgage-release-$gateway_mortgage_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/mortgages/$gateway_mortgage_id/release")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .mortgage.state == "released" and .mortgage.revenue_pending == true' "$TMP_DIR/mortgage-release.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \
