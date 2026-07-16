@@ -52,6 +52,7 @@ async fn business_units_tree_response() -> Json raise CompanyServiceError {
     "code": Json::number(0),
     "data": Json::array(roots),
     "source_kind": Json::string("imported"),
+    "authorizing": Json::boolean(false),
     "source_coverage": Json::object({
       "mu_business_unit": Json::number(units.length().to_double()),
     }),
@@ -89,6 +90,7 @@ async fn budget_cost_subjects_response() -> Json raise CompanyServiceError {
     "code": Json::number(0),
     "data": Json::array(data),
     "source_kind": Json::string("imported"),
+    "authorizing": Json::boolean(false),
     "source_coverage": Json::object({
       "my_biz_param_option": Json::number(raw.length().to_double()),
     }),
@@ -126,6 +128,7 @@ async fn budget_proceedings_response() -> Json raise CompanyServiceError {
     "code": Json::number(0),
     "data": Json::array(data),
     "source_kind": Json::string("imported"),
+    "authorizing": Json::boolean(false),
     "source_coverage": Json::object({
       "vys_proceeding": Json::number(raw.length().to_double()),
     }),
