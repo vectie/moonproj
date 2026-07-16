@@ -996,8 +996,21 @@ struct LoanRow {
   project_name : String
   apply_date : String
   pay_unit : String
+  process_instance_guid : String
   source_kind : String
   offsets : Array[Array[String]]
+}
+
+///|
+struct LoanWorkflowActionRow {
+  action_guid : String
+  step_order : String
+  step_name : String
+  decision : String
+  assignee_name : String
+  action_time : String
+  comment : String
+  source_kind : String
 }
 
 ///|
@@ -1877,6 +1890,10 @@ struct Model {
   loan_pay_unit : String
   loan_project_guid : String
   loan_amount : String
+  loan_workflow_loaded : Bool
+  loan_workflow_process_name : String
+  loan_workflow_rows : Array[LoanWorkflowActionRow]
+  loan_workflow_note : String
   loan_offset_amount : String
   loan_offset_date : String
   loan_offset_remark : String
@@ -2549,6 +2566,8 @@ enum Msg {
   HealthLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
+  LoanWorkflowLoaded(String)
+  LoanWorkflowLoadFailed
   ExportLoansCsv
   CreateLoan
   InputLoanField(String, String)
@@ -3342,6 +3361,10 @@ fn initial_model() -> Model {
     loan_pay_unit: "个人备用金",
     loan_project_guid: "proj-0001",
     loan_amount: "0",
+    loan_workflow_loaded: false,
+    loan_workflow_process_name: "",
+    loan_workflow_rows: [],
+    loan_workflow_note: "借款流程实例尚未加载 · 没有 processInstanceGuid 时保持为空",
     loan_offset_amount: "0",
     loan_offset_date: "2026-07-16",
     loan_offset_remark: "",
@@ -8152,6 +8175,11 @@ fn loan_from_json(value : Json) -> LoanRow? {
         project_name: json_object_text(fields, "project_name", ""),
         apply_date: json_object_text(fields, "apply_date", ""),
         pay_unit: json_object_text(fields, "pay_unit", ""),
+        process_instance_guid: json_object_text(
+          fields,
+          "process_instance_id",
+          json_object_text(fields, "processInstanceGuid", ""),
+        ),
         source_kind: json_object_text(fields, "source_kind", "imported"),
         offsets: loan_offset_rows_from_json(
           fields.get("offsets").unwrap_or(Json::array([])),
@@ -8176,6 +8204,47 @@ fn loan_rows_from_body(body : String) -> Array[LoanRow] {
     _ => ()
   }
   rows
+}
+
+///|
+fn loan_workflow_actions_from_body(
+  body : String,
+) -> (String, Array[LoanWorkflowActionRow]) {
+  let rows : Array[LoanWorkflowActionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) => {
+          let process_name = json_object_text(data, "processName", "")
+          for value in json_array_field(data, "actions") {
+            match value {
+              Json::Object(action) =>
+                rows.push({
+                  action_guid: json_object_text(action, "actionGuid", ""),
+                  step_order: json_object_text(action, "stepOrder", "0"),
+                  step_name: json_object_text(action, "stepName", ""),
+                  decision: json_object_text(action, "decision", ""),
+                  assignee_name: json_object_text(
+                    action,
+                    "assigneeEmpName",
+                    json_object_text(action, "assigneeName", ""),
+                  ),
+                  action_time: json_object_text(action, "actionTime", ""),
+                  comment: json_object_text(action, "comment", ""),
+                  source_kind: json_object_text(
+                    action, "sourceKind", "imported",
+                  ),
+                })
+              _ => ()
+            }
+          }
+          (process_name, rows)
+        }
+        _ => ("", rows)
+      }
+    _ => ("", rows)
+  }
 }
 
 ///|
@@ -11414,6 +11483,20 @@ fn load_loans(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn load_loan_workflow(
+  emit : @rabbita.Emit[Msg],
+  process_instance_guid : String,
+) -> Cmd {
+  @http.get("/api/company/source/workflow/instances/" + process_instance_guid).expect_text(result => {
+      match result {
+        Ok(body) => emit(LoanWorkflowLoaded(body))
+        Err(_) => emit(LoanWorkflowLoadFailed)
+      }
+    },
+  )
+}
+
+///|
 fn load_budget_scope(emit : @rabbita.Emit[Msg], bu_guid : String) -> Cmd {
   let bu_query = if bu_guid == "" { "" } else { "?buGuid=" + bu_guid }
   @http.get("/api/company/source/budget/users-in-bu" + bu_query).expect_text(result => {
@@ -13670,6 +13753,30 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loan_pay_unit,
           loan_project_guid,
           loan_amount,
+          loan_workflow_loaded: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            false
+          } else {
+            model.loan_workflow_loaded
+          },
+          loan_workflow_process_name: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            ""
+          } else {
+            model.loan_workflow_process_name
+          },
+          loan_workflow_rows: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            []
+          } else {
+            model.loan_workflow_rows
+          },
+          loan_workflow_note: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            "借款流程实例尚未加载 · 没有 processInstanceGuid 时保持为空"
+          } else {
+            model.loan_workflow_note
+          },
           contract_detail: if path == "/contracts" {
             None
           } else {
@@ -21266,8 +21373,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(row) => row.apply_state
         None => model.loan_state
       }
+      let workflow_command = match loan_row_from_rows(rows, detail_id) {
+        Some(row) if !row.process_instance_guid.is_empty() =>
+          load_loan_workflow(emit, row.process_instance_guid)
+        _ => none
+      }
       (
-        none,
+        workflow_command,
         {
           ..model,
           loans_loaded: true,
@@ -21285,6 +21397,33 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loans_loaded: false,
           loan_rows: [],
           loan_note: "员工借款读模型不可用 · 使用已审核快照",
+        },
+      )
+    LoanWorkflowLoaded(body) => {
+      let (process_name, rows) = loan_workflow_actions_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          loan_workflow_loaded: true,
+          loan_workflow_process_name: process_name,
+          loan_workflow_rows: rows,
+          loan_workflow_note: if rows.length() == 0 {
+            "流程实例已加载，但动作源为空 · 不推断审批结果"
+          } else {
+            "已加载 PostgreSQL 流程动作源观察 · 不产生审批权限"
+          },
+        },
+      )
+    }
+    LoanWorkflowLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          loan_workflow_loaded: false,
+          loan_workflow_rows: [],
+          loan_workflow_note: "借款流程实例读模型不可用 · 保持审批轨迹为空",
         },
       )
     ExportLoansCsv =>
@@ -34217,6 +34356,62 @@ fn loan_state_label(state : String) -> String {
 }
 
 ///|
+fn loan_workflow_decision_label(decision : String) -> String {
+  match decision {
+    "INITIATED" => "发起"
+    "APPROVED" => "同意"
+    "REJECTED" => "驳回"
+    "AUTO_SKIPPED" => "自动跳过"
+    _ if decision.is_empty() => "—"
+    _ => decision
+  }
+}
+
+///|
+fn loan_workflow_timeline(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for action in model.loan_workflow_rows {
+    rows.push([
+      action.step_order,
+      action.step_name,
+      loan_workflow_decision_label(action.decision),
+      if action.assignee_name.is_empty() {
+        "—"
+      } else {
+        action.assignee_name
+      },
+      action.action_time,
+      if action.comment.is_empty() {
+        "—"
+      } else {
+        action.comment
+      },
+      action.source_kind,
+    ])
+  }
+  if rows.length() == 0 {
+    rows.push([
+      "—", "—", "—", "—", "—", "无源动作记录", "source rows=0",
+    ])
+  }
+  table_panel(
+    "审批轨迹" +
+    (if model.loan_workflow_process_name.is_empty() {
+      ""
+    } else {
+      " — " + model.loan_workflow_process_name
+    }),
+    model.loan_workflow_note + " · 轨迹只读",
+    data_table(
+      [
+        "步骤", "审批节点", "决定", "处理人", "时间", "意见", "来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
 fn loan_editor_view(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -34536,6 +34731,11 @@ fn loan_editor_view(
             },
           ),
         )
+      } else {
+        @html.nothing
+      },
+      if detail {
+        loan_workflow_timeline(model)
       } else {
         @html.nothing
       },

@@ -51,6 +51,10 @@ posts cash, accounting, tax, or approval state implicitly.
   offset provenance.
 - Rabbita `/loans` loads the live list and keeps the designer's existing
   summary/table layout as an offline fallback.
+- Loan detail reads `/api/company/source/workflow/instances/:id` when the
+  source row carries `process_instance_id`, rendering the source action trail
+  (step, decision, assignee, timestamp, comment) without granting approval
+  authority; empty workflow source rows remain visibly empty.
 - The parity matrix marks the two source loan GET actions and `/loans` as
   connected-read evidence and marks create, submit, offset, update, and void
   as connected command handlers. The workflow-sync handler remains explicitly
@@ -63,7 +67,7 @@ posts cash, accounting, tax, or approval state implicitly.
 - Rabbita `/loans/new` and local loan detail now expose create, submit, draft
   update, and draft/rejected void command states. Imported detail routes are
   rendered read-only; the approval/offset controls are not fabricated without
-  workflow approval evidence.
+  workflow approval evidence, and the workflow timeline remains read-only.
 
 ## Remaining gate
 
