@@ -294,6 +294,25 @@ struct SalesCustomerRow {
 }
 
 ///|
+struct SalesSubscriptionRow {
+  sub_guid : String
+  sub_code : String
+  customer_guid : String
+  customer_name : String
+  phone : String
+  proj_guid : String
+  building_no : String
+  unit_no : String
+  area : String
+  unit_price : String
+  total_price : String
+  sub_amount : String
+  sub_date : String
+  state : String
+  source_kind : String
+}
+
+///|
 struct InvoiceRow {
   invoice_no : String
   counterparty : String
@@ -1141,6 +1160,21 @@ struct Model {
   sales_customer_phone : String
   sales_customer_source : String
   sales_customer_remark : String
+  sales_subscription_rows : Array[SalesSubscriptionRow]
+  sales_subscription_loaded : Bool
+  sales_subscription_project_id : String
+  sales_subscription_state : String
+  sales_subscription_form_open : Bool
+  sales_subscription_customer_guid : String
+  sales_subscription_proj_guid : String
+  sales_subscription_building_no : String
+  sales_subscription_unit_no : String
+  sales_subscription_area : String
+  sales_subscription_unit_price : String
+  sales_subscription_total_price : String
+  sales_subscription_sub_amount : String
+  sales_subscription_sub_date : String
+  sales_subscription_payment_type : String
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
@@ -1829,7 +1863,13 @@ enum Msg {
   DeleteSalesCustomer(String)
   SalesCustomerCommandFinished(String)
   SalesCustomerCommandFailed
-  CreateSalesSubscription
+  SelectSalesSubscriptionProject(String)
+  SelectSalesSubscriptionState(String)
+  OpenSalesSubscriptionForm
+  CloseSalesSubscriptionForm
+  InputSalesSubscriptionField(String, String)
+  SubmitSalesSubscriptionForm
+  ConvertSalesSubscription(String)
   SalesSubscriptionCommandFinished(String)
   SalesSubscriptionCommandFailed
   CreateSalesMortgage
@@ -2403,6 +2443,21 @@ fn initial_model() -> Model {
     sales_customer_phone: "",
     sales_customer_source: "案场",
     sales_customer_remark: "",
+    sales_subscription_rows: [],
+    sales_subscription_loaded: false,
+    sales_subscription_project_id: "",
+    sales_subscription_state: "",
+    sales_subscription_form_open: false,
+    sales_subscription_customer_guid: "",
+    sales_subscription_proj_guid: "",
+    sales_subscription_building_no: "",
+    sales_subscription_unit_no: "",
+    sales_subscription_area: "0",
+    sales_subscription_unit_price: "0",
+    sales_subscription_total_price: "0",
+    sales_subscription_sub_amount: "0",
+    sales_subscription_sub_date: "2026-07-16",
+    sales_subscription_payment_type: "按揭",
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
@@ -3999,6 +4054,76 @@ fn sales_customer_rows_from_body(body : String) -> Array[SalesCustomerRow] {
     _ => ()
   }
   rows
+}
+
+///|
+fn sales_subscription_from_json(value : Json) -> SalesSubscriptionRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        sub_guid: json_object_text(
+          fields,
+          "sub_guid",
+          json_object_text(fields, "subscription_guid", ""),
+        ),
+        sub_code: json_object_text(fields, "sub_code", "—"),
+        customer_guid: json_object_text(fields, "customer_guid", "—"),
+        customer_name: json_object_text(fields, "customer_name", "—"),
+        phone: json_object_text(fields, "phone", "—"),
+        proj_guid: json_object_text(fields, "proj_guid", ""),
+        building_no: json_object_text(fields, "building_no", "—"),
+        unit_no: json_object_text(fields, "unit_no", "—"),
+        area: json_object_text(fields, "area", "0"),
+        unit_price: json_object_text(fields, "unit_price", "0"),
+        total_price: json_object_text(fields, "total_price", "0"),
+        sub_amount: json_object_text(fields, "sub_amount", "0"),
+        sub_date: json_object_text(fields, "sub_date", ""),
+        state: json_object_text(
+          fields,
+          "state",
+          json_object_text(fields, "status", "reserved"),
+        ),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn sales_subscription_rows_from_body(
+  body : String,
+) -> Array[SalesSubscriptionRow] {
+  let rows : Array[SalesSubscriptionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("data") {
+        Some(Json::Array(values)) => values
+        _ =>
+          match fields.get("items") {
+            Some(Json::Array(values)) => values
+            _ => []
+          }
+      }
+      for value in values {
+        match sales_subscription_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn sales_parse_number(value : String) -> Double {
+  let parsed = @json.parse(value) catch { _ => Json::null() }
+  match parsed {
+    Json::Number(number, ..) => number
+    _ => 0.0
+  }
 }
 
 ///|
@@ -10568,10 +10693,66 @@ fn issue_sales_customer_delete(
 }
 
 ///|
-fn issue_sales_subscription_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_sales_subscription_create(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let nonce = import_nonce()
+  let subscription_id = "SUB-RABBITA-" + nonce
   @http.post("/api/company/sales/subscriptions")
   .with_text(
-    "{\"idempotency_key\":\"rabbita-sales-subscription-create-v1\",\"sub_guid\":\"SUB-RABBITA-LOCAL\",\"sub_code\":\"SUB-RABBITA-LOCAL\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"building_no\":\"2\",\"unit_no\":\"1802\",\"area\":128.6,\"unit_price\":18600,\"total_price\":2391960,\"sub_amount\":60000,\"sub_date\":\"2026-07-16\"}",
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-sales-subscription-create-" + nonce,
+      ),
+      "sub_guid": Json::string(subscription_id),
+      "sub_code": Json::string(subscription_id),
+      "customer_guid": Json::string(model.sales_subscription_customer_guid),
+      "proj_guid": Json::string(model.sales_subscription_proj_guid),
+      "bu_guid": Json::string("bu-group-0001"),
+      "building_no": Json::string(model.sales_subscription_building_no),
+      "unit_no": Json::string(model.sales_subscription_unit_no),
+      "area": Json::number(sales_parse_number(model.sales_subscription_area)),
+      "unit_price": Json::number(
+        sales_parse_number(model.sales_subscription_unit_price),
+      ),
+      "total_price": Json::number(
+        sales_parse_number(model.sales_subscription_total_price),
+      ),
+      "sub_amount": Json::number(
+        sales_parse_number(model.sales_subscription_sub_amount),
+      ),
+      "sub_date": Json::string(model.sales_subscription_sub_date),
+    }).stringify(),
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesSubscriptionCommandFinished(body))
+      Err(_) => emit(SalesSubscriptionCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_sales_subscription_convert(
+  emit : @rabbita.Emit[Msg],
+  subscription_id : String,
+  payment_type : String,
+) -> Cmd {
+  let nonce = import_nonce()
+  @http.post(
+    "/api/company/sales/subscriptions/" +
+    subscription_id +
+    "/convert-to-contract",
+  )
+  .with_text(
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-sales-subscription-convert-" + nonce,
+      ),
+      "paymentType": Json::string(payment_type),
+      "signedDate": Json::string("2026-07-16"),
+    }).stringify(),
   )
   .expect_text(result => {
     match result {
@@ -11661,7 +11842,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ),
         ])
       } else if path == "/sales/subscriptions" {
-        load_sales(emit, "subscriptions")
+        @cmd.batch([
+          load_projects(emit),
+          load_sales_for(
+            emit,
+            "subscriptions",
+            model.sales_subscription_project_id,
+            "",
+          ),
+          load_sales_for(emit, "customers", "", ""),
+        ])
       } else if path == "/sales/contracts" {
         load_sales(emit, "contracts")
       } else if path == "/sales/mortgages" {
@@ -13199,6 +13389,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           } else {
             model.sales_customer_rows
           },
+          sales_subscription_rows: if family == "subscriptions" {
+            sales_subscription_rows_from_body(body)
+          } else {
+            model.sales_subscription_rows
+          },
+          sales_subscription_loaded: if family == "subscriptions" {
+            true
+          } else {
+            model.sales_subscription_loaded
+          },
           sales_note: "已加载 PostgreSQL 销售源读模型 · 空表保持可见 · 导入记录保持只读",
         },
       )
@@ -13214,6 +13414,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             []
           } else {
             model.sales_customer_rows
+          },
+          sales_subscription_rows: if family == "subscriptions" {
+            []
+          } else {
+            model.sales_subscription_rows
+          },
+          sales_subscription_loaded: if family == "subscriptions" {
+            false
+          } else {
+            model.sales_subscription_loaded
           },
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
         },
@@ -13390,23 +13600,170 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_customer_command_note: "客户命令服务不可用、权限不足或客户已存在",
         },
       )
-    CreateSalesSubscription =>
+    SelectSalesSubscriptionProject(project_id) =>
       (
-        issue_sales_subscription_create(emit),
+        load_sales_for(emit, "subscriptions", project_id, ""),
         {
           ..model,
-          sales_subscription_command_note: "正在写入本地认筹命令…",
+          sales_subscription_project_id: project_id,
+          sales_subscription_rows: [],
+          sales_subscription_loaded: false,
+          sales_loaded: false,
+          sales_note: "正在读取所选项目的认筹档案…",
         },
       )
+    SelectSalesSubscriptionState(state) =>
+      (none, { ..model, sales_subscription_state: state })
+    OpenSalesSubscriptionForm =>
+      (
+        none,
+        {
+          ..model,
+          sales_subscription_form_open: true,
+          sales_subscription_customer_guid: "",
+          sales_subscription_proj_guid: if model.sales_subscription_project_id.is_empty() {
+            model.project_rows
+            .get(0)
+            .map(row => row.project_id)
+            .unwrap_or("proj-0001")
+          } else {
+            model.sales_subscription_project_id
+          },
+          sales_subscription_building_no: "",
+          sales_subscription_unit_no: "",
+          sales_subscription_area: "0",
+          sales_subscription_unit_price: "0",
+          sales_subscription_total_price: "0",
+          sales_subscription_sub_amount: "0",
+          sales_subscription_sub_date: "2026-07-16",
+          sales_subscription_payment_type: "按揭",
+        },
+      )
+    CloseSalesSubscriptionForm =>
+      (none, { ..model, sales_subscription_form_open: false })
+    InputSalesSubscriptionField(field, value) => {
+      let total = if field == "area" || field == "unit_price" {
+        let area = if field == "area" {
+          sales_parse_number(value)
+        } else {
+          sales_parse_number(model.sales_subscription_area)
+        }
+        let unit_price = if field == "unit_price" {
+          sales_parse_number(value)
+        } else {
+          sales_parse_number(model.sales_subscription_unit_price)
+        }
+        (area * unit_price).to_string()
+      } else {
+        model.sales_subscription_total_price
+      }
+      (
+        none,
+        {
+          ..model,
+          sales_subscription_customer_guid: if field == "customer_guid" {
+            value
+          } else {
+            model.sales_subscription_customer_guid
+          },
+          sales_subscription_proj_guid: if field == "proj_guid" {
+            value
+          } else {
+            model.sales_subscription_proj_guid
+          },
+          sales_subscription_building_no: if field == "building_no" {
+            value
+          } else {
+            model.sales_subscription_building_no
+          },
+          sales_subscription_unit_no: if field == "unit_no" {
+            value
+          } else {
+            model.sales_subscription_unit_no
+          },
+          sales_subscription_area: if field == "area" {
+            value
+          } else {
+            model.sales_subscription_area
+          },
+          sales_subscription_unit_price: if field == "unit_price" {
+            value
+          } else {
+            model.sales_subscription_unit_price
+          },
+          sales_subscription_total_price: total,
+          sales_subscription_sub_amount: if field == "sub_amount" {
+            value
+          } else {
+            model.sales_subscription_sub_amount
+          },
+          sales_subscription_sub_date: if field == "sub_date" {
+            value
+          } else {
+            model.sales_subscription_sub_date
+          },
+          sales_subscription_payment_type: if field == "payment_type" {
+            value
+          } else {
+            model.sales_subscription_payment_type
+          },
+        },
+      )
+    }
+    SubmitSalesSubscriptionForm =>
+      if model.sales_subscription_customer_guid.trim().is_empty() ||
+        model.sales_subscription_proj_guid.trim().is_empty() ||
+        model.sales_subscription_building_no.trim().is_empty() ||
+        model.sales_subscription_unit_no.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            sales_subscription_command_note: "客户、项目、楼栋、房号不能为空",
+          },
+        )
+      } else {
+        (
+          issue_sales_subscription_create(emit, model),
+          {
+            ..model,
+            sales_subscription_form_open: false,
+            sales_subscription_command_note: "正在写入本地认筹命令…",
+          },
+        )
+      }
+    ConvertSalesSubscription(subscription_id) =>
+      if subscription_id.is_empty() {
+        (none, model)
+      } else {
+        (
+          issue_sales_subscription_convert(
+            emit,
+            subscription_id,
+            model.sales_subscription_payment_type,
+          ),
+          {
+            ..model,
+            sales_subscription_command_note: "正在提交转签约候选 · 不自动创建合同或回款…",
+          },
+        )
+      }
     SalesSubscriptionCommandFinished(body) =>
       (
-        load_sales(emit, "subscriptions"),
+        load_sales_for(
+          emit,
+          "subscriptions",
+          model.sales_subscription_project_id,
+          "",
+        ),
         {
           ..model,
           sales_subscription_command_note: if body.contains(
               "\"idempotent_replay\":true",
             ) {
             "认筹命令已幂等重放 · 本地投影保持稳定"
+          } else if body.contains("\"command_type\":\"convert_to_contract\"") {
+            "转签约候选已写入 PostgreSQL · 合同/回款仍保持待处理"
           } else {
             "认筹命令已写入 PostgreSQL · 合同/回款仍保持待处理"
           },
@@ -22099,28 +22456,44 @@ fn ai_stats_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
-  let active = model.sales_loaded && model.sales_family == family
+  let active = if family == "subscriptions" {
+    model.sales_subscription_loaded
+  } else {
+    model.sales_loaded && model.sales_family == family
+  }
   let row_count = if active {
-    model.sales_rows.length().to_string()
+    if family == "subscriptions" {
+      model.sales_subscription_rows.length().to_string()
+    } else {
+      model.sales_rows.length().to_string()
+    }
   } else {
     "—"
   }
   let count_suffix = if active { " 条当前投影" } else { " 等待加载" }
-  let sample = match model.sales_rows.get(0) {
-    Some(row) =>
-      " · " +
-      row.aggregate_id +
-      " · " +
-      row.primary +
-      " · " +
-      row.secondary +
-      " · " +
-      row.amount_display +
-      " · " +
-      row.state +
-      " · " +
-      row.source_kind
-    None => ""
+  let sample = if family == "subscriptions" {
+    match model.sales_subscription_rows.get(0) {
+      Some(row) =>
+        " · " + row.sub_code + " · " + row.state + " · " + row.source_kind
+      None => ""
+    }
+  } else {
+    match model.sales_rows.get(0) {
+      Some(row) =>
+        " · " +
+        row.aggregate_id +
+        " · " +
+        row.primary +
+        " · " +
+        row.secondary +
+        " · " +
+        row.amount_display +
+        " · " +
+        row.state +
+        " · " +
+        row.source_kind
+      None => ""
+    }
   }
   div(class="erp-runtime-banner", [
     strong(if active { "PostgreSQL 已连接" } else { "销售读模型" }),
@@ -22378,6 +22751,221 @@ fn sales_customers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
+fn sales_subscription_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.sales_subscription_form_open {
+    @html.nothing
+  } else {
+    let customer_buttons : Array[@html.Html] = if model.sales_customer_rows.length() ==
+      0 {
+      [
+        span(
+          class="erp-source-note",
+          "暂无客户源记录，请输入客户 GUID",
+        ),
+      ]
+    } else {
+      model.sales_customer_rows.map(row => {
+        button(
+          class="erp-tab",
+          on_click=emit(
+            InputSalesSubscriptionField("customer_guid", row.customer_guid),
+          ),
+          row.customer_name + " · " + row.phone,
+        )
+      })
+    }
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新增认筹"),
+        span(class="erp-source-note", model.sales_subscription_command_note),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "客户 GUID",
+          model.sales_subscription_customer_guid,
+          "选择或输入客户 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("customer_guid", value)),
+        ),
+        editable_form_field(
+          "项目 GUID",
+          model.sales_subscription_proj_guid,
+          "项目 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("proj_guid", value)),
+        ),
+        editable_form_field(
+          "楼栋号",
+          model.sales_subscription_building_no,
+          "例: 1-1",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("building_no", value)),
+        ),
+        editable_form_field(
+          "房号",
+          model.sales_subscription_unit_no,
+          "例: 2301",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("unit_no", value)),
+        ),
+        editable_form_field(
+          "面积㎡",
+          model.sales_subscription_area,
+          "数字",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("area", value)),
+        ),
+        editable_form_field(
+          "单价(元/㎡)",
+          model.sales_subscription_unit_price,
+          "数字",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("unit_price", value)),
+        ),
+        editable_form_field(
+          "总价(元)",
+          model.sales_subscription_total_price,
+          "可手工调整",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("total_price", value)),
+        ),
+        editable_form_field(
+          "认筹金",
+          model.sales_subscription_sub_amount,
+          "元",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("sub_amount", value)),
+        ),
+        editable_form_field(
+          "认筹日",
+          model.sales_subscription_sub_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("sub_date", value)),
+        ),
+        editable_form_field(
+          "付款方式",
+          model.sales_subscription_payment_type,
+          "按揭 / 一次性 / 分期",
+          @html.InputType::Text,
+          emit.map(value => InputSalesSubscriptionField("payment_type", value)),
+        ),
+      ],
+      div(class="erp-source-note", "客户源档案"),
+      div(class="erp-inline-actions") <| customer_buttons,
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseSalesSubscriptionForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitSalesSubscriptionForm),
+          "认筹",
+        ),
+      ],
+    ]
+  }
+}
+
+///|
+fn sales_subscription_state_label(state : String) -> String {
+  match state {
+    "subscribed" => "已认筹"
+    "reserved" => "已认筹"
+    "converted" => "已转签约"
+    "cancelled" => "已取消"
+    _ => state
+  }
+}
+
+///|
+fn sales_subscription_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  if model.sales_subscription_rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("暂无认筹源记录"),
+        td("—"),
+      ],
+    )
+  } else {
+    for row in model.sales_subscription_rows {
+      if !model.sales_subscription_state.is_empty() &&
+        row.state != model.sales_subscription_state &&
+        !(model.sales_subscription_state == "subscribed" &&
+        row.state == "reserved") {
+        continue
+      }
+      let action = if row.source_kind == "command" && row.state == "subscribed" {
+        button(
+          class="erp-link-btn is-success",
+          on_click=emit(ConvertSalesSubscription(row.sub_guid)),
+          "转签约",
+        )
+      } else if row.source_kind == "command" && row.state == "reserved" {
+        button(
+          class="erp-link-btn is-success",
+          on_click=emit(ConvertSalesSubscription(row.sub_guid)),
+          "转签约",
+        )
+      } else {
+        span(class="erp-source-note", "源行只读")
+      }
+      rows.push(
+        tr <| [
+          td(row.sub_code),
+          td(row.customer_name + " · " + row.customer_guid),
+          td(row.phone),
+          td(row.building_no + " - " + row.unit_no),
+          td(row.area),
+          td(row.unit_price),
+          td(row.total_price),
+          td(row.sub_amount),
+          td(row.sub_date),
+          td(
+            sales_subscription_state_label(row.state) + " · " + row.source_kind,
+          ),
+          td(action),
+        ],
+      )
+    }
+  }
+  table_panel(
+    "认筹记录",
+    model.sales_note +
+    " · " +
+    model.sales_subscription_rows.length().to_string() +
+    " 条 · 导入认筹保持只读",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "认筹号", "客户", "电话", "房号", "面积㎡", "单价(元/㎡)",
+          "总价(元)", "认筹金", "认筹日", "状态", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
 fn sales_subscriptions_view(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -22389,7 +22977,7 @@ fn sales_subscriptions_view(
     [
       button(
         class="erp-primary-btn",
-        on_click=emit(CreateSalesSubscription),
+        on_click=emit(OpenSalesSubscriptionForm),
         "＋ 新建认筹",
       ),
     ],
@@ -22399,37 +22987,79 @@ fn sales_subscriptions_view(
         strong("本地认筹命令"),
         span(" · " + model.sales_subscription_command_note),
       ]),
-      sales_projection_table(model, "subscriptions"),
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目筛选:"),
+        if model.project_rows.length() == 0 {
+          span(
+            class="erp-info-tag",
+            if model.sales_subscription_project_id.is_empty() {
+              "全部项目"
+            } else {
+              model.sales_subscription_project_id
+            },
+          )
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.sales_subscription_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectSalesSubscriptionProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "状态筛选:"),
+        button(
+          class=if model.sales_subscription_state.is_empty() {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesSubscriptionState("")),
+          "全部",
+        ),
+        button(
+          class=if model.sales_subscription_state == "subscribed" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesSubscriptionState("subscribed")),
+          "已认筹",
+        ),
+        button(
+          class=if model.sales_subscription_state == "converted" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesSubscriptionState("converted")),
+          "已转签约",
+        ),
+        button(
+          class=if model.sales_subscription_state == "cancelled" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesSubscriptionState("cancelled")),
+          "已取消",
+        ),
+      ],
+      sales_subscription_form_view(emit, model),
+      sales_subscription_table(emit, model),
       div(class="erp-stat-grid") <| [
         metric("本月认筹", "86", "认筹金 ¥516 万", "metric-blue"),
         metric("待转签", "24", "近 7 日新增 6", "metric-blue"),
         metric("转签率", "71.4%", "较上月 +4.2%", "metric-green"),
       ],
-      filter_bar("认筹号 / 客户 / 房号"),
-      table_panel(
-        "认筹记录",
-        "共 386 条",
-        data_table(
-          [
-            "认筹号", "客户", "电话", "房号", "面积㎡", "单价(元/㎡)",
-            "总价(元)", "认筹金", "认筹日", "状态",
-          ],
-          [
-            [
-              "RC-260713-001", "王晓峰", "138****6210", "2#-1802", "128.60", "18,600",
-              "2,391,960", "60,000", "2026-07-13", "待转签",
-            ],
-            [
-              "RC-260712-009", "赵文静", "186****4302", "5#-2101", "96.40", "16,800",
-              "1,619,520", "50,000", "2026-07-12", "已认筹",
-            ],
-            [
-              "RC-260711-014", "陈敏", "158****9920", "3#-901", "89.20", "22,100",
-              "1,971,320", "80,000", "2026-07-11", "已转签",
-            ],
-          ],
-        ),
-      ),
     ],
   )
 }

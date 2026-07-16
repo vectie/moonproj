@@ -84,6 +84,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/invoice` now loads projects plus incoming/outgoing invoices and the tax ledger, supports project switching, mirrors all three source tabs, renders live rows and totals, and provides editable authority-bound incoming/outgoing registration forms. Row-level delete remains open.
 - Browser action delta: Rabbita `/project/progress` now loads the project master list, scopes source progress/output/overview reads to the selected project, mirrors progress/output/task-report tabs, and scopes local create/output commands to that project. Source-row delete and contract lookup remain open.
 - Browser action delta: Rabbita `/tender` now loads the project master list, scopes source tender reads and local tender creation to the selected project, mirrors the source create-tender and award dialogs with editable fields, provider selection, source-row selection, and live 招标计划/定标记录 tabs. Per-row state controls remain open.
+- Browser action delta: Rabbita `/sales/subscriptions` now loads projects, customer source rows, and project-scoped subscription rows; it mirrors the source registration fields, derives total price from area × unit price, supports customer/project selection, and exposes conversion only for command-owned subscribed rows. Imported rows remain read-only and conversion keeps contract/revenue effects pending.
 
 ## Browser routes
 
