@@ -1405,6 +1405,9 @@ enum Msg {
   CreateNotifySubscription
   NotifyCommandFinished(String)
   NotifyCommandFailed
+  DispatchNotifyDigest
+  NotifyDigestDispatchFinished(String)
+  NotifyDigestDispatchFailed
   NotifyConfigLoaded(String)
   NotifyOutboxLoaded(String)
   NotifyDigestPreviewLoaded(String)
@@ -6734,6 +6737,18 @@ fn issue_notify_subscription_create(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_notify_digest_dispatch(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/notify/digest/dispatch")
+  .with_text("{\"idempotency_key\":\"rabbita-notify-digest-dispatch-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(NotifyDigestDispatchFinished(body))
+      Err(_) => emit(NotifyDigestDispatchFailed)
+    }
+  })
+}
+
+///|
 fn load_ocr(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/ocr/status").expect_text(result => {
     match result {
@@ -10984,6 +10999,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           notify_note: "通知订阅命令服务不可用或被网关拒绝",
+        },
+      )
+    DispatchNotifyDigest =>
+      (
+        issue_notify_digest_dispatch(emit),
+        { ..model, notify_note: "正在检查通知摘要派发边界…" },
+      )
+    NotifyDigestDispatchFinished(body) =>
+      (
+        if body.contains("\"dryRun\":true") {
+          load_notify(emit, "digest")
+        } else {
+          none
+        },
+        {
+          ..model,
+          notify_note: if body.contains("\"delivery_effect\":false") {
+            "通知摘要派发候选已写入本地收据 · dry-run · 不发送、不调用 provider"
+          } else {
+            "通知摘要派发候选已返回 · 请复核投递边界"
+          },
+        },
+      )
+    NotifyDigestDispatchFailed =>
+      (
+        none,
+        {
+          ..model,
+          notify_note: "通知摘要派发候选服务不可用或被网关拒绝",
         },
       )
     NotifyConfigLoaded(body) => {
@@ -19821,6 +19865,11 @@ fn notify_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-primary-btn",
         on_click=emit(CreateNotifySubscription),
         "＋ 新建规则（待授权）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(DispatchNotifyDigest),
+        "检查摘要派发（干运行）",
       ),
     ],
     div <| [

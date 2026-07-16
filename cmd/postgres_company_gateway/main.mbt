@@ -371,6 +371,8 @@ fn command_path_allowed(
       path == "/api/company/source/notify/subscriptions" ||
       path == "/api/company/notify/messages/read-all" ||
       path == "/api/company/source/notify/messages/read-all" ||
+      path == "/api/company/notify/digest/dispatch" ||
+      path == "/api/company/source/notify/digest/dispatch" ||
       path_with_identifier_suffix(
         "/api/company/source/notify/messages/", "/read", path,
       )

@@ -324,7 +324,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `notify` | `PUT` | `/config` | `/inbox`, `/notify-config` | `connected_notification_config_command_candidate` | `accept_browser_notification_config_candidate_and_security_owner` |
 | `notify` | `POST` | `/config/test-webhook` | `/inbox`, `/notify-config` | `connected_notification_webhook_test_candidate` | `accept_browser_notification_webhook_test_candidate_and_security_owner` |
 | `notify` | `GET` | `/email-outbox` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
-| `notify` | `POST` | `/digest/dispatch` | `/inbox`, `/notify-config` | `connected_notification_digest_dispatch_candidate` | `accept_browser_notification_digest_candidate_and_security_owner` |
+| `notify` | `POST` | `/digest/dispatch` | `/inbox`, `/notify-config` | `connected_notification_digest_dispatch_candidate` | `accept_browser_notification_digest_candidate_and_security_owner` (Rabbita dry-run action now wired) |
 | `notify` | `GET` | `/digest/preview` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `GET` | `/digest/log` | `/inbox`, `/notify-config` | `connected_notification_read` | `accept_browser_notification_scenario_and_production_identity` |
 | `notify` | `POST` | `/email-outbox/test` | `/inbox`, `/notify-config` | `connected_notification_email_command_candidate` | `accept_browser_notification_email_candidate_and_security_owner` |
