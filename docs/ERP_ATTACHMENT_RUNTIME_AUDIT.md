@@ -31,7 +31,10 @@ The controlled PostgreSQL export has five imported `sys_user` rows and zero
 `attachment` rows. The three reads therefore return an explicit empty source
 state (`total=0`, `bytes=0`) rather than designer fixture files. The Rabbita
 `/attachments` screen renders that state after a successful read and only uses
-its reviewed fixture rows when the transport fails.
+its reviewed fixture rows when the transport fails. It now mirrors the source
+filter/search/table shape, accepts a selected file name for the upload
+candidate, and exposes per-row download, OCR re-extract, and delete controls;
+these remain explicit binary/provider/delete boundaries.
 
 The parity matrix marks source `GET /list`, `/all`, and `/stats` as
 `connected_attachment_read` and the download route as a

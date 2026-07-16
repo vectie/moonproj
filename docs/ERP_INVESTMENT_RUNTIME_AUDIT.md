@@ -65,6 +65,9 @@ financial effects disabled; the trusted gateway smoke covers the browser path.
   `authorizing=false` without Python.
 - The parity matrix marks `/investment` as `connected_investment_read`; the
   project-scope and production-identity scenario remains open.
+- Rabbita mirrors the source Excel import surface with a `.xlsx` picker,
+  version-name field, activation toggle, and bounded upload action; binary
+  parsing and persistence remain gated.
 - The lifecycle smoke covers signed version create/activate/delete and index
   create/update/delete with idempotent replay and command-owned readback; the
   parity matrix records six `connected_investment_command_candidate` handlers.

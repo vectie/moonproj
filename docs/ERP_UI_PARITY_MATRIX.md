@@ -33,7 +33,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/attachments` now calls the native OCR re-extraction and deletion candidates; binary access, OCR/provider execution, metadata persistence, and actual deletion remain disabled.
 - Browser action delta: Rabbita `/attachments` now exposes the native download boundary; missing imported binaries return source-404 evidence with `downloadable=false` and `binary_storage=not_imported`.
 - Browser action delta: Rabbita `/loans` and local loan detail now call the native workflow-sync gate; missing `wf_process_instance` source rows leave the loan unchanged and do not trigger approval.
-- Browser action delta: Rabbita `/investment` now calls the native Excel workbook upload gate; binary parsing, import persistence, valuation, and financial effects remain disabled.
+- Browser action delta: Rabbita `/investment` now mirrors the source Excel import surface (`.xlsx` picker, version name, activation toggle) and calls the native workbook upload gate; binary parsing, import persistence, valuation, and financial effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native subject-mapping dry-run candidate; investment master-data writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native plan-line edit dry-run candidate; investment plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.

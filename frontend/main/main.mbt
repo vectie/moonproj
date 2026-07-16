@@ -998,6 +998,9 @@ struct Model {
   investment_note : String
   investment_explain_note : String
   investment_explain_text : String
+  investment_excel_file_name : String
+  investment_excel_version_name : String
+  investment_excel_activate : Bool
   investment_upload_note : String
   investment_mapping_note : String
   investment_plan_line_note : String
@@ -1078,6 +1081,12 @@ struct Model {
   attachment_pending : String
   attachment_missing_table_count : String
   attachment_note : String
+  attachment_biz_type : String
+  attachment_ai_status : String
+  attachment_keyword : String
+  attachment_file_name : String
+  attachment_file_mime : String
+  attachment_file_size : String
   attachment_action_guid : String
   attachment_action_note : String
   attachment_download_note : String
@@ -1456,6 +1465,9 @@ enum Msg {
   ExplainInvestment
   InvestmentExplainFinished(String)
   InvestmentExplainFailed
+  InputInvestmentExcelFileSelected(String)
+  InputInvestmentExcelVersionName(String)
+  ToggleInvestmentExcelActivate
   RequestInvestmentExcelUpload
   InvestmentExcelUploadFinished(String)
   InvestmentExcelUploadFailed
@@ -1539,6 +1551,12 @@ enum Msg {
   AttachmentsLoadFailed
   AttachmentStatsLoaded(String)
   AttachmentStatsLoadFailed
+  InputAttachmentBizType(String)
+  InputAttachmentAiStatus(String)
+  InputAttachmentKeyword(String)
+  AttachmentFileSelected(String)
+  SearchAttachments
+  AttachmentAction(String, String)
   RequestAttachmentUpload
   AttachmentCommandFinished(String)
   AttachmentCommandFailed
@@ -1935,6 +1953,9 @@ fn initial_model() -> Model {
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
     investment_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     investment_explain_text: "等待投资解释候选",
+    investment_excel_file_name: "",
+    investment_excel_version_name: "",
+    investment_excel_activate: false,
     investment_upload_note: "Excel 工作簿上传候选尚未运行 · 二进制解析保持关闭",
     investment_mapping_note: "科目映射候选尚未运行 · 投资主数据保持只读",
     investment_plan_line_note: "计划行编辑候选尚未运行 · 投资计划保持只读",
@@ -2015,6 +2036,12 @@ fn initial_model() -> Model {
     attachment_pending: "0",
     attachment_missing_table_count: "0",
     attachment_note: "附件源读模型尚未加载 · 使用设计快照",
+    attachment_biz_type: "",
+    attachment_ai_status: "",
+    attachment_keyword: "",
+    attachment_file_name: "",
+    attachment_file_mime: "",
+    attachment_file_size: "",
     attachment_action_guid: "ATT-RABBITA-LOCAL",
     attachment_action_note: "OCR 重提取候选尚未运行 · provider/OCR 保持关闭",
     attachment_download_note: "附件下载边界尚未检查",
@@ -6555,9 +6582,21 @@ fn issue_investment_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_investment_excel_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_investment_excel_upload(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
   @http.post("/api/company/investment/projects/proj-0001/excel-imports")
-  .with_text("{\"idempotency_key\":\"rabbita-investment-excel-upload-v1\"}")
+  .with_text(
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-investment-excel-upload-" + import_nonce(),
+      ),
+      "fileName": Json::string(model.investment_excel_file_name),
+      "versionName": Json::string(model.investment_excel_version_name),
+      "activate": Json::boolean(model.investment_excel_activate),
+    }).stringify(),
+  )
   .expect_text(result => {
     match result {
       Ok(body) => emit(InvestmentExcelUploadFinished(body))
@@ -7062,13 +7101,29 @@ fn issue_warning_scan_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_attachments(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/attachments/all").expect_text(result => {
-    match result {
-      Ok(body) => emit(AttachmentsLoaded(body))
-      Err(_) => emit(AttachmentsLoadFailed)
-    }
-  })
+fn attachment_query(model : Model) -> String {
+  let mut query = ""
+  if !model.attachment_ai_status.is_empty() {
+    query = query + "?aiStatus=" + model.attachment_ai_status
+  }
+  if !model.attachment_keyword.is_empty() {
+    query = query +
+      (if query.is_empty() { "?" } else { "&" }) +
+      "keyword=" +
+      model.attachment_keyword
+  }
+  query
+}
+
+///|
+fn load_attachments(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.get("/api/company/attachments/all" + attachment_query(model)).expect_text(result => {
+      match result {
+        Ok(body) => emit(AttachmentsLoaded(body))
+        Err(_) => emit(AttachmentsLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
@@ -7082,9 +7137,20 @@ fn load_attachment_stats(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_attachment_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_attachment_upload(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
   @http.post("/api/company/attachments/upload")
-  .with_text("{\"idempotency_key\":\"rabbita-attachment-upload-v1\"}")
+  .with_text(
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-attachment-upload-" + import_nonce(),
+      ),
+      "fileName": Json::string(model.attachment_file_name),
+      "mimeType": Json::string(model.attachment_file_mime),
+      "fileSize": Json::string(model.attachment_file_size),
+      "bizType": Json::string(model.attachment_biz_type),
+      "bizGuid": Json::string("RABBITA-ATTACHMENT-LOCAL"),
+    }).stringify(),
+  )
   .expect_text(result => {
     match result {
       Ok(body) => emit(AttachmentCommandFinished(body))
@@ -9031,6 +9097,61 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, profile_password_new: value })
     InputProfilePasswordConfirm(value) =>
       (none, { ..model, profile_password_confirm: value })
+    InputAttachmentBizType(value) =>
+      (none, { ..model, attachment_biz_type: value })
+    InputAttachmentAiStatus(value) =>
+      (none, { ..model, attachment_ai_status: value })
+    InputAttachmentKeyword(value) =>
+      (none, { ..model, attachment_keyword: value })
+    AttachmentFileSelected(value) =>
+      (
+        none,
+        {
+          ..model,
+          attachment_file_name: value,
+          attachment_note: if value.is_empty() {
+            "尚未选择上传文件"
+          } else {
+            "已选择文件 " + value + " · 仍需二进制对象存储授权"
+          },
+        },
+      )
+    SearchAttachments =>
+      (
+        load_attachments(emit, model),
+        {
+          ..model,
+          attachment_note: "正在按条件读取 PostgreSQL 附件元数据…",
+        },
+      )
+    AttachmentAction(guid, action) => {
+      let next_model = { ..model, attachment_action_guid: guid }
+      if action == "download" {
+        (
+          issue_attachment_download(emit, next_model),
+          {
+            ..next_model,
+            attachment_download_note: "正在检查附件下载边界 · 不读取二进制…",
+          },
+        )
+      } else if action == "reextract" {
+        (
+          issue_attachment_reextract(emit, next_model),
+          {
+            ..next_model,
+            attachment_action_note: "正在检查 OCR 重提取边界 · 不读取二进制、不调用 OCR…",
+          },
+        )
+      } else {
+        (
+          issue_attachment_delete(emit, next_model),
+          {
+            ..next_model,
+            attachment_delete_note: "正在检查附件删除边界 · 不删除二进制、不写入元数据…",
+          },
+        )
+      }
+    }
     Navigate(path) => {
       let command = if path == "/dashboard" ||
         path == "/dashboard-v3" ||
@@ -9106,7 +9227,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/warning" || path == "/warning-rules" {
         load_warnings(emit)
       } else if path == "/attachments" {
-        load_attachments(emit)
+        load_attachments(emit, model)
       } else if path == "/marketing" {
         load_marketing(emit, "campaigns")
       } else if path == "/inbox" {
@@ -11161,14 +11282,52 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_explain_text: "投资解释候选不可用",
         },
       )
-    RequestInvestmentExcelUpload =>
+    InputInvestmentExcelFileSelected(value) =>
       (
-        issue_investment_excel_upload(emit),
+        none,
         {
           ..model,
-          investment_upload_note: "正在检查 Excel 工作簿上传边界 · 不读取二进制、不写入导入记录…",
+          investment_excel_file_name: value,
+          investment_excel_version_name: if model.investment_excel_version_name.is_empty() {
+            if value.is_empty() {
+              ""
+            } else {
+              "Excel 导入版 · " + value
+            }
+          } else {
+            model.investment_excel_version_name
+          },
+          investment_upload_note: if value.is_empty() {
+            "尚未选择 Excel 工作簿"
+          } else {
+            "已选择 " +
+            value +
+            " · 仍需二进制解析与投资负责人授权"
+          },
         },
       )
+    InputInvestmentExcelVersionName(value) =>
+      (none, { ..model, investment_excel_version_name: value })
+    ToggleInvestmentExcelActivate =>
+      (
+        none,
+        { ..model, investment_excel_activate: !model.investment_excel_activate },
+      )
+    RequestInvestmentExcelUpload =>
+      if model.investment_excel_file_name.trim().is_empty() {
+        (
+          none,
+          { ..model, investment_upload_note: "请先选择 .xlsx 工作簿" },
+        )
+      } else {
+        (
+          issue_investment_excel_upload(emit, model),
+          {
+            ..model,
+            investment_upload_note: "正在检查 Excel 工作簿上传边界 · 不读取二进制、不写入导入记录…",
+          },
+        )
+      }
     InvestmentExcelUploadFinished(body) =>
       (
         none,
@@ -12158,10 +12317,14 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     RequestAttachmentUpload =>
-      (
-        issue_attachment_upload(emit),
-        { ..model, attachment_note: "正在检查附件上传边界…" },
-      )
+      if model.attachment_file_name.trim().is_empty() {
+        (none, { ..model, attachment_note: "请先选择文件" })
+      } else {
+        (
+          issue_attachment_upload(emit, model),
+          { ..model, attachment_note: "正在检查附件上传边界…" },
+        )
+      }
     AttachmentCommandFinished(body) =>
       (
         none,
@@ -18488,6 +18651,63 @@ fn investment_profit_actual_panel(model : Model) -> @html.Html {
 }
 
 ///|
+fn investment_excel_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  section(class="erp-detail-card") <| [
+    div(class="erp-panel-heading") <| [
+      h2("Excel 测算导入"),
+      span(
+        class="erp-info-tag",
+        "仅 .xlsx · 二进制解析与写入保持 gated",
+      ),
+    ],
+    div(class="erp-command-bar") <| [
+      label(class="erp-import-file-picker") <| [
+        input(
+          input_type=@html.InputType::File,
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          class="erp-import-file-input",
+          on_change=emit.map(value => InputInvestmentExcelFileSelected(value)),
+        ),
+        span(
+          if model.investment_excel_file_name.is_empty() {
+            "选择 .xlsx 工作簿"
+          } else {
+            model.investment_excel_file_name
+          },
+        ),
+      ],
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ToggleInvestmentExcelActivate),
+        if model.investment_excel_activate {
+          "导入后激活：是"
+        } else {
+          "导入后激活：否"
+        },
+      ),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(RequestInvestmentExcelUpload),
+        "检查上传边界",
+      ),
+    ],
+    div(class="erp-form-grid") <| [
+      editable_form_field(
+        "版本名称",
+        model.investment_excel_version_name,
+        "Excel 导入版",
+        @html.InputType::Text,
+        emit.map(value => InputInvestmentExcelVersionName(value)),
+      ),
+    ],
+    p(class="erp-source-note", model.investment_upload_note),
+  ]
+}
+
+///|
 fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let stats = if model.investment_loaded {
     div(class="erp-stat-grid") <| [
@@ -18605,6 +18825,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div <| [
       stats,
+      investment_excel_panel(emit, model),
       investment_runtime_table(model),
       investment_sensitivity_table(model),
       investment_profit_actual_panel(model),
@@ -22147,47 +22368,102 @@ fn inbox_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  let source_rows : Array[Array[String]] = []
+fn attachment_biz_label(biz_type : String) -> String {
+  match biz_type {
+    "expense" => "报销"
+    "contract" => "合同"
+    "htfk_apply" => "付款申请"
+    "loan" => "借款"
+    "project" => "项目"
+    "srm_provider" => "供应商"
+    "wf_instance" => "BPM"
+    "other" => "其它"
+    _ => if biz_type.is_empty() { "未分类" } else { biz_type }
+  }
+}
+
+///|
+fn attachment_filtered_rows(model : Model) -> Array[AttachmentRow] {
+  let result : Array[AttachmentRow] = []
   for row in model.attachment_rows {
-    source_rows.push([
-      row.file_name,
-      row.biz_type + " " + row.biz_guid,
-      row.file_size,
-      row.mime_type,
-      row.uploaded_by_name,
-      row.uploaded_at,
-      row.ai_status,
-      row.download_available + " · " + row.source_kind + " · " + row.att_guid,
-    ])
+    let biz_ok = model.attachment_biz_type.is_empty() ||
+      row.biz_type == model.attachment_biz_type
+    let keyword_ok = model.attachment_keyword.is_empty() ||
+      row.file_name.contains(model.attachment_keyword)
+    let ai_ok = model.attachment_ai_status.is_empty() ||
+      row.ai_status == model.attachment_ai_status
+    if biz_ok && keyword_ok && ai_ok {
+      result.push(row)
+    }
   }
-  if model.attachment_rows.length() == 0 && model.attachments_loaded {
-    source_rows.push([
-      "—", "—", "0", "—", "—", "—", "无源记录", "未导入文件",
-    ])
+  result
+}
+
+///|
+fn attachment_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in attachment_filtered_rows(model) {
+    rows.push(
+      tr <| [
+        td <| [
+          strong(row.file_name),
+          span(class="erp-source-note", row.att_guid),
+        ],
+        td(attachment_biz_label(row.biz_type) + " · " + row.biz_guid),
+        td(row.file_size),
+        td(row.mime_type),
+        td(row.uploaded_by_name),
+        td(row.uploaded_at),
+        td(class="erp-status-tag", row.ai_status),
+        td(row.source_kind + " · " + row.download_available),
+        td <| [
+          button(
+            class="erp-link-btn",
+            on_click=emit(AttachmentAction(row.att_guid, "download")),
+            "下载",
+          ),
+          button(
+            class="erp-link-btn",
+            on_click=emit(AttachmentAction(row.att_guid, "reextract")),
+            "重跑 AI",
+          ),
+          button(
+            class="erp-link-btn is-warning",
+            on_click=emit(AttachmentAction(row.att_guid, "delete")),
+            "删除",
+          ),
+        ],
+      ],
+    )
   }
-  let rows = if model.attachments_loaded {
-    source_rows
-  } else {
-    [
-      [
-        "主体结构施工合同.pdf", "合同 HT-CD-260701", "2.4 MB", "application/pdf",
-        "陈志强", "今天 09:12", "已识别", "预览 / 下载",
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("0"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("无匹配记录"),
+        td("—"),
+        td("—"),
       ],
-      [
-        "成都出差发票-01.pdf", "报销 EXP-260712-008", "428 KB", "application/pdf",
-        "程玉哲", "昨天 16:42", "已验真", "预览 / 下载",
-      ],
-      [
-        "工程进度照片-2#-0712.zip", "进度报告 rep-001", "18.6 MB", "application/zip",
-        "王工", "昨天 15:20", "—", "预览 / 下载",
-      ],
-      [
-        "销售合同扫描件.jpg", "签约 SC-260713-004", "1.1 MB", "image/jpeg",
-        "刘松", "2026-07-11", "待确认", "预览 / 下载",
-      ],
-    ]
+    )
   }
+  table(class="erp-data-table") <| [
+    thead <| [
+      table_header([
+        "文件名", "业务", "大小", "类型", "上传人", "上传时间", "AI",
+        "来源/下载", "操作",
+      ]),
+    ],
+    tbody <| rows,
+  ]
+}
+
+///|
+fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let total = if model.attachments_loaded {
     model.attachment_total
   } else {
@@ -22207,46 +22483,28 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       button(
         class="erp-primary-btn",
         on_click=emit(RequestAttachmentUpload),
-        "＋ 上传附件（待授权）",
+        "＋ 上传附件",
       ),
       button(
         class="erp-secondary-btn",
         on_click=emit(RequestAttachmentReextract),
-        "检查 OCR 重提取（待授权）",
+        "检查 OCR 重提取",
       ),
       button(
         class="erp-secondary-btn",
         on_click=emit(RequestAttachmentDownload),
-        "检查附件下载（待授权）",
+        "检查附件下载",
       ),
       button(
         class="erp-secondary-btn",
         on_click=emit(RequestAttachmentDelete),
-        "检查附件删除（待授权）",
+        "检查附件删除",
       ),
     ],
     div <| [
       div(class="erp-stat-grid") <| [
-        metric(
-          "附件总数",
-          total,
-          if model.attachments_loaded {
-            "源表导入记录"
-          } else {
-            "本月新增 186"
-          },
-          "metric-blue",
-        ),
-        metric(
-          "待 OCR",
-          pending,
-          if model.attachments_loaded {
-            "仅统计已导入元数据"
-          } else {
-            "需人工确认 6"
-          },
-          "metric-blue",
-        ),
+        metric("附件总数", total, "源表元数据", "metric-blue"),
+        metric("待 OCR", pending, "AI 状态 pending", "metric-blue"),
         metric(
           "已关联",
           linked,
@@ -22258,36 +22516,89 @@ fn attachments_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "metric-green",
         ),
       ],
-      filter_bar("文件名 / 业务类型 / 上传人"),
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("附件搜索 / 批量上传"),
+          span(
+            class="erp-info-tag",
+            "≤10 MB · 上传执行仍需对象存储授权",
+          ),
+        ],
+        div(class="erp-form-grid") <| [
+          editable_form_field(
+            "业务类型",
+            model.attachment_biz_type,
+            "expense / contract / project",
+            @html.InputType::Text,
+            emit.map(value => InputAttachmentBizType(value)),
+          ),
+          editable_form_field(
+            "AI 状态",
+            model.attachment_ai_status,
+            "pending / processed / failed",
+            @html.InputType::Text,
+            emit.map(value => InputAttachmentAiStatus(value)),
+          ),
+          editable_form_field(
+            "文件名关键词",
+            model.attachment_keyword,
+            "按文件名搜索",
+            @html.InputType::Text,
+            emit.map(value => InputAttachmentKeyword(value)),
+          ),
+        ],
+        div(class="erp-command-bar") <| [
+          label(class="erp-import-file-picker") <| [
+            input(
+              input_type=@html.InputType::File,
+              accept="image/*,.pdf,.xlsx,.xls,.doc,.docx",
+              class="erp-import-file-input",
+              on_change=emit.map(value => AttachmentFileSelected(value)),
+            ),
+            span(
+              if model.attachment_file_name.is_empty() {
+                "选择上传文件"
+              } else {
+                model.attachment_file_name
+              },
+            ),
+          ],
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(SearchAttachments),
+            "搜索",
+          ),
+          button(
+            class="erp-primary-btn",
+            on_click=emit(RequestAttachmentUpload),
+            "上传并检查边界",
+          ),
+        ],
+        p(class="erp-source-note", model.attachment_note),
+      ],
       table_panel(
-        "附件搜索",
+        "附件搜索结果",
         if model.attachments_loaded {
           model.attachment_note + " · 字节数 " + model.attachment_bytes
         } else {
           "最近上传 · " + model.attachment_note
         },
-        data_table(
-          [
-            "文件名", "业务", "大小", "类型", "上传人", "上传时间",
-            "AI", "操作",
-          ],
-          rows,
-        ),
+        attachment_table(emit, model),
       ),
       div(class="erp-runtime-banner", [
-        strong("OCR 重提取候选"),
+        strong("当前附件"),
+        span(" · " + model.attachment_action_guid),
         span(" · " + model.attachment_action_note),
-        span(" · 记录 " + model.attachment_action_guid),
       ]),
       div(class="erp-runtime-banner", [
-        strong("附件删除候选"),
-        span(" · " + model.attachment_delete_note),
-        span(" · 记录 " + model.attachment_action_guid),
-      ]),
-      div(class="erp-runtime-banner", [
-        strong("附件下载边界"),
+        strong("下载边界"),
         span(" · " + model.attachment_download_note),
         span(" · binary/object storage 未迁移"),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("删除边界"),
+        span(" · " + model.attachment_delete_note),
+        span(" · 对象存储与负责人确认保持关闭"),
       ]),
     ],
   )

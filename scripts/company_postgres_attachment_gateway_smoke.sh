@@ -9,6 +9,11 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-attachment-gateway-smoke-token}
 ACTOR_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-attachment-gateway-secret}
 USER_CODE=${MOONPROJ_DEV_USER:-attachment-gateway-user}
 PASSWORD=${MOONPROJ_DEV_PASSWORD:-attachment-gateway-password}
+PGHOST=${PGHOST:-/tmp}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-moonproj}
+PGPASSWORD=${PGPASSWORD:-520825}
+export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-attachment-gateway.XXXXXX")
 SERVICE_PID=""
 GATEWAY_PID=""
@@ -26,6 +31,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 MOONPROJ_SERVICE_TOKEN="$TOKEN" MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
+PGHOST="$PGHOST" PGPORT="$PGPORT" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" \
 "$ROOT/scripts/company_postgres_service.sh" --port "$SERVICE_PORT" --database "$DATABASE" --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
 SERVICE_PID=$!
 MOONPROJ_SERVICE_TOKEN="$TOKEN" MOONPROJ_ACTOR_SIGNING_SECRET="$ACTOR_SECRET" \
@@ -53,6 +59,24 @@ fi
   --data "{\"user_code\":\"$USER_CODE\",\"password\":\"$PASSWORD\"}" \
   "http://127.0.0.1:$GATEWAY_PORT/api/session/login" >"$TMP_DIR/login.json"
 /usr/bin/jq -e '.authenticated == true and .actor_id == "admin"' "$TMP_DIR/login.json" >/dev/null
+
+# The gateway session endpoint is available before the freshly compiled native
+# service has finished binding its port. Wait for one authenticated read before
+# asserting mutation candidates so a cold build does not produce a false 503.
+service_ready=0
+i=0
+while [ "$i" -lt 120 ]; do
+  status=$(/usr/bin/curl -sS -o "$TMP_DIR/attachment-stats.json" -w '%{http_code}' \
+    -b "$TMP_DIR/cookies.txt" \
+    "http://127.0.0.1:$GATEWAY_PORT/api/company/attachments/stats" 2>/dev/null || true)
+  if [ "$status" = 200 ]; then
+    service_ready=1
+    break
+  fi
+  i=$((i + 1))
+  /bin/sleep 1
+done
+test "$service_ready" = 1
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/upload.json" -w '%{http_code}' -X POST \
   -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
