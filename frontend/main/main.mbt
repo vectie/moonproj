@@ -869,6 +869,17 @@ struct CbsR0Row {
 }
 
 ///|
+struct CbsApprovalRow {
+  rule_guid : String
+  biz_type : String
+  threshold : String
+  actor_user_id : String
+  description : String
+  display_order : String
+  source_kind : String
+}
+
+///|
 struct FundPlanRow {
   plan_guid : String
   proj_guid : String
@@ -1581,6 +1592,13 @@ struct Model {
   cbs_plan_version : String
   cbs_version_rows : Array[CbsVersionRow]
   cbs_r0_rows : Array[CbsR0Row]
+  cbs_approval_rows : Array[CbsApprovalRow]
+  cbs_approval_biz_type : String
+  cbs_approval_form_open : Bool
+  cbs_approval_edit_id : String
+  cbs_approval_threshold : String
+  cbs_approval_actor_user_id : String
+  cbs_approval_description : String
   cbs_form_open : String
   cbs_new_version_name : String
   cbs_clone_base : String
@@ -2250,8 +2268,16 @@ enum Msg {
   CbsVersionsLoadFailed
   CbsR0Loaded(String)
   CbsR0LoadFailed
+  CbsApprovalLoaded(String)
+  CbsApprovalLoadFailed
   InputCbsR0L3(String, String)
   ResolveCbsR0(String)
+  SelectCbsApprovalBiz(String)
+  OpenCbsApprovalForm(String)
+  CloseCbsApprovalForm
+  InputCbsApprovalField(String, String)
+  SubmitCbsApproval
+  DeleteCbsApproval(String)
   SelectCbsProject(String)
   SelectCbsVersion(String)
   OpenCbsForm(String)
@@ -2988,6 +3014,13 @@ fn initial_model() -> Model {
     cbs_plan_version: "baseline",
     cbs_version_rows: [],
     cbs_r0_rows: [],
+    cbs_approval_rows: [],
+    cbs_approval_biz_type: "contract",
+    cbs_approval_form_open: false,
+    cbs_approval_edit_id: "",
+    cbs_approval_threshold: "0",
+    cbs_approval_actor_user_id: "",
+    cbs_approval_description: "",
     cbs_form_open: "",
     cbs_new_version_name: "调整版",
     cbs_clone_base: "baseline",
@@ -6343,6 +6376,33 @@ fn cbs_versions_from_body(
 }
 
 ///|
+fn cbs_approval_from_body(body : String) -> (Bool, Array[CbsApprovalRow]) {
+  let rows : Array[CbsApprovalRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) =>
+            rows.push({
+              rule_guid: json_object_text(row, "rule_guid", ""),
+              biz_type: json_object_text(row, "biz_type", ""),
+              threshold: json_object_text(row, "threshold", "0"),
+              actor_user_id: json_object_text(row, "actor_user_id", ""),
+              description: json_object_text(row, "description", ""),
+              display_order: json_object_text(row, "display_order", "0"),
+              source_kind: json_object_text(row, "source_kind", "imported"),
+            })
+          _ => ()
+        }
+      }
+      (true, rows)
+    }
+    _ => (false, rows)
+  }
+}
+
+///|
 fn cbs_r0_from_body(body : String) -> (Bool, Array[CbsR0Row]) {
   let rows : Array[CbsR0Row] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
@@ -9567,6 +9627,16 @@ fn load_cbs_versions(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
 }
 
 ///|
+fn load_cbs_approval(emit : @rabbita.Emit[Msg], biz_type : String) -> Cmd {
+  @http.get("/api/company/cbs/approval-rules?bizType=" + biz_type).expect_text(result => {
+    match result {
+      Ok(body) => emit(CbsApprovalLoaded(body))
+      Err(_) => emit(CbsApprovalLoadFailed)
+    }
+  })
+}
+
+///|
 fn cbs_command_body(model : Model, command : String) -> String {
   let idempotency_key = "rabbita-cbs-" + command + "-" + import_nonce()
   if command == "version_clone" {
@@ -9632,6 +9702,52 @@ fn issue_cbs_command(
       Err(_) => emit(CbsCommandFailed)
     }
   })
+}
+
+///|
+fn cbs_approval_body(model : Model, command : String) -> String {
+  let idempotency_key = "rabbita-cbs-approval-" + command + "-" + import_nonce()
+  Json::object({
+    "idempotency_key": Json::string(idempotency_key),
+    "bizType": Json::string(model.cbs_approval_biz_type),
+    "ruleGuid": Json::string(model.cbs_approval_edit_id),
+    "threshold": investment_edit_value_json(model.cbs_approval_threshold),
+    "actorUserId": Json::string(model.cbs_approval_actor_user_id),
+    "description": Json::string(model.cbs_approval_description),
+    "actor_id": Json::string(model.user_code),
+  }).stringify()
+}
+
+///|
+fn issue_cbs_approval(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command : String,
+) -> Cmd {
+  let path = if command == "create" {
+    "/api/company/cbs/approval-rules"
+  } else {
+    "/api/company/cbs/approval-rules/" + model.cbs_approval_edit_id
+  }
+  if command == "delete" {
+    @http.delete(
+      path + "?idempotency_key=rabbita-cbs-approval-delete-" + import_nonce(),
+    ).expect_text(result => {
+      match result {
+        Ok(body) => emit(CbsCommandFinished(body))
+        Err(_) => emit(CbsCommandFailed)
+      }
+    })
+  } else {
+    @http.put(path)
+    .with_text(cbs_approval_body(model, command))
+    .expect_text(result => {
+      match result {
+        Ok(body) => emit(CbsCommandFinished(body))
+        Err(_) => emit(CbsCommandFailed)
+      }
+    })
+  }
 }
 
 ///|
@@ -12879,6 +12995,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           load_cbs_versions(emit, model.cbs_project_id),
           load_cbs_for(emit, model.cbs_project_id, model.cbs_plan_version),
           load_cbs_r0_for(emit, model.cbs_project_id),
+          load_cbs_approval(emit, model.cbs_approval_biz_type),
         ])
       } else if path == "/fund/plan" {
         @cmd.batch([
@@ -17446,12 +17563,123 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           cbs_command_note: "CBS 版本源读模型不可用 · 保留当前版本",
         },
       )
+    SelectCbsApprovalBiz(biz_type) =>
+      (
+        load_cbs_approval(emit, biz_type),
+        {
+          ..model,
+          cbs_approval_biz_type: biz_type,
+          cbs_approval_rows: [],
+          cbs_command_note: "正在读取 " + biz_type + " 审批规则…",
+        },
+      )
+    OpenCbsApprovalForm(rule_guid) => {
+      let mut threshold = "0"
+      let mut actor_user_id = ""
+      let mut description = ""
+      for row in model.cbs_approval_rows {
+        if row.rule_guid == rule_guid {
+          threshold = row.threshold
+          actor_user_id = row.actor_user_id
+          description = row.description
+        }
+      }
+      (
+        none,
+        {
+          ..model,
+          cbs_approval_form_open: true,
+          cbs_approval_edit_id: rule_guid,
+          cbs_approval_threshold: threshold,
+          cbs_approval_actor_user_id: actor_user_id,
+          cbs_approval_description: description,
+        },
+      )
+    }
+    CloseCbsApprovalForm => (none, { ..model, cbs_approval_form_open: false })
+    InputCbsApprovalField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          cbs_approval_threshold: if field == "threshold" {
+            value
+          } else {
+            model.cbs_approval_threshold
+          },
+          cbs_approval_actor_user_id: if field == "actor" {
+            value
+          } else {
+            model.cbs_approval_actor_user_id
+          },
+          cbs_approval_description: if field == "description" {
+            value
+          } else {
+            model.cbs_approval_description
+          },
+        },
+      )
+    SubmitCbsApproval =>
+      (
+        issue_cbs_approval(
+          emit,
+          model,
+          if model.cbs_approval_edit_id.is_empty() {
+            "create"
+          } else {
+            "update"
+          },
+        ),
+        {
+          ..model,
+          cbs_approval_form_open: false,
+          cbs_command_note: "正在提交审批配置候选…",
+        },
+      )
+    DeleteCbsApproval(rule_guid) =>
+      (
+        issue_cbs_approval(
+          emit,
+          { ..model, cbs_approval_edit_id: rule_guid },
+          "delete",
+        ),
+        { ..model, cbs_command_note: "正在提交审批规则删除候选…" },
+      )
+    CbsApprovalLoaded(body) => {
+      let (loaded, rows) = cbs_approval_from_body(body)
+      (
+        none,
+        {
+          ..model,
+          cbs_approval_rows: if loaded {
+            rows
+          } else {
+            []
+          },
+          cbs_command_note: if loaded {
+            "已加载审批配置 · 导入规则保持只读"
+          } else {
+            "审批配置响应无效 · 保留空源状态"
+          },
+        },
+      )
+    }
+    CbsApprovalLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          cbs_approval_rows: [],
+          cbs_command_note: "审批配置源读模型不可用",
+        },
+      )
     CbsCommandFinished(body) =>
       (
         @cmd.batch([
           load_cbs_versions(emit, model.cbs_project_id),
           load_cbs_for(emit, model.cbs_project_id, model.cbs_plan_version),
           load_cbs_r0_for(emit, model.cbs_project_id),
+          load_cbs_approval(emit, model.cbs_approval_biz_type),
         ]),
         {
           ..model,
@@ -28804,6 +29032,161 @@ fn cbs_r0_runtime_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
+fn cbs_approval_runtime_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.cbs_approval_rows {
+    let actions : Array[@html.Html] = if row.source_kind == "command" {
+      [
+        button(
+          class="erp-link-btn",
+          on_click=emit(OpenCbsApprovalForm(row.rule_guid)),
+          "编辑",
+        ),
+        button(
+          class="erp-link-btn is-danger",
+          on_click=emit(DeleteCbsApproval(row.rule_guid)),
+          "删除",
+        ),
+      ]
+    } else {
+      [span(class="erp-source-note", "导入规则只读")]
+    }
+    rows.push(
+      tr <| [
+        td(row.threshold),
+        td(row.actor_user_id),
+        td(row.description),
+        td(row.display_order),
+        td(row.source_kind),
+        td(actions),
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("当前业务类型没有规则"),
+        td("—"),
+        td("—"),
+        td("—"),
+      ],
+    )
+  }
+  let form = if model.cbs_approval_form_open {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2(
+          if model.cbs_approval_edit_id.is_empty() {
+            "新增审批规则"
+          } else {
+            "编辑审批规则"
+          },
+        ),
+        span(
+          class="erp-source-note",
+          "审批配置候选不直接授权、不启动工作流",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "金额阈值(万)",
+          model.cbs_approval_threshold,
+          "100",
+          @html.InputType::Text,
+          emit.map(value => InputCbsApprovalField("threshold", value)),
+        ),
+        editable_form_field(
+          "审批人 user_id",
+          model.cbs_approval_actor_user_id,
+          "user-001",
+          @html.InputType::Text,
+          emit.map(value => InputCbsApprovalField("actor", value)),
+        ),
+        editable_form_field(
+          "说明",
+          model.cbs_approval_description,
+          "≥¥100 万 财务主管审批",
+          @html.InputType::Text,
+          emit.map(value => InputCbsApprovalField("description", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseCbsApprovalForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitCbsApproval),
+          "提交规则候选",
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
+  }
+  div <| [
+    div(class="erp-tab-row") <| [
+      button(
+        class=if model.cbs_approval_biz_type == "contract" {
+          "erp-tab is-active"
+        } else {
+          "erp-tab"
+        },
+        on_click=emit(SelectCbsApprovalBiz("contract")),
+        "合同审批",
+      ),
+      button(
+        class=if model.cbs_approval_biz_type == "payment" {
+          "erp-tab is-active"
+        } else {
+          "erp-tab"
+        },
+        on_click=emit(SelectCbsApprovalBiz("payment")),
+        "付款审批",
+      ),
+      button(
+        class=if model.cbs_approval_biz_type == "expense" {
+          "erp-tab is-active"
+        } else {
+          "erp-tab"
+        },
+        on_click=emit(SelectCbsApprovalBiz("expense")),
+        "报销审批",
+      ),
+      button(
+        class=if model.cbs_approval_biz_type == "change" {
+          "erp-tab is-active"
+        } else {
+          "erp-tab"
+        },
+        on_click=emit(SelectCbsApprovalBiz("change")),
+        "变更审批",
+      ),
+    ],
+    form,
+    table_panel(
+      "审批配置 · " + model.cbs_approval_biz_type,
+      model.cbs_command_note + " · 按金额从高到低匹配",
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "金额阈值(万)", "审批人", "说明", "顺序", "来源", "操作",
+          ]),
+        ],
+        tbody <| rows,
+      ],
+    ),
+  ]
+}
+
+///|
 fn cbs_view(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -28826,6 +29209,8 @@ fn cbs_view(
     cbs_dict_runtime_table(model)
   } else if tab == "r0" {
     cbs_r0_runtime_table(emit, model)
+  } else if tab == "approval" {
+    cbs_approval_runtime_view(emit, model)
   } else {
     cbs_runtime_table(model)
   }
@@ -28852,6 +29237,14 @@ fn cbs_view(
           class="erp-secondary-btn",
           on_click=emit(OpenCbsForm("batch")),
           "⚖ 批量 ±%",
+        ),
+      ]
+    } else if tab == "approval" {
+      [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(OpenCbsApprovalForm("")),
+          "＋ 新增规则",
         ),
       ]
     } else {

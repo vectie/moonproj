@@ -74,6 +74,9 @@ async fn cbs_r_master_response() -> Json raise CompanyServiceError {
           "display_order": Json::number(
             report_amount(row.payload, "display_order"),
           ),
+          "source_kind": Json::string(
+            report_text(row.payload, "source_kind", "imported"),
+          ),
           "is_live": Json::boolean(json_bool(row.payload, "is_live", true)),
         }),
       )
@@ -424,6 +427,9 @@ async fn cbs_approval_rules_response(
           "description": Json::string(json_text(payload, "description", "")),
           "display_order": Json::number(
             json_number(payload, "display_order", 0.0),
+          ),
+          "source_kind": Json::string(
+            json_text(payload, "source_kind", "command"),
           ),
         }),
       )

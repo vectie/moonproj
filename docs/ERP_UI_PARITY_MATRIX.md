@@ -88,7 +88,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/sales/contracts` now loads project-scoped contract source rows, mirrors project/state filters and the source contract table, and opens source-shaped mortgage/refund forms from signed command-owned rows. Imported contract rows remain read-only.
 - Browser action delta: Rabbita `/sales/mortgages` now renders live PostgreSQL mortgage source rows with source state filters, exposes the source application form, and keeps batch/release controls as local candidates without bank or cash effects.
 - Browser action delta: Rabbita `/sales/revenues` now loads projects and live PostgreSQL revenue rows, mirrors project/status/search filters and the R6 table, and provides source-shaped create/edit fields with command-owned row actions. Imported rows remain read-only; confirm/retract still stop at the local finance authority boundary.
-- Browser action delta: Rabbita `/cbs/dict` and `/cbs/versions` now mirror the source project/version switchers, dictionary/version tables, clone/freeze/activate/add-leaf/batch-adjust forms, and command-owned row actions. Imported CBS rows and frozen versions remain read-only; commands have no budget, cash, accounting, or tax effects.
+- Browser action delta: Rabbita `/cbs/dict`, `/cbs/versions`, `/cbs/r0-queue`, and `/cbs/approval-config` now mirror the source project/version switchers, dictionary/version tables, R0 resolution queue, approval-rule tabs/forms, clone/freeze/activate/add-leaf/batch-adjust, and command-owned row actions. Imported CBS rows/rules and frozen versions remain read-only; commands have no budget, cash, accounting, or tax effects.
 
 ## Browser routes
 
