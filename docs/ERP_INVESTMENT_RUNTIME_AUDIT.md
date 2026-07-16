@@ -48,6 +48,10 @@ fallback.
 It now also loads the source Excel import-history read model and renders file,
 version, workbook-shape, status, and audit metadata without opening workbook
 binary content or enabling import persistence.
+Each imported row can request the source detail, bridge-plan, index-upsert
+preview, profit-table, and plan-line-preview reads; Rabbita condenses these
+responses into a bounded read-only receipt and leaves all binary parsing and
+non-dry-run writes disabled.
 It also exposes the deterministic feasibility explanation candidate and renders
 the returned summary while keeping provider execution, prompt persistence, and
 financial effects disabled; the trusted gateway smoke covers the browser path.

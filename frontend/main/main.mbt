@@ -1008,6 +1008,12 @@ struct Model {
   investment_imports_loaded : Bool
   investment_import_rows : Array[InvestmentImportRow]
   investment_import_note : String
+  investment_import_selected : String
+  investment_import_detail_note : String
+  investment_import_bridge_note : String
+  investment_import_index_preview_note : String
+  investment_import_profit_note : String
+  investment_import_plan_note : String
   investment_actual_loaded : Bool
   investment_actual_code : String
   investment_actual_message : String
@@ -1485,6 +1491,12 @@ enum Msg {
   InvestmentProfitLoaded(String)
   InvestmentSensitivityLoaded(String)
   InvestmentImportsLoaded(String)
+  SelectInvestmentImport(String)
+  InvestmentImportDetailLoaded(String)
+  InvestmentImportBridgeLoaded(String)
+  InvestmentImportIndexPreviewLoaded(String)
+  InvestmentImportProfitLoaded(String)
+  InvestmentImportPlanLoaded(String)
   InvestmentProfitActualLoaded(String)
   InvestmentLoadFailed
   ExplainInvestment
@@ -1977,6 +1989,12 @@ fn initial_model() -> Model {
     investment_imports_loaded: false,
     investment_import_rows: [],
     investment_import_note: "Excel 导入历史尚未加载 · 使用设计快照",
+    investment_import_selected: "",
+    investment_import_detail_note: "尚未选择导入记录",
+    investment_import_bridge_note: "尚未读取逻辑桥接计划",
+    investment_import_index_preview_note: "尚未读取指标 upsert 预览",
+    investment_import_profit_note: "尚未读取利润测算总表",
+    investment_import_plan_note: "尚未读取计划行预览",
     investment_actual_loaded: false,
     investment_actual_code: "",
     investment_actual_message: "",
@@ -4087,6 +4105,76 @@ fn investment_import_rows_from_body(
     _ => ()
   }
   (loaded, rows, note)
+}
+
+///|
+fn investment_import_read_note(body : String, action : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let code = json_object_text(fields, "code", "0")
+      if code != "0" && code != "" {
+        "导入 " +
+        action +
+        " 未完成 · 源边界 code=" +
+        code +
+        " · 未读取二进制、不写入"
+      } else {
+        match fields.get("data") {
+          Some(Json::Object(data)) =>
+            if action == "detail" {
+              "导入详情 " +
+              json_object_text(data, "fileName", "") +
+              " · 版本 " +
+              json_object_text(data, "versionName", "") +
+              " · sheet " +
+              json_array_field(data, "sheets").length().to_string() +
+              " · 元数据只读"
+            } else if action == "bridge" {
+              match data.get("summary") {
+                Some(Json::Object(summary)) =>
+                  "逻辑桥接计划 · 已映射 " +
+                  json_object_text(summary, "mappedSheetCount", "0") +
+                  " · 未映射 " +
+                  json_object_text(summary, "unmappedSheetCount", "0") +
+                  " · 不回写 ERP"
+                _ => "逻辑桥接计划已读取 · 不回写 ERP"
+              }
+            } else if action == "index-preview" {
+              match data.get("summary") {
+                Some(Json::Object(summary)) =>
+                  "指标 upsert 预览 · 可处理 " +
+                  json_object_text(summary, "itemsCanUpsert", "0") +
+                  " · 新增 " +
+                  json_object_text(summary, "itemsToInsert", "0") +
+                  " · 覆盖 " +
+                  json_object_text(summary, "itemsToUpdate", "0") +
+                  " · dry-run"
+                _ => "指标 upsert 预览已读取 · dry-run"
+              }
+            } else if action == "profit" {
+              "利润测算总表已读取 · " +
+              json_object_text(data, "source", "empty") +
+              " · 行 " +
+              json_array_field(data, "rows").length().to_string() +
+              " · 不回写"
+            } else {
+              match data.get("summary") {
+                Some(Json::Object(summary)) =>
+                  "计划行预览 · 扫描 " +
+                  json_object_text(summary, "sheetsScanned", "0") +
+                  " 个 sheet · 计划行 " +
+                  json_object_text(summary, "linesTotal", "0") +
+                  " · 不写入"
+                _ => "计划行预览已读取 · 不写入"
+              }
+            }
+          _ => "导入 " + action + " 响应为空 · 保持只读边界"
+        }
+      }
+    }
+    _ => "导入 " + action + " 响应无效 · 保持只读边界"
+  }
 }
 
 ///|
@@ -6609,6 +6697,81 @@ fn load_investment_imports(emit : @rabbita.Emit[Msg]) -> Cmd {
       }
     },
   )
+}
+
+///|
+fn load_investment_import_detail(
+  emit : @rabbita.Emit[Msg],
+  import_id : String,
+) -> Cmd {
+  @http.get("/api/company/investment/excel-imports/" + import_id).expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentImportDetailLoaded(body))
+      Err(_) => emit(InvestmentImportDetailLoaded("{}"))
+    }
+  })
+}
+
+///|
+fn load_investment_import_bridge(
+  emit : @rabbita.Emit[Msg],
+  import_id : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/investment/excel-imports/" + import_id + "/bridge-plan",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentImportBridgeLoaded(body))
+      Err(_) => emit(InvestmentImportBridgeLoaded("{}"))
+    }
+  })
+}
+
+///|
+fn load_investment_import_index_preview(
+  emit : @rabbita.Emit[Msg],
+  import_id : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/investment/excel-imports/" +
+    import_id +
+    "/index-upsert-preview",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentImportIndexPreviewLoaded(body))
+      Err(_) => emit(InvestmentImportIndexPreviewLoaded("{}"))
+    }
+  })
+}
+
+///|
+fn load_investment_import_profit(
+  emit : @rabbita.Emit[Msg],
+  import_id : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/investment/excel-imports/" + import_id + "/profit-table",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentImportProfitLoaded(body))
+      Err(_) => emit(InvestmentImportProfitLoaded("{}"))
+    }
+  })
+}
+
+///|
+fn load_investment_import_plan(
+  emit : @rabbita.Emit[Msg],
+  import_id : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/investment/excel-imports/" + import_id + "/plan-line-preview",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentImportPlanLoaded(body))
+      Err(_) => emit(InvestmentImportPlanLoaded("{}"))
+    }
+  })
 }
 
 ///|
@@ -11292,6 +11455,83 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
+    SelectInvestmentImport(import_id) =>
+      if import_id.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            investment_import_note: "导入记录缺少 importGuid · 无法读取详情",
+          },
+        )
+      } else {
+        (
+          @cmd.batch([
+            load_investment_import_detail(emit, import_id),
+            load_investment_import_bridge(emit, import_id),
+            load_investment_import_index_preview(emit, import_id),
+            load_investment_import_profit(emit, import_id),
+            load_investment_import_plan(emit, import_id),
+          ]),
+          {
+            ..model,
+            investment_import_selected: import_id,
+            investment_import_detail_note: "正在读取导入详情…",
+            investment_import_bridge_note: "正在读取逻辑桥接计划…",
+            investment_import_index_preview_note: "正在读取指标 upsert 预览…",
+            investment_import_profit_note: "正在读取利润测算总表…",
+            investment_import_plan_note: "正在读取计划行预览…",
+          },
+        )
+      }
+    InvestmentImportDetailLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_import_detail_note: investment_import_read_note(
+            body, "detail",
+          ),
+        },
+      )
+    InvestmentImportBridgeLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_import_bridge_note: investment_import_read_note(
+            body, "bridge",
+          ),
+        },
+      )
+    InvestmentImportIndexPreviewLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_import_index_preview_note: investment_import_read_note(
+            body, "index-preview",
+          ),
+        },
+      )
+    InvestmentImportProfitLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_import_profit_note: investment_import_read_note(
+            body, "profit",
+          ),
+        },
+      )
+    InvestmentImportPlanLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_import_plan_note: investment_import_read_note(body, "plan"),
+        },
+      )
     InvestmentIndicesLoaded(body) => {
       let (rows, dimension_count) = investment_index_rows_from_body(body)
       (
@@ -11389,6 +11629,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_imports_loaded: false,
           investment_import_rows: [],
           investment_import_note: "Excel 导入历史读模型不可用 · 使用设计快照",
+          investment_import_selected: "",
+          investment_import_detail_note: "导入详情读模型不可用",
+          investment_import_bridge_note: "逻辑桥接读模型不可用",
+          investment_import_index_preview_note: "指标 upsert 预览不可用",
+          investment_import_profit_note: "利润测算总表不可用",
+          investment_import_plan_note: "计划行预览不可用",
           investment_actual_loaded: false,
           investment_actual_code: "",
           investment_actual_message: "实际利润边界不可用",
@@ -18858,25 +19104,48 @@ fn investment_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn investment_import_history_table(model : Model) -> @html.Html {
-  let rows : Array[Array[String]] = []
+fn investment_import_history_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let rendered : Array[@html.Html] = []
   if model.investment_import_rows.length() == 0 {
-    rows.push([
-      "—", "—", "—", "—", "—", "—", "—", "—", "暂无源导入记录",
-    ])
+    rendered.push(
+      tr <| [
+        td("暂无源导入记录"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+      ],
+    )
   } else {
     for row in model.investment_import_rows {
-      rows.push([
-        row.file_name + " · " + row.import_guid,
-        row.version_name + " · " + row.version_guid,
-        row.file_size,
-        row.sheet_count,
-        row.non_empty_cells,
-        row.formula_count,
-        row.status,
-        row.created_by_name,
-        row.created_at + " · " + row.source_kind,
-      ])
+      rendered.push(
+        tr <| [
+          td(row.file_name + " · " + row.import_guid),
+          td(row.version_name + " · " + row.version_guid),
+          td(row.file_size),
+          td(row.sheet_count),
+          td(row.non_empty_cells),
+          td(row.formula_count),
+          td(span(class="erp-status-tag is-info", row.status)),
+          td(row.created_by_name),
+          td(row.created_at + " · " + row.source_kind),
+          td <| [
+            button(
+              class="erp-ghost-btn",
+              on_click=emit(SelectInvestmentImport(row.import_guid)),
+              "读取详情 / 预览",
+            ),
+          ],
+        ],
+      )
     }
   }
   table_panel(
@@ -18889,14 +19158,58 @@ fn investment_import_history_table(model : Model) -> @html.Html {
     "）",
     model.investment_import_note +
     " · 仅显示元数据，不读取工作簿二进制",
-    data_table(
-      [
-        "文件 / 导入 ID", "导入版本", "文件大小", "工作表", "非空单元格",
-        "公式", "状态", "导入人", "导入时间 / 来源",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "文件 / 导入 ID", "导入版本", "文件大小", "工作表", "非空单元格",
+          "公式", "状态", "导入人", "导入时间 / 来源", "操作",
+        ]),
       ],
-      rows,
-    ),
+      tbody <| rendered,
+    ],
   )
+}
+
+///|
+fn investment_import_read_panels(model : Model) -> @html.Html {
+  if model.investment_import_selected.is_empty() {
+    div(
+      class="erp-runtime-empty",
+      "选择一条 Excel 导入记录后查看详情、桥接、指标和计划预览",
+    )
+  } else {
+    div(class="erp-runtime-banner", [
+      strong("导入记录 " + model.investment_import_selected),
+      span(" · " + model.investment_import_detail_note),
+      span(" · " + model.investment_import_bridge_note),
+      span(" · " + model.investment_import_index_preview_note),
+      span(" · " + model.investment_import_profit_note),
+      span(" · " + model.investment_import_plan_note),
+    ])
+  }
+}
+
+///|
+fn investment_import_history_note(model : Model) -> String {
+  if model.investment_import_selected.is_empty() {
+    "未选择导入记录"
+  } else {
+    "已选择 " +
+    model.investment_import_selected +
+    " · 读取为只读预览"
+  }
+}
+
+///|
+fn investment_import_history_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  div <| [
+    investment_import_history_table(emit, model),
+    investment_import_read_panels(model),
+    div(class="erp-source-note", investment_import_history_note(model)),
+  ]
 }
 
 ///|
@@ -19118,7 +19431,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     div <| [
       stats,
       investment_excel_panel(emit, model),
-      investment_import_history_table(model),
+      investment_import_history_panel(emit, model),
       investment_runtime_table(model),
       investment_sensitivity_table(model),
       investment_profit_actual_panel(model),
