@@ -77,6 +77,14 @@ fi
 /usr/bin/jq -e '.authenticated == true and .identity_source == "development_fixture"' \
   "$TMP_DIR/login.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/admin-backup.json" -w '%{http_code}' \
+  -b "$TMP_DIR/cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/admin/backup/db")
+test "$status" = 501
+/usr/bin/jq -e \
+  '.success == false and .code == 43032 and .backup_status == "gated" and .format == "postgresql" and .binary_storage == "not_exported" and .authorizing == false and .provider_execution == false' \
+  "$TMP_DIR/admin-backup.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/session" >"$TMP_DIR/session.json"
 /usr/bin/jq -e '.authenticated == true and .actor_id == "rabbita-user"' \

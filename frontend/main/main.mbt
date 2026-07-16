@@ -900,6 +900,7 @@ struct Model {
   admin_dict_option_rows : Array[AdminDictOptionRow]
   admin_dict_note : String
   admin_dict_command_note : String
+  admin_backup_note : String
   investment_loaded : Bool
   investment_version_id : String
   investment_version_name : String
@@ -1330,6 +1331,9 @@ enum Msg {
   UpdateAdminDictOption
   AdminDictCommandFinished(String)
   AdminDictCommandFailed
+  RequestAdminBackup
+  AdminBackupFinished(String)
+  AdminBackupFailed
   InvestmentVersionsLoaded(String)
   InvestmentIndicesLoaded(String)
   InvestmentProfitLoaded(String)
@@ -1755,6 +1759,7 @@ fn initial_model() -> Model {
     admin_dict_option_rows: [],
     admin_dict_note: "数据字典尚未加载 · 使用设计快照",
     admin_dict_command_note: "本地字典命令尚未执行",
+    admin_backup_note: "PostgreSQL 备份导出边界尚未检查",
     investment_loaded: false,
     investment_version_id: "",
     investment_version_name: "",
@@ -6279,6 +6284,16 @@ fn issue_admin_dict_command(
 }
 
 ///|
+fn issue_admin_backup(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.get("/api/company/admin/backup/db").expect_text(result => {
+    match result {
+      Ok(body) => emit(AdminBackupFinished(body))
+      Err(_) => emit(AdminBackupFailed)
+    }
+  })
+}
+
+///|
 fn load_investment_versions(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/investment/projects/proj-0001/versions").expect_text(result => {
     match result {
@@ -10409,6 +10424,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           admin_dict_command_note: "字典命令服务不可用、管理员权限不足或请求被拒绝",
+        },
+      )
+    RequestAdminBackup =>
+      (
+        issue_admin_backup(emit),
+        {
+          ..model,
+          admin_backup_note: "正在检查 PostgreSQL 备份导出边界…",
+        },
+      )
+    AdminBackupFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          admin_backup_note: if body.contains("\"backup_status\":\"gated\"") &&
+            body.contains("\"format\":\"postgresql\"") {
+            "备份请求已到 PostgreSQL 目标格式门 · 未导出二进制 · owner/retention/download 未授权"
+          } else {
+            "备份边界响应已返回 · 请复核导出与保留策略"
+          },
+        },
+      )
+    AdminBackupFailed =>
+      (
+        none,
+        {
+          ..model,
+          admin_backup_note: "备份边界服务不可用或被网关拒绝",
         },
       )
     InvestmentVersionsLoaded(body) => {
@@ -22160,6 +22204,11 @@ fn admin_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(Navigate("/admin")),
         "刷新数据",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestAdminBackup),
+        "检查数据库备份边界",
+      ),
     ],
     div <| [
       div(class="erp-tabs") <| [
@@ -22171,6 +22220,11 @@ fn admin_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ],
       admin_dict_table(emit, model),
       admin_quality_table(model),
+      div(class="erp-runtime-banner", [
+        strong("PostgreSQL 备份边界"),
+        span(" · " + model.admin_backup_note),
+        span(" · 不调用 mysqldump、不导出二进制"),
+      ]),
     ],
   )
 }
