@@ -1162,6 +1162,7 @@ struct Model {
   ai_hub_note : String
   ai_hub_explain_note : String
   ai_hub_explain_text : String
+  ai_hub_command_text : String
   ai_hub_command_note : String
   webhook_loaded : Bool
   webhook_rows : Array[Array[String]]
@@ -1627,6 +1628,7 @@ enum Msg {
   ExplainAiHub
   AiHubExplainFinished(String)
   AiHubExplainFailed
+  InputAiHubCommandText(String)
   RunAiHubCommand(String)
   AiHubCommandFinished(String, String)
   AiHubCommandFailed(String)
@@ -2117,6 +2119,7 @@ fn initial_model() -> Model {
     ai_hub_note: "AI 工作台源读模型尚未加载 · 使用设计快照",
     ai_hub_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     ai_hub_explain_text: "等待解释候选",
+    ai_hub_command_text: "",
     ai_hub_command_note: "AI Hub 命令候选尚未运行 · 需要 AI 负责人确认",
     webhook_loaded: false,
     webhook_rows: [],
@@ -7531,6 +7534,7 @@ fn issue_ai_hub_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
 ///|
 fn issue_ai_hub_command(
   emit : @rabbita.Emit[Msg],
+  model : Model,
   command_type : String,
 ) -> Cmd {
   let body = if command_type == "intake" {
@@ -7550,7 +7554,18 @@ fn issue_ai_hub_command(
   } else if command_type == "query-session" {
     "{\"idempotency_key\":\"rabbita-ai-hub-query-session-v1\",\"sessionId\":\"SESSION-RABBITA-LOCAL\",\"question\":\"查看本月合同付款\"}"
   } else {
-    "{\"idempotency_key\":\"rabbita-ai-hub-command-v1\",\"command\":\"preview\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-ai-hub-command-" + import_nonce(),
+      ),
+      "command": Json::string(
+        if model.ai_hub_command_text.is_empty() {
+          "preview"
+        } else {
+          model.ai_hub_command_text
+        },
+      ),
+    }).stringify()
   }
   @http.post("/api/company/source/ai-hub/" + command_type)
   .with_text(body)
@@ -13333,9 +13348,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_hub_explain_text: "解释候选不可用",
         },
       )
+    InputAiHubCommandText(value) =>
+      (none, { ..model, ai_hub_command_text: value })
     RunAiHubCommand(command_type) =>
       (
-        issue_ai_hub_command(emit, command_type),
+        issue_ai_hub_command(emit, model, command_type),
         {
           ..model,
           ai_hub_command_note: "正在提交 AI Hub " +
@@ -17444,6 +17461,30 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           },
           "metric-blue",
         ),
+      ],
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("统一命令面板"),
+          span(
+            class="erp-info-tag",
+            "自然语言 · 仍需 AI 负责人确认",
+          ),
+        ],
+        div(class="erp-command-bar") <| [
+          input(
+            input_type=@html.InputType::Text,
+            value=model.ai_hub_command_text,
+            placeholder="例如：打开成本驾驶舱 / 海教园付款 540 万",
+            class="erp-form-input erp-command-input",
+            on_input=emit.map(value => InputAiHubCommandText(value)),
+          ),
+          button(
+            class="erp-primary-btn",
+            on_click=emit(RunAiHubCommand("command")),
+            "执行候选",
+          ),
+        ],
+        p(class="erp-source-note", model.ai_hub_command_note),
       ],
       div(class="erp-ai-grid") <| [
         section(class="erp-ai-card is-primary") <| [
