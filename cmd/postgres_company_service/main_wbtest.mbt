@@ -80,6 +80,43 @@ test "native company service compares idempotency JSON semantically" {
 }
 
 ///|
+test "native auth password command keeps source password policy" {
+  let weak = auth_command_request(
+    "change_password",
+    @json.parse("{\"currentPassword\":\"oldpass\",\"newPassword\":\"newpass\"}") catch {
+      _ => Json::null()
+    },
+    "admin",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_true(weak is Null)
+  let valid = auth_command_request(
+    "change_password",
+    @json.parse(
+      "{\"currentPassword\":\"oldpass1\",\"newPassword\":\"newpass2\"}",
+    ) catch {
+      _ => Json::null()
+    },
+    "admin",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_true(valid is Object(_))
+  assert_true(json_bool(valid, "credential_values_redacted", false))
+  let legacy_alias = auth_command_request(
+    "change_password",
+    @json.parse("{\"oldPassword\":\"oldpass1\",\"newPassword\":\"newpass2\"}") catch {
+      _ => Json::null()
+    },
+    "admin",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_true(legacy_alias is Object(_))
+}
+
+///|
 test "native company service maps expense command paths" {
   assert_true(
     expense_command_spec(@http.Post, "/api/company/expenses")

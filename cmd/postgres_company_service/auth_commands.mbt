@@ -202,7 +202,7 @@ fn auth_command_request(
     let current_password = json_text(
       body,
       "currentPassword",
-      json_text(body, "current_password", ""),
+      json_text(body, "oldPassword", json_text(body, "current_password", "")),
     )
     let new_password = json_text(
       body,
@@ -213,6 +213,24 @@ fn auth_command_request(
       raise reject(
         400, "currentPassword and newPassword must be at least 6 characters",
       )
+    }
+    let mut has_letter = false
+    let mut has_digit = false
+    let mut has_symbol = false
+    for char in new_password.iter() {
+      if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') {
+        has_letter = true
+      } else if char >= '0' && char <= '9' {
+        has_digit = true
+      } else {
+        has_symbol = true
+      }
+    }
+    let complexity_types = (if has_letter { 1 } else { 0 }) +
+      (if has_digit { 1 } else { 0 }) +
+      (if has_symbol { 1 } else { 0 })
+    if complexity_types < 2 {
+      raise reject(400, "newPassword must contain at least two character types")
     }
     if current_password == new_password {
       raise reject(400, "newPassword must differ from currentPassword")
@@ -290,6 +308,27 @@ async fn auth_command(
       )
     }
     None => ()
+  }
+  if command_type == "change_password" {
+    let credential = match auth_password_projection(actor_id) {
+      Some(value) => value.0
+      None =>
+        raise reject(
+          409, "no PostgreSQL credential projection is configured for this user",
+        )
+    }
+    let expected = json_text(credential, "password_digest", "")
+    let provided = json_text(request, "current_password_digest", "")
+    if expected.is_empty() ||
+      provided.is_empty() ||
+      !constant_time_equal(expected, provided) {
+      raise reject(400, "旧密码不正确")
+    }
+    let previous = json_text(credential, "password_history_digest", "")
+    let next = json_text(request, "new_password_digest", "")
+    if next == expected || (!previous.is_empty() && next == previous) {
+      raise reject(400, "新密码不能跟近两次密码相同")
+    }
   }
   let aggregate_type = if command_type == "logout" {
     "auth_session"
