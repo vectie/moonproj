@@ -22,6 +22,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/sales/mortgages` now calls the native local mortgage create/approve/release candidates; release remains a revenue-pending, no-bank/no-cash boundary.
 - Browser action delta: Rabbita `/sales/revenues` now calls the native local refund create/approve candidates; approval remains contract/revenue-pending with no cash/provider/accounting/tax effect.
 - Browser action delta: Rabbita `/ai-hub` now calls the native deterministic explanation candidate; provider execution, prompt persistence, and business authorization remain disabled.
+- Browser action delta: Rabbita `/ai-hub` now exposes all nine native AI Hub command candidates (intake, confirm, discard, query, rule-from-NL, approval-draft, global-ask, query-session, and command); each stops at the AI-owner authorization boundary with provider, query, persistence, workflow, cash, accounting, and tax effects disabled.
 - Browser action delta: Rabbita `/cashflow` now calls the native deterministic gap explanation candidate; provider execution, prompt persistence, and cash/accounting/tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native deterministic feasibility explanation candidate; provider execution, prompt persistence, and financial effects remain disabled.
 - Browser action delta: Rabbita `/project-plan` now calls the native seven-node deterministic plan suggestion candidate; provider execution, persistence, and plan/workflow mutation remain disabled.

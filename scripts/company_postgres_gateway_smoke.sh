@@ -174,6 +174,47 @@ test "$status" = 200
   '.success == true and .data.provider == "native-deterministic" and .data.rowCount == 1 and .provider_execution == false and .persisted == false and .authorizing == false' \
   "$TMP_DIR/ai-hub-explain.json" >/dev/null
 
+ai_hub_commands="intake confirm discard query rule-from-nl approval-draft global-ask query-session command"
+for ai_hub_command in $ai_hub_commands; do
+  case "$ai_hub_command" in
+    intake)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-intake-smoke","bizType":"expense","source":"rabbita"}'
+      ;;
+    confirm)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-confirm-smoke","draftId":"DRAFT-GATEWAY-SMOKE"}'
+      ;;
+    discard)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-discard-smoke","draftId":"DRAFT-GATEWAY-SMOKE"}'
+      ;;
+    query)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-query-smoke","question":"项目成本异常在哪里？"}'
+      ;;
+    rule-from-nl)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-rule-smoke","prompt":"成本偏差超过 5% 时提醒负责人"}'
+      ;;
+    approval-draft)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-approval-draft-smoke","draftId":"DRAFT-GATEWAY-SMOKE"}'
+      ;;
+    global-ask)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-global-ask-smoke","question":"未来 90 天资金缺口？"}'
+      ;;
+    query-session)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-query-session-smoke","sessionId":"SESSION-GATEWAY-SMOKE","question":"查看本月合同付款"}'
+      ;;
+    command)
+      ai_hub_body='{"idempotency_key":"gateway-ai-hub-command-smoke","command":"preview"}'
+      ;;
+  esac
+  status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/ai-hub-$ai_hub_command.json" -w '%{http_code}' \
+    -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+    --data "$ai_hub_body" \
+    "http://127.0.0.1:$GATEWAY_PORT/api/company/source/ai-hub/$ai_hub_command")
+  test "$status" = 409
+  /usr/bin/jq -e --arg command "$ai_hub_command" \
+    '.success == false and .code == 47001 and .data.command == $command and .data.queryExecution == false and .source_kind == "ai_hub_command_candidate" and .dry_run == true and .provider_execution == false and .query_execution == false and .persisted == false and .authorizing == false and .cash_effect == false and .accounting_effect == false and .tax_effect == false' \
+    "$TMP_DIR/ai-hub-$ai_hub_command.json" >/dev/null
+done
+
 status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/cashflow-explain.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
   --data '{"series":[{"month":"2026-08","net":-1200000}],"gapWeeks":[{"week":"2026-W33","gap":1200000}]}' \

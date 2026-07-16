@@ -1074,6 +1074,7 @@ struct Model {
   ai_hub_note : String
   ai_hub_explain_note : String
   ai_hub_explain_text : String
+  ai_hub_command_note : String
   webhook_loaded : Bool
   webhook_rows : Array[Array[String]]
   webhook_missing_table_count : String
@@ -1472,6 +1473,9 @@ enum Msg {
   ExplainAiHub
   AiHubExplainFinished(String)
   AiHubExplainFailed
+  RunAiHubCommand(String)
+  AiHubCommandFinished(String, String)
+  AiHubCommandFailed(String)
   WebhookLoaded(String)
   WebhookLoadFailed
   SaveWebhookConfig
@@ -1906,6 +1910,7 @@ fn initial_model() -> Model {
     ai_hub_note: "AI 工作台源读模型尚未加载 · 使用设计快照",
     ai_hub_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     ai_hub_explain_text: "等待解释候选",
+    ai_hub_command_note: "AI Hub 命令候选尚未运行 · 需要 AI 负责人确认",
     webhook_loaded: false,
     webhook_rows: [],
     webhook_missing_table_count: "0",
@@ -7170,6 +7175,40 @@ fn issue_ai_hub_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_ai_hub_command(
+  emit : @rabbita.Emit[Msg],
+  command_type : String,
+) -> Cmd {
+  let body = if command_type == "intake" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-intake-v1\",\"bizType\":\"expense\",\"source\":\"rabbita\"}"
+  } else if command_type == "confirm" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-confirm-v1\",\"draftId\":\"DRAFT-RABBITA-LOCAL\"}"
+  } else if command_type == "discard" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-discard-v1\",\"draftId\":\"DRAFT-RABBITA-LOCAL\"}"
+  } else if command_type == "query" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-query-v1\",\"question\":\"项目成本异常在哪里？\"}"
+  } else if command_type == "rule-from-nl" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-rule-v1\",\"prompt\":\"成本偏差超过 5% 时提醒负责人\"}"
+  } else if command_type == "approval-draft" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-approval-draft-v1\",\"draftId\":\"DRAFT-RABBITA-LOCAL\"}"
+  } else if command_type == "global-ask" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-global-ask-v1\",\"question\":\"未来 90 天资金缺口？\"}"
+  } else if command_type == "query-session" {
+    "{\"idempotency_key\":\"rabbita-ai-hub-query-session-v1\",\"sessionId\":\"SESSION-RABBITA-LOCAL\",\"question\":\"查看本月合同付款\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-ai-hub-command-v1\",\"command\":\"preview\"}"
+  }
+  @http.post("/api/company/source/ai-hub/" + command_type)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(value) => emit(AiHubCommandFinished(command_type, value))
+      Err(_) => emit(AiHubCommandFailed(command_type))
+    }
+  })
+}
+
+///|
 fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/webhook/config").expect_text(result => {
     match result {
@@ -12243,6 +12282,43 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_hub_explain_text: "解释候选不可用",
         },
       )
+    RunAiHubCommand(command_type) =>
+      (
+        issue_ai_hub_command(emit, command_type),
+        {
+          ..model,
+          ai_hub_command_note: "正在提交 AI Hub " +
+          command_type +
+          " 候选 · 等待 AI 负责人确认…",
+        },
+      )
+    AiHubCommandFinished(command_type, body) =>
+      (
+        none,
+        {
+          ..model,
+          ai_hub_command_note: if body.contains("\"code\":47001") &&
+            body.contains("\"persisted\":false") {
+            "AI Hub " +
+            command_type +
+            " 已到达授权门 · provider/query/persistence 均未执行"
+          } else {
+            "AI Hub " +
+            command_type +
+            " 候选已返回 · 请复核 AI 负责人边界"
+          },
+        },
+      )
+    AiHubCommandFailed(command_type) =>
+      (
+        none,
+        {
+          ..model,
+          ai_hub_command_note: "AI Hub " +
+          command_type +
+          " 服务不可用或被网关拒绝",
+        },
+      )
     WebhookLoaded(body) => {
       let (loaded, rows, missing, note) = webhook_config_from_body(body)
       (
@@ -15537,6 +15613,21 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
             on_click=emit(ExplainAiHub),
             "生成解释候选",
           ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("intake")),
+            "起单候选",
+          ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("confirm")),
+            "确认候选",
+          ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("discard")),
+            "丢弃候选",
+          ),
         ],
         section(class="erp-ai-card") <| [
           span(class="erp-ai-icon", "⌁"),
@@ -15544,13 +15635,41 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           p(
             "用大白话查询项目、合同、成本和现金流，结果可追溯。",
           ),
-          button(class="erp-secondary-btn", "打开查询"),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("query")),
+            "查询候选",
+          ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("query-session")),
+            "会话查询候选",
+          ),
         ],
         section(class="erp-ai-card") <| [
           span(class="erp-ai-icon", "⚑"),
           h2("风险洞察"),
           p("基于延期、成本偏差和付款异常生成风险清单。"),
-          button(class="erp-secondary-btn", "查看风险"),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("global-ask")),
+            "全局问答候选",
+          ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("rule-from-nl")),
+            "自然语言规则候选",
+          ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("approval-draft")),
+            "审批草稿候选",
+          ),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(RunAiHubCommand("command")),
+            "命令候选",
+          ),
         ],
       ],
       table_panel(
@@ -15570,6 +15689,11 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div(class="erp-runtime-banner", [
         strong("确定性解释候选"),
         span(" · " + model.ai_hub_explain_note),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("AI Hub 命令门"),
+        span(" · " + model.ai_hub_command_note),
+        span(" · provider/LLM/query/业务写入均未授权"),
       ]),
       table_panel(
         "解释结果",

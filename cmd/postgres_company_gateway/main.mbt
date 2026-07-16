@@ -255,6 +255,22 @@ fn investment_project_version_path(path : String, suffix : String) -> Bool {
 }
 
 ///|
+fn ai_hub_command_path(path : String) -> Bool {
+  let names = [
+    "intake", "confirm", "discard", "query", "rule-from-nl", "approval-draft", "global-ask",
+    "query-session", "command",
+  ]
+  for prefix in ["/api/company/ai-hub/", "/api/company/source/ai-hub/"] {
+    for name in names {
+      if path == prefix + name {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
 fn marketing_effect_path(path : String) -> Bool {
   let prefix = "/api/company/marketing/"
   let suffix = "/effect"
@@ -330,6 +346,7 @@ fn command_path_allowed(
       path == "/api/company/export/excel" ||
       path == "/api/company/ai-hub/explain" ||
       path == "/api/company/source/ai-hub/explain" ||
+      ai_hub_command_path(path) ||
       path == "/api/company/cashflow/ai-explain" ||
       path == "/api/company/source/cashflow/ai-explain" ||
       path_with_identifier_suffix(
