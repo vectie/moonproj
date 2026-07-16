@@ -40,6 +40,12 @@ The designer warning table remains only a transport-failure fallback. Scans,
 custom rules, tickets, notification delivery, production identity, and owner
 acceptance remain separate gates.
 
+The trusted PostgreSQL gateway now forwards the canonical resolve/ignore paths,
+and `scripts/company_postgres_warning_gateway_smoke.sh` proves authenticated
+Rabbita-shaped forwarding, replay equality, and the no-provider/no-cash warning
+state boundary. The browser action remains a local command candidate until
+production identity and warning-owner acceptance are approved.
+
 Bounded command paths:
 
 - `POST /api/company/warning/:guid/resolve`
