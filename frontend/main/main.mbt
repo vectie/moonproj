@@ -2233,6 +2233,8 @@ enum Msg {
   CloseDeliveryForm
   InputDeliveryField(String, String)
   SelectDeliveryContract(String)
+  ReportDeliveryProgressFor(String, String, String, String)
+  ConfirmDeliveryOutputFor(String, String, String)
   DeleteDeliveryProgressRow(String)
   CreateDeliveryProgress
   ReportDeliveryProgress
@@ -23124,6 +23126,49 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_output_contract_id: contract_id,
         },
       )
+    ReportDeliveryProgressFor(progress_id, actual_pct, actual_date, state) =>
+      if progress_id.is_empty() || state != "draft" {
+        (
+          none,
+          {
+            ..model,
+            delivery_command_note: "只有本地草稿进度记录可上报；导入源行保持只读",
+          },
+        )
+      } else {
+        let next = {
+          ..model,
+          delivery_form_open: "report",
+          delivery_progress_id: progress_id,
+          delivery_progress_state: state,
+          delivery_report_actual_pct: actual_pct,
+          delivery_report_date: if actual_date.is_empty() {
+            model.delivery_report_date
+          } else {
+            actual_date
+          },
+        }
+        (none, next)
+      }
+    ConfirmDeliveryOutputFor(output_id, amount, state) =>
+      if output_id.is_empty() || state != "reported" {
+        (
+          none,
+          {
+            ..model,
+            delivery_command_note: "只有本地已上报产值可确认；导入源行保持只读",
+          },
+        )
+      } else {
+        let next = {
+          ..model,
+          delivery_output_id: output_id,
+          delivery_output_amount: amount,
+          delivery_output_state: "pending",
+          delivery_command_note: "正在确认选中的产值并写入审计…",
+        }
+        (issue_delivery_command(emit, next, "confirm_output"), next)
+      }
     DeleteDeliveryProgressRow(progress_id) =>
       if progress_id.is_empty() {
         (none, model)
@@ -25059,23 +25104,41 @@ fn delivery_progress_table(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @html.Html {
-  let rows_to_render = if model.delivery_source_progress_rows.length() > 0 {
-    model.delivery_source_progress_rows
-  } else {
+  let rows_to_render = if model.delivery_loaded {
     model.delivery_progress_rows
+  } else {
+    model.delivery_source_progress_rows
   }
   if !model.delivery_loaded && rows_to_render.length() == 0 {
     div(class="erp-runtime-empty", "等待 PostgreSQL 工程进度投影")
   } else {
     let rows : Array[@html.Html] = []
     for row in rows_to_render {
-      let action = if row.source_kind == "command" &&
+      let action : @html.Html = if row.source_kind == "command" &&
         !row.progress_id.is_empty() {
-        button(
-          class="erp-link-btn is-warning",
-          on_click=emit(DeleteDeliveryProgressRow(row.progress_id)),
-          "作废",
-        )
+        div(class="erp-inline-actions") <| [
+          if row.state == "draft" {
+            button(
+              class="erp-link-btn",
+              on_click=emit(
+                ReportDeliveryProgressFor(
+                  row.progress_id,
+                  row.actual_pct,
+                  row.actual_date,
+                  row.state,
+                ),
+              ),
+              "上报进度",
+            )
+          } else {
+            span("")
+          },
+          button(
+            class="erp-link-btn is-warning",
+            on_click=emit(DeleteDeliveryProgressRow(row.progress_id)),
+            "作废",
+          ),
+        ]
       } else {
         span(class="erp-source-note", "源行只读")
       }
@@ -25122,44 +25185,74 @@ fn delivery_progress_table(
 }
 
 ///|
-fn delivery_outputs_table(model : Model) -> @html.Html {
-  let rows : Array[Array[String]] = []
-  let rows_to_render = if model.delivery_source_output_rows.length() > 0 {
-    model.delivery_source_output_rows
-  } else {
+fn delivery_outputs_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let rows_to_render = if model.delivery_loaded {
     model.delivery_output_rows
+  } else {
+    model.delivery_source_output_rows
   }
+  let rows : Array[@html.Html] = []
   for row in rows_to_render {
-    rows.push([
-      row.output_id,
-      row.project_id,
-      row.contract_id,
-      row.period,
-      row.output_amount,
-      row.confirm_amount,
-      row.state,
-      row.source_kind,
-      row.remark,
-    ])
+    let action : @html.Html = if row.source_kind == "command" &&
+      !row.output_id.is_empty() {
+      if row.state == "reported" {
+        button(
+          class="erp-link-btn",
+          on_click=emit(
+            ConfirmDeliveryOutputFor(
+              row.output_id,
+              row.output_amount,
+              row.state,
+            ),
+          ),
+          "确认",
+        )
+      } else {
+        span(class="erp-source-note", "已处理")
+      }
+    } else {
+      span(class="erp-source-note", "源行只读")
+    }
+    rows.push(
+      tr <| [
+        td(row.output_id),
+        td(row.project_id),
+        td(row.contract_id),
+        td(row.period),
+        td(row.output_amount),
+        td(row.confirm_amount),
+        td(row.state),
+        td(row.source_kind),
+        td(row.remark),
+        td(action),
+      ],
+    )
+  }
+  let title = if model.delivery_source_output_rows.length() > 0 {
+    "ERP 源产值确认"
+  } else {
+    "产值确认"
+  }
+  let note = if model.delivery_source_output_rows.length() > 0 {
+    "源记录只读 · 项目 " + model.delivery_project_id
+  } else {
+    "确认不等于入账 · 需要独立证据"
   }
   table_panel(
-    if model.delivery_source_output_rows.length() > 0 {
-      "ERP 源产值确认"
-    } else {
-      "产值确认"
-    },
-    if model.delivery_source_output_rows.length() > 0 {
-      "源记录只读 · 项目范围 " + model.delivery_project_id
-    } else {
-      "确认不等于入账 · 需要独立证据"
-    },
-    data_table(
-      [
-        "记录", "项目", "合同", "期间", "申报产值", "确认产值", "状态",
-        "来源", "备注",
+    title,
+    note,
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "记录", "项目", "合同", "期间", "申报产值", "确认产值",
+          "状态", "来源", "备注", "操作",
+        ]),
       ],
-      rows,
-    ),
+      tbody <| rows,
+    ],
   )
 }
 
@@ -25921,7 +26014,7 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ]
       } else if model.delivery_tab == "outputs" {
         div <| [
-          delivery_outputs_table(model),
+          delivery_outputs_table(emit, model),
           div(class="erp-inline-actions") <| [
             button(
               class="erp-secondary-btn",

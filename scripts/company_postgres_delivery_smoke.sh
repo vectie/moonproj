@@ -8,6 +8,11 @@ TOKEN=${MOONPROJ_SERVICE_TOKEN:-moonproj-delivery-smoke-token}
 ACTOR=${MOONPROJ_ACTOR_ID:-limingjin}
 ACTOR_SIGNING_SECRET=${MOONPROJ_ACTOR_SIGNING_SECRET:-moonproj-delivery-actor-secret}
 PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
+PGHOST=${PGHOST:-localhost}
+PGPORT=${PGPORT:-5432}
+PGUSER=${PGUSER:-postgres}
+PGPASSWORD=${PGPASSWORD:-520825}
+export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-delivery.XXXXXX")
 SERVICE_PID=""
 SMOKE_SUFFIX=$(/bin/date +%s)
