@@ -38,7 +38,9 @@ scope `proj-0001`, cost code/name/level/parent, A/D/E/F/G amount fields, and
 remarks. Submission uses the same source-shaped native command, then reloads
 the live read model so the new command row is visible without a fixture
 fallback. The page reports the CBS/budget/financial no-effect boundary next to
-the form.
+the form. It now also loads the PostgreSQL project list for source-style scope
+switching, exposes the source remarks read for each cost row, and provides CSV
+and XLSX exports of the selected project’s current projection.
 
 ## Evidence
 

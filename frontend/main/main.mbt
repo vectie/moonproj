@@ -1084,6 +1084,15 @@ struct Model {
   dynamic_cost_spare : String
   dynamic_cost_end_count : String
   dynamic_cost_note : String
+  dynamic_cost_project_id : String
+  dynamic_cost_remark_loaded : Bool
+  dynamic_cost_remark_code : String
+  dynamic_cost_remark_name : String
+  dynamic_cost_remark_text : String
+  dynamic_cost_remark_project : String
+  dynamic_cost_remark_source : String
+  dynamic_cost_remark_note : String
+  dynamic_cost_export_note : String
   dynamic_cost_create_code : String
   dynamic_cost_create_name : String
   dynamic_cost_create_level : String
@@ -1610,6 +1619,14 @@ enum Msg {
   AuditLoadFailed
   DynamicCostLoaded(String)
   DynamicCostLoadFailed
+  InputDynamicCostProject(String)
+  ViewDynamicCostRemarks(String)
+  DynamicCostRemarksLoaded(String)
+  DynamicCostRemarksLoadFailed
+  ExportDynamicCostCsv
+  ExportDynamicCostXlsx
+  DynamicCostExportFinished(@dom.Blob)
+  DynamicCostExportFailed
   InputDynamicCostCreateCode(String)
   InputDynamicCostCreateName(String)
   InputDynamicCostCreateLevel(String)
@@ -2142,6 +2159,15 @@ fn initial_model() -> Model {
     dynamic_cost_spare: "0",
     dynamic_cost_end_count: "0",
     dynamic_cost_note: "动态成本读模型尚未加载 · 使用设计快照",
+    dynamic_cost_project_id: "proj-0001",
+    dynamic_cost_remark_loaded: false,
+    dynamic_cost_remark_code: "",
+    dynamic_cost_remark_name: "",
+    dynamic_cost_remark_text: "",
+    dynamic_cost_remark_project: "",
+    dynamic_cost_remark_source: "",
+    dynamic_cost_remark_note: "点击成本 A / B / H 查看科目备注",
+    dynamic_cost_export_note: "尚未导出动态成本",
     dynamic_cost_create_code: "",
     dynamic_cost_create_name: "",
     dynamic_cost_create_level: "2",
@@ -7307,11 +7333,137 @@ fn load_audit_actions(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_dynamic_cost(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/cost/dynamic-cost?projGuid=proj-0001").expect_text(result => {
+fn load_dynamic_cost(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/cost/dynamic-cost?projGuid=" + project_id).expect_text(result => {
+      match result {
+        Ok(body) => emit(DynamicCostLoaded(body))
+        Err(_) => emit(DynamicCostLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn load_dynamic_cost_remarks(
+  emit : @rabbita.Emit[Msg],
+  cost_id : String,
+) -> Cmd {
+  @http.get("/api/company/source/cost/dynamic-cost/" + cost_id + "/remarks").expect_text(result => {
+      match result {
+        Ok(body) => emit(DynamicCostRemarksLoaded(body))
+        Err(_) => emit(DynamicCostRemarksLoadFailed)
+      }
+    },
+  )
+}
+
+///|
+fn dynamic_cost_remarks_from_body(body : String) -> Array[String] {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  let fields = match parsed {
+    Json::Object(root) =>
+      match root.get("data") {
+        Some(Json::Object(data)) => data
+        _ => root
+      }
+    _ => {}
+  }
+  [
+    json_object_text(fields, "costCode", ""),
+    json_object_text(fields, "costName", ""),
+    json_object_text(fields, "remarks", ""),
+    json_object_text(fields, "projectName", ""),
+    json_object_text(fields, "sourceKind", ""),
+  ]
+}
+
+///|
+fn dynamic_cost_csv(model : Model) -> String {
+  let lines : Array[String] = []
+  lines.push(
+    "科目编码,科目名称,层级,A 目标成本,B 动态成本,C 偏差率%,D 合约+变更,E 在途,F 待发生,G 预估变更,H 规划余量",
+  )
+  for row in model.dynamic_cost_rows {
+    lines.push(
+      [
+        row.cost_code,
+        row.cost_name,
+        row.cost_level,
+        row.target_cost,
+        row.dynamic_cost,
+        row.deviation_pct,
+        row.contract_change,
+        row.actual_cost,
+        row.budget_cost,
+        row.estimate_change,
+        row.layout_spare,
+      ]
+      .map(value => "\"" + value.replace(old="\"", new="\"\"") + "\"")
+      .join(","),
+    )
+  }
+  lines.join("\n")
+}
+
+///|
+fn dynamic_cost_export_body(model : Model) -> String {
+  let rows : Array[String] = []
+  for row in model.dynamic_cost_rows {
+    rows.push(
+      Json::object({
+        "costCode": Json::string(row.cost_code),
+        "costName": Json::string(row.cost_name),
+        "costLevel": Json::string(row.cost_level),
+        "A_targetCost": Json::string(row.target_cost),
+        "B_dtCost": Json::string(row.dynamic_cost),
+        "C_deviationPct": Json::string(row.deviation_pct),
+        "D_htAlterAmount": Json::string(row.contract_change),
+        "E_ztCost": Json::string(row.actual_cost),
+        "F_dfsBudget": Json::string(row.budget_cost),
+        "G_ygAlter": Json::string(row.estimate_change),
+        "H_layoutSpare": Json::string(row.layout_spare),
+      }).stringify(),
+    )
+  }
+  let summary_rows = [
+    Json::object({
+      "k": Json::string("末端科目数"),
+      "v": Json::string(model.dynamic_cost_end_count),
+    }).stringify(),
+    Json::object({
+      "k": Json::string("A 目标成本"),
+      "v": Json::string(model.dynamic_cost_target),
+    }).stringify(),
+    Json::object({
+      "k": Json::string("B 动态成本"),
+      "v": Json::string(model.dynamic_cost_total),
+    }).stringify(),
+    Json::object({
+      "k": Json::string("C 偏差率(%)"),
+      "v": Json::string(model.dynamic_cost_deviation),
+    }).stringify(),
+    Json::object({
+      "k": Json::string("H 规划余量"),
+      "v": Json::string(model.dynamic_cost_spare),
+    }).stringify(),
+  ]
+  "{\"filename\":\"dynamic-cost\",\"sheets\":[" +
+  "{\"name\":\"科目明细\",\"columns\":[" +
+  "{\"label\":\"科目编码\",\"field\":\"costCode\"},{\"label\":\"科目名称\",\"field\":\"costName\"},{\"label\":\"层级\",\"field\":\"costLevel\"},{\"label\":\"A 目标成本\",\"field\":\"A_targetCost\"},{\"label\":\"B 动态成本\",\"field\":\"B_dtCost\"},{\"label\":\"C 偏差率(%)\",\"field\":\"C_deviationPct\"},{\"label\":\"D 合约+变更\",\"field\":\"D_htAlterAmount\"},{\"label\":\"E 在途\",\"field\":\"E_ztCost\"},{\"label\":\"F 待发生\",\"field\":\"F_dfsBudget\"},{\"label\":\"G 预估变更\",\"field\":\"G_ygAlter\"},{\"label\":\"H 规划余量\",\"field\":\"H_layoutSpare\"}],\"rows\":[" +
+  rows.join(",") +
+  "]},{\"name\":\"项目汇总\",\"columns\":[{\"label\":\"指标\",\"field\":\"k\"},{\"label\":\"值\",\"field\":\"v\"}],\"rows\":[" +
+  summary_rows.join(",") +
+  "]}]}"
+}
+
+///|
+fn issue_dynamic_cost_export(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/company/export/excel")
+  .with_text(dynamic_cost_export_body(model))
+  .expect_blob(result => {
     match result {
-      Ok(body) => emit(DynamicCostLoaded(body))
-      Err(_) => emit(DynamicCostLoadFailed)
+      Ok(blob) => emit(DynamicCostExportFinished(blob))
+      Err(_) => emit(DynamicCostExportFailed)
     }
   })
 }
@@ -9909,7 +10061,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/audit-log" {
         load_audit_logs(emit)
       } else if path == "/dynamic-cost" {
-        load_dynamic_cost(emit)
+        @cmd.batch([
+          load_projects(emit),
+          load_dynamic_cost(emit, model.dynamic_cost_project_id),
+        ])
       } else if path == "/cost-dashboard-v3" {
         load_cost_dashboard(emit)
       } else if path == "/cashflow" {
@@ -12651,6 +12806,108 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           dynamic_cost_note: "动态成本读模型不可用 · 使用设计快照",
         },
       )
+    InputDynamicCostProject(value) =>
+      (
+        load_dynamic_cost(emit, value),
+        {
+          ..model,
+          dynamic_cost_project_id: value,
+          dynamic_cost_remark_loaded: false,
+          dynamic_cost_remark_note: "项目范围已切换 · 点击成本 A / B / H 查看科目备注",
+        },
+      )
+    ViewDynamicCostRemarks(cost_id) =>
+      if cost_id.trim().is_empty() {
+        (
+          none,
+          { ..model, dynamic_cost_remark_note: "成本科目缺少 costGuid" },
+        )
+      } else {
+        (
+          load_dynamic_cost_remarks(emit, cost_id),
+          { ..model, dynamic_cost_remark_note: "正在读取科目备注…" },
+        )
+      }
+    DynamicCostRemarksLoaded(body) => {
+      let values = dynamic_cost_remarks_from_body(body)
+      if values.length() == 5 {
+        (
+          none,
+          {
+            ..model,
+            dynamic_cost_remark_loaded: true,
+            dynamic_cost_remark_code: values[0],
+            dynamic_cost_remark_name: values[1],
+            dynamic_cost_remark_text: values[2],
+            dynamic_cost_remark_project: values[3],
+            dynamic_cost_remark_source: values[4],
+            dynamic_cost_remark_note: "备注读模型已连接 · 不产生写入或财务效果",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            dynamic_cost_remark_loaded: false,
+            dynamic_cost_remark_note: "科目备注响应无效",
+          },
+        )
+      }
+    }
+    DynamicCostRemarksLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          dynamic_cost_remark_loaded: false,
+          dynamic_cost_remark_note: "科目备注读模型不可用或源科目不存在",
+        },
+      )
+    ExportDynamicCostCsv =>
+      (
+        {
+          download_text(
+            dynamic_cost_csv(model),
+            "dynamic-cost-" + model.dynamic_cost_project_id + ".csv",
+          )
+          none
+        },
+        {
+          ..model,
+          dynamic_cost_export_note: "CSV 已生成并开始下载 · 仅包含当前项目动态成本",
+        },
+      )
+    ExportDynamicCostXlsx =>
+      (
+        issue_dynamic_cost_export(emit, model),
+        {
+          ..model,
+          dynamic_cost_export_note: "正在生成动态成本 XLSX 报表…",
+        },
+      )
+    DynamicCostExportFinished(blob) =>
+      (
+        {
+          download_blob(
+            blob,
+            "dynamic-cost-" + model.dynamic_cost_project_id + ".xlsx",
+          )
+          none
+        },
+        {
+          ..model,
+          dynamic_cost_export_note: "XLSX 已生成并开始下载 · 仅包含当前项目动态成本",
+        },
+      )
+    DynamicCostExportFailed =>
+      (
+        none,
+        {
+          ..model,
+          dynamic_cost_export_note: "XLSX 导出服务不可用或被网关拒绝",
+        },
+      )
     InputDynamicCostCreateCode(value) =>
       (none, { ..model, dynamic_cost_create_code: value })
     InputDynamicCostCreateName(value) =>
@@ -12692,7 +12949,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     DynamicCostCommandFinished(body) =>
       (
-        load_dynamic_cost(emit),
+        load_dynamic_cost(emit, model.dynamic_cost_project_id),
         {
           ..model,
           dynamic_cost_command_note: if body.contains("\"persisted\":true") {
@@ -20632,6 +20889,115 @@ fn dynamic_cost_create_panel(
 }
 
 ///|
+fn dynamic_cost_project_context(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if model.project_rows.length() == 0 {
+    div(
+      class="erp-runtime-empty",
+      "项目主数据尚未返回 · 当前范围 " +
+      model.dynamic_cost_project_id,
+    )
+  } else {
+    let controls : Array[@html.Html] = []
+    for row in model.project_rows {
+      controls.push(
+        button(
+          class=if row.project_id == model.dynamic_cost_project_id {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(InputDynamicCostProject(row.project_id)),
+          row.project_name + " · " + row.project_id,
+        ),
+      )
+    }
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("项目范围"),
+        span(
+          class="erp-info-tag",
+          model.dynamic_cost_project_name + " · 切换后重读动态成本源",
+        ),
+      ],
+      div(class="erp-command-bar") <| controls,
+    ]
+  }
+}
+
+///|
+fn dynamic_cost_remark_actions(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.dynamic_cost_loaded || model.dynamic_cost_rows.length() == 0 {
+    div(
+      class="erp-runtime-empty",
+      "当前项目没有可查看备注的成本科目",
+    )
+  } else {
+    let rendered : Array[@html.Html] = []
+    for row in model.dynamic_cost_rows {
+      rendered.push(
+        tr <| [
+          td(row.cost_code + " · " + row.cost_name),
+          td(row.target_cost),
+          td(row.dynamic_cost),
+          td(row.layout_spare),
+          td(
+            button(
+              class="erp-ghost-btn",
+              on_click=emit(ViewDynamicCostRemarks(row.cost_guid)),
+              "查看备注",
+            ),
+          ),
+        ],
+      )
+    }
+    table_panel(
+      "科目备注",
+      model.dynamic_cost_remark_note +
+      " · imported/command 行均为只读观察",
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header(["科目", "A 目标", "B 动态", "H 余量", "操作"]),
+        ],
+        tbody <| rendered,
+      ],
+    )
+  }
+}
+
+///|
+fn dynamic_cost_remark_panel(model : Model) -> @html.Html {
+  if model.dynamic_cost_remark_loaded {
+    table_panel(
+      "当前科目备注",
+      model.dynamic_cost_remark_note +
+      " · " +
+      model.dynamic_cost_remark_project +
+      " · " +
+      model.dynamic_cost_remark_source,
+      data_table(["科目编码", "科目名称", "备注"], [
+        [
+          model.dynamic_cost_remark_code,
+          model.dynamic_cost_remark_name,
+          if model.dynamic_cost_remark_text.is_empty() {
+            "无备注"
+          } else {
+            model.dynamic_cost_remark_text
+          },
+        ],
+      ]),
+    )
+  } else {
+    div(class="erp-source-note", model.dynamic_cost_remark_note)
+  }
+}
+
+///|
 fn dynamic_cost_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let stats = if model.dynamic_cost_loaded {
     div(class="erp-stat-grid") <| [
@@ -20671,12 +21037,30 @@ fn dynamic_cost_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(Navigate("/dynamic-cost")),
         "刷新成本",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExportDynamicCostCsv),
+        "导出 CSV",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExportDynamicCostXlsx),
+        "导出 Excel",
+      ),
     ],
     div <| [
       stats,
+      dynamic_cost_project_context(emit, model),
       filter_bar("项目 / 成本科目 / 变更编号"),
       dynamic_cost_table(model),
+      dynamic_cost_remark_actions(emit, model),
+      dynamic_cost_remark_panel(model),
       dynamic_cost_create_panel(emit, model),
+      div(class="erp-runtime-banner", [
+        strong("动态成本导出"),
+        span(" · " + model.dynamic_cost_export_note),
+        span(" · 当前项目 " + model.dynamic_cost_project_id),
+      ]),
     ],
   )
 }
