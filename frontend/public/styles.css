@@ -185,6 +185,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid #3b82f6; outline-
 .erp-field-label { display: block; margin-bottom: 5px; color: #64748b; font-size: 11px; }
 .erp-form-input { width: 100%; height: 34px; padding: 0 10px; border: 1px solid #dbe2ea; border-radius: 4px; color: #334155; background: #fff; font-size: 12px; }
 .erp-form-input:focus { border-color: #60a5fa; outline: 0; }
+.erp-import-steps { display: flex; align-items: center; gap: 8px; margin: 2px 0 12px; }
+.erp-import-step { flex: 1; padding: 7px 10px; border-radius: 4px; color: #94a3b8; background: #f8fafc; font-size: 11px; text-align: center; }
+.erp-import-step.is-active { color: #1d4ed8; background: #eff6ff; }
+.erp-import-step.is-done { color: #15803d; background: #f0fdf4; }
+.erp-import-file-picker { position: relative; display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border: 1px solid #93c5fd; border-radius: 4px; color: #1d4ed8; background: #eff6ff; cursor: pointer; font-size: 12px; white-space: nowrap; }
+.erp-import-file-picker:hover { border-color: #60a5fa; background: #dbeafe; }
+.erp-import-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .erp-status-tag { display: inline-block; padding: 3px 8px; border-radius: 3px; color: #64748b; background: #f1f5f9; font-size: 11px; white-space: nowrap; }
 .erp-status-tag.is-success { color: #15803d; background: #f0fdf4; }
 .erp-status-tag.is-pending { color: #b45309; background: #fffbeb; }

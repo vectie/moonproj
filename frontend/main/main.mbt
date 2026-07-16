@@ -15696,6 +15696,17 @@ fn import_preview_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn import_step_class(active_step : Int, step : Int) -> String {
+  if step < active_step {
+    "erp-import-step is-done"
+  } else if step == active_step {
+    "erp-import-step is-active"
+  } else {
+    "erp-import-step"
+  }
+}
+
+///|
 fn import_panel(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -15708,6 +15719,19 @@ fn import_panel(
   } else {
     "尚未选择 " + import_label(biz_type) + " CSV 文件"
   }
+  let active_step = if active &&
+    (
+      model.import_state == "dry_run" ||
+      model.import_state == "dry_run_ok" ||
+      model.import_state == "committing" ||
+      model.import_state == "committed"
+    ) {
+    2
+  } else if active && model.import_state != "idle" {
+    1
+  } else {
+    0
+  }
   section(class="erp-table-panel erp-import-panel") <| [
     div(class="erp-panel-heading") <| [
       div <| [
@@ -15719,14 +15743,22 @@ fn import_panel(
       ],
       span(class="erp-info-tag", note),
     ],
+    div(class="erp-import-steps") <| [
+      span(class=import_step_class(active_step, 0), "1 选择 CSV"),
+      span(class=import_step_class(active_step, 1), "2 试运行校验"),
+      span(class=import_step_class(active_step, 2), "3 提交导入"),
+    ],
     div(class="erp-command-bar") <| [
-      input(
-        input_type=@html.InputType::File,
-        accept=".csv,text/csv",
-        id=import_input_id(biz_type),
-        class="erp-form-input",
-        on_change=emit.map(file_name => SelectImportFile(biz_type, file_name)),
-      ),
+      label(class="erp-import-file-picker") <| [
+        input(
+          input_type=@html.InputType::File,
+          accept=".csv,text/csv",
+          id=import_input_id(biz_type),
+          class="erp-import-file-input",
+          on_change=emit.map(file_name => SelectImportFile(biz_type, file_name)),
+        ),
+        span("选择 CSV 文件"),
+      ],
       button(
         class="erp-secondary-btn",
         on_click=emit(DownloadImportTemplate(biz_type)),
