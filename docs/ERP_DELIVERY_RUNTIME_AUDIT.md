@@ -62,7 +62,10 @@ delivery parity until their source joins and calculations are reproduced.
   `/api/company/source/delivery/progress` and `/outputs` boundaries, then loads
   `/api/company/delivery/overview?project_id=...` for the task/report view. The
   pages show source/command provenance and expose guarded progress, output, and
-  task-report commands while retaining the designer layout.
+  task-report commands while retaining the designer layout. `/project/progress`
+  also loads the project master list, switches the selected project through the
+  source progress/output/overview chain, and exposes stateful progress, output,
+  and task-report tabs matching the source screen's project-scoped behavior.
 - The local service and read-model adapter expose these fixed reads:
   `/api/company/delivery/progress`, `/outputs`, `/tasks`, `/task-reports`,
   `/plan-summary`, and `/overview`, plus the source-only

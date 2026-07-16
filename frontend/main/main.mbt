@@ -1119,6 +1119,8 @@ struct Model {
   invoice_source_tax_count : String
   invoice_source_note : String
   delivery_loaded : Bool
+  delivery_project_id : String
+  delivery_tab : String
   delivery_progress_rows : Array[DeliveryProgressRow]
   delivery_output_rows : Array[DeliveryOutputRow]
   delivery_task_rows : Array[DeliveryTaskRow]
@@ -1795,6 +1797,8 @@ enum Msg {
   DeliverySourceLoadFailed
   DeliveryLoaded(String)
   DeliveryLoadFailed
+  SelectDeliveryProject(String)
+  SelectDeliveryTab(String)
   CreateDeliveryProgress
   ReportDeliveryProgress
   AcceptDeliveryProgress
@@ -2337,6 +2341,8 @@ fn initial_model() -> Model {
     invoice_source_tax_count: "0",
     invoice_source_note: "发票源读模型尚未加载 · 使用设计快照",
     delivery_loaded: false,
+    delivery_project_id: "proj-0001",
+    delivery_tab: "progress",
     delivery_progress_rows: [],
     delivery_output_rows: [],
     delivery_task_rows: [],
@@ -7691,8 +7697,8 @@ fn issue_invoice_create(
 }
 
 ///|
-fn load_delivery(emit : @rabbita.Emit[Msg]) -> Cmd {
-  load_delivery_source_progress(emit)
+fn load_delivery(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  load_delivery_source_progress_for(emit, project_id)
 }
 
 ///|
@@ -7710,8 +7716,11 @@ fn load_delivery_for_project(
 }
 
 ///|
-fn load_delivery_source_progress(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/delivery/progress?projGuid=proj-0001").expect_text(result => {
+fn load_delivery_source_progress_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/source/delivery/progress?projGuid=" + project_id).expect_text(result => {
       match result {
         Ok(body) => emit(DeliverySourceProgressLoaded(body))
         Err(_) => emit(DeliverySourceLoadFailed)
@@ -7721,8 +7730,11 @@ fn load_delivery_source_progress(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_delivery_source_outputs(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/delivery/outputs?projGuid=proj-0001").expect_text(result => {
+fn load_delivery_source_outputs_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/source/delivery/outputs?projGuid=" + project_id).expect_text(result => {
       match result {
         Ok(body) => emit(DeliverySourceOutputsLoaded(body))
         Err(_) => emit(DeliverySourceLoadFailed)
@@ -7732,13 +7744,17 @@ fn load_delivery_source_outputs(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_delivery_overview(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/delivery/overview?project_id=proj-0001").expect_text(result => {
-    match result {
-      Ok(body) => emit(DeliveryLoaded(body))
-      Err(_) => emit(DeliveryLoadFailed)
-    }
-  })
+fn load_delivery_overview_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/delivery/overview?project_id=" + project_id).expect_text(result => {
+      match result {
+        Ok(body) => emit(DeliveryLoaded(body))
+        Err(_) => emit(DeliveryLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
@@ -10453,7 +10469,11 @@ fn issue_loan_workflow_sync(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
 ///|
 fn delivery_command_body(model : Model, command_type : String) -> String {
   if command_type == "create_progress" {
-    "{\"idempotency_key\":\"rabbita-delivery-progress-create-v1\",\"progress_id\":\"PROG-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"principal_id\":\"co-rabbita\",\"project_scope\":\"project:proj-0001\",\"stage\":\"主体结构\",\"plan_pct\":70,\"completed_value_minor\":125000,\"currency\":\"CNY\",\"evidence_ids\":[\"rabbita:progress:photo-001\"],\"remark\":\"本地进度命令演示\"}"
+    "{\"idempotency_key\":\"rabbita-delivery-progress-create-v1\",\"progress_id\":\"PROG-RABBITA-LOCAL\",\"project_id\":\"" +
+    model.delivery_project_id +
+    "\",\"principal_id\":\"co-rabbita\",\"project_scope\":\"project:" +
+    model.delivery_project_id +
+    "\",\"stage\":\"主体结构\",\"plan_pct\":70,\"completed_value_minor\":125000,\"currency\":\"CNY\",\"evidence_ids\":[\"rabbita:progress:photo-001\"],\"remark\":\"本地进度命令演示\"}"
   } else if command_type == "report_progress" {
     "{\"idempotency_key\":\"rabbita-delivery-progress-report-v1\",\"progress_pct\":55,\"actual_date\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:progress:report-001\"],\"remark\":\"已完成现场复核\"}"
   } else if command_type == "accept_progress" {
@@ -10461,7 +10481,9 @@ fn delivery_command_body(model : Model, command_type : String) -> String {
   } else if command_type == "reject_progress" {
     "{\"idempotency_key\":\"rabbita-delivery-progress-reject-v1\",\"reason\":\"需要补充验收记录\"}"
   } else if command_type == "create_output" {
-    "{\"idempotency_key\":\"rabbita-delivery-output-create-v1\",\"output_id\":\"OUT-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"contract_id\":\"ht-tj-001\",\"period\":\"2026-07\",\"output_amount\":\"125000\",\"evidence_ids\":[\"rabbita:output:measure-001\"],\"remark\":\"本地产值确认演示\"}"
+    "{\"idempotency_key\":\"rabbita-delivery-output-create-v1\",\"output_id\":\"OUT-RABBITA-LOCAL\",\"project_id\":\"" +
+    model.delivery_project_id +
+    "\",\"contract_id\":\"ht-tj-001\",\"period\":\"2026-07\",\"output_amount\":\"125000\",\"evidence_ids\":[\"rabbita:output:measure-001\"],\"remark\":\"本地产值确认演示\"}"
   } else if command_type == "confirm_output" {
     "{\"idempotency_key\":\"rabbita-delivery-output-confirm-v1\",\"confirm_amount\":\"125000\",\"confirmed_at\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:output:acceptance-001\"]}"
   } else {
@@ -11430,7 +11452,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           load_delivery_for_project(emit, model.project_plan_project_id),
         ])
       } else if path == "/project/progress" {
-        load_delivery(emit)
+        @cmd.batch([
+          load_projects(emit),
+          load_delivery(emit, model.delivery_project_id),
+        ])
       } else {
         none
       }
@@ -13160,9 +13185,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectInvoiceTab(tab) => (none, { ..model, invoice_tab: tab })
+    SelectDeliveryProject(project_id) =>
+      (
+        load_delivery(emit, project_id),
+        {
+          ..model,
+          delivery_project_id: project_id,
+          delivery_loaded: false,
+          delivery_source_loaded: false,
+          delivery_progress_rows: [],
+          delivery_output_rows: [],
+          delivery_task_rows: [],
+          delivery_report_rows: [],
+          delivery_note: "正在读取所选项目的工程进度…",
+          delivery_source_note: "正在读取项目源进度/产值…",
+        },
+      )
+    SelectDeliveryTab(tab) => (none, { ..model, delivery_tab: tab })
     DeliverySourceProgressLoaded(body) =>
       (
-        load_delivery_source_outputs(emit),
+        load_delivery_source_outputs_for(emit, model.delivery_project_id),
         {
           ..model,
           delivery_source_loaded: false,
@@ -13172,7 +13214,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     DeliverySourceOutputsLoaded(body) =>
       (
-        load_delivery_overview(emit),
+        load_delivery_overview_for(emit, model.delivery_project_id),
         {
           ..model,
           delivery_source_loaded: true,
@@ -13186,7 +13228,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     DeliverySourceLoadFailed =>
       (
-        load_delivery_overview(emit),
+        load_delivery_overview_for(emit, model.delivery_project_id),
         {
           ..model,
           delivery_source_loaded: false,
@@ -18373,7 +18415,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
       (
         @cmd.batch([
-          load_delivery(emit),
+          load_delivery(emit, model.delivery_project_id),
           load_delivery_for_project(emit, model.project_plan_project_id),
         ]),
         {
@@ -20532,6 +20574,29 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let project_picker : Array[@html.Html] = []
+  if model.project_rows.length() == 0 {
+    project_picker.push(
+      span(
+        class="erp-source-note",
+        "项目列表尚未加载 · 当前范围 " + model.delivery_project_id,
+      ),
+    )
+  } else {
+    for row in model.project_rows {
+      project_picker.push(
+        button(
+          class=if row.project_id == model.delivery_project_id {
+            "erp-project-chip is-active"
+          } else {
+            "erp-project-chip"
+          },
+          on_click=emit(SelectDeliveryProject(row.project_id)),
+          row.project_code + " · " + row.project_name,
+        ),
+      )
+    }
+  }
   page_shell(
     "工程进度",
     "PROJECT PROGRESS",
@@ -20546,41 +20611,76 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div <| [
       delivery_runtime_banner(model),
+      div(class="erp-project-picker") <| project_picker,
       div(class="erp-tabs") <| [
-        button(class="erp-tab is-active", "进度总览"),
-        button(class="erp-tab", "楼栋视图"),
-        button(class="erp-tab", "交付节点"),
-      ],
-      delivery_progress_table(model),
-      delivery_outputs_table(model),
-      div(class="erp-inline-actions") <| [
         button(
-          class="erp-secondary-btn",
-          on_click=emit(ReportDeliveryProgress),
-          "提交现场进度",
+          class=if model.delivery_tab == "progress" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectDeliveryTab("progress")),
+          "形象进度",
         ),
         button(
-          class="erp-secondary-btn",
-          on_click=emit(AcceptDeliveryProgress),
-          "接受进度证据",
+          class=if model.delivery_tab == "outputs" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectDeliveryTab("outputs")),
+          "产值确认",
         ),
         button(
-          class="erp-secondary-btn",
-          on_click=emit(RejectDeliveryProgress),
-          "退回进度证据",
-        ),
-        button(
-          class="erp-secondary-btn",
-          on_click=emit(CreateDeliveryOutput),
-          "登记产值",
-        ),
-        button(
-          class="erp-secondary-btn",
-          on_click=emit(ConfirmDeliveryOutput),
-          "确认产值",
+          class=if model.delivery_tab == "reports" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectDeliveryTab("reports")),
+          "任务汇报",
         ),
       ],
-      delivery_reports_table(model),
+      if model.delivery_tab == "progress" {
+        div <| [
+          delivery_progress_table(model),
+          div(class="erp-inline-actions") <| [
+            button(
+              class="erp-secondary-btn",
+              on_click=emit(ReportDeliveryProgress),
+              "提交现场进度",
+            ),
+            button(
+              class="erp-secondary-btn",
+              on_click=emit(AcceptDeliveryProgress),
+              "接受进度证据",
+            ),
+            button(
+              class="erp-secondary-btn",
+              on_click=emit(RejectDeliveryProgress),
+              "退回进度证据",
+            ),
+          ],
+        ]
+      } else if model.delivery_tab == "outputs" {
+        div <| [
+          delivery_outputs_table(model),
+          div(class="erp-inline-actions") <| [
+            button(
+              class="erp-secondary-btn",
+              on_click=emit(CreateDeliveryOutput),
+              "登记产值",
+            ),
+            button(
+              class="erp-secondary-btn",
+              on_click=emit(ConfirmDeliveryOutput),
+              "确认产值",
+            ),
+          ],
+        ]
+      } else {
+        delivery_reports_table(model)
+      },
     ],
   )
 }
