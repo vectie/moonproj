@@ -1103,6 +1103,14 @@ struct Model {
   invoice_source_loaded : Bool
   invoice_project_id : String
   invoice_tab : String
+  invoice_form_open : String
+  invoice_no : String
+  invoice_counterparty : String
+  invoice_date : String
+  invoice_total_amount : String
+  invoice_tax_rate : String
+  invoice_type : String
+  invoice_remark : String
   invoice_in_rows : Array[InvoiceRow]
   invoice_out_rows : Array[InvoiceRow]
   invoice_tax_rows : Array[InvoiceTaxRow]
@@ -1776,6 +1784,12 @@ enum Msg {
   InvoiceSourceLoadFailed
   SelectInvoiceProject(String)
   SelectInvoiceTab(String)
+  OpenInvoiceForm(String)
+  CloseInvoiceForm
+  InputInvoiceField(String, String)
+  CreateInvoice(String)
+  InvoiceCommandFinished
+  InvoiceCommandFailed
   DeliverySourceProgressLoaded(String)
   DeliverySourceOutputsLoaded(String)
   DeliverySourceLoadFailed
@@ -2307,6 +2321,14 @@ fn initial_model() -> Model {
     invoice_source_loaded: false,
     invoice_project_id: "proj-0001",
     invoice_tab: "in",
+    invoice_form_open: "",
+    invoice_no: "",
+    invoice_counterparty: "",
+    invoice_date: "2026-07-16",
+    invoice_total_amount: "0",
+    invoice_tax_rate: "0.09",
+    invoice_type: "增值税专用发票",
+    invoice_remark: "",
     invoice_in_rows: [],
     invoice_out_rows: [],
     invoice_tax_rows: [],
@@ -7605,6 +7627,67 @@ fn load_invoice_source_tax_for(
       }
     },
   )
+}
+
+///|
+fn invoice_authority(
+  model : Model,
+  direction : String,
+  max_amount_minor : Double,
+) -> Json {
+  Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string("principal-rabbita"),
+    "actor_id": Json::string(model.user_code),
+    "scope": Json::string("project:" + model.invoice_project_id),
+    "capability": Json::string("invoice:" + direction + ":create"),
+    "max_amount_minor": Json::number(max_amount_minor),
+  })
+}
+
+///|
+fn issue_invoice_create(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  direction : String,
+) -> Cmd {
+  let nonce = import_nonce()
+  let path = "/api/company/source/invoice/" + direction
+  let fields : Map[String, Json] = {
+    "idempotency_key": Json::string(
+      "rabbita-invoice-" + direction + "-" + nonce,
+    ),
+    "invoiceNo": Json::string(
+      if model.invoice_no.is_empty() {
+        "INV-RABBITA-" + nonce
+      } else {
+        model.invoice_no
+      },
+    ),
+    "projGuid": Json::string(model.invoice_project_id),
+    "invoiceDate": Json::string(model.invoice_date),
+    "totalAmount": Json::string(model.invoice_total_amount),
+    "taxRate": Json::string(model.invoice_tax_rate),
+    "invoiceType": Json::string(model.invoice_type),
+    "remark": Json::string(model.invoice_remark),
+    "principal_id": Json::string("principal-rabbita"),
+    "scope": Json::string("project:" + model.invoice_project_id),
+    "authority": invoice_authority(model, direction, 2000000000.0),
+  }
+  if direction == "in" {
+    fields.set("providerName", Json::string(model.invoice_counterparty))
+  } else {
+    fields.set("customerName", Json::string(model.invoice_counterparty))
+  }
+  let body = Json::object(fields).stringify()
+  @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(_) => emit(InvoiceCommandFinished)
+      Err(_) => emit(InvoiceCommandFailed)
+    }
+  })
 }
 
 ///|
@@ -12976,6 +13059,87 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_rows: [],
           invoice_source_note: "发票源读模型不可用 · 使用设计快照",
           sales_note: "发票源读模型不可用 · 使用设计快照",
+        },
+      )
+    OpenInvoiceForm(direction) =>
+      (
+        none,
+        {
+          ..model,
+          invoice_form_open: direction,
+          invoice_type: if direction == "in" {
+            "增值税专用发票"
+          } else {
+            "增值税普通发票"
+          },
+        },
+      )
+    CloseInvoiceForm => (none, { ..model, invoice_form_open: "" })
+    InputInvoiceField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          invoice_no: if field == "invoice_no" {
+            value
+          } else {
+            model.invoice_no
+          },
+          invoice_counterparty: if field == "invoice_counterparty" {
+            value
+          } else {
+            model.invoice_counterparty
+          },
+          invoice_date: if field == "invoice_date" {
+            value
+          } else {
+            model.invoice_date
+          },
+          invoice_total_amount: if field == "invoice_total_amount" {
+            value
+          } else {
+            model.invoice_total_amount
+          },
+          invoice_tax_rate: if field == "invoice_tax_rate" {
+            value
+          } else {
+            model.invoice_tax_rate
+          },
+          invoice_type: if field == "invoice_type" {
+            value
+          } else {
+            model.invoice_type
+          },
+          invoice_remark: if field == "invoice_remark" {
+            value
+          } else {
+            model.invoice_remark
+          },
+        },
+      )
+    CreateInvoice(direction) =>
+      (
+        issue_invoice_create(emit, model, direction),
+        {
+          ..model,
+          invoice_source_note: "正在写入 " + direction + " 发票命令…",
+        },
+      )
+    InvoiceCommandFinished =>
+      (
+        load_invoice_source_in_for(emit, model.invoice_project_id),
+        {
+          ..model,
+          invoice_form_open: "",
+          invoice_source_note: "发票命令已写入 PostgreSQL · 正在刷新进项/销项/税务台账",
+        },
+      )
+    InvoiceCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          invoice_source_note: "发票命令服务不可用、authority 不足或请求被拒绝",
         },
       )
     SelectInvoiceProject(project_id) =>
@@ -24368,6 +24532,93 @@ fn invoice_tax_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn invoice_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  if model.invoice_form_open == "in" || model.invoice_form_open == "out" {
+    let direction = model.invoice_form_open
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2(
+          if direction == "in" {
+            "录入进项发票"
+          } else {
+            "开销项发票"
+          },
+        ),
+        span(
+          class="erp-source-note",
+          "金额按元输入 · 写入本地发票命令投影",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "发票号",
+          model.invoice_no,
+          "发票号",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_no", value)),
+        ),
+        editable_form_field(
+          if direction == "in" {
+            "供应商"
+          } else {
+            "客户"
+          },
+          model.invoice_counterparty,
+          "名称",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_counterparty", value)),
+        ),
+        editable_form_field(
+          "开票日",
+          model.invoice_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_date", value)),
+        ),
+        editable_form_field(
+          "金额（含税）",
+          model.invoice_total_amount,
+          "10000",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_total_amount", value)),
+        ),
+        editable_form_field(
+          "税率",
+          model.invoice_tax_rate,
+          "0.09",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_tax_rate", value)),
+        ),
+        editable_form_field(
+          "发票类型",
+          model.invoice_type,
+          "增值税专用发票",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_type", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.invoice_remark,
+          "备注",
+          @html.InputType::Text,
+          emit.map(value => InputInvoiceField("invoice_remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseInvoiceForm), "取消"),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateInvoice(direction)),
+          "提交",
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
+  }
+}
+
+///|
 fn invoice_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let in_total = if model.invoice_source_loaded {
     "¥" + invoice_sum(model.invoice_in_rows, false)
@@ -24389,8 +24640,16 @@ fn invoice_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "FINANCE / INVOICE",
     "管理进项、销项发票的识别、验真、关联合同和入账状态。",
     [
-      button(class="erp-primary-btn", "＋ 录入进项（待授权）"),
-      button(class="erp-secondary-btn", "＋ 开销项（待授权）"),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(OpenInvoiceForm("in")),
+        "＋ 录入进项",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(OpenInvoiceForm("out")),
+        "＋ 开销项",
+      ),
     ],
     div <| [
       div(class="erp-runtime-banner", [
@@ -24450,6 +24709,7 @@ fn invoice_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           )
         },
       ],
+      invoice_form_view(emit, model),
       div(class="erp-tabs") <| [
         button(
           class=if model.invoice_tab == "in" {
