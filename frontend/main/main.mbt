@@ -1790,6 +1790,30 @@ struct Model {
   notify_missing_table_count : String
   notify_note : String
   notify_email_note : String
+  notify_form_rule_code : String
+  notify_form_biz_type : String
+  notify_form_severity_min : String
+  notify_form_channels : String
+  notify_form_enabled : Bool
+  notify_config_webhook_url : String
+  notify_config_webhook_kind : String
+  notify_config_email_from : String
+  notify_config_smtp_host : String
+  notify_config_smtp_port : String
+  notify_config_smtp_user : String
+  notify_config_smtp_pass : String
+  notify_config_smtp_secure : String
+  notify_config_email_enabled : String
+  notify_config_ocr_provider : String
+  notify_config_llm_provider : String
+  notify_config_llm_key : String
+  notify_config_llm_model : String
+  notify_config_llm_endpoint : String
+  notify_config_llm_fallback : String
+  notify_config_digest_enabled : String
+  notify_config_digest_hour : String
+  notify_config_ticket_email_enabled : String
+  notify_config_ticket_webhook_enabled : String
   ocr_loaded : Bool
   ocr_provider : String
   ocr_scene : String
@@ -2479,9 +2503,17 @@ enum Msg {
   InboxCommandFinished(String)
   InboxCommandFailed
   NotifySubscriptionsLoaded(String)
+  InputNotifyField(String, String)
+  ToggleNotifyEnabled
   CreateNotifySubscription
   NotifyCommandFinished(String)
   NotifyCommandFailed
+  SaveNotifyConfig
+  NotifyConfigCommandFinished(String)
+  NotifyConfigCommandFailed
+  TestNotifyWebhook
+  NotifyWebhookTestFinished(String)
+  NotifyWebhookTestFailed
   DispatchNotifyDigest
   NotifyDigestDispatchFinished(String)
   NotifyDigestDispatchFailed
@@ -3281,6 +3313,30 @@ fn initial_model() -> Model {
     notify_missing_table_count: "0",
     notify_note: "通知配置源读模型尚未加载 · 使用设计快照",
     notify_email_note: "邮件命令候选尚未执行",
+    notify_form_rule_code: "",
+    notify_form_biz_type: "",
+    notify_form_severity_min: "",
+    notify_form_channels: "in_app",
+    notify_form_enabled: true,
+    notify_config_webhook_url: "",
+    notify_config_webhook_kind: "json",
+    notify_config_email_from: "",
+    notify_config_smtp_host: "",
+    notify_config_smtp_port: "465",
+    notify_config_smtp_user: "",
+    notify_config_smtp_pass: "",
+    notify_config_smtp_secure: "true",
+    notify_config_email_enabled: "0",
+    notify_config_ocr_provider: "mock",
+    notify_config_llm_provider: "mock",
+    notify_config_llm_key: "",
+    notify_config_llm_model: "",
+    notify_config_llm_endpoint: "",
+    notify_config_llm_fallback: "",
+    notify_config_digest_enabled: "0",
+    notify_config_digest_hour: "9",
+    notify_config_ticket_email_enabled: "0",
+    notify_config_ticket_webhook_enabled: "0",
     ocr_loaded: false,
     ocr_provider: "mock",
     ocr_scene: "auto",
@@ -10950,15 +11006,106 @@ fn load_notify(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
 }
 
 ///|
-fn issue_notify_subscription_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_notify_subscription_create(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let channels : Array[Json] = []
+  for channel in model.notify_form_channels.split(",") {
+    let value = channel.trim().to_owned()
+    if !value.is_empty() {
+      channels.push(Json::string(value))
+    }
+  }
+  if channels.length() == 0 {
+    channels.push(Json::string("in_app"))
+  }
+  let fields : Map[String, Json] = {
+    "idempotency_key": Json::string(
+      "rabbita-notify-subscription-create-" + import_nonce(),
+    ),
+    "ruleCode": Json::string(model.notify_form_rule_code),
+    "bizType": Json::string(model.notify_form_biz_type),
+    "severityMin": if model.notify_form_severity_min.is_empty() {
+      Json::null()
+    } else {
+      Json::string(model.notify_form_severity_min)
+    },
+    "channels": Json::array(channels),
+    "enabled": Json::boolean(model.notify_form_enabled),
+  }
   @http.post("/api/company/source/notify/subscriptions")
-  .with_text(
-    "{\"idempotency_key\":\"rabbita-notify-subscription-create-v1\",\"ruleCode\":\"W005\",\"bizType\":\"expense\",\"severityMin\":\"warning\",\"channels\":[\"in_app\",\"webhook\"],\"enabled\":true}",
-  )
+  .with_text(Json::object(fields).stringify())
   .expect_text(result => {
     match result {
       Ok(body) => emit(NotifyCommandFinished(body))
       Err(_) => emit(NotifyCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_notify_config_save(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let values : Map[String, Json] = {}
+  let set_text = fn(key : String, value : String) {
+    if !value.trim().is_empty() {
+      values.set(key, Json::string(value.trim().to_owned()))
+    }
+  }
+  set_text("notify.webhook.url", model.notify_config_webhook_url)
+  set_text("notify.webhook.kind", model.notify_config_webhook_kind)
+  set_text("notify.email.from", model.notify_config_email_from)
+  set_text("notify.email.smtp.host", model.notify_config_smtp_host)
+  set_text("notify.email.smtp.port", model.notify_config_smtp_port)
+  set_text("notify.email.smtp.user", model.notify_config_smtp_user)
+  set_text("notify.email.smtp.pass", model.notify_config_smtp_pass)
+  set_text("notify.email.smtp.secure", model.notify_config_smtp_secure)
+  set_text("notify.email.enabled", model.notify_config_email_enabled)
+  set_text("ai.ocr.provider", model.notify_config_ocr_provider)
+  set_text("ai.llm.provider", model.notify_config_llm_provider)
+  set_text("ai.llm.key", model.notify_config_llm_key)
+  set_text("ai.llm.model", model.notify_config_llm_model)
+  set_text("ai.llm.endpoint", model.notify_config_llm_endpoint)
+  set_text("ai.llm.fallback_providers", model.notify_config_llm_fallback)
+  set_text("notify.digest.enabled", model.notify_config_digest_enabled)
+  set_text("notify.digest.hour", model.notify_config_digest_hour)
+  set_text(
+    "notify.ticket_email.enabled",
+    model.notify_config_ticket_email_enabled,
+  )
+  set_text(
+    "notify.ticket_webhook.enabled",
+    model.notify_config_ticket_webhook_enabled,
+  )
+  values.set(
+    "idempotency_key",
+    Json::string("rabbita-notify-config-save-" + import_nonce()),
+  )
+  @http.put("/api/company/source/notify/config")
+  .with_text(Json::object(values).stringify())
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(NotifyConfigCommandFinished(body))
+      Err(_) => emit(NotifyConfigCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_notify_webhook_test(emit : @rabbita.Emit[Msg]) -> Cmd {
+  let body = Json::object({
+    "idempotency_key": Json::string(
+      "rabbita-notify-webhook-test-" + import_nonce(),
+    ),
+    "title": Json::string("Rabbita 通知测试"),
+    "content": Json::string("通知配置页面的本地 dry-run 候选"),
+  })
+  @http.post("/api/company/source/notify/config/test-webhook")
+  .with_text(body.stringify())
+  .expect_text(result => {
+    match result {
+      Ok(value) => emit(NotifyWebhookTestFinished(value))
+      Err(_) => emit(NotifyWebhookTestFailed)
     }
   })
 }
@@ -20089,6 +20236,131 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
+    InputNotifyField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          notify_form_rule_code: if field == "rule_code" {
+            value
+          } else {
+            model.notify_form_rule_code
+          },
+          notify_form_biz_type: if field == "biz_type" {
+            value
+          } else {
+            model.notify_form_biz_type
+          },
+          notify_form_severity_min: if field == "severity_min" {
+            value
+          } else {
+            model.notify_form_severity_min
+          },
+          notify_form_channels: if field == "channels" {
+            value
+          } else {
+            model.notify_form_channels
+          },
+          notify_config_webhook_url: if field == "webhook_url" {
+            value
+          } else {
+            model.notify_config_webhook_url
+          },
+          notify_config_webhook_kind: if field == "webhook_kind" {
+            value
+          } else {
+            model.notify_config_webhook_kind
+          },
+          notify_config_email_from: if field == "email_from" {
+            value
+          } else {
+            model.notify_config_email_from
+          },
+          notify_config_smtp_host: if field == "smtp_host" {
+            value
+          } else {
+            model.notify_config_smtp_host
+          },
+          notify_config_smtp_port: if field == "smtp_port" {
+            value
+          } else {
+            model.notify_config_smtp_port
+          },
+          notify_config_smtp_user: if field == "smtp_user" {
+            value
+          } else {
+            model.notify_config_smtp_user
+          },
+          notify_config_smtp_pass: if field == "smtp_pass" {
+            value
+          } else {
+            model.notify_config_smtp_pass
+          },
+          notify_config_smtp_secure: if field == "smtp_secure" {
+            value
+          } else {
+            model.notify_config_smtp_secure
+          },
+          notify_config_email_enabled: if field == "email_enabled" {
+            value
+          } else {
+            model.notify_config_email_enabled
+          },
+          notify_config_ocr_provider: if field == "ocr_provider" {
+            value
+          } else {
+            model.notify_config_ocr_provider
+          },
+          notify_config_llm_provider: if field == "llm_provider" {
+            value
+          } else {
+            model.notify_config_llm_provider
+          },
+          notify_config_llm_key: if field == "llm_key" {
+            value
+          } else {
+            model.notify_config_llm_key
+          },
+          notify_config_llm_model: if field == "llm_model" {
+            value
+          } else {
+            model.notify_config_llm_model
+          },
+          notify_config_llm_endpoint: if field == "llm_endpoint" {
+            value
+          } else {
+            model.notify_config_llm_endpoint
+          },
+          notify_config_llm_fallback: if field == "llm_fallback" {
+            value
+          } else {
+            model.notify_config_llm_fallback
+          },
+          notify_config_digest_enabled: if field == "digest_enabled" {
+            value
+          } else {
+            model.notify_config_digest_enabled
+          },
+          notify_config_digest_hour: if field == "digest_hour" {
+            value
+          } else {
+            model.notify_config_digest_hour
+          },
+          notify_config_ticket_email_enabled: if field == "ticket_email_enabled" {
+            value
+          } else {
+            model.notify_config_ticket_email_enabled
+          },
+          notify_config_ticket_webhook_enabled: if field ==
+            "ticket_webhook_enabled" {
+            value
+          } else {
+            model.notify_config_ticket_webhook_enabled
+          },
+        },
+      )
+    ToggleNotifyEnabled =>
+      (none, { ..model, notify_form_enabled: !model.notify_form_enabled })
     ProfileSubscriptionsLoaded(body) =>
       (
         none,
@@ -20111,7 +20383,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     CreateNotifySubscription =>
       (
-        issue_notify_subscription_create(emit),
+        issue_notify_subscription_create(emit, model),
         { ..model, notify_note: "正在写入本地通知订阅命令…" },
       )
     NotifyCommandFinished(body) =>
@@ -20152,6 +20424,59 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           notify_note: "通知订阅命令服务不可用或被网关拒绝",
+        },
+      )
+    SaveNotifyConfig =>
+      (
+        issue_notify_config_save(emit, model),
+        { ..model, notify_note: "正在写入本地通知配置命令…" },
+      )
+    NotifyConfigCommandFinished(body) =>
+      (
+        load_notify(emit, "config"),
+        {
+          ..model,
+          notify_note: if body.contains("\"delivery_effect\":false") {
+            "通知配置候选已写入 PostgreSQL · 凭据未绑定、provider/投递未执行"
+          } else {
+            "通知配置命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    NotifyConfigCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          notify_note: "通知配置命令服务不可用或被网关拒绝",
+        },
+      )
+    TestNotifyWebhook =>
+      (
+        issue_notify_webhook_test(emit),
+        {
+          ..model,
+          notify_note: "正在提交通知 Webhook dry-run 测试候选…",
+        },
+      )
+    NotifyWebhookTestFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          notify_note: if body.contains("\"providerExecution\":false") {
+            "通知 Webhook 测试候选已记录 · provider/投递未执行 · URL 已脱敏"
+          } else {
+            "通知 Webhook 测试命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    NotifyWebhookTestFailed =>
+      (
+        none,
+        {
+          ..model,
+          notify_note: "通知 Webhook 测试被服务、权限或配置拒绝",
         },
       )
     DispatchNotifyDigest =>
@@ -37575,12 +37900,22 @@ fn notify_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       button(
         class="erp-primary-btn",
         on_click=emit(CreateNotifySubscription),
-        "＋ 新建规则（待授权）",
+        "＋ 新建订阅",
       ),
       button(
         class="erp-secondary-btn",
         on_click=emit(DispatchNotifyDigest),
         "检查摘要派发（干运行）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TestNotifyWebhook),
+        "测试 Webhook（干运行）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TestNotifyLlmProvider),
+        "测试通知 LLM（干运行）",
       ),
       button(
         class="erp-secondary-btn",
@@ -37607,13 +37942,200 @@ fn notify_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           ),
         ],
         div(class="erp-form-grid") <| [
-          form_field("规则", "cost_variance", "规则编码"),
-          form_field("业务", "成本", "业务类型"),
-          form_field("最低级别", "warning", "级别下限"),
-          form_field("通道", "站内信,企业微信", "通道"),
-          form_field("启用", "是", "启用状态"),
-          form_field("发送时间", "实时", "发送时间"),
+          editable_form_field(
+            "规则",
+            model.notify_form_rule_code,
+            "规则编码（可留空）",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("rule_code", value)),
+          ),
+          editable_form_field(
+            "业务",
+            model.notify_form_biz_type,
+            "project / expense / loan",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("biz_type", value)),
+          ),
+          editable_form_field(
+            "最低级别",
+            model.notify_form_severity_min,
+            "warning / error（可留空）",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("severity_min", value)),
+          ),
+          editable_form_field(
+            "通道",
+            model.notify_form_channels,
+            "in_app,webhook,email",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("channels", value)),
+          ),
+          div(class="erp-form-field") <| [
+            label(class="erp-field-label", "启用"),
+            button(
+              class="erp-secondary-btn",
+              on_click=emit(ToggleNotifyEnabled),
+              if model.notify_form_enabled {
+                "已启用"
+              } else {
+                "已停用"
+              },
+            ),
+          ],
+          form_field("发送时间", "实时", "由通知 worker 处理"),
         ],
+      ],
+      section(class="erp-detail-card") <| [
+        div(class="erp-panel-heading") <| [
+          h2("通道配置 / AI / 日报"),
+          span(class="erp-info-tag", "超级用户命令候选"),
+        ],
+        div(class="erp-form-grid") <| [
+          editable_form_field(
+            "Webhook 地址",
+            model.notify_config_webhook_url,
+            "仅保存配置候选，不投递",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("webhook_url", value)),
+          ),
+          editable_form_field(
+            "Webhook 类型",
+            model.notify_config_webhook_kind,
+            "feishu / json",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("webhook_kind", value)),
+          ),
+          editable_form_field(
+            "发件邮箱",
+            model.notify_config_email_from,
+            "erp@example.com",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("email_from", value)),
+          ),
+          editable_form_field(
+            "SMTP 服务器",
+            model.notify_config_smtp_host,
+            "smtp.example.com",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("smtp_host", value)),
+          ),
+          editable_form_field(
+            "SMTP 端口",
+            model.notify_config_smtp_port,
+            "465 / 587",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("smtp_port", value)),
+          ),
+          editable_form_field(
+            "SMTP 用户名",
+            model.notify_config_smtp_user,
+            "登录用户",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("smtp_user", value)),
+          ),
+          editable_form_field(
+            "SMTP 密码",
+            model.notify_config_smtp_pass,
+            "不会从源读模型回显",
+            @html.InputType::Password,
+            emit.map(value => InputNotifyField("smtp_pass", value)),
+          ),
+          editable_form_field(
+            "邮件启用",
+            model.notify_config_email_enabled,
+            "1 真发 / 0 仅入队",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("email_enabled", value)),
+          ),
+          editable_form_field(
+            "SMTP 加密",
+            model.notify_config_smtp_secure,
+            "true TLS / false STARTTLS",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("smtp_secure", value)),
+          ),
+          editable_form_field(
+            "OCR 服务方",
+            model.notify_config_ocr_provider,
+            "mock / paddle / http",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("ocr_provider", value)),
+          ),
+          editable_form_field(
+            "LLM 服务方",
+            model.notify_config_llm_provider,
+            "mock / qwen / moonshot",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("llm_provider", value)),
+          ),
+          editable_form_field(
+            "LLM API Key",
+            model.notify_config_llm_key,
+            "不会从源读模型回显",
+            @html.InputType::Password,
+            emit.map(value => InputNotifyField("llm_key", value)),
+          ),
+          editable_form_field(
+            "LLM 模型",
+            model.notify_config_llm_model,
+            "留空走服务方默认",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("llm_model", value)),
+          ),
+          editable_form_field(
+            "LLM 接口",
+            model.notify_config_llm_endpoint,
+            "留空走默认",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("llm_endpoint", value)),
+          ),
+          editable_form_field(
+            "LLM 兜底链",
+            model.notify_config_llm_fallback,
+            "provider1,provider2",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("llm_fallback", value)),
+          ),
+          editable_form_field(
+            "日报启用",
+            model.notify_config_digest_enabled,
+            "1 启用 / 0 禁用",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("digest_enabled", value)),
+          ),
+          editable_form_field(
+            "日报发送时间",
+            model.notify_config_digest_hour,
+            "0-23",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("digest_hour", value)),
+          ),
+          editable_form_field(
+            "工单邮件",
+            model.notify_config_ticket_email_enabled,
+            "1 启用 / 0 禁用",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("ticket_email_enabled", value)),
+          ),
+          editable_form_field(
+            "工单 Webhook",
+            model.notify_config_ticket_webhook_enabled,
+            "1 启用 / 0 禁用",
+            @html.InputType::Text,
+            emit.map(value => InputNotifyField("ticket_webhook_enabled", value)),
+          ),
+        ],
+        div(class="erp-inline-actions") <| [
+          button(
+            class="erp-primary-btn",
+            on_click=emit(SaveNotifyConfig),
+            "保存配置候选",
+          ),
+        ],
+        p(
+          class="erp-source-note",
+          "源接口只返回已配置键；密码、API Key 不回显。保存仅写 PostgreSQL 命令投影，不绑定凭据、不调用 provider、不发送通知。",
+        ),
       ],
       table_panel(
         "通知订阅",
