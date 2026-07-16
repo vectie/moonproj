@@ -1173,6 +1173,16 @@ struct Model {
   contract_milestone_command_note : String
   payment_applies_loaded : Bool
   payment_apply_rows : Array[PaymentApplyRow]
+  payment_apply_view : String
+  payment_apply_form_open : Bool
+  payment_apply_code : String
+  payment_apply_contract_id : String
+  payment_apply_plan_id : String
+  payment_apply_milestone_id : String
+  payment_apply_subject : String
+  payment_apply_amount : String
+  payment_apply_type_code : String
+  payment_apply_date : String
   payment_apply_id : String
   payment_apply_state : String
   payment_apply_note : String
@@ -1959,6 +1969,10 @@ enum Msg {
   ContractMilestoneCommandFailed
   PaymentAppliesLoaded(String)
   PaymentAppliesLoadFailed
+  SelectPaymentApplyView(String)
+  OpenPaymentApplyForm
+  ClosePaymentApplyForm
+  InputPaymentApplyField(String, String)
   CreatePaymentApply
   SubmitPaymentApply
   RejectPaymentApply
@@ -2595,6 +2609,16 @@ fn initial_model() -> Model {
     contract_milestone_command_note: "付款节点命令候选尚未运行",
     payment_applies_loaded: false,
     payment_apply_rows: [],
+    payment_apply_view: "all",
+    payment_apply_form_open: false,
+    payment_apply_code: "",
+    payment_apply_contract_id: "",
+    payment_apply_plan_id: "",
+    payment_apply_milestone_id: "",
+    payment_apply_subject: "",
+    payment_apply_amount: "0",
+    payment_apply_type_code: "WORK_PROGRESS",
+    payment_apply_date: "2026-07-16",
     payment_apply_id: "PAY-RABBITA-LOCAL",
     payment_apply_state: "new",
     payment_apply_note: "先保存付款申请草稿，再提交审批",
@@ -12503,8 +12527,33 @@ fn payment_apply_state_label(state : String) -> String {
 }
 
 ///|
-fn load_payment_applies(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/source/cost/payment-applies?view=all").expect_text(result => {
+fn payment_command_apply_id(body : String, fallback : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("payment_application") {
+        Some(Json::Object(payment)) =>
+          json_object_text(payment, "apply_id", fallback)
+        _ => fallback
+      }
+    _ => fallback
+  }
+}
+
+///|
+fn load_payment_applies_for(
+  emit : @rabbita.Emit[Msg],
+  view : String,
+  user_id : String,
+) -> Cmd {
+  let user_query = if view == "mine" && !user_id.is_empty() {
+    "&userId=" + user_id
+  } else {
+    ""
+  }
+  @http.get(
+    "/api/company/source/cost/payment-applies?view=" + view + user_query,
+  ).expect_text(result => {
     match result {
       Ok(body) => emit(PaymentAppliesLoaded(body))
       Err(_) => emit(PaymentAppliesLoadFailed)
@@ -12513,13 +12562,43 @@ fn load_payment_applies(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn payment_apply_command_body(_model : Model, command_type : String) -> String {
+fn payment_amount_minor_json(value : String) -> Json {
+  let parsed = @json.parse(value) catch { _ => Json::null() }
+  match parsed {
+    Json::Number(number, ..) => Json::number(number * 100.0)
+    _ => Json::number(0.0)
+  }
+}
+
+///|
+fn payment_apply_command_body(model : Model, command_type : String) -> String {
   if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-payment-create-v1\",\"apply_id\":\"PAY-RABBITA-LOCAL\",\"apply_code\":\"FK-RABBITA-LOCAL\",\"contract_id\":\"ht-tj-001\",\"plan_id\":\"plan-tj-001-2\",\"subject\":\"海教园1号楼总包进度款 Rabbita 演示\",\"amount_minor\":12000000,\"currency\":\"CNY\",\"apply_type_code\":\"WORK_PROGRESS\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-payment-create-" + import_nonce(),
+      ),
+      "apply_id": Json::string(model.payment_apply_id),
+      "apply_code": Json::string(model.payment_apply_code),
+      "contract_id": Json::string(model.payment_apply_contract_id),
+      "plan_id": Json::string(model.payment_apply_plan_id),
+      "milestone_id": Json::string(model.payment_apply_milestone_id),
+      "subject": Json::string(model.payment_apply_subject),
+      "amount_minor": payment_amount_minor_json(model.payment_apply_amount),
+      "currency": Json::string("CNY"),
+      "apply_date": Json::string(model.payment_apply_date),
+      "apply_type_code": Json::string(model.payment_apply_type_code),
+    }).stringify()
   } else if command_type == "reject" {
     "{\"idempotency_key\":\"rabbita-payment-reject-v1\",\"reason\":\"请补充付款申请附件\"}"
   } else if command_type == "update" {
-    "{\"idempotency_key\":\"rabbita-payment-update-v1\",\"subject\":\"海教园1号楼总包进度款 Rabbita 演示（已补充说明）\",\"amount_minor\":12000000,\"apply_type_code\":\"WORK_PROGRESS\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-payment-update-" + import_nonce(),
+      ),
+      "subject": Json::string(model.payment_apply_subject),
+      "amount_minor": payment_amount_minor_json(model.payment_apply_amount),
+      "apply_type_code": Json::string(model.payment_apply_type_code),
+    }).stringify()
   } else if command_type == "void" {
     "{\"idempotency_key\":\"rabbita-payment-void-v1\",\"reason\":\"本地演示撤回付款申请\"}"
   } else {
@@ -12528,9 +12607,12 @@ fn payment_apply_command_body(_model : Model, command_type : String) -> String {
 }
 
 ///|
-fn check_payment_eligibility(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn check_payment_eligibility(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
   @http.get(
-    "/api/company/payment-applies/eligibility?plan_id=plan-tj-001-2&amount_minor=12000000",
+    "/api/company/payment-applies/eligibility?plan_id=" +
+    model.payment_apply_plan_id +
+    "&amount_minor=" +
+    payment_amount_minor_json(model.payment_apply_amount).stringify(),
   ).expect_text(result => {
     match result {
       Ok(body) => emit(PaymentEligibilityLoaded(body))
@@ -12890,7 +12972,14 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path.has_prefix("/contracts/") {
         load_contract(emit, path)
       } else if path == "/payment-applies" {
-        load_payment_applies(emit)
+        @cmd.batch([
+          load_payment_applies_for(
+            emit,
+            model.payment_apply_view,
+            model.user_code,
+          ),
+          load_contracts(emit),
+        ])
       } else if path == "/tender" {
         @cmd.batch([
           load_projects(emit),
@@ -13459,6 +13548,89 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           contract_milestone_command_note: "合同节点命令服务不可用或被权限/源状态拒绝",
         },
       )
+    SelectPaymentApplyView(view) =>
+      (
+        load_payment_applies_for(emit, view, model.user_code),
+        {
+          ..model,
+          payment_apply_view: view,
+          payment_applies_loaded: false,
+          payment_apply_note: "正在读取付款申请视图 " + view + "…",
+        },
+      )
+    OpenPaymentApplyForm =>
+      (
+        none,
+        {
+          ..model,
+          payment_apply_form_open: true,
+          payment_apply_code: if model.payment_apply_code.is_empty() {
+            "FK-RABBITA-" + import_nonce()
+          } else {
+            model.payment_apply_code
+          },
+          payment_apply_contract_id: if model.payment_apply_contract_id.is_empty() &&
+            model.contract_rows.length() > 0 {
+            model.contract_rows[0].contract_id
+          } else {
+            model.payment_apply_contract_id
+          },
+          payment_apply_subject: if model.payment_apply_subject.is_empty() {
+            "项目进度付款申请"
+          } else {
+            model.payment_apply_subject
+          },
+          payment_apply_note: "请填写合同、金额与付款节点后提交候选",
+        },
+      )
+    ClosePaymentApplyForm => (none, { ..model, payment_apply_form_open: false })
+    InputPaymentApplyField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          payment_apply_code: if field == "code" {
+            value
+          } else {
+            model.payment_apply_code
+          },
+          payment_apply_contract_id: if field == "contract" {
+            value
+          } else {
+            model.payment_apply_contract_id
+          },
+          payment_apply_plan_id: if field == "plan" {
+            value
+          } else {
+            model.payment_apply_plan_id
+          },
+          payment_apply_milestone_id: if field == "milestone" {
+            value
+          } else {
+            model.payment_apply_milestone_id
+          },
+          payment_apply_subject: if field == "subject" {
+            value
+          } else {
+            model.payment_apply_subject
+          },
+          payment_apply_amount: if field == "amount" {
+            value
+          } else {
+            model.payment_apply_amount
+          },
+          payment_apply_type_code: if field == "type" {
+            value
+          } else {
+            model.payment_apply_type_code
+          },
+          payment_apply_date: if field == "date" {
+            value
+          } else {
+            model.payment_apply_date
+          },
+        },
+      )
     PaymentAppliesLoaded(body) =>
       (
         none,
@@ -13479,7 +13651,18 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     CreatePaymentApply =>
-      if model.payment_apply_state == "draft" ||
+      if model.payment_apply_code.is_empty() ||
+        model.payment_apply_contract_id.is_empty() ||
+        model.payment_apply_amount == "0" ||
+        model.payment_apply_amount.is_empty() {
+        (
+          none,
+          {
+            ..model,
+            payment_apply_note: "申请编号、合同与正数金额必填",
+          },
+        )
+      } else if model.payment_apply_state == "draft" ||
         model.payment_apply_state == "submitted" {
         (none, model)
       } else {
@@ -13487,6 +13670,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           issue_payment_apply_command(emit, model, "create"),
           {
             ..model,
+            payment_apply_form_open: false,
             payment_apply_state: "pending",
             payment_apply_note: "正在创建付款申请并写入 PostgreSQL 投影…",
           },
@@ -13577,13 +13761,25 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       }
     CheckPaymentEligibility =>
-      (
-        check_payment_eligibility(emit),
-        {
-          ..model,
-          payment_apply_eligibility_note: "正在校验付款节点条件…",
-        },
-      )
+      if model.payment_apply_plan_id.is_empty() ||
+        model.payment_apply_amount == "0" ||
+        model.payment_apply_amount.is_empty() {
+        (
+          none,
+          {
+            ..model,
+            payment_apply_eligibility_note: "请先填写付款计划 GUID 与正数金额",
+          },
+        )
+      } else {
+        (
+          check_payment_eligibility(emit, model),
+          {
+            ..model,
+            payment_apply_eligibility_note: "正在校验付款节点条件…",
+          },
+        )
+      }
     PaymentApplyCommandFinished(body) => {
       let next_state = if body.contains("\"state\":\"approved\"") {
         "approved"
@@ -13605,9 +13801,17 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       } else {
         (
-          load_payment_applies(emit),
+          load_payment_applies_for(
+            emit,
+            model.payment_apply_view,
+            model.user_code,
+          ),
           {
             ..model,
+            payment_apply_id: payment_command_apply_id(
+              body,
+              model.payment_apply_id,
+            ),
             payment_apply_state: next_state,
             payment_apply_note: "已写入 PostgreSQL · 付款申请状态已更新 · 审计凭证已生成",
           },
@@ -26242,6 +26446,11 @@ fn payment_apply_table_row(
           on_click=emit(Navigate("/contracts/" + row.contract_id)),
           "查看合同",
         ),
+        button(
+          class="erp-link-btn",
+          on_click=emit(Navigate("/attachments")),
+          "附件",
+        ),
       ],
     ],
   ]
@@ -26275,7 +26484,7 @@ fn payment_apply_actions(
   let actions : Array[@html.Html] = [
     button(
       class="erp-primary-btn",
-      on_click=emit(CreatePaymentApply),
+      on_click=emit(OpenPaymentApplyForm),
       "＋ 发起付款申请",
     ),
     button(
@@ -26338,12 +26547,144 @@ fn payment_apply_actions(
 }
 
 ///|
+fn payment_apply_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if !model.payment_apply_form_open {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("申请付款"),
+        span(
+          class="erp-source-note",
+          "合同/CBS/节点校验候选 · 不直接支付",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "申请编号",
+          model.payment_apply_code,
+          "FK202607160001",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("code", value)),
+        ),
+        editable_form_field(
+          "关联合同 GUID",
+          model.payment_apply_contract_id,
+          "contract-guid",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("contract", value)),
+        ),
+        editable_form_field(
+          "付款计划 GUID",
+          model.payment_apply_plan_id,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("plan", value)),
+        ),
+        editable_form_field(
+          "付款节点 GUID",
+          model.payment_apply_milestone_id,
+          "可选",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("milestone", value)),
+        ),
+        editable_form_field(
+          "事由",
+          model.payment_apply_subject,
+          "项目进度付款申请",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("subject", value)),
+        ),
+        editable_form_field(
+          "申请金额(元)",
+          model.payment_apply_amount,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("amount", value)),
+        ),
+        editable_form_field(
+          "申请类型",
+          model.payment_apply_type_code,
+          "WORK_PROGRESS / PURCHASE",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("type", value)),
+        ),
+        editable_form_field(
+          "申请日期",
+          model.payment_apply_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputPaymentApplyField("date", value)),
+        ),
+      ],
+      if model.contract_rows.length() > 0 {
+        div(class="erp-chip-row") <| [
+          span(class="erp-source-note", "合同快捷选择:"),
+          @html.fragment(
+            model.contract_rows.map(row => {
+              button(
+                class=if row.contract_id == model.payment_apply_contract_id {
+                  "erp-chip is-active"
+                } else {
+                  "erp-chip"
+                },
+                on_click=emit(
+                  InputPaymentApplyField("contract", row.contract_id),
+                ),
+                row.contract_code,
+              )
+            }),
+          ),
+        ]
+      } else {
+        @html.nothing
+      },
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(ClosePaymentApplyForm),
+          "取消",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(CheckPaymentEligibility),
+          "校验节点",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreatePaymentApply),
+          "提交付款候选",
+        ),
+      ],
+    ]
+  }
+}
+
+///|
 fn payment_applies_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  let rows = if model.payment_applies_loaded &&
+  let source_rows = if model.payment_applies_loaded &&
     model.payment_apply_rows.length() > 0 {
     model.payment_apply_rows
   } else {
     fallback_payment_apply_rows()
+  }
+  let rows = if model.payment_apply_view == "all" {
+    source_rows
+  } else {
+    source_rows.filter(row => {
+      if model.payment_apply_view == "mine" {
+        row.applied_by == model.user_code
+      } else if model.payment_apply_view == "approving" {
+        row.operation_state == "submitted"
+      } else if model.payment_apply_view == "approved" {
+        row.operation_state == "approved"
+      } else {
+        row.operation_state == "paid"
+      }
+    })
   }
   page_shell(
     "付款申请",
@@ -26351,6 +26692,54 @@ fn payment_applies_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
     "按合同和成本科目发起付款申请，跟踪审批、付款和收款方信息。",
     payment_apply_actions(emit, model),
     div <| [
+      div(class="erp-tab-row") <| [
+        button(
+          class=if model.payment_apply_view == "all" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectPaymentApplyView("all")),
+          "所有付款申请",
+        ),
+        button(
+          class=if model.payment_apply_view == "mine" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectPaymentApplyView("mine")),
+          "我的申请",
+        ),
+        button(
+          class=if model.payment_apply_view == "approving" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectPaymentApplyView("approving")),
+          "审批中",
+        ),
+        button(
+          class=if model.payment_apply_view == "approved" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectPaymentApplyView("approved")),
+          "已审核",
+        ),
+        button(
+          class=if model.payment_apply_view == "fullpaid" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectPaymentApplyView("fullpaid")),
+          "完全支付",
+        ),
+      ],
+      payment_apply_form_view(emit, model),
       div(class="erp-stat-grid") <| [
         metric(
           "申请总数",
