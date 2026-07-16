@@ -1000,6 +1000,7 @@ struct Model {
   ocr_configured_count : String
   ocr_missing_table_count : String
   ocr_note : String
+  ocr_command_note : String
   error_loaded : Bool
   error_rows : Array[Array[String]]
   error_total : String
@@ -1314,6 +1315,9 @@ enum Msg {
   NotifyLoadFailed(String)
   OcrLoaded(String)
   OcrLoadFailed
+  TestOcrProvider
+  OcrCommandFinished(String)
+  OcrCommandFailed
   ErrorLogLoaded(String)
   ErrorLogLoadFailed
   AiStatsOverviewLoaded(String)
@@ -1656,6 +1660,7 @@ fn initial_model() -> Model {
     ocr_configured_count: "0",
     ocr_missing_table_count: "0",
     ocr_note: "OCR 源读模型尚未加载 · 使用设计快照",
+    ocr_command_note: "OCR 测试命令尚未执行",
     error_loaded: false,
     error_rows: [],
     error_total: "0",
@@ -6379,6 +6384,20 @@ fn load_ocr(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_ocr_provider_test(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/admin/ocr/test")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-ocr-test-v1\",\"provider\":\"paddle\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(OcrCommandFinished(body))
+      Err(_) => emit(OcrCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_error_log(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/error-log?limit=100").expect_text(result => {
     match result {
@@ -9972,6 +9991,34 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ocr_loaded: false,
           ocr_provider_rows: [],
           ocr_note: "OCR 配置读模型不可用 · 使用设计快照",
+        },
+      )
+    TestOcrProvider =>
+      (
+        issue_ocr_provider_test(emit),
+        {
+          ..model,
+          ocr_command_note: "正在提交 OCR provider 干运行测试…",
+        },
+      )
+    OcrCommandFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          ocr_command_note: if body.contains("\"idempotent_replay\":true") {
+            "OCR 测试命令已幂等重放 · provider 未执行"
+          } else {
+            "OCR 测试候选已记录 · provider 未执行 · 密钥未返回"
+          },
+        },
+      )
+    OcrCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          ocr_command_note: "OCR 测试被服务、权限或 provider 配置拒绝",
         },
       )
     ErrorLogLoaded(body) => {
@@ -18182,7 +18229,7 @@ fn notify_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn ocr_view(model : Model) -> @html.Html {
+fn ocr_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let provider_rows = if model.ocr_loaded {
     if model.ocr_provider_rows.length() == 0 {
       [["—", "—", "—", "—", "无源记录"]]
@@ -18217,7 +18264,11 @@ fn ocr_view(model : Model) -> @html.Html {
     "SYSTEM / OCR",
     "配置发票、合同和身份证的 OCR 服务方，并在写入业务单据前保留人工确认。",
     [
-      button(class="erp-secondary-btn", "测试连接（待授权）"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TestOcrProvider),
+        "测试连接（干运行）",
+      ),
       button(class="erp-primary-btn", "保存配置（待授权）"),
     ],
     div <| [
@@ -18279,9 +18330,13 @@ fn ocr_view(model : Model) -> @html.Html {
       table_panel(
         "OCR 服务方",
         if model.ocr_loaded {
-          model.ocr_note + " · 空源表 " + model.ocr_missing_table_count
+          model.ocr_note +
+          " · 空源表 " +
+          model.ocr_missing_table_count +
+          " · " +
+          model.ocr_command_note
         } else {
-          "provider 失败自动回退 mock · 仅设计快照"
+          "provider 失败自动回退 mock · " + model.ocr_command_note
         },
         data_table(
           ["代码", "服务方", "当前", "密钥要求", "状态"],
@@ -18778,7 +18833,7 @@ fn business_view(
       "/system-health" => health_view(emit, model)
       "/users" => users_view(model)
       "/admin" => admin_view(emit, model)
-      "/ocr-config" => ocr_view(model)
+      "/ocr-config" => ocr_view(emit, model)
       "/webhook-config" => webhook_view(model)
       "/profile" => profile_view(emit, model)
       _ => placeholder_view(path)

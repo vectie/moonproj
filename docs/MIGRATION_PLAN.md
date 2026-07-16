@@ -2396,7 +2396,8 @@ Execute the remainder in this order:
     exposes the bounded create/update controls against that authenticated
     boundary; it also forwards both generic `sys_param` POST aliases with
     body-idempotency support; the canonical/source OCR and LLM dry-run aliases
-    are also gateway-forwarded. Browser production identity, full source export, and
+    are also gateway-forwarded, with a bounded OCR dry-run control in Rabbita.
+    Browser production identity, full source export, and
     governance-owner acceptance remain open.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
