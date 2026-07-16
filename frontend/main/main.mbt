@@ -2549,6 +2549,7 @@ enum Msg {
   HealthLoadFailed
   LoansLoaded(String)
   LoansLoadFailed
+  ExportLoansCsv
   CreateLoan
   InputLoanField(String, String)
   SubmitLoan
@@ -8198,6 +8199,35 @@ fn loan_offset_rows_from_json(value : Json) -> Array[Array[String]] {
     _ => ()
   }
   rows
+}
+
+///|
+fn loan_csv(model : Model) -> String {
+  let mut csv = "借款编号,主题,借款金额,已冲账,剩余未还,申请部门,项目,状态,申请日期,来源\n"
+  for row in model.loan_rows {
+    csv = csv +
+      row.loan_code +
+      "," +
+      row.subject +
+      "," +
+      row.loan_amount +
+      "," +
+      row.balance_amount +
+      "," +
+      row.remain_amount +
+      "," +
+      row.apply_dept_name +
+      "," +
+      row.project_name +
+      "," +
+      row.apply_state +
+      "," +
+      row.apply_date +
+      "," +
+      row.source_kind +
+      "\n"
+  }
+  csv
 }
 
 ///|
@@ -21257,6 +21287,14 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loan_note: "员工借款读模型不可用 · 使用已审核快照",
         },
       )
+    ExportLoansCsv =>
+      (
+        {
+          download_text(loan_csv(model), "借款申请.csv")
+          none
+        },
+        model,
+      )
     BudgetScopeLoaded(body) =>
       (
         load_budget_loan_balance(emit, model.user_code),
@@ -31336,6 +31374,11 @@ fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     "发起备用金和差旅借款，跟踪核销、还款以及个人可用额度。",
     [
       nav_button(emit, "/loans/new", "erp-primary-btn", "＋ 新建借款"),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExportLoansCsv),
+        "导出 CSV",
+      ),
       button(
         class="erp-secondary-btn",
         on_click=emit(SyncLoanWorkflow),
