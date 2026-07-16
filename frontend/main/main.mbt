@@ -1041,6 +1041,19 @@ struct Model {
   payment_apply_eligibility_note : String
   tenders_loaded : Bool
   tender_project_id : String
+  tender_selected_source_kind : String
+  tender_form_open : String
+  tender_name : String
+  tender_category : String
+  tender_estimated_amount : String
+  tender_plan_publish_date : String
+  tender_plan_award_date : String
+  tender_remark : String
+  tender_award_provider_guid : String
+  tender_award_provider_name : String
+  tender_award_amount : String
+  tender_award_date : String
+  tender_award_remark : String
   tender_rows : Array[TenderRow]
   tender_id : String
   tender_state : String
@@ -1717,7 +1730,12 @@ enum Msg {
   TenderSourceSplitsLoaded(String)
   TenderSourceLoadFailed
   SelectTenderProject(String)
-  CreateTender
+  SelectTenderRow(String, String, String, String)
+  SelectTenderProvider(String, String)
+  OpenTenderForm(String)
+  CloseTenderForm
+  InputTenderField(String, String)
+  SubmitTenderForm
   PublishTender
   OpenTenderBidding
   AwardTender
@@ -2265,6 +2283,19 @@ fn initial_model() -> Model {
     payment_apply_eligibility_note: "尚未校验付款节点条件",
     tenders_loaded: false,
     tender_project_id: "proj-0001",
+    tender_selected_source_kind: "command",
+    tender_form_open: "",
+    tender_name: "",
+    tender_category: "建安工程",
+    tender_estimated_amount: "0",
+    tender_plan_publish_date: "2026-07-16",
+    tender_plan_award_date: "",
+    tender_remark: "",
+    tender_award_provider_guid: "",
+    tender_award_provider_name: "",
+    tender_award_amount: "0",
+    tender_award_date: "2026-07-16",
+    tender_award_remark: "",
     tender_rows: [],
     tender_id: "TD-RABBITA-LOCAL",
     tender_state: "new",
@@ -10876,9 +10907,31 @@ fn load_tender_source_splits(emit : @rabbita.Emit[Msg]) -> Cmd {
 ///|
 fn tender_command_body(model : Model, command_type : String) -> String {
   if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-tender-create-v1\",\"tender_id\":\"TD-RABBITA-LOCAL\",\"project_scope\":\"project:" +
-    model.tender_project_id +
-    "\",\"name\":\"海教园主体结构工程招标\",\"category\":\"construction\",\"estimated_amount_minor\":120000000,\"currency\":\"CNY\",\"bids\":[{\"supplier_id\":\"SUP-RABBITA-LOCAL\",\"amount_minor\":105000000}]}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-tender-create-v1"),
+      "tender_id": Json::string("TD-RABBITA-LOCAL"),
+      "project_scope": Json::string("project:" + model.tender_project_id),
+      "name": Json::string(
+        if model.tender_name.is_empty() {
+          "海教园主体结构工程招标"
+        } else {
+          model.tender_name
+        },
+      ),
+      "category": Json::string(
+        if model.tender_category.is_empty() {
+          "construction"
+        } else {
+          model.tender_category
+        },
+      ),
+      "estimated_amount": Json::string(model.tender_estimated_amount),
+      "currency": Json::string("CNY"),
+      "bids": Json::array([]),
+      "plan_publish_date": Json::string(model.tender_plan_publish_date),
+      "plan_award_date": Json::string(model.tender_plan_award_date),
+      "remark": Json::string(model.tender_remark),
+    }).stringify()
   } else if command_type == "cancel" {
     "{\"idempotency_key\":\"rabbita-tender-cancel-v1\",\"reason\":\"本地演示撤回规划\"}"
   } else if command_type == "award" {
@@ -10931,9 +10984,15 @@ fn issue_source_tender_command(
   } else {
     @http.post("/api/company/source/tender/awards")
     .with_text(
-      "{\"idempotency_key\":\"rabbita-tender-source-award-v1\",\"tenderGuid\":\"" +
-      model.tender_id +
-      "\",\"providerGuid\":\"SUP-RABBITA-LOCAL\",\"providerName\":\"Rabbita 本地供应商候选\",\"awardAmount\":\"1050000.00\",\"awardDate\":\"2026-07-16\",\"remark\":\"Rabbita 源定标候选\"}",
+      Json::object({
+        "idempotency_key": Json::string("rabbita-tender-source-award-v1"),
+        "tenderGuid": Json::string(model.tender_id),
+        "providerGuid": Json::string(model.tender_award_provider_guid),
+        "providerName": Json::string(model.tender_award_provider_name),
+        "awardAmount": Json::string(model.tender_award_amount),
+        "awardDate": Json::string(model.tender_award_date),
+        "remark": Json::string(model.tender_award_remark),
+      }).stringify(),
     )
     .expect_text(result => {
       match result {
@@ -11351,6 +11410,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         @cmd.batch([
           load_projects(emit),
           load_tenders(emit, model.tender_project_id),
+          load_supplier_source_list(emit),
         ])
       } else if path == "/srm/providers" {
         load_supplier_source(emit)
@@ -12131,14 +12191,160 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           tender_note: "合约规划源读模型不可用 · 使用已审核快照",
         },
       )
-    CreateTender =>
-      if model.tender_state == "planning" || model.tender_state == "publishing" {
-        (none, model)
+    SelectTenderRow(tender_id, tender_name, tender_state, source_kind) =>
+      (
+        none,
+        {
+          ..model,
+          tender_id,
+          tender_name,
+          tender_state,
+          tender_selected_source_kind: source_kind,
+          tender_note: "已选择招标 " +
+          tender_id +
+          " · 可继续推进状态或定标",
+        },
+      )
+    SelectTenderProvider(provider_id, provider_name) =>
+      (
+        none,
+        {
+          ..model,
+          tender_award_provider_guid: provider_id,
+          tender_award_provider_name: provider_name,
+        },
+      )
+    OpenTenderForm(kind) =>
+      (
+        none,
+        {
+          ..model,
+          tender_form_open: kind,
+          tender_name: if kind == "tender" {
+            ""
+          } else {
+            model.tender_name
+          },
+          tender_estimated_amount: if kind == "tender" {
+            "0"
+          } else {
+            model.tender_estimated_amount
+          },
+          tender_award_provider_guid: if kind == "award" {
+            model.tender_award_provider_guid
+          } else {
+            ""
+          },
+          tender_award_provider_name: if kind == "award" {
+            model.tender_award_provider_name
+          } else {
+            ""
+          },
+          tender_award_amount: if kind == "award" {
+            model.tender_award_amount
+          } else {
+            "0"
+          },
+          tender_award_date: if kind == "award" {
+            "2026-07-16"
+          } else {
+            model.tender_award_date
+          },
+        },
+      )
+    CloseTenderForm => (none, { ..model, tender_form_open: "" })
+    InputTenderField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          tender_name: if field == "name" {
+            value
+          } else {
+            model.tender_name
+          },
+          tender_category: if field == "category" {
+            value
+          } else {
+            model.tender_category
+          },
+          tender_estimated_amount: if field == "estimated_amount" {
+            value
+          } else {
+            model.tender_estimated_amount
+          },
+          tender_plan_publish_date: if field == "plan_publish_date" {
+            value
+          } else {
+            model.tender_plan_publish_date
+          },
+          tender_plan_award_date: if field == "plan_award_date" {
+            value
+          } else {
+            model.tender_plan_award_date
+          },
+          tender_remark: if field == "remark" {
+            value
+          } else {
+            model.tender_remark
+          },
+          tender_award_provider_guid: if field == "award_provider_guid" {
+            value
+          } else {
+            model.tender_award_provider_guid
+          },
+          tender_award_provider_name: if field == "award_provider_name" {
+            value
+          } else {
+            model.tender_award_provider_name
+          },
+          tender_award_amount: if field == "award_amount" {
+            value
+          } else {
+            model.tender_award_amount
+          },
+          tender_award_date: if field == "award_date" {
+            value
+          } else {
+            model.tender_award_date
+          },
+          tender_award_remark: if field == "award_remark" {
+            value
+          } else {
+            model.tender_award_remark
+          },
+        },
+      )
+    SubmitTenderForm =>
+      if model.tender_form_open == "award" {
+        if model.tender_id.is_empty() ||
+          model.tender_award_provider_guid.is_empty() ||
+          model.tender_award_amount.trim().is_empty() {
+          (
+            none,
+            {
+              ..model,
+              tender_source_command_note: "定标需要招标 ID、供应商和中标金额",
+            },
+          )
+        } else {
+          (
+            issue_source_tender_command(emit, model, "award"),
+            {
+              ..model,
+              tender_form_open: "",
+              tender_source_command_note: "正在提交定标表单 · 校验供应商资格…",
+            },
+          )
+        }
+      } else if model.tender_name.trim().is_empty() {
+        (none, { ..model, tender_note: "招标名称不能为空" })
       } else {
         (
           issue_tender_command(emit, model, "create"),
           {
             ..model,
+            tender_form_open: "",
             tender_state: "pending",
             tender_note: "正在创建合约规划并写入 PostgreSQL 投影…",
           },
@@ -12253,7 +12459,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     AdvanceSourceTender =>
-      if model.tender_id == "" {
+      if model.tender_id == "" || model.tender_selected_source_kind == "command" {
         (none, model)
       } else {
         (
@@ -12265,7 +12471,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       }
     AwardSourceTender =>
-      if model.tender_id == "" {
+      if model.tender_id == "" || model.tender_selected_source_kind == "command" {
         (none, model)
       } else {
         (
@@ -23477,9 +23683,17 @@ fn fallback_tender_rows() -> Array[TenderRow] {
 }
 
 ///|
-fn tender_table_row(row : TenderRow) -> @html.Html {
+fn tender_table_row(emit : @rabbita.Emit[Msg], row : TenderRow) -> @html.Html {
   tr <| [
-    td(row.tender_id + " / " + row.source_kind),
+    td <| [
+      button(
+        class="erp-link-btn",
+        on_click=emit(
+          SelectTenderRow(row.tender_id, row.name, row.state, row.source_kind),
+        ),
+        row.tender_id + " / " + row.source_kind,
+      ),
+    ],
     td(row.project_scope),
     td(row.name),
     td(row.category),
@@ -23511,10 +23725,13 @@ fn tender_table_row(row : TenderRow) -> @html.Html {
 }
 
 ///|
-fn tender_table(rows : Array[TenderRow]) -> @html.Html {
+fn tender_table(
+  emit : @rabbita.Emit[Msg],
+  rows : Array[TenderRow],
+) -> @html.Html {
   let rendered : Array[@html.Html] = []
   for row in rows {
-    rendered.push(tender_table_row(row))
+    rendered.push(tender_table_row(emit, row))
   }
   table(class="erp-data-table") <| [
     thead <| [
@@ -23535,7 +23752,7 @@ fn tender_actions(
   let actions : Array[@html.Html] = [
     button(
       class="erp-primary-btn",
-      on_click=emit(CreateTender),
+      on_click=emit(OpenTenderForm("tender")),
       "＋ 新建合约规划",
     ),
     button(
@@ -23549,50 +23766,219 @@ fn tender_actions(
       "源定标（候选）",
     ),
   ]
-  match model.tender_state {
-    "planning" =>
-      actions.push(
-        button(
-          class="erp-secondary-btn",
-          on_click=emit(PublishTender),
-          "发布招采计划",
+  if model.tender_selected_source_kind == "command" {
+    match model.tender_state {
+      "planning" =>
+        actions.push(
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(PublishTender),
+            "发布招采计划",
+          ),
+        )
+      "publishing" =>
+        actions.push(
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(OpenTenderBidding),
+            "开启投标",
+          ),
+        )
+      "bidding" => {
+        actions.push(
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(CancelTender),
+            "取消规划",
+          ),
+        )
+        actions.push(
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(AwardTender),
+            "定标（需供应商资格）",
+          ),
+        )
+        actions.push(
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(OpenTenderForm("award")),
+            "源定标表单",
+          ),
+        )
+      }
+      "awarded" =>
+        actions.push(
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(CompleteTender),
+            "完成招标",
+          ),
+        )
+      _ => ()
+    }
+  } else {
+    ()
+  }
+  if model.tender_selected_source_kind != "command" &&
+    model.tender_state == "bidding" {
+    actions.push(
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(OpenTenderForm("award")),
+        "源定标表单",
+      ),
+    )
+  }
+  actions
+}
+
+///|
+fn tender_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  if model.tender_form_open == "tender" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新增招标"),
+        span(
+          class="erp-source-note",
+          "金额按元输入 · 写入本地合约规划命令投影",
         ),
-      )
-    "publishing" =>
-      actions.push(
-        button(
-          class="erp-secondary-btn",
-          on_click=emit(OpenTenderBidding),
-          "开启投标",
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "招标名称",
+          model.tender_name,
+          "例：1-1 主体土建工程",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("name", value)),
         ),
-      )
-    "bidding" => {
-      actions.push(
-        button(
-          class="erp-secondary-btn",
-          on_click=emit(CancelTender),
-          "取消规划",
+        editable_form_field(
+          "类别",
+          model.tender_category,
+          "建安工程 / 装修工程",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("category", value)),
         ),
-      )
-      actions.push(
+        editable_form_field(
+          "预算金额（元）",
+          model.tender_estimated_amount,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("estimated_amount", value)),
+        ),
+        editable_form_field(
+          "计划发布",
+          model.tender_plan_publish_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("plan_publish_date", value)),
+        ),
+        editable_form_field(
+          "计划定标",
+          model.tender_plan_award_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("plan_award_date", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.tender_remark,
+          "招标说明",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseTenderForm), "取消"),
         button(
-          class="erp-secondary-btn",
-          on_click=emit(AwardTender),
-          "定标（需供应商资格）",
+          class="erp-primary-btn",
+          on_click=emit(SubmitTenderForm),
+          "提交招标",
+        ),
+      ],
+    ]
+  } else if model.tender_form_open == "award" {
+    let provider_chips : Array[@html.Html] = []
+    for provider in model.supplier_source_rows {
+      provider_chips.push(
+        button(
+          class=if provider.supplier_id == model.tender_award_provider_guid {
+            "erp-project-chip is-active"
+          } else {
+            "erp-project-chip"
+          },
+          on_click=emit(
+            SelectTenderProvider(provider.supplier_id, provider.name),
+          ),
+          provider.name + " · " + provider.supplier_id,
         ),
       )
     }
-    "awarded" =>
-      actions.push(
-        button(
-          class="erp-secondary-btn",
-          on_click=emit(CompleteTender),
-          "完成招标",
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("定标"),
+        span(
+          class="erp-source-note",
+          "供应商资格由 PostgreSQL 源投影校验 · 不直接创建合同",
         ),
-      )
-    _ => ()
+      ],
+      if provider_chips.length() == 0 {
+        span(
+          class="erp-source-note",
+          "供应商源列表尚未加载 · 可手填 GUID",
+        )
+      } else {
+        div(class="erp-project-picker") <| provider_chips
+      },
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "供应商 GUID",
+          model.tender_award_provider_guid,
+          "provider GUID",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("award_provider_guid", value)),
+        ),
+        editable_form_field(
+          "供应商名称",
+          model.tender_award_provider_name,
+          "供应商名称",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("award_provider_name", value)),
+        ),
+        editable_form_field(
+          "中标金额（元）",
+          model.tender_award_amount,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("award_amount", value)),
+        ),
+        editable_form_field(
+          "定标日",
+          model.tender_award_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("award_date", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.tender_award_remark,
+          "定标说明",
+          @html.InputType::Text,
+          emit.map(value => InputTenderField("award_remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseTenderForm), "取消"),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(SubmitTenderForm),
+          "提交定标",
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
   }
-  actions
 }
 
 ///|
@@ -23632,6 +24018,7 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     tender_actions(emit, model),
     div <| [
       div(class="erp-project-picker") <| project_picker,
+      tender_form_view(emit, model),
       div(class="erp-stat-grid") <| [
         metric(
           "规划数量",
@@ -23669,7 +24056,7 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         " · " +
         model.tender_source_note +
         " · award 需通过供应商资格与投标匹配校验",
-        tender_table(rows),
+        tender_table(emit, rows),
       ),
       div(class="erp-runtime-banner", [
         strong("源招采命令门"),
