@@ -21,6 +21,8 @@ scripts/company_postgres_loan_smoke.sh
 scripts/company_postgres_fund_smoke.sh
 scripts/company_postgres_gateway.sh
 scripts/company_postgres_gateway_smoke.sh
+scripts/company_postgres_report_export_smoke.sh
+scripts/company_postgres_report_export_gateway_smoke.sh
 scripts/company_postgres_invoice_smoke.sh
 scripts/company_postgres_marketing_smoke.sh
 scripts/company_postgres_milestone_smoke.sh

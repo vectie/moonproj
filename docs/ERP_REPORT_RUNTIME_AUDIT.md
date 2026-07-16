@@ -46,6 +46,10 @@ replayable evidence, not a production credential issuer.
 - The parity matrix marks `/reports` as `connected_report_read`; share commands
   and public reads are now native but remain bounded by the local token and
   projection model.
+- The Rabbita `/ai-stats` action now calls the native XLSX endpoint through the
+  PostgreSQL gateway and downloads a bounded AI-summary workbook in the
+  browser. Direct and gateway export smokes validate ZIP/XML contents; the
+  browser still uses the development session boundary.
 - No report endpoint mutates company state or infers accounting, tax, cash, or
   investment results.
 

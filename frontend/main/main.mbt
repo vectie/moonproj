@@ -29,6 +29,20 @@ using @html {
 using @rabbita {cell, new, none, type Cmd}
 
 ///|
+#cfg(target="js")
+extern "js" fn download_blob(blob : @dom.Blob, filename : String) -> Unit =
+  #| (blob, filename) => {
+  #|   const url = URL.createObjectURL(blob);
+  #|   const anchor = document.createElement('a');
+  #|   anchor.href = url;
+  #|   anchor.download = filename;
+  #|   document.body.appendChild(anchor);
+  #|   anchor.click();
+  #|   anchor.remove();
+  #|   URL.revokeObjectURL(url);
+  #| }
+
+///|
 struct ExpenseRow {
   expense_id : String
   expense_code : String
@@ -1020,6 +1034,7 @@ struct Model {
   ai_stats_activity_rows : Array[Array[String]]
   ai_stats_missing_table_count : String
   ai_stats_note : String
+  ai_stats_export_note : String
   ai_hub_loaded : Bool
   ai_hub_draft_rows : Array[AiHubDraftRow]
   ai_hub_query_rows : Array[AiHubQueryRow]
@@ -1339,6 +1354,9 @@ enum Msg {
   AiStatsOverviewLoaded(String)
   AiStatsActivityLoaded(String)
   AiStatsLoadFailed
+  ExportAiStats
+  AiStatsExportFinished(@dom.Blob)
+  AiStatsExportFailed
   AiHubUsageLoaded(String)
   AiHubDraftsLoaded(String)
   AiHubQueryLogLoaded(String)
@@ -1702,6 +1720,7 @@ fn initial_model() -> Model {
     ai_stats_activity_rows: [],
     ai_stats_missing_table_count: "0",
     ai_stats_note: "AI 分析源读模型尚未加载 · 使用设计快照",
+    ai_stats_export_note: "XLSX 导出尚未执行",
     ai_hub_loaded: false,
     ai_hub_draft_rows: [],
     ai_hub_query_rows: [],
@@ -6517,6 +6536,38 @@ fn load_ai_stats_activity(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn ai_stats_export_body(model : Model) -> String {
+  "{\"filename\":\"ai-stats\",\"sheets\":[{\"name\":\"AI概览\",\"columns\":[{\"label\":\"指标\",\"field\":\"metric\"},{\"label\":\"数值\",\"field\":\"value\"},{\"label\":\"口径\",\"field\":\"scope\"}],\"rows\":[" +
+  "{\"metric\":\"本月调用\",\"value\":\"" +
+  model.ai_stats_intake_total +
+  "\",\"scope\":\"AI 起单记录\"}," +
+  "{\"metric\":\"自然语言查询\",\"value\":\"" +
+  model.ai_stats_query_total +
+  "\",\"scope\":\"查询调用记录\"}," +
+  "{\"metric\":\"自动跳过\",\"value\":\"" +
+  model.ai_stats_skip_total +
+  "\",\"scope\":\"人工确认记录\"}," +
+  "{\"metric\":\"准确率\",\"value\":\"" +
+  model.ai_stats_accuracy +
+  "%\",\"scope\":\"源分析估算\"}," +
+  "{\"metric\":\"节省人工\",\"value\":\"" +
+  model.ai_stats_saved_hours +
+  " 小时\",\"scope\":\"按确认记录估算\"}]}]}"
+}
+
+///|
+fn issue_ai_stats_export(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post("/api/company/export/excel")
+  .with_text(ai_stats_export_body(model))
+  .expect_blob(result => {
+    match result {
+      Ok(blob) => emit(AiStatsExportFinished(blob))
+      Err(_) => emit(AiStatsExportFailed)
+    }
+  })
+}
+
+///|
 fn load_ai_hub_usage(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/ai-hub/usage-stats").expect_text(result => {
     match result {
@@ -10391,6 +10442,30 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_stats_note: "AI 分析读模型不可用 · 使用设计快照",
         },
       )
+    ExportAiStats =>
+      (
+        issue_ai_stats_export(emit, model),
+        { ..model, ai_stats_export_note: "正在生成 XLSX 报表…" },
+      )
+    AiStatsExportFinished(blob) =>
+      (
+        {
+          download_blob(blob, "ai-stats.xlsx")
+          none
+        },
+        {
+          ..model,
+          ai_stats_export_note: "XLSX 已生成并开始下载 · 仅包含当前 AI 分析摘要",
+        },
+      )
+    AiStatsExportFailed =>
+      (
+        none,
+        {
+          ..model,
+          ai_stats_export_note: "XLSX 导出服务不可用或被网关拒绝",
+        },
+      )
     AiHubUsageLoaded(body) => {
       let (loaded, calls, minutes, intake, missing) = ai_hub_usage_from_body(
         body,
@@ -13353,7 +13428,7 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn ai_stats_view(model : Model) -> @html.Html {
+fn ai_stats_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let scene_rows = if model.ai_stats_loaded {
     if model.ai_stats_scene_rows.length() == 0 {
       [["—", "0", "—", "—", "—", "无源记录"]]
@@ -13414,8 +13489,18 @@ fn ai_stats_view(model : Model) -> @html.Html {
     "AI 工作大盘",
     "AI ANALYTICS",
     "查看 AI 起单、查询、风险洞察的调用量、准确率和人工确认情况。",
-    [button(class="erp-secondary-btn", "导出数据（待授权）")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(ExportAiStats),
+        "导出数据（XLSX）",
+      ),
+    ],
     div <| [
+      div(class="erp-runtime-banner", [
+        strong("原生 XLSX 导出"),
+        span(" · " + model.ai_stats_export_note),
+      ]),
       div(class="erp-stat-grid") <| [
         metric(
           "本月调用",
@@ -19146,7 +19231,7 @@ fn business_view(
       "/dashboard-v3" => dashboard_view(emit, initial_model())
       "/cockpit" => dashboard_view(emit, initial_model())
       "/ai-hub" => ai_hub_view(emit, model)
-      "/ai-stats" => ai_stats_view(model)
+      "/ai-stats" => ai_stats_view(emit, model)
       "/projects" => project_view(emit, model)
       "/projects/CD-HJL" => project_detail_view(emit, model)
       "/project-plan" => project_plan_view(emit, model)

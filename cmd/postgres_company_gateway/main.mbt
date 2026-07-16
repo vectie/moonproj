@@ -304,6 +304,7 @@ fn command_path_allowed(
       path.has_prefix("/api/company/marketing/") ||
       path == "/api/company/reports/templates" ||
       path == "/api/company/reports/templates/run" ||
+      path == "/api/company/export/excel" ||
       path == "/api/company/admin/dict/options" ||
       path == "/api/company/source/admin/dict/options" ||
       path == "/api/company/admin/sys-param" ||
@@ -988,7 +989,10 @@ async fn handle(
           }
         }
         let require_key = !(request.meth is @http.Post) ||
-          path != "/api/company/budget-check"
+          (
+            path != "/api/company/budget-check" &&
+            path != "/api/company/export/excel"
+          )
         let (body, key) = if request.meth is @http.Get ||
           request.meth is @http.Head {
           (body, None)
