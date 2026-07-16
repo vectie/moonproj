@@ -61,6 +61,18 @@ test "native gateway validates identifiers and path boundaries" {
       "/api/company/source/attachments/ATT-RABBITA-LOCAL",
     ),
   )
+  assert_true(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/investment/projects/proj-0001/excel-imports",
+    ),
+  )
+  assert_true(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/source/investment/projects/proj-0001/excel-imports",
+    ),
+  )
 }
 
 ///|

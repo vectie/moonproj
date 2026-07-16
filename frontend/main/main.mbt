@@ -922,6 +922,7 @@ struct Model {
   investment_note : String
   investment_explain_note : String
   investment_explain_text : String
+  investment_upload_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
   audit_action_rows : Array[AuditActionRow]
@@ -1317,6 +1318,9 @@ enum Msg {
   ExplainInvestment
   InvestmentExplainFinished(String)
   InvestmentExplainFailed
+  RequestInvestmentExcelUpload
+  InvestmentExcelUploadFinished(String)
+  InvestmentExcelUploadFailed
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
@@ -1664,6 +1668,7 @@ fn initial_model() -> Model {
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
     investment_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     investment_explain_text: "等待投资解释候选",
+    investment_upload_note: "Excel 工作簿上传候选尚未运行 · 二进制解析保持关闭",
     audit_loaded: false,
     audit_rows: [],
     audit_action_rows: [],
@@ -6220,6 +6225,18 @@ fn issue_investment_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_investment_excel_upload(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/investment/projects/proj-0001/excel-imports")
+  .with_text("{\"idempotency_key\":\"rabbita-investment-excel-upload-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentExcelUploadFinished(body))
+      Err(_) => emit(InvestmentExcelUploadFailed)
+    }
+  })
+}
+
+///|
 fn load_audit_logs(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/audit/logs?limit=100").expect_text(result => {
     match result {
@@ -9782,6 +9799,34 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           investment_explain_note: "投资解释候选不可用 · provider/LLM 保持关闭",
           investment_explain_text: "投资解释候选不可用",
+        },
+      )
+    RequestInvestmentExcelUpload =>
+      (
+        issue_investment_excel_upload(emit),
+        {
+          ..model,
+          investment_upload_note: "正在检查 Excel 工作簿上传边界 · 不读取二进制、不写入导入记录…",
+        },
+      )
+    InvestmentExcelUploadFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          investment_upload_note: if body.contains("\"code\":46005") {
+            "Excel 上传候选已验证 · 需要二进制解析与投资负责人确认 · 未导入工作簿"
+          } else {
+            "Excel 上传候选响应已返回 · 未写入投资源"
+          },
+        },
+      )
+    InvestmentExcelUploadFailed =>
+      (
+        none,
+        {
+          ..model,
+          investment_upload_note: "Excel 上传候选服务不可用或被网关拒绝",
         },
       )
     AuditLoaded(body) => {
@@ -15372,6 +15417,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(ExplainInvestment),
         "生成可行性解释",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentExcelUpload),
+        "检查 Excel 上传（待授权）",
+      ),
     ],
     div <| [
       stats,
@@ -15381,6 +15431,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div(class="erp-runtime-banner", [
         strong("投资解释候选"),
         span(" · " + model.investment_explain_note),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("Excel 上传候选"),
+        span(" · " + model.investment_upload_note),
+        span(" · 项目 proj-0001"),
       ]),
       table_panel(
         "解释结果",
