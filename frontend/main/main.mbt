@@ -2044,6 +2044,7 @@ enum Msg {
   CloseDeliveryForm
   InputDeliveryField(String, String)
   SelectDeliveryContract(String)
+  DeleteDeliveryProgressRow(String)
   CreateDeliveryProgress
   ReportDeliveryProgress
   AcceptDeliveryProgress
@@ -11631,6 +11632,22 @@ fn issue_delivery_command(
 }
 
 ///|
+fn issue_delivery_progress_delete(
+  emit : @rabbita.Emit[Msg],
+  progress_id : String,
+) -> Cmd {
+  let key = "rabbita-delivery-progress-delete-" + import_nonce()
+  @http.delete(
+    "/api/company/delivery/progress/" + progress_id + "?idempotency_key=" + key,
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(DeliveryCommandFinished(body))
+      Err(_) => emit(DeliveryCommandFailed)
+    }
+  })
+}
+
+///|
 fn plan_task_authority(model : Model, capability : String) -> Json {
   Json::object({
     "active": Json::boolean(true),
@@ -20526,6 +20543,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_output_contract_id: contract_id,
         },
       )
+    DeleteDeliveryProgressRow(progress_id) =>
+      if progress_id.is_empty() {
+        (none, model)
+      } else {
+        (
+          issue_delivery_progress_delete(emit, progress_id),
+          {
+            ..model,
+            delivery_progress_id: progress_id,
+            delivery_progress_state: "pending",
+            delivery_command_note: "正在作废本地进度记录…",
+          },
+        )
+      }
     InputDeliveryField(field, value) =>
       (
         none,
@@ -22348,7 +22379,10 @@ fn project_plan_csv(model : Model) -> String {
 }
 
 ///|
-fn delivery_progress_table(model : Model) -> @html.Html {
+fn delivery_progress_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
   let rows_to_render = if model.delivery_source_progress_rows.length() > 0 {
     model.delivery_source_progress_rows
   } else {
@@ -22357,22 +22391,35 @@ fn delivery_progress_table(model : Model) -> @html.Html {
   if !model.delivery_loaded && rows_to_render.length() == 0 {
     div(class="erp-runtime-empty", "等待 PostgreSQL 工程进度投影")
   } else {
-    let rows : Array[Array[String]] = []
+    let rows : Array[@html.Html] = []
     for row in rows_to_render {
-      rows.push([
-        row.progress_id,
-        row.project_id,
-        row.building_no,
-        row.stage,
-        row.plan_date,
-        row.actual_date,
-        row.plan_pct + "%",
-        row.actual_pct + "%",
-        row.state,
-        row.source_kind,
-        row.source_id,
-        row.remark,
-      ])
+      let action = if row.source_kind == "command" &&
+        !row.progress_id.is_empty() {
+        button(
+          class="erp-link-btn is-warning",
+          on_click=emit(DeleteDeliveryProgressRow(row.progress_id)),
+          "作废",
+        )
+      } else {
+        span(class="erp-source-note", "源行只读")
+      }
+      rows.push(
+        tr <| [
+          td(row.progress_id),
+          td(row.project_id),
+          td(row.building_no),
+          td(row.stage),
+          td(row.plan_date),
+          td(row.actual_date),
+          td(row.plan_pct + "%"),
+          td(row.actual_pct + "%"),
+          td(row.state),
+          td(row.source_kind),
+          td(row.source_id),
+          td(row.remark),
+          td(action),
+        ],
+      )
     }
     table_panel(
       if model.delivery_source_progress_rows.length() > 0 {
@@ -22385,13 +22432,15 @@ fn delivery_progress_table(model : Model) -> @html.Html {
       } else {
         "源记录只读 · 本地命令需要证据并保留审计"
       },
-      data_table(
-        [
-          "记录", "项目", "楼栋", "阶段", "计划日期", "实际日期",
-          "计划%", "实际%", "状态", "来源", "源ID", "备注",
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "记录", "项目", "楼栋", "阶段", "计划日期", "实际日期",
+            "计划%", "实际%", "状态", "来源", "源ID", "备注", "操作",
+          ]),
         ],
-        rows,
-      ),
+        tbody <| rows,
+      ],
     )
   }
 }
@@ -23175,7 +23224,7 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ],
       if model.delivery_tab == "progress" {
         div <| [
-          delivery_progress_table(model),
+          delivery_progress_table(emit, model),
           div(class="erp-inline-actions") <| [
             button(
               class="erp-secondary-btn",
