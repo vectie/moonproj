@@ -24,7 +24,7 @@ the MoonBit `cmd/export_contract` through `scripts/erp_export_contract.sh`
 before raw staging or domain promotion.
 
 If a source owner confirms that an absent table is genuinely empty, record it
-through `scripts/erp_empty_disposition.py` and
+through `scripts/erp_empty_disposition.sh` and
 `docs/ERP_EMPTY_TABLE_DISPOSITION.md`. That alternate handoff still requires
 independent zero-row evidence and owner approval for every table; it never
 substitutes for payload where rows exist and does not authorize promotion or

@@ -54,6 +54,8 @@ scripts/erp_route_inventory.sh
 scripts/erp_schema_cohort_mapping.sh
 scripts/erp_schema_cohort_plan.sh
 scripts/erp_schema_gap_report.sh
+cmd/empty_disposition
+scripts/erp_empty_disposition.sh
 scripts/erp_schema_inventory.sh
 scripts/erp_snapshot_export.sh
 scripts/erp_snapshot_inventory.sh

@@ -1547,7 +1547,7 @@ available SQLite artifact still verifies 120 rows but remains
 `source_export_incomplete` until the 49 missing tables arrive.
 
 The source handoff now also has a machine-checkable empty-table disposition
-contract in `erp_empty_disposition.py` and
+contract in `cmd/empty_disposition` and
 `ERP_EMPTY_TABLE_DISPOSITION.md`. It generates all 49 schema-only entries and
 accepts an `owner_approved_empty` entry only with zero-row evidence, the exact
 empty-table hash, a source snapshot hash, a named owner, a UTC approval time,
@@ -2362,6 +2362,15 @@ Execute the remainder in this order:
     `ready_for_business_acceptance`. The artifact still keeps
     `cutover_authorized=false` and `shadow_pending_owner`; this is technical
     migration readiness, not an owner approval or production deployment.
+3a.57. **Native empty-table disposition gate (2026-07-16).**
+    `cmd/empty_disposition` and `scripts/erp_empty_disposition.sh` now replace
+    the Python empty-table checker for the 49 schema-only tables. Native
+    MoonBit generates the exact pending template and validates owner-approved
+    zero-row evidence, lowercase snapshot hashes, cohort capability/wave
+    continuity, UTC approval metadata, and credential-shaped key/value
+    rejection. Template and pending-validation artifacts are JSON-equivalent
+    to the frozen Python oracle; promotion and cutover remain false until the
+    source owner supplies the missing export or signs each empty disposition.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

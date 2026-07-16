@@ -11,7 +11,7 @@ granting import/cutover authority.
 Use the schema-gap and cohort artifacts produced by the source audit:
 
 ```sh
-python3 scripts/erp_empty_disposition.py \
+scripts/erp_empty_disposition.sh \
   /path/to/schema-gap.json \
   /path/to/schema-cohort-plan.json \
   /tmp/erp-empty-disposition.json \
@@ -37,7 +37,7 @@ Tables that still need payload must use `source_export_required`; they cannot
 be silently treated as empty.  Validate the completed artifact with:
 
 ```sh
-python3 scripts/erp_empty_disposition.py \
+scripts/erp_empty_disposition.sh \
   /path/to/schema-gap.json \
   /path/to/schema-cohort-plan.json \
   /tmp/validated-empty-disposition.json \
