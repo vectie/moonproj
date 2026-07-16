@@ -87,6 +87,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/sales/subscriptions` now loads projects, customer source rows, and project-scoped subscription rows; it mirrors the source registration fields, derives total price from area × unit price, supports customer/project selection, and exposes conversion only for command-owned subscribed rows. Imported rows remain read-only and conversion keeps contract/revenue effects pending.
 - Browser action delta: Rabbita `/sales/contracts` now loads project-scoped contract source rows, mirrors project/state filters and the source contract table, and keeps mortgage/refund actions behind the existing local command candidates. Imported contract rows remain read-only.
 - Browser action delta: Rabbita `/sales/mortgages` now renders live PostgreSQL mortgage source rows with source state filters and read-only imported rows; batch/release controls remain local command candidates and do not call a bank or cash system.
+- Browser action delta: Rabbita `/sales/revenues` now loads projects and live PostgreSQL revenue rows, mirrors project/status/search filters and the R6 table, and shows row actions only for command-owned projections. Existing create/update/confirm/retract actions remain local finance candidates.
 
 ## Browser routes
 

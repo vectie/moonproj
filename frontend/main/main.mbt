@@ -348,6 +348,21 @@ struct SalesMortgageRow {
 }
 
 ///|
+struct SalesRevenueRow {
+  revenue_guid : String
+  revenue_code : String
+  proj_guid : String
+  customer_name : String
+  amount : String
+  receive_date : String
+  status : String
+  payment_type : String
+  contract_no : String
+  remark : String
+  source_kind : String
+}
+
+///|
 struct InvoiceRow {
   invoice_no : String
   counterparty : String
@@ -1217,6 +1232,11 @@ struct Model {
   sales_mortgage_rows : Array[SalesMortgageRow]
   sales_mortgage_loaded : Bool
   sales_mortgage_filter_state : String
+  sales_revenue_rows : Array[SalesRevenueRow]
+  sales_revenue_loaded : Bool
+  sales_revenue_project_id : String
+  sales_revenue_filter_status : String
+  sales_revenue_keyword : String
   sales_note : String
   sales_customer_command_note : String
   sales_subscription_command_note : String
@@ -1917,6 +1937,10 @@ enum Msg {
   SelectSalesContractProject(String)
   SelectSalesContractState(String)
   SelectSalesMortgageState(String)
+  SelectSalesRevenueProject(String)
+  SelectSalesRevenueStatus(String)
+  InputSalesRevenueKeyword(String)
+  QuerySalesRevenue
   CreateSalesMortgage
   ApproveSalesMortgage
   ReleaseSalesMortgage
@@ -2510,6 +2534,11 @@ fn initial_model() -> Model {
     sales_mortgage_rows: [],
     sales_mortgage_loaded: false,
     sales_mortgage_filter_state: "",
+    sales_revenue_rows: [],
+    sales_revenue_loaded: false,
+    sales_revenue_project_id: "",
+    sales_revenue_filter_status: "",
+    sales_revenue_keyword: "",
     sales_note: "销售/应收读模型尚未加载",
     sales_customer_command_note: "客户命令尚未执行",
     sales_subscription_command_note: "认筹命令尚未执行",
@@ -4283,6 +4312,65 @@ fn sales_mortgage_rows_from_body(body : String) -> Array[SalesMortgageRow] {
       }
       for value in values {
         match sales_mortgage_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn sales_revenue_from_json(value : Json) -> SalesRevenueRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        revenue_guid: json_object_text(
+          fields,
+          "revenue_guid",
+          json_object_text(fields, "revenue_id", ""),
+        ),
+        revenue_code: json_object_text(fields, "revenue_code", "—"),
+        proj_guid: json_object_text(fields, "proj_guid", ""),
+        customer_name: json_object_text(fields, "customer_name", "—"),
+        amount: json_object_text(
+          fields,
+          "amount",
+          json_object_text(fields, "amount_display", "0"),
+        ),
+        receive_date: json_object_text(fields, "receive_date", ""),
+        status: json_object_text(
+          fields,
+          "status",
+          json_object_text(fields, "state", "expected"),
+        ),
+        payment_type: json_object_text(fields, "payment_type", "—"),
+        contract_no: json_object_text(fields, "contract_no", ""),
+        remark: json_object_text(fields, "remark", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn sales_revenue_rows_from_body(body : String) -> Array[SalesRevenueRow] {
+  let rows : Array[SalesRevenueRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("data") {
+        Some(Json::Array(values)) => values
+        _ =>
+          match fields.get("items") {
+            Some(Json::Array(values)) => values
+            _ => []
+          }
+      }
+      for value in values {
+        match sales_revenue_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
         }
@@ -8077,7 +8165,8 @@ fn load_sales_for(
     } else {
       "?projGuid=" + project_id
     }
-    let keyword_query = if family == "customers" && !keyword.trim().is_empty() {
+    let keyword_query = if (family == "customers" || family == "revenues") &&
+      !keyword.trim().is_empty() {
       (if project_query.is_empty() { "?keyword=" } else { "&keyword=" }) +
       keyword
     } else {
@@ -12027,7 +12116,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else if path == "/sales/mortgages" {
         load_sales(emit, "mortgages")
       } else if path == "/sales/revenues" {
-        load_sales(emit, "revenues")
+        @cmd.batch([
+          load_projects(emit),
+          load_sales_for(
+            emit,
+            "revenues",
+            model.sales_revenue_project_id,
+            model.sales_revenue_keyword,
+          ),
+        ])
       } else if path == "/invoice" {
         @cmd.batch([
           load_projects(emit),
@@ -13589,6 +13686,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           } else {
             model.sales_mortgage_loaded
           },
+          sales_revenue_rows: if family == "revenues" {
+            sales_revenue_rows_from_body(body)
+          } else {
+            model.sales_revenue_rows
+          },
+          sales_revenue_loaded: if family == "revenues" {
+            true
+          } else {
+            model.sales_revenue_loaded
+          },
           sales_note: "已加载 PostgreSQL 销售源读模型 · 空表保持可见 · 导入记录保持只读",
         },
       )
@@ -13634,6 +13741,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             false
           } else {
             model.sales_mortgage_loaded
+          },
+          sales_revenue_rows: if family == "revenues" {
+            []
+          } else {
+            model.sales_revenue_rows
+          },
+          sales_revenue_loaded: if family == "revenues" {
+            false
+          } else {
+            model.sales_revenue_loaded
           },
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
         },
@@ -14003,6 +14120,41 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (none, { ..model, sales_contract_state: state })
     SelectSalesMortgageState(state) =>
       (none, { ..model, sales_mortgage_filter_state: state })
+    SelectSalesRevenueProject(project_id) =>
+      (
+        load_sales_for(
+          emit,
+          "revenues",
+          project_id,
+          model.sales_revenue_keyword,
+        ),
+        {
+          ..model,
+          sales_revenue_project_id: project_id,
+          sales_revenue_rows: [],
+          sales_revenue_loaded: false,
+          sales_loaded: false,
+          sales_note: "正在读取所选项目的回款档案…",
+        },
+      )
+    SelectSalesRevenueStatus(status) =>
+      (none, { ..model, sales_revenue_filter_status: status })
+    InputSalesRevenueKeyword(keyword) =>
+      (none, { ..model, sales_revenue_keyword: keyword })
+    QuerySalesRevenue =>
+      (
+        load_sales_for(
+          emit,
+          "revenues",
+          model.sales_revenue_project_id,
+          model.sales_revenue_keyword,
+        ),
+        {
+          ..model,
+          sales_revenue_loaded: false,
+          sales_note: "正在查询回款源记录…",
+        },
+      )
     CreateSalesMortgage =>
       (
         issue_sales_mortgage_command(emit, model, "create"),
@@ -22688,6 +22840,8 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
     model.sales_contract_loaded
   } else if family == "mortgages" {
     model.sales_mortgage_loaded
+  } else if family == "revenues" {
+    model.sales_revenue_loaded
   } else {
     model.sales_loaded && model.sales_family == family
   }
@@ -22698,6 +22852,8 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
       model.sales_contract_rows.length().to_string()
     } else if family == "mortgages" {
       model.sales_mortgage_rows.length().to_string()
+    } else if family == "revenues" {
+      model.sales_revenue_rows.length().to_string()
     } else {
       model.sales_rows.length().to_string()
     }
@@ -22729,6 +22885,17 @@ fn sales_runtime_banner(model : Model, family : String) -> @html.Html {
         row.mortgage_code +
         " · " +
         row.state +
+        " · " +
+        row.source_kind
+      None => ""
+    }
+  } else if family == "revenues" {
+    match model.sales_revenue_rows.get(0) {
+      Some(row) =>
+        " · " +
+        row.revenue_code +
+        " · " +
+        row.status +
         " · " +
         row.source_kind
       None => ""
@@ -30285,6 +30452,112 @@ fn provider_detail_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
 }
 
 ///|
+fn sales_revenue_status_label(status : String) -> String {
+  match status {
+    "expected" => "预计"
+    "received" => "已回款"
+    "overdue" => "逾期"
+    "pending" => "待确认"
+    _ => status
+  }
+}
+
+///|
+fn sales_revenue_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.sales_revenue_rows {
+    if !model.sales_revenue_filter_status.is_empty() &&
+      row.status != model.sales_revenue_filter_status {
+      continue
+    }
+    if !model.sales_revenue_keyword.trim().is_empty() &&
+      !(row.customer_name
+      .to_lower()
+      .contains(model.sales_revenue_keyword.to_lower()) ||
+      row.revenue_code
+      .to_lower()
+      .contains(model.sales_revenue_keyword.to_lower()) ||
+      row.contract_no
+      .to_lower()
+      .contains(model.sales_revenue_keyword.to_lower())) {
+      continue
+    }
+    let actions : Array[@html.Html] = if row.source_kind == "command" {
+      let command_buttons : Array[@html.Html] = [
+        button(
+          class="erp-link-btn",
+          on_click=emit(UpdateSalesRevenue),
+          "编辑",
+        ),
+      ]
+      if row.status != "received" {
+        command_buttons.push(
+          button(
+            class="erp-link-btn is-success",
+            on_click=emit(ConfirmSalesRevenue),
+            "确认到账",
+          ),
+        )
+      }
+      command_buttons.push(
+        button(
+          class="erp-link-btn is-warning",
+          on_click=emit(DeleteSalesRevenue),
+          "撤回",
+        ),
+      )
+      command_buttons
+    } else {
+      [span(class="erp-source-note", "源行只读")]
+    }
+    rows.push(
+      tr <| [
+        td(row.revenue_code),
+        td(row.customer_name),
+        td(row.amount),
+        td(row.receive_date),
+        td(sales_revenue_status_label(row.status) + " · " + row.source_kind),
+        td(row.payment_type),
+        td(row.contract_no),
+        td("R6"),
+        td <| actions,
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("暂无回款源记录"),
+        td("—"),
+        td("—"),
+        td("R6"),
+        td("—"),
+      ],
+    )
+  }
+  table_panel(
+    "回款登记",
+    model.sales_note +
+    " · " +
+    model.sales_revenue_rows.length().to_string() +
+    " 条 · 导入回款保持只读",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "回款编号", "客户", "金额", "到账日期", "状态", "付款类型",
+          "销售合同号", "R 编码", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
 fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "销售回款 (R6)",
@@ -30348,7 +30621,86 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           ],
         ]),
       ),
-      sales_projection_table(model, "revenues"),
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "项目筛选:"),
+        if model.project_rows.length() == 0 {
+          span(
+            class="erp-info-tag",
+            if model.sales_revenue_project_id.is_empty() {
+              "全部项目"
+            } else {
+              model.sales_revenue_project_id
+            },
+          )
+        } else {
+          @html.fragment(
+            model.project_rows.map(row => {
+              button(
+                class=if row.project_id == model.sales_revenue_project_id {
+                  "erp-tab is-active"
+                } else {
+                  "erp-tab"
+                },
+                on_click=emit(SelectSalesRevenueProject(row.project_id)),
+                row.project_name,
+              )
+            }),
+          )
+        },
+      ],
+      div(class="erp-command-bar") <| [
+        span(class="erp-source-note", "状态筛选:"),
+        button(
+          class=if model.sales_revenue_filter_status.is_empty() {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesRevenueStatus("")),
+          "全部",
+        ),
+        button(
+          class=if model.sales_revenue_filter_status == "expected" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesRevenueStatus("expected")),
+          "预计",
+        ),
+        button(
+          class=if model.sales_revenue_filter_status == "received" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesRevenueStatus("received")),
+          "已回款",
+        ),
+        button(
+          class=if model.sales_revenue_filter_status == "pending" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectSalesRevenueStatus("pending")),
+          "待确认",
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        input(
+          input_type=@html.InputType::Text,
+          value=model.sales_revenue_keyword,
+          placeholder="客户 / 回款编号 / 合同号",
+          class="erp-form-input",
+          on_input=emit.map(value => InputSalesRevenueKeyword(value)),
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(QuerySalesRevenue),
+          "查询",
+        ),
+      ],
       div(class="erp-stat-grid") <| [
         metric("本月到账", "¥6,820 万", "126 笔", "metric-blue"),
         metric(
@@ -30356,31 +30708,7 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
         metric("待确认", "12", "金额 ¥380 万", "metric-blue"),
       ],
-      filter_bar("回款编号 / 客户 / 销售合同号"),
-      table_panel(
-        "回款登记",
-        "按到账日期倒序",
-        data_table(
-          [
-            "回款编号", "客户", "金额", "到账日期", "状态", "付款类型",
-            "销售合同号", "R 编码",
-          ],
-          [
-            [
-              "REV-260713-018", "陈敏", "¥1,971,320", "2026-07-13", "已确认",
-              "首付", "SC-260713-004", "R-2026-0713",
-            ],
-            [
-              "REV-260712-026", "刘洋", "¥652,000", "2026-07-12", "已确认",
-              "按揭", "SC-260712-016", "R-2026-0712",
-            ],
-            [
-              "REV-260710-011", "张伟", "¥420,000", "2026-07-10", "待确认",
-              "首付", "SC-260710-008", "R-2026-0710",
-            ],
-          ],
-        ),
-      ),
+      sales_revenue_table(emit, model),
     ],
   )
 }
