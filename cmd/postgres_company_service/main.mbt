@@ -12007,6 +12007,35 @@ fn fund_amount_minor(
 }
 
 ///|
+fn fund_nonnegative_amount_minor(
+  body : Json,
+  primary : String,
+  fallback : String,
+) -> Int raise CompanyServiceError {
+  let value = match marketing_lookup(body, primary, fallback) {
+    None | Some(Null) => raise reject(422, primary + " is required")
+    Some(Number(number, ..)) => number
+    Some(String(text)) => parse_number(text.trim().to_owned())
+    _ => raise reject(422, primary + " must be a non-negative amount")
+  }
+  if value < 0.0 || value != value {
+    raise reject(422, primary + " must be a non-negative amount")
+  }
+  let minor = if primary.has_suffix("_minor") {
+    if value != value.to_int().to_double() {
+      raise reject(422, primary + " must be an integer amount in minor units")
+    }
+    value.to_int()
+  } else {
+    (value * 100.0 + 0.5).to_int()
+  }
+  if minor < 0 {
+    raise reject(422, primary + " must be a non-negative amount")
+  }
+  minor
+}
+
+///|
 fn fund_authority(
   body : Json,
   actor_id : String,
@@ -12233,6 +12262,31 @@ async fn fund_command_request(
     }
     if resource == "plan" && command_type == "update" {
       let changes : Map[String, Json] = {}
+      if marketing_lookup(body, "plan_period", "period") is Some(_) {
+        changes.set(
+          "plan_period",
+          Json::string(fund_required_text(body, "plan_period", "period", false)),
+        )
+      }
+      if marketing_lookup(body, "direction", "") is Some(_) {
+        let direction = fund_required_text(body, "direction", "", false)
+        if direction != "in" && direction != "out" {
+          raise reject(422, "direction must be in or out")
+        }
+        changes.set("direction", Json::string(direction))
+      }
+      if marketing_lookup(body, "category", "") is Some(_) {
+        changes.set(
+          "category",
+          Json::string(fund_optional_text(body, "category", "", false)),
+        )
+      }
+      if marketing_lookup(body, "r_code", "rCode") is Some(_) {
+        changes.set(
+          "r_code",
+          Json::string(fund_optional_text(body, "r_code", "rCode", true)),
+        )
+      }
       if marketing_lookup(body, "plan_amount_minor", "amount") is Some(_) {
         let amount_minor = fund_amount_minor(
           body, "plan_amount_minor", "amount",
@@ -12244,7 +12298,9 @@ async fn fund_command_request(
         changes.set("plan_amount_minor", Json::number(amount_minor.to_double()))
       }
       if json_field(body, "actual_amount_minor") is Some(_) {
-        let amount_minor = fund_amount_minor(body, "actual_amount_minor", "")
+        let amount_minor = fund_nonnegative_amount_minor(
+          body, "actual_amount_minor", "",
+        )
         changes.set(
           "actual_amount",
           Json::string(invoice_minor_text(amount_minor)),

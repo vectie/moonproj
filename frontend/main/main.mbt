@@ -848,6 +848,9 @@ struct CbsRow {
 
 ///|
 struct FundPlanRow {
+  plan_guid : String
+  proj_guid : String
+  plan_code : String
   plan_period : String
   direction : String
   category : String
@@ -855,6 +858,9 @@ struct FundPlanRow {
   plan_amount : String
   actual_amount : String
   state : String
+  r_code : String
+  remark : String
+  source_kind : String
 }
 
 ///|
@@ -869,6 +875,7 @@ struct FundGapRow {
 
 ///|
 struct FundDispatchRow {
+  dispatch_guid : String
   dispatch_code : String
   dispatch_date : String
   from_proj : String
@@ -876,6 +883,7 @@ struct FundDispatchRow {
   amount : String
   reason : String
   state : String
+  source_kind : String
 }
 
 ///|
@@ -1543,6 +1551,7 @@ struct Model {
   fund_plan_category : String
   fund_plan_r_code : String
   fund_plan_amount : String
+  fund_plan_actual_amount : String
   fund_plan_remark : String
   fund_dispatch_from : String
   fund_dispatch_to : String
@@ -2189,6 +2198,9 @@ enum Msg {
   CreateFundPlan
   UpdateFundPlan
   DeleteFundPlan
+  OpenFundPlanEdit(String)
+  DeleteFundPlanRow(String)
+  SelectFundDispatch(String)
   CreateFundDispatch
   ApproveFundDispatch
   FundCommandFinished(String)
@@ -2883,6 +2895,7 @@ fn initial_model() -> Model {
     fund_plan_category: "工程款",
     fund_plan_r_code: "R11",
     fund_plan_amount: "50",
+    fund_plan_actual_amount: "0",
     fund_plan_remark: "",
     fund_dispatch_from: "",
     fund_dispatch_to: "",
@@ -6153,6 +6166,9 @@ fn fund_from_body(body : String) -> (Bool, Array[FundPlanRow], String) {
             match value {
               Json::Object(row) =>
                 rows.push({
+                  plan_guid: json_object_text(row, "plan_guid", ""),
+                  proj_guid: json_object_text(row, "proj_guid", ""),
+                  plan_code: json_object_text(row, "plan_code", "—"),
                   plan_period: json_object_text(row, "plan_period", "—"),
                   direction: json_object_text(row, "direction", "—"),
                   category: json_object_text(row, "category", "—"),
@@ -6160,6 +6176,13 @@ fn fund_from_body(body : String) -> (Bool, Array[FundPlanRow], String) {
                   plan_amount: json_object_text(row, "plan_amount", "0"),
                   actual_amount: json_object_text(row, "actual_amount", "0"),
                   state: json_object_text(row, "state", "source_read_only"),
+                  r_code: json_object_text(row, "r_code", ""),
+                  remark: json_object_text(row, "remark", ""),
+                  source_kind: json_object_text(
+                    row,
+                    "source_kind",
+                    json_object_text(row, "sourceKind", "imported"),
+                  ),
                 })
               _ => ()
             }
@@ -6226,6 +6249,7 @@ fn fund_dispatch_rows_from_body(
             match value {
               Json::Object(row) =>
                 rows.push({
+                  dispatch_guid: json_object_text(row, "dispatch_guid", ""),
                   dispatch_code: json_object_text(row, "dispatch_code", "—"),
                   dispatch_date: json_object_text(row, "dispatch_date", "—"),
                   from_proj: json_object_text(row, "from_proj", "—"),
@@ -6233,6 +6257,11 @@ fn fund_dispatch_rows_from_body(
                   amount: json_object_text(row, "amount", "0"),
                   reason: json_object_text(row, "reason", "—"),
                   state: json_object_text(row, "state", "pending"),
+                  source_kind: json_object_text(
+                    row,
+                    "source_kind",
+                    json_object_text(row, "sourceKind", "imported"),
+                  ),
                 })
               _ => ()
             }
@@ -9372,7 +9401,14 @@ fn fund_command_body(model : Model, command_type : String) -> String {
       "idempotency_key": Json::string(
         "rabbita-fund-plan-update-" + import_nonce(),
       ),
+      "plan_period": Json::string(model.fund_plan_period),
+      "direction": Json::string(model.fund_plan_direction),
+      "category": Json::string(model.fund_plan_category),
+      "r_code": Json::string(model.fund_plan_r_code),
       "plan_amount_minor": fund_amount_minor_json(model.fund_plan_amount),
+      "actual_amount_minor": fund_amount_minor_json(
+        model.fund_plan_actual_amount,
+      ),
       "remark": Json::string(model.fund_plan_remark),
     }).stringify()
   } else if command_type == "delete_plan" {
@@ -16849,7 +16885,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectFundTab(tab) => (none, { ..model, fund_tab: tab })
-    OpenFundForm(form) => (none, { ..model, fund_form_open: form })
+    OpenFundForm(form) =>
+      (
+        none,
+        {
+          ..model,
+          fund_form_open: form,
+          fund_plan_id: if form == "plan" {
+            ""
+          } else {
+            model.fund_plan_id
+          },
+        },
+      )
     CloseFundForm => (none, { ..model, fund_form_open: "" })
     InputFundField(field, value) =>
       (
@@ -16880,6 +16928,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             value
           } else {
             model.fund_plan_amount
+          },
+          fund_plan_actual_amount: if field == "actual_amount" {
+            value
+          } else {
+            model.fund_plan_actual_amount
           },
           fund_plan_remark: if field == "plan_remark" {
             value
@@ -16913,9 +16966,80 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
+    OpenFundPlanEdit(plan_id) => {
+      let mut plan_period = model.fund_plan_period
+      let mut direction = model.fund_plan_direction
+      let mut category = model.fund_plan_category
+      let mut r_code = model.fund_plan_r_code
+      let mut amount = model.fund_plan_amount
+      let mut actual_amount = model.fund_plan_actual_amount
+      let mut remark = model.fund_plan_remark
+      for row in model.fund_rows {
+        if row.plan_guid == plan_id {
+          plan_period = row.plan_period
+          direction = row.direction
+          category = row.category
+          r_code = row.r_code
+          amount = row.plan_amount
+          actual_amount = row.actual_amount
+          remark = row.remark
+        }
+      }
+      (
+        none,
+        {
+          ..model,
+          fund_plan_id: plan_id,
+          fund_form_open: "plan",
+          fund_plan_period: plan_period,
+          fund_plan_direction: direction,
+          fund_plan_category: category,
+          fund_plan_r_code: r_code,
+          fund_plan_amount: amount,
+          fund_plan_actual_amount: actual_amount,
+          fund_plan_remark: remark,
+        },
+      )
+    }
+    DeleteFundPlanRow(plan_id) =>
+      if plan_id.is_empty() {
+        (none, model)
+      } else {
+        let selected = { ..model, fund_plan_id: plan_id }
+        (
+          issue_fund_command(emit, selected, "delete_plan"),
+          {
+            ..selected,
+            fund_command_state: "pending",
+            fund_command_note: "正在作废资金计划草稿…",
+          },
+        )
+      }
+    SelectFundDispatch(dispatch_id) =>
+      if dispatch_id.is_empty() {
+        (none, model)
+      } else {
+        let selected = { ..model, fund_dispatch_id: dispatch_id }
+        (
+          issue_fund_command(emit, selected, "approve_dispatch"),
+          {
+            ..selected,
+            fund_command_state: "pending",
+            fund_command_note: "正在审批资金调度申请…",
+          },
+        )
+      }
     CreateFundPlan =>
       if model.fund_plan_id != "" {
-        (none, model)
+        (
+          issue_fund_command(emit, model, "update_plan"),
+          {
+            ..model,
+            fund_form_open: "",
+            fund_command_state: "pending",
+            fund_command_note: "正在更新资金计划草稿…",
+          },
+        )
       } else {
         (
           issue_fund_command(emit, model, "create_plan"),
@@ -27083,7 +27207,7 @@ fn cbs_view(model : Model, path : String) -> @html.Html {
 }
 
 ///|
-fn fund_runtime_table(model : Model) -> @html.Html {
+fn fund_runtime_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   if model.fund_tab == "gap" {
     let rows : Array[Array[String]] = []
     if model.fund_gap_rows.length() == 0 {
@@ -27115,71 +27239,163 @@ fn fund_runtime_table(model : Model) -> @html.Html {
       ),
     )
   } else if model.fund_tab == "dispatches" {
-    let rows : Array[Array[String]] = []
+    let rows : Array[@html.Html] = []
     if model.fund_dispatch_rows.length() == 0 {
-      rows.push(["—", "—", "—", "—", "0", "无源记录", "—"])
+      rows.push(
+        tr <| [
+          td("—"),
+          td("—"),
+          td("—"),
+          td("—"),
+          td("0"),
+          td("无源记录"),
+          td("—"),
+          td("—"),
+          td("—"),
+        ],
+      )
     } else {
       for row in model.fund_dispatch_rows {
-        rows.push([
-          row.dispatch_code,
-          row.dispatch_date,
-          row.from_proj,
-          row.to_proj,
-          row.amount,
-          row.reason,
-          row.state,
-        ])
+        let action = if row.source_kind == "command" &&
+          row.dispatch_guid != "" &&
+          row.state == "pending" {
+          button(
+            class="erp-link-btn is-success",
+            on_click=emit(SelectFundDispatch(row.dispatch_guid)),
+            "批准",
+          )
+        } else {
+          span(class="erp-source-note", "源行只读")
+        }
+        rows.push(
+          tr <| [
+            td(row.dispatch_code),
+            td(row.dispatch_date),
+            td(row.from_proj),
+            td(row.to_proj),
+            td(row.amount),
+            td(row.reason),
+            td(row.state),
+            td(row.source_kind),
+            td(action),
+          ],
+        )
       }
     }
     table_panel(
       "资金调度 (" + model.fund_dispatch_count + ")",
       "调度记录源读模型 · 空源表 " + model.fund_missing_table_count,
-      data_table(
-        [
-          "编号", "调度日", "来源项目", "目标项目", "金额(万)", "原因",
-          "状态",
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "编号", "调度日", "来源项目", "目标项目", "金额(万)",
+            "原因", "状态", "来源", "操作",
+          ]),
         ],
-        rows,
-      ),
+        tbody <| rows,
+      ],
     )
   } else {
-    let mut rows : Array[Array[String]] = []
+    let rows : Array[@html.Html] = []
     if model.fund_loaded && model.fund_rows.length() > 0 {
       for row in model.fund_rows {
-        rows.push([
-          row.plan_period,
-          row.direction,
-          row.category,
-          row.proj_name,
-          row.plan_amount,
-          row.actual_amount,
-          row.state,
-        ])
+        let actions : Array[@html.Html] = if row.source_kind == "command" &&
+          row.plan_guid != "" {
+          [
+            button(
+              class="erp-link-btn",
+              on_click=emit(OpenFundPlanEdit(row.plan_guid)),
+              "编辑",
+            ),
+            button(
+              class="erp-link-btn is-warning",
+              on_click=emit(DeleteFundPlanRow(row.plan_guid)),
+              "作废",
+            ),
+          ]
+        } else {
+          [span(class="erp-source-note", "源行只读")]
+        }
+        rows.push(
+          tr <| [
+            td(row.plan_code),
+            td(row.plan_period),
+            td(row.direction),
+            td(row.category),
+            td(row.r_code),
+            td(row.proj_name),
+            td(row.plan_amount),
+            td(row.actual_amount),
+            td(row.remark),
+            td(row.state),
+            td(row.source_kind),
+            td <| actions,
+          ],
+        )
       }
     } else if model.fund_loaded {
-      rows.push([
-        "—", "—", "本次导出没有资金计划源记录", "—", "0", "0",
-        "源表为空",
-      ])
+      rows.push(
+        tr <| [
+          td("—"),
+          td("—"),
+          td("本次导出没有资金计划源记录"),
+          td("—"),
+          td("—"),
+          td("—"),
+          td("0"),
+          td("0"),
+          td("—"),
+          td("源表为空"),
+          td("—"),
+          td("—"),
+        ],
+      )
     } else {
-      rows = [
-        [
-          "2026-08", "收入", "回款", "成都和锦里", "2460", "0", "设计快照",
+      rows.push(
+        tr <| [
+          td("FP-DESIGN"),
+          td("2026-08"),
+          td("收入"),
+          td("回款"),
+          td("R6"),
+          td("成都和锦里"),
+          td("2460"),
+          td("0"),
+          td("设计快照"),
+          td("设计快照"),
+          td("—"),
+          td("—"),
         ],
-        [
-          "2026-08", "支出", "工程款", "成都和锦里", "2180", "0", "设计快照",
+      )
+      rows.push(
+        tr <| [
+          td("FP-DESIGN-OUT"),
+          td("2026-08"),
+          td("支出"),
+          td("工程款"),
+          td("R11"),
+          td("成都和锦里"),
+          td("2180"),
+          td("0"),
+          td("设计快照"),
+          td("设计快照"),
+          td("—"),
+          td("—"),
         ],
-      ]
+      )
     }
     table_panel(
       "收支计划 (" + model.fund_rows.length().to_string() + ")",
       model.fund_note + " · 项目 " + model.fund_project_id,
-      data_table(
-        [
-          "期间", "方向", "类别", "项目", "计划(万)", "实际(万)", "状态",
+      table(class="erp-data-table") <| [
+        thead <| [
+          table_header([
+            "编号", "期间", "方向", "类别", "R 编码", "项目", "计划(万)",
+            "实际(万)", "备注", "状态", "来源", "操作",
+          ]),
         ],
-        rows,
-      ),
+        tbody <| rows,
+      ],
     )
   }
 }
@@ -27234,7 +27450,13 @@ fn fund_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   if model.fund_form_open == "plan" {
     section(class="erp-detail-card") <| [
       div(class="erp-panel-heading") <| [
-        h2("新增收支计划"),
+        h2(
+          if model.fund_plan_id.is_empty() {
+            "新增收支计划"
+          } else {
+            "编辑收支计划"
+          },
+        ),
         span(
           class="erp-source-note",
           "金额按万元输入 · 提交为本地计划命令",
@@ -27277,6 +27499,13 @@ fn fund_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           emit.map(value => InputFundField("plan_amount", value)),
         ),
         editable_form_field(
+          "实际金额（万）",
+          model.fund_plan_actual_amount,
+          "0",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("actual_amount", value)),
+        ),
+        editable_form_field(
           "备注",
           model.fund_plan_remark,
           "备注",
@@ -27289,7 +27518,11 @@ fn fund_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         button(
           class="erp-primary-btn",
           on_click=emit(CreateFundPlan),
-          "提交计划",
+          if model.fund_plan_id.is_empty() {
+            "提交计划"
+          } else {
+            "保存计划"
+          },
         ),
       ],
     ]
@@ -27472,7 +27705,7 @@ fn fund_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "资金调度",
         ),
       ],
-      fund_runtime_table(model),
+      fund_runtime_table(emit, model),
     ],
   )
 }
