@@ -43,6 +43,27 @@ extern "js" fn download_blob(blob : @dom.Blob, filename : String) -> Unit =
   #| }
 
 ///|
+#cfg(target="js")
+extern "js" fn read_file_input_text(
+  input_id : String,
+  callback : (String) -> Unit,
+) -> Unit =
+  #| (inputId, callback) => {
+  #|   const input = document.getElementById(inputId);
+  #|   const file = input && input.files ? input.files[0] : null;
+  #|   if (!file) { callback(''); return; }
+  #|   const reader = new FileReader();
+  #|   reader.onload = () => callback(String(reader.result || ''));
+  #|   reader.onerror = () => callback('');
+  #|   reader.readAsText(file, 'utf-8');
+  #| }
+
+///|
+#cfg(target="js")
+extern "js" fn import_nonce() -> String =
+  #| () => String(Date.now())
+
+///|
 struct ExpenseRow {
   expense_id : String
   expense_code : String
@@ -734,6 +755,15 @@ struct ProjectRow {
 }
 
 ///|
+struct ImportCsvData {
+  headers : Array[String]
+  preview_rows : Array[Array[String]]
+  rows_json : String
+  row_count : String
+  within_limit : Bool
+}
+
+///|
 struct Model {
   authenticated : Bool
   page : String
@@ -1163,6 +1193,15 @@ struct Model {
   project_detail : ProjectRow?
   project_note : String
   import_template_note : String
+  import_biz_type : String
+  import_file_name : String
+  import_headers : Array[String]
+  import_preview_rows : Array[Array[String]]
+  import_rows_json : String
+  import_row_count : String
+  import_key : String
+  import_state : String
+  import_note : String
 }
 
 ///|
@@ -1602,6 +1641,12 @@ enum Msg {
   DownloadImportTemplate(String)
   ImportTemplateDownloaded(String, @dom.Blob)
   ImportTemplateDownloadFailed(String)
+  SelectImportFile(String, String)
+  ImportCsvLoaded(String, String)
+  RunImportDryRun
+  CommitImportBatch
+  ImportCommandFinished(String, String)
+  ImportCommandFailed(String)
 }
 
 ///|
@@ -2035,6 +2080,15 @@ fn initial_model() -> Model {
     project_detail: None,
     project_note: "项目主数据读模型尚未加载",
     import_template_note: "项目/合同 CSV 模板尚未下载",
+    import_biz_type: "",
+    import_file_name: "",
+    import_headers: [],
+    import_preview_rows: [],
+    import_rows_json: "[]",
+    import_row_count: "0",
+    import_key: "",
+    import_state: "idle",
+    import_note: "尚未选择 CSV 文件",
   }
 }
 
@@ -7829,11 +7883,104 @@ fn load_projects(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn import_input_id(biz_type : String) -> String {
+  "erp-import-" + biz_type + "-file"
+}
+
+///|
+fn parse_import_csv(text : String) -> ImportCsvData {
+  let normalized = if text.has_prefix("\u{FEFF}") {
+    text[1:].to_owned()
+  } else {
+    text
+  }
+  let lines = normalized.split("\n").to_array()
+  if lines.length() == 0 {
+    return {
+      headers: [],
+      preview_rows: [],
+      rows_json: "[]",
+      row_count: "0",
+      within_limit: false,
+    }
+  }
+  let headers : Array[String] = []
+  for header in lines[0].split(",") {
+    headers.push(header.trim().to_owned())
+  }
+  let json_rows : Array[Json] = []
+  let preview_rows : Array[Array[String]] = []
+  for index in 1..<lines.length() {
+    let line = lines[index].trim()
+    if line.is_empty() {
+      continue
+    }
+    let values = line.split(",").to_array()
+    let fields : Map[String, Json] = {}
+    let preview : Array[String] = []
+    for column in 0..<headers.length() {
+      let value = values.get(column).unwrap_or("").trim().to_owned()
+      fields.set(headers[column], Json::string(value))
+      preview.push(value)
+    }
+    json_rows.push(Json::object(fields))
+    if preview_rows.length() < 5 {
+      preview_rows.push(preview)
+    }
+  }
+  {
+    headers,
+    preview_rows,
+    rows_json: Json::array(json_rows).stringify(),
+    row_count: json_rows.length().to_string(),
+    within_limit: json_rows.length() <= 500,
+  }
+}
+
+///|
+fn start_import_file_read(emit : @rabbita.Emit[Msg], biz_type : String) -> Cmd {
+  @cmd.custom_cmd(fn(scheduler : &@cmd.Scheduler) {
+    read_file_input_text(import_input_id(biz_type), fn(text) {
+      scheduler.add(emit(ImportCsvLoaded(biz_type, text)))
+    })
+  })
+}
+
+///|
 fn issue_import_template(emit : @rabbita.Emit[Msg], biz_type : String) -> Cmd {
   @http.get("/api/company/import/" + biz_type + "/template").expect_blob(result => {
     match result {
       Ok(blob) => emit(ImportTemplateDownloaded(biz_type, blob))
       Err(_) => emit(ImportTemplateDownloadFailed(biz_type))
+    }
+  })
+}
+
+///|
+fn import_command_body(model : Model, dry_run : Bool) -> String {
+  let mode = if dry_run { "dry" } else { "commit" }
+  let key = model.import_key + "-" + mode
+  "{\"idempotency_key\":\"" +
+  key +
+  "\",\"rows\":" +
+  model.import_rows_json +
+  ",\"dryRun\":" +
+  (if dry_run { "true" } else { "false" }) +
+  "}"
+}
+
+///|
+fn issue_import_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  dry_run : Bool,
+) -> Cmd {
+  @http.post("/api/company/import/" + model.import_biz_type)
+  .with_text(import_command_body(model, dry_run))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(ImportCommandFinished(model.import_biz_type, body))
+      Err(_) => emit(ImportCommandFailed(model.import_biz_type))
     }
   })
 }
@@ -8586,7 +8733,7 @@ fn login_session(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
 
 ///|
 fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
-  match msg {
+  return match msg {
     Login =>
       (
         login_session(emit, model),
@@ -13755,6 +13902,126 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           " CSV 模板下载失败 · 服务或网关不可用",
         },
       )
+    SelectImportFile(biz_type, file_name) =>
+      (
+        start_import_file_read(emit, biz_type),
+        {
+          ..model,
+          import_biz_type: biz_type,
+          import_file_name: file_name,
+          import_state: "reading",
+          import_note: "正在读取 CSV 文件…",
+        },
+      )
+    ImportCsvLoaded(biz_type, text) => {
+      let parsed = parse_import_csv(text)
+      let has_rows = parsed.headers.length() > 0 &&
+        parsed.row_count != "0" &&
+        parsed.within_limit
+      (
+        none,
+        {
+          ..model,
+          import_biz_type: biz_type,
+          import_headers: parsed.headers,
+          import_preview_rows: parsed.preview_rows,
+          import_rows_json: parsed.rows_json,
+          import_row_count: parsed.row_count,
+          import_key: if has_rows {
+            "rabbita-import-" + biz_type + "-" + import_nonce()
+          } else {
+            ""
+          },
+          import_state: if has_rows {
+            "ready"
+          } else {
+            "idle"
+          },
+          import_note: if has_rows {
+            "已解析 " + parsed.row_count + " 行 · 请先试运行校验"
+          } else if parsed.row_count != "0" && !parsed.within_limit {
+            "CSV 超过 500 行上限 · 请拆分批次"
+          } else {
+            "CSV 为空或缺少表头"
+          },
+        },
+      )
+    }
+    RunImportDryRun =>
+      if model.import_state == "ready" && model.import_rows_json != "[]" {
+        (
+          issue_import_command(emit, model, true),
+          {
+            ..model,
+            import_state: "dry_run",
+            import_note: "正在逐行校验并执行 PostgreSQL 导入试运行…",
+          },
+        )
+      } else {
+        (none, { ..model, import_note: "请先选择并解析 CSV 文件" })
+      }
+    CommitImportBatch =>
+      if model.import_state == "dry_run_ok" && model.import_rows_json != "[]" {
+        (
+          issue_import_command(emit, model, false),
+          {
+            ..model,
+            import_state: "committing",
+            import_note: "正在事务提交导入批次…",
+          },
+        )
+      } else {
+        (none, { ..model, import_note: "请先完成通过的试运行校验" })
+      }
+    ImportCommandFinished(biz_type, body) => {
+      let is_dry_run = body.contains("\"mode\":\"dryRun\"")
+      let succeeded = body.contains("\"success\":true") &&
+        body.contains("\"rowsAccepted\"")
+      let next_command = if !is_dry_run && succeeded {
+        if biz_type == "project" {
+          load_projects(emit)
+        } else {
+          load_contracts(emit)
+        }
+      } else {
+        none
+      }
+      (
+        next_command,
+        {
+          ..model,
+          import_biz_type: biz_type,
+          import_state: if is_dry_run && succeeded {
+            "dry_run_ok"
+          } else if !is_dry_run && succeeded {
+            "committed"
+          } else {
+            "error"
+          },
+          import_note: if is_dry_run && succeeded {
+            "试运行通过 " +
+            model.import_row_count +
+            " 行 · 可以提交导入"
+          } else if !is_dry_run && succeeded {
+            "已提交 " +
+            model.import_row_count +
+            " 行 · 命令投影已写入 PostgreSQL"
+          } else {
+            "导入响应未通过校验 · 请复核返回内容"
+          },
+        },
+      )
+    }
+    ImportCommandFailed(biz_type) =>
+      (
+        none,
+        {
+          ..model,
+          import_biz_type: biz_type,
+          import_state: "error",
+          import_note: "导入命令被服务、权限或网关拒绝",
+        },
+      )
     CreateLoan =>
       if model.loan_state == "pending" || model.loan_state == "Draft" {
         (none, model)
@@ -15411,6 +15678,87 @@ fn project_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn import_label(biz_type : String) -> String {
+  if biz_type == "project" {
+    "项目"
+  } else {
+    "合同"
+  }
+}
+
+///|
+fn import_preview_table(model : Model) -> @html.Html {
+  if model.import_biz_type == "" || model.import_headers.length() == 0 {
+    div(class="erp-runtime-empty", "选择 CSV 后显示前五行预览")
+  } else {
+    data_table(model.import_headers, model.import_preview_rows)
+  }
+}
+
+///|
+fn import_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  biz_type : String,
+) -> @html.Html {
+  let active = model.import_biz_type == biz_type
+  let selected_rows = if active { model.import_row_count } else { "0" }
+  let note = if active {
+    model.import_note
+  } else {
+    "尚未选择 " + import_label(biz_type) + " CSV 文件"
+  }
+  section(class="erp-table-panel erp-import-panel") <| [
+    div(class="erp-panel-heading") <| [
+      div <| [
+        h2("批量导入" + import_label(biz_type)),
+        span(
+          class="erp-panel-subtitle",
+          "选择 CSV → 试运行 → 提交事务",
+        ),
+      ],
+      span(class="erp-info-tag", note),
+    ],
+    div(class="erp-command-bar") <| [
+      input(
+        input_type=@html.InputType::File,
+        accept=".csv,text/csv",
+        id=import_input_id(biz_type),
+        class="erp-form-input",
+        on_change=emit.map(file_name => SelectImportFile(biz_type, file_name)),
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(DownloadImportTemplate(biz_type)),
+        "下载模板",
+      ),
+      button(
+        class="erp-secondary-btn",
+        disabled=!(active && model.import_state == "ready"),
+        on_click=emit(RunImportDryRun),
+        "试运行校验",
+      ),
+      button(
+        class="erp-primary-btn",
+        disabled=!(active && model.import_state == "dry_run_ok"),
+        on_click=emit(CommitImportBatch),
+        "提交导入",
+      ),
+    ],
+    div(class="erp-source-note", [
+      span(
+        if active && model.import_file_name != "" {
+          model.import_file_name + " · " + selected_rows + " 行"
+        } else {
+          "单次最多 500 行；导入记录写入 command projection，不触发现金/会计/税务"
+        },
+      ),
+    ]),
+    import_preview_table(if active { model } else { initial_model() }),
+  ]
+}
+
+///|
 fn project_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "项目主数据",
@@ -15443,6 +15791,7 @@ fn project_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         metric("本月新增", "2", "较上月 +1", "metric-blue"),
         metric("建设中", "9", "占比 60%", "metric-green"),
       ],
+      import_panel(emit, model, "project"),
       filter_bar("项目编码 / 项目名称 / 所属公司"),
       table_panel(
         "项目列表",
@@ -16770,6 +17119,7 @@ fn contracts_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         metric("合同金额", "¥12.57 亿", "较目标 +6.2%", "metric-blue"),
         metric("待付款", "¥1.84 亿", "24 个申请", "metric-green"),
       ],
+      import_panel(emit, model, "contract"),
       filter_bar("合同编号 / 项目 / 供应商"),
       table_panel(
         "合同列表",

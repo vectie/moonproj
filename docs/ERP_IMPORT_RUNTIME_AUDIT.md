@@ -23,7 +23,10 @@ contract list merges these rows and idempotent replay returns the original
 result. The native MoonBit gateway now allow-lists both import POST aliases and
 forwards the authenticated template/command flow with a signed PostgreSQL
 actor; the trusted gateway smoke covers template download, project dry-run,
-and project commit. The remaining acceptance work is the Rabbita CSV picker,
-production identity, and owner review.
+and project commit. Rabbita Projects and Contracts now provide the CSV picker,
+five-row preview, dry-run step, and commit step against the same signed
+endpoints. The remaining acceptance work is production identity and owner
+review; browser CSV parsing intentionally remains the source dialog's simple
+comma-separated contract.
 Neither import path posts accounting, releases
 cash, invokes providers, or calculates tax.
