@@ -91,6 +91,10 @@ cmd/relationship_audit
 scripts/erp_relationship_audit.sh
 cmd/period_close_control
 scripts/company_period_close_control.sh
+cmd/sqlite_driver_smoke
+scripts/company_sqlite_driver_smoke.sh
+cmd/sqlite_backup_restore
+scripts/company_sqlite_backup_restore.sh
 scripts/erp_task_state_promotion_plan.sh
 scripts/erp_task_state_exception_review.sh
 scripts/erp_user_promotion_plan.sh

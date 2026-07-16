@@ -760,11 +760,11 @@ if [ -n "$ACCOUNTING_MAPPING" ]; then
 fi
 
 DRIVER_SMOKE="$WORK_DIR/driver-smoke.json"
-"$SCRIPT_DIR/company_sqlite_driver_smoke.py" "$WORK_DIR/driver-smoke.sqlite3" > "$DRIVER_SMOKE"
+"$SCRIPT_DIR/company_sqlite_driver_smoke.sh" "$WORK_DIR/driver-smoke.sqlite3" "$DRIVER_SMOKE"
 echo "driver_smoke=$DRIVER_SMOKE"
 
 BACKUP_RESTORE="$WORK_DIR/backup-restore.json"
-"$SCRIPT_DIR/company_sqlite_backup_restore.py" --overwrite "$TARGET_DB" "$WORK_DIR/company-backup.sqlite3" > "$BACKUP_RESTORE"
+"$SCRIPT_DIR/company_sqlite_backup_restore.sh" --overwrite "$TARGET_DB" "$WORK_DIR/company-backup.sqlite3" "$BACKUP_RESTORE" > /dev/null
 echo "backup_restore=$BACKUP_RESTORE"
 
 if [ -n "$TYPED_MAPPING" ]; then

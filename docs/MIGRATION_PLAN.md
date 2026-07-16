@@ -2285,6 +2285,24 @@ Execute the remainder in this order:
     hash, duplicate-backend handling, source-snapshot guard, and explicit
     `close_authorized=false` boundary. The authoritative report matches the
     Python oracle.
+3a.49. **Native SQLite driver transaction smoke (2026-07-16).**
+    `cmd/sqlite_driver_smoke` and `scripts/company_sqlite_driver_smoke.sh`
+    now replace the Python driver smoke. Native MoonBit emits the schema and
+    transaction probes; the shell executes SQLite with foreign keys, WAL, and
+    busy-timeout settings, verifies rollback, `INSERT OR ROLLBACK` duplicate
+    rejection, committed-row count, and `PRAGMA integrity_check`, then asks
+    MoonBit to emit the historical driver-transaction envelope. The database
+    and WAL sidecars are removed after the probe, matching the ephemeral
+    comparison smoke.
+3a.50. **Native SQLite backup/restore parity (2026-07-16).**
+    `cmd/sqlite_backup_restore` and `scripts/company_sqlite_backup_restore.sh`
+    now replace the Python backup boundary. The shell invokes SQLite's
+    online backup, reopens both databases, and collects integrity, schema, and
+    table-count summaries plus a rowid-ordered logical dump. MoonBit computes
+    the deterministic logical digest, compares source/restored summaries, and
+    emits the existing `backup_restore_verified` envelope; a synthetic
+    company database is byte-equivalent to the historical oracle after
+    removing only path values.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
