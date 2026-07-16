@@ -990,7 +990,9 @@ struct LoanRow {
   balance_amount : String
   remain_amount : String
   applied_by_name : String
+  apply_dept_guid : String
   apply_dept_name : String
+  project_id : String
   project_name : String
   apply_date : String
   pay_unit : String
@@ -1868,6 +1870,16 @@ struct Model {
   budget_loan_note : String
   loan_id : String
   loan_state : String
+  loan_subject : String
+  loan_apply_date : String
+  loan_apply_dept_guid : String
+  loan_pay_unit : String
+  loan_project_guid : String
+  loan_amount : String
+  loan_offset_amount : String
+  loan_offset_date : String
+  loan_offset_remark : String
+  loan_offset_related_expense : String
   loan_command_note : String
   loan_workflow_sync_note : String
   workflow_loaded : Bool
@@ -2537,9 +2549,11 @@ enum Msg {
   LoansLoaded(String)
   LoansLoadFailed
   CreateLoan
+  InputLoanField(String, String)
   SubmitLoan
   UpdateLoan
   VoidLoan
+  OffsetLoan
   SyncLoanWorkflow
   LoanWorkflowSyncFinished(String)
   LoanWorkflowSyncFailed
@@ -3320,6 +3334,16 @@ fn initial_model() -> Model {
     budget_loan_note: "个人借款余额源读模型尚未加载",
     loan_id: "LOAN-RABBITA-LOCAL",
     loan_state: "new",
+    loan_subject: "",
+    loan_apply_date: "2026-07-16",
+    loan_apply_dept_guid: "",
+    loan_pay_unit: "个人备用金",
+    loan_project_guid: "proj-0001",
+    loan_amount: "0",
+    loan_offset_amount: "0",
+    loan_offset_date: "2026-07-16",
+    loan_offset_remark: "",
+    loan_offset_related_expense: "",
     loan_command_note: "本地借款命令需要员工范围 authority 与证据",
     loan_workflow_sync_note: "工作流同步候选尚未运行 · wf_process_instance 源行保持只读",
     workflow_loaded: false,
@@ -8120,7 +8144,9 @@ fn loan_from_json(value : Json) -> LoanRow? {
         balance_amount: json_object_text(fields, "balance_amount", "0"),
         remain_amount: json_object_text(fields, "remain_amount", "0"),
         applied_by_name: json_object_text(fields, "applied_by_name", ""),
+        apply_dept_guid: json_object_text(fields, "apply_dept_guid", ""),
         apply_dept_name: json_object_text(fields, "apply_dept_name", ""),
+        project_id: json_object_text(fields, "project_id", ""),
         project_name: json_object_text(fields, "project_name", ""),
         apply_date: json_object_text(fields, "apply_date", ""),
         pay_unit: json_object_text(fields, "pay_unit", ""),
@@ -8145,6 +8171,46 @@ fn loan_rows_from_body(body : String) -> Array[LoanRow] {
     _ => ()
   }
   rows
+}
+
+///|
+fn loan_row_from_rows(rows : Array[LoanRow], loan_id : String) -> LoanRow? {
+  for row in rows {
+    if row.loan_id == loan_id {
+      return Some(row)
+    }
+  }
+  None
+}
+
+///|
+fn loan_row_for_id(model : Model, loan_id : String) -> LoanRow? {
+  for row in model.loan_rows {
+    if row.loan_id == loan_id {
+      return Some(row)
+    }
+  }
+  None
+}
+
+///|
+fn loan_state_for_id(model : Model, loan_id : String) -> String {
+  match loan_row_for_id(model, loan_id) {
+    Some(row) => row.apply_state
+    None => "Imported"
+  }
+}
+
+///|
+fn loan_command_owned(model : Model, loan_id : String) -> Bool {
+  if loan_id == "LOAN-RABBITA-LOCAL" {
+    true
+  } else {
+    match loan_row_for_id(model, loan_id) {
+      Some(row) => row.source_kind == "command"
+      None => false
+    }
+  }
 }
 
 ///|
@@ -11927,11 +11993,89 @@ fn issue_sales_revenue_command(
 }
 
 ///|
-fn loan_command_body(command_type : String) -> String {
+fn loan_decimal(value : String) -> Double {
+  let parsed = @json.parse(value) catch { _ => Json::null() }
+  match parsed {
+    Json::Number(number, ..) => number
+    _ => 0.0
+  }
+}
+
+///|
+fn loan_command_id(body : String, fallback : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("loan") {
+        Some(Json::Object(loan)) => json_object_text(loan, "loan_id", fallback)
+        _ => fallback
+      }
+    _ => fallback
+  }
+}
+
+///|
+fn loan_command_body(model : Model, command_type : String) -> String {
+  let amount_minor = loan_decimal(model.loan_amount) * 100.0
+  let employee_id = "employee-rabbita"
+  let actor_id = "rabbita-user"
+  let loan_id = if model.loan_id == "LOAN-RABBITA-LOCAL" ||
+    model.loan_id.is_empty() {
+    "LOAN-RABBITA-" + import_nonce()
+  } else {
+    model.loan_id
+  }
+  let authority = Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string("co-rabbita"),
+    "actor_id": Json::string(actor_id),
+    "capability": Json::string(
+      if command_type == "offset" {
+        "advance:offset"
+      } else {
+        "advance:create"
+      },
+    ),
+    "scope": Json::string("employee:" + employee_id),
+    "max_amount_minor": Json::number(amount_minor),
+  })
   if command_type == "create" {
-    "{\"idempotency_key\":\"rabbita-loan-create-v1\",\"loan_id\":\"LOAN-RABBITA-LOCAL\",\"loan_code\":\"JK-RABBITA-LOCAL\",\"subject\":\"沈阳项目会议备用金\",\"employee_id\":\"employee-rabbita\",\"principal_id\":\"co-rabbita\",\"scope\":\"employee:employee-rabbita\",\"currency\":\"CNY\",\"amount_minor\":800000,\"apply_dept_guid\":\"bu-rabbita\",\"apply_date\":\"2026-07-13\",\"pay_unit\":\"个人备用金\",\"proj_guid\":\"proj-0001\",\"evidence_ids\":[\"rabbita:loan:purpose-001\"],\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"advance:create\",\"scope\":\"employee:employee-rabbita\",\"max_amount_minor\":800000}}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-loan-create-" + import_nonce()),
+      "loan_id": Json::string(loan_id),
+      "loan_code": Json::string("JK-" + loan_id),
+      "subject": Json::string(model.loan_subject),
+      "employee_id": Json::string(employee_id),
+      "principal_id": Json::string("co-rabbita"),
+      "scope": Json::string("employee:" + employee_id),
+      "currency": Json::string("CNY"),
+      "amount_minor": Json::number(amount_minor),
+      "apply_dept_guid": Json::string(model.loan_apply_dept_guid),
+      "apply_date": Json::string(model.loan_apply_date),
+      "pay_unit": Json::string(model.loan_pay_unit),
+      "proj_guid": Json::string(model.loan_project_guid),
+      "evidence_ids": Json::array([Json::string("rabbita:loan:purpose-001")]),
+      "authority": authority,
+    }).stringify()
   } else if command_type == "update" {
-    "{\"idempotency_key\":\"rabbita-loan-update-v1\",\"subject\":\"沈阳项目会议备用金（已补充用途）\",\"pay_unit\":\"个人备用金\",\"proj_guid\":\"proj-0001\"}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-loan-update-" + import_nonce()),
+      "subject": Json::string(model.loan_subject),
+      "amount_minor": Json::number(amount_minor),
+      "pay_unit": Json::string(model.loan_pay_unit),
+      "proj_guid": Json::string(model.loan_project_guid),
+    }).stringify()
+  } else if command_type == "offset" {
+    Json::object({
+      "idempotency_key": Json::string("rabbita-loan-offset-" + import_nonce()),
+      "offset_amount_minor": Json::number(
+        loan_decimal(model.loan_offset_amount) * 100.0,
+      ),
+      "offset_date": Json::string(model.loan_offset_date),
+      "related_expense_id": Json::string(model.loan_offset_related_expense),
+      "remark": Json::string(model.loan_offset_remark),
+      "authority": authority,
+    }).stringify()
   } else if command_type == "void" {
     "{\"idempotency_key\":\"rabbita-loan-void-v1\",\"reason\":\"本地演示撤回借款\"}"
   } else if command_type == "sync_from_workflow" {
@@ -11960,7 +12104,7 @@ fn issue_loan_command(
     "/api/company/loans/" + model.loan_id + "/" + suffix
   }
   @http.post(path)
-  .with_text(loan_command_body(command_type))
+  .with_text(loan_command_body(model, command_type))
   .expect_text(result => {
     match result {
       Ok(body) => emit(LoanCommandFinished(body))
@@ -11972,7 +12116,7 @@ fn issue_loan_command(
 ///|
 fn issue_loan_workflow_sync(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
   @http.post("/api/company/loans/" + model.loan_id + "/sync-from-workflow")
-  .with_text(loan_command_body("sync_from_workflow"))
+  .with_text(loan_command_body(model, "sync_from_workflow"))
   .expect_text(result => {
     match result {
       Ok(body) => emit(LoanWorkflowSyncFinished(body))
@@ -13292,6 +13436,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_health_tables(emit)
       } else if path == "/loans" {
         load_loans(emit)
+      } else if path == "/loans/new" {
+        @cmd.batch([
+          load_projects(emit),
+          load_budget_scope(emit, model.profile_bu_guid),
+        ])
+      } else if path.has_prefix("/loans/") {
+        @cmd.batch([load_loans(emit), load_projects(emit)])
       } else if path == "/tasks" {
         @cmd.batch([
           load_workflow(emit),
@@ -13332,9 +13483,58 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let loan_state = if path == "/loans/new" {
         "new"
       } else if path.has_prefix("/loans/") && loan_id != "LOAN-RABBITA-LOCAL" {
-        "Imported"
+        loan_state_for_id(model, loan_id)
       } else {
         model.loan_state
+      }
+      let selected_loan = loan_row_for_id(model, loan_id)
+      let loan_subject = if path == "/loans/new" {
+        ""
+      } else {
+        match selected_loan {
+          Some(row) => row.subject
+          None => model.loan_subject
+        }
+      }
+      let loan_apply_date = if path == "/loans/new" {
+        "2026-07-16"
+      } else {
+        match selected_loan {
+          Some(row) => row.apply_date
+          None => model.loan_apply_date
+        }
+      }
+      let loan_apply_dept_guid = if path == "/loans/new" {
+        ""
+      } else {
+        match selected_loan {
+          Some(row) => row.apply_dept_guid
+          None => model.loan_apply_dept_guid
+        }
+      }
+      let loan_pay_unit = if path == "/loans/new" {
+        "个人备用金"
+      } else {
+        match selected_loan {
+          Some(row) => row.pay_unit
+          None => model.loan_pay_unit
+        }
+      }
+      let loan_project_guid = if path == "/loans/new" {
+        "proj-0001"
+      } else {
+        match selected_loan {
+          Some(row) => row.project_id
+          None => model.loan_project_guid
+        }
+      }
+      let loan_amount = if path == "/loans/new" {
+        "0"
+      } else {
+        match selected_loan {
+          Some(row) => row.loan_amount
+          None => model.loan_amount
+        }
       }
       (
         command,
@@ -13407,6 +13607,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
           loan_id,
           loan_state,
+          loan_subject,
+          loan_apply_date,
+          loan_apply_dept_guid,
+          loan_pay_unit,
+          loan_project_guid,
+          loan_amount,
           contract_detail: if path == "/contracts" {
             None
           } else {
@@ -20988,16 +21194,32 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           health_note: "系统健康读模型不可用 · 使用设计快照",
         },
       )
-    LoansLoaded(body) =>
+    LoansLoaded(body) => {
+      let rows = loan_rows_from_body(body)
+      let detail_id = if model.page.has_prefix("/loans/") &&
+        model.page != "/loans/new" {
+        match model.page.rev_split_once("/") {
+          Some((_, value)) => value.to_owned()
+          None => ""
+        }
+      } else {
+        ""
+      }
+      let next_state = match loan_row_from_rows(rows, detail_id) {
+        Some(row) => row.apply_state
+        None => model.loan_state
+      }
       (
         none,
         {
           ..model,
           loans_loaded: true,
-          loan_rows: loan_rows_from_body(body),
+          loan_rows: rows,
+          loan_state: next_state,
           loan_note: "已加载 PostgreSQL 员工借款与冲账读模型 · 导入记录保持只读",
         },
       )
+    }
     LoansLoadFailed =>
       (
         none,
@@ -21474,8 +21696,75 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           import_note: "导入命令被服务、权限或网关拒绝",
         },
       )
+    InputLoanField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          loan_subject: if field == "subject" {
+            value
+          } else {
+            model.loan_subject
+          },
+          loan_apply_date: if field == "date" {
+            value
+          } else {
+            model.loan_apply_date
+          },
+          loan_apply_dept_guid: if field == "dept" {
+            value
+          } else {
+            model.loan_apply_dept_guid
+          },
+          loan_pay_unit: if field == "pay_unit" {
+            value
+          } else {
+            model.loan_pay_unit
+          },
+          loan_project_guid: if field == "project" {
+            value
+          } else {
+            model.loan_project_guid
+          },
+          loan_amount: if field == "amount" {
+            value
+          } else {
+            model.loan_amount
+          },
+          loan_offset_amount: if field == "offset_amount" {
+            value
+          } else {
+            model.loan_offset_amount
+          },
+          loan_offset_date: if field == "offset_date" {
+            value
+          } else {
+            model.loan_offset_date
+          },
+          loan_offset_remark: if field == "offset_remark" {
+            value
+          } else {
+            model.loan_offset_remark
+          },
+          loan_offset_related_expense: if field == "offset_expense" {
+            value
+          } else {
+            model.loan_offset_related_expense
+          },
+        },
+      )
     CreateLoan =>
-      if model.loan_state == "pending" || model.loan_state == "Draft" {
+      if model.loan_subject.trim().is_empty() ||
+        loan_decimal(model.loan_amount) <= 0.0 ||
+        model.loan_apply_dept_guid.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            loan_command_note: "主题、借款金额与申请部门必填",
+          },
+        )
+      } else if model.loan_state == "pending" || model.loan_state == "Draft" {
         (none, model)
       } else {
         (
@@ -21510,6 +21799,21 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             ..model,
             loan_state: "pending",
             loan_command_note: "正在保存借款草稿修改…",
+          },
+        )
+      }
+    OffsetLoan =>
+      if model.loan_id == "" || model.loan_state != "Approved" {
+        (none, model)
+      } else if loan_decimal(model.loan_offset_amount) <= 0.0 {
+        (none, { ..model, loan_command_note: "冲账金额必须大于 0" })
+      } else {
+        (
+          issue_loan_command(emit, model, "offset"),
+          {
+            ..model,
+            loan_state: "pending",
+            loan_command_note: "正在提交借款冲账候选…",
           },
         )
       }
@@ -21575,7 +21879,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, { ..model, loan_state: "error", loan_command_note: body })
       } else {
         let next_page = if body.contains("\"command_type\":\"create\"") {
-          "/loans/LOAN-RABBITA-LOCAL"
+          "/loans/" + loan_command_id(body, model.loan_id)
         } else {
           model.page
         }
@@ -21583,6 +21887,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           load_loans(emit),
           {
             ..model,
+            loan_id: loan_command_id(body, model.loan_id),
             page: next_page,
             loan_state: next_state,
             loan_command_note: "已写入 PostgreSQL · 借款命令完成 · 审计凭证已生成",
@@ -30951,6 +31256,52 @@ fn loan_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
+fn loan_row_actions(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let children : Array[@html.Html] = [
+    span(
+      class="erp-source-note",
+      "打开源借款详情 · command 行才允许编辑/冲账候选",
+    ),
+  ]
+  for row in model.loan_rows {
+    children.push(
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(Navigate("/loans/" + row.loan_id)),
+        row.loan_code + " · " + row.subject,
+      ),
+    )
+  }
+  div(class="erp-command-bar", children)
+}
+
+///|
+fn loan_reference_chips(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let children : Array[@html.Html] = [
+    span(class="erp-source-note", "源项目/预算人员快捷选择"),
+  ]
+  for row in model.project_rows {
+    children.push(
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(InputLoanField("project", row.project_id)),
+        row.project_code + " · " + row.project_name,
+      ),
+    )
+  }
+  for row in model.budget_scope_users {
+    children.push(
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(InputLoanField("dept", row.dept_guid)),
+        "部门 " + row.dept_guid + " · " + row.emp_name,
+      ),
+    )
+  }
+  div(class="erp-command-bar", children)
+}
+
+///|
 fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "我的借款",
@@ -31011,6 +31362,7 @@ fn loans_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
       ),
       loan_runtime_table(model),
+      loan_row_actions(emit, model),
     ],
   )
 }
@@ -33801,7 +34153,16 @@ fn loan_editor_view(
   detail : Bool,
 ) -> @html.Html {
   let title = if detail { "借款详情" } else { "新建借款" }
-  let is_local = model.loan_id == "LOAN-RABBITA-LOCAL"
+  let source_row = loan_row_for_id(model, model.loan_id)
+  let is_local = loan_command_owned(model, model.loan_id)
+  let current_state = match source_row {
+    Some(row) => row.apply_state
+    None => model.loan_state
+  }
+  let remain_amount = match source_row {
+    Some(row) => row.remain_amount
+    None => "0"
+  }
   let actions : Array[@html.Html] = [
     nav_button(emit, "/loans", "erp-ghost-btn", "‹ 返回列表"),
   ]
@@ -33823,7 +34184,7 @@ fn loan_editor_view(
         "检查工作流同步（待授权）",
       ),
     )
-    if model.loan_state == "Draft" {
+    if current_state == "Draft" {
       actions.push(
         button(
           class="erp-secondary-btn",
@@ -33839,20 +34200,29 @@ fn loan_editor_view(
         ),
       )
     }
-    if model.loan_state == "Draft" || model.loan_state == "Rejected" {
+    if current_state == "Draft" || current_state == "Rejected" {
       actions.push(
         button(class="erp-danger-btn", on_click=emit(VoidLoan), "作废借款"),
       )
     }
+    if current_state == "Approved" && loan_decimal(remain_amount) > 0.0 {
+      actions.push(
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(OffsetLoan),
+          "冲账候选",
+        ),
+      )
+    }
   }
-  let status_label = if model.loan_state == "Imported" {
+  let status_label = if detail && !is_local {
     "导入只读"
   } else if model.loan_state == "new" {
     "草稿"
   } else {
-    loan_state_label(model.loan_state)
+    loan_state_label(current_state)
   }
-  let note = if model.loan_state == "Imported" {
+  let note = if detail && !is_local {
     "来源 ERP 导入 · 只读，不提供本地写入"
   } else {
     model.loan_command_note
@@ -33872,24 +34242,209 @@ fn loan_editor_view(
         strong("工作流同步候选"),
         span(" · " + model.loan_workflow_sync_note),
       ]),
-      div(class="erp-form-grid") <| [
-        form_field(
-          "借款单号",
-          if detail {
-            model.loan_id
-          } else {
-            "自动生成"
-          },
-          "借款单号",
-        ),
-        form_field("借款类型", "差旅借款", "借款类型"),
-        form_field("借款用途", "沈阳项目会议", "用途"),
-        form_field("借款金额", "8000", "金额(元)"),
-        form_field("预计归还", "2026-07-30", "YYYY-MM-DD"),
-        form_field("关联项目", "沈阳和山苑", "项目"),
-        form_field("核销科目", "差旅交通", "核销科目"),
-        form_field("收款账户", "个人备用金", "账户"),
-      ],
+      if detail && !is_local {
+        div(class="erp-form-grid") <| [
+          form_field("借款单号", model.loan_id, "借款单号"),
+          form_field(
+            "主题",
+            match source_row {
+              Some(row) => row.subject
+              _ => "—"
+            },
+            "主题",
+          ),
+          form_field(
+            "借款金额",
+            match source_row {
+              Some(row) => row.loan_amount
+              _ => "0"
+            },
+            "金额(元)",
+          ),
+          form_field(
+            "已冲账",
+            match source_row {
+              Some(row) => row.balance_amount
+              _ => "0"
+            },
+            "金额(元)",
+          ),
+          form_field("剩余未还", remain_amount, "金额(元)"),
+          form_field(
+            "申请部门",
+            match source_row {
+              Some(row) => row.apply_dept_name
+              _ => "—"
+            },
+            "部门",
+          ),
+          form_field(
+            "关联项目",
+            match source_row {
+              Some(row) => row.project_name
+              _ => "—"
+            },
+            "项目",
+          ),
+          form_field(
+            "申请日期",
+            match source_row {
+              Some(row) => row.apply_date
+              _ => "—"
+            },
+            "YYYY-MM-DD",
+          ),
+          form_field(
+            "收款单位",
+            match source_row {
+              Some(row) => row.pay_unit
+              _ => "—"
+            },
+            "收款单位",
+          ),
+        ]
+      } else {
+        div(class="erp-form-grid") <| [
+          form_field(
+            "借款单号",
+            if detail {
+              model.loan_id
+            } else {
+              "保存后生成"
+            },
+            "借款单号",
+          ),
+          editable_form_field(
+            "主题",
+            if model.loan_subject.is_empty() {
+              match source_row {
+                Some(row) => row.subject
+                _ => ""
+              }
+            } else {
+              model.loan_subject
+            },
+            "如：差旅备用金",
+            @html.InputType::Text,
+            emit.map(value => InputLoanField("subject", value)),
+          ),
+          editable_form_field(
+            "申请日期",
+            if model.loan_apply_date.is_empty() {
+              match source_row {
+                Some(row) => row.apply_date
+                _ => ""
+              }
+            } else {
+              model.loan_apply_date
+            },
+            "YYYY-MM-DD",
+            @html.InputType::Text,
+            emit.map(value => InputLoanField("date", value)),
+          ),
+          editable_form_field(
+            "借款金额",
+            if model.loan_amount == "0" || model.loan_amount.is_empty() {
+              match source_row {
+                Some(row) => row.loan_amount
+                _ => "0"
+              }
+            } else {
+              model.loan_amount
+            },
+            "金额(元)",
+            @html.InputType::Text,
+            emit.map(value => InputLoanField("amount", value)),
+          ),
+          editable_form_field(
+            "申请部门",
+            if model.loan_apply_dept_guid.is_empty() {
+              match source_row {
+                Some(row) => row.apply_dept_name
+                _ => ""
+              }
+            } else {
+              model.loan_apply_dept_guid
+            },
+            "部门 GUID",
+            @html.InputType::Text,
+            emit.map(value => InputLoanField("dept", value)),
+          ),
+          editable_form_field(
+            "付款单位",
+            model.loan_pay_unit,
+            "收款方",
+            @html.InputType::Text,
+            emit.map(value => InputLoanField("pay_unit", value)),
+          ),
+          editable_form_field(
+            "关联项目",
+            if model.loan_project_guid.is_empty() {
+              match source_row {
+                Some(row) => row.project_name
+                _ => ""
+              }
+            } else {
+              model.loan_project_guid
+            },
+            "项目 GUID（可选）",
+            @html.InputType::Text,
+            emit.map(value => InputLoanField("project", value)),
+          ),
+        ]
+      },
+      if !detail {
+        loan_reference_chips(emit, model)
+      } else {
+        @html.nothing
+      },
+      if detail && is_local && current_state == "Approved" {
+        section(class="erp-detail-card") <| [
+          div(class="erp-panel-heading") <| [
+            h2("借款冲账"),
+            span(
+              class="erp-source-note",
+              "原值 / 已冲 / 剩余三态字段",
+            ),
+          ],
+          div(class="erp-form-grid") <| [
+            editable_form_field(
+              "冲账金额",
+              model.loan_offset_amount,
+              "金额(元)",
+              @html.InputType::Text,
+              emit.map(value => InputLoanField("offset_amount", value)),
+            ),
+            editable_form_field(
+              "冲账日期",
+              model.loan_offset_date,
+              "YYYY-MM-DD",
+              @html.InputType::Text,
+              emit.map(value => InputLoanField("offset_date", value)),
+            ),
+            editable_form_field(
+              "关联报销",
+              model.loan_offset_related_expense,
+              "expenseGuid（可选）",
+              @html.InputType::Text,
+              emit.map(value => InputLoanField("offset_expense", value)),
+            ),
+            editable_form_field(
+              "备注",
+              model.loan_offset_remark,
+              "冲账说明",
+              @html.InputType::Text,
+              emit.map(value => InputLoanField("offset_remark", value)),
+            ),
+          ],
+          p(
+            class="erp-source-note",
+            "提交冲账候选后只更新 PostgreSQL 借款投影，不执行现金、会计或税务处理",
+          ),
+        ]
+      } else {
+        @html.nothing
+      },
       if detail && is_local && model.loan_state == "error" {
         div(class="erp-command-receipt") <| [
           strong("命令服务状态"),
