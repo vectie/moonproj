@@ -128,6 +128,9 @@ async fn cbs_dict_response(
           "subject": Json::string(report_text(row.payload, "subject", "")),
           "plan_amount": Json::number(report_amount(row.payload, "plan_amount")),
           "src": Json::string(report_text(row.payload, "src", "")),
+          "source_kind": Json::string(
+            report_text(row.payload, "source_kind", "imported"),
+          ),
         }),
       )
     }
@@ -151,6 +154,9 @@ async fn cbs_dict_response(
           "subject": Json::string(report_text(payload, "subject", "")),
           "plan_amount": Json::number(report_amount(payload, "plan_amount")),
           "src": Json::string(report_text(payload, "src", "manual")),
+          "source_kind": Json::string(
+            report_text(payload, "source_kind", "command"),
+          ),
         }),
       )
     }
@@ -261,6 +267,9 @@ async fn cbs_versions_response(
           "frozen_by": Json::string(report_text(row.payload, "frozen_by", "")),
           "created_at": Json::string(report_text(row.payload, "created_at", "")),
           "created_by": Json::string(report_text(row.payload, "created_by", "")),
+          "source_kind": Json::string(
+            report_text(row.payload, "source_kind", "imported"),
+          ),
         }),
       )
     }
@@ -281,6 +290,9 @@ async fn cbs_versions_response(
           "frozen_by": Json::string(report_text(payload, "frozen_by", "")),
           "created_at": Json::string(report_text(payload, "created_at", "")),
           "created_by": Json::string(report_text(payload, "created_by", "")),
+          "source_kind": Json::string(
+            report_text(payload, "source_kind", "command"),
+          ),
         }),
       )
     }

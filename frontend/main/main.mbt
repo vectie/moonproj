@@ -844,6 +844,18 @@ struct CbsRow {
   subject : String
   plan_amount : String
   src : String
+  source_kind : String
+}
+
+///|
+struct CbsVersionRow {
+  plan_version : String
+  version_name : String
+  parent_version : String
+  is_active : Bool
+  frozen_at : String
+  created_at : String
+  source_kind : String
 }
 
 ///|
@@ -1554,7 +1566,20 @@ struct Model {
   cashflow_explain_text : String
   cbs_loaded : Bool
   cbs_rows : Array[CbsRow]
+  cbs_project_id : String
+  cbs_tab : String
   cbs_plan_version : String
+  cbs_version_rows : Array[CbsVersionRow]
+  cbs_form_open : String
+  cbs_new_version_name : String
+  cbs_clone_base : String
+  cbs_new_dict_l2_code : String
+  cbs_new_dict_l2_name : String
+  cbs_new_dict_subject : String
+  cbs_new_dict_plan_amount : String
+  cbs_batch_r_code : String
+  cbs_batch_pct : String
+  cbs_command_note : String
   cbs_r0_count : String
   cbs_missing_table_count : String
   cbs_note : String
@@ -2210,8 +2235,25 @@ enum Msg {
   CashflowExplainFailed
   CbsLoaded(String)
   CbsLoadFailed
+  CbsVersionsLoaded(String)
+  CbsVersionsLoadFailed
   CbsR0Loaded(String)
   CbsR0LoadFailed
+  SelectCbsProject(String)
+  SelectCbsTab(String)
+  SelectCbsVersion(String)
+  OpenCbsForm(String)
+  CloseCbsForm
+  InputCbsField(String, String)
+  CloneCbsVersion
+  FreezeCbsVersion
+  ActivateCbsVersion
+  FreezeCbsVersionFor(String)
+  ActivateCbsVersionFor(String)
+  CreateCbsDict
+  BatchAdjustCbs
+  CbsCommandFinished(String)
+  CbsCommandFailed
   FundLoaded(String)
   FundLoadFailed
   FundGapLoaded(String)
@@ -2931,7 +2973,20 @@ fn initial_model() -> Model {
     cashflow_explain_text: "等待现金流解释候选",
     cbs_loaded: false,
     cbs_rows: [],
+    cbs_project_id: "proj-0001",
+    cbs_tab: "dict",
     cbs_plan_version: "baseline",
+    cbs_version_rows: [],
+    cbs_form_open: "",
+    cbs_new_version_name: "调整版",
+    cbs_clone_base: "baseline",
+    cbs_new_dict_l2_code: "",
+    cbs_new_dict_l2_name: "",
+    cbs_new_dict_subject: "",
+    cbs_new_dict_plan_amount: "0",
+    cbs_batch_r_code: "R19",
+    cbs_batch_pct: "0",
+    cbs_command_note: "CBS 命令仍需成本负责人确认 · 不触发预算/现金/会计/税务",
     cbs_r0_count: "0",
     cbs_missing_table_count: "0",
     cbs_note: "CBS 读模型尚未加载 · 使用设计快照",
@@ -6209,6 +6264,16 @@ fn cbs_from_body(
                   subject: json_object_text(row, "subject", ""),
                   plan_amount: json_object_text(row, "plan_amount", "0"),
                   src: json_object_text(row, "src", "imported"),
+                  source_kind: json_object_text(
+                    row,
+                    "source_kind",
+                    if json_object_text(row, "src", "") == "manual" ||
+                      json_object_text(row, "src", "") == "cloned" {
+                      "command"
+                    } else {
+                      "imported"
+                    },
+                  ),
                 })
               _ => ()
             }
@@ -6225,6 +6290,44 @@ fn cbs_from_body(
     }
     _ =>
       (false, rows, "baseline", "0", "CBS 响应无效 · 使用设计快照")
+  }
+}
+
+///|
+fn cbs_versions_from_body(
+  body : String,
+) -> (Bool, Array[CbsVersionRow], String) {
+  let rows : Array[CbsVersionRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Array(items)) => {
+          for value in items {
+            match value {
+              Json::Object(row) =>
+                rows.push({
+                  plan_version: json_object_text(row, "plan_version", ""),
+                  version_name: json_object_text(row, "version_name", ""),
+                  parent_version: json_object_text(row, "parent_version", ""),
+                  is_active: json_object_text(row, "is_active", "false") ==
+                  "true",
+                  frozen_at: json_object_text(row, "frozen_at", ""),
+                  created_at: json_object_text(row, "created_at", ""),
+                  source_kind: json_object_text(
+                    row,
+                    "source_kind",
+                    json_object_text(row, "sourceKind", "imported"),
+                  ),
+                })
+              _ => ()
+            }
+          }
+          (true, rows, "已加载 PostgreSQL CBS 版本源读模型")
+        }
+        _ => (false, rows, "CBS 版本响应为空 · 保留设计快照")
+      }
+    _ => (false, rows, "CBS 版本响应无效 · 保留设计快照")
   }
 }
 
@@ -9408,11 +9511,98 @@ fn issue_cashflow_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_cbs(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/cbs/dict?projGuid=proj-0001").expect_text(result => {
+fn load_cbs_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+  plan_version : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/cbs/dict?projGuid=" +
+    project_id +
+    "&planVersion=" +
+    plan_version,
+  ).expect_text(result => {
     match result {
       Ok(body) => emit(CbsLoaded(body))
       Err(_) => emit(CbsLoadFailed)
+    }
+  })
+}
+
+///|
+fn load_cbs_versions(emit : @rabbita.Emit[Msg], project_id : String) -> Cmd {
+  @http.get("/api/company/cbs/versions?projGuid=" + project_id).expect_text(result => {
+    match result {
+      Ok(body) => emit(CbsVersionsLoaded(body))
+      Err(_) => emit(CbsVersionsLoadFailed)
+    }
+  })
+}
+
+///|
+fn cbs_command_body(model : Model, command : String) -> String {
+  let idempotency_key = "rabbita-cbs-" + command + "-" + import_nonce()
+  if command == "version_clone" {
+    Json::object({
+      "idempotency_key": Json::string(idempotency_key),
+      "projGuid": Json::string(model.cbs_project_id),
+      "basePlanVersion": Json::string(model.cbs_clone_base),
+      "newName": Json::string(model.cbs_new_version_name),
+      "actor_id": Json::string(model.user_code),
+    }).stringify()
+  } else if command == "dict_add" {
+    Json::object({
+      "idempotency_key": Json::string(idempotency_key),
+      "projGuid": Json::string(model.cbs_project_id),
+      "planVersion": Json::string(model.cbs_plan_version),
+      "l2Code": Json::string(model.cbs_new_dict_l2_code),
+      "l2Name": Json::string(model.cbs_new_dict_l2_name),
+      "subject": Json::string(model.cbs_new_dict_subject),
+      "planAmount": investment_edit_value_json(model.cbs_new_dict_plan_amount),
+      "actor_id": Json::string(model.user_code),
+    }).stringify()
+  } else if command == "dict_batch_adjust" {
+    Json::object({
+      "idempotency_key": Json::string(idempotency_key),
+      "projGuid": Json::string(model.cbs_project_id),
+      "planVersion": Json::string(model.cbs_plan_version),
+      "rCode": Json::string(model.cbs_batch_r_code),
+      "pct": investment_edit_value_json(model.cbs_batch_pct),
+      "actor_id": Json::string(model.user_code),
+    }).stringify()
+  } else {
+    Json::object({
+      "idempotency_key": Json::string(idempotency_key),
+      "projGuid": Json::string(model.cbs_project_id),
+      "planVersion": Json::string(model.cbs_plan_version),
+      "actor_id": Json::string(model.user_code),
+    }).stringify()
+  }
+}
+
+///|
+fn issue_cbs_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command : String,
+) -> Cmd {
+  let path = if command == "version_clone" {
+    "/api/company/cbs/versions/clone"
+  } else if command == "version_freeze" {
+    "/api/company/cbs/versions/freeze"
+  } else if command == "version_activate" {
+    "/api/company/cbs/versions/activate"
+  } else if command == "dict_add" {
+    "/api/company/cbs/dict"
+  } else {
+    "/api/company/cbs/dict/batch-adjust"
+  }
+  @http.post(path)
+  .with_text(cbs_command_body(model, command))
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(CbsCommandFinished(body))
+      Err(_) => emit(CbsCommandFailed)
     }
   })
 }
@@ -12633,7 +12823,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         path == "/cbs/versions" ||
         path == "/cbs/r0-queue" ||
         path == "/cbs/approval-config" {
-        load_cbs(emit)
+        @cmd.batch([
+          load_projects(emit),
+          load_cbs_versions(emit, model.cbs_project_id),
+          load_cbs_for(emit, model.cbs_project_id, model.cbs_plan_version),
+        ])
       } else if path == "/fund/plan" {
         @cmd.batch([
           load_projects(emit),
@@ -17024,6 +17218,214 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           cashflow_explain_note: "现金流解释候选不可用 · provider/LLM 保持关闭",
           cashflow_explain_text: "现金流解释候选不可用",
+        },
+      )
+    SelectCbsProject(project_id) =>
+      (
+        @cmd.batch([
+          load_cbs_versions(emit, project_id),
+          load_cbs_for(emit, project_id, model.cbs_plan_version),
+        ]),
+        {
+          ..model,
+          cbs_project_id: project_id,
+          cbs_loaded: false,
+          cbs_rows: [],
+          cbs_version_rows: [],
+          cbs_command_note: "正在读取所选项目 CBS 版本与字典…",
+        },
+      )
+    SelectCbsTab(tab) => (none, { ..model, cbs_tab: tab })
+    SelectCbsVersion(version) =>
+      (
+        load_cbs_for(emit, model.cbs_project_id, version),
+        {
+          ..model,
+          cbs_plan_version: version,
+          cbs_loaded: false,
+          cbs_rows: [],
+          cbs_command_note: "正在读取 CBS 版本 " + version + "…",
+        },
+      )
+    OpenCbsForm(form) =>
+      (
+        none,
+        {
+          ..model,
+          cbs_form_open: form,
+          cbs_clone_base: if model.cbs_plan_version.is_empty() {
+            "baseline"
+          } else {
+            model.cbs_plan_version
+          },
+        },
+      )
+    CloseCbsForm => (none, { ..model, cbs_form_open: "" })
+    InputCbsField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          cbs_new_version_name: if field == "version_name" {
+            value
+          } else {
+            model.cbs_new_version_name
+          },
+          cbs_clone_base: if field == "clone_base" {
+            value
+          } else {
+            model.cbs_clone_base
+          },
+          cbs_new_dict_l2_code: if field == "l2_code" {
+            value
+          } else {
+            model.cbs_new_dict_l2_code
+          },
+          cbs_new_dict_l2_name: if field == "l2_name" {
+            value
+          } else {
+            model.cbs_new_dict_l2_name
+          },
+          cbs_new_dict_subject: if field == "subject" {
+            value
+          } else {
+            model.cbs_new_dict_subject
+          },
+          cbs_new_dict_plan_amount: if field == "plan_amount" {
+            value
+          } else {
+            model.cbs_new_dict_plan_amount
+          },
+          cbs_batch_r_code: if field == "batch_r_code" {
+            value
+          } else {
+            model.cbs_batch_r_code
+          },
+          cbs_batch_pct: if field == "batch_pct" {
+            value
+          } else {
+            model.cbs_batch_pct
+          },
+        },
+      )
+    CloneCbsVersion =>
+      (
+        issue_cbs_command(emit, model, "version_clone"),
+        {
+          ..model,
+          cbs_form_open: "",
+          cbs_command_note: "正在提交 CBS 调整版克隆候选…",
+        },
+      )
+    FreezeCbsVersion =>
+      (
+        issue_cbs_command(emit, model, "version_freeze"),
+        { ..model, cbs_command_note: "正在提交 CBS 冻结候选…" },
+      )
+    ActivateCbsVersion =>
+      (
+        issue_cbs_command(emit, model, "version_activate"),
+        { ..model, cbs_command_note: "正在提交 CBS 激活候选…" },
+      )
+    FreezeCbsVersionFor(version) =>
+      (
+        issue_cbs_command(
+          emit,
+          { ..model, cbs_plan_version: version },
+          "version_freeze",
+        ),
+        {
+          ..model,
+          cbs_plan_version: version,
+          cbs_command_note: "正在提交 CBS 版本 " +
+          version +
+          " 冻结候选…",
+        },
+      )
+    ActivateCbsVersionFor(version) =>
+      (
+        issue_cbs_command(
+          emit,
+          { ..model, cbs_plan_version: version },
+          "version_activate",
+        ),
+        {
+          ..model,
+          cbs_plan_version: version,
+          cbs_command_note: "正在提交 CBS 版本 " +
+          version +
+          " 激活候选…",
+        },
+      )
+    CreateCbsDict =>
+      (
+        issue_cbs_command(emit, model, "dict_add"),
+        {
+          ..model,
+          cbs_form_open: "",
+          cbs_command_note: "正在提交 CBS 子项候选…",
+        },
+      )
+    BatchAdjustCbs =>
+      (
+        issue_cbs_command(emit, model, "dict_batch_adjust"),
+        {
+          ..model,
+          cbs_form_open: "",
+          cbs_command_note: "正在提交 CBS 批量调整候选…",
+        },
+      )
+    CbsVersionsLoaded(body) => {
+      let (loaded, rows, note) = cbs_versions_from_body(body)
+      let version = if model.cbs_plan_version == "baseline" && rows.length() > 0 {
+        rows[0].plan_version
+      } else {
+        model.cbs_plan_version
+      }
+      (
+        if loaded && version != model.cbs_plan_version {
+          load_cbs_for(emit, model.cbs_project_id, version)
+        } else {
+          none
+        },
+        {
+          ..model,
+          cbs_version_rows: rows,
+          cbs_plan_version: version,
+          cbs_command_note: note,
+        },
+      )
+    }
+    CbsVersionsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          cbs_version_rows: [],
+          cbs_command_note: "CBS 版本源读模型不可用 · 保留当前版本",
+        },
+      )
+    CbsCommandFinished(body) =>
+      (
+        @cmd.batch([
+          load_cbs_versions(emit, model.cbs_project_id),
+          load_cbs_for(emit, model.cbs_project_id, model.cbs_plan_version),
+        ]),
+        {
+          ..model,
+          cbs_command_note: if body.contains("\"idempotent_replay\":true") {
+            "CBS 命令已幂等重放 · 重新读取版本与字典"
+          } else {
+            "CBS 命令候选已写入本地投影 · 重新读取版本与字典"
+          },
+        },
+      )
+    CbsCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          cbs_command_note: "CBS 命令服务不可用、权限不足或源版本为只读",
         },
       )
     CbsLoaded(body) => {
@@ -27935,16 +28337,382 @@ fn cbs_runtime_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn cbs_view(model : Model, path : String) -> @html.Html {
-  let title = title_for(path)
+fn cbs_project_switcher(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let chips : Array[@html.Html] = []
+  for row in model.project_rows {
+    chips.push(
+      button(
+        class=if row.project_id == model.cbs_project_id {
+          "erp-chip is-active"
+        } else {
+          "erp-chip"
+        },
+        on_click=emit(SelectCbsProject(row.project_id)),
+        row.project_name,
+      ),
+    )
+  }
+  if chips.length() == 0 {
+    chips.push(
+      span(
+        class="erp-source-note",
+        "项目源列表为空 · 当前项目 " + model.cbs_project_id,
+      ),
+    )
+  }
+  div(class="erp-chip-row") <| chips
+}
+
+///|
+fn cbs_tabs(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  div(class="erp-tab-row") <| [
+    button(
+      class=if model.cbs_tab == "dict" {
+        "erp-tab is-active"
+      } else {
+        "erp-tab"
+      },
+      on_click=emit(Navigate("/cbs/dict")),
+      "CBS 字典",
+    ),
+    button(
+      class=if model.cbs_tab == "versions" {
+        "erp-tab is-active"
+      } else {
+        "erp-tab"
+      },
+      on_click=emit(Navigate("/cbs/versions")),
+      "目标版本",
+    ),
+    button(
+      class=if model.cbs_tab == "r0" { "erp-tab is-active" } else { "erp-tab" },
+      on_click=emit(Navigate("/cbs/r0-queue")),
+      "R0 待归类 (" + model.cbs_r0_count + ")",
+    ),
+    button(
+      class=if model.cbs_tab == "approval" {
+        "erp-tab is-active"
+      } else {
+        "erp-tab"
+      },
+      on_click=emit(Navigate("/cbs/approval-config")),
+      "审批配置",
+    ),
+  ]
+}
+
+///|
+fn cbs_version_form_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if model.cbs_form_open == "clone" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("克隆新调整版"),
+        span(
+          class="erp-source-note",
+          "本地命令投影 · 导入版本保持只读",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "基线版本",
+          model.cbs_clone_base,
+          "baseline",
+          @html.InputType::Text,
+          emit.map(value => InputCbsField("clone_base", value)),
+        ),
+        editable_form_field(
+          "新版名称",
+          model.cbs_new_version_name,
+          "调整版 2026-07",
+          @html.InputType::Text,
+          emit.map(value => InputCbsField("version_name", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseCbsForm), "取消"),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CloneCbsVersion),
+          "提交克隆候选",
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
+  }
+}
+
+///|
+fn cbs_dict_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  if model.cbs_form_open == "dict" || model.cbs_form_open == "batch" {
+    let batch = model.cbs_form_open == "batch"
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2(if batch { "批量 ±% 调整" } else { "加 CBS 子项" }),
+        span(
+          class="erp-source-note",
+          "冻结版本不可改 · 只写入本地 CBS 命令投影",
+        ),
+      ],
+      if batch {
+        div(class="erp-form-grid") <| [
+          editable_form_field(
+            "作用 R",
+            model.cbs_batch_r_code,
+            "R19",
+            @html.InputType::Text,
+            emit.map(value => InputCbsField("batch_r_code", value)),
+          ),
+          editable_form_field(
+            "百分比",
+            model.cbs_batch_pct,
+            "-20",
+            @html.InputType::Text,
+            emit.map(value => InputCbsField("batch_pct", value)),
+          ),
+        ]
+      } else {
+        div(class="erp-form-grid") <| [
+          editable_form_field(
+            "挂大类",
+            model.cbs_new_dict_l2_code,
+            "03-01",
+            @html.InputType::Text,
+            emit.map(value => InputCbsField("l2_code", value)),
+          ),
+          editable_form_field(
+            "大类名称",
+            model.cbs_new_dict_l2_name,
+            "主体结构工程",
+            @html.InputType::Text,
+            emit.map(value => InputCbsField("l2_name", value)),
+          ),
+          editable_form_field(
+            "子项名",
+            model.cbs_new_dict_subject,
+            "年会礼品",
+            @html.InputType::Text,
+            emit.map(value => InputCbsField("subject", value)),
+          ),
+          editable_form_field(
+            "计划金额(万)",
+            model.cbs_new_dict_plan_amount,
+            "0",
+            @html.InputType::Text,
+            emit.map(value => InputCbsField("plan_amount", value)),
+          ),
+        ]
+      },
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseCbsForm), "取消"),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(if batch { BatchAdjustCbs } else { CreateCbsDict }),
+          if batch {
+            "提交调整候选"
+          } else {
+            "提交新增候选"
+          },
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
+  }
+}
+
+///|
+fn cbs_versions_runtime_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.cbs_version_rows {
+    let is_local = row.source_kind == "command"
+    let actions : Array[@html.Html] = if is_local {
+      [
+        button(
+          class="erp-link-btn",
+          on_click=emit(SelectCbsVersion(row.plan_version)),
+          "查看字典",
+        ),
+        button(
+          class="erp-link-btn",
+          disabled=!row.frozen_at.is_empty(),
+          on_click=emit(FreezeCbsVersionFor(row.plan_version)),
+          "冻结",
+        ),
+        button(
+          class="erp-link-btn is-success",
+          disabled=row.is_active,
+          on_click=emit(ActivateCbsVersionFor(row.plan_version)),
+          "设为当前",
+        ),
+      ]
+    } else {
+      [span(class="erp-source-note", "导入版本只读")]
+    }
+    rows.push(
+      tr <| [
+        td(row.plan_version),
+        td(row.version_name),
+        td(
+          if row.parent_version.is_empty() {
+            "—"
+          } else {
+            row.parent_version
+          },
+        ),
+        td(if row.frozen_at.is_empty() { "草稿" } else { "冻结" }),
+        td(if row.is_active { "当前使用" } else { "—" }),
+        td(row.frozen_at),
+        td(row.created_at),
+        td(row.source_kind),
+        td(actions),
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("没有 CBS 版本源记录"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+      ],
+    )
+  }
+  table_panel(
+    "目标成本版本 (" + model.cbs_version_rows.length().to_string() + ")",
+    model.cbs_command_note + " · 项目 " + model.cbs_project_id,
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "版本编码", "版本名称", "父版本", "状态", "使用中", "冻结时间",
+          "创建时间", "来源", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
+fn cbs_dict_runtime_table(model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  for row in model.cbs_rows {
+    rows.push(
+      tr <| [
+        td(row.r_code),
+        td(row.l2_name),
+        td(row.l3_code),
+        td(row.subject),
+        td(row.plan_amount),
+        td(row.src),
+        td(
+          if row.source_kind == "command" {
+            "本地命令"
+          } else {
+            "导入只读"
+          },
+        ),
+      ],
+    )
+  }
+  if rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("当前版本没有字典源记录"),
+        td("0"),
+        td("—"),
+        td("—"),
+      ],
+    )
+  }
+  table_panel(
+    "CBS 科目字典 (" + model.cbs_rows.length().to_string() + ")",
+    model.cbs_note + " · 版本 " + model.cbs_plan_version,
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "R", "L2", "L3", "科目", "计划金额(万)", "录入来源", "投影来源",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
+fn cbs_view(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  path : String,
+) -> @html.Html {
+  let tab = if path == "/cbs/versions" {
+    "versions"
+  } else if path == "/cbs/dict" {
+    "dict"
+  } else if path == "/cbs/r0-queue" {
+    "r0"
+  } else if path == "/cbs/approval-config" {
+    "approval"
+  } else {
+    model.cbs_tab
+  }
+  let content = if tab == "versions" {
+    cbs_versions_runtime_table(emit, model)
+  } else if tab == "dict" {
+    cbs_dict_runtime_table(model)
+  } else {
+    cbs_runtime_table(model)
+  }
   page_shell(
-    title,
+    title_for(path),
     "CBS / MASTER DATA",
     "维护成本分解结构、目标版本和审批配置，确保项目成本口径一致。",
-    [button(class="erp-primary-btn", "＋ 新建条目")],
+    if tab == "versions" {
+      [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(OpenCbsForm("clone")),
+          "＋ 克隆调整版",
+        ),
+      ]
+    } else if tab == "dict" {
+      [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(OpenCbsForm("dict")),
+          "＋ 加子项",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(OpenCbsForm("batch")),
+          "⚖ 批量 ±%",
+        ),
+      ]
+    } else {
+      []
+    },
     div <| [
-      filter_bar("科目编码 / 科目名称 / 版本"),
-      cbs_runtime_table(model),
+      cbs_project_switcher(emit, model),
+      cbs_tabs(emit, { ..model, cbs_tab: tab }),
+      div(class="erp-source-note", model.cbs_command_note),
+      cbs_version_form_view(emit, model),
+      cbs_dict_form_view(emit, model),
+      content,
     ],
   )
 }
@@ -34879,10 +35647,10 @@ fn business_view(
       "/srm/providers" => srm_providers_view(emit, model)
       "/srm/providers/SUP-00018" => provider_detail_view(emit, model)
       "/srm/risk-board" => srm_risk_view(emit, model)
-      "/cbs/dict" => cbs_view(model, path)
-      "/cbs/versions" => cbs_view(model, path)
-      "/cbs/r0-queue" => cbs_view(model, path)
-      "/cbs/approval-config" => cbs_view(model, path)
+      "/cbs/dict" => cbs_view(emit, model, path)
+      "/cbs/versions" => cbs_view(emit, model, path)
+      "/cbs/r0-queue" => cbs_view(emit, model, path)
+      "/cbs/approval-config" => cbs_view(emit, model, path)
       "/fund/plan" => fund_plan_view(emit, model)
       "/invoice" => invoice_view(emit, model)
       "/expenses" => expenses_view(emit, model)
