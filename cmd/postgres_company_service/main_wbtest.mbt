@@ -311,6 +311,11 @@ test "native company service maps invoice command paths" {
     invoice_command_spec(@http.Delete, "/api/company/source/invoice/out/INV/1")
     is None,
   )
+  assert_true(
+    invoice_command_spec(
+      @http.Post, "/api/company/source/invoice/out/INV-1/delete",
+    ) is Some(("out", "delete", Some("INV-1"))),
+  )
 }
 
 ///|

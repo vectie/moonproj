@@ -14510,9 +14510,17 @@ fn invoice_command_spec(
     }
   }
   let prefix = "/api/company/source/invoice/"
-  if request_method is @http.Delete && path.has_prefix(prefix) {
+  if (request_method is @http.Delete || request_method is @http.Post) &&
+    path.has_prefix(prefix) {
     let rest = path[prefix.length():].to_owned().split("/").to_array()
-    if rest.length() == 2 &&
+    if (
+        (request_method is @http.Delete && rest.length() == 2) ||
+        (
+          request_method is @http.Post &&
+          rest.length() == 3 &&
+          rest[2].to_owned() == "delete"
+        )
+      ) &&
       (rest[0].to_owned() == "in" || rest[0].to_owned() == "out") &&
       valid_identifier(rest[1].to_owned()) {
       return Some((rest[0].to_owned(), "delete", Some(rest[1].to_owned())))

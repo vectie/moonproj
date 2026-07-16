@@ -364,6 +364,7 @@ struct SalesRevenueRow {
 
 ///|
 struct InvoiceRow {
+  invoice_guid : String
   invoice_no : String
   counterparty : String
   invoice_date : String
@@ -2003,6 +2004,7 @@ enum Msg {
   CloseInvoiceForm
   InputInvoiceField(String, String)
   CreateInvoice(String)
+  DeleteInvoice(String, String)
   InvoiceCommandFinished
   InvoiceCommandFailed
   DeliverySourceProgressLoaded(String)
@@ -4483,6 +4485,11 @@ fn invoice_rows_from_body(
         match value {
           Json::Object(row) =>
             rows.push({
+              invoice_guid: json_object_text(
+                row,
+                "invoice_guid",
+                json_object_text(row, "invoiceGuid", ""),
+              ),
               invoice_no: json_object_text(row, "invoiceNo", "—"),
               counterparty: if direction == "in" {
                 json_object_text(row, "providerName", "—")
@@ -8343,6 +8350,42 @@ fn issue_invoice_create(
   }
   let body = Json::object(fields).stringify()
   @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(_) => emit(InvoiceCommandFinished)
+      Err(_) => emit(InvoiceCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_invoice_delete(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  direction : String,
+  invoice_id : String,
+) -> Cmd {
+  let nonce = import_nonce()
+  let scope = "project:" + model.invoice_project_id
+  let body = Json::object({
+    "idempotency_key": Json::string(
+      "rabbita-invoice-delete-" + direction + "-" + nonce,
+    ),
+    "principal_id": Json::string("principal-rabbita"),
+    "scope": Json::string(scope),
+    "authority": Json::object({
+      "active": Json::boolean(true),
+      "principal_id": Json::string("principal-rabbita"),
+      "actor_id": Json::string(model.user_code),
+      "scope": Json::string(scope),
+      "capability": Json::string("invoice:" + direction + ":delete"),
+      "max_amount_minor": Json::number(0.0),
+    }),
+  }).stringify()
+  @http.post(
+    "/api/company/source/invoice/" + direction + "/" + invoice_id + "/delete",
+  )
   .with_text(body)
   .expect_text(result => {
     match result {
@@ -14957,6 +15000,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
+    DeleteInvoice(direction, invoice_id) =>
+      if invoice_id.is_empty() || model.invoice_form_open != "" {
+        (none, model)
+      } else {
+        (
+          issue_invoice_delete(emit, model, direction, invoice_id),
+          {
+            ..model,
+            invoice_source_note: "正在提交 " +
+            direction +
+            " 发票删除/归档命令…",
+          },
+        )
+      }
     CreateInvoice(direction) =>
       (
         issue_invoice_create(emit, model, direction),
@@ -27435,28 +27492,58 @@ fn invoice_sum(rows : Array[InvoiceRow], tax : Bool) -> String {
 }
 
 ///|
-fn invoice_runtime_table(model : Model, direction : String) -> @html.Html {
+fn invoice_runtime_table(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  direction : String,
+) -> @html.Html {
   let source_rows = if direction == "in" {
     model.invoice_in_rows
   } else {
     model.invoice_out_rows
   }
-  let rows : Array[Array[String]] = []
+  let rows : Array[@html.Html] = []
   if source_rows.length() == 0 {
-    rows.push(["—", "—", "—", "—", "0", "0", "0", "—", "源表为空"])
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("0"),
+        td("0"),
+        td("0"),
+        td("—"),
+        td("源表为空"),
+        td("—"),
+      ],
+    )
   } else {
     for row in source_rows {
-      rows.push([
-        row.invoice_no,
-        row.counterparty,
-        row.invoice_date,
-        row.total_amount,
-        row.tax_amount,
-        row.tax_rate,
-        row.invoice_type,
-        row.state,
-        row.source_kind,
-      ])
+      let action = if row.source_kind == "command" &&
+        !row.invoice_guid.is_empty() {
+        button(
+          class="erp-link-btn is-warning",
+          on_click=emit(DeleteInvoice(direction, row.invoice_guid)),
+          "删除",
+        )
+      } else {
+        span(class="erp-source-note", "源行只读")
+      }
+      rows.push(
+        tr <| [
+          td(row.invoice_no),
+          td(row.counterparty),
+          td(row.invoice_date),
+          td(row.total_amount),
+          td(row.tax_amount),
+          td(row.tax_rate),
+          td(row.invoice_type),
+          td(row.state),
+          td(row.source_kind),
+          td(action),
+        ],
+      )
     }
   }
   table_panel(
@@ -27470,24 +27557,27 @@ fn invoice_runtime_table(model : Model, direction : String) -> @html.Html {
     " · " +
     source_rows.length().to_string() +
     " 条 · 导入行只读",
-    data_table(
-      [
-        "发票号",
-        if direction == "in" {
-          "供应商"
-        } else {
-          "客户"
-        },
-        "开票日",
-        "金额(含税)",
-        "税额",
-        "税率",
-        "类型",
-        "状态",
-        "来源",
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "发票号",
+          if direction == "in" {
+            "供应商"
+          } else {
+            "客户"
+          },
+          "开票日",
+          "金额(含税)",
+          "税额",
+          "税率",
+          "类型",
+          "状态",
+          "来源",
+          "操作",
+        ]),
       ],
-      rows,
-    ),
+      tbody <| rows,
+    ],
   )
 }
 
@@ -27734,9 +27824,9 @@ fn invoice_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
       ],
       if model.invoice_tab == "in" {
-        invoice_runtime_table(model, "in")
+        invoice_runtime_table(emit, model, "in")
       } else if model.invoice_tab == "out" {
-        invoice_runtime_table(model, "out")
+        invoice_runtime_table(emit, model, "out")
       } else {
         invoice_tax_table(model)
       },
