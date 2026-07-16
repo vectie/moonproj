@@ -2265,6 +2265,7 @@ enum Msg {
   CreateMarketingMaterial
   MarketingCommandFinished(String)
   MarketingCommandFailed
+  DeleteMarketingCampaign(String)
   InboxLoaded(String)
   InboxLoadFailed
   InboxUnreadLoaded(String)
@@ -6497,6 +6498,12 @@ fn marketing_rows_from_body(
                     json_object_text(row, "endDate", ""),
                     json_object_text(row, "state", "—"),
                     json_object_text(row, "l3Code", "—"),
+                    json_object_text(row, "campaignGuid", ""),
+                    json_object_text(
+                      row,
+                      "sourceKind",
+                      json_object_text(row, "source_kind", "imported"),
+                    ),
                   ])
                 } else if family == "placements" {
                   rows.push([
@@ -9831,6 +9838,25 @@ fn issue_marketing_campaign_create(
     }).stringify(),
   )
   .expect_text(result => {
+    match result {
+      Ok(body) => emit(MarketingCommandFinished(body))
+      Err(_) => emit(MarketingCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_marketing_campaign_delete(
+  emit : @rabbita.Emit[Msg],
+  campaign_id : String,
+) -> Cmd {
+  let key = "rabbita-marketing-campaign-delete-" + import_nonce()
+  @http.delete(
+    "/api/company/marketing/campaigns/" +
+    campaign_id +
+    "?idempotency_key=" +
+    key,
+  ).expect_text(result => {
     match result {
       Ok(body) => emit(MarketingCommandFinished(body))
       Err(_) => emit(MarketingCommandFailed)
@@ -17855,6 +17881,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           marketing_note: "正在写入本地营销活动命令…",
         },
       )
+    DeleteMarketingCampaign(campaign_id) =>
+      if campaign_id.is_empty() {
+        (none, model)
+      } else {
+        (
+          issue_marketing_campaign_delete(emit, campaign_id),
+          { ..model, marketing_note: "正在作废本地营销活动命令…" },
+        )
+      }
     CreateMarketingPlacement =>
       (
         issue_marketing_placement_create(emit, model),
@@ -32002,7 +32037,11 @@ fn marketing_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let campaign_rows = if model.marketing_loaded {
     if model.marketing_campaign_rows.length() == 0 {
-      [["—", "—", "—", "0", "0", "—", "无源记录", "—"]]
+      [
+        [
+          "—", "—", "—", "0", "0", "—", "无源记录", "—", "", "imported",
+        ],
+      ]
     } else {
       model.marketing_campaign_rows
     }
@@ -32010,15 +32049,15 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     [
       [
         "CAM-260701", "成都和锦里开盘推广", "开盘活动", "¥1,800,000",
-        "¥680,000", "2026-07-01 ~ 08-20", "运行中", "04-03",
+        "¥680,000", "2026-07-01 ~ 08-20", "运行中", "04-03", "", "imported",
       ],
       [
         "CAM-260615", "南山居线上投放", "线上获客", "¥960,000", "¥812,000",
-        "2026-06-15 ~ 07-31", "运行中", "04-03",
+        "2026-06-15 ~ 07-31", "运行中", "04-03", "", "imported",
       ],
       [
         "CAM-260501", "沈阳和山苑暖场", "客户活动", "¥420,000", "¥420,000",
-        "2026-05-01 ~ 06-30", "已结束", "04-03",
+        "2026-05-01 ~ 06-30", "已结束", "04-03", "", "imported",
       ],
     ]
   }
@@ -32053,6 +32092,32 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     [["—", "—", "—", "0", "0", "0", "—", "无源记录"]]
   } else {
     model.marketing_material_rows
+  }
+  let campaign_table_rows : Array[@html.Html] = []
+  for row in campaign_rows {
+    let action = if row.length() > 9 && row[8] != "" && row[9] == "command" {
+      button(
+        class="erp-link-btn is-warning",
+        on_click=emit(DeleteMarketingCampaign(row[8])),
+        "删除",
+      )
+    } else {
+      span(class="erp-source-note", "源行只读")
+    }
+    campaign_table_rows.push(
+      tr <| [
+        td(row[0]),
+        td(row[1]),
+        td(row[2]),
+        td(row[3]),
+        td(row[4]),
+        td(row[5]),
+        td(row[6]),
+        td(row[7]),
+        td(if row.length() > 9 { row[9] } else { "imported" }),
+        td(action),
+      ],
+    )
   }
   let campaign_count = if model.marketing_loaded {
     model.marketing_campaign_count
@@ -32213,13 +32278,15 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           } else {
             "v3.8 · R19 营销费用 · " + model.marketing_note
           },
-          data_table(
-            [
-              "编号", "活动名称", "类型", "预算(元)", "已花(元)", "周期",
-              "状态", "挂 CBS",
+          table(class="erp-data-table") <| [
+            thead <| [
+              table_header([
+                "编号", "活动名称", "类型", "预算(元)", "已花(元)",
+                "周期", "状态", "挂 CBS", "来源", "操作",
+              ]),
             ],
-            campaign_rows,
-          ),
+            tbody <| campaign_table_rows,
+          ],
         )
       } else if model.marketing_tab == "placements" {
         table_panel(
