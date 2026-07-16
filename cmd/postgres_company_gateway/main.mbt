@@ -344,6 +344,8 @@ fn command_path_allowed(
     @http.Put =>
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/loans/", path) ||
+      path_with_identifier("/api/company/webhook/config/", path) ||
+      path_with_identifier("/api/company/source/webhook/config/", path) ||
       marketing_effect_path(path) ||
       path_with_identifier("/api/company/source/invoice/in/", path) ||
       path_with_identifier("/api/company/source/invoice/out/", path) ||

@@ -1344,6 +1344,9 @@ enum Msg {
   AiHubLoadFailed
   WebhookLoaded(String)
   WebhookLoadFailed
+  SaveWebhookConfig
+  WebhookConfigCommandFinished(String)
+  WebhookConfigCommandFailed
   TestWebhookDelivery
   WebhookCommandFinished(String)
   WebhookCommandFailed
@@ -6557,6 +6560,20 @@ fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_webhook_config_save(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.put("/api/company/source/webhook/config/wecom")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-webhook-config-save-v1\",\"enabled\":true,\"secret\":\"__keep__\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WebhookConfigCommandFinished(body))
+      Err(_) => emit(WebhookConfigCommandFailed)
+    }
+  })
+}
+
+///|
 fn issue_webhook_test(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.post("/api/company/webhook/test/wecom")
   .with_text(
@@ -10472,6 +10489,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           webhook_loaded: false,
           webhook_rows: [],
           webhook_note: "Webhook 配置读模型不可用 · 使用设计快照",
+        },
+      )
+    SaveWebhookConfig =>
+      (
+        issue_webhook_config_save(emit),
+        {
+          ..model,
+          webhook_command_note: "正在写入 Webhook 配置候选…",
+        },
+      )
+    WebhookConfigCommandFinished(body) =>
+      (
+        if body.contains("\"platform\":\"wecom\"") {
+          load_webhook_config(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          webhook_command_note: if body.contains("\"credentialsBound\":false") {
+            "Webhook 配置候选已写入 PostgreSQL · 凭据未绑定 · provider 未执行"
+          } else {
+            "Webhook 配置命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    WebhookConfigCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: "Webhook 配置候选服务不可用或被网关拒绝",
         },
       )
     TestWebhookDelivery =>
@@ -18657,7 +18706,11 @@ fn webhook_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(TestWebhookDelivery),
         "测试投递（干运行）",
       ),
-      button(class="erp-primary-btn", "保存配置（待授权）"),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(SaveWebhookConfig),
+        "保存配置（待授权）",
+      ),
     ],
     div <| [
       div(class="erp-tabs") <| [

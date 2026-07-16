@@ -21,6 +21,7 @@ SERVICE_PID=""
 GATEWAY_PID=""
 SUFFIX=$(/bin/date +%s)
 COMMAND_KEY="webhook-gateway-$SUFFIX"
+CONFIG_KEY="webhook-config-gateway-$SUFFIX"
 
 cleanup() {
   if [ -n "$GATEWAY_PID" ]; then
@@ -32,7 +33,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE aggregate_type = 'webhook_test_delivery' AND aggregate_id = '$COMMAND_KEY'; DELETE FROM company_record WHERE source_id LIKE '%$COMMAND_KEY%';" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'webhook_test_delivery' AND aggregate_id = '$COMMAND_KEY') OR (aggregate_type = 'webhook_config' AND aggregate_id = 'wecom' AND source_event_id LIKE '%$CONFIG_KEY%'); DELETE FROM company_record WHERE source_id LIKE '%$COMMAND_KEY%' OR source_id LIKE '%$CONFIG_KEY%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -71,6 +72,20 @@ fi
   --data "{\"user_code\":\"$USER_CODE\",\"password\":\"$PASSWORD\"}" \
   "http://127.0.0.1:$GATEWAY_PORT/api/session/login" >"$TMP_DIR/login.json"
 /usr/bin/jq -e '.authenticated == true and .actor_id == "admin"' "$TMP_DIR/login.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/config.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$CONFIG_KEY\",\"enabled\":true,\"secret\":\"__keep__\"}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/webhook/config/wecom")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.platform == "wecom" and .data.credentialsBound == false and .data.providerExecution == false and .data.delivery_effect == false' "$TMP_DIR/config.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/config-replay.json" -w '%{http_code}' \
+  -X PUT -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$CONFIG_KEY\",\"enabled\":true,\"secret\":\"__keep__\"}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/webhook/config/wecom")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.platform == "wecom"' "$TMP_DIR/config-replay.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/create.json" -w '%{http_code}' \
   -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \

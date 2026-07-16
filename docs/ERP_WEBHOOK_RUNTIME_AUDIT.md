@@ -28,6 +28,11 @@ digests. Candidate writes are idempotent and audited; they return
 `credentialsBound=false`, `providerExecution=false`, and no delivery,
 accounting, cash, or tax effects.
 
+The trusted gateway now forwards canonical/source configuration candidates, and
+Rabbita `/webhook-config` exposes the bounded WeCom save control. The gateway
+smoke covers configuration replay and confirms that credentials remain
+unbound.
+
 The dry-run overdue preview now reads imported `sys_warning_ticket`,
 `sys_warning`, `sys_user`, and webhook parameter evidence. It preserves the
 source `no_overdue`, `no_platform_enabled`, and bounded preview payload states,
