@@ -1315,6 +1315,20 @@ struct Model {
   delivery_source_progress_count : String
   delivery_source_output_count : String
   delivery_source_note : String
+  delivery_form_open : String
+  delivery_building_no : String
+  delivery_stage : String
+  delivery_plan_date : String
+  delivery_plan_pct : String
+  delivery_contract_id : String
+  delivery_remark : String
+  delivery_report_actual_pct : String
+  delivery_report_date : String
+  delivery_report_remark : String
+  delivery_output_contract_id : String
+  delivery_output_period : String
+  delivery_output_amount : String
+  delivery_output_remark : String
   delivery_progress_id : String
   delivery_progress_state : String
   delivery_output_id : String
@@ -2025,6 +2039,9 @@ enum Msg {
   DeliveryLoadFailed
   SelectDeliveryProject(String)
   SelectDeliveryTab(String)
+  OpenDeliveryForm(String)
+  CloseDeliveryForm
+  InputDeliveryField(String, String)
   CreateDeliveryProgress
   ReportDeliveryProgress
   AcceptDeliveryProgress
@@ -2662,6 +2679,20 @@ fn initial_model() -> Model {
     delivery_source_progress_count: "0",
     delivery_source_output_count: "0",
     delivery_source_note: "源进度/产值观察尚未加载 · 使用设计快照",
+    delivery_form_open: "",
+    delivery_building_no: "1-1",
+    delivery_stage: "",
+    delivery_plan_date: "2026-07-16",
+    delivery_plan_pct: "100",
+    delivery_contract_id: "",
+    delivery_remark: "",
+    delivery_report_actual_pct: "0",
+    delivery_report_date: "2026-07-16",
+    delivery_report_remark: "",
+    delivery_output_contract_id: "",
+    delivery_output_period: "2026-07",
+    delivery_output_amount: "0",
+    delivery_output_remark: "",
     delivery_progress_id: "PROG-RABBITA-LOCAL",
     delivery_progress_state: "new",
     delivery_output_id: "OUT-RABBITA-LOCAL",
@@ -11480,23 +11511,70 @@ fn issue_loan_workflow_sync(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
 ///|
 fn delivery_command_body(model : Model, command_type : String) -> String {
   if command_type == "create_progress" {
-    "{\"idempotency_key\":\"rabbita-delivery-progress-create-v1\",\"progress_id\":\"PROG-RABBITA-LOCAL\",\"project_id\":\"" +
-    model.delivery_project_id +
-    "\",\"principal_id\":\"co-rabbita\",\"project_scope\":\"project:" +
-    model.delivery_project_id +
-    "\",\"stage\":\"主体结构\",\"plan_pct\":70,\"completed_value_minor\":125000,\"currency\":\"CNY\",\"evidence_ids\":[\"rabbita:progress:photo-001\"],\"remark\":\"本地进度命令演示\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-delivery-progress-create-" + import_nonce(),
+      ),
+      "progress_id": Json::string("PROG-RABBITA-" + import_nonce()),
+      "project_id": Json::string(model.delivery_project_id),
+      "principal_id": Json::string("co-rabbita"),
+      "project_scope": Json::string("project:" + model.delivery_project_id),
+      "building_no": Json::string(model.delivery_building_no),
+      "stage": Json::string(
+        if model.delivery_stage.is_empty() {
+          "主体结构"
+        } else {
+          model.delivery_stage
+        },
+      ),
+      "plan_pct": Json::number(sales_parse_number(model.delivery_plan_pct)),
+      "completed_value_minor": Json::number(0.0),
+      "currency": Json::string("CNY"),
+      "contract_id": Json::string(model.delivery_contract_id),
+      "plan_date": Json::string(model.delivery_plan_date),
+      "evidence_ids": Json::array([Json::string("rabbita:progress:photo-001")]),
+      "remark": Json::string(model.delivery_remark),
+    }).stringify()
   } else if command_type == "report_progress" {
-    "{\"idempotency_key\":\"rabbita-delivery-progress-report-v1\",\"progress_pct\":55,\"actual_date\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:progress:report-001\"],\"remark\":\"已完成现场复核\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-delivery-progress-report-" + import_nonce(),
+      ),
+      "progress_pct": Json::number(
+        sales_parse_number(model.delivery_report_actual_pct),
+      ),
+      "actual_date": Json::string(model.delivery_report_date),
+      "evidence_ids": Json::array([Json::string("rabbita:progress:report-001")]),
+      "remark": Json::string(model.delivery_report_remark),
+    }).stringify()
   } else if command_type == "accept_progress" {
     "{\"idempotency_key\":\"rabbita-delivery-progress-accept-v1\",\"acceptance_id\":\"accept-rabbita-001\",\"acceptance_evidence_ids\":[\"rabbita:progress:acceptance-001\"]}"
   } else if command_type == "reject_progress" {
     "{\"idempotency_key\":\"rabbita-delivery-progress-reject-v1\",\"reason\":\"需要补充验收记录\"}"
   } else if command_type == "create_output" {
-    "{\"idempotency_key\":\"rabbita-delivery-output-create-v1\",\"output_id\":\"OUT-RABBITA-LOCAL\",\"project_id\":\"" +
-    model.delivery_project_id +
-    "\",\"contract_id\":\"ht-tj-001\",\"period\":\"2026-07\",\"output_amount\":\"125000\",\"evidence_ids\":[\"rabbita:output:measure-001\"],\"remark\":\"本地产值确认演示\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-delivery-output-create-" + import_nonce(),
+      ),
+      "output_id": Json::string("OUT-RABBITA-" + import_nonce()),
+      "project_id": Json::string(model.delivery_project_id),
+      "contract_id": Json::string(model.delivery_output_contract_id),
+      "period": Json::string(model.delivery_output_period),
+      "output_amount": Json::string(model.delivery_output_amount),
+      "evidence_ids": Json::array([Json::string("rabbita:output:measure-001")]),
+      "remark": Json::string(model.delivery_output_remark),
+    }).stringify()
   } else if command_type == "confirm_output" {
-    "{\"idempotency_key\":\"rabbita-delivery-output-confirm-v1\",\"confirm_amount\":\"125000\",\"confirmed_at\":\"2026-07-13\",\"evidence_ids\":[\"rabbita:output:acceptance-001\"]}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-delivery-output-confirm-" + import_nonce(),
+      ),
+      "confirm_amount": Json::string(model.delivery_output_amount),
+      "confirmed_at": Json::string(model.delivery_report_date),
+      "evidence_ids": Json::array([
+        Json::string("rabbita:output:acceptance-001"),
+      ]),
+    }).stringify()
   } else {
     Json::object({
       "idempotency_key": Json::string(
@@ -20385,6 +20463,102 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           plan_delay_rows: [],
         },
       )
+    OpenDeliveryForm(kind) =>
+      (
+        none,
+        {
+          ..model,
+          delivery_form_open: kind,
+          delivery_progress_state: if kind == "progress" {
+            "new"
+          } else {
+            model.delivery_progress_state
+          },
+          delivery_output_state: if kind == "output" {
+            "new"
+          } else {
+            model.delivery_output_state
+          },
+        },
+      )
+    CloseDeliveryForm => (none, { ..model, delivery_form_open: "" })
+    InputDeliveryField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          delivery_building_no: if field == "building_no" {
+            value
+          } else {
+            model.delivery_building_no
+          },
+          delivery_stage: if field == "stage" {
+            value
+          } else {
+            model.delivery_stage
+          },
+          delivery_plan_date: if field == "plan_date" {
+            value
+          } else {
+            model.delivery_plan_date
+          },
+          delivery_plan_pct: if field == "plan_pct" {
+            value
+          } else {
+            model.delivery_plan_pct
+          },
+          delivery_contract_id: if field == "contract_id" {
+            value
+          } else {
+            model.delivery_contract_id
+          },
+          delivery_remark: if field == "remark" {
+            value
+          } else {
+            model.delivery_remark
+          },
+          delivery_report_actual_pct: if field == "report_actual_pct" {
+            value
+          } else {
+            model.delivery_report_actual_pct
+          },
+          delivery_report_date: if field == "report_date" {
+            value
+          } else {
+            model.delivery_report_date
+          },
+          delivery_report_remark: if field == "report_remark" {
+            value
+          } else {
+            model.delivery_report_remark
+          },
+          delivery_progress_id: if field == "progress_id" {
+            value
+          } else {
+            model.delivery_progress_id
+          },
+          delivery_output_contract_id: if field == "output_contract_id" {
+            value
+          } else {
+            model.delivery_output_contract_id
+          },
+          delivery_output_period: if field == "output_period" {
+            value
+          } else {
+            model.delivery_output_period
+          },
+          delivery_output_amount: if field == "output_amount" {
+            value
+          } else {
+            model.delivery_output_amount
+          },
+          delivery_output_remark: if field == "output_remark" {
+            value
+          } else {
+            model.delivery_output_remark
+          },
+        },
+      )
     CreateDeliveryProgress =>
       if model.delivery_progress_state == "new" {
         (
@@ -20392,6 +20566,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           {
             ..model,
             delivery_progress_state: "pending",
+            delivery_form_open: "",
             delivery_command_note: "正在创建进度记录并校验证据…",
           },
         )
@@ -20405,6 +20580,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           {
             ..model,
             delivery_progress_state: "pending",
+            delivery_form_open: "",
             delivery_command_note: "正在提交实际进度与现场证据…",
           },
         )
@@ -20444,6 +20620,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           {
             ..model,
             delivery_output_state: "pending",
+            delivery_form_open: "",
             delivery_command_note: "正在登记产值并校验证据…",
           },
         )
@@ -22680,6 +22857,180 @@ fn project_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
+fn delivery_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  if model.delivery_form_open == "progress" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新增进度节点"),
+        span(
+          class="erp-source-note",
+          "写入本地进度命令投影 · 导入源行保持只读",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "楼栋号",
+          model.delivery_building_no,
+          "1-1",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("building_no", value)),
+        ),
+        editable_form_field(
+          "阶段名",
+          model.delivery_stage,
+          "主体结构 / 竣工备案",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("stage", value)),
+        ),
+        editable_form_field(
+          "计划日期",
+          model.delivery_plan_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("plan_date", value)),
+        ),
+        editable_form_field(
+          "计划完成%",
+          model.delivery_plan_pct,
+          "0 - 100",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("plan_pct", value)),
+        ),
+        editable_form_field(
+          "关联合同",
+          model.delivery_contract_id,
+          "合同 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("contract_id", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.delivery_remark,
+          "现场说明",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseDeliveryForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateDeliveryProgress),
+          "新增进度节点",
+        ),
+      ],
+    ]
+  } else if model.delivery_form_open == "report" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("上报进度"),
+        span(
+          class="erp-source-note",
+          "实际进度需要现场证据 · 不直接修改导入源状态",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "进度记录 ID",
+          model.delivery_progress_id,
+          "本地进度 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("progress_id", value)),
+        ),
+        editable_form_field(
+          "实际完成%",
+          model.delivery_report_actual_pct,
+          "0 - 100",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("report_actual_pct", value)),
+        ),
+        editable_form_field(
+          "实际日期",
+          model.delivery_report_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("report_date", value)),
+        ),
+        editable_form_field(
+          "说明",
+          model.delivery_report_remark,
+          "现场复核说明",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("report_remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseDeliveryForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(ReportDeliveryProgress),
+          "提交进度",
+        ),
+      ],
+    ]
+  } else if model.delivery_form_open == "output" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("上报产值"),
+        span(class="erp-source-note", "确认后才可进入付款节点候选"),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "关联合同",
+          model.delivery_output_contract_id,
+          "合同 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("output_contract_id", value)),
+        ),
+        editable_form_field(
+          "期间",
+          model.delivery_output_period,
+          "YYYY-MM",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("output_period", value)),
+        ),
+        editable_form_field(
+          "产值金额（元）",
+          model.delivery_output_amount,
+          "125000",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("output_amount", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.delivery_output_remark,
+          "计量说明",
+          @html.InputType::Text,
+          emit.map(value => InputDeliveryField("output_remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(
+          class="erp-ghost-btn",
+          on_click=emit(CloseDeliveryForm),
+          "取消",
+        ),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateDeliveryOutput),
+          "上报产值",
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
+  }
+}
+
+///|
 fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let project_picker : Array[@html.Html] = []
   if model.project_rows.length() == 0 {
@@ -22712,12 +23063,13 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       button(class="erp-secondary-btn", "导出进度表"),
       button(
         class="erp-primary-btn",
-        on_click=emit(CreateDeliveryProgress),
+        on_click=emit(OpenDeliveryForm("progress")),
         "＋ 更新进度",
       ),
     ],
     div <| [
       delivery_runtime_banner(model),
+      delivery_form_view(emit, model),
       div(class="erp-project-picker") <| project_picker,
       div(class="erp-tabs") <| [
         button(
@@ -22754,7 +23106,7 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           div(class="erp-inline-actions") <| [
             button(
               class="erp-secondary-btn",
-              on_click=emit(ReportDeliveryProgress),
+              on_click=emit(OpenDeliveryForm("report")),
               "提交现场进度",
             ),
             button(
@@ -22775,7 +23127,7 @@ fn progress_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           div(class="erp-inline-actions") <| [
             button(
               class="erp-secondary-btn",
-              on_click=emit(CreateDeliveryOutput),
+              on_click=emit(OpenDeliveryForm("output")),
               "登记产值",
             ),
             button(
