@@ -927,6 +927,7 @@ struct Model {
   investment_plan_line_note : String
   investment_index_upsert_note : String
   investment_plan_line_import_note : String
+  investment_command_note : String
   audit_loaded : Bool
   audit_rows : Array[AuditRow]
   audit_action_rows : Array[AuditActionRow]
@@ -1343,6 +1344,14 @@ enum Msg {
   RequestInvestmentPlanLineImport
   InvestmentPlanLineImportFinished(String)
   InvestmentPlanLineImportFailed
+  RequestInvestmentVersionCreate
+  RequestInvestmentVersionActivate
+  RequestInvestmentVersionDelete
+  RequestInvestmentIndexCreate
+  RequestInvestmentIndexUpdate
+  RequestInvestmentIndexDelete
+  InvestmentCommandFinished(String, String)
+  InvestmentCommandFailed(String)
   AuditLoaded(String)
   AuditActionsLoaded(String)
   AuditLoadFailed
@@ -1742,6 +1751,7 @@ fn initial_model() -> Model {
     investment_plan_line_note: "计划行编辑候选尚未运行 · 投资计划保持只读",
     investment_index_upsert_note: "Excel 指标 upsert 候选尚未运行 · 投资指标保持只读",
     investment_plan_line_import_note: "Excel 计划行导入候选尚未运行 · 投资计划保持只读",
+    investment_command_note: "投资版本/指标命令候选尚未运行",
     audit_loaded: false,
     audit_rows: [],
     audit_action_rows: [],
@@ -6373,6 +6383,78 @@ fn issue_investment_plan_line_import(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_investment_command(
+  emit : @rabbita.Emit[Msg],
+  command_type : String,
+) -> Cmd {
+  let version_id = "INV-RABBITA-V2"
+  let index_id = "INV-RABBITA-INDEX"
+  let (path, body) = if command_type == "version_create" {
+    (
+      "/api/company/investment/projects/proj-0001/versions", "{\"idempotency_key\":\"rabbita-investment-version-create-v1\",\"versionGuid\":\"INV-RABBITA-V2\",\"versionName\":\"Rabbita 本地投资版本\",\"activate\":false,\"remark\":\"本地投资版本命令候选\"}",
+    )
+  } else if command_type == "version_activate" {
+    (
+      "/api/company/investment/projects/proj-0001/versions/" +
+      version_id +
+      "/activate",
+      "{\"idempotency_key\":\"rabbita-investment-version-activate-v1\"}",
+    )
+  } else if command_type == "version_delete" {
+    (
+      "/api/company/investment/projects/proj-0001/versions/" + version_id,
+      "{\"idempotency_key\":\"rabbita-investment-version-delete-v1\"}",
+    )
+  } else if command_type == "index_create" {
+    (
+      "/api/company/investment/versions/" + version_id + "/indices",
+      "{\"idempotency_key\":\"rabbita-investment-index-create-v1\",\"indexGuid\":\"INV-RABBITA-INDEX\",\"dimension\":\"investment\",\"fullCode\":\"Inv.Rabbita\",\"indexName\":\"Rabbita 投资指标\",\"unit\":\"万元\",\"indexValue\":100,\"remark\":\"本地指标命令候选\"}",
+    )
+  } else if command_type == "index_update" {
+    (
+      "/api/company/investment/indices/" + index_id,
+      "{\"idempotency_key\":\"rabbita-investment-index-update-v1\",\"indexValue\":120,\"remark\":\"本地指标已复核\"}",
+    )
+  } else {
+    (
+      "/api/company/investment/indices/" + index_id,
+      "{\"idempotency_key\":\"rabbita-investment-index-delete-v1\"}",
+    )
+  }
+  if command_type == "version_delete" {
+    @http.delete(path + "?idempotency_key=rabbita-investment-version-delete-v1").expect_text(result => {
+        match result {
+          Ok(value) => emit(InvestmentCommandFinished(command_type, value))
+          Err(_) => emit(InvestmentCommandFailed(command_type))
+        }
+      },
+    )
+  } else if command_type == "index_delete" {
+    @http.delete(path + "?idempotency_key=rabbita-investment-index-delete-v1").expect_text(result => {
+        match result {
+          Ok(value) => emit(InvestmentCommandFinished(command_type, value))
+          Err(_) => emit(InvestmentCommandFailed(command_type))
+        }
+      },
+    )
+  } else {
+    let request = if command_type == "index_update" {
+      @http.put(path)
+    } else {
+      @http.post(path)
+    }
+    request
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(InvestmentCommandFinished(command_type, value))
+        Err(_) => emit(InvestmentCommandFailed(command_type))
+      }
+    })
+  }
+}
+
+///|
 fn load_audit_logs(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/admin/audit/logs?limit=100").expect_text(result => {
     match result {
@@ -10358,6 +10440,80 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           investment_plan_line_import_note: "Excel 计划行导入候选服务不可用或被网关拒绝",
+        },
+      )
+    RequestInvestmentVersionCreate =>
+      (
+        issue_investment_command(emit, "version_create"),
+        {
+          ..model,
+          investment_command_note: "正在创建本地投资版本候选 · 不改变导入版本…",
+        },
+      )
+    RequestInvestmentVersionActivate =>
+      (
+        issue_investment_command(emit, "version_activate"),
+        {
+          ..model,
+          investment_command_note: "正在激活本地投资版本候选 · 不触发估值/资金…",
+        },
+      )
+    RequestInvestmentVersionDelete =>
+      (
+        issue_investment_command(emit, "version_delete"),
+        {
+          ..model,
+          investment_command_note: "正在删除本地投资版本候选 · 导入版本保持只读…",
+        },
+      )
+    RequestInvestmentIndexCreate =>
+      (
+        issue_investment_command(emit, "index_create"),
+        {
+          ..model,
+          investment_command_note: "正在创建本地投资指标候选 · 不触发估值…",
+        },
+      )
+    RequestInvestmentIndexUpdate =>
+      (
+        issue_investment_command(emit, "index_update"),
+        {
+          ..model,
+          investment_command_note: "正在更新本地投资指标候选 · 导入指标保持只读…",
+        },
+      )
+    RequestInvestmentIndexDelete =>
+      (
+        issue_investment_command(emit, "index_delete"),
+        {
+          ..model,
+          investment_command_note: "正在删除本地投资指标候选 · 导入指标保持只读…",
+        },
+      )
+    InvestmentCommandFinished(command_type, body) =>
+      (
+        load_investment_versions(emit),
+        {
+          ..model,
+          investment_command_note: if body.contains("\"persisted\":true") {
+            "投资 " +
+            command_type +
+            " 候选已持久化 · cash/accounting/tax/provider 均未执行"
+          } else {
+            "投资 " +
+            command_type +
+            " 候选已返回 · 请复核执行边界"
+          },
+        },
+      )
+    InvestmentCommandFailed(command_type) =>
+      (
+        none,
+        {
+          ..model,
+          investment_command_note: "投资 " +
+          command_type +
+          " 服务不可用或被网关拒绝",
         },
       )
     AuditLoaded(body) => {
@@ -16471,6 +16627,36 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(RequestInvestmentPlanLineImport),
         "检查计划行导入（待授权）",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentVersionCreate),
+        "新建版本（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentVersionActivate),
+        "激活版本（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentVersionDelete),
+        "删除版本（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentIndexCreate),
+        "新建指标（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentIndexUpdate),
+        "更新指标（候选）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(RequestInvestmentIndexDelete),
+        "删除指标（候选）",
+      ),
     ],
     div <| [
       stats,
@@ -16505,6 +16691,11 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         strong("Excel 计划行导入候选"),
         span(" · " + model.investment_plan_line_import_note),
         span(" · 导入 IMPORT-RABBITA-LOCAL"),
+      ]),
+      div(class="erp-runtime-banner", [
+        strong("投资版本 / 指标命令候选"),
+        span(" · " + model.investment_command_note),
+        span(" · 本地投影不改变导入版本"),
       ]),
       table_panel(
         "解释结果",

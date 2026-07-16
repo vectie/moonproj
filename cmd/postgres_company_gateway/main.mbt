@@ -241,6 +241,20 @@ fn path_with_identifier_suffix(
 }
 
 ///|
+fn investment_project_version_path(path : String, suffix : String) -> Bool {
+  let prefix = "/api/company/investment/projects/"
+  if !path.has_prefix(prefix) || !path.has_suffix(suffix) {
+    return false
+  }
+  let end = path.length() - suffix.length()
+  let parts = path[prefix.length():end].to_owned().split("/").to_array()
+  parts.length() == 3 &&
+  valid_identifier(parts[0].to_owned()) &&
+  parts[1] == "versions" &&
+  valid_identifier(parts[2].to_owned())
+}
+
+///|
 fn marketing_effect_path(path : String) -> Bool {
   let prefix = "/api/company/marketing/"
   let suffix = "/effect"
@@ -341,6 +355,13 @@ fn command_path_allowed(
       ) ||
       path_with_identifier_suffix(
         "/api/company/source/investment/excel-imports/", "/plan-lines/import", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/investment/projects/", "/versions", path,
+      ) ||
+      investment_project_version_path(path, "/activate") ||
+      path_with_identifier_suffix(
+        "/api/company/investment/versions/", "/indices", path,
       ) ||
       path == "/api/company/plan/ai-suggest-plan" ||
       path == "/api/company/source/plan/ai-suggest-plan" ||
@@ -449,7 +470,8 @@ fn command_path_allowed(
         "/api/company/source/investment/projects/", "/subject-mappings", path,
       ) ||
       path_with_identifier("/api/company/investment/plan-lines/", path) ||
-      path_with_identifier("/api/company/source/investment/plan-lines/", path)
+      path_with_identifier("/api/company/source/investment/plan-lines/", path) ||
+      path_with_identifier("/api/company/investment/indices/", path)
     @http.Patch =>
       path_with_identifier("/api/company/source/srm/providers/", path) ||
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||
@@ -469,6 +491,8 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/mdm/projects/", path) ||
       path_with_identifier("/api/company/source/auth/prefs/", path) ||
       path_with_identifier("/api/company/rbac/roles/", path) ||
+      investment_project_version_path(path, "") ||
+      path_with_identifier("/api/company/investment/indices/", path) ||
       path_with_identifier("/api/company/warning/custom-rules/", path) ||
       path_with_identifier("/api/company/source/warning/custom-rules/", path) ||
       path_with_identifier("/api/company/source/invoice/in/", path) ||

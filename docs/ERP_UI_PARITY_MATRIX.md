@@ -32,6 +32,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now calls the native plan-line edit dry-run candidate; investment plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel plan-line import dry-run candidate; plan persistence, valuation, cash, accounting, and tax effects remain disabled.
+- Browser action delta: Rabbita `/investment` now calls native version/index lifecycle candidates (create, activate, delete, create-index, update-index, delete-index); imported rows remain read-only and lifecycle commands do not trigger valuation, cash, accounting, or tax effects.
 - Browser action delta: Rabbita `/srm/providers` now calls the native supplier risk-rescore command; imported provider rows remain protected and provider execution remains disabled.
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
 - Browser action delta: Rabbita `/warning-rules` now calls native custom-rule create/delete candidates; SQL is hashed/redacted, imported/system rules remain protected, and no query/provider execution occurs.
@@ -263,7 +264,7 @@ are attached. The JSON output contains all 338 handler rows.
 | `import` | `POST` | `/:bizType` | — | `connected_import_batch_command_candidate` | `accept_import_operations_owner_and_production_identity` |
 | `investment` | `GET` | `/projects/:projGuid/versions` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `GET` | `/versions/:versionGuid/indices` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
-| `investment` | `PUT` | `/indices/:indexGuid` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` |
+| `investment` | `PUT` | `/indices/:indexGuid` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` (Rabbita candidate action now wired) |
 | `investment` | `GET` | `/projects/:projGuid/profit-summary` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `GET` | `/meta/dimensions` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/projects/:projGuid/excel-imports` | `/investment` | `investment_excel_upload_candidate` | `accept_browser_investment_excel_scenario_and_investment_owner` |
@@ -272,11 +273,11 @@ are attached. The JSON output contains all 338 handler rows.
 | `investment` | `GET` | `/excel-imports/:importGuid` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `GET` | `/excel-imports/:importGuid/index-upsert-preview` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/excel-imports/:importGuid/index-upsert` | `/investment` | `investment_excel_index_upsert_candidate` | `accept_browser_investment_excel_scenario_and_investment_owner` |
-| `investment` | `POST` | `/projects/:projGuid/versions` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` |
-| `investment` | `POST` | `/projects/:projGuid/versions/:versionGuid/activate` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` |
-| `investment` | `POST` | `/versions/:versionGuid/indices` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` |
-| `investment` | `DELETE` | `/projects/:projGuid/versions/:versionGuid` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` |
-| `investment` | `DELETE` | `/indices/:indexGuid` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` |
+| `investment` | `POST` | `/projects/:projGuid/versions` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` (Rabbita candidate action now wired) |
+| `investment` | `POST` | `/projects/:projGuid/versions/:versionGuid/activate` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` (Rabbita candidate action now wired) |
+| `investment` | `POST` | `/versions/:versionGuid/indices` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` (Rabbita candidate action now wired) |
+| `investment` | `DELETE` | `/projects/:projGuid/versions/:versionGuid` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` (Rabbita candidate action now wired) |
+| `investment` | `DELETE` | `/indices/:indexGuid` | `/investment` | `connected_investment_command_candidate` | `accept_browser_investment_command_scenario_and_investment_owner` (Rabbita candidate action now wired) |
 | `investment` | `GET` | `/projects/:projGuid/sensitivity` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
 | `investment` | `POST` | `/projects/:projGuid/ai-explain` | `/investment` | `connected_investment_ai_explain_candidate` | `accept_browser_investment_ai_scenario_and_investment_owner` |
 | `investment` | `GET` | `/excel-imports/:importGuid/profit-table` | `/investment` | `connected_investment_read` | `accept_browser_investment_scenario_and_production_identity` |
