@@ -55,6 +55,9 @@ deterministic explanation candidate over the caller-supplied table. It returns
 the source `explain/provider/model` fields plus row count, but never invokes an
 LLM, persists prompt data, or authorizes a business action. The dedicated
 PostgreSQL smoke proves the boundary.
+Rabbita `/ai-hub` now exposes this candidate from the designer card and reports
+the native provider/no-persistence boundary in the runtime banner; the trusted
+gateway smoke covers the browser-facing forwarding path.
 
 The nine AI Hub mutation routes (`intake`, `confirm`, `discard`, `query`,
 `rule-from-nl`, `approval-draft`, `global-ask`, `query-session`, and

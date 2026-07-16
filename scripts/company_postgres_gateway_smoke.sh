@@ -165,6 +165,15 @@ test "$status" = 200
   '.success == true and .refund.state == "approved" and .refund.contract_pending == true and .refund.revenue_pending == true and .refund.contract_updated == false and .refund.revenue_updated == false' \
   "$TMP_DIR/refund-approve.json" >/dev/null
 
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/ai-hub-explain.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"title":"gateway AI Hub smoke","focus":"source rows","table":[{"id":"one"}]}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/ai-hub/explain")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .data.provider == "native-deterministic" and .data.rowCount == 1 and .provider_execution == false and .persisted == false and .authorizing == false' \
+  "$TMP_DIR/ai-hub-explain.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \

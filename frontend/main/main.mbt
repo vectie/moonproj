@@ -1054,6 +1054,8 @@ struct Model {
   ai_hub_correction_rate : String
   ai_hub_missing_table_count : String
   ai_hub_note : String
+  ai_hub_explain_note : String
+  ai_hub_explain_text : String
   webhook_loaded : Bool
   webhook_rows : Array[Array[String]]
   webhook_missing_table_count : String
@@ -1386,6 +1388,9 @@ enum Msg {
   AiHubCorrectionStatsLoaded(String)
   AiHubCorrectionsLoaded(String)
   AiHubLoadFailed
+  ExplainAiHub
+  AiHubExplainFinished(String)
+  AiHubExplainFailed
   WebhookLoaded(String)
   WebhookLoadFailed
   SaveWebhookConfig
@@ -1763,6 +1768,8 @@ fn initial_model() -> Model {
     ai_hub_correction_rate: "0",
     ai_hub_missing_table_count: "0",
     ai_hub_note: "AI 工作台源读模型尚未加载 · 使用设计快照",
+    ai_hub_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
+    ai_hub_explain_text: "等待解释候选",
     webhook_loaded: false,
     webhook_rows: [],
     webhook_missing_table_count: "0",
@@ -4797,6 +4804,20 @@ fn ai_hub_usage_from_body(
 }
 
 ///|
+fn ai_hub_explain_text_from_body(body : String) -> String {
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      match fields.get("data") {
+        Some(Json::Object(data)) =>
+          json_object_text(data, "explain", "解释候选响应为空")
+        _ => "解释候选响应为空"
+      }
+    _ => "解释候选响应无效"
+  }
+}
+
+///|
 fn ai_hub_draft_rows_from_body(
   body : String,
 ) -> (Bool, Array[AiHubDraftRow], String) {
@@ -6644,6 +6665,20 @@ fn load_ai_hub_corrections(emit : @rabbita.Emit[Msg]) -> Cmd {
     match result {
       Ok(body) => emit(AiHubCorrectionsLoaded(body))
       Err(_) => emit(AiHubLoadFailed)
+    }
+  })
+}
+
+///|
+fn issue_ai_hub_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/ai-hub/explain")
+  .with_text(
+    "{\"title\":\"AI 工作台源读模型\",\"focus\":\"异常值与时间范围\",\"table\":[{\"metric\":\"drafts\",\"value\":0},{\"metric\":\"queries\",\"value\":0}]}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(AiHubExplainFinished(body))
+      Err(_) => emit(AiHubExplainFailed)
     }
   })
 }
@@ -10902,6 +10937,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_hub_query_rows: [],
           ai_hub_correction_rows: [],
           ai_hub_note: "AI 工作台源读模型不可用 · 起单/查询/命令仍需授权",
+          ai_hub_explain_note: "解释候选不可用 · provider/LLM 保持关闭",
+        },
+      )
+    ExplainAiHub =>
+      (
+        issue_ai_hub_explain(emit),
+        {
+          ..model,
+          ai_hub_explain_note: "正在生成确定性解释候选 · 不调用 provider/LLM…",
+        },
+      )
+    AiHubExplainFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          ai_hub_explain_note: if body.contains(
+              "\"provider\":\"native-deterministic\"",
+            ) {
+            "解释候选已生成 · native-deterministic · 不持久化、不授权"
+          } else {
+            "解释候选响应已返回 · provider/LLM 未执行"
+          },
+          ai_hub_explain_text: ai_hub_explain_text_from_body(body),
+        },
+      )
+    AiHubExplainFailed =>
+      (
+        none,
+        {
+          ..model,
+          ai_hub_explain_note: "解释候选服务不可用 · provider/LLM 保持关闭",
+          ai_hub_explain_text: "解释候选不可用",
         },
       )
     WebhookLoaded(body) => {
@@ -13711,7 +13779,11 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           p(
             "拖入合同、发票或付款资料，自动识别业务类型并生成草稿。",
           ),
-          button(class="erp-secondary-btn", "开始识别"),
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(ExplainAiHub),
+            "生成解释候选",
+          ),
         ],
         section(class="erp-ai-card") <| [
           span(class="erp-ai-icon", "⌁"),
@@ -13741,6 +13813,15 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           ["任务", "输入", "结果", "创建时间", "状态"],
           recent_rows,
         ),
+      ),
+      div(class="erp-runtime-banner", [
+        strong("确定性解释候选"),
+        span(" · " + model.ai_hub_explain_note),
+      ]),
+      table_panel(
+        "解释结果",
+        "只读摘要 · 不持久化 prompt",
+        data_table(["结果"], [[model.ai_hub_explain_text]]),
       ),
     ],
   )
