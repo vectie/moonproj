@@ -51,6 +51,11 @@ The evidence script is `scripts/company_postgres_notification_smoke.sh`; it
 also seeds one imported message to prove the overlay does not mutate the
 source row and does not synthesize missing messages.
 
+The trusted PostgreSQL gateway now forwards the canonical and source read-all commands, and
+the Rabbita `/inbox` action issues that bounded local projection. The dedicated
+`scripts/company_postgres_notification_gateway_smoke.sh` proves authenticated
+forwarding, replay equality, and the no-delivery/provider boundary.
+
 The current PostgreSQL export has no imported rows for sys_message,
 sys_warning_subscription, sys_param, sys_email_outbox, or
 sys_warning_digest_log. It has five imported sys_user rows, which are

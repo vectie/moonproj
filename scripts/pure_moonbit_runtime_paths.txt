@@ -50,6 +50,7 @@ scripts/company_postgres_ai_provider_gateway_smoke.sh
 scripts/company_postgres_webhook_gateway_smoke.sh
 scripts/company_postgres_warning_gateway_smoke.sh
 scripts/company_postgres_attachment_gateway_smoke.sh
+scripts/company_postgres_notification_gateway_smoke.sh
 scripts/company_postgres_sales_revenue_smoke.sh
 scripts/company_postgres_source_read_smoke.sh
 scripts/company_postgres_dashboard_smoke.sh

@@ -1310,6 +1310,9 @@ enum Msg {
   InboxLoadFailed
   InboxUnreadLoaded(String)
   InboxUnreadLoadFailed
+  MarkInboxReadAll
+  InboxCommandFinished(String)
+  InboxCommandFailed
   NotifySubscriptionsLoaded(String)
   NotifyConfigLoaded(String)
   NotifyOutboxLoaded(String)
@@ -6365,6 +6368,18 @@ fn load_inbox_unread(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn mark_inbox_read_all(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/notify/messages/read-all")
+  .with_text("{\"idempotency_key\":\"rabbita-inbox-read-all-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InboxCommandFinished(body))
+      Err(_) => emit(InboxCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_notify(emit : @rabbita.Emit[Msg], family : String) -> Cmd {
   let path = if family == "subscriptions" {
     "/api/company/notify/subscriptions?userCode=admin"
@@ -9855,6 +9870,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           inbox_note: "通知未读统计不可用 · 保留消息源状态",
+        },
+      )
+    MarkInboxReadAll =>
+      (
+        mark_inbox_read_all(emit),
+        { ..model, inbox_note: "正在写入全部已读命令…" },
+      )
+    InboxCommandFinished(body) =>
+      (
+        if body.contains("\"state\":\"read\"") {
+          load_inbox(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          inbox_note: if body.contains("\"delivery_effect\":false") {
+            "已写入本地全部已读投影 · 不发送通知、不调用 provider"
+          } else {
+            "通知命令已返回 · 保持本地只读/无投递边界"
+          },
+        },
+      )
+    InboxCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          inbox_note: "全部已读命令服务不可用或被网关拒绝",
         },
       )
     NotifySubscriptionsLoaded(body) => {
@@ -17457,7 +17501,7 @@ fn marketing_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn inbox_view(model : Model) -> @html.Html {
+fn inbox_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let rows = if model.inbox_loaded {
     if model.inbox_rows.length() == 0 {
       [["—", "—", "—", "—", "—", "无源记录", "—"]]
@@ -17491,7 +17535,13 @@ fn inbox_view(model : Model) -> @html.Html {
     "站内信",
     "SYSTEM / INBOX",
     "统一接收审批、预警、系统和业务通知，保留已读状态与业务关联。",
-    [button(class="erp-secondary-btn", "全部标记已读（待授权）")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(MarkInboxReadAll),
+        "全部标记已读（待授权）",
+      ),
+    ],
     div <| [
       div(class="erp-stat-grid") <| [
         metric(
@@ -18928,7 +18978,7 @@ fn business_view(
       "/warning" => warning_view(emit, model)
       "/warning-rules" => warning_rules_view(model)
       "/cashflow" => cashflow_view(model)
-      "/inbox" => inbox_view(model)
+      "/inbox" => inbox_view(emit, model)
       "/attachments" => attachments_view(emit, model)
       "/notify-config" => notify_view(model)
       "/audit-log" => audit_view(emit, model)

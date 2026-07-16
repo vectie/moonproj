@@ -335,6 +335,7 @@ fn command_path_allowed(
       path == "/api/company/source/mdm/projects" ||
       path == "/api/company/source/auth/prefs" ||
       path == "/api/company/source/notify/subscriptions" ||
+      path == "/api/company/notify/messages/read-all" ||
       path == "/api/company/source/notify/messages/read-all" ||
       path_with_identifier_suffix(
         "/api/company/source/notify/messages/", "/read", path,
