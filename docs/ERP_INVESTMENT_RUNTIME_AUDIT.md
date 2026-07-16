@@ -38,7 +38,7 @@ version/index lifecycle commands are explicitly marked `sourceKind=command_candi
 they do not mutate imported rows. Excel import, valuation, cash movement, or
 accounting posting is not enabled by this slice.
 
-The Rabbita `/investment` screen now loads the current `proj-0001` version,
+The Rabbita `/investment` screen defaults to the current `proj-0001` version,
 flattens the five grouped dimensions and 26 indices into the designer table,
 and renders the imported investment, revenue, cost, net-profit, margin, and IRR
 summary. It also loads six deterministic sensitivity scenarios and mounts the
@@ -55,6 +55,9 @@ non-dry-run writes disabled.
 It also exposes the deterministic feasibility explanation candidate and renders
 the returned summary while keeping provider execution, prompt persistence, and
 financial effects disabled; the trusted gateway smoke covers the browser path.
+Investment reads now follow the selected project from the PostgreSQL project
+master instead of silently reusing `proj-0001`; project/version/import context
+is visible before any candidate command is submitted.
 
 ## Evidence
 

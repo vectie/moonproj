@@ -1023,6 +1023,8 @@ struct Model {
   investment_note : String
   investment_explain_note : String
   investment_explain_text : String
+  investment_project_id : String
+  investment_project_name : String
   investment_excel_file_name : String
   investment_excel_version_name : String
   investment_excel_activate : Bool
@@ -1491,6 +1493,7 @@ enum Msg {
   InvestmentProfitLoaded(String)
   InvestmentSensitivityLoaded(String)
   InvestmentImportsLoaded(String)
+  SelectInvestmentProject(String)
   SelectInvestmentImport(String)
   InvestmentImportDetailLoaded(String)
   InvestmentImportBridgeLoaded(String)
@@ -2004,6 +2007,8 @@ fn initial_model() -> Model {
     investment_note: "投资测算读模型尚未加载 · 使用设计快照",
     investment_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     investment_explain_text: "等待投资解释候选",
+    investment_project_id: "proj-0001",
+    investment_project_name: "天津海教园一期",
     investment_excel_file_name: "",
     investment_excel_version_name: "",
     investment_excel_activate: false,
@@ -6679,24 +6684,41 @@ fn issue_admin_backup(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_investment_versions(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/investment/projects/proj-0001/versions").expect_text(result => {
-    match result {
-      Ok(body) => emit(InvestmentVersionsLoaded(body))
-      Err(_) => emit(InvestmentLoadFailed)
-    }
-  })
+fn load_investment_versions_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/investment/projects/" + project_id + "/versions").expect_text(result => {
+      match result {
+        Ok(body) => emit(InvestmentVersionsLoaded(body))
+        Err(_) => emit(InvestmentLoadFailed)
+      }
+    },
+  )
 }
 
 ///|
-fn load_investment_imports(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/investment/projects/proj-0001/excel-imports").expect_text(result => {
+fn load_investment_versions(emit : @rabbita.Emit[Msg]) -> Cmd {
+  load_investment_versions_for(emit, "proj-0001")
+}
+
+///|
+fn load_investment_imports_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/investment/projects/" + project_id + "/excel-imports").expect_text(result => {
       match result {
         Ok(body) => emit(InvestmentImportsLoaded(body))
         Err(_) => emit(InvestmentLoadFailed)
       }
     },
   )
+}
+
+///|
+fn load_investment_imports(emit : @rabbita.Emit[Msg]) -> Cmd {
+  load_investment_imports_for(emit, "proj-0001")
 }
 
 ///|
@@ -6789,19 +6811,26 @@ fn load_investment_indices(
 }
 
 ///|
-fn load_investment_profit(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/investment/projects/proj-0001/profit-summary").expect_text(result => {
-      match result {
-        Ok(body) => emit(InvestmentProfitLoaded(body))
-        Err(_) => emit(InvestmentLoadFailed)
-      }
-    },
-  )
+fn load_investment_profit_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get(
+    "/api/company/investment/projects/" + project_id + "/profit-summary",
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(InvestmentProfitLoaded(body))
+      Err(_) => emit(InvestmentLoadFailed)
+    }
+  })
 }
 
 ///|
-fn load_investment_sensitivity(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/investment/projects/proj-0001/sensitivity").expect_text(result => {
+fn load_investment_sensitivity_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/investment/projects/" + project_id + "/sensitivity").expect_text(result => {
       match result {
         Ok(body) => emit(InvestmentSensitivityLoaded(body))
         Err(_) => emit(InvestmentLoadFailed)
@@ -6811,8 +6840,11 @@ fn load_investment_sensitivity(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn load_investment_profit_actual(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/investment/projects/proj-0001/profit-actual").expect_text(result => {
+fn load_investment_profit_actual_for(
+  emit : @rabbita.Emit[Msg],
+  project_id : String,
+) -> Cmd {
+  @http.get("/api/company/investment/projects/" + project_id + "/profit-actual").expect_text(result => {
       match result {
         Ok(body) => emit(InvestmentProfitActualLoaded(body))
         Err(_) => emit(InvestmentLoadFailed)
@@ -6822,8 +6854,12 @@ fn load_investment_profit_actual(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_investment_explain(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.post("/api/company/investment/projects/proj-0001/ai-explain")
+fn issue_investment_explain(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  @http.post(
+    "/api/company/investment/projects/" +
+    model.investment_project_id +
+    "/ai-explain",
+  )
   .with_text("{}")
   .expect_text(result => {
     match result {
@@ -6838,7 +6874,11 @@ fn issue_investment_excel_upload(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> Cmd {
-  @http.post("/api/company/investment/projects/proj-0001/excel-imports")
+  @http.post(
+    "/api/company/investment/projects/" +
+    model.investment_project_id +
+    "/excel-imports",
+  )
   .with_text(
     Json::object({
       "idempotency_key": Json::string(
@@ -6858,8 +6898,15 @@ fn issue_investment_excel_upload(
 }
 
 ///|
-fn issue_investment_subject_mappings(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.put("/api/company/investment/projects/proj-0001/subject-mappings")
+fn issue_investment_subject_mappings(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  @http.put(
+    "/api/company/investment/projects/" +
+    model.investment_project_id +
+    "/subject-mappings",
+  )
   .with_text(
     "{\"idempotency_key\":\"rabbita-investment-subject-mappings-v1\",\"dryRun\":true,\"items\":[{\"group\":\"revenue\",\"subjectCode\":\"INV-REVENUE\",\"subjectName\":\"项目销售收入\"}]}",
   )
@@ -6886,9 +6933,17 @@ fn issue_investment_plan_line_update(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_investment_index_upsert(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_investment_index_upsert(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let import_id = if model.investment_import_selected.is_empty() {
+    "IMPORT-RABBITA-LOCAL"
+  } else {
+    model.investment_import_selected
+  }
   @http.post(
-    "/api/company/investment/excel-imports/IMPORT-RABBITA-LOCAL/index-upsert",
+    "/api/company/investment/excel-imports/" + import_id + "/index-upsert",
   )
   .with_text(
     "{\"idempotency_key\":\"rabbita-investment-index-upsert-v1\",\"dryRun\":true,\"force\":false}",
@@ -6902,9 +6957,17 @@ fn issue_investment_index_upsert(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
-fn issue_investment_plan_line_import(emit : @rabbita.Emit[Msg]) -> Cmd {
+fn issue_investment_plan_line_import(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let import_id = if model.investment_import_selected.is_empty() {
+    "IMPORT-RABBITA-LOCAL"
+  } else {
+    model.investment_import_selected
+  }
   @http.post(
-    "/api/company/investment/excel-imports/IMPORT-RABBITA-LOCAL/plan-lines/import",
+    "/api/company/investment/excel-imports/" + import_id + "/plan-lines/import",
   )
   .with_text(
     "{\"idempotency_key\":\"rabbita-investment-plan-line-import-v1\",\"dryRun\":true,\"replaceExisting\":false}",
@@ -6920,24 +6983,32 @@ fn issue_investment_plan_line_import(emit : @rabbita.Emit[Msg]) -> Cmd {
 ///|
 fn issue_investment_command(
   emit : @rabbita.Emit[Msg],
+  model : Model,
   command_type : String,
 ) -> Cmd {
   let version_id = "INV-RABBITA-V2"
   let index_id = "INV-RABBITA-INDEX"
+  let project_id = model.investment_project_id
   let (path, body) = if command_type == "version_create" {
     (
-      "/api/company/investment/projects/proj-0001/versions", "{\"idempotency_key\":\"rabbita-investment-version-create-v1\",\"versionGuid\":\"INV-RABBITA-V2\",\"versionName\":\"Rabbita 本地投资版本\",\"activate\":false,\"remark\":\"本地投资版本命令候选\"}",
+      "/api/company/investment/projects/" + project_id + "/versions",
+      "{\"idempotency_key\":\"rabbita-investment-version-create-v1\",\"versionGuid\":\"INV-RABBITA-V2\",\"versionName\":\"Rabbita 本地投资版本\",\"activate\":false,\"remark\":\"本地投资版本命令候选\"}",
     )
   } else if command_type == "version_activate" {
     (
-      "/api/company/investment/projects/proj-0001/versions/" +
+      "/api/company/investment/projects/" +
+      project_id +
+      "/versions/" +
       version_id +
       "/activate",
       "{\"idempotency_key\":\"rabbita-investment-version-activate-v1\"}",
     )
   } else if command_type == "version_delete" {
     (
-      "/api/company/investment/projects/proj-0001/versions/" + version_id,
+      "/api/company/investment/projects/" +
+      project_id +
+      "/versions/" +
+      version_id,
       "{\"idempotency_key\":\"rabbita-investment-version-delete-v1\"}",
     )
   } else if command_type == "index_create" {
@@ -9500,6 +9571,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         load_users(emit)
       } else if path == "/investment" {
         @cmd.batch([
+          load_projects(emit),
           load_investment_versions(emit),
           load_investment_imports(emit),
         ])
@@ -11416,6 +11488,31 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           admin_backup_note: "备份边界服务不可用或被网关拒绝",
         },
       )
+    SelectInvestmentProject(project_id) => {
+      let mut project_name = project_id
+      for row in model.project_rows {
+        if row.project_id == project_id {
+          project_name = row.project_name
+        }
+      }
+      (
+        @cmd.batch([
+          load_investment_versions_for(emit, project_id),
+          load_investment_imports_for(emit, project_id),
+        ]),
+        {
+          ..model,
+          investment_project_id: project_id,
+          investment_project_name: project_name,
+          investment_loaded: false,
+          investment_imports_loaded: false,
+          investment_import_rows: [],
+          investment_import_selected: "",
+          investment_note: "正在读取项目投资版本…",
+          investment_import_note: "正在读取项目 Excel 导入历史…",
+        },
+      )
+    }
     InvestmentVersionsLoaded(body) => {
       let (version_id, version_name) = investment_version_from_body(body)
       if version_id == "" {
@@ -11535,7 +11632,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InvestmentIndicesLoaded(body) => {
       let (rows, dimension_count) = investment_index_rows_from_body(body)
       (
-        load_investment_profit(emit),
+        load_investment_profit_for(emit, model.investment_project_id),
         {
           ..model,
           investment_index_rows: rows,
@@ -11548,7 +11645,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let values = investment_profit_from_body(body)
       if values.length() == 7 {
         (
-          load_investment_sensitivity(emit),
+          load_investment_sensitivity_for(emit, model.investment_project_id),
           {
             ..model,
             investment_loaded: true,
@@ -11576,7 +11673,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InvestmentSensitivityLoaded(body) => {
       let (loaded, cases, base_irr) = investment_sensitivity_from_body(body)
       (
-        load_investment_profit_actual(emit),
+        load_investment_profit_actual_for(emit, model.investment_project_id),
         {
           ..model,
           investment_sensitivity_loaded: loaded,
@@ -11648,7 +11745,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     ExplainInvestment =>
       (
-        issue_investment_explain(emit),
+        issue_investment_explain(emit, model),
         {
           ..model,
           investment_explain_note: "正在生成确定性投资解释 · 不调用 provider/LLM…",
@@ -11746,7 +11843,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentSubjectMappings =>
       (
-        issue_investment_subject_mappings(emit),
+        issue_investment_subject_mappings(emit, model),
         {
           ..model,
           investment_mapping_note: "正在检查科目映射边界 · 不写入投资主数据、不触发估值…",
@@ -11808,7 +11905,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentIndexUpsert =>
       (
-        issue_investment_index_upsert(emit),
+        issue_investment_index_upsert(emit, model),
         {
           ..model,
           investment_index_upsert_note: "正在检查 Excel 指标 upsert 边界 · 不写入指标、不触发估值…",
@@ -11840,7 +11937,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentPlanLineImport =>
       (
-        issue_investment_plan_line_import(emit),
+        issue_investment_plan_line_import(emit, model),
         {
           ..model,
           investment_plan_line_import_note: "正在检查 Excel 计划行导入边界 · 不解析二进制、不写入计划…",
@@ -11872,7 +11969,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentVersionCreate =>
       (
-        issue_investment_command(emit, "version_create"),
+        issue_investment_command(emit, model, "version_create"),
         {
           ..model,
           investment_command_note: "正在创建本地投资版本候选 · 不改变导入版本…",
@@ -11880,7 +11977,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentVersionActivate =>
       (
-        issue_investment_command(emit, "version_activate"),
+        issue_investment_command(emit, model, "version_activate"),
         {
           ..model,
           investment_command_note: "正在激活本地投资版本候选 · 不触发估值/资金…",
@@ -11888,7 +11985,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentVersionDelete =>
       (
-        issue_investment_command(emit, "version_delete"),
+        issue_investment_command(emit, model, "version_delete"),
         {
           ..model,
           investment_command_note: "正在删除本地投资版本候选 · 导入版本保持只读…",
@@ -11896,7 +11993,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentIndexCreate =>
       (
-        issue_investment_command(emit, "index_create"),
+        issue_investment_command(emit, model, "index_create"),
         {
           ..model,
           investment_command_note: "正在创建本地投资指标候选 · 不触发估值…",
@@ -11904,7 +12001,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentIndexUpdate =>
       (
-        issue_investment_command(emit, "index_update"),
+        issue_investment_command(emit, model, "index_update"),
         {
           ..model,
           investment_command_note: "正在更新本地投资指标候选 · 导入指标保持只读…",
@@ -11912,7 +12009,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentIndexDelete =>
       (
-        issue_investment_command(emit, "index_delete"),
+        issue_investment_command(emit, model, "index_delete"),
         {
           ..model,
           investment_command_note: "正在删除本地投资指标候选 · 导入指标保持只读…",
@@ -11921,8 +12018,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InvestmentCommandFinished(command_type, body) =>
       (
         @cmd.batch([
-          load_investment_versions(emit),
-          load_investment_imports(emit),
+          load_investment_versions_for(emit, model.investment_project_id),
+          load_investment_imports_for(emit, model.investment_project_id),
         ]),
         {
           ..model,
@@ -19213,6 +19310,50 @@ fn investment_import_history_panel(
 }
 
 ///|
+fn investment_project_context(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if model.project_rows.length() == 0 {
+    div(
+      class="erp-runtime-empty",
+      "项目主数据尚未返回 · 当前使用 " +
+      model.investment_project_name +
+      " (" +
+      model.investment_project_id +
+      ")",
+    )
+  } else {
+    let controls : Array[@html.Html] = []
+    for row in model.project_rows {
+      controls.push(
+        button(
+          class=if row.project_id == model.investment_project_id {
+            "erp-primary-btn"
+          } else {
+            "erp-secondary-btn"
+          },
+          on_click=emit(SelectInvestmentProject(row.project_id)),
+          row.project_name + " · " + row.project_id,
+        ),
+      )
+    }
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("项目上下文"),
+        span(
+          class="erp-info-tag",
+          "当前 " +
+          model.investment_project_name +
+          " · 版本/导入读取随项目切换",
+        ),
+      ],
+      div(class="erp-command-bar") <| controls,
+    ]
+  }
+}
+
+///|
 fn investment_sensitivity_table(model : Model) -> @html.Html {
   if model.investment_sensitivity_loaded {
     let rows : Array[Array[String]] = []
@@ -19430,6 +19571,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div <| [
       stats,
+      investment_project_context(emit, model),
       investment_excel_panel(emit, model),
       investment_import_history_panel(emit, model),
       investment_runtime_table(model),
@@ -19442,12 +19584,12 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div(class="erp-runtime-banner", [
         strong("Excel 上传候选"),
         span(" · " + model.investment_upload_note),
-        span(" · 项目 proj-0001"),
+        span(" · 项目 " + model.investment_project_id),
       ]),
       div(class="erp-runtime-banner", [
         strong("科目映射候选"),
         span(" · " + model.investment_mapping_note),
-        span(" · 项目 proj-0001"),
+        span(" · 项目 " + model.investment_project_id),
       ]),
       div(class="erp-runtime-banner", [
         strong("计划行编辑候选"),

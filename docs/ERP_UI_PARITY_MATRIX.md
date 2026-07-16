@@ -37,6 +37,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now mirrors the source Excel import surface (`.xlsx` picker, version name, activation toggle) and calls the native workbook upload gate; binary parsing, import persistence, valuation, and financial effects remain disabled.
 - Browser action delta: Rabbita `/investment` now loads and renders source Excel import history (file/version/workbook metadata and status); workbook binary content and import persistence remain disabled.
 - Browser action delta: Rabbita `/investment` now exposes the five source import-row read previews (detail, bridge plan, index upsert, profit table, and plan lines) from one selected import; all remain read-only receipts.
+- Browser action delta: Rabbita `/investment` now loads project master context and switches the version/import read chain by selected project; command candidates remain explicitly gated.
 - Browser action delta: Rabbita `/investment` now calls the native subject-mapping dry-run candidate; investment master-data writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native plan-line edit dry-run candidate; investment plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.
