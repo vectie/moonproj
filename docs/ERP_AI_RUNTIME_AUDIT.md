@@ -65,6 +65,9 @@ The nine AI Hub mutation routes (`intake`, `confirm`, `discard`, `query`,
 aliases. The gate reports the requested command while keeping provider/query
 execution, draft persistence, workflow authority, and financial effects false;
 it does not consume or store the request body.
+Rabbita `/ai-hub` now mirrors the source intake/query controls with description,
+business-type, file-name, and question fields; those values are sent as
+bounded candidate metadata and remain behind the same gate without persistence.
 
 ## Remaining gates
 

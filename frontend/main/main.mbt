@@ -1162,6 +1162,10 @@ struct Model {
   ai_hub_note : String
   ai_hub_explain_note : String
   ai_hub_explain_text : String
+  ai_hub_intake_description : String
+  ai_hub_intake_biz_hint : String
+  ai_hub_file_name : String
+  ai_hub_query_text : String
   ai_hub_command_text : String
   ai_hub_command_note : String
   webhook_loaded : Bool
@@ -1628,6 +1632,10 @@ enum Msg {
   ExplainAiHub
   AiHubExplainFinished(String)
   AiHubExplainFailed
+  InputAiHubIntakeDescription(String)
+  InputAiHubIntakeBizHint(String)
+  AiHubFileSelected(String)
+  InputAiHubQueryText(String)
   InputAiHubCommandText(String)
   RunAiHubCommand(String)
   AiHubCommandFinished(String, String)
@@ -2119,6 +2127,10 @@ fn initial_model() -> Model {
     ai_hub_note: "AI 工作台源读模型尚未加载 · 使用设计快照",
     ai_hub_explain_note: "解释候选尚未运行 · provider/LLM 保持关闭",
     ai_hub_explain_text: "等待解释候选",
+    ai_hub_intake_description: "",
+    ai_hub_intake_biz_hint: "expense",
+    ai_hub_file_name: "",
+    ai_hub_query_text: "",
     ai_hub_command_text: "",
     ai_hub_command_note: "AI Hub 命令候选尚未运行 · 需要 AI 负责人确认",
     webhook_loaded: false,
@@ -7538,13 +7550,28 @@ fn issue_ai_hub_command(
   command_type : String,
 ) -> Cmd {
   let body = if command_type == "intake" {
-    "{\"idempotency_key\":\"rabbita-ai-hub-intake-v1\",\"bizType\":\"expense\",\"source\":\"rabbita\"}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-ai-hub-intake-" + import_nonce()),
+      "bizType": Json::string(model.ai_hub_intake_biz_hint),
+      "description": Json::string(model.ai_hub_intake_description),
+      "fileName": Json::string(model.ai_hub_file_name),
+      "source": Json::string("rabbita"),
+    }).stringify()
   } else if command_type == "confirm" {
     "{\"idempotency_key\":\"rabbita-ai-hub-confirm-v1\",\"draftId\":\"DRAFT-RABBITA-LOCAL\"}"
   } else if command_type == "discard" {
     "{\"idempotency_key\":\"rabbita-ai-hub-discard-v1\",\"draftId\":\"DRAFT-RABBITA-LOCAL\"}"
   } else if command_type == "query" {
-    "{\"idempotency_key\":\"rabbita-ai-hub-query-v1\",\"question\":\"项目成本异常在哪里？\"}"
+    Json::object({
+      "idempotency_key": Json::string("rabbita-ai-hub-query-" + import_nonce()),
+      "question": Json::string(
+        if model.ai_hub_query_text.is_empty() {
+          "项目成本异常在哪里？"
+        } else {
+          model.ai_hub_query_text
+        },
+      ),
+    }).stringify()
   } else if command_type == "rule-from-nl" {
     "{\"idempotency_key\":\"rabbita-ai-hub-rule-v1\",\"prompt\":\"成本偏差超过 5% 时提醒负责人\"}"
   } else if command_type == "approval-draft" {
@@ -7552,7 +7579,19 @@ fn issue_ai_hub_command(
   } else if command_type == "global-ask" {
     "{\"idempotency_key\":\"rabbita-ai-hub-global-ask-v1\",\"question\":\"未来 90 天资金缺口？\"}"
   } else if command_type == "query-session" {
-    "{\"idempotency_key\":\"rabbita-ai-hub-query-session-v1\",\"sessionId\":\"SESSION-RABBITA-LOCAL\",\"question\":\"查看本月合同付款\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-ai-hub-query-session-" + import_nonce(),
+      ),
+      "sessionId": Json::string("SESSION-RABBITA-LOCAL"),
+      "question": Json::string(
+        if model.ai_hub_query_text.is_empty() {
+          "查看本月合同付款"
+        } else {
+          model.ai_hub_query_text
+        },
+      ),
+    }).stringify()
   } else {
     Json::object({
       "idempotency_key": Json::string(
@@ -13348,18 +13387,53 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ai_hub_explain_text: "解释候选不可用",
         },
       )
+    InputAiHubIntakeDescription(value) =>
+      (none, { ..model, ai_hub_intake_description: value })
+    InputAiHubIntakeBizHint(value) =>
+      (none, { ..model, ai_hub_intake_biz_hint: value })
+    AiHubFileSelected(value) =>
+      (
+        none,
+        {
+          ..model,
+          ai_hub_file_name: value,
+          ai_hub_command_note: if value.is_empty() {
+            model.ai_hub_command_note
+          } else {
+            "已选择 AI 输入文件 " +
+            value +
+            " · 仍需 provider/AI 负责人确认"
+          },
+        },
+      )
+    InputAiHubQueryText(value) => (none, { ..model, ai_hub_query_text: value })
     InputAiHubCommandText(value) =>
       (none, { ..model, ai_hub_command_text: value })
     RunAiHubCommand(command_type) =>
-      (
-        issue_ai_hub_command(emit, model, command_type),
-        {
-          ..model,
-          ai_hub_command_note: "正在提交 AI Hub " +
-          command_type +
-          " 候选 · 等待 AI 负责人确认…",
-        },
-      )
+      if command_type == "intake" &&
+        model.ai_hub_intake_description.trim().is_empty() &&
+        model.ai_hub_file_name.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            ai_hub_command_note: "请先填写描述或选择输入文件",
+          },
+        )
+      } else if (command_type == "query" || command_type == "query-session") &&
+        model.ai_hub_query_text.trim().is_empty() {
+        (none, { ..model, ai_hub_command_note: "请先输入查询问题" })
+      } else {
+        (
+          issue_ai_hub_command(emit, model, command_type),
+          {
+            ..model,
+            ai_hub_command_note: "正在提交 AI Hub " +
+            command_type +
+            " 候选 · 等待 AI 负责人确认…",
+          },
+        )
+      }
     AiHubCommandFinished(command_type, body) =>
       (
         none,
@@ -17493,6 +17567,35 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           p(
             "拖入合同、发票或付款资料，自动识别业务类型并生成草稿。",
           ),
+          input(
+            input_type=@html.InputType::Text,
+            value=model.ai_hub_intake_description,
+            placeholder="描述业务，例如：海教园付款 540 万",
+            class="erp-form-input",
+            on_input=emit.map(value => InputAiHubIntakeDescription(value)),
+          ),
+          input(
+            input_type=@html.InputType::Text,
+            value=model.ai_hub_intake_biz_hint,
+            placeholder="业务类型 expense / contract / loan",
+            class="erp-form-input",
+            on_input=emit.map(value => InputAiHubIntakeBizHint(value)),
+          ),
+          label(class="erp-import-file-picker") <| [
+            input(
+              input_type=@html.InputType::File,
+              accept="image/*,.pdf,.xlsx,.doc,.docx",
+              class="erp-import-file-input",
+              on_change=emit.map(value => AiHubFileSelected(value)),
+            ),
+            span(
+              if model.ai_hub_file_name.is_empty() {
+                "选择输入文件"
+              } else {
+                model.ai_hub_file_name
+              },
+            ),
+          ],
           button(
             class="erp-secondary-btn",
             on_click=emit(ExplainAiHub),
@@ -17519,6 +17622,13 @@ fn ai_hub_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           h2("AI 查询"),
           p(
             "用大白话查询项目、合同、成本和现金流，结果可追溯。",
+          ),
+          input(
+            input_type=@html.InputType::Text,
+            value=model.ai_hub_query_text,
+            placeholder="例如：本月已签合同总额",
+            class="erp-form-input",
+            on_input=emit.map(value => InputAiHubQueryText(value)),
           ),
           button(
             class="erp-secondary-btn",
