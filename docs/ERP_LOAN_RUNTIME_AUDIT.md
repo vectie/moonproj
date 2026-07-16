@@ -55,6 +55,9 @@ posts cash, accounting, tax, or approval state implicitly.
   source row carries `process_instance_id`, rendering the source action trail
   (step, decision, assignee, timestamp, comment) without granting approval
   authority; empty workflow source rows remain visibly empty.
+- Loan detail also reads `/api/company/source/attachments/list` for the loan
+  business identity and renders source attachment metadata plus AI status;
+  binaries, upload, delete, and re-extraction remain separate gated actions.
 - The parity matrix marks the two source loan GET actions and `/loans` as
   connected-read evidence and marks create, submit, offset, update, and void
   as connected command handlers. The workflow-sync handler remains explicitly

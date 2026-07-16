@@ -1014,6 +1014,18 @@ struct LoanWorkflowActionRow {
 }
 
 ///|
+struct LoanAttachmentRow {
+  att_guid : String
+  file_name : String
+  file_size : String
+  uploaded_by_name : String
+  uploaded_at : String
+  ai_status : String
+  source_kind : String
+  download_available : String
+}
+
+///|
 struct WorkflowStepRow {
   step_guid : String
   step_key : String
@@ -1894,6 +1906,9 @@ struct Model {
   loan_workflow_process_name : String
   loan_workflow_rows : Array[LoanWorkflowActionRow]
   loan_workflow_note : String
+  loan_attachments_loaded : Bool
+  loan_attachment_rows : Array[LoanAttachmentRow]
+  loan_attachment_note : String
   loan_offset_amount : String
   loan_offset_date : String
   loan_offset_remark : String
@@ -2568,6 +2583,8 @@ enum Msg {
   LoansLoadFailed
   LoanWorkflowLoaded(String)
   LoanWorkflowLoadFailed
+  LoanAttachmentsLoaded(String)
+  LoanAttachmentsLoadFailed
   ExportLoansCsv
   CreateLoan
   InputLoanField(String, String)
@@ -3365,6 +3382,9 @@ fn initial_model() -> Model {
     loan_workflow_process_name: "",
     loan_workflow_rows: [],
     loan_workflow_note: "借款流程实例尚未加载 · 没有 processInstanceGuid 时保持为空",
+    loan_attachments_loaded: false,
+    loan_attachment_rows: [],
+    loan_attachment_note: "借款附件尚未加载 · 二进制文件保持未迁移",
     loan_offset_amount: "0",
     loan_offset_date: "2026-07-16",
     loan_offset_remark: "",
@@ -8248,6 +8268,46 @@ fn loan_workflow_actions_from_body(
 }
 
 ///|
+fn loan_attachments_from_body(body : String) -> Array[LoanAttachmentRow] {
+  let rows : Array[LoanAttachmentRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) =>
+      for value in json_array_field(fields, "data") {
+        match value {
+          Json::Object(row) => {
+            let ai_status = match row.get("ai") {
+              Some(Json::Object(ai)) =>
+                json_object_text(ai, "status", "未处理")
+              _ => "未处理"
+            }
+            rows.push({
+              att_guid: json_object_text(row, "attGuid", ""),
+              file_name: json_object_text(row, "fileName", ""),
+              file_size: json_object_text(row, "fileSize", "0"),
+              uploaded_by_name: json_object_text(row, "uploadedByName", ""),
+              uploaded_at: json_object_text(row, "uploadedAt", ""),
+              ai_status,
+              source_kind: json_object_text(row, "sourceKind", "imported"),
+              download_available: if json_object_text(
+                  row, "downloadAvailable", "false",
+                ) ==
+                "true" {
+                "可下载"
+              } else {
+                "未导入文件"
+              },
+            })
+          }
+          _ => ()
+        }
+      }
+    _ => ()
+  }
+  rows
+}
+
+///|
 fn loan_offset_rows_from_json(value : Json) -> Array[Array[String]] {
   let rows : Array[Array[String]] = []
   match value {
@@ -11497,6 +11557,18 @@ fn load_loan_workflow(
 }
 
 ///|
+fn load_loan_attachments(emit : @rabbita.Emit[Msg], loan_id : String) -> Cmd {
+  @http.get(
+    "/api/company/source/attachments/list?bizType=loan&bizGuid=" + loan_id,
+  ).expect_text(result => {
+    match result {
+      Ok(body) => emit(LoanAttachmentsLoaded(body))
+      Err(_) => emit(LoanAttachmentsLoadFailed)
+    }
+  })
+}
+
+///|
 fn load_budget_scope(emit : @rabbita.Emit[Msg], bu_guid : String) -> Cmd {
   let bu_query = if bu_guid == "" { "" } else { "?buGuid=" + bu_guid }
   @http.get("/api/company/source/budget/users-in-bu" + bu_query).expect_text(result => {
@@ -13776,6 +13848,24 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             "借款流程实例尚未加载 · 没有 processInstanceGuid 时保持为空"
           } else {
             model.loan_workflow_note
+          },
+          loan_attachments_loaded: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            false
+          } else {
+            model.loan_attachments_loaded
+          },
+          loan_attachment_rows: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            []
+          } else {
+            model.loan_attachment_rows
+          },
+          loan_attachment_note: if path.has_prefix("/loans/") &&
+            path != "/loans/new" {
+            "借款附件尚未加载 · 二进制文件保持未迁移"
+          } else {
+            model.loan_attachment_note
           },
           contract_detail: if path == "/contracts" {
             None
@@ -21373,13 +21463,27 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(row) => row.apply_state
         None => model.loan_state
       }
-      let workflow_command = match loan_row_from_rows(rows, detail_id) {
-        Some(row) if !row.process_instance_guid.is_empty() =>
-          load_loan_workflow(emit, row.process_instance_guid)
-        _ => none
+      let detail_commands : Array[Cmd] = []
+      match loan_row_from_rows(rows, detail_id) {
+        Some(row) => {
+          if !row.process_instance_guid.is_empty() {
+            detail_commands.push(
+              load_loan_workflow(emit, row.process_instance_guid),
+            )
+          }
+          if !detail_id.is_empty() {
+            detail_commands.push(load_loan_attachments(emit, detail_id))
+          }
+        }
+        _ => ()
+      }
+      let detail_command = if detail_commands.length() == 0 {
+        none
+      } else {
+        @cmd.batch(detail_commands)
       }
       (
-        workflow_command,
+        detail_command,
         {
           ..model,
           loans_loaded: true,
@@ -21424,6 +21528,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           loan_workflow_loaded: false,
           loan_workflow_rows: [],
           loan_workflow_note: "借款流程实例读模型不可用 · 保持审批轨迹为空",
+        },
+      )
+    LoanAttachmentsLoaded(body) =>
+      (
+        none,
+        {
+          ..model,
+          loan_attachments_loaded: true,
+          loan_attachment_rows: loan_attachments_from_body(body),
+          loan_attachment_note: "已加载 PostgreSQL 借款附件元数据 · 二进制、上传与 AI 操作仍受边界控制",
+        },
+      )
+    LoanAttachmentsLoadFailed =>
+      (
+        none,
+        {
+          ..model,
+          loan_attachments_loaded: false,
+          loan_attachment_rows: [],
+          loan_attachment_note: "借款附件源读模型不可用 · 二进制文件保持未迁移",
         },
       )
     ExportLoansCsv =>
@@ -34412,6 +34536,46 @@ fn loan_workflow_timeline(model : Model) -> @html.Html {
 }
 
 ///|
+fn loan_attachment_panel(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  for attachment in model.loan_attachment_rows {
+    rows.push([
+      attachment.file_name +
+      (if attachment.att_guid.is_empty() {
+        ""
+      } else {
+        " · " + attachment.att_guid
+      }),
+      attachment.file_size,
+      if attachment.uploaded_by_name.is_empty() {
+        "—"
+      } else {
+        attachment.uploaded_by_name
+      },
+      attachment.uploaded_at,
+      attachment.ai_status,
+      attachment.source_kind + " · " + attachment.download_available,
+    ])
+  }
+  if rows.length() == 0 {
+    rows.push([
+      "—", "—", "—", "—", "无借款附件源记录", "source rows=0",
+    ])
+  }
+  table_panel(
+    "附件 + AI 抽取",
+    model.loan_attachment_note +
+    " · 上传、删除、重识别与二进制下载保持在附件中心边界",
+    data_table(
+      [
+        "文件名", "大小", "上传人", "上传时间", "AI 状态", "来源/下载",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
 fn loan_editor_view(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -34736,6 +34900,11 @@ fn loan_editor_view(
       },
       if detail {
         loan_workflow_timeline(model)
+      } else {
+        @html.nothing
+      },
+      if detail {
+        loan_attachment_panel(model)
       } else {
         @html.nothing
       },
