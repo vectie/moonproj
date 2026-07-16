@@ -21,9 +21,9 @@ Rabbita `/fund/plan` now loads the project master list alongside all three
 fund families, supports project switching, and mirrors the source tabs for
 收支计划, 缺口分析, and 资金调度. The live gap series and dispatch rows are
 rendered from PostgreSQL rather than collapsed to counts; the five KPI cards
-show the corresponding source counts. The existing command buttons remain
-bounded candidate actions with fixed demo payloads, so the Vue plan/dispatch
-dialogs and row-level edit/delete/approve controls are still open.
+show the corresponding source counts. Plan and dispatch creation now expose
+editable Rabbita forms whose values become authority-bound native commands;
+row-level edit/delete/approve controls remain separate actions.
 
 The local command boundary is deliberately a planning projection, not a
 treasury integration:

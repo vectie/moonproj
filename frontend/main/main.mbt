@@ -1352,6 +1352,18 @@ struct Model {
   fund_loaded : Bool
   fund_project_id : String
   fund_tab : String
+  fund_form_open : String
+  fund_plan_period : String
+  fund_plan_direction : String
+  fund_plan_category : String
+  fund_plan_r_code : String
+  fund_plan_amount : String
+  fund_plan_remark : String
+  fund_dispatch_from : String
+  fund_dispatch_to : String
+  fund_dispatch_amount : String
+  fund_dispatch_reason : String
+  fund_dispatch_date : String
   fund_rows : Array[FundPlanRow]
   fund_gap_rows : Array[FundGapRow]
   fund_dispatch_rows : Array[FundDispatchRow]
@@ -1938,6 +1950,9 @@ enum Msg {
   FundDispatchLoadFailed
   SelectFundProject(String)
   SelectFundTab(String)
+  OpenFundForm(String)
+  CloseFundForm
+  InputFundField(String, String)
   CreateFundPlan
   UpdateFundPlan
   DeleteFundPlan
@@ -2541,6 +2556,18 @@ fn initial_model() -> Model {
     fund_loaded: false,
     fund_project_id: "proj-0001",
     fund_tab: "plans",
+    fund_form_open: "",
+    fund_plan_period: "2026-08",
+    fund_plan_direction: "out",
+    fund_plan_category: "工程款",
+    fund_plan_r_code: "R11",
+    fund_plan_amount: "50",
+    fund_plan_remark: "",
+    fund_dispatch_from: "",
+    fund_dispatch_to: "",
+    fund_dispatch_amount: "10",
+    fund_dispatch_reason: "",
+    fund_dispatch_date: "2026-07-16",
     fund_rows: [],
     fund_gap_rows: [],
     fund_dispatch_rows: [],
@@ -8503,35 +8530,92 @@ fn load_fund_dispatches(emit : @rabbita.Emit[Msg]) -> Cmd {
 fn fund_authority_json(
   model : Model,
   capability : String,
-  amount_minor : String,
-) -> String {
-  "{\"active\":true,\"principal_id\":\"principal-rabbita\",\"actor_id\":\"" +
-  model.user_code +
-  "\",\"capability\":\"" +
-  capability +
-  "\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":" +
-  amount_minor +
-  "}"
+  max_amount_minor : Double,
+) -> Json {
+  Json::object({
+    "active": Json::boolean(true),
+    "principal_id": Json::string("principal-rabbita"),
+    "actor_id": Json::string(model.user_code),
+    "capability": Json::string(capability),
+    "scope": Json::string("project:" + model.fund_project_id),
+    "max_amount_minor": Json::number(max_amount_minor),
+  })
+}
+
+///|
+fn fund_amount_minor_json(value : String) -> Json {
+  let parsed = @json.parse(value) catch { _ => Json::null() }
+  match parsed {
+    Json::Number(number, ..) => Json::number(number * 1000000.0)
+    _ => Json::number(0.0)
+  }
 }
 
 ///|
 fn fund_command_body(model : Model, command_type : String) -> String {
   if command_type == "create_plan" {
-    "{\"idempotency_key\":\"rabbita-fund-plan-create-v1\",\"plan_id\":\"FP-RABBITA-LOCAL\",\"plan_code\":\"FP-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"plan_period\":\"2026-08\",\"direction\":\"out\",\"category\":\"construction\",\"r_code\":\"R0\",\"plan_amount_minor\":1200000,\"remark\":\"Rabbita 资金计划命令演示\",\"authority\":" +
-    fund_authority_json(model, "fund:plan:create", "1200000") +
-    "}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-fund-plan-create-" + import_nonce(),
+      ),
+      "plan_id": Json::string("FP-RABBITA-LOCAL"),
+      "plan_code": Json::string("FP-RABBITA-LOCAL"),
+      "project_id": Json::string(model.fund_project_id),
+      "plan_period": Json::string(model.fund_plan_period),
+      "direction": Json::string(model.fund_plan_direction),
+      "category": Json::string(model.fund_plan_category),
+      "r_code": Json::string(model.fund_plan_r_code),
+      "plan_amount_minor": fund_amount_minor_json(model.fund_plan_amount),
+      "remark": Json::string(model.fund_plan_remark),
+      "authority": fund_authority_json(model, "fund:plan:create", 2000000000.0),
+    }).stringify()
   } else if command_type == "update_plan" {
-    "{\"idempotency_key\":\"rabbita-fund-plan-update-v1\",\"remark\":\"Rabbita 资金计划已复核\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-fund-plan-update-" + import_nonce(),
+      ),
+      "plan_amount_minor": fund_amount_minor_json(model.fund_plan_amount),
+      "remark": Json::string(model.fund_plan_remark),
+    }).stringify()
   } else if command_type == "delete_plan" {
-    "{\"idempotency_key\":\"rabbita-fund-plan-delete-v1\",\"reason\":\"Rabbita 资金计划命令演示撤回\"}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-fund-plan-delete-" + import_nonce(),
+      ),
+      "reason": Json::string(
+        if model.fund_plan_remark.is_empty() {
+          "Rabbita 资金计划撤回"
+        } else {
+          model.fund_plan_remark
+        },
+      ),
+    }).stringify()
   } else if command_type == "create_dispatch" {
-    "{\"idempotency_key\":\"rabbita-fund-dispatch-create-v1\",\"dispatch_id\":\"FD-RABBITA-LOCAL\",\"dispatch_code\":\"FD-RABBITA-LOCAL\",\"project_id\":\"proj-0001\",\"from_project_id\":\"proj-0002\",\"to_project_id\":\"proj-0001\",\"amount_minor\":500000,\"reason\":\"Rabbita 资金调度命令演示\",\"dispatch_date\":\"2026-08-01\",\"authority\":" +
-    fund_authority_json(model, "fund:dispatch:create", "500000") +
-    "}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-fund-dispatch-create-" + import_nonce(),
+      ),
+      "dispatch_id": Json::string("FD-RABBITA-LOCAL"),
+      "dispatch_code": Json::string("FD-RABBITA-LOCAL"),
+      "project_id": Json::string(model.fund_project_id),
+      "from_project_id": Json::string(model.fund_dispatch_from),
+      "to_project_id": Json::string(model.fund_dispatch_to),
+      "amount_minor": fund_amount_minor_json(model.fund_dispatch_amount),
+      "reason": Json::string(model.fund_dispatch_reason),
+      "dispatch_date": Json::string(model.fund_dispatch_date),
+      "authority": fund_authority_json(
+        model, "fund:dispatch:create", 2000000000.0,
+      ),
+    }).stringify()
   } else {
-    "{\"idempotency_key\":\"rabbita-fund-dispatch-approve-v1\",\"authority\":" +
-    fund_authority_json(model, "fund:dispatch:approve", "500000") +
-    "}"
+    Json::object({
+      "idempotency_key": Json::string(
+        "rabbita-fund-dispatch-approve-" + import_nonce(),
+      ),
+      "authority": fund_authority_json(
+        model, "fund:dispatch:approve", 2000000000.0,
+      ),
+    }).stringify()
   }
 }
 
@@ -14687,6 +14771,70 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectFundTab(tab) => (none, { ..model, fund_tab: tab })
+    OpenFundForm(form) => (none, { ..model, fund_form_open: form })
+    CloseFundForm => (none, { ..model, fund_form_open: "" })
+    InputFundField(field, value) =>
+      (
+        none,
+        {
+          ..model,
+          fund_plan_period: if field == "plan_period" {
+            value
+          } else {
+            model.fund_plan_period
+          },
+          fund_plan_direction: if field == "plan_direction" {
+            value
+          } else {
+            model.fund_plan_direction
+          },
+          fund_plan_category: if field == "plan_category" {
+            value
+          } else {
+            model.fund_plan_category
+          },
+          fund_plan_r_code: if field == "plan_r_code" {
+            value
+          } else {
+            model.fund_plan_r_code
+          },
+          fund_plan_amount: if field == "plan_amount" {
+            value
+          } else {
+            model.fund_plan_amount
+          },
+          fund_plan_remark: if field == "plan_remark" {
+            value
+          } else {
+            model.fund_plan_remark
+          },
+          fund_dispatch_from: if field == "dispatch_from" {
+            value
+          } else {
+            model.fund_dispatch_from
+          },
+          fund_dispatch_to: if field == "dispatch_to" {
+            value
+          } else {
+            model.fund_dispatch_to
+          },
+          fund_dispatch_amount: if field == "dispatch_amount" {
+            value
+          } else {
+            model.fund_dispatch_amount
+          },
+          fund_dispatch_reason: if field == "dispatch_reason" {
+            value
+          } else {
+            model.fund_dispatch_reason
+          },
+          fund_dispatch_date: if field == "dispatch_date" {
+            value
+          } else {
+            model.fund_dispatch_date
+          },
+        },
+      )
     CreateFundPlan =>
       if model.fund_plan_id != "" {
         (none, model)
@@ -14695,6 +14843,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           issue_fund_command(emit, model, "create_plan"),
           {
             ..model,
+            fund_form_open: "",
             fund_command_state: "pending",
             fund_command_note: "正在创建资金计划草稿…",
           },
@@ -14708,6 +14857,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           issue_fund_command(emit, model, "update_plan"),
           {
             ..model,
+            fund_form_open: "",
             fund_command_state: "pending",
             fund_command_note: "正在更新资金计划草稿…",
           },
@@ -14721,6 +14871,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           issue_fund_command(emit, model, "delete_plan"),
           {
             ..model,
+            fund_form_open: "",
             fund_command_state: "pending",
             fund_command_note: "正在作废资金计划草稿…",
           },
@@ -14734,6 +14885,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           issue_fund_command(emit, model, "create_dispatch"),
           {
             ..model,
+            fund_form_open: "",
             fund_command_state: "pending",
             fund_command_note: "正在创建资金调度申请…",
           },
@@ -23822,7 +23974,7 @@ fn fund_actions(emit : @rabbita.Emit[Msg], model : Model) -> Array[@html.Html] {
   let actions : Array[@html.Html] = [
     button(
       class="erp-primary-btn",
-      on_click=emit(CreateFundPlan),
+      on_click=emit(OpenFundForm("plan")),
       "＋ 编制计划",
     ),
   ]
@@ -23846,7 +23998,7 @@ fn fund_actions(emit : @rabbita.Emit[Msg], model : Model) -> Array[@html.Html] {
     actions.push(
       button(
         class="erp-secondary-btn",
-        on_click=emit(CreateFundDispatch),
+        on_click=emit(OpenFundForm("dispatch")),
         "＋ 申请资金调度",
       ),
     )
@@ -23860,6 +24012,130 @@ fn fund_actions(emit : @rabbita.Emit[Msg], model : Model) -> Array[@html.Html] {
     )
   }
   actions
+}
+
+///|
+fn fund_form_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  if model.fund_form_open == "plan" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新增收支计划"),
+        span(
+          class="erp-source-note",
+          "金额按万元输入 · 提交为本地计划命令",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "期间",
+          model.fund_plan_period,
+          "YYYY-MM",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("plan_period", value)),
+        ),
+        editable_form_field(
+          "方向",
+          model.fund_plan_direction,
+          "in / out",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("plan_direction", value)),
+        ),
+        editable_form_field(
+          "类别",
+          model.fund_plan_category,
+          "回款/工程款/营销费",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("plan_category", value)),
+        ),
+        editable_form_field(
+          "R 编码",
+          model.fund_plan_r_code,
+          "R11",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("plan_r_code", value)),
+        ),
+        editable_form_field(
+          "计划金额（万）",
+          model.fund_plan_amount,
+          "50",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("plan_amount", value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.fund_plan_remark,
+          "备注",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("plan_remark", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseFundForm), "取消"),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateFundPlan),
+          "提交计划",
+        ),
+      ],
+    ]
+  } else if model.fund_form_open == "dispatch" {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("新增资金调度"),
+        span(
+          class="erp-source-note",
+          "金额按万元输入 · 资金释放保持独立审批",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "来源项目",
+          model.fund_dispatch_from,
+          "项目 GUID",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("dispatch_from", value)),
+        ),
+        editable_form_field(
+          "目标项目",
+          model.fund_dispatch_to,
+          model.fund_project_id,
+          @html.InputType::Text,
+          emit.map(value => InputFundField("dispatch_to", value)),
+        ),
+        editable_form_field(
+          "金额（万）",
+          model.fund_dispatch_amount,
+          "10",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("dispatch_amount", value)),
+        ),
+        editable_form_field(
+          "调度日",
+          model.fund_dispatch_date,
+          "YYYY-MM-DD",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("dispatch_date", value)),
+        ),
+        editable_form_field(
+          "原因",
+          model.fund_dispatch_reason,
+          "资金缺口/项目周转",
+          @html.InputType::Text,
+          emit.map(value => InputFundField("dispatch_reason", value)),
+        ),
+      ],
+      div(class="erp-inline-actions") <| [
+        button(class="erp-ghost-btn", on_click=emit(CloseFundForm), "取消"),
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateFundDispatch),
+          "提交调度",
+        ),
+      ],
+    ]
+  } else {
+    @html.nothing
+  }
 }
 
 ///|
@@ -23903,6 +24179,7 @@ fn fund_plan_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           )
         },
       ],
+      fund_form_view(emit, model),
       div(class="erp-stat-grid") <| [
         metric(
           "本月可用资金",
