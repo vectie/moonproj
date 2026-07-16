@@ -73,10 +73,11 @@ rewrite imported rows. OCR status never executes a provider or returns secret
 values; error-log reads never return raw IP addresses or stack traces. The
 current export has no `sys_param` or `sys_error_log` rows, so both screens
 render explicit empty-source/definition states after successful reads.
-The Rabbita `/ocr-config` screen now exposes a bounded “测试连接（干运行）”
-control; it records the signed OCR provider-test candidate through the gateway,
-keeps `providerExecution=false`, and reports replay/redaction state without
-enabling OCR execution or configuration writes.
+The Rabbita `/ocr-config` screen now exposes bounded “测试连接（干运行）” and
+“保存配置（待授权）” controls. The former records the signed OCR provider-test
+candidate; the latter records a redacted `ocr.provider` sys-param candidate
+through the authenticated gateway. Both keep `providerExecution=false`; values
+are digest-only and no OCR provider or credential binding is enabled.
 
 ## Evidence
 

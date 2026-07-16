@@ -1328,6 +1328,9 @@ enum Msg {
   NotifyLoadFailed(String)
   OcrLoaded(String)
   OcrLoadFailed
+  SaveOcrConfig
+  OcrConfigCommandFinished(String)
+  OcrConfigCommandFailed
   TestOcrProvider
   OcrCommandFinished(String)
   OcrCommandFailed
@@ -6456,6 +6459,20 @@ fn load_ocr(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_ocr_config_save(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/admin/sys-param")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-ocr-config-save-v1\",\"code\":\"ocr.provider\",\"value\":\"paddle\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(OcrConfigCommandFinished(body))
+      Err(_) => emit(OcrConfigCommandFailed)
+    }
+  })
+}
+
+///|
 fn issue_ocr_provider_test(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.post("/api/company/admin/ocr/test")
   .with_text(
@@ -10203,6 +10220,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ocr_loaded: false,
           ocr_provider_rows: [],
           ocr_note: "OCR 配置读模型不可用 · 使用设计快照",
+        },
+      )
+    SaveOcrConfig =>
+      (
+        issue_ocr_config_save(emit),
+        { ..model, ocr_command_note: "正在写入 OCR 配置候选…" },
+      )
+    OcrConfigCommandFinished(body) =>
+      (
+        if body.contains("\"valueRedacted\":true") {
+          load_ocr(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          ocr_command_note: if body.contains("\"authorization_candidate\":true") {
+            "OCR 配置候选已写入 PostgreSQL · 值已脱敏 · provider 未执行"
+          } else {
+            "OCR 配置命令已返回 · 请复核响应边界"
+          },
+        },
+      )
+    OcrConfigCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          ocr_command_note: "OCR 配置候选服务不可用或被网关拒绝",
         },
       )
     TestOcrProvider =>
@@ -18565,7 +18611,11 @@ fn ocr_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(TestOcrProvider),
         "测试连接（干运行）",
       ),
-      button(class="erp-primary-btn", "保存配置（待授权）"),
+      button(
+        class="erp-primary-btn",
+        on_click=emit(SaveOcrConfig),
+        "保存配置（待授权）",
+      ),
     ],
     div <| [
       section(class="erp-detail-card") <| [
