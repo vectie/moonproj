@@ -1484,6 +1484,9 @@ enum Msg {
   CreateLocalRole
   RbacRoleCommandFinished(String)
   RbacRoleCommandFailed
+  AssignLocalRole
+  RbacAssignmentFinished(String)
+  RbacAssignmentFailed
   RbacRolesLoaded(String)
   RbacRolesLoadFailed
   RbacCatalogLoaded(String)
@@ -7186,6 +7189,20 @@ fn issue_rbac_role_create(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_rbac_role_assignment(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/rbac/users/user-admin-0001/roles")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-rbac-role-assignment-v1\",\"roleCodes\":[\"rabbita-local-role\"]}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacAssignmentFinished(body))
+      Err(_) => emit(RbacAssignmentFailed)
+    }
+  })
+}
+
+///|
 fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/roles").expect_text(result => {
     match result {
@@ -12189,6 +12206,38 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           rbac_roles_note: "本地角色命令服务不可用或被网关拒绝",
+        },
+      )
+    AssignLocalRole =>
+      (
+        issue_rbac_role_assignment(emit),
+        {
+          ..model,
+          rbac_roles_note: "正在提交本地角色分配候选 · 不改变当前授权…",
+        },
+      )
+    RbacAssignmentFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_users(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          rbac_roles_note: if body.contains("\"authorizing\":false") {
+            "本地角色分配候选已写入 PostgreSQL · 仍需安全负责人批准授权"
+          } else {
+            "本地角色分配命令已返回 · 请复核授权边界"
+          },
+        },
+      )
+    RbacAssignmentFailed =>
+      (
+        none,
+        {
+          ..model,
+          rbac_roles_note: "本地角色分配服务不可用、角色不存在或被网关拒绝",
         },
       )
     RbacRolesLoaded(body) =>
@@ -19989,6 +20038,11 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-secondary-btn",
         on_click=emit(CreateLocalRole),
         "＋ 新建角色（本地候选）",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(AssignLocalRole),
+        "分配本地角色（候选）",
       ),
     ],
     div <| [
