@@ -2183,6 +2183,22 @@ Execute the remainder in this order:
     exact typed-evidence plan envelope. Evidence remains queryable preservation
     only; workflow, authority, economic state, and cutover approval remain
     separate gates.
+3a.35. **Native investment-model planner (2026-07-16).**
+    `cmd/investment_promotion_plan` and
+    `scripts/erp_investment_promotion_plan.sh` now replace the investment
+    model Python compiler in the typed-cohort rehearsal. The native planner
+    preserves principal/version/index authority, deterministic index order,
+    source value representations, stray-index quarantine, and the exact
+    investment-model promotion envelope. Investment execution, positions,
+    accounting, cash, formula approval, and cutover remain separate gates.
+3a.36. **Native payment and parameter planners (2026-07-16).**
+    `cmd/payment_promotion_plan` and `cmd/parameter_promotion_plan`, exposed
+    by shell wrappers, now replace the final Python compilers in the typed
+    cohort rehearsal. The native planners preserve explicit contract-state
+    and principal/scope mappings, half-even monetary normalization,
+    deterministic milestone/option ordering, source bounds, quarantine
+    reasons, and the exact payment/parameter promotion envelopes. Cash,
+    accounting, tax, authority, and cutover approval remain separate gates.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

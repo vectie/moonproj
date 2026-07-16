@@ -92,7 +92,8 @@ This is intentional: the fixture reports child task completion while a parent
 task is still in progress, so target state replay would violate the local
 dependency invariant and must remain a separate, reviewed exception cohort.
 
-The investment-model cohort uses `scripts/erp_investment_promotion_plan.py`.
+The investment-model cohort uses the native
+`scripts/erp_investment_promotion_plan.sh` wrapper.
 The reviewed `principal_by_bu` mapping authorizes one version with 26 indexes;
 the index values are preserved as source representations. After native import,
 `cmd/investment_model_eval` classifies explicit numeric/date values, checks
@@ -101,7 +102,8 @@ mapping-scoped receipt; unknown units, formulas, tax, financing, and accounting
 semantics remain evidence rather than approved effects. A missing principal or
 stray index quarantines the cohort before the native importer runs.
 
-The payment cohort uses `scripts/erp_payment_promotion_plan.py` and requires an
+The payment cohort uses the native `scripts/erp_payment_promotion_plan.sh`
+wrapper and requires an
 explicit `commitment_state_by_contract` map. With the reviewed fixture map,
 the two contracts replay through submit/approve/perform, the four payment-plan
 rows become planned contract milestones, and the three payment applications
@@ -223,7 +225,8 @@ fixture promotes 2 audit records; redacted network fields remain excluded.
 Without those mappings the cohort is quarantined rather than inventing audit
 targets.
 
-The parameter cohort uses `scripts/erp_parameter_promotion_plan.py`. Its
+The parameter cohort uses the native `scripts/erp_parameter_promotion_plan.sh`
+wrapper. Its
 `parameter_by_name` mapping explicitly names the owning principal and scope;
 the optional `parameter_source_by_name` mapping explicitly selects a source
 catalog. The fixture promotes the original `cost_subject` dictionary with 5

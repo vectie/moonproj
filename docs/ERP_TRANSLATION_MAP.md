@@ -402,11 +402,11 @@ The full task-state plan now also emits a review-only exception artifact with
 the two `proj-0001` dependency conflicts and empty owner decision fields;
 the native `scripts/erp_task_state_exception_review.sh` review never repairs or authorizes those
 states automatically. See [ERP_TASK_STATE_EXCEPTION.md](ERP_TASK_STATE_EXCEPTION.md).
-`scripts/erp_investment_promotion_plan.py` now promotes the fixture's one
+The native `scripts/erp_investment_promotion_plan.sh` wrapper now promotes the fixture's one
 investment model and 26 indexes through `import_investment_models`, keeping
 index values as source representations and refusing missing principals or
 stray indexes.
-`scripts/erp_payment_promotion_plan.py` adds an explicit contract-state map:
+The native `scripts/erp_payment_promotion_plan.sh` wrapper adds an explicit contract-state map:
 the native boundary replays two contracts to `performed`, converts four
 payment-plan rows into planned milestones, and converts three applications
 into requested settlements only. Approval, release, cash, and accounting
@@ -423,7 +423,7 @@ evidence-only.
 The native `scripts/erp_audit_promotion_plan.sh` promotes two audit records only after an
 explicit target/outcome interpretation and actor-scoped append grant; missing
 target mappings remain quarantined and redacted network fields stay excluded.
-`scripts/erp_parameter_promotion_plan.py` promotes the original 5-option
+The native `scripts/erp_parameter_promotion_plan.sh` wrapper promotes the original 5-option
 `cost_subject` dictionary plus an explicitly mapped 3-option
 `expense_proceeding` catalog through the local parameter API under explicit
 principal/scope grants; values remain opaque until a later CBS/accounting or

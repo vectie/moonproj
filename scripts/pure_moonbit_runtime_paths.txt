@@ -77,3 +77,6 @@ scripts/erp_workflow_promotion_plan.sh
 scripts/erp_lifecycle_promotion_plan.sh
 scripts/erp_task_promotion_plan.sh
 scripts/erp_typed_evidence_promotion_plan.sh
+scripts/erp_investment_promotion_plan.sh
+scripts/erp_payment_promotion_plan.sh
+scripts/erp_parameter_promotion_plan.sh
