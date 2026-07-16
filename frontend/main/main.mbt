@@ -1010,6 +1010,8 @@ struct Model {
   investment_version_rows : Array[InvestmentVersionRow]
   investment_index_rows : Array[InvestmentIndexRow]
   investment_index_selected : String
+  investment_index_edit_value : String
+  investment_index_edit_remark : String
   investment_dimension_count : String
   investment_total : String
   investment_revenue : String
@@ -1522,6 +1524,8 @@ enum Msg {
   InvestmentExplainFailed
   SelectInvestmentVersion(String)
   SelectInvestmentIndex(String)
+  InputInvestmentIndexEditValue(String)
+  InputInvestmentIndexEditRemark(String)
   InputInvestmentExcelFileSelected(String)
   InputInvestmentExcelVersionName(String)
   ToggleInvestmentExcelActivate
@@ -1998,6 +2002,8 @@ fn initial_model() -> Model {
     investment_version_rows: [],
     investment_index_rows: [],
     investment_index_selected: "",
+    investment_index_edit_value: "",
+    investment_index_edit_remark: "",
     investment_dimension_count: "0",
     investment_total: "0",
     investment_revenue: "0",
@@ -4049,6 +4055,32 @@ fn investment_index_rows_from_body(
     _ => ()
   }
   (rows, dimension_count.to_string())
+}
+
+///|
+fn investment_index_value_for(
+  rows : Array[InvestmentIndexRow],
+  index_id : String,
+) -> String {
+  for row in rows {
+    if row.index_guid == index_id {
+      return row.index_value
+    }
+  }
+  ""
+}
+
+///|
+fn investment_index_remark_for(
+  rows : Array[InvestmentIndexRow],
+  index_id : String,
+) -> String {
+  for row in rows {
+    if row.index_guid == index_id {
+      return "已从 PostgreSQL 投资指标读取 · " + row.source_kind
+    }
+  }
+  ""
 }
 
 ///|
@@ -7030,6 +7062,15 @@ fn issue_investment_plan_line_import(
 }
 
 ///|
+fn investment_edit_value_json(value : String) -> Json {
+  let parsed = @json.parse(value.trim()) catch { _ => Json::null() }
+  match parsed {
+    Json::Number(_, ..) => parsed
+    _ => Json::string(value)
+  }
+}
+
+///|
 fn issue_investment_command(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -7046,7 +7087,7 @@ fn issue_investment_command(
     model.investment_index_selected
   }
   let project_id = model.investment_project_id
-  let (path, body) = if command_type == "version_create" {
+  let (path, default_body) = if command_type == "version_create" {
     (
       "/api/company/investment/projects/" + project_id + "/versions",
       "{\"idempotency_key\":\"rabbita-investment-version-create-v1\",\"versionGuid\":\"INV-RABBITA-V2\",\"versionName\":\"Rabbita 本地投资版本\",\"activate\":false,\"remark\":\"本地投资版本命令候选\"}",
@@ -7083,6 +7124,17 @@ fn issue_investment_command(
       "/api/company/investment/indices/" + index_id,
       "{\"idempotency_key\":\"rabbita-investment-index-delete-v1\"}",
     )
+  }
+  let body = if command_type == "index_update" {
+    Json::object({
+      "idempotency_key": Json::string("rabbita-investment-index-update-v1"),
+      "indexValue": investment_edit_value_json(
+        model.investment_index_edit_value,
+      ),
+      "remark": Json::string(model.investment_index_edit_remark),
+    }).stringify()
+  } else {
+    default_body
   }
   if command_type == "version_delete" {
     @http.delete(path + "?idempotency_key=rabbita-investment-version-delete-v1").expect_text(result => {
@@ -11567,6 +11619,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           investment_version_rows: [],
           investment_index_rows: [],
           investment_index_selected: "",
+          investment_index_edit_value: "",
+          investment_index_edit_remark: "",
           investment_imports_loaded: false,
           investment_import_rows: [],
           investment_import_selected: "",
@@ -11625,6 +11679,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             investment_version_name: version_name,
             investment_loaded: false,
             investment_index_selected: "",
+            investment_index_edit_value: "",
+            investment_index_edit_remark: "",
             investment_note: "正在读取所选投资版本指标…",
           },
         )
@@ -11635,6 +11691,14 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           investment_index_selected: index_id,
+          investment_index_edit_value: investment_index_value_for(
+            model.investment_index_rows,
+            index_id,
+          ),
+          investment_index_edit_remark: investment_index_remark_for(
+            model.investment_index_rows,
+            index_id,
+          ),
           investment_command_note: if index_id.is_empty() {
             model.investment_command_note
           } else {
@@ -11644,6 +11708,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
+    InputInvestmentIndexEditValue(value) =>
+      (none, { ..model, investment_index_edit_value: value })
+    InputInvestmentIndexEditRemark(value) =>
+      (none, { ..model, investment_index_edit_remark: value })
     InvestmentImportsLoaded(body) => {
       let (loaded, rows, note) = investment_import_rows_from_body(body)
       (
@@ -19331,6 +19399,57 @@ fn investment_runtime_table(
 }
 
 ///|
+fn investment_index_edit_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> @html.Html {
+  if model.investment_index_selected.is_empty() {
+    @html.nothing
+  } else {
+    section(class="erp-detail-card") <| [
+      div(class="erp-panel-heading") <| [
+        h2("指标编辑候选"),
+        span(
+          class="erp-info-tag",
+          "源指标 " +
+          model.investment_index_selected +
+          " · 保存仍需投资负责人确认",
+        ),
+      ],
+      div(class="erp-form-grid") <| [
+        editable_form_field(
+          "指标值",
+          model.investment_index_edit_value,
+          "例如 120.5",
+          @html.InputType::Text,
+          emit.map(value => InputInvestmentIndexEditValue(value)),
+        ),
+        editable_form_field(
+          "备注",
+          model.investment_index_edit_remark,
+          "复核说明",
+          @html.InputType::Text,
+          emit.map(value => InputInvestmentIndexEditRemark(value)),
+        ),
+      ],
+      div(class="erp-command-bar") <| [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(RequestInvestmentIndexUpdate),
+          "提交更新候选",
+        ),
+        button(
+          class="erp-secondary-btn",
+          on_click=emit(RequestInvestmentIndexDelete),
+          "提交删除候选",
+        ),
+      ],
+      p(class="erp-source-note", model.investment_command_note),
+    ]
+  }
+}
+
+///|
 fn investment_import_history_table(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -19756,6 +19875,7 @@ fn investment_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       investment_excel_panel(emit, model),
       investment_import_history_panel(emit, model),
       investment_runtime_table(emit, model),
+      investment_index_edit_panel(emit, model),
       investment_sensitivity_table(model),
       investment_profit_actual_panel(model),
       div(class="erp-runtime-banner", [

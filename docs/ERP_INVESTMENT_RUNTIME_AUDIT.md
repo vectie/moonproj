@@ -65,6 +65,9 @@ just as in the ERP route, so the UI does not claim a non-current summary.
 Each grouped index now carries its source `indexGuid` into a row-level selection
 control; update/delete candidates target the selected index while remaining
 owner-gated.
+The selected-index panel now accepts a value and remark, serializes them into
+the source-shaped update candidate, and leaves imported index mutation to the
+same native owner gate.
 
 ## Evidence
 

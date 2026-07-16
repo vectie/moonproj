@@ -40,6 +40,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now loads project master context and switches the version/import read chain by selected project; command candidates remain explicitly gated.
 - Browser action delta: Rabbita `/investment` now renders source version metadata and switches grouped-index reads by selected version; project profit summary retains the source current-version semantics.
 - Browser action delta: Rabbita `/investment` now exposes row-level source index selection so lifecycle candidates can target the selected index; no imported index is mutated without owner authorization.
+- Browser action delta: Rabbita `/investment` now mirrors the source index edit form (value and remark) and sends the selected index candidate through the owner-gated update route.
 - Browser action delta: Rabbita `/investment` now calls the native subject-mapping dry-run candidate; investment master-data writes, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native plan-line edit dry-run candidate; investment plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/investment` now calls the native Excel index-upsert dry-run candidate; indicator writes, valuation, cash, accounting, and tax effects remain disabled.
