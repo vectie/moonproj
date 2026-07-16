@@ -1917,6 +1917,7 @@ enum Msg {
   TenderSourceLoadFailed
   SelectTenderProject(String)
   SelectTenderRow(String, String, String, String)
+  AdvanceTenderRow(String, String, String)
   SelectTenderProvider(String, String)
   SelectTenderTab(String)
   OpenTenderForm(String)
@@ -13277,6 +13278,39 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           tender_note: "合约规划源读模型不可用 · 使用已审核快照",
         },
       )
+    AdvanceTenderRow(tender_id, current_state, target_state) => {
+      let command = if current_state == "planning" &&
+        target_state == "publishing" {
+        "publish"
+      } else if current_state == "publishing" && target_state == "bidding" {
+        "open_bidding"
+      } else if current_state == "awarded" && target_state == "completed" {
+        "complete"
+      } else {
+        ""
+      }
+      if command.is_empty() {
+        (none, model)
+      } else {
+        let selected = {
+          ..model,
+          tender_id,
+          tender_state: current_state,
+          tender_selected_source_kind: "command",
+        }
+        (
+          issue_tender_command(emit, selected, command),
+          {
+            ..selected,
+            tender_state: "pending",
+            tender_note: "正在推进招标行状态：" +
+            current_state +
+            " → " +
+            target_state,
+          },
+        )
+      }
+    }
     SelectTenderRow(tender_id, tender_name, tender_state, source_kind) =>
       (
         none,
@@ -26732,6 +26766,37 @@ fn fallback_tender_rows() -> Array[TenderRow] {
 
 ///|
 fn tender_table_row(emit : @rabbita.Emit[Msg], row : TenderRow) -> @html.Html {
+  let action = if row.source_kind != "command" {
+    span(class="erp-source-note", "源行只读")
+  } else if row.state == "planning" {
+    button(
+      class="erp-link-btn",
+      on_click=emit(AdvanceTenderRow(row.tender_id, row.state, "publishing")),
+      "发布",
+    )
+  } else if row.state == "publishing" {
+    button(
+      class="erp-link-btn is-warning",
+      on_click=emit(AdvanceTenderRow(row.tender_id, row.state, "bidding")),
+      "开标",
+    )
+  } else if row.state == "bidding" {
+    button(
+      class="erp-link-btn is-success",
+      on_click=emit(
+        SelectTenderRow(row.tender_id, row.name, row.state, row.source_kind),
+      ),
+      "定标",
+    )
+  } else if row.state == "awarded" {
+    button(
+      class="erp-link-btn",
+      on_click=emit(AdvanceTenderRow(row.tender_id, row.state, "completed")),
+      "完成",
+    )
+  } else {
+    span(class="erp-source-note", "—")
+  }
   tr <| [
     td <| [
       button(
@@ -26769,6 +26834,7 @@ fn tender_table_row(emit : @rabbita.Emit[Msg], row : TenderRow) -> @html.Html {
         span(" · 承诺 " + row.commitment_id)
       },
     ],
+    td(action),
   ]
 }
 
@@ -26785,7 +26851,7 @@ fn tender_table(
     thead <| [
       table_header([
         "规划编号 / 来源", "项目范围", "合约包", "CBS / 类别", "预算金额",
-        "已定标", "投标证据", "状态 / 承诺",
+        "已定标", "投标证据", "状态 / 承诺", "操作",
       ]),
     ],
     tbody <| rendered,
