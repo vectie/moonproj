@@ -821,6 +821,9 @@ struct Model {
   sales_mortgage_id : String
   sales_mortgage_state : String
   sales_mortgage_command_note : String
+  sales_refund_id : String
+  sales_refund_state : String
+  sales_refund_command_note : String
   sales_revenue_id : String
   sales_revenue_state : String
   sales_revenue_command_note : String
@@ -1238,6 +1241,10 @@ enum Msg {
   ReleaseSalesMortgage
   SalesMortgageCommandFinished(String)
   SalesMortgageCommandFailed
+  CreateSalesRefund
+  ApproveSalesRefund
+  SalesRefundCommandFinished(String)
+  SalesRefundCommandFailed
   CreateSalesRevenue
   UpdateSalesRevenue
   ConfirmSalesRevenue
@@ -1523,6 +1530,9 @@ fn initial_model() -> Model {
     sales_mortgage_id: "MTG-RABBITA-LOCAL",
     sales_mortgage_state: "new",
     sales_mortgage_command_note: "按揭命令尚未执行",
+    sales_refund_id: "RF-RABBITA-LOCAL",
+    sales_refund_state: "new",
+    sales_refund_command_note: "退款命令尚未执行",
     sales_revenue_id: "REV-RABBITA-LOCAL",
     sales_revenue_state: "new",
     sales_revenue_command_note: "本地回款登记需要销售/财务 authority；不会自动释放现金或过账",
@@ -7029,6 +7039,32 @@ fn issue_sales_mortgage_command(
 }
 
 ///|
+fn issue_sales_refund_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/sales/refunds"
+  } else {
+    "/api/company/sales/refunds/" + model.sales_refund_id + "/approve"
+  }
+  let body = if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-sales-refund-create-v1\",\"refund_guid\":\"RF-RABBITA-LOCAL\",\"refund_code\":\"RF-RABBITA-LOCAL\",\"scontract_guid\":\"SCT-RABBITA-LOCAL\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"reason\":\"Rabbita 本地退款申请演示\",\"refund_amount\":120000,\"refund_date\":\"2026-07-16\"}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-sales-refund-approve-v1\"}"
+  }
+  @http.post(path)
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(response) => emit(SalesRefundCommandFinished(response))
+      Err(_) => emit(SalesRefundCommandFailed)
+    }
+  })
+}
+
+///|
 fn sales_revenue_command_body(command_type : String) -> String {
   if command_type == "create" {
     "{\"idempotency_key\":\"rabbita-sales-revenue-create-v1\",\"revenue_id\":\"REV-RABBITA-LOCAL\",\"revenue_code\":\"SR-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"customer_name\":\"Rabbita 本地回款演示\",\"amount_minor\":456700,\"receive_date\":\"2026-07-14\",\"status\":\"expected\",\"payment_type\":\"bank\",\"contract_no\":\"SCT-RABBITA-LOCAL\",\"remark\":\"本地回款登记演示\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:create\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":500000}}"
@@ -8843,6 +8879,78 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           sales_mortgage_state: "error",
           sales_mortgage_command_note: "按揭命令服务不可用、状态不允许或请求被拒绝",
+        },
+      )
+    CreateSalesRefund =>
+      if model.sales_refund_state == "new" ||
+        model.sales_refund_state == "error" {
+        (
+          issue_sales_refund_command(emit, model, "create"),
+          {
+            ..model,
+            sales_refund_state: "pending",
+            sales_refund_command_note: "正在写入本地退款申请 · 不触发合同/回款/现金…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    ApproveSalesRefund =>
+      if model.sales_refund_state == "applying" {
+        (
+          issue_sales_refund_command(emit, model, "approve"),
+          {
+            ..model,
+            sales_refund_state: "pending",
+            sales_refund_command_note: "正在记录退款审批候选 · 合同/回款仍保持待处理…",
+          },
+        )
+      } else {
+        (none, model)
+      }
+    SalesRefundCommandFinished(body) => {
+      let next_state = if body.contains("\"state\":\"approved\"") {
+        "approved"
+      } else if body.contains("\"state\":\"applying\"") {
+        "applying"
+      } else {
+        "error"
+      }
+      if next_state == "error" {
+        (
+          none,
+          {
+            ..model,
+            sales_refund_state: "error",
+            sales_refund_command_note: body,
+          },
+        )
+      } else {
+        (
+          load_sales(emit, "revenues"),
+          {
+            ..model,
+            sales_refund_state: next_state,
+            sales_refund_command_note: if body.contains(
+                "\"idempotent_replay\":true",
+              ) {
+              "退款命令已幂等重放 · 本地投影保持稳定"
+            } else if next_state == "approved" {
+              "退款审批候选已写入 PostgreSQL · 合同/回款/现金/会计/税务仍未执行"
+            } else {
+              "退款申请已写入 PostgreSQL · 需要后续审批，不触发外部退款"
+            },
+          },
+        )
+      }
+    }
+    SalesRefundCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          sales_refund_state: "error",
+          sales_refund_command_note: "退款命令服务不可用、状态不允许或请求被拒绝",
         },
       )
     CreateSalesRevenue =>
@@ -17798,6 +17906,16 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         on_click=emit(ConfirmSalesRevenue),
         "确认到账",
       ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(CreateSalesRefund),
+        "＋ 新建退款",
+      ),
+      button(
+        class="erp-danger-btn",
+        on_click=emit(ApproveSalesRefund),
+        "记录退款审批",
+      ),
     ],
     div <| [
       sales_runtime_banner(model, "revenues"),
@@ -17821,6 +17939,17 @@ fn sales_revenues_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
             "创建 / 更新 / 确认 / 撤回",
             model.sales_revenue_state,
             model.sales_revenue_command_note,
+          ],
+        ]),
+      ),
+      table_panel(
+        "本地退款命令",
+        "RF-RABBITA-LOCAL · 状态 " + model.sales_refund_state,
+        data_table(["命令", "状态", "边界"], [
+          [
+            "创建 / 审批",
+            model.sales_refund_state,
+            model.sales_refund_command_note,
           ],
         ]),
       ),

@@ -143,6 +143,28 @@ status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/mortgage-release.json" -w '
 test "$status" = 200
 /usr/bin/jq -e '.success == true and .mortgage.state == "released" and .mortgage.revenue_pending == true' "$TMP_DIR/mortgage-release.json" >/dev/null
 
+gateway_refund_suffix=$(/bin/date +%s)
+gateway_refund_id="RF-GW-SMOKE-$gateway_refund_suffix"
+gateway_refund_body="{\"refundGuid\":\"$gateway_refund_id\",\"refundCode\":\"$gateway_refund_id\",\"scontractGuid\":\"SCT-GW-SMOKE-$gateway_refund_suffix\",\"customerGuid\":\"CUS-GW-SUB-$gateway_refund_suffix\",\"reason\":\"gateway refund smoke\",\"refundAmount\":12.5,\"refundDate\":\"2026-07-16\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/refund-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-refund-create-$gateway_refund_suffix" \
+  --data "$gateway_refund_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/refunds")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$gateway_refund_id" \
+  '.success == true and .refund.refundGuid == $id and .refund.state == "applying" and .provider_execution == false and .cash_effect == false' \
+  "$TMP_DIR/refund-create.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/refund-approve.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-refund-approve-$gateway_refund_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/refunds/$gateway_refund_id/approve")
+test "$status" = 200
+/usr/bin/jq -e \
+  '.success == true and .refund.state == "approved" and .refund.contract_pending == true and .refund.revenue_pending == true and .refund.contract_updated == false and .refund.revenue_updated == false' \
+  "$TMP_DIR/refund-approve.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \

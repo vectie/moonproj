@@ -124,6 +124,9 @@ create command; contract and revenue conversion remain explicitly pending.
 Rabbita `/sales/mortgages` now exposes local create, approve, and release
 candidates; release records a revenue-pending marker without touching banks,
 cash, accounting, or tax.
+Rabbita `/sales/revenues` now exposes local refund create and approval
+candidates; approval records contract/revenue-pending markers without invoking
+cash, accounting, tax, or a payment provider.
 
 The reviewed synthetic sales cohort contains one customer, converted
 subscription, fulfilled agreement, opened receivable, released mortgage, paid
