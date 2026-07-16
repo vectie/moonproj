@@ -755,7 +755,7 @@ fi
 
 if [ -n "$ACCOUNTING_MAPPING" ]; then
   PERIOD_CLOSE_CONTROL="$WORK_DIR/period-close-control.json"
-  "$SCRIPT_DIR/company_period_close_control.py" "$WORK_DIR" "$PERIOD_CLOSE_CONTROL"
+  "$SCRIPT_DIR/company_period_close_control.sh" "$WORK_DIR" "$PERIOD_CLOSE_CONTROL"
   echo "period_close_control=$PERIOD_CLOSE_CONTROL"
 fi
 

@@ -2279,6 +2279,12 @@ Execute the remainder in this order:
     reference semantics, distinct orphan values, counts, and the
     non-authorizing report. Against the authoritative snapshot it reports
     216 references and zero orphans, byte-equivalent to the Python oracle.
+3a.48. **Native period-close readiness control (2026-07-16).**
+    `cmd/period_close_control` and `scripts/company_period_close_control.sh`
+    now validate reconciliation evidence and preserve the canonical evidence
+    hash, duplicate-backend handling, source-snapshot guard, and explicit
+    `close_authorized=false` boundary. The authoritative report matches the
+    Python oracle.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
