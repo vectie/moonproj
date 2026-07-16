@@ -849,10 +849,10 @@ if [ -n "$TYPED_MAPPING" ]; then
     EXPECTED_LINKS=$((EXPECTED_LINKS + 1))
   fi
   if [ -n "$MAPPING_PATH" ] && [ -n "$ACCOUNTING_MAPPING" ] && [ -n "$ADVANCE_OFFSET_MAPPING" ]; then
-    "$SCRIPT_DIR/company_migration_cutover_gate.py" "$WORK_DIR" "$CUTOVER_GATE" \
+    "$SCRIPT_DIR/company_migration_cutover_gate.sh" "$WORK_DIR" "$CUTOVER_GATE" \
       --expected-raw 120 --expected-projections "$EXPECTED_PROJECTIONS" --expected-links "$EXPECTED_LINKS" || true
   else
-    "$SCRIPT_DIR/company_migration_cutover_gate.py" "$WORK_DIR" "$CUTOVER_GATE" \
+    "$SCRIPT_DIR/company_migration_cutover_gate.sh" "$WORK_DIR" "$CUTOVER_GATE" \
       --expected-raw 120 || true
   fi
   echo "cutover_gate=$CUTOVER_GATE"

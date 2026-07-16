@@ -105,6 +105,8 @@ cmd/production_deployment_check
 scripts/company_production_deployment_check.sh
 cmd/production_service_check
 scripts/company_production_service_check.sh
+cmd/cutover_gate
+scripts/company_migration_cutover_gate.sh
 scripts/erp_task_state_promotion_plan.sh
 scripts/erp_task_state_exception_review.sh
 scripts/erp_user_promotion_plan.sh

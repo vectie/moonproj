@@ -2341,6 +2341,17 @@ Execute the remainder in this order:
     read-only endpoints, no arbitrary SQL, and corroborated owner approvals.
     They preserve the explicit `ready_for_owner_review` /
     `ready_for_service_review` states until approvals authorize deployment.
+3a.55. **Native cutover evidence aggregator (2026-07-16).**
+    `cmd/cutover_gate` and `scripts/company_migration_cutover_gate.sh` now
+    replace the final Python runtime call in the migration rehearsal. The
+    shell supplies only PostgreSQL-independent SQLite integrity/count facts;
+    native MoonBit evaluates staging/schema/mapping/relationship/route/period
+    controls, target counts, backup/driver evidence, production contracts,
+    row coverage, owner acceptance, shadow state, parity, task-state exception
+    evidence, replay idempotency, and accounting reconciliation, then emits
+    the fail-closed `moonproj.erp.cutover-gate.v1` artifact. On the partial
+    authoritative rehearsal its JSON is oracle-equivalent, with technical
+    failures and `cutover_authorized=false` preserved.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
