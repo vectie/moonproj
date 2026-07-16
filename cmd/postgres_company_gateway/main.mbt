@@ -359,6 +359,10 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/attachments/re-extract/", path) ||
       path_with_identifier("/api/company/webhook/test/", path) ||
       path_with_identifier("/api/company/source/webhook/test/", path) ||
+      path == "/api/company/webhook/scan-overdue" ||
+      path == "/api/company/source/webhook/scan-overdue" ||
+      path == "/api/company/webhook/scan-overdue/preview" ||
+      path == "/api/company/source/webhook/scan-overdue/preview" ||
       path == "/api/company/source/invoice/in" ||
       path == "/api/company/source/invoice/out" ||
       path == "/api/company/source/cost/payment-applies" ||

@@ -22,6 +22,7 @@ GATEWAY_PID=""
 SUFFIX=$(/bin/date +%s)
 COMMAND_KEY="webhook-gateway-$SUFFIX"
 CONFIG_KEY="webhook-config-gateway-$SUFFIX"
+SCAN_KEY="webhook-scan-gateway-$SUFFIX"
 
 cleanup() {
   if [ -n "$GATEWAY_PID" ]; then
@@ -33,7 +34,7 @@ cleanup() {
     wait "$SERVICE_PID" 2>/dev/null || true
   fi
   "$PSQL_BIN" -v ON_ERROR_STOP=0 -d "$DATABASE" -c \
-    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'webhook_test_delivery' AND aggregate_id = '$COMMAND_KEY') OR (aggregate_type = 'webhook_config' AND aggregate_id = 'wecom' AND source_event_id LIKE '%$CONFIG_KEY%'); DELETE FROM company_record WHERE source_id LIKE '%$COMMAND_KEY%' OR source_id LIKE '%$CONFIG_KEY%';" \
+    "DELETE FROM company_aggregate_projection WHERE (aggregate_type = 'webhook_test_delivery' AND aggregate_id = '$COMMAND_KEY') OR (aggregate_type = 'webhook_config' AND aggregate_id = 'wecom' AND source_event_id LIKE '%$CONFIG_KEY%') OR (aggregate_type = 'webhook_overdue_scan' AND aggregate_id = '$SCAN_KEY'); DELETE FROM company_record WHERE source_id LIKE '%$COMMAND_KEY%' OR source_id LIKE '%$CONFIG_KEY%' OR source_id LIKE '%$SCAN_KEY%';" \
     >/dev/null 2>&1 || true
   /bin/rm -rf "$TMP_DIR"
 }
@@ -101,4 +102,25 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/replay.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .data.wouldSend == false' "$TMP_DIR/replay.json" >/dev/null
 
-echo "native MoonBit webhook gateway/dry-run smoke passed"
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/preview.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"webhook-preview-gateway"}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/webhook/scan-overdue/preview")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .persisted == false and .provider_execution == false and .delivery_effect == false and .query_execution == false and .authorizing == false' "$TMP_DIR/preview.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/scan.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$SCAN_KEY\"}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/source/webhook/scan-overdue")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == false and .data.dryRun == true and .data.sent == false and .data.ticketMutation == false and .data.providerExecution == false and .data.delivery_effect == false' "$TMP_DIR/scan.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/scan-replay.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$SCAN_KEY\"}" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/webhook/scan-overdue")
+test "$status" = 200
+/usr/bin/jq -e '.idempotent_replay == true and .data.dryRun == true and .data.sent == false' "$TMP_DIR/scan-replay.json" >/dev/null
+
+echo "native MoonBit webhook gateway/test/overdue-scan smoke passed"

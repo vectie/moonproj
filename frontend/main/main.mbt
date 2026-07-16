@@ -1457,6 +1457,12 @@ enum Msg {
   TestWebhookDelivery
   WebhookCommandFinished(String)
   WebhookCommandFailed
+  PreviewWebhookOverdue
+  WebhookOverduePreviewFinished(String)
+  WebhookOverduePreviewFailed
+  ScanWebhookOverdue
+  WebhookOverdueScanFinished(String)
+  WebhookOverdueScanFailed
   ReportBuilderMetaLoaded(String)
   ReportBuilderTemplatesLoaded(String)
   ReportBuilderLoadFailed
@@ -6988,6 +6994,30 @@ fn issue_webhook_test(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_webhook_overdue_preview(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/webhook/scan-overdue/preview")
+  .with_text("{\"idempotency_key\":\"rabbita-webhook-overdue-preview-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WebhookOverduePreviewFinished(body))
+      Err(_) => emit(WebhookOverduePreviewFailed)
+    }
+  })
+}
+
+///|
+fn issue_webhook_overdue_scan(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/source/webhook/scan-overdue")
+  .with_text("{\"idempotency_key\":\"rabbita-webhook-overdue-scan-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WebhookOverdueScanFinished(body))
+      Err(_) => emit(WebhookOverdueScanFailed)
+    }
+  })
+}
+
+///|
 fn load_report_builder_meta(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/reports/templates/meta").expect_text(result => {
     match result {
@@ -11773,6 +11803,64 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           webhook_command_note: "Webhook 测试被服务、权限或配置拒绝",
+        },
+      )
+    PreviewWebhookOverdue =>
+      (
+        issue_webhook_overdue_preview(emit),
+        {
+          ..model,
+          webhook_command_note: "正在预览工单超期扫描 · 不发送、不修改工单…",
+        },
+      )
+    WebhookOverduePreviewFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: if body.contains("\"persisted\":false") &&
+            body.contains("\"provider_execution\":false") {
+            "工单超期扫描预览已返回 · 不发送、不修改工单、不调用 provider"
+          } else {
+            "工单超期扫描预览已返回 · 请复核执行边界"
+          },
+        },
+      )
+    WebhookOverduePreviewFailed =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: "工单超期扫描预览服务不可用或被网关拒绝",
+        },
+      )
+    ScanWebhookOverdue =>
+      (
+        issue_webhook_overdue_scan(emit),
+        {
+          ..model,
+          webhook_command_note: "正在记录工单超期扫描候选 · 不发送、不修改工单…",
+        },
+      )
+    WebhookOverdueScanFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: if body.contains("\"ticketMutation\":false") &&
+            body.contains("\"providerExecution\":false") {
+            "工单超期扫描候选已记录 · dry-run · 不发送、不修改工单"
+          } else {
+            "工单超期扫描候选已返回 · 请复核执行边界"
+          },
+        },
+      )
+    WebhookOverdueScanFailed =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: "工单超期扫描候选服务不可用或被网关拒绝",
         },
       )
     ReportBuilderMetaLoaded(body) => {
@@ -20286,6 +20374,16 @@ fn webhook_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-secondary-btn",
         on_click=emit(TestWebhookDelivery),
         "测试投递（干运行）",
+      ),
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(PreviewWebhookOverdue),
+        "预览超期扫描（干运行）",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(ScanWebhookOverdue),
+        "记录超期扫描候选",
       ),
       button(
         class="erp-primary-btn",

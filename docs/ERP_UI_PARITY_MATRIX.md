@@ -34,6 +34,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/investment` now calls the native Excel plan-line import dry-run candidate; plan persistence, valuation, cash, accounting, and tax effects remain disabled.
 - Browser action delta: Rabbita `/srm/providers` now calls the native supplier risk-rescore command; imported provider rows remain protected and provider execution remains disabled.
 - Browser action delta: Rabbita `/warning` now calls the native warning scan-preview candidate; it returns bounded observations without persistence, notifications, or provider execution.
+- Browser action delta: Rabbita `/webhook-config` now calls the native overdue-scan preview and receipt candidates; delivery and ticket mutation remain disabled.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.
 - API-state delta: `connected_auth_command_candidate` **2** now covers persisted logout/profile commands; `auth_lifecycle_candidate` **2** remains for login/password change gates. The API-state JSON ledger remains authoritative.
@@ -434,8 +435,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `webhook` | `GET` | `/config` | `/webhook-config` | `connected_webhook_read` | `accept_browser_webhook_scenario_and_production_identity` |
 | `webhook` | `PUT` | `/config/:platform` | `/webhook-config` | `connected_webhook_config_command_candidate` | `accept_browser_webhook_config_candidate_and_security_owner` |
 | `webhook` | `POST` | `/test/:platform` | `/webhook-config` | `connected_webhook_test_delivery_candidate` | `accept_browser_webhook_test_candidate_and_security_owner` |
-| `webhook` | `POST` | `/scan-overdue/preview` | `/webhook-config` | `connected_webhook_overdue_preview_read` | `accept_browser_webhook_preview_scenario_and_production_identity` |
-| `webhook` | `POST` | `/scan-overdue` | `/webhook-config` | `connected_webhook_overdue_scan_candidate` | `accept_browser_webhook_scan_candidate_and_security_owner` |
+| `webhook` | `POST` | `/scan-overdue/preview` | `/webhook-config` | `connected_webhook_overdue_preview_read` | `accept_browser_webhook_preview_scenario_and_production_identity` (Rabbita dry-run action now wired) |
+| `webhook` | `POST` | `/scan-overdue` | `/webhook-config` | `connected_webhook_overdue_scan_candidate` | `accept_browser_webhook_scan_candidate_and_security_owner` (Rabbita candidate action now wired) |
 | `workflow` | `GET` | `/tasks/mine` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `GET` | `/tasks/initiated` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
 | `workflow` | `GET` | `/instances/by-biz` | `/tasks` | `connected_workflow_observation_read` | `accept_browser_workflow_observation_scenario_and_production_identity` |
