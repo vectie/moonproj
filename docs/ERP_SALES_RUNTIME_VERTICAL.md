@@ -116,6 +116,11 @@ source-shaped readback. The
 trusted gateway smoke covers the same revenue command family through the
 session boundary; the broader sales cohort remains a separate projection
 rehearsal.
+Rabbita `/sales/customers` now exposes the bounded local customer-create
+command through the authenticated gateway; imported customer rows remain
+read-only and the UI reports replay/no-downstream-effect status.
+Rabbita `/sales/subscriptions` likewise exposes the bounded local reservation
+create command; contract and revenue conversion remain explicitly pending.
 
 The reviewed synthetic sales cohort contains one customer, converted
 subscription, fulfilled agreement, opened receivable, released mortgage, paid

@@ -82,6 +82,40 @@ fi
 /usr/bin/jq -e '.authenticated == true and .actor_id == "rabbita-user"' \
   "$TMP_DIR/session.json" >/dev/null
 
+gateway_customer_suffix=$(/bin/date +%s)
+gateway_customer_id="CUS-GW-SMOKE-$gateway_customer_suffix"
+gateway_customer_body="{\"customerGuid\":\"$gateway_customer_id\",\"customerCode\":\"$gateway_customer_id\",\"customerName\":\"gateway customer smoke\",\"phone\":\"13800000000\",\"projGuid\":\"proj-0001\"}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/customer-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-customer-create-$gateway_customer_suffix" \
+  --data "$gateway_customer_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/customers")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$gateway_customer_id" \
+  '.success == true and .customer.customerGuid == $id and .persisted == true and .idempotent_replay == false' \
+  "$TMP_DIR/customer-create.json" >/dev/null
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/customer-delete.json" -w '%{http_code}' \
+  -X DELETE -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-customer-delete-$gateway_customer_suffix" \
+  --data '{}' \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/customers/$gateway_customer_id")
+test "$status" = 200
+/usr/bin/jq -e '.success == true and .customer.state == "deleted" and .cash_effect == false' \
+  "$TMP_DIR/customer-delete.json" >/dev/null
+
+gateway_subscription_suffix=$(/bin/date +%s)
+gateway_subscription_id="SUB-GW-SMOKE-$gateway_subscription_suffix"
+gateway_subscription_body="{\"subGuid\":\"$gateway_subscription_id\",\"subCode\":\"$gateway_subscription_id\",\"customerGuid\":\"CUS-GW-SUB-$gateway_subscription_suffix\",\"projGuid\":\"proj-0001\",\"buildingNo\":\"2\",\"unitNo\":\"1802\",\"area\":128.6,\"unitPrice\":18600,\"totalPrice\":2391960,\"subAmount\":60000}"
+status=$(/usr/bin/curl --max-time 5 -sS -o "$TMP_DIR/subscription-create.json" -w '%{http_code}' \
+  -X POST -b "$TMP_DIR/cookies.txt" -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: gateway-subscription-create-$gateway_subscription_suffix" \
+  --data "$gateway_subscription_body" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/company/sales/subscriptions")
+test "$status" = 200
+/usr/bin/jq -e --arg id "$gateway_subscription_id" \
+  '.success == true and .subscription.subGuid == $id and .subscription.state == "subscribed" and .persisted == true' \
+  "$TMP_DIR/subscription-create.json" >/dev/null
+
 /usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/cookies.txt" \
   "http://127.0.0.1:$GATEWAY_PORT/api/company/summary" >"$TMP_DIR/summary.json"
 /usr/bin/jq -e '.product == "moonproj-company" and .target == "postgresql" and .read_only == true' \

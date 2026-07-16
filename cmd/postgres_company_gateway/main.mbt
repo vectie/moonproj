@@ -350,6 +350,8 @@ fn command_path_allowed(
       marketing_effect_path(path) ||
       path_with_identifier("/api/company/source/invoice/in/", path) ||
       path_with_identifier("/api/company/source/invoice/out/", path) ||
+      path_with_identifier("/api/company/sales/customers/", path) ||
+      path_with_identifier("/api/company/source/sales/customers/", path) ||
       path_with_identifier("/api/company/sales/revenues/", path) ||
       path_with_identifier("/api/company/fund/plans/", path) ||
       path_with_identifier("/api/company/plan/tasks/", path) ||
@@ -380,6 +382,8 @@ fn command_path_allowed(
       path_with_identifier("/api/company/source/auth/prefs/", path) ||
       path_with_identifier("/api/company/source/invoice/in/", path) ||
       path_with_identifier("/api/company/source/invoice/out/", path) ||
+      path_with_identifier("/api/company/sales/customers/", path) ||
+      path_with_identifier("/api/company/source/sales/customers/", path) ||
       path_with_identifier("/api/company/sales/revenues/", path) ||
       path_with_identifier("/api/company/delivery/progress/", path) ||
       path_with_identifier("/api/company/source/srm/providers/", path) ||

@@ -816,6 +816,8 @@ struct Model {
   sales_family : String
   sales_rows : Array[SalesRow]
   sales_note : String
+  sales_customer_command_note : String
+  sales_subscription_command_note : String
   sales_revenue_id : String
   sales_revenue_state : String
   sales_revenue_command_note : String
@@ -1222,6 +1224,12 @@ enum Msg {
   SupplierCommandFailed
   SalesLoaded(String, String)
   SalesLoadFailed(String)
+  CreateSalesCustomer
+  SalesCustomerCommandFinished(String)
+  SalesCustomerCommandFailed
+  CreateSalesSubscription
+  SalesSubscriptionCommandFinished(String)
+  SalesSubscriptionCommandFailed
   CreateSalesRevenue
   UpdateSalesRevenue
   ConfirmSalesRevenue
@@ -1502,6 +1510,8 @@ fn initial_model() -> Model {
     sales_family: "",
     sales_rows: [],
     sales_note: "销售/应收读模型尚未加载",
+    sales_customer_command_note: "客户命令尚未执行",
+    sales_subscription_command_note: "认筹命令尚未执行",
     sales_revenue_id: "REV-RABBITA-LOCAL",
     sales_revenue_state: "new",
     sales_revenue_command_note: "本地回款登记需要销售/财务 authority；不会自动释放现金或过账",
@@ -6949,6 +6959,34 @@ fn load_project(emit : @rabbita.Emit[Msg], path : String) -> Cmd {
 }
 
 ///|
+fn issue_sales_customer_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/sales/customers")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-sales-customer-create-v1\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"customer_code\":\"CUS-RABBITA-LOCAL\",\"customer_name\":\"Rabbita 本地客户演示\",\"phone\":\"13800000000\",\"proj_guid\":\"proj-0001\",\"bu_guid\":\"bu-group-0001\",\"source\":\"rabbita\",\"remark\":\"本地客户档案命令演示\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesCustomerCommandFinished(body))
+      Err(_) => emit(SalesCustomerCommandFailed)
+    }
+  })
+}
+
+///|
+fn issue_sales_subscription_create(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/sales/subscriptions")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-sales-subscription-create-v1\",\"sub_guid\":\"SUB-RABBITA-LOCAL\",\"sub_code\":\"SUB-RABBITA-LOCAL\",\"customer_guid\":\"CUS-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"building_no\":\"2\",\"unit_no\":\"1802\",\"area\":128.6,\"unit_price\":18600,\"total_price\":2391960,\"sub_amount\":60000,\"sub_date\":\"2026-07-16\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(SalesSubscriptionCommandFinished(body))
+      Err(_) => emit(SalesSubscriptionCommandFailed)
+    }
+  })
+}
+
+///|
 fn sales_revenue_command_body(command_type : String) -> String {
   if command_type == "create" {
     "{\"idempotency_key\":\"rabbita-sales-revenue-create-v1\",\"revenue_id\":\"REV-RABBITA-LOCAL\",\"revenue_code\":\"SR-RABBITA-LOCAL\",\"proj_guid\":\"proj-0001\",\"customer_name\":\"Rabbita 本地回款演示\",\"amount_minor\":456700,\"receive_date\":\"2026-07-14\",\"status\":\"expected\",\"payment_type\":\"bank\",\"contract_no\":\"SCT-RABBITA-LOCAL\",\"remark\":\"本地回款登记演示\",\"principal_id\":\"co-rabbita\",\"scope\":\"project:proj-0001\",\"authority\":{\"active\":true,\"principal_id\":\"co-rabbita\",\"actor_id\":\"rabbita-user\",\"capability\":\"sales:revenue:create\",\"scope\":\"project:proj-0001\",\"max_amount_minor\":500000}}"
@@ -8632,6 +8670,66 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_family: family,
           sales_rows: [],
           sales_note: "销售/应收读模型不可用 · 使用已审核快照",
+        },
+      )
+    CreateSalesCustomer =>
+      (
+        issue_sales_customer_create(emit),
+        {
+          ..model,
+          sales_customer_command_note: "正在写入本地客户档案命令…",
+        },
+      )
+    SalesCustomerCommandFinished(body) =>
+      (
+        load_sales(emit, "customers"),
+        {
+          ..model,
+          sales_customer_command_note: if body.contains(
+              "\"idempotent_replay\":true",
+            ) {
+            "客户命令已幂等重放 · 本地投影保持稳定"
+          } else {
+            "客户命令已写入 PostgreSQL · 导入客户保持只读 · 不触发合同/回款"
+          },
+        },
+      )
+    SalesCustomerCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          sales_customer_command_note: "客户命令服务不可用、权限不足或客户已存在",
+        },
+      )
+    CreateSalesSubscription =>
+      (
+        issue_sales_subscription_create(emit),
+        {
+          ..model,
+          sales_subscription_command_note: "正在写入本地认筹命令…",
+        },
+      )
+    SalesSubscriptionCommandFinished(body) =>
+      (
+        load_sales(emit, "subscriptions"),
+        {
+          ..model,
+          sales_subscription_command_note: if body.contains(
+              "\"idempotent_replay\":true",
+            ) {
+            "认筹命令已幂等重放 · 本地投影保持稳定"
+          } else {
+            "认筹命令已写入 PostgreSQL · 合同/回款仍保持待处理"
+          },
+        },
+      )
+    SalesSubscriptionCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          sales_subscription_command_note: "认筹命令服务不可用或请求不满足边界",
         },
       )
     CreateSalesRevenue =>
@@ -13633,14 +13731,24 @@ fn sales_projection_table(model : Model, family : String) -> @html.Html {
 }
 
 ///|
-fn sales_customers_view(model : Model) -> @html.Html {
+fn sales_customers_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   page_shell(
     "客户档案",
     "SALES / CUSTOMERS",
     "维护客户、联系方式、认筹意向与跟进状态，贯通认筹、签约和回款。",
-    [button(class="erp-primary-btn", "＋ 新增客户")],
+    [
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateSalesCustomer),
+        "＋ 新增客户",
+      ),
+    ],
     div <| [
       sales_runtime_banner(model, "customers"),
+      div(class="erp-runtime-banner", [
+        strong("本地客户命令"),
+        span(" · " + model.sales_customer_command_note),
+      ]),
       sales_projection_table(model, "customers"),
       filter_bar("客户姓名 / 手机号 / 客户编号"),
       table_panel(
@@ -13685,12 +13793,18 @@ fn sales_subscriptions_view(
     "SALES / SUBSCRIPTIONS",
     "登记认筹客户、房号、认筹金与转签状态，支持从客户档案快速发起签约。",
     [
-      nav_button(
-        emit, "/sales/subscriptions", "erp-primary-btn", "＋ 新建认筹",
+      button(
+        class="erp-primary-btn",
+        on_click=emit(CreateSalesSubscription),
+        "＋ 新建认筹",
       ),
     ],
     div <| [
       sales_runtime_banner(model, "subscriptions"),
+      div(class="erp-runtime-banner", [
+        strong("本地认筹命令"),
+        span(" · " + model.sales_subscription_command_note),
+      ]),
       sales_projection_table(model, "subscriptions"),
       div(class="erp-stat-grid") <| [
         metric("本月认筹", "86", "认筹金 ¥516 万", "metric-blue"),
@@ -19237,7 +19351,7 @@ fn business_view(
       "/project-plan" => project_plan_view(emit, model)
       "/project/progress" => progress_view(emit, model)
       "/tasks" => tasks_view(model)
-      "/sales/customers" => sales_customers_view(model)
+      "/sales/customers" => sales_customers_view(emit, model)
       "/sales/subscriptions" => sales_subscriptions_view(emit, model)
       "/sales/contracts" => sales_contracts_view(emit, model)
       "/sales/mortgages" => sales_mortgages_view(model)
