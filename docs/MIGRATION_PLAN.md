@@ -2390,8 +2390,12 @@ Execute the remainder in this order:
     create/update/read/replay, normal-value readback, and sensitive-value
     digest redaction pass `scripts/company_postgres_admin_dictionary_smoke.sh`.
     The command remains explicitly non-authorizing and has no provider, cash,
-    accounting, or tax effect; Rabbita action controls, production identity,
-    full source export, and governance-owner acceptance remain open.
+    accounting, or tax effect; Rabbita now exposes bounded create/update
+    controls for command-owned overlays while imported rows stay read-only.
+    The native gateway now allow-lists both POST/PATCH aliases and Rabbita
+    exposes the bounded create/update controls against that authenticated
+    boundary. Browser production identity, full source export, and
+    governance-owner acceptance remain open.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

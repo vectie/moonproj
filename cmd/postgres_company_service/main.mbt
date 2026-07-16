@@ -17039,7 +17039,19 @@ async fn handle(
   }
   match admin_dict_command_spec(request.meth, path) {
     Some((command_type, target_guid)) => {
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
       let idempotency_key = header(request, "Idempotency-Key")
+      let idempotency_key = if idempotency_key.is_empty() {
+        json_text(body, "idempotency_key", "")
+      } else {
+        idempotency_key
+      }
       if idempotency_key.is_empty() {
         send_json(
           conn,
@@ -17051,13 +17063,6 @@ async fn handle(
         return
       }
       let actor = command_actor(request, actor_signing_secret) catch {
-        error => {
-          let response = service_error_response(error)
-          send_json(conn, request.meth, response.0, response.1, false)
-          return
-        }
-      }
-      let body = read_json_body(body_reader) catch {
         error => {
           let response = service_error_response(error)
           send_json(conn, request.meth, response.0, response.1, false)

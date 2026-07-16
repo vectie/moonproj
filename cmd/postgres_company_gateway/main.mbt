@@ -304,6 +304,8 @@ fn command_path_allowed(
       path.has_prefix("/api/company/marketing/") ||
       path == "/api/company/reports/templates" ||
       path == "/api/company/reports/templates/run" ||
+      path == "/api/company/admin/dict/options" ||
+      path == "/api/company/source/admin/dict/options" ||
       path == "/api/company/source/invoice/in" ||
       path == "/api/company/source/invoice/out" ||
       path == "/api/company/source/cost/payment-applies" ||
@@ -342,7 +344,8 @@ fn command_path_allowed(
     @http.Patch =>
       path_with_identifier("/api/company/source/srm/providers/", path) ||
       path_with_identifier("/api/company/source/notify/subscriptions/", path) ||
-      path_with_identifier("/api/company/admin/dict/options/", path)
+      path_with_identifier("/api/company/admin/dict/options/", path) ||
+      path_with_identifier("/api/company/source/admin/dict/options/", path)
     @http.Delete =>
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/loans/", path) ||

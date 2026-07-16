@@ -67,8 +67,8 @@ common_headers="Authorization: Bearer $TOKEN"
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/create.json" -w '%{http_code}' \
   -X POST -H "$common_headers" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $CREATE_KEY" \
-  --data "{\"groupName\":\"$GROUP\",\"code\":\"$CODE\",\"value\":\"Smoke option\",\"displayOrder\":3}" \
+  -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$CREATE_KEY\",\"groupName\":\"$GROUP\",\"code\":\"$CODE\",\"value\":\"Smoke option\",\"displayOrder\":3}" \
   "http://127.0.0.1:$PORT/api/company/admin/dict/options")
 test "$status" = 201
 /usr/bin/jq -e '.idempotent_replay == false and .dictionary.groupName == "'"$GROUP"'" and .dictionary.code == "'"$CODE"'" and .dictionary.sourceKind == "command" and .dictionary.authorizing == false and .dictionary.cashEffect == false' "$TMP_DIR/create.json" >/dev/null
@@ -82,8 +82,8 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/create-replay.json" -w '%{http_code}' \
   -X POST -H "$common_headers" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $CREATE_KEY" \
-  --data "{\"groupName\":\"$GROUP\",\"code\":\"$CODE\",\"value\":\"Smoke option\",\"displayOrder\":3}" \
+  -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$CREATE_KEY\",\"groupName\":\"$GROUP\",\"code\":\"$CODE\",\"value\":\"Smoke option\",\"displayOrder\":3}" \
   "http://127.0.0.1:$PORT/api/company/source/admin/dict/options")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .dictionary.code == "'"$CODE"'"' "$TMP_DIR/create-replay.json" >/dev/null
@@ -91,8 +91,8 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/secret.json" -w '%{http_code}' \
   -X POST -H "$common_headers" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $SECRET_KEY" \
-  --data "{\"groupName\":\"$GROUP\",\"code\":\"secret_token_$SUFFIX\",\"value\":\"raw-secret-must-not-return\"}" \
+  -H 'Content-Type: application/json' \
+  --data "{\"idempotency_key\":\"$SECRET_KEY\",\"groupName\":\"$GROUP\",\"code\":\"secret_token_$SUFFIX\",\"value\":\"raw-secret-must-not-return\"}" \
   "http://127.0.0.1:$PORT/api/company/admin/dict/options")
 test "$status" = 201
 /usr/bin/jq -e '.dictionary.value.valueRedacted == true and .dictionary.value.value == null and .command.request.value.value == null and .command.request.value.value_digest != null' "$TMP_DIR/secret.json" >/dev/null
@@ -100,8 +100,8 @@ test "$status" = 201
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/update.json" -w '%{http_code}' \
   -X PATCH -H "$common_headers" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $UPDATE_KEY" \
-  --data '{"enabled":false,"value":"Updated option","displayOrder":4}' \
+  -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"'"$UPDATE_KEY"'","enabled":false,"value":"Updated option","displayOrder":4}' \
   "http://127.0.0.1:$PORT/api/company/admin/dict/options/$GUID")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == false and .dictionary.updated == 3 and .dictionary.enabled == false and .dictionary.value.value == "Updated option"' "$TMP_DIR/update.json" >/dev/null
@@ -109,8 +109,8 @@ test "$status" = 200
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/update-replay.json" -w '%{http_code}' \
   -X PATCH -H "$common_headers" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $signature" \
-  -H 'Content-Type: application/json' -H "Idempotency-Key: $UPDATE_KEY" \
-  --data '{"enabled":false,"value":"Updated option","displayOrder":4}' \
+  -H 'Content-Type: application/json' \
+  --data '{"idempotency_key":"'"$UPDATE_KEY"'","enabled":false,"value":"Updated option","displayOrder":4}' \
   "http://127.0.0.1:$PORT/api/company/source/admin/dict/options/$GUID")
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true and .dictionary.enabled == false' "$TMP_DIR/update-replay.json" >/dev/null

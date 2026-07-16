@@ -433,6 +433,7 @@ struct AdminDictGroupRow {
 
 ///|
 struct AdminDictOptionRow {
+  param_guid : String
   group_name : String
   code : String
   value : String
@@ -873,6 +874,7 @@ struct Model {
   admin_dict_group_rows : Array[AdminDictGroupRow]
   admin_dict_option_rows : Array[AdminDictOptionRow]
   admin_dict_note : String
+  admin_dict_command_note : String
   investment_loaded : Bool
   investment_version_id : String
   investment_version_name : String
@@ -1247,6 +1249,10 @@ enum Msg {
   AdminDictGroupsLoaded(String)
   AdminDictOptionsLoaded(String)
   AdminDictLoadFailed
+  CreateAdminDictOption
+  UpdateAdminDictOption
+  AdminDictCommandFinished(String)
+  AdminDictCommandFailed
   InvestmentVersionsLoaded(String)
   InvestmentIndicesLoaded(String)
   InvestmentProfitLoaded(String)
@@ -1524,6 +1530,7 @@ fn initial_model() -> Model {
     admin_dict_group_rows: [],
     admin_dict_option_rows: [],
     admin_dict_note: "数据字典尚未加载 · 使用设计快照",
+    admin_dict_command_note: "本地字典命令尚未执行",
     investment_loaded: false,
     investment_version_id: "",
     investment_version_name: "",
@@ -3397,6 +3404,7 @@ fn admin_dict_option_rows_from_body(body : String) -> Array[AdminDictOptionRow] 
         match value {
           Json::Object(row) =>
             rows.push({
+              param_guid: json_object_text(row, "paramGuid", ""),
               group_name: json_object_text(row, "groupName", ""),
               code: json_object_text(row, "code", ""),
               value: json_object_text(row, "value", ""),
@@ -5923,6 +5931,58 @@ fn load_admin_dict_options(emit : @rabbita.Emit[Msg]) -> Cmd {
       Err(_) => emit(AdminDictLoadFailed)
     }
   })
+}
+
+///|
+fn admin_dict_editable_guid(model : Model) -> String {
+  for row in model.admin_dict_option_rows {
+    if row.source_kind == "command" && row.param_guid != "" {
+      return row.param_guid
+    }
+  }
+  ""
+}
+
+///|
+fn admin_dict_command_body(command_type : String) -> String {
+  if command_type == "create" {
+    "{\"idempotency_key\":\"rabbita-admin-dict-create-v1\",\"groupName\":\"rabbita_local\",\"code\":\"rabbita_option\",\"value\":\"Rabbita 本地字典演示\",\"displayOrder\":99}"
+  } else {
+    "{\"idempotency_key\":\"rabbita-admin-dict-update-v1\",\"enabled\":false,\"value\":\"Rabbita 本地字典已复核\",\"displayOrder\":100}"
+  }
+}
+
+///|
+fn issue_admin_dict_command(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  command_type : String,
+) -> Cmd {
+  let path = if command_type == "create" {
+    "/api/company/admin/dict/options"
+  } else {
+    "/api/company/admin/dict/options/" + admin_dict_editable_guid(model)
+  }
+  let body = admin_dict_command_body(command_type)
+  if command_type == "create" {
+    @http.post(path)
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(AdminDictCommandFinished(value))
+        Err(_) => emit(AdminDictCommandFailed)
+      }
+    })
+  } else {
+    @http.patch(path)
+    .with_text(body)
+    .expect_text(result => {
+      match result {
+        Ok(value) => emit(AdminDictCommandFinished(value))
+        Err(_) => emit(AdminDictCommandFailed)
+      }
+    })
+  }
 }
 
 ///|
@@ -8814,7 +8874,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           admin_dict_loaded: true,
           admin_dict_option_rows: admin_dict_option_rows_from_body(body),
-          admin_dict_note: "已加载 PostgreSQL 数据字典选项 · 写入仍受管理员授权约束",
+          admin_dict_note: "已加载 PostgreSQL 数据字典选项 · 导入行只读",
         },
       )
     AdminDictLoadFailed =>
@@ -8826,6 +8886,54 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           admin_dict_group_rows: [],
           admin_dict_option_rows: [],
           admin_dict_note: "数据字典读模型不可用 · 使用设计快照",
+        },
+      )
+    CreateAdminDictOption =>
+      (
+        issue_admin_dict_command(emit, model, "create"),
+        {
+          ..model,
+          admin_dict_command_note: "正在创建本地字典项并写入审计…",
+        },
+      )
+    UpdateAdminDictOption =>
+      if admin_dict_editable_guid(model) == "" {
+        (
+          none,
+          {
+            ..model,
+            admin_dict_command_note: "当前没有可编辑的本地字典覆盖项",
+          },
+        )
+      } else {
+        (
+          issue_admin_dict_command(emit, model, "update"),
+          {
+            ..model,
+            admin_dict_command_note: "正在更新本地字典项并写入审计…",
+          },
+        )
+      }
+    AdminDictCommandFinished(body) =>
+      (
+        load_admin_dict_groups(emit),
+        {
+          ..model,
+          admin_dict_command_note: if body.contains(
+              "\"idempotent_replay\":true",
+            ) {
+            "命令已幂等重放 · 字典覆盖保持稳定"
+          } else {
+            "已写入 PostgreSQL 本地字典覆盖 · 导入行未修改 · 无外部副作用"
+          },
+        },
+      )
+    AdminDictCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          admin_dict_command_note: "字典命令服务不可用、管理员权限不足或请求被拒绝",
         },
       )
     InvestmentVersionsLoaded(body) => {
@@ -18462,7 +18570,7 @@ fn error_view(model : Model) -> @html.Html {
 }
 
 ///|
-fn admin_dict_table(model : Model) -> @html.Html {
+fn admin_dict_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   if model.admin_dict_loaded {
     let rows : Array[Array[String]] = []
     for row in model.admin_dict_option_rows {
@@ -18472,7 +18580,11 @@ fn admin_dict_table(model : Model) -> @html.Html {
         row.value,
         row.display_order,
         row.enabled,
-        "只读 · " + row.source_kind,
+        if row.source_kind == "command" {
+          "可编辑本地覆盖"
+        } else {
+          "只读 · " + row.source_kind
+        },
       ])
     }
     let group_note = if model.admin_dict_group_rows.length() == 0 {
@@ -18490,14 +18602,33 @@ fn admin_dict_table(model : Model) -> @html.Html {
       " · " +
       model.admin_dict_note
     }
-    table_panel(
-      "数据字典",
-      group_note,
-      data_table(
-        ["分组", "编码", "值", "排序", "状态", "来源"],
-        rows,
+    div <| [
+      div(class="erp-command-bar") <| [
+        button(
+          class="erp-primary-btn",
+          on_click=emit(CreateAdminDictOption),
+          "＋ 新建本地字典",
+        ),
+        if admin_dict_editable_guid(model) == "" {
+          span(class="erp-info-tag", "暂无本地覆盖项")
+        } else {
+          button(
+            class="erp-secondary-btn",
+            on_click=emit(UpdateAdminDictOption),
+            "编辑本地覆盖",
+          )
+        },
+        span(class="erp-info-tag", model.admin_dict_command_note),
+      ],
+      table_panel(
+        "数据字典",
+        group_note + " · " + model.admin_dict_command_note,
+        data_table(
+          ["分组", "编码", "值", "排序", "状态", "来源/操作"],
+          rows,
+        ),
       ),
-    )
+    ]
   } else {
     table_panel(
       "数据字典",
@@ -18571,7 +18702,7 @@ fn admin_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         button(class="erp-tab", "系统健康"),
         button(class="erp-tab", "角色权限"),
       ],
-      admin_dict_table(model),
+      admin_dict_table(emit, model),
       admin_quality_table(model),
     ],
   )

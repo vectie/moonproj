@@ -49,8 +49,9 @@ also accepts source-shaped dictionary create/update commands as command-owned
 overlays: imported rows are never mutated, an enabled imported source
 super-user is required, and the command writes only an immutable projection,
 receipt, and audit event with `authorizing=false` and no provider, cash,
-accounting, or tax effect. The current Rabbita table remains read-only, so
-browser action wiring is still a separate parity gate.
+accounting, or tax effect. Rabbita now exposes bounded create/update controls
+for command-owned local overlays; imported rows remain visibly read-only.
+Browser production-identity acceptance is still a separate parity gate.
 
 Rows preserve source field names and carry explicit imported, imported-or-
 command, or command provenance. The quality response marks unavailable rules as `NO_SOURCE_ROWS` and includes
@@ -110,6 +111,9 @@ render explicit empty-source/definition states after successful reads.
   sensitive values remain digest-only; all results are non-authorizing with no
   external effect. The trusted gateway smoke continues to cover the imported
   `admin` super-user forwarding path.
+- The native gateway command allow-list includes both dictionary POST aliases
+  and both PATCH aliases, so the Rabbita controls use the same authenticated
+  forwarding boundary rather than a direct database or fixture path.
 - The parity matrix marks `/ocr-config` and `/error-log` as connected
   metadata reads; provider execution, error-log retention, production identity,
   and super-user owner acceptance remain required.
