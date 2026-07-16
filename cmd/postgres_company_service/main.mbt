@@ -15419,7 +15419,13 @@ async fn route(
   }
   if path == "/api/company/notify/messages" ||
     path == "/api/company/source/notify/messages" {
-    return (200, notification_messages_response_native(actor_id))
+    return (
+      200,
+      notification_messages_response_native(
+        actor_id,
+        query_decoded(query, "status").unwrap_or("all"),
+      ),
+    )
   }
   if path == "/api/company/notify/messages/unread-count" ||
     path == "/api/company/source/notify/messages/unread-count" {

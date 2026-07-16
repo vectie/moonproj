@@ -1773,7 +1773,9 @@ struct Model {
   marketing_missing_table_count : String
   marketing_note : String
   inbox_loaded : Bool
+  inbox_tab : String
   inbox_rows : Array[Array[String]]
+  inbox_message_ids : Array[String]
   inbox_total : String
   inbox_unread : String
   inbox_missing_table_count : String
@@ -2499,6 +2501,8 @@ enum Msg {
   InboxLoadFailed
   InboxUnreadLoaded(String)
   InboxUnreadLoadFailed
+  SelectInboxTab(String)
+  MarkInboxRead(String)
   MarkInboxReadAll
   InboxCommandFinished(String)
   InboxCommandFailed
@@ -3296,7 +3300,9 @@ fn initial_model() -> Model {
     marketing_missing_table_count: "0",
     marketing_note: "营销源读模型尚未加载 · 使用设计快照",
     inbox_loaded: false,
+    inbox_tab: "unread",
     inbox_rows: [],
+    inbox_message_ids: [],
     inbox_total: "0",
     inbox_unread: "0",
     inbox_missing_table_count: "0",
@@ -7069,8 +7075,9 @@ fn marketing_sum(rows : Array[Array[String]], index : Int) -> String {
 ///|
 fn inbox_from_body(
   body : String,
-) -> (Bool, Array[Array[String]], String, String) {
+) -> (Bool, Array[Array[String]], Array[String], String, String) {
   let rows : Array[Array[String]] = []
+  let message_ids : Array[String] = []
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
     Json::Object(fields) => {
@@ -7082,9 +7089,22 @@ fn inbox_from_body(
           let total = json_object_text(data, "total", "0")
           for value in json_array_field(data, "rows") {
             match value {
-              Json::Object(row) =>
+              Json::Object(row) => {
+                let read_value = json_object_text(
+                  row,
+                  "isRead",
+                  json_object_text(row, "is_read", "false"),
+                )
+                let is_read = read_value == "true" || read_value == "1"
+                message_ids.push(
+                  json_object_text(
+                    row,
+                    "messageGuid",
+                    json_object_text(row, "message_guid", ""),
+                  ),
+                )
                 rows.push([
-                  if json_object_text(row, "isRead", "false") == "true" {
+                  if is_read {
                     ""
                   } else {
                     "●"
@@ -7093,22 +7113,23 @@ fn inbox_from_body(
                   json_object_text(row, "content", "—"),
                   json_object_text(row, "bizType", "—"),
                   json_object_text(row, "createdAt", "—"),
-                  if json_object_text(row, "isRead", "false") == "true" {
+                  if is_read {
                     "已读"
                   } else {
                     "未读"
                   },
                   "查看",
                 ])
+              }
               _ => ()
             }
           }
-          (true, rows, total, missing)
+          (true, rows, message_ids, total, missing)
         }
-        _ => (false, rows, "0", missing)
+        _ => (false, rows, message_ids, "0", missing)
       }
     }
-    _ => (false, rows, "0", "0")
+    _ => (false, rows, message_ids, "0", "0")
   }
 }
 
@@ -10943,14 +10964,31 @@ fn issue_marketing_material_create(
 }
 
 ///|
-fn load_inbox(emit : @rabbita.Emit[Msg]) -> Cmd {
-  @http.get("/api/company/notify/messages?userCode=admin&status=unread").expect_text(result => {
+fn load_inbox(emit : @rabbita.Emit[Msg], status : String) -> Cmd {
+  @http.get("/api/company/notify/messages?userCode=admin&status=" + status).expect_text(result => {
       match result {
         Ok(body) => emit(InboxLoaded(body))
         Err(_) => emit(InboxLoadFailed)
       }
     },
   )
+}
+
+///|
+fn mark_inbox_read(emit : @rabbita.Emit[Msg], message_guid : String) -> Cmd {
+  let body = Json::object({
+    "idempotency_key": Json::string(
+      "rabbita-inbox-read-" + message_guid + "-" + import_nonce(),
+    ),
+  })
+  @http.post("/api/company/source/notify/messages/" + message_guid + "/read")
+  .with_text(body.stringify())
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(InboxCommandFinished(body))
+      Err(_) => emit(InboxCommandFailed)
+    }
+  })
 }
 
 ///|
@@ -13936,7 +13974,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           load_marketing_for(emit, "campaigns", model.marketing_project_id),
         ])
       } else if path == "/inbox" {
-        load_inbox(emit)
+        load_inbox(emit, model.inbox_tab)
       } else if path == "/notify-config" {
         load_notify(emit, "subscriptions")
       } else if path == "/ocr-config" {
@@ -20117,7 +20155,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InboxLoaded(body) => {
-      let (loaded, rows, total, missing) = inbox_from_body(body)
+      let (loaded, rows, message_ids, total, missing) = inbox_from_body(body)
       (
         if loaded {
           load_inbox_unread(emit)
@@ -20127,6 +20165,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           inbox_loaded: loaded,
+          inbox_message_ids: message_ids,
           inbox_rows: rows,
           inbox_total: if loaded {
             total
@@ -20150,6 +20189,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           inbox_loaded: false,
           inbox_rows: [],
+          inbox_message_ids: [],
           inbox_note: "通知消息读模型不可用 · 使用设计快照",
         },
       )
@@ -20180,6 +20220,26 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           inbox_note: "通知未读统计不可用 · 保留消息源状态",
         },
       )
+    SelectInboxTab(tab) => {
+      let next_tab = if tab == "read" || tab == "all" { tab } else { "unread" }
+      (
+        load_inbox(emit, next_tab),
+        {
+          ..model,
+          inbox_tab: next_tab,
+          inbox_note: "正在加载 " + next_tab + " 消息…",
+        },
+      )
+    }
+    MarkInboxRead(message_guid) =>
+      if message_guid.is_empty() {
+        (none, model)
+      } else {
+        (
+          mark_inbox_read(emit, message_guid),
+          { ..model, inbox_note: "正在写入单条已读命令…" },
+        )
+      }
     MarkInboxReadAll =>
       (
         mark_inbox_read_all(emit),
@@ -20188,7 +20248,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     InboxCommandFinished(body) =>
       (
         if body.contains("\"state\":\"read\"") {
-          load_inbox(emit)
+          load_inbox(emit, model.inbox_tab)
         } else {
           none
         },
@@ -36830,13 +36890,10 @@ fn marketing_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn inbox_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  let rows = if model.inbox_loaded {
-    if model.inbox_rows.length() == 0 {
-      [["—", "—", "—", "—", "—", "无源记录", "—"]]
-    } else {
-      model.inbox_rows
-    }
+fn inbox_message_table(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let rows : Array[@html.Html] = []
+  let display_rows = if model.inbox_loaded {
+    model.inbox_rows
   } else {
     [
       [
@@ -36857,6 +36914,70 @@ fn inbox_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ],
     ]
   }
+  let display_ids = if model.inbox_loaded {
+    model.inbox_message_ids
+  } else {
+    []
+  }
+  if display_rows.length() == 0 {
+    rows.push(
+      tr <| [
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("—"),
+        td("无源记录"),
+        td("—"),
+      ],
+    )
+  } else {
+    for index in 0..<display_rows.length() {
+      let row = display_rows[index]
+      let message_guid = display_ids.get(index).unwrap_or("")
+      let status = row.get(5).unwrap_or("—")
+      let action = if status == "未读" && !message_guid.is_empty() {
+        button(
+          class="erp-link-btn",
+          on_click=emit(MarkInboxRead(message_guid)),
+          "标已读",
+        )
+      } else {
+        span(class="erp-source-note", "—")
+      }
+      rows.push(
+        tr <| [
+          td(row.get(0).unwrap_or("—")),
+          td(row.get(1).unwrap_or("—")),
+          td(row.get(2).unwrap_or("—")),
+          td(row.get(3).unwrap_or("—")),
+          td(row.get(4).unwrap_or("—")),
+          td(status),
+          td(action),
+        ],
+      )
+    }
+  }
+  table_panel(
+    "消息列表",
+    if model.inbox_loaded {
+      model.inbox_note + " · 空源表 " + model.inbox_missing_table_count
+    } else {
+      "按时间倒序"
+    },
+    table(class="erp-data-table") <| [
+      thead <| [
+        table_header([
+          "", "标题", "内容", "业务", "时间", "状态", "操作",
+        ]),
+      ],
+      tbody <| rows,
+    ],
+  )
+}
+
+///|
+fn inbox_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let unread = if model.inbox_loaded { model.inbox_unread } else { "8" }
   let total = if model.inbox_loaded { model.inbox_total } else { "26" }
   let business = if model.inbox_loaded { model.inbox_total } else { "18" }
@@ -36905,23 +37026,35 @@ fn inbox_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         ),
       ],
       div(class="erp-tabs") <| [
-        button(class="erp-tab is-active", "未读 (" + unread + ")"),
-        button(class="erp-tab", "全部消息"),
-        button(class="erp-tab", "审批通知"),
-        button(class="erp-tab", "系统通知"),
-      ],
-      table_panel(
-        "消息列表",
-        if model.inbox_loaded {
-          model.inbox_note + " · 空源表 " + model.inbox_missing_table_count
-        } else {
-          "按时间倒序"
-        },
-        data_table(
-          ["", "标题", "内容", "业务", "时间", "状态", "操作"],
-          rows,
+        button(
+          class=if model.inbox_tab == "unread" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectInboxTab("unread")),
+          "未读 (" + unread + ")",
         ),
-      ),
+        button(
+          class=if model.inbox_tab == "read" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectInboxTab("read")),
+          "已读",
+        ),
+        button(
+          class=if model.inbox_tab == "all" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectInboxTab("all")),
+          "全部消息 (" + total + ")",
+        ),
+      ],
+      inbox_message_table(emit, model),
     ],
   )
 }

@@ -467,6 +467,7 @@ async fn notification_command(
 ///|
 async fn notification_messages_response_native(
   actor_id : String,
+  status : String,
 ) -> Json raise CompanyServiceError {
   let effective_actor = if actor_id.is_empty() {
     ""
@@ -502,7 +503,7 @@ async fn notification_messages_response_native(
         "message_guid",
         json_text(source.payload, "messageGuid", source.record_id),
       )
-      match message_states.get(message_guid) {
+      let message = match message_states.get(message_guid) {
         Some(command) => {
           let fields : Map[String, Json] = match source.payload {
             Object(values) => values
@@ -515,7 +516,7 @@ async fn notification_messages_response_native(
             json_field(command, "changedAt").unwrap_or(Json::null()),
           )
           fields.set("sourceKind", Json::string("imported_or_command"))
-          rows.push(Json::object(fields))
+          Json::object(fields)
         }
         None if read_all => {
           let fields : Map[String, Json] = match source.payload {
@@ -525,9 +526,24 @@ async fn notification_messages_response_native(
           fields.set("is_read", Json::number(1))
           fields.set("isRead", Json::boolean(true))
           fields.set("sourceKind", Json::string("imported_or_command"))
-          rows.push(Json::object(fields))
+          Json::object(fields)
         }
-        None => rows.push(source.payload)
+        None => source.payload
+      }
+      let is_read = json_bool(
+        message,
+        "isRead",
+        json_bool(message, "is_read", false),
+      )
+      let should_include = if status == "unread" {
+        !is_read
+      } else if status == "read" {
+        is_read
+      } else {
+        true
+      }
+      if should_include {
+        rows.push(message)
       }
     }
   }

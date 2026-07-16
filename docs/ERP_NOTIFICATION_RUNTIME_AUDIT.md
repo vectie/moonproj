@@ -22,8 +22,9 @@ The local PostgreSQL service and read-model adapter expose:
 - /api/company/notify/digest/preview and /digest/log
 - /api/company/notify/llm-providers
 
-Rabbita /inbox loads the user-scoped message list and unread count. Rabbita
-/notify-config chains subscriptions, redacted configuration keys, email
+Rabbita /inbox loads the user-scoped message list and unread count, mirrors
+the source unread/read/all status tabs, and exposes per-message read plus
+read-all overlays. Rabbita /notify-config chains subscriptions, redacted configuration keys, email
 outbox metadata, digest preview/log rows, and provider discovery. Successful
 empty responses are rendered as explicit 无源记录 states; designer rows
 remain a transport-failure fallback only.
@@ -51,8 +52,9 @@ The evidence script is `scripts/company_postgres_notification_smoke.sh`; it
 also seeds one imported message to prove the overlay does not mutate the
 source row and does not synthesize missing messages.
 
-The trusted PostgreSQL gateway now forwards the canonical and source read-all commands, and
-the Rabbita `/inbox` action issues that bounded local projection. The dedicated
+The trusted PostgreSQL gateway now forwards the canonical and source read and
+read-all commands, and the Rabbita `/inbox` actions issue those bounded local
+projections. The dedicated
 `scripts/company_postgres_notification_gateway_smoke.sh` proves authenticated
 forwarding, replay equality, and the no-delivery/provider boundary.
 

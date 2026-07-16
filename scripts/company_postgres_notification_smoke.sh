@@ -70,6 +70,11 @@ test "$status" = 200
 curl_common "http://127.0.0.1:$PORT/api/company/notify/subscriptions" >"$TMP_DIR/list.json"
 /usr/bin/jq -e '.data | any(.[]; .subId == "sub-'"$CREATE_KEY"'" and .ruleCode == "W005")' "$TMP_DIR/list.json" >/dev/null
 
+curl_common "http://127.0.0.1:$PORT/api/company/notify/messages?status=unread" >"$TMP_DIR/messages-unread-before.json"
+/usr/bin/jq -e '.data.total == 1 and (.data.rows | any(.[]; .msg_guid == "'"$MESSAGE_GUID"'"))' "$TMP_DIR/messages-unread-before.json" >/dev/null
+curl_common "http://127.0.0.1:$PORT/api/company/notify/messages?status=read" >"$TMP_DIR/messages-read-before.json"
+/usr/bin/jq -e '.data.total == 0' "$TMP_DIR/messages-read-before.json" >/dev/null
+
 update_body='{"ruleCode":"W006","enabled":false}'
 status=$(curl_common -o "$TMP_DIR/update.json" -w '%{http_code}' -X PATCH -H "Idempotency-Key: $UPDATE_KEY" --data "$update_body" "http://127.0.0.1:$PORT/api/company/source/notify/subscriptions/sub-$CREATE_KEY")
 test "$status" = 200
@@ -89,6 +94,10 @@ test "$status" = 200
 
 curl_common "http://127.0.0.1:$PORT/api/company/source/notify/messages" >"$TMP_DIR/messages.json"
 /usr/bin/jq -e '.data.total == 1 and (.data.rows | any(.[]; .msg_guid == "'"$MESSAGE_GUID"'" and (.is_read == 1 or .isRead == true)))' "$TMP_DIR/messages.json" >/dev/null
+curl_common "http://127.0.0.1:$PORT/api/company/notify/messages?status=unread" >"$TMP_DIR/messages-unread-after.json"
+/usr/bin/jq -e '.data.total == 0' "$TMP_DIR/messages-unread-after.json" >/dev/null
+curl_common "http://127.0.0.1:$PORT/api/company/notify/messages?status=read" >"$TMP_DIR/messages-read-after.json"
+/usr/bin/jq -e '.data.total == 1 and (.data.rows | any(.[]; .msg_guid == "'"$MESSAGE_GUID"'"))' "$TMP_DIR/messages-read-after.json" >/dev/null
 
 config_body='{"notify.email.enabled":true,"ai.llm.key":"super-secret","unknown.option":"ignored"}'
 status=$(curl_common -o "$TMP_DIR/config.json" -w '%{http_code}' -X PUT -H "Idempotency-Key: $CONFIG_KEY" --data "$config_body" "http://127.0.0.1:$PORT/api/company/source/notify/config")
