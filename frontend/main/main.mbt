@@ -182,6 +182,18 @@ struct TenderRow {
 }
 
 ///|
+struct TenderAwardRow {
+  award_code : String
+  tender_id : String
+  provider_id : String
+  provider_name : String
+  award_amount : String
+  award_date : String
+  remark : String
+  source_kind : String
+}
+
+///|
 struct SupplierRow {
   supplier_id : String
   supplier_code : String
@@ -1054,7 +1066,9 @@ struct Model {
   tender_award_amount : String
   tender_award_date : String
   tender_award_remark : String
+  tender_tab : String
   tender_rows : Array[TenderRow]
+  tender_award_rows : Array[TenderAwardRow]
   tender_id : String
   tender_state : String
   tender_note : String
@@ -1732,6 +1746,7 @@ enum Msg {
   SelectTenderProject(String)
   SelectTenderRow(String, String, String, String)
   SelectTenderProvider(String, String)
+  SelectTenderTab(String)
   OpenTenderForm(String)
   CloseTenderForm
   InputTenderField(String, String)
@@ -2296,7 +2311,9 @@ fn initial_model() -> Model {
     tender_award_amount: "0",
     tender_award_date: "2026-07-16",
     tender_award_remark: "",
+    tender_tab: "tenders",
     tender_rows: [],
+    tender_award_rows: [],
     tender_id: "TD-RABBITA-LOCAL",
     tender_state: "new",
     tender_note: "合约规划读模型尚未加载",
@@ -3359,6 +3376,50 @@ fn tender_rows_from_body(body : String) -> Array[TenderRow] {
       }
       for value in values {
         match tender_from_json(value) {
+          Some(row) => rows.push(row)
+          None => ()
+        }
+      }
+    }
+    _ => ()
+  }
+  rows
+}
+
+///|
+fn tender_award_from_json(value : Json) -> TenderAwardRow? {
+  match value {
+    Json::Object(fields) =>
+      Some({
+        award_code: json_object_text(fields, "award_code", ""),
+        tender_id: json_object_text(fields, "tender_guid", ""),
+        provider_id: json_object_text(fields, "provider_guid", ""),
+        provider_name: json_object_text(fields, "provider_name", ""),
+        award_amount: json_object_text(
+          fields,
+          "award_amount",
+          json_object_text(fields, "award_amount_display", "—"),
+        ),
+        award_date: json_object_text(fields, "award_date", ""),
+        remark: json_object_text(fields, "remark", ""),
+        source_kind: json_object_text(fields, "source_kind", "imported"),
+      })
+    _ => None
+  }
+}
+
+///|
+fn tender_award_rows_from_body(body : String) -> Array[TenderAwardRow] {
+  let rows : Array[TenderAwardRow] = []
+  let parsed = @json.parse(body) catch { _ => Json::null() }
+  match parsed {
+    Json::Object(fields) => {
+      let values = match fields.get("items") {
+        Some(Json::Array(values)) => values
+        _ => json_array_field(fields, "data")
+      }
+      for value in values {
+        match tender_award_from_json(value) {
           Some(row) => rows.push(row)
           None => ()
         }
@@ -12134,6 +12195,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           tender_project_id: project_id,
           tenders_loaded: false,
           tender_rows: [],
+          tender_award_rows: [],
           tender_source_loaded: false,
           tender_source_note: "正在读取所选项目的招采源观察…",
           tender_note: "正在读取项目招标计划…",
@@ -12159,6 +12221,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           tender_source_award_count: source_data_row_count(body).to_string(),
+          tender_award_rows: tender_award_rows_from_body(body),
           tender_source_note: "招标源已连接 · 定标 " +
           source_data_row_count(body).to_string() +
           " 行 · 正在读取分判",
@@ -12186,6 +12249,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           tenders_loaded: false,
           tender_rows: [],
+          tender_award_rows: [],
           tender_source_loaded: false,
           tender_source_note: "招采源读模型不可用 · 使用已审核快照",
           tender_note: "合约规划源读模型不可用 · 使用已审核快照",
@@ -12214,6 +12278,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           tender_award_provider_name: provider_name,
         },
       )
+    SelectTenderTab(tab) => (none, { ..model, tender_tab: tab })
     OpenTenderForm(kind) =>
       (
         none,
@@ -23745,6 +23810,40 @@ fn tender_table(
 }
 
 ///|
+fn tender_award_table(model : Model) -> @html.Html {
+  let rows : Array[Array[String]] = []
+  if model.tender_award_rows.length() == 0 {
+    rows.push([
+      "—", "—", "—", "—", "0", "—", "—", "无源定标记录",
+    ])
+  } else {
+    for row in model.tender_award_rows {
+      rows.push([
+        row.award_code,
+        row.tender_id,
+        row.provider_name,
+        row.provider_id,
+        row.award_amount,
+        row.award_date,
+        row.remark,
+        row.source_kind,
+      ])
+    }
+  }
+  table_panel(
+    "定标记录",
+    "PostgreSQL 源定标投影 · 资格校验与合同落地保持独立",
+    data_table(
+      [
+        "编号", "所属招标", "中标供应商", "供应商 GUID", "中标金额（元）",
+        "定标日", "备注", "来源",
+      ],
+      rows,
+    ),
+  )
+}
+
+///|
 fn tender_actions(
   emit : @rabbita.Emit[Msg],
   model : Model,
@@ -24049,15 +24148,39 @@ fn tender_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "metric-blue",
         ),
       ],
+      div(class="erp-tabs") <| [
+        button(
+          class=if model.tender_tab == "tenders" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectTenderTab("tenders")),
+          "招标计划",
+        ),
+        button(
+          class=if model.tender_tab == "awards" {
+            "erp-tab is-active"
+          } else {
+            "erp-tab"
+          },
+          on_click=emit(SelectTenderTab("awards")),
+          "定标记录",
+        ),
+      ],
       filter_bar("项目 / 合约包 / CBS 科目"),
-      table_panel(
-        "合约规划包",
-        model.tender_note +
-        " · " +
-        model.tender_source_note +
-        " · award 需通过供应商资格与投标匹配校验",
-        tender_table(emit, rows),
-      ),
+      if model.tender_tab == "awards" {
+        tender_award_table(model)
+      } else {
+        table_panel(
+          "合约规划包",
+          model.tender_note +
+          " · " +
+          model.tender_source_note +
+          " · award 需通过供应商资格与投标匹配校验",
+          tender_table(emit, rows),
+        )
+      },
       div(class="erp-runtime-banner", [
         strong("源招采命令门"),
         span(" · " + model.tender_source_command_note),
