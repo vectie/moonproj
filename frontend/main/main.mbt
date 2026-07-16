@@ -1487,6 +1487,12 @@ enum Msg {
   AssignLocalRole
   RbacAssignmentFinished(String)
   RbacAssignmentFailed
+  ToggleAdminUser
+  RbacUserToggleFinished(String)
+  RbacUserToggleFailed
+  ResetAdminUserPassword
+  RbacUserResetFinished(String)
+  RbacUserResetFailed
   RbacRolesLoaded(String)
   RbacRolesLoadFailed
   RbacCatalogLoaded(String)
@@ -7203,6 +7209,32 @@ fn issue_rbac_role_assignment(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_rbac_user_toggle(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/rbac/users/user-admin-0001/toggle")
+  .with_text("{\"idempotency_key\":\"rabbita-rbac-user-toggle-v1\"}")
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacUserToggleFinished(body))
+      Err(_) => emit(RbacUserToggleFailed)
+    }
+  })
+}
+
+///|
+fn issue_rbac_user_reset(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/rbac/users/user-admin-0001/reset-password")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-rbac-user-reset-v1\",\"password\":\"not-returned\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(RbacUserResetFinished(body))
+      Err(_) => emit(RbacUserResetFailed)
+    }
+  })
+}
+
+///|
 fn load_rbac_roles(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/rbac/roles").expect_text(result => {
     match result {
@@ -12239,6 +12271,64 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           rbac_roles_note: "本地角色分配服务不可用、角色不存在或被网关拒绝",
         },
+      )
+    ToggleAdminUser =>
+      (
+        issue_rbac_user_toggle(emit),
+        {
+          ..model,
+          users_note: "正在提交用户启停候选 · 不改变认证状态…",
+        },
+      )
+    RbacUserToggleFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_users(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          users_note: if body.contains("\"authorizing\":false") {
+            "用户启停候选已写入本地投影 · 认证授权仍未改变"
+          } else {
+            "用户启停命令已返回 · 请复核认证边界"
+          },
+        },
+      )
+    RbacUserToggleFailed =>
+      (
+        none,
+        { ..model, users_note: "用户启停服务不可用或被网关拒绝" },
+      )
+    ResetAdminUserPassword =>
+      (
+        issue_rbac_user_reset(emit),
+        {
+          ..model,
+          users_note: "正在提交密码重置候选 · 明文不会返回…",
+        },
+      )
+    RbacUserResetFinished(body) =>
+      (
+        if body.contains("\"persisted\":true") {
+          load_users(emit)
+        } else {
+          none
+        },
+        {
+          ..model,
+          users_note: if body.contains("\"credential_values_redacted\":true") {
+            "密码重置候选已写入摘要 · 明文未返回 · 认证仍需生产授权"
+          } else {
+            "密码重置命令已返回 · 请复核凭据边界"
+          },
+        },
+      )
+    RbacUserResetFailed =>
+      (
+        none,
+        { ..model, users_note: "密码重置服务不可用或被网关拒绝" },
       )
     RbacRolesLoaded(body) =>
       (
@@ -20043,6 +20133,16 @@ fn users_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         class="erp-ghost-btn",
         on_click=emit(AssignLocalRole),
         "分配本地角色（候选）",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(ToggleAdminUser),
+        "启停用户（候选）",
+      ),
+      button(
+        class="erp-ghost-btn",
+        on_click=emit(ResetAdminUserPassword),
+        "重置密码（候选）",
       ),
     ],
     div <| [

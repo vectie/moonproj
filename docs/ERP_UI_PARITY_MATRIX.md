@@ -38,6 +38,7 @@ fund-plan, project-plan task, observed-warning, attachment-metadata, marketing m
 - Browser action delta: Rabbita `/users` now calls the native local-user creation candidate; imported identities remain read-only and credential values are redacted.
 - Browser action delta: Rabbita `/users` now calls the native local-role creation candidate; imported/system roles remain protected and authorization stays non-authorizing.
 - Browser action delta: Rabbita `/users` now calls the native local-role assignment candidate for the imported admin identity; authorization remains a candidate only.
+- Browser action delta: Rabbita `/users` now calls native user toggle and password-reset candidates; authentication state is not changed and password values are never returned.
 - API-state delta: R0, demo-contract, contract-action, change-registration, and change-lifecycle writes now use native command projections with explicit no-effect markers.
 - The JSON ledger now records `connected_cbs_command_candidate: 17` and `cbs_mutation_boundary_candidate: 0`; the compact historical summary above is retained for snapshot context.
 - API-state delta: `connected_auth_command_candidate` **2** now covers persisted logout/profile commands; `auth_lifecycle_candidate` **2** remains for login/password change gates. The API-state JSON ledger remains authoritative.
@@ -359,8 +360,8 @@ are attached. The JSON output contains all 338 handler rows.
 | `rbac` | `GET` | `/users` | `/users` | `connected_rbac_user_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `POST` | `/users` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` (Rabbita local-user action now wired) |
 | `rbac` | `PUT` | `/users/:userId` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
-| `rbac` | `POST` | `/users/:userId/toggle` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
-| `rbac` | `POST` | `/users/:userId/reset-password` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` |
+| `rbac` | `POST` | `/users/:userId/toggle` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` (Rabbita candidate action now wired) |
+| `rbac` | `POST` | `/users/:userId/reset-password` | `/users` | `connected_rbac_user_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` (Rabbita candidate action now wired) |
 | `rbac` | `POST` | `/users/:userId/roles` | `/users` | `connected_rbac_role_assignment_candidate` | `accept_browser_user_command_scenario_and_identity_owner` (Rabbita assignment action now wired) |
 | `rbac` | `GET` | `/permission-catalog` | `/users` | `connected_rbac_observation_read` | `accept_browser_user_roster_scenario_and_super_user_owner` |
 | `rbac` | `POST` | `/roles` | `/users` | `connected_rbac_role_command_candidate` | `accept_browser_user_command_scenario_and_identity_owner` (Rabbita local-role action now wired) |

@@ -286,6 +286,10 @@ fn command_path_allowed(
       path == "/api/company/rbac/users" ||
       path == "/api/company/rbac/roles" ||
       path_with_identifier_suffix("/api/company/rbac/users/", "/roles", path) ||
+      path_with_identifier_suffix("/api/company/rbac/users/", "/toggle", path) ||
+      path_with_identifier_suffix(
+        "/api/company/rbac/users/", "/reset-password", path,
+      ) ||
       path == "/api/company/suppliers" ||
       path.has_prefix("/api/company/suppliers/") ||
       path == "/api/company/tender-splits" ||
