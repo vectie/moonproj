@@ -69,7 +69,7 @@ mkdir -p "$WORK_DIR"
 # Keep the SQLite rehearsal isolated to this run while using the same staged
 # source envelope that is sent to PostgreSQL.
 rm -f "$SQLITE_DB" "$SQLITE_DB.pending"
-"$SCRIPT_DIR/company_sqlite_rehearsal.py" "$STAGING_PATH" "$SQLITE_DB" > "$WORK_DIR/sqlite-raw-apply.json"
+"$SCRIPT_DIR/company_sqlite_rehearsal.sh" "$STAGING_PATH" "$SQLITE_DB" > "$WORK_DIR/sqlite-raw-apply.json"
 "$SCRIPT_DIR/company_postgres_target_apply.sh" \
   "$STAGING_PATH" --host "$PG_HOST" --port "$PG_PORT" --user "$PG_USER" \
   --database "$PG_DATABASE" > "$WORK_DIR/postgres-raw-apply.json"

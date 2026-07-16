@@ -59,7 +59,7 @@ redacted export directory, derives identities from the exporter-recorded primary
 keys, checks that secret-shaped keys are absent, and fails closed on missing
 identities or duplicate source IDs.
 For a durable database rehearsal, run
-`scripts/company_sqlite_rehearsal.py /controlled/staging.ndjson /controlled/company.sqlite3`.
+`scripts/company_sqlite_rehearsal.sh /controlled/staging.ndjson /controlled/company.sqlite3`.
 It applies the four versioned company schema gates, writes the 120 envelopes and
 one migration receipt transactionally, reopens the database for integrity and
 count checks, and treats an identical replay as an idempotent no-op. The result

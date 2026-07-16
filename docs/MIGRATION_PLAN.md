@@ -2220,6 +2220,16 @@ Execute the remainder in this order:
     and zero-insert replay behavior match the historical adapter. Raw staging,
     accounting-link, reconciliation, and managed PostgreSQL ownership remain
     separate ports.
+3a.39. **Native SQLite raw rehearsal adapter (2026-07-16).**
+    `cmd/sqlite_rehearsal` and `scripts/company_sqlite_rehearsal.sh` now
+    replace the raw staging Python database adapter. MoonBit validates the
+    staging manifest and file hash, parses every redacted NDJSON envelope,
+    rejects duplicate/source/secret conflicts, canonicalizes payloads,
+    preserves the four-version schema/checksum chain, computes baseline and
+    applied receipt hashes, and emits the transaction-bound SQL plan. The
+    shell executes SQLite only and reopens the database for schema, count,
+    uniqueness, integrity, and receipt checks; first-run and zero-insert
+    replay match the historical adapter.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow

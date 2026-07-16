@@ -104,7 +104,7 @@ scenario evidence in the company product.
 `persistence/sql` supplies a versioned DDL catalog (`company_catalog`), a driver-neutral
 parameterized command/transaction contract, and executors against both the
 immutable record store and the durable file boundary for a generic company
-record envelope. `scripts/company_sqlite_rehearsal.py` applies the same four
+record envelope. The native `scripts/company_sqlite_rehearsal.sh` wrapper applies the same four
 schema gates to SQLite, persists the sanitized raw-envelope cohort in one
 transaction, records a migration receipt, reopens the file, and proves an
 identical replay is idempotent. The native

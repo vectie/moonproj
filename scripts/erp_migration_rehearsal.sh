@@ -135,7 +135,7 @@ ROUTE_INVENTORY="$WORK_DIR/route-inventory.json"
 "$SCRIPT_DIR/erp_route_inventory.sh" "$ROUTES_DIR" "$ROUTE_INVENTORY"
 echo "route_inventory=$ROUTE_INVENTORY"
 "$SCRIPT_DIR/erp_snapshot_stage_raw.sh" "$EXPORT_DIR" "$STAGING_PATH"
-"$SCRIPT_DIR/company_sqlite_rehearsal.py" "$STAGING_PATH" "$TARGET_DB"
+"$SCRIPT_DIR/company_sqlite_rehearsal.sh" "$STAGING_PATH" "$TARGET_DB"
 
 if [ -n "$MAPPING_PATH" ]; then
   PROMOTION_PLAN="$WORK_DIR/promotion-plan.json"
