@@ -40,6 +40,10 @@ Signed super-user `POST /test/:platform` now records an idempotent
 `wecom` configuration state and returns `dryRun=true`, `wouldSend`, and a
 stable skip reason (`disabled`, `no_url`, or `provider_execution_disabled`),
 without returning URL/secret values or making a provider request.
+The native gateway now allow-lists canonical/source test aliases, and Rabbita
+`/webhook-config` exposes a bounded “测试投递（干运行）” control for the WeCom
+candidate. The gateway smoke proves signed super-user forwarding, replay, and
+`providerExecution=false` with no external request.
 
 Signed super-user `POST /scan-overdue` now records an idempotent
 `webhook_overdue_scan` candidate from the same imported ticket window as the

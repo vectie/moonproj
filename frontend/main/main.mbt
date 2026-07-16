@@ -1035,6 +1035,7 @@ struct Model {
   webhook_rows : Array[Array[String]]
   webhook_missing_table_count : String
   webhook_note : String
+  webhook_command_note : String
   report_builder_loaded : Bool
   report_builder_table_rows : Array[Array[String]]
   report_builder_template_rows : Array[Array[String]]
@@ -1331,6 +1332,9 @@ enum Msg {
   AiHubLoadFailed
   WebhookLoaded(String)
   WebhookLoadFailed
+  TestWebhookDelivery
+  WebhookCommandFinished(String)
+  WebhookCommandFailed
   ReportBuilderMetaLoaded(String)
   ReportBuilderTemplatesLoaded(String)
   ReportBuilderLoadFailed
@@ -1695,6 +1699,7 @@ fn initial_model() -> Model {
     webhook_rows: [],
     webhook_missing_table_count: "0",
     webhook_note: "Webhook 配置源读模型尚未加载 · 使用设计快照",
+    webhook_command_note: "Webhook 测试命令尚未执行",
     report_builder_loaded: false,
     report_builder_table_rows: [],
     report_builder_template_rows: [],
@@ -6488,6 +6493,20 @@ fn load_webhook_config(emit : @rabbita.Emit[Msg]) -> Cmd {
 }
 
 ///|
+fn issue_webhook_test(emit : @rabbita.Emit[Msg]) -> Cmd {
+  @http.post("/api/company/webhook/test/wecom")
+  .with_text(
+    "{\"idempotency_key\":\"rabbita-webhook-test-v1\",\"title\":\"Rabbita 干运行测试\",\"content\":\"不会发送到外部 provider\"}",
+  )
+  .expect_text(result => {
+    match result {
+      Ok(body) => emit(WebhookCommandFinished(body))
+      Err(_) => emit(WebhookCommandFailed)
+    }
+  })
+}
+
+///|
 fn load_report_builder_meta(emit : @rabbita.Emit[Msg]) -> Cmd {
   @http.get("/api/company/reports/templates/meta").expect_text(result => {
     match result {
@@ -10277,6 +10296,34 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           webhook_loaded: false,
           webhook_rows: [],
           webhook_note: "Webhook 配置读模型不可用 · 使用设计快照",
+        },
+      )
+    TestWebhookDelivery =>
+      (
+        issue_webhook_test(emit),
+        {
+          ..model,
+          webhook_command_note: "正在提交 Webhook 干运行测试…",
+        },
+      )
+    WebhookCommandFinished(body) =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: if body.contains("\"idempotent_replay\":true") {
+            "Webhook 测试命令已幂等重放 · provider 未执行"
+          } else {
+            "Webhook 测试候选已记录 · 不发送外部请求 · 密钥未返回"
+          },
+        },
+      )
+    WebhookCommandFailed =>
+      (
+        none,
+        {
+          ..model,
+          webhook_command_note: "Webhook 测试被服务、权限或配置拒绝",
         },
       )
     ReportBuilderMetaLoaded(body) => {
@@ -18360,7 +18407,7 @@ fn ocr_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn webhook_view(model : Model) -> @html.Html {
+fn webhook_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let config_rows = if model.webhook_loaded {
     if model.webhook_rows.length() == 0 {
       [["—", "—", "—", "—", "无源记录"]]
@@ -18404,7 +18451,14 @@ fn webhook_view(model : Model) -> @html.Html {
     "工单超期 Webhook",
     "SYSTEM / WEBHOOK",
     "为企业微信、飞书、钉钉配置工单超期通知；密钥和 URL 仅保留密文引用。",
-    [button(class="erp-primary-btn", "保存配置（待授权）")],
+    [
+      button(
+        class="erp-secondary-btn",
+        on_click=emit(TestWebhookDelivery),
+        "测试投递（干运行）",
+      ),
+      button(class="erp-primary-btn", "保存配置（待授权）"),
+    ],
     div <| [
       div(class="erp-tabs") <| [
         button(class="erp-tab is-active", "企业微信"),
@@ -18430,9 +18484,12 @@ fn webhook_view(model : Model) -> @html.Html {
         if model.webhook_loaded {
           model.webhook_note +
           " · 空源表 " +
-          model.webhook_missing_table_count
+          model.webhook_missing_table_count +
+          " · " +
+          model.webhook_command_note
         } else {
-          "设计快照 · URL/密钥仅显示脱敏摘要"
+          "设计快照 · URL/密钥仅显示脱敏摘要 · " +
+          model.webhook_command_note
         },
         data_table(
           ["平台", "状态", "Webhook URL", "密钥", "来源"],
@@ -18834,7 +18891,7 @@ fn business_view(
       "/users" => users_view(model)
       "/admin" => admin_view(emit, model)
       "/ocr-config" => ocr_view(emit, model)
-      "/webhook-config" => webhook_view(model)
+      "/webhook-config" => webhook_view(emit, model)
       "/profile" => profile_view(emit, model)
       _ => placeholder_view(path)
     }
