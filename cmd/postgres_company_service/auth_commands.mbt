@@ -46,6 +46,88 @@ async fn auth_latest_projection(
 }
 
 ///|
+/// Verify a command-owned credential without issuing a session. The gateway
+/// owns the HttpOnly session; this endpoint only proves the PostgreSQL-backed
+/// credential and returns a redacted authentication envelope.
+async fn auth_login(body : Json) -> (Int, Json) raise CompanyServiceError {
+  let user_code = json_text(body, "userCode", json_text(body, "user_code", ""))
+    .trim()
+    .to_owned()
+  let password = json_text(body, "password", "")
+  if !valid_identifier(user_code) || password.is_empty() {
+    return (
+      400,
+      Json::object({
+        "authenticated": Json::boolean(false),
+        "error": Json::string("user_code and password are required"),
+      }),
+    )
+  }
+  let profile = match auth_current_user(user_code) {
+    Some(value) => value
+    None =>
+      return (
+        401,
+        Json::object({
+          "authenticated": Json::boolean(false),
+          "error": Json::string("invalid credentials"),
+        }),
+      )
+  }
+  let profile_data = json_field(profile, "data").unwrap_or(Json::null())
+  if !json_bool(profile_data, "enabled", false) {
+    return (
+      401,
+      Json::object({
+        "authenticated": Json::boolean(false),
+        "error": Json::string("invalid credentials"),
+      }),
+    )
+  }
+  let credential = match auth_latest_projection("auth_credential", user_code) {
+    Some((payload, revision)) => (payload, revision)
+    None =>
+      return (
+        409,
+        Json::object({
+          "authenticated": Json::boolean(false),
+          "code": Json::number(41001),
+          "error": Json::string(
+            "no PostgreSQL credential projection is configured for this user",
+          ),
+          "source_kind": Json::string("auth_lifecycle_candidate"),
+          "sessionIssued": Json::boolean(false),
+          "persisted": Json::boolean(false),
+        }),
+      )
+  }
+  let expected = json_text(credential.0, "password_digest", "")
+  if expected.is_empty() ||
+    !constant_time_equal(expected, rbac_user_digest(password)) {
+    return (
+      401,
+      Json::object({
+        "authenticated": Json::boolean(false),
+        "error": Json::string("invalid credentials"),
+      }),
+    )
+  }
+  (
+    200,
+    Json::object({
+      "authenticated": Json::boolean(true),
+      "actor_id": Json::string(user_code),
+      "userCode": Json::string(user_code),
+      "identity_source": Json::string("postgresql_credential"),
+      "sessionIssued": Json::boolean(false),
+      "credentialRevision": Json::number(credential.1.to_double()),
+      "credentialValuesRedacted": Json::boolean(true),
+      "authorizing": Json::boolean(false),
+    }),
+  )
+}
+
+///|
 async fn auth_profile_overlay(
   payload : Json,
   user_code : String,

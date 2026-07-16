@@ -1064,6 +1064,60 @@ async fn handle(
           )
           return
         }
+        let native_request : @http.Request = {
+          meth: @http.Post,
+          path: "/api/company/auth/login",
+          headers: request.headers,
+        }
+        let native_result = proxy_request(
+          service_uri,
+          service_token,
+          actor_signing_secret,
+          @http.Post,
+          native_request.path,
+          native_request,
+          body,
+          None,
+        ) catch {
+          _ =>
+            {
+              status: 0,
+              content_type: "application/json",
+              body: b"",
+              www_authenticate: None,
+            }
+        }
+        let native_payload = @json.parse(
+          @encoding/utf8.decode(native_result.body),
+        ) catch {
+          _ => Json::null()
+        }
+        if native_result.status == 200 &&
+          json_bool(native_payload, "authenticated") {
+          let native_actor = json_text(native_payload, "actor_id").unwrap_or(
+            supplied_user,
+          )
+          let token = session_token(session_secret, native_actor, sequence.val)
+          sequence.val += 1
+          sessions[token] = native_actor
+          send_json(
+            conn,
+            request.meth,
+            200,
+            Json::object({
+              "authenticated": Json::boolean(true),
+              "actor_id": Json::string(native_actor),
+              "identity_source": Json::string("postgresql_credential"),
+            }),
+            extra_headers={
+              "Set-Cookie": SESSION_COOKIE +
+              "=" +
+              token +
+              "; HttpOnly; Path=/; SameSite=Strict",
+            },
+          )
+          return
+        }
         if !constant_time_equal(supplied_user, dev_user) ||
           !constant_time_equal(supplied_password, dev_password) {
           send_json(

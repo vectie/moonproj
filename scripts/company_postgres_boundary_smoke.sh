@@ -326,13 +326,6 @@ test "$status" = 200
   "http://127.0.0.1:$PORT/api/company/cbs/demo/contracts" \
   | /usr/bin/jq -e --arg demo "$DEMO_ID" --arg legacy "$LEGACY_ID" 'all(.data[]; .id != $demo and .id != $legacy)' >/dev/null
 
-status=$(/usr/bin/curl -sS -o "$TMP_DIR/login.json" -w '%{http_code}' -X POST \
-  -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' \
-  --data '{"userCode":"admin","password":"not-used"}' \
-  "http://127.0.0.1:$PORT/api/company/auth/login")
-test "$status" = 409
-/usr/bin/jq -e '.code == 41001 and .source_kind == "auth_lifecycle_candidate" and .data.sessionIssued == false' "$TMP_DIR/login.json" >/dev/null
-
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/profile.json" -w '%{http_code}' -X PUT \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \
   -H "X-Moonproj-Actor: $ACTOR" -H "X-Moonproj-Actor-Signature: $SIGNATURE" \
@@ -353,6 +346,13 @@ status=$(/usr/bin/curl -sS -o "$TMP_DIR/password.json" -w '%{http_code}' -X POST
   "http://127.0.0.1:$PORT/api/company/auth/change-password")
 test "$status" = 200
 /usr/bin/jq -e '.auth.credentialChanged == true and .auth.passwordHistoryRecorded == true and .auth.persisted == true and .auth.credentialValuesRedacted == true and .idempotent_replay == false' "$TMP_DIR/password.json" >/dev/null
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/login.json" -w '%{http_code}' -X POST \
+  -H 'X-Forwarded-Proto: https' -H 'Content-Type: application/json' \
+  --data '{"userCode":"admin","password":"boundary-next-password"}' \
+  "http://127.0.0.1:$PORT/api/company/auth/login")
+test "$status" = 200
+/usr/bin/jq -e '.authenticated == true and .actor_id == "admin" and .identity_source == "postgresql_credential" and .sessionIssued == false and .credentialValuesRedacted == true' "$TMP_DIR/login.json" >/dev/null
 
 status=$(/usr/bin/curl -sS -o "$TMP_DIR/logout.json" -w '%{http_code}' -X POST \
   -H "Authorization: Bearer $TOKEN" -H 'X-Forwarded-Proto: https' \

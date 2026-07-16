@@ -16377,6 +16377,20 @@ async fn handle(
   }
   match auth_lifecycle_spec(request.meth, path) {
     Some(action) => {
+      if action == "login" {
+        let body = read_json_body(body_reader) catch {
+          error => {
+            let response = service_error_response(error)
+            send_json(conn, request.meth, response.0, response.1, false)
+            return
+          }
+        }
+        let result = auth_login(body) catch {
+          error => service_error_response(error)
+        }
+        send_json(conn, request.meth, result.0, result.1, false)
+        return
+      }
       if action != "login" {
         let actor = command_actor(request, actor_signing_secret) catch {
           error => {

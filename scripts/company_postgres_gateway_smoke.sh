@@ -744,4 +744,15 @@ test "$status" = 200
 /usr/bin/jq -e '.auth.credentialChanged == true and .auth.passwordHistoryRecorded == true and .auth.persisted == true and .auth.credentialValuesRedacted == true' \
   "$TMP_DIR/auth-password.json" >/dev/null
 
+/usr/bin/curl --max-time 5 -sS -H 'Content-Type: application/json' \
+  -d '{"user_code":"limingjin","password":"gateway-next-password"}' \
+  -c "$TMP_DIR/native-cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/session/login" >"$TMP_DIR/native-login.json"
+/usr/bin/jq -e '.authenticated == true and .actor_id == "limingjin" and .identity_source == "postgresql_credential"' \
+  "$TMP_DIR/native-login.json" >/dev/null
+/usr/bin/curl --max-time 5 -sS -b "$TMP_DIR/native-cookies.txt" \
+  "http://127.0.0.1:$GATEWAY_PORT/api/session" >"$TMP_DIR/native-session.json"
+/usr/bin/jq -e '.authenticated == true and .actor_id == "limingjin"' \
+  "$TMP_DIR/native-session.json" >/dev/null
+
 echo "native MoonBit gateway session/proxy/trusted-identity smoke passed"
