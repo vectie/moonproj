@@ -83,7 +83,7 @@ moon run --target native cmd/promote -- \
   "$WORK_DIR/promotion-plan.json" "$WORK_DIR/domain-promotion.json"
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
   "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" > "$WORK_DIR/base-sqlite-projection-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+"$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/domain-promotion.json" "$SQLITE_DB" \
   "$WORK_DIR/base-sqlite-projection-parity.json"
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \

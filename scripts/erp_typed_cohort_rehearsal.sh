@@ -31,7 +31,7 @@ run_cohort() {
   echo "${label}_promotion=$receipt"
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$apply"
   echo "${label}_projection_apply=$apply"
-  "$SCRIPT_DIR/company_sqlite_projection_parity.py" "$receipt" "$TARGET_DB" "$parity"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$receipt" "$TARGET_DB" "$parity"
   echo "${label}_projection_parity=$parity"
   replay="$WORK_DIR/$label-projection-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$replay"
@@ -59,7 +59,7 @@ run_task_state_clean() {
   echo "${label}_promotion=$receipt"
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$apply"
   echo "${label}_projection_apply=$apply"
-  "$SCRIPT_DIR/company_sqlite_projection_parity.py" "$receipt" "$TARGET_DB" "$parity"
+  "$SCRIPT_DIR/company_sqlite_projection_parity.sh" "$receipt" "$TARGET_DB" "$parity"
   echo "${label}_projection_parity=$parity"
   replay="$WORK_DIR/$label-projection-replay.json"
   "$SCRIPT_DIR/company_sqlite_projection_apply.py" "$receipt" "$TARGET_DB" > "$replay"
@@ -92,7 +92,7 @@ TASK_STATE_EVIDENCE_APPLY="$WORK_DIR/task-state-exception-evidence-projection-ap
   "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" > "$TASK_STATE_EVIDENCE_APPLY"
 echo "task_state_exception_evidence_projection_apply=$TASK_STATE_EVIDENCE_APPLY"
 TASK_STATE_EVIDENCE_PARITY="$WORK_DIR/task-state-exception-evidence-projection-parity.json"
-"$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+"$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$TASK_STATE_EVIDENCE_RECEIPT" "$TARGET_DB" "$TASK_STATE_EVIDENCE_PARITY"
 echo "task_state_exception_evidence_projection_parity=$TASK_STATE_EVIDENCE_PARITY"
 TASK_STATE_EVIDENCE_REPLAY="$WORK_DIR/task-state-exception-evidence-projection-replay.json"
@@ -112,7 +112,7 @@ INVESTMENT_EVALUATION_APPLY="$WORK_DIR/investment-evaluation-projection-apply.js
   "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" > "$INVESTMENT_EVALUATION_APPLY"
 echo "investment_evaluation_projection_apply=$INVESTMENT_EVALUATION_APPLY"
 INVESTMENT_EVALUATION_PARITY="$WORK_DIR/investment-evaluation-projection-parity.json"
-"$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+"$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$INVESTMENT_EVALUATION_RECEIPT" "$TARGET_DB" "$INVESTMENT_EVALUATION_PARITY"
 echo "investment_evaluation_projection_parity=$INVESTMENT_EVALUATION_PARITY"
 INVESTMENT_EVALUATION_REPLAY="$WORK_DIR/investment-evaluation-projection-replay.json"

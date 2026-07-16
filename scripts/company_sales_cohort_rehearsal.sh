@@ -25,7 +25,7 @@ moon run --target native cmd/sales_cohort -- \
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
   "$WORK_DIR/sales-cohort-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+"$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/sales-cohort-receipt.json" "$SQLITE_DATABASE" \
   "$WORK_DIR/sqlite-parity.json"
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \

@@ -149,7 +149,7 @@ Projection and accounting receipts hash only their own source/mapping cohort,
 so later append-only cohorts do not invalidate earlier migration receipts.
 The complete multi-cohort wrapper is rerunnable: the second run inserts zero
 projections and links while retaining every receipt.
-`scripts/company_sqlite_projection_parity.py` compares the reopened projections
+The native `scripts/company_sqlite_projection_parity.sh` wrapper compares the reopened projections
 back to the receipt's source identities and target types; the mapped cohort is
 `shadow_verified` at 19/19, and a mismatched workflow cohort fails with
 explicit missing/extra findings.

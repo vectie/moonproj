@@ -26,7 +26,7 @@ moon run --target native cmd/contract_milestone -- \
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \
   "$WORK_DIR/contract-milestone-receipt.json" "$SQLITE_DATABASE" \
   > "$WORK_DIR/sqlite-apply.json"
-python3 "$SCRIPT_DIR/company_sqlite_projection_parity.py" \
+"$SCRIPT_DIR/company_sqlite_projection_parity.sh" \
   "$WORK_DIR/contract-milestone-receipt.json" "$SQLITE_DATABASE" \
   "$WORK_DIR/sqlite-parity.json"
 python3 "$SCRIPT_DIR/company_sqlite_projection_apply.py" \

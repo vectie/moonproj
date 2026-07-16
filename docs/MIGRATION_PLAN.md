@@ -2199,6 +2199,15 @@ Execute the remainder in this order:
     deterministic milestone/option ordering, source bounds, quarantine
     reasons, and the exact payment/parameter promotion envelopes. Cash,
     accounting, tax, authority, and cutover approval remain separate gates.
+3a.37. **Native SQLite projection parity utility (2026-07-16).**
+    `cmd/sqlite_projection_parity` and
+    `scripts/company_sqlite_projection_parity.sh` now replace the SQLite
+    projection-parity Python helper in the rehearsal drivers. The shell layer
+    performs only a read-only, hex-safe SQLite projection query and integrity
+    check; MoonBit validates the promotion receipt, compares multiplicities and
+    source identities, and emits the exact projection-parity envelope. SQLite
+    projection apply, raw rehearsal, accounting-link, and broader
+    reconciliation adapters remain the next bridge ports.
 3b. **Completed locally (2026-07-15):** implement only the evidence-ready read
     batch identified by the source audit: contract/payment/milestone reads,
     budget user/loan scope, invoice in/out/tax-ledger reads, and workflow
