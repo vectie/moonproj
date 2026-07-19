@@ -37,6 +37,16 @@ The ordered pivot is:
 Detailed boundaries and maturity gates are defined in
 `OPC_PRODUCT_ARCHITECTURE.md`.
 
+**Basic OPC UI checkpoint (2026-07-20).** The standalone Rabbita surface in
+`frontend/opc` now covers all eight neutral navigation areas, maps all 13
+charter responsibilities, exposes 21 empty-first institutional setup
+boundaries, and exercises guarded delivery and commitment lifecycles. Browser
+acceptance covers every route at desktop and mobile widths plus blank,
+validation, guarded, and completed states. This completes the base interaction
+model, not the operational runtime: PostgreSQL persistence, authenticated
+company scope, durable audit events, legal signing, banking, tax filing,
+provider execution, and journal posting remain separate implementation gates.
+
 ## 1. Objective
 
 Build and adopt a standalone, industry-neutral OPC operating system. Preserve

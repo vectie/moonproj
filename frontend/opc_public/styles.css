@@ -83,7 +83,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .status-muted { color: var(--ink-muted); background: var(--surface); }
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: -8px auto 22px; padding: 11px 14px; color: var(--accent-dark); background: var(--accent-soft); border: 1px solid #b9e1e1; border-radius: 7px; font-size: 12px; }
 .notice p { margin: 0; }
-.notice-close { min-width: 44px; min-height: 32px; color: var(--accent-dark); background: transparent; cursor: pointer; font-size: 11px; }
+.notice-close { min-width: 44px; min-height: 44px; color: var(--accent-dark); background: transparent; cursor: pointer; font-size: 11px; }
 .setup-banner { display: grid; grid-template-columns: minmax(0,1fr) 190px; gap: 36px; margin-bottom: 18px; padding: 24px 26px; color: #f7fbff; background: var(--ink); border-radius: 10px; box-shadow: var(--shadow); }
 .banner-kicker { margin: 0 0 8px; color: #83d7dd; font-size: 10px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .setup-banner h2 { margin: 0; font-size: 20px; line-height: 1.3; }
@@ -121,6 +121,13 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .setup-row.is-complete .setup-state { color: var(--success); }
 .setup-copy strong { font-size: 12px; }
 .setup-copy p { margin: 3px 0 0; color: var(--ink-muted); font-size: 10px; line-height: 1.45; }
+.system-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
+.system-setup { display: flex; min-width: 0; min-height: 112px; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+.system-setup.is-ready { background: linear-gradient(135deg, var(--paper), var(--accent-soft)); border-color: #b9e1e1; }
+.system-setup-copy { min-width: 0; }
+.system-setup-copy strong { font-size: 12px; }
+.system-setup-copy p { margin: 6px 0 0; color: var(--ink-muted); font-size: 10px; line-height: 1.55; }
+.system-setup > .button, .system-setup > .status-badge { flex: 0 0 auto; }
 .maturity-list { margin: 0; padding: 0; list-style: none; }
 .maturity-list li { display: flex; align-items: center; gap: 12px; padding: 8px 0; color: var(--ink-muted); border-top: 1px solid var(--line); }
 .maturity-list li:first-child { border-top: 0; }
@@ -156,6 +163,11 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .data-table th { padding: 9px 10px; color: var(--ink-muted); background: var(--surface); border-bottom: 1px solid var(--line); font-size: 9px; font-weight: 750; letter-spacing: .03em; text-align: left; }
 .data-table td { padding: 11px 10px; color: var(--ink-soft); border-bottom: 1px solid var(--line); font-size: 10px; vertical-align: middle; word-break: break-word; }
 .data-table tbody tr:last-child td { border-bottom: 0; }
+.table-scroll { width: 100%; overflow-x: auto; }
+.scope-table th:nth-child(1) { width: 18%; }
+.scope-table th:nth-child(2) { width: 46%; }
+.scope-table th:nth-child(3) { width: 18%; }
+.scope-table th:nth-child(4) { width: 18%; }
 .data-table td strong { color: var(--ink); }
 .empty-cell { height: 168px; padding: 28px !important; text-align: center !important; }
 .empty-cell strong { display: block; font-size: 13px; }
@@ -173,6 +185,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .work-card strong { font-size: 11px; }
 .work-card p { margin: 7px 0 12px; color: var(--ink-muted); font-size: 10px; line-height: 1.5; }
 .work-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ink-muted); font-size: 9px; }
+.work-card > .button, .work-card > .status-badge { width: 100%; margin-top: 12px; }
 .state-rail { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); margin-bottom: 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
 .state-rail > div { display: flex; align-items: center; gap: 9px; min-height: 54px; padding: 0 12px; border-right: 1px solid var(--line); }
 .state-rail > div:last-child { border-right: 0; }
@@ -180,6 +193,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .state-rail strong { color: var(--ink-muted); font-size: 10px; }
 .state-rail .is-current span { color: #fff; background: var(--accent); }
 .state-rail .is-current strong { color: var(--ink); }
+.state-rail .is-complete span { color: var(--accent-dark); background: var(--accent-soft); }
+.state-rail .is-complete strong { color: var(--success); }
 .compact-panel { min-height: 132px; padding: 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: var(--shadow); }
 .compact-panel h3 { margin: 0; font-size: 13px; }
 .compact-panel p { min-height: 32px; margin: 7px 0 14px; color: var(--ink-muted); font-size: 10px; line-height: 1.5; }
@@ -206,6 +221,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   .metric:nth-child(2) { border-right: 0; }
   .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .circuit-grid { grid-template-columns: 1fr; }
+  .system-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .work-board { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 
@@ -225,6 +241,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   .entity-strip > div:nth-child(2) { border-right: 0; }
   .entity-strip > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .three-column { grid-template-columns: 1fr; }
+  .system-grid { grid-template-columns: 1fr; }
   .extension-card { align-items: flex-start; flex-direction: column; }
   .extension-actions { max-width: none; text-align: left; }
 }
@@ -247,6 +264,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   .entity-strip > div:last-child { border-bottom: 0; }
   .setup-row { grid-template-columns: 40px minmax(0,1fr); }
   .setup-row > .button, .setup-row > .status-badge { grid-column: 2; justify-self: start; }
+  .system-setup { align-items: stretch; flex-direction: column; }
+  .system-setup > .button, .system-setup > .status-badge { width: 100%; justify-content: center; }
   .work-board { grid-template-columns: 1fr; }
   .work-lane { min-height: 160px; }
   .lane-empty { min-height: 96px; }

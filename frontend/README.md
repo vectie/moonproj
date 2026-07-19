@@ -14,9 +14,11 @@ warren dev frontend/opc --public-dir frontend/opc_public --port 4300
 scripts/build_opc_frontend.sh /tmp/moonproj-opc-dist
 ```
 
-The initial setup records are deliberately browser-session state. They prove
-the navigation and interaction model but are not represented as PostgreSQL
-records; the interface labels that boundary wherever a record is created.
+The 21 setup boundaries, 13-area system map, delivery lifecycle, and commitment
+lifecycle are deliberately browser-session state. They prove the navigation,
+prerequisite, and interaction model but are not represented as PostgreSQL
+records; the interface labels that boundary wherever a record is created or a
+legal, cash, tax, or accounting checkpoint is shown.
 See [the Basic OPC UI acceptance record](../docs/OPC_UI_ACCEPTANCE.md).
 
 ## Real-estate ERP extension UI
