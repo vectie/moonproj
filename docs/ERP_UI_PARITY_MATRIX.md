@@ -1,5 +1,11 @@
 # ERP UI and API parity matrix
 
+Product role after the 2026-07-20 pivot: this is the acceptance register for
+the `real-estate-erp` extension pack, not the navigation or capability model of
+the default `opc-basic` product. Its breadth remains mandatory and no route is
+removed merely because the generic OPC cockpit uses a different information
+architecture.
+
 Generated from `../erp/erp_new/web/src/router/index.js`, the source
 `server/src/routes` directory, and `frontend/main/main.mbt`. This is an
 acceptance register, not a completion claim: mounted fixture screens do

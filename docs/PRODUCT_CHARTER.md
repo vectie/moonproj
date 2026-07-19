@@ -1,9 +1,9 @@
-# Company Product Charter
+# MoonProj Basic OPC Product Charter
 
 Status: agreed direction, implementation underway  
 Recorded: 2026-07-13  
 Working repository: `vectie/moonproj`  
-Product name: to be decided
+Product name: MoonProj
 
 ## Purpose
 
@@ -27,10 +27,11 @@ The product will provide that company-wide operating environment.
 
 ## Product thesis
 
-Build a standalone company operating system with the functional breadth of the
-existing production ERP, strengthened by explicit models for institutional
+Build a standalone, industry-neutral OPC operating system, strengthened by
+explicit models for institutional
 identity, authority, ownership, obligations, accounting, treasury, financing,
-tax, and investment.
+tax, and investment. Preserve the functional breadth of the existing production
+ERP as the acceptance floor of the real-estate extension pack.
 
 The product must support the complete business cycle:
 
@@ -45,10 +46,22 @@ organize the company
   -> invest capital and evaluate outcomes
 ```
 
-The existing ERP is the minimum capability baseline. A narrow workflow or
-accounting kernel is not the product and must not be presented as parity.
+The basic OPC profile is the default product. The existing ERP is the minimum
+capability baseline for its extension. A narrow workflow or accounting kernel
+is neither a complete OPC product nor real-estate extension parity.
 
 ## Agreed decisions
+
+### D0. The default product is a general OPC operating system
+
+The product models the functions a company still needs when one accountable
+person holds several roles: principal, market, delivery, control, learning, and
+continuity. It maintains economic, operating, and governance circuits without
+assuming a real-estate company, construction project, CBS hierarchy, property
+reservation, or mortgage process.
+
+Industry behavior is delivered through explicit extension packs. The core may
+not depend on an extension.
 
 ### D1. This is a separate product
 
@@ -59,11 +72,12 @@ database, UI, API, authorization, workflows, audit trail, and release lifecycle.
 It may be Moon Suite-aware, but Moon Suite is not required for normal company
 operations.
 
-### D2. Broad ERP capability is a release requirement
+### D2. Broad ERP capability is a real-estate extension release requirement
 
 The supplied ERP works at a real site and demonstrates the required operational
-breadth. Its business capabilities, workflows, reports, controls, and user
-journeys form the parity floor for replacement.
+breadth of the `real-estate-erp` extension. Its business capabilities,
+workflows, reports, controls, and user journeys form that extension's parity
+floor and may not be dropped during the product pivot.
 
 Internal implementation milestones may be narrow. The declared product scope
 and production replacement gate are broad.
@@ -135,21 +149,26 @@ shadow mode, and cut over only after reconciliation and rollback gates pass.
 
 ## Functional scope
 
-The product covers all of the following as one coherent system:
+The basic OPC product covers all of the following as one coherent system:
 
 1. Corporate identity, organization, parties, users, roles, authority, and RBAC.
-2. Project and business-unit master data and lifecycle management.
-3. Configurable workflow, approvals, thresholds, delegation, and segregation of duties.
-4. Investment planning, feasibility, scenarios, portfolios, and investment agents.
-5. Budget, CBS, target cost, committed cost, actual cost, and dynamic forecasts.
-6. Suppliers, sourcing, tendering, procurement, contracts, amendments, and milestones.
+2. Resource ownership, custody, budgets, reservations, and commitments.
+3. Customers, offers, pricing, pipeline, marketing, sales, renewal, and counterparties.
+4. Work portfolios, delivery plans, progress, deliverables, acceptance, quality, and capacity.
+5. Configurable workflow, approvals, thresholds, delegation, and segregation of duties.
+6. Suppliers, sourcing, procurement, contracts, amendments, and milestones.
 7. Expenses, employee advances, loans, allocation, reimbursement, and repayment.
-8. Sales, customers, marketing, agreements, receivables, collections, and refunds.
-9. Project delivery, plans, progress, deliverables, acceptance, quality, and schedule risk.
-10. Invoices, payables, payments, cash, banking, treasury, and financing.
-11. General and subsidiary ledgers, assets, period close, statements, and consolidation.
-12. Tax determination, evidence, filings, payments, reconciliation, and tax risk.
-13. Reports, cockpits, warnings, internal controls, audit, notifications, and AI assistance.
+8. Invoices, receivables, payables, collections, payments, refunds, and settlement.
+9. Cash, banking, treasury, financing, and customer/contribution economics.
+10. General and subsidiary ledgers, assets, period close, statements, and consolidation.
+11. Tax determination, evidence, filings, payments, reconciliation, and tax risk.
+12. Investment planning, mandates, scenarios, portfolios, performance, and absorbed Moonfish agents.
+13. Reports, scorecards, warnings, controls, audit, learning, continuity, and bounded AI assistance.
+
+The real-estate extension additionally owns development lifecycles, CBS and
+target/dynamic cost, construction tendering, property inventory, reservation,
+mortgage, engineering progress, and the unchanged designer UI journeys. Its
+complete acceptance inventory remains in `ERP_CAPABILITY_BASELINE.md`.
 
 The detailed parity floor is maintained in
 [ERP_CAPABILITY_BASELINE.md](ERP_CAPABILITY_BASELINE.md).
@@ -224,9 +243,9 @@ the lifecycle.
 
 These remain intentionally unresolved:
 
-- final product and module name;
-- database and deployment topology;
-- browser, desktop, and mobile UI technology;
+- final public subtitle and Chinese product name;
+- production deployment topology;
+- whether a future desktop/mobile surface reuses the browser contracts;
 - jurisdiction and accounting-standard priorities;
 - first production business unit and migration cohort;
 - whether the current ERP receives a small read-only export API or migration

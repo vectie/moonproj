@@ -10,6 +10,14 @@ the sibling repositories' current README and package boundaries, not on a
 shared runtime assumption. The company product must remain operable when all
 of these siblings are absent.
 
+Catalog refreshed: 2026-07-20 against the MoonBit product definitions in
+`/Users/kq/Workspace/vectie.github.io/main/data_core.mbt` and
+`main/data_more.mbt`. That public catalog describes MoonBook as knowledge,
+MoonClaw as execution, MoonFlow as work progression, Moontown as standing
+orchestration, MoonDesk as the human shell, and MoonGate as provider access and
+telemetry. MoonProj remains the locally authoritative company product rather
+than another shared workspace layer.
+
 ## The central distinction
 
 Moon Suite products manage knowledge, conversation, agents, execution,
@@ -20,6 +28,11 @@ finances itself, files tax, and controls investment capital.
 
 The company product therefore consumes selected capabilities through explicit
 ports, but it owns company records and business rules locally.
+
+Awareness means MoonProj may publish or consume a versioned manifest, proposal,
+receipt, evidence reference, or health observation. It does not mean shared
+tables, shared filesystem state, required startup order, or permission for a
+sibling to write company aggregates.
 
 ## Ownership map
 
@@ -62,17 +75,19 @@ ports, but it owns company records and business rules locally.
 The safest order is:
 
 ```text
-company core and ERP parity
+basic OPC core
   -> evidence and proposal ports
-  -> optional MoonClaw/MoonFlow execution receipts
-  -> optional MoonBook/Moondesk knowledge and review projections
+  -> optional MoonClaw execution receipts
+  -> Moonfish investment capability absorbed into native domain
+  -> optional MoonBook/MoonFlow/Moondesk projections and receipts
   -> optional Moontown recurring coordination
   -> optional MoonGate/MoonStat telemetry
-  -> Moonfish investment capability absorbed into native domain
+  -> vertical extension integration only when its own owner enables it
 ```
 
-The first production release should only require the first line and the local
-company product. The other lines improve automation and operator experience;
+The first production release should require only the local basic OPC product.
+The real-estate ERP is a separately enabled extension with its own parity and
+cutover gates. All sibling lines improve automation or operator experience;
 they do not define company-data ownership.
 
 ## Migration implications

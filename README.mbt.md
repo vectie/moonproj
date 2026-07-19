@@ -1,17 +1,23 @@
-# Company Product (working title)
+# MoonProj — Basic OPC Company Operating System
 
-This repository is the initial home of a standalone company operating system.
-It is intended to preserve the broad operational capability of the existing ERP
-while adding explicit institutional identity, authority, ownership, accounting,
-treasury, financing, tax, and investment models.
+This repository is the home of a standalone operating system for a general
+One-Person Company (OPC). The company—not the founder's workspace—is the
+principal: it owns resources, delegates authority, makes commitments and
+exchanges, keeps accounts, finances operations, handles tax, learns, and
+remains recoverable.
 
 The product is independently operable. Initial Moon Suite integration is kept
 deliberately shallow: MoonClaw may be used through an optional agent adapter,
 and Moonfish investment capabilities will be absorbed into the native investment
-domain.
+domain. The working real-estate ERP is retained as the first extension pack and
+as a broad migration acceptance source; it is no longer the definition of the
+default product.
 
 ## Documentation
 
+- [Basic OPC product architecture](docs/OPC_PRODUCT_ARCHITECTURE.md) — default
+  product, three circuits, six organizational systems, MoonSuite awareness, and
+  the real-estate extension boundary.
 - [Product charter](docs/PRODUCT_CHARTER.md) — agreed product direction,
   boundaries, decisions, invariants, and success definition.
 - [Conversation decisions](docs/DESIGN_DECISIONS.md) — chronological rationale
@@ -91,7 +97,10 @@ domain.
 
 ## Current status
 
-The repository is an early MoonBit implementation. The first slices now cover
+The repository is an active MoonBit migration. The executable `opc-basic`
+profile and `real-estate-erp` extension manifest now make the new product
+boundary testable without relocating working code prematurely. The first
+slices cover
 legal entities, organization hierarchy, scoped authority, fixed-point money, chart-of-accounts/period controls, source-to-journal accounting links, journal invariants, dependency-gated project plans, budget
 reservation, commitment and settlement state transitions, invoice/receivable
 controls, customer/reservation/mortgage/refund sales records, marketing campaign/placement controls, supplier/tender/milestone procurement, delivery evidence, audit/evidence provenance, cost forecasting, warning findings, cash planning/dispatch, migration manifests, versioned SQL catalog, tax obligations, cash-account controls, financing facilities, investment model versions/indexes, local investment mandates/proposals/portfolio valuation, reconciliation reports, a

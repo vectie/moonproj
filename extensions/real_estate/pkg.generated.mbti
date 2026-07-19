@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/extensions/real_estate"
+
+import {
+  "vectie/moonproj/product",
+}
+
+// Values
+pub fn real_estate_erp() -> @product.ExtensionPack
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

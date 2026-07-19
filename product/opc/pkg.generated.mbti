@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/product/opc"
+
+import {
+  "vectie/moonproj/product",
+}
+
+// Values
+pub fn basic_opc() -> @product.ProductProfile
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

@@ -1,15 +1,48 @@
-# ERP-to-Company-Product Migration Plan
+# Basic OPC and Real-Estate Extension Migration Plan
 
 Status: active strangler-migration plan; no cutover authorized  
 Recorded: 2026-07-15
-Source: working site ERP in `../erp/erp_new`  
-Target: standalone company product in this repository
+Source extension: working site ERP in `../erp/erp_new`
+Target: standalone basic OPC product plus extension packs in this repository
+
+## 0. Product pivot (2026-07-20)
+
+MoonProj now targets a general One-Person Company. The default profile is not
+allowed to assume real-estate development, CBS, property reservation, mortgage,
+or engineering-progress semantics. It must cover the full company as principal:
+identity, resources, authority, customers, work, commitments, exchanges,
+accounting, cash, financing, tax, investment, learning, and continuity.
+
+The current ERP program is not cancelled. It becomes the `real-estate-erp`
+extension workstream, keeps the exact designer Rabbita UI, and retains the full
+75-table/338-handler/56-route acceptance register. Existing migration code and
+evidence stay in place until classification and relocation can be proven without
+regression.
+
+The ordered pivot is:
+
+1. establish an executable `opc-basic` capability profile and extension
+   contract;
+2. classify every package, API family, route, fixture, and migration artifact as
+   generic core, shared service, or real-estate extension;
+3. build the general OPC cockpit and onboarding around customer, cash,
+   commitments, exceptions, founder attention, and continuity;
+4. mount the unchanged designer ERP UI as the real-estate extension;
+5. continue closing the ERP parity ledger inside that extension;
+6. extract a screen or domain into core only after its industry-neutral contract
+   and tests exist;
+7. absorb Moonfish investment agents natively and keep other MoonSuite links
+   optional and shallow.
+
+Detailed boundaries and maturity gates are defined in
+`OPC_PRODUCT_ARCHITECTURE.md`.
 
 ## 1. Objective
 
-Build and adopt a standalone company operating system that preserves the broad
-operational capability of the current ERP and adds complete institutional,
-accounting, treasury, financing, tax, and investment models.
+Build and adopt a standalone, industry-neutral OPC operating system. Preserve
+the broad operational capability of the current ERP in the real-estate
+extension while adding complete institutional, market, delivery, learning,
+continuity, accounting, treasury, financing, tax, and investment models.
 
 The program must protect the working site. The current ERP remains authoritative
 until an explicitly named capability passes specification, parity, migration,

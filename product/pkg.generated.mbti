@@ -1,0 +1,66 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/product"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ProductCatalogError {
+  EmptyIdentifier
+  DuplicateCapability(String)
+  IncompatibleBase(expected~ : String, actual~ : String)
+  ExtensionAlreadyActive(String)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Capability {
+  id : String
+  label : String
+  circuit : OperatingCircuit
+  system : CompanySystem
+} derive(Eq, @debug.Debug)
+
+pub(all) enum CompanySystem {
+  Principal
+  Market
+  Delivery
+  Control
+  Learning
+  Continuity
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ExtensionPack {
+  extension_id : String
+  name : String
+  base_profile_id : String
+  source_system : String
+  mount_path : String
+  capabilities : Array[Capability]
+  route_prefixes : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn ExtensionPack::new(extension_id~ : String, name~ : String, base_profile_id~ : String, source_system~ : String, mount_path~ : String, capabilities~ : Array[Capability], route_prefixes~ : Array[String]) -> Self raise ProductCatalogError
+
+pub(all) enum OperatingCircuit {
+  Economic
+  Operating
+  Governance
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ProductProfile {
+  profile_id : String
+  name : String
+  capabilities : Array[Capability]
+  active_extensions : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn ProductProfile::activate(Self, ExtensionPack) -> Self raise ProductCatalogError
+pub fn ProductProfile::has_extension(Self, String) -> Bool
+pub fn ProductProfile::includes(Self, String) -> Bool
+pub fn ProductProfile::new(profile_id~ : String, name~ : String, capabilities~ : Array[Capability]) -> Self raise ProductCatalogError
+
+// Type aliases
+
+// Traits
+

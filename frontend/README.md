@@ -1,5 +1,11 @@
 # ERP frontend clone (Rabbita)
 
+This surface is now the designer-authoritative UI of the
+`real-estate-erp` extension pack. It is intentionally preserved in place while
+the general `opc-basic` cockpit is introduced separately; a later physical move
+must not alter its screens, routes, or parity evidence. It does not define the
+default product navigation.
+
 This browser surface is a Rabbita port of the designer-built ERP in
 `../erp/erp_new/web`: the login page, dark navigation hierarchy, header, and
 dashboard are copied from the source UI language and labels. The major ERP

@@ -226,3 +226,24 @@ probes, and smoke tests are transitional bridge evidence. They must be ported
 to MoonBit behind the existing route, receipt, authorization, and replay
 contracts, run in shadow against PostgreSQL, and then removed from supported
 build/deployment paths. No new Python surface is approved.
+
+## 11. Pivot the default product to a general OPC and retain ERP as an extension
+
+The China OPC management report establishes that an OPC compresses headcount,
+not organizational functions. A viable company still needs an accountable
+principal, market, delivery, control, learning, and continuity systems across
+economic, operating, and governance circuits. Project and accounting features
+alone do not form a company, and a real-estate navigation tree cannot define a
+general OPC product.
+
+Decision: `opc-basic` is the default product profile. It includes company
+identity, resources, rights, customers, offers, work, commitments, exchange,
+finance, tax, investment, learning, and continuity without any industry
+assumption. The existing `erp_new` system becomes the `real-estate-erp`
+extension pack and keeps its full parity obligation, source evidence, and
+designer-built UI. The core never depends on the extension.
+
+MoonSuite remains an optional capability environment rather than a shared
+database or mandatory runtime. MoonClaw is the first optional executor;
+Moonfish investment behavior is still absorbed natively. Other sibling seams
+are added only for a concrete, bounded use case.
