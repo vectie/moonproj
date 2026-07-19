@@ -5,6 +5,8 @@
 # not listed; they remain immutable comparison evidence until ported.
 cmd
 frontend/main
+frontend/opc
+scripts/build_opc_frontend.sh
 scripts/company_postgres_accounting_link_apply.sh
 scripts/company_postgres_accounting_link_parity.sh
 scripts/company_postgres_accounting_reconciliation.sh

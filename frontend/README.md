@@ -1,4 +1,25 @@
-# ERP frontend clone (Rabbita)
+# Rabbita product surfaces
+
+The default browser product is the industry-neutral Basic OPC interface in
+`frontend/opc`, with static assets in `frontend/opc_public`. It covers company
+and rights, market and customers, work and delivery, commerce and exchange,
+finance and capital, governance and resilience, and agents/extensions without
+assuming any industry or example company.
+
+Run it independently:
+
+```sh
+moon install moonbit-community/warren
+warren dev frontend/opc --public-dir frontend/opc_public --port 4300
+scripts/build_opc_frontend.sh /tmp/moonproj-opc-dist
+```
+
+The initial setup records are deliberately browser-session state. They prove
+the navigation and interaction model but are not represented as PostgreSQL
+records; the interface labels that boundary wherever a record is created.
+See [the Basic OPC UI acceptance record](../docs/OPC_UI_ACCEPTANCE.md).
+
+## Real-estate ERP extension UI
 
 This surface is now the designer-authoritative UI of the
 `real-estate-erp` extension pack. It is intentionally preserved in place while
@@ -223,7 +244,7 @@ Build and preview it with Warren:
 
 ```sh
 moon install moonbit-community/warren
-warren dev frontend/main --public-dir frontend/public
+warren dev frontend/main --public-dir frontend/public --port 4301
 ```
 
 To exercise the native MoonBit PostgreSQL read model directly:

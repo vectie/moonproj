@@ -89,9 +89,11 @@ default product.
 - [PostgreSQL target setup](docs/POSTGRES_TARGET_SETUP.md) — local PostgreSQL
   target configuration and credential-free raw-envelope apply; ERP MySQL
   remains source-only.
-- [Rabbita frontend](frontend/README.md) — the ERP UI clone surface, with the
-  designer shell/login/dashboard and major ERP route families represented in
-  Rabbita as read-only, source-shaped fixtures.
+- [Rabbita frontends](frontend/README.md) — the industry-neutral Basic OPC
+  product in `frontend/opc` and the separately preserved designer ERP surface
+  in `frontend/main` for the real-estate extension pack.
+- [Basic OPC UI acceptance](docs/OPC_UI_ACCEPTANCE.md) — screen map, interaction
+  boundary, responsive evidence, and local run commands for the default UI.
 - [Moon Suite boundary](docs/MOON_SUITE_BOUNDARY.md) — observed sibling
   ownership, reuse rules, and optional integration order.
 
