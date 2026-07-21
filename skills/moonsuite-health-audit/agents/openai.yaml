@@ -1,0 +1,4 @@
+interface:
+  display_name: "MoonSuite Health Audit"
+  short_description: "Measure engineering health from reproducible checks"
+  default_prompt: "Use $moonsuite-health-audit to measure how well this project is going."

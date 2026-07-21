@@ -15,6 +15,10 @@ default product.
 
 ## Documentation
 
+- [Moon Suite engineering control plane](docs/MOONSUITE_ENGINEERING_CONTROL_PLANE.md)
+  — the three evidence views, project registry, MoonClaw skills and controller,
+  independent review rule, UI workflow, problem ledger, and remaining connector
+  work.
 - [Basic OPC product architecture](docs/OPC_PRODUCT_ARCHITECTURE.md) — default
   product, three circuits, six organizational systems, MoonSuite awareness, and
   the real-estate extension boundary.

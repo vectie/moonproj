@@ -1,0 +1,76 @@
+{
+  "schema": "moonsuite.engineering-portfolio.v1",
+  "workspace_root": "..",
+  "policy": {
+    "unknown_is_pass": false,
+    "self_review_allowed": false,
+    "trusted_review_verdict": "accept",
+    "progress_percent_requires_declared_milestones": true,
+    "release_candidate_requires_digest": true
+  },
+  "projects": [
+    {
+      "id": "moonproj",
+      "repository": "../moonproj",
+      "lifecycle": "software",
+      "role": "engineering governance and company operating system",
+      "tier": "control-plane"
+    },
+    {
+      "id": "moonbook",
+      "repository": "../moonbook",
+      "lifecycle": "software",
+      "role": "durable knowledge and executable-book workspace",
+      "tier": "core"
+    },
+    {
+      "id": "moonclaw",
+      "repository": "../moonclaw",
+      "lifecycle": "software",
+      "role": "agent execution, jobs, sessions and proof runtime",
+      "tier": "core"
+    },
+    {
+      "id": "moontown",
+      "repository": "../moontown",
+      "lifecycle": "software",
+      "role": "standing-goal orchestration and continuity",
+      "tier": "core"
+    },
+    {
+      "id": "moondesk",
+      "repository": "../moondesk",
+      "lifecycle": "software",
+      "role": "human desktop and review surface",
+      "tier": "core"
+    },
+    {
+      "id": "moongate",
+      "repository": "../moongate",
+      "lifecycle": "software",
+      "role": "provider access, usage, metrics and suite discovery",
+      "tier": "core"
+    },
+    {
+      "id": "moonrobo",
+      "repository": "../moonrobo",
+      "lifecycle": "hardware-software",
+      "role": "robot safety, proof and physical execution boundary",
+      "tier": "field"
+    },
+    {
+      "id": "moonmoon",
+      "repository": "../moonmoon",
+      "lifecycle": "software",
+      "role": "lunar terrain and mission world model",
+      "tier": "field"
+    },
+    {
+      "id": "moonfish",
+      "repository": "../moonfish",
+      "lifecycle": "software",
+      "role": "investment analysis Agent extension",
+      "tier": "extension"
+    }
+  ]
+}

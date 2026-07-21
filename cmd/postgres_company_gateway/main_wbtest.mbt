@@ -158,3 +158,25 @@ test "native gateway parses session cookies and query keys" {
   )
   assert_eq(path_only("/api/test?x=1"), "/api/test")
 }
+
+///|
+test "engineering audits only resolve registered Moon Suite repositories" {
+  assert_true(
+    moonsuite_project_path("/workspace", "moonproj")
+    is Some("/workspace/moonproj"),
+  )
+  assert_true(
+    moonsuite_project_path("/workspace", "moonclaw")
+    is Some("/workspace/moonclaw"),
+  )
+  assert_true(moonsuite_project_path("/workspace", "../secret") is None)
+  assert_true(moonsuite_project_path("/workspace", "unknown") is None)
+}
+
+///|
+test "MoonClaw task identifiers are extracted from audit responses" {
+  assert_true(
+    moonclaw_task_id({ "task": { "id": "task-123" } }) is Some("task-123"),
+  )
+  assert_true(moonclaw_task_id({ "task": {} }) is None)
+}

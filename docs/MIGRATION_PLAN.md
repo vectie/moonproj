@@ -5,6 +5,13 @@ Recorded: 2026-07-15
 Source extension: working site ERP in `../erp/erp_new`
 Target: standalone basic OPC product plus extension packs in this repository
 
+> Engineering-control-plane update (2026-07-21): the Moon Suite portfolio,
+> evidence-first UI workflow, MoonClaw audit skills, independent review, known
+> problems, and remaining connector work are specified in
+> `docs/MOONSUITE_ENGINEERING_CONTROL_PLANE.md`. This is the controlling plan for
+> MoonProj's software-engineering surface. ERP parity remains an extension-pack
+> migration and must not supply invented engineering ratings.
+
 ## 0. Product pivot (2026-07-20)
 
 MoonProj now targets a general One-Person Company. The default profile is not

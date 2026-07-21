@@ -1,0 +1,4 @@
+interface:
+  display_name: "MoonSuite Evidence Review"
+  short_description: "Independently verify engineering audit claims"
+  default_prompt: "Use $moonsuite-evidence-review to verify the other audit agents evidence."

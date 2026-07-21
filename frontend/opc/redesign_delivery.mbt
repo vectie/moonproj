@@ -78,62 +78,155 @@ fn projects_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
 }
 
 ///|
-fn moon_repo(
-  name : String,
-  version : String,
-  ci : String,
-  coverage : Int,
-  grade : String,
-  stage : String,
+fn engineering_project_name(index : Int) -> String {
+  match index {
+    0 => "moonproj"
+    1 => "moonclaw"
+    2 => "moonbook"
+    3 => "moontown"
+    4 => "moondesk"
+    5 => "moongate"
+    6 => "moonrobo"
+    7 => "moonmoon"
+    _ => "moonfish"
+  }
+}
+
+///|
+fn audit_state_badge(model : Model) -> @html.Html {
+  match model.engineering_audit_state {
+    "submitting" => status_badge("提交中", tone="warning")
+    "submitted" => status_badge("MoonClaw 执行中", tone="violet")
+    "failed" => status_badge("连接失败", tone="warning")
+    _ => status_badge("尚未审计", tone="muted")
+  }
+}
+
+///|
+fn evidence_dimension(
+  title : String,
+  question : String,
+  contract : String,
 ) -> @html.Html {
   article(class="repo-card") <| [
     div(class="loop-head") <| [
-      strong(name),
-      status_badge(grade, tone=if grade == "A" { "accent" } else { "warning" }),
+      strong(title),
+      status_badge("未知", tone="muted"),
     ],
-    p("\{version} · \{stage}"),
+    p(question),
     div(class="budget-row") <| [
-      span(ci),
-      span("覆盖率 \{coverage}%"),
+      span("等待 MoonClaw 证据"),
+      span("不得推测"),
     ],
-    meter(
-      coverage,
-      if coverage >= 80 {
-        "ok"
-      } else if coverage >= 60 {
-        "warn"
-      } else {
-        "bad"
-      },
-    ),
+    small(contract),
   ]
 }
 
 ///|
-fn moon_suite_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
+fn engineering_project_button(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  index : Int,
+  name : String,
+) -> @html.Html {
+  button(
+    type_="button",
+    class=if model.engineering_project == index {
+      "button button-primary button-small"
+    } else {
+      "button button-secondary button-small"
+    },
+    on_click=emit(SelectEngineeringProject(index)),
+    name,
+  )
+}
+
+///|
+fn request_engineering_audit(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
+  let project = engineering_project_name(model.engineering_project)
+  let body = Json::object({ "project": Json::string(project) }).stringify()
+  @http.post("/api/moonsuite/engineering/audits")
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(response) => {
+        let payload = @json.parse(response) catch { _ => Json::null() }
+        let task_id : String? = match payload {
+          Object(fields) =>
+            match fields.get("task_id") {
+              Some(String(value)) if !value.is_empty() => Some(value)
+              _ => None
+            }
+          _ => None
+        }
+        match task_id {
+          Some(value) => emit(EngineeringAuditSubmitted(value))
+          None => emit(EngineeringAuditFailed)
+        }
+      }
+      Err(_) => emit(EngineeringAuditFailed)
+    }
+  })
+}
+
+///|
+fn moon_suite_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let selected = engineering_project_name(model.engineering_project)
   section(class="page") <| [
-    page_intro(MoonSuite, status_badge("扩展视图", tone="violet")),
+    page_intro(MoonSuite, audit_state_badge(model)),
     div(class="extension-boundary") <| [
-      strong("Moon Suite 产品线投影"),
+      strong("Moon Suite 工程控制面"),
       p(
-        "该页面读取兄弟项目状态；基础 OPC 不依赖任何 Moon 产品。Moonfish 仅作为投资分析 Agent 被吸收，不能直接交易。",
+        "MoonProj 组织工程事实，MoonClaw Agent 采集与复核证据。界面不自行打分；未知、失败和不适用是不同结论。",
       ),
     ],
-    div(class="kpi-grid") <| [
-      compact_kpi("登记仓库", "8", "产品线注册表", "info"),
-      compact_kpi("GA", "2", "可全量运行", "ok"),
-      compact_kpi("冻结", "3", "B/C 或红线风险", "warn"),
-      compact_kpi("平均覆盖率", "71%", "目标 ≥ 80%", "violet"),
+    section_title(
+      "选择首批服务", "从我们的 Moon Suite 仓库开始建立工程基线。",
+      "9 个已登记",
+    ),
+    div(class="tag-row") <| [
+      engineering_project_button(emit, model, 0, "moonproj"),
+      engineering_project_button(emit, model, 1, "moonclaw"),
+      engineering_project_button(emit, model, 2, "moonbook"),
+      engineering_project_button(emit, model, 3, "moontown"),
+      engineering_project_button(emit, model, 4, "moondesk"),
+      engineering_project_button(emit, model, 5, "moongate"),
+      engineering_project_button(emit, model, 6, "moonrobo"),
+      engineering_project_button(emit, model, 7, "moonmoon"),
+      engineering_project_button(emit, model, 8, "moonfish"),
     ],
     div(class="repo-grid") <| [
-      moon_repo("moonproj", "v0.9.0-dev", "CI 通过", 84, "A", "灰度"),
-      moon_repo("moonclaw", "v0.6.2", "CI 通过", 78, "A", "GA"),
-      moon_repo("moonfish", "v0.5.1", "CI 运行中", 66, "B", "灰度"),
-      moon_repo("moongate", "v0.8.0", "CI 通过", 82, "A", "GA"),
-      moon_repo("moonbook", "v0.4.0", "CI 失败", 51, "C", "开发"),
-      moon_repo("moondesk", "v0.7.0", "CI 通过", 69, "B", "内测"),
+      evidence_dimension(
+        "走了多远", "生命周期、里程碑和已满足 Gate；只有声明了分母才显示百分比。",
+        "moonsuite.project-progress-evidence.v1",
+      ),
+      evidence_dimension(
+        "走得多好", "在精确 commit 上运行仓库自有构建、测试、格式和静态检查。",
+        "moonsuite.project-health-evidence.v1",
+      ),
+      evidence_dimension(
+        "能否生产", "先检查三条红线，再逐项验证 G1–G7 和回滚能力。",
+        "moonsuite.production-gate-evidence.v1",
+      ),
     ],
-    secondary_button(emit, Navigate(Quality), "进入全系出厂质检"),
+    div(class="extension-boundary") <| [
+      div <| [
+        strong("\{selected} · 审计编排"),
+        p(
+          "Progress → Health → Production Gate → 独立 Reviewer 抽验；producer 与 reviewer 不得相同。",
+        ),
+      ],
+      audit_state_badge(model),
+    ],
+    if !model.engineering_task_id.is_empty() {
+      p(
+        "MoonClaw task: \{model.engineering_task_id} · 尚未收到复核结论",
+      )
+    } else {
+      @html.nothing
+    },
+    primary_button(emit, RequestEngineeringAudit, "让 MoonClaw 开始审计"),
+    secondary_button(emit, Navigate(Quality), "查看生产 Gate 政策"),
   ]
 }
 
@@ -167,23 +260,19 @@ fn quality_row(
 ///|
 fn quality_product_name(model : Model, index : Int) -> String {
   if model.moon_mode {
-    if index == 0 {
-      "moonproj"
-    } else if index == 1 {
-      "moonclaw"
-    } else if index == 2 {
-      "moonfish"
-    } else {
-      "moondesk"
-    }
-  } else if index == 0 {
-    "Core Service"
-  } else if index == 1 {
-    "Agent Runtime"
-  } else if index == 2 {
-    "Investment Pack"
+    engineering_project_name(index)
   } else {
-    "Desktop Console"
+    match index {
+      0 => "Core Service"
+      1 => "Agent Runtime"
+      2 => "Investment Pack"
+      3 => "Desktop Console"
+      4 => "Knowledge Service"
+      5 => "Model Gateway"
+      6 => "Robotics Runtime"
+      7 => "World Model"
+      _ => "Goal Orchestrator"
+    }
   }
 }
 
@@ -191,30 +280,30 @@ fn quality_product_name(model : Model, index : Int) -> String {
 fn quality_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let selected = quality_product_name(model, model.quality_product)
   section(class="page") <| [
-    page_intro(Quality, status_badge("7 Gate · 3 红线", tone="violet")),
+    page_intro(Quality, status_badge("政策 · 非评分", tone="violet")),
     section_title(
       "3 大红线 · 一票否决", "触发任一红线即冻结，不进入 Gate 评分。",
-      "2 项风险",
+      "等待证据",
     ),
     div(class="redline-grid") <| [
       article(class="redline-card") <| [
         strong("R1 · 数据泄露风险"),
-        status_badge("全线通过", tone="accent"),
+        status_badge("未知", tone="muted"),
         p("敏感数据、凭据与客户信息不得越界。"),
       ],
       article(class="redline-card has-risk") <| [
         strong("R2 · 合规资质缺失"),
-        status_badge("1 项风险", tone="warning"),
+        status_badge("未知", tone="muted"),
         p("资质、许可或申报证据缺失即冻结。"),
       ],
       article(class="redline-card has-risk") <| [
         strong("R3 · 核心流程阻断"),
-        status_badge("1 项风险", tone="warning"),
+        status_badge("未知", tone="muted"),
         p("核心路径无法完成或无法回滚即冻结。"),
       ],
     ],
     section_title(
-      "全系产品重审总表", "选择产品查看 7-Gate 明细与整改动作。",
+      "全系产品证据状态", "只有 MoonClaw 产出且独立 reviewer 接受的证据才能形成结论。",
       "",
     ),
     div(class="table-scroll panel-table") <| [
@@ -222,10 +311,10 @@ fn quality_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         thead <| [
           tr <| [
             th("产品"),
-            th("G1–G7 分数"),
-            th("总分"),
-            th("等级"),
-            th("核心卡点"),
+            th("G1–G7"),
+            th("结论"),
+            th("复核"),
+            th("证据"),
             th("操作"),
           ],
         ],
@@ -234,41 +323,91 @@ fn quality_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
             emit,
             0,
             quality_product_name(model, 0),
-            "88 · 92 · 86 · 84 · 78 · 91 · 85",
-            "86",
-            "A",
-            "G5 事件口径",
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
             model.quality_product == 0,
           ),
           quality_row(
             emit,
             1,
             quality_product_name(model, 1),
-            "91 · 88 · 82 · 90 · 76 · 89 · 84",
-            "86",
-            "A",
-            "运营数据",
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
             model.quality_product == 1,
           ),
           quality_row(
             emit,
             2,
             quality_product_name(model, 2),
-            "82 · 78 · 74 · 69 · 72 · 81 · 67",
-            "75",
-            "B",
-            "回滚未演练",
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
             model.quality_product == 2,
           ),
           quality_row(
             emit,
             3,
             quality_product_name(model, 3),
-            "76 · 72 · 69 · 61 · 58 · 79 · 64",
-            "68",
-            "C",
-            "核心流程阻断风险",
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
             model.quality_product == 3,
+          ),
+          quality_row(
+            emit,
+            4,
+            quality_product_name(model, 4),
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
+            model.quality_product == 4,
+          ),
+          quality_row(
+            emit,
+            5,
+            quality_product_name(model, 5),
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
+            model.quality_product == 5,
+          ),
+          quality_row(
+            emit,
+            6,
+            quality_product_name(model, 6),
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
+            model.quality_product == 6,
+          ),
+          quality_row(
+            emit,
+            7,
+            quality_product_name(model, 7),
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
+            model.quality_product == 7,
+          ),
+          quality_row(
+            emit,
+            8,
+            quality_product_name(model, 8),
+            "未知 × 7",
+            "未知",
+            "未执行",
+            "无",
+            model.quality_product == 8,
           ),
         ],
       ],
@@ -277,60 +416,61 @@ fn quality_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       section(class="section-block") <| [
         section_title(
           "\{selected} · 7-Gate 评审明细",
-          "独立交叉评审；每一分必须可回溯到证据。",
-          "待 Owner 裁决",
+          "独立交叉评审；每项结论必须回溯到 commit、命令和收据。",
+          "尚无证据",
         ),
         div(class="gate-list") <| [
           div <| [
             span("G1 需求与价值验证"),
-            meter(82, "ok"),
-            strong("82"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
           div <| [
             span("G2 产品功能完整性"),
-            meter(76, "warn"),
-            strong("76"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
           div <| [
             span("G3 用户体验与界面"),
-            meter(72, "warn"),
-            strong("72"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
           div <| [
             span("G4 技术工程化"),
-            meter(61, "warn"),
-            strong("61"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
           div <| [
             span("G5 数据与运营体系"),
-            meter(58, "bad"),
-            strong("58"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
           div <| [
             span("G6 安全与合规"),
-            meter(79, "warn"),
-            strong("79"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
           div <| [
             span("G7 发布与运维"),
-            meter(64, "warn"),
-            strong("64"),
+            meter(0, "ok"),
+            strong("未知"),
           ],
         ],
       ],
       section(class="section-block") <| [
         section_title(
-          "整改清单", "整改完成后由 Gatekeeper-01 安排复评。", "3 项",
+          "下一步", "先取得证据，再由 Agent 提出整改；MoonProj 不凭空生成问题。",
+          "0 项已证实",
         ),
         ul(class="remediation-list") <| [
-          li("补齐核心事件埋点与实时看板"),
-          li("完成十分钟回滚演练并归档证据"),
-          li("修复核心流程阻断并加入回归测试"),
+          li("选择 Moon Suite 项目并请求审计"),
+          li("等待 producer 提交 commit 级证据"),
+          li("等待不同 reviewer 复跑关键检查"),
         ],
         primary_button(
           emit,
-          RecordDecision("生成 \{selected} 整改任务"),
-          "生成整改任务并分派 Agent",
+          Navigate(MoonSuite),
+          "返回 Moon Suite 发起审计",
         ),
       ],
     ],

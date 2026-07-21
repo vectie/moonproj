@@ -65,6 +65,9 @@ struct Model {
   page : Page
   moon_mode : Bool
   quality_product : Int
+  engineering_project : Int
+  engineering_audit_state : String
+  engineering_task_id : String
   mobile_nav : Bool
   company_form_open : Bool
   company_name : String
@@ -108,6 +111,10 @@ enum Msg {
   Navigate(Page)
   SetMoonMode(Bool)
   SelectQualityProduct(Int)
+  SelectEngineeringProject(Int)
+  RequestEngineeringAudit
+  EngineeringAuditSubmitted(String)
+  EngineeringAuditFailed
   RecordDecision(String)
   ToggleMobileNav
   OpenCompanyForm
@@ -159,6 +166,9 @@ fn initial_model() -> Model {
     page: Overview,
     moon_mode: false,
     quality_product: 3,
+    engineering_project: 0,
+    engineering_audit_state: "idle",
+    engineering_task_id: "",
     mobile_nav: false,
     company_form_open: false,
     company_name: "",
@@ -477,7 +487,7 @@ fn can_recognize_commitment(model : Model) -> Bool {
 }
 
 ///|
-fn update(_emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     Navigate(page) => (none, { ..model, page, mobile_nav: false, notice: "" })
     SetMoonMode(enabled) =>
@@ -503,6 +513,47 @@ fn update(_emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) 
       (
         none,
         { ..model, quality_product: index, notice: "已切换质检对象。" },
+      )
+    SelectEngineeringProject(index) =>
+      (
+        none,
+        {
+          ..model,
+          engineering_project: index,
+          engineering_audit_state: "idle",
+          engineering_task_id: "",
+          notice: "已选择工程审计对象；状态保持未知，直到 MoonClaw 返回独立复核证据。",
+        },
+      )
+    RequestEngineeringAudit =>
+      (
+        request_engineering_audit(emit, model),
+        {
+          ..model,
+          engineering_audit_state: "submitting",
+          engineering_task_id: "",
+          notice: "正在通过 MoonProj 请求 MoonClaw 执行三项工程审计与独立复核。",
+        },
+      )
+    EngineeringAuditSubmitted(task_id) =>
+      (
+        none,
+        {
+          ..model,
+          engineering_audit_state: "submitted",
+          engineering_task_id: task_id,
+          notice: "MoonClaw 审计任务已提交。独立复核完成前，结论仍为未知。",
+        },
+      )
+    EngineeringAuditFailed =>
+      (
+        none,
+        {
+          ..model,
+          engineering_audit_state: "failed",
+          engineering_task_id: "",
+          notice: "审计请求失败；未生成任何评分。请确认 MoonClaw daemon 与 MoonProj gateway 已启动。",
+        },
       )
     RecordDecision(label) =>
       (
