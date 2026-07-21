@@ -34,7 +34,15 @@ using @rabbita {cell, new, none, type Cmd}
 ///|
 enum Page {
   Overview
+  Fleet
+  Dispatch
+  Projects
+  MoonSuite
+  Quality
+  Observe
+  Operate
   Company
+  Evidence
   Market
   Delivery
   Commerce
@@ -46,6 +54,7 @@ enum Page {
 ///|
 struct NavItem {
   page : Page
+  group : String
   label : String
   short_label : String
   description : String
@@ -54,6 +63,8 @@ struct NavItem {
 ///|
 struct Model {
   page : Page
+  moon_mode : Bool
+  quality_product : Int
   mobile_nav : Bool
   company_form_open : Bool
   company_name : String
@@ -95,6 +106,9 @@ struct Model {
 ///|
 enum Msg {
   Navigate(Page)
+  SetMoonMode(Bool)
+  SelectQualityProduct(Int)
+  RecordDecision(String)
   ToggleMobileNav
   OpenCompanyForm
   InputCompanyName(String)
@@ -143,6 +157,8 @@ enum Msg {
 fn initial_model() -> Model {
   {
     page: Overview,
+    moon_mode: false,
+    quality_product: 3,
     mobile_nav: false,
     company_form_open: false,
     company_name: "",
@@ -187,51 +203,73 @@ fn nav_items() -> Array[NavItem] {
   [
     {
       page: Overview,
-      label: "经营总览",
-      short_label: "总",
-      description: "今天需要关注什么",
+      group: "指挥",
+      label: "驾驶舱",
+      short_label: "驾",
+      description: "今天需要我决定什么",
+    },
+    {
+      page: Fleet,
+      group: "执行",
+      label: "Agent 编队",
+      short_label: "队",
+      description: "劳动力、自治与预算",
+    },
+    {
+      page: Dispatch,
+      group: "执行",
+      label: "任务编排",
+      short_label: "派",
+      description: "分派、执行与验收",
+    },
+    {
+      page: Projects,
+      group: "交付",
+      label: "项目组合",
+      short_label: "项",
+      description: "软件与硬件阶段 Gate",
+    },
+    {
+      page: MoonSuite,
+      group: "交付",
+      label: "Moon 专案",
+      short_label: "月",
+      description: "产品列车与出厂状态",
+    },
+    {
+      page: Quality,
+      group: "交付",
+      label: "出厂质检",
+      short_label: "质",
+      description: "7 Gate、3 红线与分级",
+    },
+    {
+      page: Observe,
+      group: "保障",
+      label: "监测环",
+      short_label: "监",
+      description: "SLO、错误预算与告警",
+    },
+    {
+      page: Operate,
+      group: "保障",
+      label: "运维环",
+      short_label: "运",
+      description: "事件、复盘与 Runbook",
     },
     {
       page: Company,
-      label: "公司与权利",
+      group: "治理",
+      label: "公司域",
       short_label: "司",
-      description: "主体、资源与授权",
+      description: "主体、商务、财税与资本",
     },
     {
-      page: Market,
-      label: "市场与客户",
-      short_label: "客",
-      description: "需求、报价与复购",
-    },
-    {
-      page: Delivery,
-      label: "工作与交付",
-      short_label: "交",
-      description: "计划、验收与质量",
-    },
-    {
-      page: Commerce,
-      label: "商务与交换",
-      short_label: "商",
-      description: "承诺、合同与结算",
-    },
-    {
-      page: Finance,
-      label: "财务与资本",
-      short_label: "财",
-      description: "账簿、现金、税与投资",
-    },
-    {
-      page: Assurance,
-      label: "治理与韧性",
-      short_label: "治",
-      description: "控制、学习与连续性",
-    },
-    {
-      page: Extensions,
-      label: "智能与扩展",
-      short_label: "扩",
-      description: "智能体与行业能力包",
+      page: Evidence,
+      group: "治理",
+      label: "证据与审计",
+      short_label: "证",
+      description: "授权、拦截与责任链",
     },
   ]
 }
@@ -239,8 +277,16 @@ fn nav_items() -> Array[NavItem] {
 ///|
 fn page_path(page : Page) -> String {
   match page {
-    Overview => "/overview"
+    Overview => "/"
+    Fleet => "/fleet"
+    Dispatch => "/dispatch"
+    Projects => "/projects"
+    MoonSuite => "/moon"
+    Quality => "/quality"
+    Observe => "/observe"
+    Operate => "/operate"
     Company => "/company"
+    Evidence => "/evidence"
     Market => "/market"
     Delivery => "/delivery"
     Commerce => "/commerce"
@@ -253,8 +299,16 @@ fn page_path(page : Page) -> String {
 ///|
 fn page_title(page : Page) -> String {
   match page {
-    Overview => "经营总览"
-    Company => "公司与权利"
+    Overview => "驾驶舱"
+    Fleet => "Agent 编队"
+    Dispatch => "任务编排"
+    Projects => "项目组合"
+    MoonSuite => "Moon 专案"
+    Quality => "出厂质检"
+    Observe => "监测环"
+    Operate => "运维环"
+    Company => "公司域"
+    Evidence => "证据与审计"
     Market => "市场与客户"
     Delivery => "工作与交付"
     Commerce => "商务与交换"
@@ -268,7 +322,15 @@ fn page_title(page : Page) -> String {
 fn page_question(page : Page) -> String {
   match page {
     Overview => "公司今天需要你做出什么决定？"
-    Company => "谁拥有资源，谁可以代表公司行动？"
+    Fleet => "我的 Agent 劳动力正在做什么？"
+    Dispatch => "开发环转到哪里，什么需要我验收？"
+    Projects => "每项交付处在哪个阶段，Gate 是否通过？"
+    MoonSuite => "Moon Suite 各产品离出厂还有多远？"
+    Quality => "凭什么让这个产品出厂？"
+    Observe => "系统健康吗，错误预算还剩多少？"
+    Operate => "出事了吗，处置经验沉淀了吗？"
+    Company => "公司还能活多久，承诺与义务是否受控？"
+    Evidence => "Agent 做了什么，依据、授权和结果在哪里？"
     Market => "哪一个客户问题值得公司解决并获得回报？"
     Delivery => "公司承诺的结果如何被稳定交付和验收？"
     Commerce =>
@@ -418,6 +480,38 @@ fn can_recognize_commitment(model : Model) -> Bool {
 fn update(_emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     Navigate(page) => (none, { ..model, page, mobile_nav: false, notice: "" })
+    SetMoonMode(enabled) =>
+      (
+        none,
+        {
+          ..model,
+          moon_mode: enabled,
+          page: if !enabled && model.page == MoonSuite {
+            Overview
+          } else {
+            model.page
+          },
+          mobile_nav: false,
+          notice: if enabled {
+            "Moon 专案视图已启用；它是基础 OPC 的产品线投影，不改变公司事实。"
+          } else {
+            "已返回通用 OPC；Moon Suite 依赖不会阻断基础公司运行。"
+          },
+        },
+      )
+    SelectQualityProduct(index) =>
+      (
+        none,
+        { ..model, quality_product: index, notice: "已切换质检对象。" },
+      )
+    RecordDecision(label) =>
+      (
+        none,
+        {
+          ..model,
+          notice: "已记录「\{label}」界面意图；证据写入 PostgreSQL 前不会产生正式业务影响。",
+        },
+      )
     ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav })
     OpenCompanyForm =>
       (
@@ -880,8 +974,15 @@ fn nav_item_view(
 ///|
 fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let items : Array[@html.Html] = []
+  let mut current_group = ""
   for item in nav_items() {
-    items.push(nav_item_view(emit, item, model.page))
+    if item.page != MoonSuite || model.moon_mode {
+      if item.group != current_group {
+        current_group = item.group
+        items.push(p(class="nav-group", item.group))
+      }
+      items.push(nav_item_view(emit, item, model.page))
+    }
   }
   div(class=if model.mobile_nav { "sidebar is-open" } else { "sidebar" }) <| [
     div(class="brand") <| [
@@ -891,21 +992,26 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         small("Basic OPC"),
       ],
     ],
-    div(class="workspace-identity") <| [
-      p("公司工作区"),
-      strong(
-        if model.company_saved {
-          model.company_name
+    div(class="mode-switch") <| [
+      button(
+        type_="button",
+        class=if !model.moon_mode {
+          "mode-option is-active"
         } else {
-          "尚未命名"
+          "mode-option"
         },
+        on_click=emit(SetMoonMode(false)),
+        "通用模式",
       ),
-      span(
-        if model.company_saved {
-          "设置中"
+      button(
+        type_="button",
+        class=if model.moon_mode {
+          "mode-option is-active"
         } else {
-          "等待建立公司档案"
+          "mode-option"
         },
+        on_click=emit(SetMoonMode(true)),
+        "Moon 专案",
       ),
     ],
     nav(
@@ -913,8 +1019,8 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       attrs=@html.Attrs::build().aria_label("基础 OPC 主导航"),
     ) <| items,
     div(class="sidebar-foot") <| [
-      span("本地优先"),
-      status_badge("未连接数据", tone="muted"),
+      span("治理轴运行中"),
+      status_badge("fail-closed", tone="accent"),
     ],
   ]
 }
@@ -929,12 +1035,19 @@ fn topbar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       "菜单",
     ),
     div(class="topbar-title") <| [
-      small("MoonProj / 基础版"),
+      small(
+        if model.moon_mode {
+          "Moon Suite 产品线"
+        } else {
+          "通用公司运营"
+        },
+      ),
       strong(page_title(model.page)),
     ],
     div(class="topbar-state") <| [
-      span("系统就绪 \{readiness_count(model)}/\{readiness_total()}"),
-      status_badge("P0 · 建立安全运行", tone="accent"),
+      span("待决 5"),
+      span("Agent 在线 11/12"),
+      status_badge("治理正常", tone="accent"),
     ],
   ]
 }
@@ -2705,8 +2818,16 @@ fn extensions_view(_emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
 ///|
 fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   match model.page {
-    Overview => overview_view(emit, model)
-    Company => company_view(emit, model)
+    Overview => cockpit_view(emit, model)
+    Fleet => fleet_view(emit, model)
+    Dispatch => dispatch_view(emit, model)
+    Projects => projects_view(emit, model)
+    MoonSuite => moon_suite_view(emit, model)
+    Quality => quality_view(emit, model)
+    Observe => observe_view(emit, model)
+    Operate => operate_view(emit, model)
+    Company => company_domain_view(emit, model)
+    Evidence => evidence_view(emit, model)
     Market => market_view(emit, model)
     Delivery => delivery_view(emit, model)
     Commerce => commerce_view(emit, model)

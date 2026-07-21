@@ -5,6 +5,11 @@ Recorded: 2026-07-20
 ## Product boundary
 
 `frontend/opc` is the standalone, industry-neutral Basic OPC browser product.
+
+The current decision-first redesign and its traceability matrix are documented in
+`docs/KIMI_OPC_REDESIGN.md`. Acceptance now covers ten Owner-oriented surfaces,
+the optional Moon product-line mode, and the retained detailed company-domain
+workflows.
 It does not import or embed the designer real-estate ERP surface. The latter
 remains in `frontend/main` as the UI of the `real-estate-erp` extension pack.
 

@@ -1,13 +1,42 @@
 ///|
 test "basic OPC navigation is industry-neutral and complete" {
   let items = nav_items()
-  assert_eq(items.length(), 8)
-  assert_eq(page_path(Overview), "/overview")
-  assert_eq(page_path(Extensions), "/extensions")
+  assert_eq(items.length(), 10)
+  assert_eq(page_path(Overview), "/")
+  assert_eq(page_path(Evidence), "/evidence")
   for item in items {
     assert_true(!item.label.contains("地产"))
     assert_true(!item.label.contains("项目全周期"))
   }
+}
+
+///|
+test "decision-first navigation covers command execute delivery assurance and governance" {
+  let items = nav_items()
+  assert_true(
+    items.any(fn(item) { item.group == "指挥" && item.page == Overview }),
+  )
+  assert_true(
+    items.any(fn(item) { item.group == "执行" && item.page == Fleet }),
+  )
+  assert_true(
+    items.any(fn(item) { item.group == "交付" && item.page == Quality }),
+  )
+  assert_true(
+    items.any(fn(item) { item.group == "保障" && item.page == Observe }),
+  )
+  assert_true(
+    items.any(fn(item) { item.group == "治理" && item.page == Evidence }),
+  )
+}
+
+///|
+test "Moon product line is optional and hidden by default" {
+  let model = initial_model()
+  assert_true(!model.moon_mode)
+  assert_eq(page_path(MoonSuite), "/moon")
+  assert_eq(quality_product_name(model, 0), "Core Service")
+  assert_eq(quality_product_name({ ..model, moon_mode: true }, 0), "moonproj")
 }
 
 ///|
