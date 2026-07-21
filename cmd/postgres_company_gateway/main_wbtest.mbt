@@ -179,4 +179,13 @@ test "MoonClaw task identifiers are extracted from audit responses" {
     moonclaw_task_id({ "task": { "id": "task-123" } }) is Some("task-123"),
   )
   assert_true(moonclaw_task_id({ "task": {} }) is None)
+  assert_true(
+    moonclaw_task_status({ "task": { "status": "running" } }) is Some("running"),
+  )
+  assert_true(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/engineering/projects/moonproj/remediations",
+    ),
+  )
 }

@@ -12,6 +12,13 @@ Target: standalone basic OPC product plus extension packs in this repository
 > MoonProj's software-engineering surface. ERP parity remains an extension-pack
 > migration and must not supply invented engineering ratings.
 
+> Connector completion (2026-07-21): authenticated task polling, strict
+> five-contract validation, PostgreSQL evidence/receipt/digest/supersession
+> persistence, accepted-evidence UI projections, freshness handling, MoonTown
+> re-audit policy, and evidence-gated remediation creation are implemented.
+> Real project ratings intentionally remain unknown until actual independent
+> audit evidence is accepted.
+
 ## 0. Product pivot (2026-07-20)
 
 MoonProj now targets a general One-Person Company. The default profile is not

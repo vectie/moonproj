@@ -40,12 +40,21 @@ The Moon Suite page is the entry point:
    independent-review skills and points to the controller contract in
    `moonclaw.jobs.json`. If the runtime cannot establish a different reviewer
    identity, the review remains pending rather than being treated as accepted.
-6. The task identifier is displayed. A production conclusion remains unknown
-   until independent review accepts its supporting evidence.
-
-This first slice submits and identifies the audit task. Persisted task-status
-and evidence ingestion are the next slice; the UI deliberately does not
-fabricate a result while those connectors are absent.
+6. The gateway issues an audit identifier before submission. MoonClaw writes
+   the final independently reviewed envelope to the corresponding controlled
+   inbox path and changes no audited repository files.
+7. Rabbita polls the authenticated gateway. While MoonClaw is generating, or
+   while an idle task has not produced its envelope, all conclusions remain
+   unknown.
+8. The native PostgreSQL service rejects schema drift, mismatched projects or
+   commits, non-full commit digests, unsupported states, and self-review. It
+   stores accepted observations, review receipts, candidate digests, and an
+   immutable superseding projection revision.
+9. Rabbita loads only the service projection. Evidence older than seven days
+   is marked stale and is not presented as a current trusted conclusion.
+10. A remediation command appears only when a fresh accepted review contains
+    findings. The service repeats that guard, so UI bypass cannot manufacture
+    remediation work.
 
 ## Agent skills
 
@@ -77,21 +86,36 @@ unreproducible, self-reviewed, or unsupported claims.
 | The repositories have different lifecycles. | A hardware project cannot use the same progress stages as a web service. | Registry and skill distinguish software from hardware/software stages. |
 | Trend claims lacked a persisted baseline. | A single observation cannot establish improvement or decline. | No trend is shown in this slice; evidence persistence is explicitly required first. |
 | The skill scaffolder was not executable directly. | Initial skill creation stopped before any product code changed. | Invoked the official scaffold tool through its interpreter; this is development tooling only and adds no Python runtime to MoonProj. |
+| MoonClaw exposes finite task status but no finite final-answer endpoint. | Reading its event stream with a normal HTTP body reader would block indefinitely, while treating `idle` as success could lose the result. | Added a server-issued audit id and controlled, size-bounded evidence inbox; `idle` without a file is explicitly `awaiting_artifact`. |
+| MoonClaw names its active task state `generating`, while the UI model used `running`. | Polling would stop after the first successful status response and incorrectly show failure. | The gateway normalizes `generating` to the UI's `running` state and tests the task-status decoder. |
+| Agent JSON could add plausible-looking fields or mix commits across artifacts. | Lenient decoding turns contract drift or unrelated evidence into trusted facts. | Added exact-key validators for the envelope and four evidence contracts, full commit validation, cross-artifact identity checks, and independent-review enforcement. |
+| A successful Agent run was not durable engineering state. | Results could disappear and had no replay, digest, or supersession trail. | PostgreSQL now stores raw evidence, review receipts, candidate-digest receipts, and immutable `engineering_project` projection revisions using idempotent source ids. |
+| Old accepted evidence could remain visually authoritative. | A once-passing build does not prove the current repository is healthy or releasable. | The service applies a seven-day freshness boundary, downgrades stale trust, and ships an installable MoonTown standing goal for recurring stale-evidence review. |
+| A generic action button could create work from unreviewed model suggestions. | Agent speculation could enter the operational backlog. | Remediation is allowed only from fresh, accepted, persisted findings and remains idempotent. |
+| A delayed poll or projection response could arrive after the operator selected another project. | Evidence from one repository could appear under another repository's name. | Every asynchronous Rabbita result now carries its project identity; the reducer discards responses that no longer match the selected project. |
 
-## Remaining connector work
+## Connector status
 
-The truthful boundary is intentional: task submission works through the UI, but
-MoonProj does not yet poll MoonClaw events or persist normalized audit artifacts
-to PostgreSQL. Until that is implemented, the UI displays the MoonClaw task id
-and keeps the three conclusions unknown. The next migration slice should add:
+The connector slice is implemented:
 
-1. authenticated task-status polling;
-2. strict JSON-schema validation for all five contracts;
-3. PostgreSQL tables for observations, evidence receipts, reviewer verdicts,
-   candidate digests, and supersession;
-4. an accepted-evidence projection endpoint for the three UI dimensions;
-5. freshness policy and scheduled re-audit through MoonTown;
-6. controlled remediation-task creation only from accepted findings.
+- authenticated MoonClaw task polling and explicit `awaiting_artifact` state;
+- strict native MoonBit validation for the five ingress contracts;
+- PostgreSQL persistence using typed `company_record` records and immutable
+  `company_aggregate_projection` revisions;
+- an accepted-evidence read projection for progress, health, and production;
+- seven-day freshness enforcement and a MoonTown standing-goal definition;
+- controlled, idempotent remediation creation from accepted findings only.
+
+The MoonTown definition is deliberately delivered as product configuration,
+not silently written into another product's home. Install or update it with
+`scripts/install_moontown_engineering_goals.sh`; the script merges by goal id.
+The scheduled watcher raises a `needs-review` decision for stale or missing
+projects. An authenticated operator launches the audit in MoonProj, preserving
+the UI authorization and independent-review boundary.
+
+No repository currently has a trusted score merely because these connectors
+exist. Each project remains missing/unknown until a real MoonClaw run produces
+an envelope that the independent reviewer and PostgreSQL service accept.
 
 ## Runtime configuration
 

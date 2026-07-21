@@ -14960,6 +14960,13 @@ async fn route(
   expected_schema_version : Int,
   actor_id : String,
 ) -> (Int, Json) raise CompanyServiceError {
+  let engineering_prefix = "/api/company/engineering/projects/"
+  if path.has_prefix(engineering_prefix) {
+    let project = path[engineering_prefix.length():].to_owned()
+    if valid_identifier(project) {
+      return engineering_project_response(project)
+    }
+  }
   if path == "/api/company/expenses" {
     let expense_guid = query_alias_decoded(query, "expenseGuid", "expense_id")
     return expense_projection_response(expense_guid)
@@ -16531,6 +16538,71 @@ async fn handle(
       }),
       authorization_status == 401,
     )
+    return
+  }
+  if request.meth is @http.Post && path == "/api/company/engineering/audits" {
+    let idempotency_key = header(request, "Idempotency-Key")
+    if idempotency_key.is_empty() {
+      send_json(
+        conn,
+        request.meth,
+        400,
+        Json::object({ "error": "Idempotency-Key is required" }),
+        false,
+      )
+      return
+    }
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = ingest_engineering_audit(body, actor, idempotency_key) catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
+  }
+  let remediation_prefix = "/api/company/engineering/projects/"
+  let remediation_suffix = "/remediations"
+  if request.meth is @http.Post &&
+    path.has_prefix(remediation_prefix) &&
+    path.has_suffix(remediation_suffix) {
+    let project = path[remediation_prefix.length():path.length() -
+    remediation_suffix.length()].to_owned()
+    let idempotency_key = header(request, "Idempotency-Key")
+    if !valid_identifier(project) || idempotency_key.is_empty() {
+      send_json(
+        conn,
+        request.meth,
+        400,
+        Json::object({
+          "error": "valid project and Idempotency-Key are required",
+        }),
+        false,
+      )
+      return
+    }
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = create_engineering_remediation(project, actor, idempotency_key) catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
     return
   }
   match auth_command_spec(request.meth, path) {

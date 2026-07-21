@@ -96,7 +96,9 @@ fn engineering_project_name(index : Int) -> String {
 fn audit_state_badge(model : Model) -> @html.Html {
   match model.engineering_audit_state {
     "submitting" => status_badge("提交中", tone="warning")
-    "submitted" => status_badge("MoonClaw 执行中", tone="violet")
+    "submitted" | "running" => status_badge("MoonClaw 执行中", tone="violet")
+    "awaiting_artifact" => status_badge("等待证据文件", tone="warning")
+    "ingested" | "ready" => status_badge("证据已复核", tone="success")
     "failed" => status_badge("连接失败", tone="warning")
     _ => status_badge("尚未审计", tone="muted")
   }
@@ -107,16 +109,47 @@ fn evidence_dimension(
   title : String,
   question : String,
   contract : String,
+  result : String,
+  freshness : String,
 ) -> @html.Html {
   article(class="repo-card") <| [
     div(class="loop-head") <| [
       strong(title),
-      status_badge("未知", tone="muted"),
+      status_badge(
+        if result == "unknown" {
+          "未知"
+        } else {
+          result
+        },
+        tone=if freshness != "fresh" {
+          "muted"
+        } else if result == "pass" || result == "eligible" {
+          "success"
+        } else if result == "fail" || result == "ineligible" {
+          "warning"
+        } else {
+          "muted"
+        },
+      ),
     ],
     p(question),
     div(class="budget-row") <| [
-      span("等待 MoonClaw 证据"),
-      span("不得推测"),
+      span(
+        if freshness == "fresh" {
+          "独立复核证据"
+        } else if freshness == "stale" {
+          "历史证据已过期"
+        } else {
+          "等待 MoonClaw 证据"
+        },
+      ),
+      span(
+        if freshness == "fresh" {
+          "PostgreSQL 已接收"
+        } else {
+          "不得推测"
+        },
+      ),
     ],
     small(contract),
   ]
@@ -159,11 +192,160 @@ fn request_engineering_audit(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
             }
           _ => None
         }
-        match task_id {
-          Some(value) => emit(EngineeringAuditSubmitted(value))
-          None => emit(EngineeringAuditFailed)
+        let audit_id : String? = match payload {
+          Object(fields) =>
+            match fields.get("audit_id") {
+              Some(String(value)) if !value.is_empty() => Some(value)
+              _ => None
+            }
+          _ => None
+        }
+        match (audit_id, task_id) {
+          (Some(audit), Some(task)) =>
+            emit(EngineeringAuditSubmitted(audit, task))
+          _ => emit(EngineeringAuditFailed)
         }
       }
+      Err(_) => emit(EngineeringAuditStatus(project, "failed"))
+    }
+  })
+}
+
+///|
+fn poll_engineering_audit(
+  emit : @rabbita.Emit[Msg],
+  project : String,
+  audit_id : String,
+  task_id : String,
+) -> Cmd {
+  @http.get(
+    "/api/moonsuite/engineering/audits/" +
+    audit_id +
+    "?project=" +
+    project +
+    "&task_id=" +
+    task_id,
+  ).expect_text(result => {
+    match result {
+      Ok(response) => {
+        let payload = @json.parse(response) catch { _ => Json::null() }
+        let state = match payload {
+          Object(fields) =>
+            match fields.get("state") {
+              Some(String(value)) => value
+              _ => "failed"
+            }
+          _ => "failed"
+        }
+        emit(EngineeringAuditStatus(project, state))
+      }
+      Err(_) => emit(EngineeringAuditStatus(project, "failed"))
+    }
+  })
+}
+
+///|
+fn projection_text(value : Json, section : String, key : String) -> String {
+  match value {
+    Object(root) =>
+      match root.get("audit") {
+        Some(Object(audit)) =>
+          match audit.get(section) {
+            Some(Object(fields)) =>
+              match fields.get(key) {
+                Some(String(text)) => text
+                _ => "unknown"
+              }
+            _ => "unknown"
+          }
+        _ => "unknown"
+      }
+    _ => "unknown"
+  }
+}
+
+///|
+fn projection_root_text(
+  value : Json,
+  key : String,
+  fallback : String,
+) -> String {
+  match value {
+    Object(root) =>
+      match root.get("audit") {
+        Some(Object(audit)) =>
+          match audit.get(key) {
+            Some(String(text)) => text
+            _ => fallback
+          }
+        _ => fallback
+      }
+    _ => fallback
+  }
+}
+
+///|
+fn load_engineering_projection(
+  emit : @rabbita.Emit[Msg],
+  project : String,
+) -> Cmd {
+  @http.get("/api/company/engineering/projects/" + project).expect_text(result => {
+    match result {
+      Ok(response) => {
+        let payload = @json.parse(response) catch { _ => Json::null() }
+        let freshness = match payload {
+          Object(root) =>
+            match root.get("audit") {
+              Some(Object(audit)) =>
+                match audit.get("freshness") {
+                  Some(String(value)) => value
+                  _ => "missing"
+                }
+              _ => "missing"
+            }
+          _ => "missing"
+        }
+        let findings = match payload {
+          Object(root) =>
+            match root.get("audit") {
+              Some(Object(audit)) =>
+                match audit.get("accepted_findings") {
+                  Some(Array(values)) => values.length()
+                  _ => 0
+                }
+              _ => 0
+            }
+          _ => 0
+        }
+        emit(
+          EngineeringProjectionLoaded(
+            project,
+            projection_text(payload, "progress", "stage"),
+            projection_text(payload, "health", "status"),
+            projection_text(payload, "production", "release_eligibility"),
+            freshness,
+            projection_root_text(payload, "audit_id", ""),
+            findings,
+          ),
+        )
+      }
+      Err(_) => emit(EngineeringAuditStatus(project, "failed"))
+    }
+  })
+}
+
+///|
+fn request_engineering_remediation(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let project = engineering_project_name(model.engineering_project)
+  let key = "rabbita-remediation-" + project + "-" + model.engineering_audit_id
+  @http.post("/api/company/engineering/projects/" + project + "/remediations")
+  .with_text(Json::object({ "idempotency_key": key }).stringify())
+  .expect_text(result => {
+    match result {
+      Ok(_) => emit(EngineeringRemediationCreated)
       Err(_) => emit(EngineeringAuditFailed)
     }
   })
@@ -197,16 +379,25 @@ fn moon_suite_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     div(class="repo-grid") <| [
       evidence_dimension(
-        "走了多远", "生命周期、里程碑和已满足 Gate；只有声明了分母才显示百分比。",
+        "走了多远",
+        "生命周期、里程碑和已满足 Gate；只有声明了分母才显示百分比。",
         "moonsuite.project-progress-evidence.v1",
+        model.engineering_progress,
+        model.engineering_freshness,
       ),
       evidence_dimension(
-        "走得多好", "在精确 commit 上运行仓库自有构建、测试、格式和静态检查。",
+        "走得多好",
+        "在精确 commit 上运行仓库自有构建、测试、格式和静态检查。",
         "moonsuite.project-health-evidence.v1",
+        model.engineering_health,
+        model.engineering_freshness,
       ),
       evidence_dimension(
-        "能否生产", "先检查三条红线，再逐项验证 G1–G7 和回滚能力。",
+        "能否生产",
+        "先检查三条红线，再逐项验证 G1–G7 和回滚能力。",
         "moonsuite.production-gate-evidence.v1",
+        model.engineering_production,
+        model.engineering_freshness,
       ),
     ],
     div(class="extension-boundary") <| [
@@ -226,6 +417,15 @@ fn moon_suite_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       @html.nothing
     },
     primary_button(emit, RequestEngineeringAudit, "让 MoonClaw 开始审计"),
+    if model.engineering_findings > 0 && model.engineering_freshness == "fresh" {
+      secondary_button(
+        emit,
+        RequestEngineeringRemediation,
+        "从已接受发现创建整改",
+      )
+    } else {
+      @html.nothing
+    },
     secondary_button(emit, Navigate(Quality), "查看生产 Gate 政策"),
   ]
 }

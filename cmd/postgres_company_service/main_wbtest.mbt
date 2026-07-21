@@ -7,6 +7,76 @@ test "native company service validates bounded identifiers" {
 }
 
 ///|
+fn engineering_test_envelope() -> Json {
+  @json.parse(
+    "{\"schema\":\"moonsuite.engineering-audit-envelope.v1\",\"project\":\"moonproj\",\"progress\":{\"schema\":\"moonsuite.project-progress-evidence.v1\",\"project\":\"moonproj\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"observed_at\":\"2026-07-21T10:00:00Z\",\"lifecycle\":\"delivery\",\"stage\":\"G3\",\"gate_state\":\"pass\",\"completed_milestones\":[\"build\"],\"current_work\":[\"audit\"],\"blockers\":[],\"next_gate\":{\"id\":\"G4\",\"name\":\"operate\",\"criteria\":[\"runbook\"],\"evidence\":[\"docs/runbook.md\"]},\"unknowns\":[]},\"health\":{\"schema\":\"moonsuite.project-health-evidence.v1\",\"project\":\"moonproj\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"observed_at\":\"2026-07-21T10:00:00Z\",\"checks\":[{\"dimension\":\"tests\",\"status\":\"pass\",\"command\":\"moon test\",\"exit_code\":0,\"duration_ms\":12,\"evidence\":[\"receipt:test\"]}],\"delivery\":{\"status\":\"pass\",\"evidence\":[\"ci\"]},\"operations\":{\"status\":\"unknown\",\"evidence\":[]},\"trend\":{\"status\":\"unknown\",\"baseline_evidence\":[]},\"failures\":[],\"unknowns\":[\"production telemetry\"]},\"production\":{\"schema\":\"moonsuite.production-gate-evidence.v1\",\"project\":\"moonproj\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"candidate\":\"main@0123456\",\"observed_at\":\"2026-07-21T10:00:00Z\",\"redlines\":[{\"id\":\"R1\",\"status\":\"pass\",\"evidence\":[\"receipt:r1\"]}],\"gates\":[{\"id\":\"G1\",\"status\":\"pass\",\"criteria\":[\"tests\"]}],\"computed_grade\":\"G1\",\"release_eligibility\":\"needs_evidence\",\"missing_evidence\":[\"rollback drill\"],\"owner_decisions\":[]},\"review\":{\"schema\":\"moonsuite.evidence-review.v1\",\"project\":\"moonproj\",\"producer_artifact\":\"audit-envelope\",\"producer_agent\":\"producer-01\",\"reviewer_agent\":\"reviewer-02\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"observed_at\":\"2026-07-21T10:01:00Z\",\"verdict\":\"accept\",\"verified_claims\":[\"moon test passed\"],\"rejected_claims\":[],\"rerun_receipts\":[\"receipt:rerun\"],\"missing_evidence\":[\"rollback drill\"]}}",
+  ) catch {
+    _ => Json::null()
+  }
+}
+
+///|
+test "engineering evidence validates all contracts and derives accepted projection" {
+  let envelope = engineering_test_envelope()
+  let result = validate_engineering_envelope(envelope, "moonproj")
+  assert_eq(result.0, "0123456789abcdef0123456789abcdef01234567")
+  assert_eq(result.1, "accept")
+  let projection = engineering_projection(
+    "audit-1",
+    "task-1",
+    "moonproj",
+    result.0,
+    result.1,
+    envelope,
+    "",
+  )
+  assert_true(json_bool(projection, "trusted", false))
+  assert_eq(
+    engineering_health_status(json_field(envelope, "health").unwrap()),
+    "pass",
+  )
+  assert_eq(engineering_findings(envelope).length(), 2)
+}
+
+///|
+test "engineering evidence rejects contract drift and non-independent review" {
+  let envelope = engineering_test_envelope()
+  match envelope {
+    Object(root) =>
+      match root["progress"] {
+        Object(progress) => progress["unexpected"] = Json::boolean(true)
+        _ => ()
+      }
+    _ => ()
+  }
+  let mut rejected = false
+  try {
+    let _ = validate_engineering_envelope(envelope, "moonproj")
+  } catch {
+    CompanyServiceError::InvalidInput(_) => rejected = true
+    _ => ()
+  }
+  assert_true(rejected)
+  let envelope = engineering_test_envelope()
+  match envelope {
+    Object(root) =>
+      match root["review"] {
+        Object(review) => review["reviewer_agent"] = Json::string("producer-01")
+        _ => ()
+      }
+    _ => ()
+  }
+  rejected = false
+  try {
+    let _ = validate_engineering_envelope(envelope, "moonproj")
+  } catch {
+    CompanyServiceError::InvalidInput(_) => rejected = true
+    _ => ()
+  }
+  assert_true(rejected)
+}
+
+///|
 test "native company service maps exact import template routes" {
   assert_true(
     import_template_spec(@http.Get, "/api/company/import/project/template")
@@ -313,8 +383,10 @@ test "native company service maps invoice command paths" {
   )
   assert_true(
     invoice_command_spec(
-      @http.Post, "/api/company/source/invoice/out/INV-1/delete",
-    ) is Some(("out", "delete", Some("INV-1"))),
+      @http.Post,
+      "/api/company/source/invoice/out/INV-1/delete",
+    )
+    is Some(("out", "delete", Some("INV-1"))),
   )
 }
 

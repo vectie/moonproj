@@ -15,6 +15,10 @@ pub(all) suberror SqliteProjectionParityError {
 } derive(@debug.Debug)
 
 // Types and methods
+type ActualCandidate
+
+type ExpectedCandidate
+
 type Key
 
 type Receipt

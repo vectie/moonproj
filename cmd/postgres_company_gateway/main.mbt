@@ -239,6 +239,22 @@ fn moonclaw_task_id(value : Json) -> String? {
 }
 
 ///|
+fn moonclaw_task_status(value : Json) -> String? {
+  match value {
+    Object(fields) =>
+      match fields.get("task") {
+        Some(Object(task)) =>
+          match task.get("status") {
+            Some(String(status)) => Some(status)
+            _ => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn moonsuite_project_path(workspace_root : String, project : String) -> String? {
   match project {
     "moonproj" => Some(workspace_root + "/moonproj")
@@ -331,6 +347,9 @@ fn command_path_allowed(
 ) -> Bool {
   match request_method {
     @http.Post =>
+      path_with_identifier_suffix(
+        "/api/company/engineering/projects/", "/remediations", path,
+      ) ||
       path == "/api/company/expenses" ||
       path.has_prefix("/api/company/expenses/") ||
       path == "/api/company/budget-check" ||
@@ -741,6 +760,7 @@ async fn submit_moonsuite_audit(
   moonclaw_uri : String,
   workspace_root : String,
   project : String,
+  audit_sequence : Int,
 ) -> ProxyResult raise GatewayError {
   let target = match moonsuite_project_path(workspace_root, project) {
     Some(value) => value
@@ -759,6 +779,15 @@ async fn submit_moonsuite_audit(
   if !control_workspace_exists {
     raise fail("MoonProj control workspace does not contain moonclaw.jobs.json")
   }
+  let audit_id = "audit-" +
+    project +
+    "-" +
+    @env.now().to_string() +
+    "-" +
+    audit_sequence.to_string()
+  let evidence_relative_path = "engineering/evidence/inbox/" +
+    audit_id +
+    ".json"
   let prompt = "moonsuite engineering audit. Audit the registered Moon Suite project '" +
     project +
     "' at " +
@@ -767,7 +796,15 @@ async fn submit_moonsuite_audit(
     "Use $moonsuite-progress-audit, $moonsuite-health-audit, and " +
     "$moonsuite-production-gate as evidence producers, then use a different " +
     "reviewer identity with $moonsuite-evidence-review. Do not invent scores. " +
-    "Return unknown when evidence is missing and include every command receipt."
+    "Return unknown when evidence is missing and include every command receipt. " +
+    "Your only durable output is " +
+    evidence_relative_path +
+    " inside the MoonProj control workspace. " +
+    "Write it atomically only after independent review. It must be one strict JSON object with exactly: " +
+    "schema='moonsuite.engineering-audit-envelope.v1', project='" +
+    project +
+    "', progress, health, production, review. The four nested artifacts must exactly follow their skill contracts. " +
+    "Do not modify the audited repository or any other MoonProj file."
   let payload = Json::object({
     "name": Json::string("MoonProj engineering audit: " + project),
     "cwd": Json::string(control_workspace),
@@ -816,6 +853,7 @@ async fn submit_moonsuite_audit(
         Json::object({
           "accepted": Json::boolean(true),
           "project": Json::string(project),
+          "audit_id": Json::string(audit_id),
           "task_id": Json::string(task_id),
           "result_state": Json::string("unknown_until_independent_review"),
         }).stringify(),
@@ -825,6 +863,134 @@ async fn submit_moonsuite_audit(
   } catch {
     _ => raise GatewayError::Upstream("MoonClaw audit submission failed")
   }
+}
+
+///|
+async fn poll_moonsuite_audit(
+  moonclaw_uri : String,
+  workspace_root : String,
+  service_uri : String,
+  service_token : String,
+  actor_signing_secret : String,
+  request : @http.Request,
+  actor : String,
+  audit_id : String,
+  project : String,
+  task_id : String,
+) -> ProxyResult raise GatewayError {
+  if !valid_identifier(audit_id) ||
+    !valid_identifier(project) ||
+    !valid_identifier(task_id) ||
+    moonsuite_project_path(workspace_root, project) is None {
+    raise fail("invalid engineering audit polling identifiers")
+  }
+  let task_payload = try {
+    let client = @http.Client::new(moonclaw_uri)
+    client.request(@http.Get, "/v1/task/" + task_id)
+    let response = client.end_request()
+    let bytes = client.read_all().binary()
+    let status = response.code
+    client.close()
+    if status != 200 {
+      raise GatewayError::Upstream("MoonClaw task status request failed")
+    }
+    @json.parse(@encoding/utf8.decode(bytes)) catch {
+      _ => raise GatewayError::Upstream("MoonClaw task status was not JSON")
+    }
+  } catch {
+    _ => raise GatewayError::Upstream("MoonClaw task status request failed")
+  }
+  let task_status = moonclaw_task_status(task_payload).unwrap_or("unknown")
+  if task_status != "idle" {
+    return {
+      status: 200,
+      content_type: "application/json; charset=utf-8",
+      body: @encoding/utf8.encode(
+        Json::object({
+          "audit_id": audit_id,
+          "project": project,
+          "task_id": task_id,
+          "state": if task_status == "running" || task_status == "generating" {
+            "running"
+          } else {
+            "task_" + task_status
+          },
+        }).stringify(),
+      ),
+      www_authenticate: None,
+    }
+  }
+  let evidence_path = workspace_root +
+    "/moonproj/engineering/evidence/inbox/" +
+    audit_id +
+    ".json"
+  if !(@fs.exists(evidence_path) catch { _ => false }) {
+    return {
+      status: 200,
+      content_type: "application/json; charset=utf-8",
+      body: @encoding/utf8.encode(
+        Json::object({
+          "audit_id": audit_id,
+          "project": project,
+          "task_id": task_id,
+          "state": "awaiting_artifact",
+        }).stringify(),
+      ),
+      www_authenticate: None,
+    }
+  }
+  let evidence = @fs.read_file(evidence_path) catch {
+    _ =>
+      raise GatewayError::Upstream("unable to read MoonClaw evidence artifact")
+  }
+  if evidence.binary().length() > MAX_BODY_BYTES {
+    raise fail("MoonClaw evidence artifact is too large")
+  }
+  let envelope = @json.parse(@encoding/utf8.decode(evidence.binary())) catch {
+    _ => raise fail("MoonClaw evidence artifact is not valid JSON")
+  }
+  let ingest_body = Json::object({
+    "audit_id": audit_id,
+    "project": project,
+    "task_id": task_id,
+    "envelope": envelope,
+  }).stringify()
+  let service_request : @http.Request = {
+    meth: @http.Post,
+    path: "/api/company/engineering/audits",
+    headers: request.headers,
+  }
+  service_request.headers["X-Moonproj-Actor"] = actor
+  let result = proxy_request(
+    service_uri,
+    service_token,
+    actor_signing_secret,
+    @http.Post,
+    service_request.path,
+    service_request,
+    @encoding/utf8.encode(ingest_body),
+    Some(audit_id),
+  )
+  if result.status == 200 || result.status == 201 {
+    let payload = @json.parse(@encoding/utf8.decode(result.body)) catch {
+      _ => Json::null()
+    }
+    return {
+      status: 200,
+      content_type: "application/json; charset=utf-8",
+      body: @encoding/utf8.encode(
+        Json::object({
+          "audit_id": audit_id,
+          "project": project,
+          "task_id": task_id,
+          "state": "ingested",
+          "result": payload,
+        }).stringify(),
+      ),
+      www_authenticate: None,
+    }
+  }
+  result
 }
 
 ///|
@@ -1319,6 +1485,35 @@ async fn handle(
         return
       }
       Some(actor) => {
+        let engineering_audit_prefix = "/api/moonsuite/engineering/audits/"
+        if path.has_prefix(engineering_audit_prefix) &&
+          request.meth is @http.Get {
+          let audit_id = path[engineering_audit_prefix.length():].to_owned()
+          let project = query_value(request.path, "project").unwrap_or("")
+          let task_id = query_value(request.path, "task_id").unwrap_or("")
+          let result = poll_moonsuite_audit(
+            moonclaw_uri, moonsuite_workspace_root, service_uri, service_token, actor_signing_secret,
+            request, actor, audit_id, project, task_id,
+          ) catch {
+            error => {
+              let status = match error {
+                GatewayError::InvalidInput(_) => 400
+                GatewayError::Upstream(_) => 503
+              }
+              send_json(
+                conn,
+                request.meth,
+                status,
+                Json::object({
+                  "error": Json::string(gateway_error_text(error)),
+                }),
+              )
+              return
+            }
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
         if path == "/api/moonsuite/engineering/audits" &&
           request.meth is @http.Post {
           let body = read_body(body_reader, request) catch {
@@ -1338,8 +1533,10 @@ async fn handle(
             _ => Json::null()
           }
           let project = json_text(payload, "project").unwrap_or("")
+          let audit_sequence = sequence.val
+          sequence.val += 1
           let result = submit_moonsuite_audit(
-            moonclaw_uri, moonsuite_workspace_root, project,
+            moonclaw_uri, moonsuite_workspace_root, project, audit_sequence,
           ) catch {
             error => {
               let status = match error {

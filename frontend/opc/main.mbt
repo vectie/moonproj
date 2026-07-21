@@ -67,7 +67,14 @@ struct Model {
   quality_product : Int
   engineering_project : Int
   engineering_audit_state : String
+  engineering_audit_id : String
   engineering_task_id : String
+  engineering_progress : String
+  engineering_health : String
+  engineering_production : String
+  engineering_freshness : String
+  engineering_findings : Int
+  engineering_poll_attempts : Int
   mobile_nav : Bool
   company_form_open : Bool
   company_name : String
@@ -113,7 +120,19 @@ enum Msg {
   SelectQualityProduct(Int)
   SelectEngineeringProject(Int)
   RequestEngineeringAudit
-  EngineeringAuditSubmitted(String)
+  EngineeringAuditSubmitted(String, String)
+  EngineeringAuditStatus(String, String)
+  EngineeringProjectionLoaded(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Int
+  )
+  RequestEngineeringRemediation
+  EngineeringRemediationCreated
   EngineeringAuditFailed
   RecordDecision(String)
   ToggleMobileNav
@@ -168,7 +187,14 @@ fn initial_model() -> Model {
     quality_product: 3,
     engineering_project: 0,
     engineering_audit_state: "idle",
+    engineering_audit_id: "",
     engineering_task_id: "",
+    engineering_progress: "unknown",
+    engineering_health: "unknown",
+    engineering_production: "unknown",
+    engineering_freshness: "missing",
+    engineering_findings: 0,
+    engineering_poll_attempts: 0,
     mobile_nav: false,
     company_form_open: false,
     company_name: "",
@@ -489,7 +515,18 @@ fn can_recognize_commitment(model : Model) -> Bool {
 ///|
 fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
-    Navigate(page) => (none, { ..model, page, mobile_nav: false, notice: "" })
+    Navigate(page) =>
+      (
+        if page == MoonSuite {
+          load_engineering_projection(
+            emit,
+            engineering_project_name(model.engineering_project),
+          )
+        } else {
+          none
+        },
+        { ..model, page, mobile_nav: false, notice: "" },
+      )
     SetMoonMode(enabled) =>
       (
         none,
@@ -516,12 +553,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     SelectEngineeringProject(index) =>
       (
-        none,
+        load_engineering_projection(emit, engineering_project_name(index)),
         {
           ..model,
           engineering_project: index,
           engineering_audit_state: "idle",
+          engineering_audit_id: "",
           engineering_task_id: "",
+          engineering_progress: "unknown",
+          engineering_health: "unknown",
+          engineering_production: "unknown",
+          engineering_freshness: "missing",
+          engineering_findings: 0,
+          engineering_poll_attempts: 0,
           notice: "已选择工程审计对象；状态保持未知，直到 MoonClaw 返回独立复核证据。",
         },
       )
@@ -531,18 +575,123 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           engineering_audit_state: "submitting",
+          engineering_audit_id: "",
           engineering_task_id: "",
           notice: "正在通过 MoonProj 请求 MoonClaw 执行三项工程审计与独立复核。",
         },
       )
-    EngineeringAuditSubmitted(task_id) =>
+    EngineeringAuditSubmitted(audit_id, task_id) =>
+      (
+        @cmd.delay(
+          poll_engineering_audit(
+            emit,
+            engineering_project_name(model.engineering_project),
+            audit_id,
+            task_id,
+          ),
+          2000,
+        ),
+        {
+          ..model,
+          engineering_audit_state: "submitted",
+          engineering_audit_id: audit_id,
+          engineering_task_id: task_id,
+          engineering_poll_attempts: 1,
+          notice: "MoonClaw 审计任务已提交。独立复核完成前，结论仍为未知。",
+        },
+      )
+    EngineeringAuditStatus(project, state) =>
+      if project != engineering_project_name(model.engineering_project) {
+        (none, model)
+      } else if state == "ingested" {
+        (
+          load_engineering_projection(
+            emit,
+            engineering_project_name(model.engineering_project),
+          ),
+          {
+            ..model,
+            engineering_audit_state: "ingested",
+            notice: "证据已通过服务端验证并写入 PostgreSQL。",
+          },
+        )
+      } else if (state == "running" || state == "awaiting_artifact") &&
+        model.engineering_poll_attempts < 90 {
+        (
+          @cmd.delay(
+            poll_engineering_audit(
+              emit,
+              engineering_project_name(model.engineering_project),
+              model.engineering_audit_id,
+              model.engineering_task_id,
+            ),
+            2000,
+          ),
+          {
+            ..model,
+            engineering_audit_state: state,
+            engineering_poll_attempts: model.engineering_poll_attempts + 1,
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            engineering_audit_state: "failed",
+            notice: "审计没有形成可接受证据；未更新任何工程结论。",
+          },
+        )
+      }
+    EngineeringProjectionLoaded(
+      project,
+      progress,
+      health,
+      production,
+      freshness,
+      audit_id,
+      findings
+    ) =>
+      if project != engineering_project_name(model.engineering_project) {
+        (none, model)
+      } else {
+        (
+          none,
+          {
+            ..model,
+            engineering_progress: progress,
+            engineering_health: health,
+            engineering_production: production,
+            engineering_freshness: freshness,
+            engineering_audit_id: audit_id,
+            engineering_findings: findings,
+            engineering_audit_state: if freshness == "missing" {
+              "idle"
+            } else {
+              "ready"
+            },
+            notice: if freshness == "stale" {
+              "证据已过期；界面保留历史结果，但不把它当作当前可信结论。"
+            } else {
+              model.notice
+            },
+          },
+        )
+      }
+    RequestEngineeringRemediation =>
+      (
+        request_engineering_remediation(emit, model),
+        {
+          ..model,
+          notice: "正在从已接受的审计发现创建整改项。",
+        },
+      )
+    EngineeringRemediationCreated =>
       (
         none,
         {
           ..model,
-          engineering_audit_state: "submitted",
-          engineering_task_id: task_id,
-          notice: "MoonClaw 审计任务已提交。独立复核完成前，结论仍为未知。",
+          notice: "整改项已从已接受证据创建；没有接受证据时服务端会拒绝此操作。",
         },
       )
     EngineeringAuditFailed =>
@@ -551,6 +700,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           engineering_audit_state: "failed",
+          engineering_audit_id: "",
           engineering_task_id: "",
           notice: "审计请求失败；未生成任何评分。请确认 MoonClaw daemon 与 MoonProj gateway 已启动。",
         },

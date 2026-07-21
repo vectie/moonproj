@@ -2,6 +2,7 @@
 _build/
 target/
 target
+dist/
 .mooncakes/
 .moonagent/
 
@@ -26,3 +27,10 @@ erp-task-state-plan*.json
 domain-promotion*.json
 projection-apply*.json
 projection-parity*.json
+
+# MoonClaw writes completed audit envelopes here. Only the contract/readme and
+# directory placeholders are versioned; evidence is ingested into PostgreSQL.
+engineering/evidence/inbox/*.json
+engineering/evidence/archive/*.json
+!engineering/evidence/inbox/.gitkeep
+!engineering/evidence/archive/.gitkeep

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "watch-moonsuite-engineering-freshness",
+    "title": "Re-audit stale Moon Suite engineering evidence",
+    "prompt": "Review the MoonProj engineering-control book for all registered Moon Suite projects. Treat projections older than seven days as stale. For each stale or missing project, open a needs-review decision that tells an authenticated operator to launch the audit from the MoonProj Moon Suite UI. Do not invent a rating, do not ingest evidence directly, and do not create remediation until MoonProj reports an accepted independent-review verdict.",
+    "target_book_id": "moonsuite-engineering-control",
+    "cadence_ticks": 60,
+    "next_due_tick": 0,
+    "last_run_tick": null,
+    "enabled": true,
+    "source_policy": "book-first",
+    "quality_threshold": 90
+  }
+]
