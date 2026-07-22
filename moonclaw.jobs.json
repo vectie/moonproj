@@ -5,61 +5,41 @@
         "family": "moonsuite_engineering_controller",
         "role": "controller",
         "priority": 190,
-        "tags": ["moonsuite", "engineering", "progress", "health", "production"],
+        "tags": ["moonsuite", "engineering", "evidence", "release"],
         "match": {
           "all": ["moonsuite"],
           "any": ["engineering", "audit", "progress", "health", "production", "quality", "release"]
         },
         "steps": [
           {
-            "id": "observe_progress",
-            "title": "Observe project progress",
+            "id": "collect_unified_evidence",
+            "title": "Test the exact candidate through G1-G9",
             "kind": "job.delegate",
-            "request_template": "Determine how far ${proposal.title} has progressed. Inspect the configured repository at its exact commit and return only the progress evidence contract. Do not edit the repository or infer a percentage without declared milestones.",
-            "child_profile": "moonsuite-progress-worker",
-            "include_parent_outputs": false,
-            "max_depth": 2,
-            "metadata": {"board_lane": "Progress", "board_order": 0}
-          },
-          {
-            "id": "measure_health",
-            "title": "Measure project health",
-            "kind": "job.delegate",
-            "request_template": "Measure how well ${proposal.title} is going. Run the repository-declared bounded checks and return only reproducible health evidence. Preserve failures and unknowns.",
-            "child_profile": "moonsuite-health-worker",
-            "include_parent_outputs": false,
-            "max_depth": 2,
-            "metadata": {"board_lane": "Health", "board_order": 1}
-          },
-          {
-            "id": "evaluate_production",
-            "title": "Evaluate production quality",
-            "kind": "job.delegate",
-            "request_template": "Evaluate whether ${proposal.title} meets the configured production Gates and redlines at the exact candidate commit or digest. Return criterion evidence, never an invented score or release approval.",
+            "request_template": "Inspect ${proposal.title} at its exact candidate identity and produce one moonsuite.engineering-evidence.v2 ledger containing R1-R3 and G1-G9. Use the same receipts for progress, health, production quality, and release rehearsal. Do not edit or publish the repository.",
             "child_profile": "moonsuite-production-worker",
-            "include_parent_outputs": true,
+            "include_parent_outputs": false,
             "max_depth": 2,
-            "metadata": {"board_lane": "Production", "board_order": 2}
+            "metadata": {"board_lane": "Evidence ledger", "board_order": 0}
           },
           {
             "id": "independent_review",
             "title": "Independently review evidence",
             "kind": "job.delegate",
-            "request_template": "Independently review all progress, health, and production artifacts for ${proposal.title}. Verify producer/reviewer separation, rerun a risk-weighted sample, and reject unsupported claims.",
+            "request_template": "Independently review the single G1-G9 evidence ledger for ${proposal.title}. Verify candidate identity and producer/reviewer separation, rerun a risk-weighted sample, and reject unsupported receipts.",
             "child_profile": "moonsuite-evidence-reviewer",
             "include_parent_outputs": true,
             "max_depth": 2,
-            "metadata": {"board_lane": "Independent review", "board_order": 3}
+            "metadata": {"board_lane": "Independent review", "board_order": 1}
           },
           {
             "id": "project_moonproj_view",
             "title": "Prepare MoonProj projection",
             "kind": "job.analysis",
-            "prompt_template": "Project only independently accepted claims for ${proposal.title} into three sections: how far it has progressed, how well it is going, and whether it meets production quality. Keep unknowns visible. Return schema moonsuite.engineering-projection.v1 and do not add new ratings.",
+            "prompt_template": "Return the independently reviewed moonsuite.engineering-evidence.v2 ledger for ${proposal.title}. MoonProj derives progress, health, and production projections; do not add scores or publication authority.",
             "metadata": {
               "preferred_skills": ["moonsuite-evidence-review"],
               "enable_tools": false,
-              "board_lane": "MoonProj", "board_order": 4,
+              "board_lane": "MoonProj", "board_order": 2,
               "role_runtime": {
                 "planning_layer": "domain",
                 "runtime_mode": "planner_only",
@@ -68,7 +48,7 @@
                 "allow_delegate": false,
                 "allow_workspace_write": false,
                 "allow_execution_tools": false,
-                "output_contract": "moonsuite.engineering-projection.v1"
+                "output_contract": "moonsuite.engineering-evidence.v2"
               }
             }
           }
@@ -110,12 +90,12 @@
         "tags": ["moonsuite", "engineering", "production", "worker"],
         "steps": [{
           "id": "audit_production",
-          "title": "Evaluate production Gates",
+          "title": "Collect unified G1-G9 evidence",
           "kind": "job.analysis",
-          "prompt_template": "Use the MoonSuite production Gate skill for ${request}.",
+          "prompt_template": "Use the MoonSuite production Gate skill for ${request}. Produce one candidate-bound ledger; do not emit separate progress, health, or production artifacts.",
           "metadata": {
             "preferred_skills": ["moonsuite-production-gate"], "enable_tools": true,
-            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.production-gate-evidence.v1"}
+            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.engineering-evidence.v2"}
           }
         }]
       },

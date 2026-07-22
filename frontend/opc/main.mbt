@@ -64,11 +64,17 @@ struct NavItem {
 struct Model {
   page : Page
   moon_mode : Bool
-  quality_product : Int
   engineering_project : Int
   engineering_audit_state : String
   engineering_audit_id : String
   engineering_task_id : String
+  engineering_branch : String
+  engineering_version : String
+  engineering_tag : String
+  engineering_commit : String
+  engineering_repository : String
+  engineering_review : String
+  engineering_gate_states : Array[String]
   engineering_progress : String
   engineering_health : String
   engineering_production : String
@@ -117,8 +123,10 @@ struct Model {
 enum Msg {
   Navigate(Page)
   SetMoonMode(Bool)
-  SelectQualityProduct(Int)
   SelectEngineeringProject(Int)
+  InputEngineeringBranch(String)
+  InputEngineeringVersion(String)
+  InputEngineeringTag(String)
   RequestEngineeringAudit
   EngineeringAuditSubmitted(String, String)
   EngineeringAuditStatus(String, String)
@@ -129,7 +137,12 @@ enum Msg {
     String,
     String,
     String,
-    Int
+    Int,
+    String,
+    String,
+    String,
+    String,
+    Array[String]
   )
   RequestEngineeringRemediation
   EngineeringRemediationCreated
@@ -184,11 +197,20 @@ fn initial_model() -> Model {
   {
     page: Overview,
     moon_mode: false,
-    quality_product: 3,
     engineering_project: 0,
     engineering_audit_state: "idle",
     engineering_audit_id: "",
     engineering_task_id: "",
+    engineering_branch: "main",
+    engineering_version: "0.1.0",
+    engineering_tag: "v0.1.0-rehearsal",
+    engineering_commit: "unknown",
+    engineering_repository: "unknown",
+    engineering_review: "needs_evidence",
+    engineering_gate_states: [
+      "unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "unknown",
+      "unknown", "unknown",
+    ],
     engineering_progress: "unknown",
     engineering_health: "unknown",
     engineering_production: "unknown",
@@ -277,7 +299,7 @@ fn nav_items() -> Array[NavItem] {
       group: "交付",
       label: "出厂质检",
       short_label: "质",
-      description: "7 Gate、3 红线与分级",
+      description: "9 Gate、3 红线与发布演练",
     },
     {
       page: Observe,
@@ -517,7 +539,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     Navigate(page) =>
       (
-        if page == MoonSuite {
+        if page == MoonSuite || page == Quality {
           load_engineering_projection(
             emit,
             engineering_project_name(model.engineering_project),
@@ -546,11 +568,6 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    SelectQualityProduct(index) =>
-      (
-        none,
-        { ..model, quality_product: index, notice: "已切换质检对象。" },
-      )
     SelectEngineeringProject(index) =>
       (
         load_engineering_projection(emit, engineering_project_name(index)),
@@ -560,6 +577,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           engineering_audit_state: "idle",
           engineering_audit_id: "",
           engineering_task_id: "",
+          engineering_commit: "unknown",
+          engineering_repository: "unknown",
+          engineering_review: "needs_evidence",
+          engineering_gate_states: [
+            "unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "unknown",
+            "unknown", "unknown",
+          ],
           engineering_progress: "unknown",
           engineering_health: "unknown",
           engineering_production: "unknown",
@@ -569,6 +593,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           notice: "已选择工程审计对象；状态保持未知，直到 MoonClaw 返回独立复核证据。",
         },
       )
+    InputEngineeringBranch(value) =>
+      (none, { ..model, engineering_branch: value })
+    InputEngineeringVersion(value) =>
+      (none, { ..model, engineering_version: value })
+    InputEngineeringTag(value) => (none, { ..model, engineering_tag: value })
     RequestEngineeringAudit =>
       (
         request_engineering_audit(emit, model),
@@ -650,7 +679,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       production,
       freshness,
       audit_id,
-      findings
+      findings,
+      repository,
+      branch,
+      commit,
+      review,
+      gate_states
     ) =>
       if project != engineering_project_name(model.engineering_project) {
         (none, model)
@@ -665,6 +699,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             engineering_freshness: freshness,
             engineering_audit_id: audit_id,
             engineering_findings: findings,
+            engineering_repository: repository,
+            engineering_branch: if branch == "unknown" {
+              model.engineering_branch
+            } else {
+              branch
+            },
+            engineering_commit: commit,
+            engineering_review: review,
+            engineering_gate_states: gate_states,
             engineering_audit_state: if freshness == "missing" {
               "idle"
             } else {

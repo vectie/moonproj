@@ -22,9 +22,10 @@ legal, cash, tax, or accounting checkpoint is shown.
 See [the Basic OPC UI acceptance record](../docs/OPC_UI_ACCEPTANCE.md).
 
 The optional **Moon 专案** surface is now MoonProj's engineering control plane.
-It separates progress, engineering health, and production quality, shows
-unobserved values as unknown, and submits an authenticated audit task to
-MoonClaw through the native gateway. It does not generate its own scores.
+One candidate-bound G1-G9 evidence ledger drives progress, engineering health,
+production quality, and the release-rehearsal dashboard. Unobserved values stay
+unknown; MoonClaw gathers and independently reviews receipts through the native
+gateway, while MoonProj derives the three projections without Agent scores.
 See [the engineering control-plane contract](../docs/MOONSUITE_ENGINEERING_CONTROL_PLANE.md).
 
 ## Real-estate ERP extension UI

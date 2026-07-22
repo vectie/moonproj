@@ -1,4 +1,4 @@
 interface:
-  display_name: "MoonSuite Production Gate"
-  short_description: "Evaluate production gates from recorded evidence"
-  default_prompt: "Use $moonsuite-production-gate to evaluate production readiness without guessing."
+  display_name: "MoonSuite Engineering Evidence"
+  short_description: "Test one candidate through the unified nine-gate ledger"
+  default_prompt: "Use $moonsuite-production-gate to collect one candidate-bound engineering ledger without guessing or publishing."

@@ -3,14 +3,19 @@
 ## Product decision
 
 MoonProj is the engineering control plane for Moon Suite. It answers three
-separate questions for each registered project:
+questions from one candidate-bound evidence ledger for each registered project:
 
 1. **How far has it gone?** Lifecycle stage, completed milestones, current
    Gate, blockers, and next required evidence.
 2. **How well is it going?** Reproducible build, test, format, static-analysis,
    security, and operational checks at an exact commit.
 3. **Does it meet production quality?** Three release redlines followed by
-   G1-G7 criterion evidence for a precise release candidate or artifact digest.
+   G1-G9 criterion evidence for a precise release candidate or artifact digest.
+
+These are projections, not three audit systems. The nine Gates are the shared
+lifecycle and release control structure. A single receipt may support more than
+one projection, but it is stored once and remains tied to one repository,
+branch, full commit, version, and proposed tag.
 
 MoonProj owns the registry, policy, presentation, and human decisions. MoonClaw
 owns agent execution and receipts. Audit skills own the evaluation method. A
@@ -36,10 +41,10 @@ The Moon Suite page is the entry point:
    submits a task to `MOONCLAW_DAEMON_URI`. The task runs in MoonProj so its
    controller and skills are discoverable; the selected sibling is passed as a
    separate read-only audit target.
-5. The task prompt requires the progress, health, production-Gate, and
-   independent-review skills and points to the controller contract in
-   `moonclaw.jobs.json`. If the runtime cannot establish a different reviewer
-   identity, the review remains pending rather than being treated as accepted.
+5. The task prompt requires one `moonsuite.engineering-evidence.v2` ledger with
+   R1-R3 and G1-G9, followed by independent review. If the runtime cannot
+   establish a different reviewer identity, the review remains pending rather
+   than being treated as accepted.
 6. The gateway issues an audit identifier before submission. MoonClaw writes
    the final independently reviewed envelope to the corresponding controlled
    inbox path and changes no audited repository files.
@@ -47,7 +52,7 @@ The Moon Suite page is the entry point:
    while an idle task has not produced its envelope, all conclusions remain
    unknown.
 8. The native PostgreSQL service rejects schema drift, mismatched projects or
-   commits, non-full commit digests, unsupported states, and self-review. It
+   commits, missing or duplicate Gate ids, non-full commit digests, unsupported states, and self-review. It
    stores accepted observations, review receipts, candidate digests, and an
    immutable superseding projection revision.
 9. Rabbita loads only the service projection. Evidence older than seven days
@@ -56,21 +61,48 @@ The Moon Suite page is the entry point:
     findings. The service repeats that guard, so UI bypass cannot manufacture
     remediation work.
 
-## Agent skills
+## One Gate system
 
-- `skills/moonsuite-progress-audit`: evidence-backed lifecycle progress.
-- `skills/moonsuite-health-audit`: repository-declared engineering checks.
-- `skills/moonsuite-production-gate`: redlines and G1-G7 criteria.
-- `skills/moonsuite-evidence-review`: independent reproduction and verdict.
+- G1 target, requirements, value, scope, and candidate identity.
+- G2 functional completeness and acceptance paths.
+- G3 UI, accessibility, responsive behavior, and guidance.
+- G4 build, test, configuration, static analysis, and engineering quality.
+- G5 integration, persistence, refetch/restart consistency, and external data.
+- G6 security, privacy, compliance, licenses, capabilities, and secrets.
+- G7 artifact reproducibility, resources, compatibility, and packaging.
+- G8 installation, runtime readiness, operations, rollback, recovery, and cleanup.
+- G9 repository, branch, commit, tag, checksum, release consistency, and publication control.
 
-The producer contracts are read-only. They record exact commit, observation
-time, command, exit status, and evidence reference. The reviewer rejects stale,
-unreproducible, self-reviewed, or unsupported claims.
+`skills/moonsuite-production-gate` now produces the unified ledger. The older
+progress and health skills remain migration references for legacy v1 evidence;
+new runs must not emit three independent artifacts.
+
+The producer contract is read-only. It records exact candidate identity,
+observation time, Gate states, and receipts. The reviewer rejects stale,
+unreproducible, self-reviewed, or unsupported claims. MoonProj derives all three
+dimensions and the `ready_for_owner_authorization` state; the Agent cannot award
+itself release authority.
+
+## Release rehearsal
+
+The Quality page is the release dashboard for the same system. An operator
+chooses a registered project and declares branch, version, and proposed tag.
+MoonClaw tests that exact candidate against G1-G9, applying the Lepusa app
+handover where relevant. The rehearsal never tags, pushes, publishes, signs, or
+notarizes. Even when every Gate passes, the result is only
+`ready_for_owner_authorization`; publication remains a separate Owner action.
 
 ## Problems found and fixes
 
 | Problem encountered | Why it was harmful | Fix in this slice |
 | --- | --- | --- |
+| Progress, health, production, and release rehearsal were modeled as separate producer systems. | The same command could be copied into contradictory artifacts, and the UI could imply four independent truths. | Replaced new-run ingress with one strict `moonsuite.engineering-evidence.v2` ledger; MoonProj derives all three dimensions and release state from it. |
+| The production policy stopped at G7 while the Lepusa handover separately checked integration, packaging, installation, Git, checksum, and release consistency. | A broad “release” Gate hid materially different failure modes and made a passing build look closer to publication than it was. | Expanded the shared lifecycle to G1-G9, with explicit integration, artifact, installation/operation, and release-control boundaries. |
+| An audit request named only a project, not a branch, version, and proposed tag. | Results could not prove which release candidate the operator meant to test. | The dashboard now requires candidate labels and the v2 envelope records repository, branch, full commit, version, and tag. |
+| A release checklist could be mistaken for release execution. | Tagging, pushing, signing, notarizing, and publishing are owner-impacting mutations. | The MoonClaw rehearsal is read-only and can only reach `ready_for_owner_authorization`; publication remains outside the rehearsal action. |
+| The first rendered release dashboard showed `moontown` while its request model still targeted `moonproj`. | Quality had retained a second product selector, so the visible candidate and submitted candidate could diverge. | Removed the separate Quality selection state; both pages now use the single engineering-project identity. |
+| Loading a missing PostgreSQL projection replaced the operator's requested `main` branch with `unknown`. | Starting a first rehearsal would fail candidate validation even though the form had a valid default. | Missing historical metadata no longer overwrites the candidate form; only observed branch identity replaces operator input. |
+| Navigation still advertised the retired seven-Gate policy after the dashboard moved to nine Gates. | Operators could not tell which policy governed the run. | Updated navigation, dashboard copy, controller prompts, and skill metadata to the same G1-G9 vocabulary. |
 | The UI showed invented versions, CI results, coverage, grades, and Gate scores. | Demo values looked like company facts and could drive unsafe release decisions. | Removed the values from Moon Suite and production-quality views; unobserved state is now `unknown`. |
 | Progress, health, and production readiness were conflated. | A project can be advanced but unhealthy, or healthy but not production-ready. | Defined three independent schemas, skills, and UI cards. |
 | An Agent could produce and approve the same claim. | Self-review makes model confidence look like verification. | Added an independent-review skill and a different-identity requirement. |

@@ -16,6 +16,50 @@ fn engineering_test_envelope() -> Json {
 }
 
 ///|
+fn unified_engineering_test_envelope() -> Json {
+  @json.parse(
+    "{\"schema\":\"moonsuite.engineering-evidence.v2\",\"project\":\"moonproj\",\"repository\":\"git@github.com:vectie/moonproj\",\"branch\":\"main\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"version\":\"0.1.0\",\"tag\":\"v0.1.0\",\"observed_at\":\"2026-07-22T10:00:00Z\",\"redlines\":[{\"id\":\"R1\",\"status\":\"pass\",\"summary\":\"no leaked secrets\",\"receipts\":[\"secret-scan\"],\"missing\":[]},{\"id\":\"R2\",\"status\":\"pass\",\"summary\":\"policy present\",\"receipts\":[\"license\"],\"missing\":[]},{\"id\":\"R3\",\"status\":\"pass\",\"summary\":\"core path works\",\"receipts\":[\"smoke\"],\"missing\":[]}],\"gates\":[{\"id\":\"G1\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r1\"],\"missing\":[]},{\"id\":\"G2\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r2\"],\"missing\":[]},{\"id\":\"G3\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r3\"],\"missing\":[]},{\"id\":\"G4\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r4\"],\"missing\":[]},{\"id\":\"G5\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r5\"],\"missing\":[]},{\"id\":\"G6\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r6\"],\"missing\":[]},{\"id\":\"G7\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r7\"],\"missing\":[]},{\"id\":\"G8\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r8\"],\"missing\":[]},{\"id\":\"G9\",\"status\":\"pass\",\"summary\":\"ok\",\"receipts\":[\"r9\"],\"missing\":[]}],\"findings\":[],\"review\":{\"producer_agent\":\"producer-01\",\"reviewer_agent\":\"reviewer-02\",\"verdict\":\"accept\",\"verified_receipts\":[\"r1\",\"r9\"],\"rejected_claims\":[],\"missing_evidence\":[]}}",
+  ) catch {
+    _ => Json::null()
+  }
+}
+
+///|
+test "unified engineering evidence derives all dimensions from one nine-gate ledger" {
+  let envelope = unified_engineering_test_envelope()
+  let result = validate_engineering_envelope(envelope, "moonproj")
+  assert_eq(result.1, "accept")
+  let projection = engineering_projection(
+    "audit-v2",
+    "task-v2",
+    "moonproj",
+    result.0,
+    result.1,
+    envelope,
+    "",
+  )
+  assert_eq(
+    json_text(json_field(projection, "progress").unwrap(), "stage", ""),
+    "G9 passed",
+  )
+  assert_eq(
+    json_text(json_field(projection, "health").unwrap(), "status", ""),
+    "pass",
+  )
+  assert_eq(
+    json_text(
+      json_field(projection, "production").unwrap(),
+      "release_eligibility",
+      "",
+    ),
+    "ready_for_owner_authorization",
+  )
+  assert_true(
+    json_field(projection, "gates") is Some(Array(gates)) && gates.length() == 9,
+  )
+}
+
+///|
 test "engineering evidence validates all contracts and derives accepted projection" {
   let envelope = engineering_test_envelope()
   let result = validate_engineering_envelope(envelope, "moonproj")

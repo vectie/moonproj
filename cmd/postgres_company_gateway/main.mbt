@@ -756,12 +756,37 @@ async fn proxy_request(
 }
 
 ///|
+fn valid_release_candidate_identifier(value : String) -> Bool {
+  !value.trim().is_empty() &&
+  value.length() <= 128 &&
+  value
+  .iter()
+  .all(fn(char) {
+    char.is_ascii_digit() ||
+    (char >= 'a' && char <= 'z') ||
+    (char >= 'A' && char <= 'Z') ||
+    char == '.' ||
+    char == '/' ||
+    char == '_' ||
+    char == '-'
+  })
+}
+
+///|
 async fn submit_moonsuite_audit(
   moonclaw_uri : String,
   workspace_root : String,
   project : String,
+  branch : String,
+  version : String,
+  tag : String,
   audit_sequence : Int,
 ) -> ProxyResult raise GatewayError {
+  for value in [branch, version, tag] {
+    if !valid_release_candidate_identifier(value) {
+      raise fail("release candidate identifiers are invalid")
+    }
+  }
   let target = match moonsuite_project_path(workspace_root, project) {
     Some(value) => value
     None => raise fail("project is not registered for engineering audit")
@@ -788,25 +813,35 @@ async fn submit_moonsuite_audit(
   let evidence_relative_path = "engineering/evidence/inbox/" +
     audit_id +
     ".json"
-  let prompt = "moonsuite engineering audit. Audit the registered Moon Suite project '" +
+  let release_handover = workspace_root +
+    "/moongate/docs/LEPUSA_APP_RELEASE_HANDOVER.md"
+  let prompt = "moonsuite unified engineering evidence and release rehearsal. Audit the registered Moon Suite project '" +
     project +
     "' at " +
     target +
-    " at its exact current commit. Follow the workspace moonclaw.jobs.json controller. " +
-    "Use $moonsuite-progress-audit, $moonsuite-health-audit, and " +
-    "$moonsuite-production-gate as evidence producers, then use a different " +
-    "reviewer identity with $moonsuite-evidence-review. Do not invent scores. " +
+    " for requested branch='" +
+    branch +
+    "', version='" +
+    version +
+    "', tag='" +
+    tag +
+    "'. Resolve and record the exact current full commit and remote. " +
+    "Follow the workspace moonclaw.jobs.json controller and use " +
+    "$moonsuite-production-gate to produce one G1-G9 evidence ledger. " +
+    "Apply the Lepusa release procedure at " +
+    release_handover +
+    " when it is relevant to this candidate, then use a different reviewer identity with " +
+    "$moonsuite-evidence-review. Do not invent scores. " +
     "Return unknown when evidence is missing and include every command receipt. " +
     "Your only durable output is " +
     evidence_relative_path +
     " inside the MoonProj control workspace. " +
-    "Write it atomically only after independent review. It must be one strict JSON object with exactly: " +
-    "schema='moonsuite.engineering-audit-envelope.v1', project='" +
-    project +
-    "', progress, health, production, review. The four nested artifacts must exactly follow their skill contracts. " +
-    "Do not modify the audited repository or any other MoonProj file."
+    "Write it atomically only after independent review. It must exactly follow " +
+    "schema='moonsuite.engineering-evidence.v2' with R1-R3 and G1-G9 once each. " +
+    "MoonProj will derive all three evidence dimensions from that one ledger. " +
+    "Do not modify the audited repository or any other MoonProj file. Do not tag, push, publish, sign, or notarize."
   let payload = Json::object({
-    "name": Json::string("MoonProj engineering audit: " + project),
+    "name": Json::string("MoonProj release rehearsal: " + project + " " + tag),
     "cwd": Json::string(control_workspace),
     "message": Json::object({
       "role": Json::string("user"),
@@ -1533,10 +1568,14 @@ async fn handle(
             _ => Json::null()
           }
           let project = json_text(payload, "project").unwrap_or("")
+          let branch = json_text(payload, "branch").unwrap_or("")
+          let version = json_text(payload, "version").unwrap_or("")
+          let tag = json_text(payload, "tag").unwrap_or("")
           let audit_sequence = sequence.val
           sequence.val += 1
           let result = submit_moonsuite_audit(
-            moonclaw_uri, moonsuite_workspace_root, project, audit_sequence,
+            moonclaw_uri, moonsuite_workspace_root, project, branch, version, tag,
+            audit_sequence,
           ) catch {
             error => {
               let status = match error {

@@ -40,6 +40,31 @@ test "Moon product line is optional and hidden by default" {
 }
 
 ///|
+test "release dashboard starts from one unknown nine-gate ledger" {
+  let model = initial_model()
+  assert_eq(model.engineering_gate_states.length(), 9)
+  assert_true(
+    model.engineering_gate_states.all(fn(state) { state == "unknown" }),
+  )
+  assert_eq(model.engineering_branch, "main")
+  assert_eq(model.engineering_review, "needs_evidence")
+}
+
+///|
+test "release projection reads gate states from the shared audit" {
+  let payload = @json.parse(
+    "{\"audit\":{\"gates\":[{\"id\":\"G1\",\"status\":\"pass\"},{\"id\":\"G2\",\"status\":\"blocked\"}]}}",
+  ) catch {
+    _ => Json::null()
+  }
+  let states = projection_gate_states(payload)
+  assert_eq(states.length(), 9)
+  assert_eq(states[0], "pass")
+  assert_eq(states[1], "blocked")
+  assert_eq(states[8], "unknown")
+}
+
+///|
 test "blank workspace contains no fictional company data" {
   let model = initial_model()
   assert_eq(model.company_name, "")

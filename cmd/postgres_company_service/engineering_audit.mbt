@@ -332,7 +332,7 @@ fn validate_review_evidence(
 }
 
 ///|
-fn validate_engineering_envelope(
+fn validate_legacy_engineering_envelope(
   value : Json,
   expected_project : String,
 ) -> (String, String) raise CompanyServiceError {
@@ -356,6 +356,146 @@ fn validate_engineering_envelope(
     commit,
   )
   (commit, verdict)
+}
+
+///|
+fn validate_unified_gate_set(
+  values : Array[Json],
+  prefix : String,
+  expected_count : Int,
+) -> Unit raise CompanyServiceError {
+  if values.length() != expected_count {
+    raise fail(
+      prefix +
+      " must contain exactly " +
+      expected_count.to_string() +
+      " entries",
+    )
+  }
+  let seen : Array[String] = []
+  for value in values {
+    let item = engineering_object(value, prefix + "[]")
+    engineering_exact_keys(
+      item,
+      ["id", "status", "summary", "receipts", "missing"],
+      prefix + "[]",
+    )
+    let id = engineering_required_text(item, "id", prefix + "[]")
+    if seen.contains(id) {
+      raise fail(prefix + " contains duplicate id: " + id)
+    }
+    seen.push(id)
+    let _ = engineering_enum(
+      item,
+      "status",
+      ["pass", "fail", "blocked", "unknown", "not_applicable"],
+      prefix + "[]",
+    )
+    let _ = engineering_required_text(item, "summary", prefix + "[]")
+    let _ = engineering_string_array(item, "receipts", prefix + "[]")
+    let _ = engineering_string_array(item, "missing", prefix + "[]")
+  }
+  for index = 1; index <= expected_count; index = index + 1 {
+    let expected = prefix[0:1].to_owned() + index.to_string()
+    if !seen.contains(expected) {
+      raise fail(prefix + " is missing " + expected)
+    }
+  }
+}
+
+///|
+fn validate_unified_engineering_envelope(
+  value : Json,
+  expected_project : String,
+) -> (String, String) raise CompanyServiceError {
+  let contract = "moonsuite.engineering-evidence.v2"
+  let fields = engineering_object(value, contract)
+  engineering_exact_keys(
+    fields,
+    [
+      "schema", "project", "repository", "branch", "commit", "version", "tag", "observed_at",
+      "redlines", "gates", "findings", "review",
+    ],
+    contract,
+  )
+  if engineering_required_text(fields, "schema", contract) != contract ||
+    engineering_required_text(fields, "project", contract) != expected_project {
+    raise fail(contract + " schema or project mismatch")
+  }
+  let _ = engineering_required_text(fields, "repository", contract)
+  let _ = engineering_required_text(fields, "branch", contract)
+  let commit = engineering_required_text(fields, "commit", contract)
+  engineering_validate_commit(commit)
+  let _ = engineering_required_text(fields, "version", contract)
+  let _ = engineering_required_text(fields, "tag", contract)
+  let _ = engineering_required_text(fields, "observed_at", contract)
+  validate_unified_gate_set(
+    engineering_array(fields, "redlines", contract),
+    "R",
+    3,
+  )
+  validate_unified_gate_set(
+    engineering_array(fields, "gates", contract),
+    "G",
+    9,
+  )
+  let _ = engineering_string_array(fields, "findings", contract)
+  let review = engineering_object(fields["review"], contract + ".review")
+  engineering_exact_keys(
+    review,
+    [
+      "producer_agent", "reviewer_agent", "verdict", "verified_receipts", "rejected_claims",
+      "missing_evidence",
+    ],
+    contract + ".review",
+  )
+  let producer = engineering_required_text(
+    review,
+    "producer_agent",
+    contract + ".review",
+  )
+  let reviewer = engineering_required_text(
+    review,
+    "reviewer_agent",
+    contract + ".review",
+  )
+  if producer == reviewer {
+    raise fail("engineering evidence reviewer must be independent of producer")
+  }
+  let verdict = engineering_enum(
+    review,
+    "verdict",
+    ["accept", "reject", "needs_evidence"],
+    contract + ".review",
+  )
+  let _ = engineering_string_array(
+    review,
+    "verified_receipts",
+    contract + ".review",
+  )
+  let _ = engineering_string_array(
+    review,
+    "rejected_claims",
+    contract + ".review",
+  )
+  let _ = engineering_string_array(
+    review,
+    "missing_evidence",
+    contract + ".review",
+  )
+  (commit, verdict)
+}
+
+///|
+fn validate_engineering_envelope(
+  value : Json,
+  expected_project : String,
+) -> (String, String) raise CompanyServiceError {
+  match json_field(value, "schema") {
+    Some(String("moonsuite.engineering-evidence.v2")) =>
+      validate_unified_engineering_envelope(value, expected_project)
+    _ => validate_legacy_engineering_envelope(value, expected_project)
+  }
 }
 
 ///|
@@ -387,6 +527,12 @@ fn engineering_health_status(health : Json) -> String {
 
 ///|
 fn engineering_findings(envelope : Json) -> Array[Json] {
+  if json_text(envelope, "schema", "") == "moonsuite.engineering-evidence.v2" {
+    return match json_field(envelope, "findings") {
+      Some(Array(values)) => values
+      _ => []
+    }
+  }
   let result : Array[Json] = []
   for
     pair in [
@@ -421,6 +567,73 @@ fn engineering_findings(envelope : Json) -> Array[Json] {
 }
 
 ///|
+fn unified_gate_statuses(envelope : Json) -> Array[String] {
+  let result : Array[String] = []
+  match json_field(envelope, "gates") {
+    Some(Array(values)) =>
+      for value in values {
+        result.push(json_text(value, "status", "unknown"))
+      }
+    _ => ()
+  }
+  result
+}
+
+///|
+fn unified_progress_stage(envelope : Json) -> String {
+  let statuses = unified_gate_statuses(envelope)
+  let mut passed = 0
+  for status in statuses {
+    if passed + 1 == statuses.length() && status == "pass" {
+      passed += 1
+    } else if status == "pass" && passed < statuses.length() {
+      passed += 1
+    } else {
+      break
+    }
+  }
+  if passed == 9 {
+    "G9 passed"
+  } else {
+    "G" + (passed + 1).to_string()
+  }
+}
+
+///|
+fn unified_health_status(envelope : Json) -> String {
+  let statuses = unified_gate_statuses(envelope)
+  if statuses.contains("fail") || statuses.contains("blocked") {
+    "fail"
+  } else if statuses.length() != 9 || statuses.contains("unknown") {
+    "unknown"
+  } else {
+    "pass"
+  }
+}
+
+///|
+fn unified_release_eligibility(envelope : Json, verdict : String) -> String {
+  if verdict != "accept" {
+    return "needs_evidence"
+  }
+  let statuses = unified_gate_statuses(envelope)
+  match json_field(envelope, "redlines") {
+    Some(Array(values)) =>
+      for value in values {
+        statuses.push(json_text(value, "status", "unknown"))
+      }
+    _ => ()
+  }
+  if statuses.contains("fail") || statuses.contains("blocked") {
+    "ineligible"
+  } else if statuses.length() != 12 || statuses.contains("unknown") {
+    "needs_evidence"
+  } else {
+    "ready_for_owner_authorization"
+  }
+}
+
+///|
 fn engineering_projection(
   audit_id : String,
   task_id : String,
@@ -430,6 +643,8 @@ fn engineering_projection(
   envelope : Json,
   supersedes : String,
 ) -> Json {
+  let unified = json_text(envelope, "schema", "") ==
+    "moonsuite.engineering-evidence.v2"
   let progress = json_field(envelope, "progress").unwrap_or(Json::null())
   let health = json_field(envelope, "health").unwrap_or(Json::null())
   let production = json_field(envelope, "production").unwrap_or(Json::null())
@@ -446,11 +661,47 @@ fn engineering_projection(
     "candidate_digest": Json::string(candidate_digest),
     "review_verdict": Json::string(verdict),
     "trusted": Json::boolean(trusted),
+    "repository": Json::string(json_text(envelope, "repository", "unknown")),
+    "branch": Json::string(json_text(envelope, "branch", "unknown")),
+    "version": Json::string(json_text(envelope, "version", "unknown")),
+    "tag": Json::string(json_text(envelope, "tag", "unknown")),
+    "gates": if unified {
+      json_field(envelope, "gates").unwrap_or(Json::array([]))
+    } else {
+      json_field(production, "gates").unwrap_or(Json::array([]))
+    },
+    "redlines": if unified {
+      json_field(envelope, "redlines").unwrap_or(Json::array([]))
+    } else {
+      json_field(production, "redlines").unwrap_or(Json::array([]))
+    },
     "progress": if trusted {
       Json::object({
-        "lifecycle": Json::string(json_text(progress, "lifecycle", "unknown")),
-        "stage": Json::string(json_text(progress, "stage", "unknown")),
-        "gate_state": Json::string(json_text(progress, "gate_state", "unknown")),
+        "lifecycle": Json::string(
+          if unified {
+            "software"
+          } else {
+            json_text(progress, "lifecycle", "unknown")
+          },
+        ),
+        "stage": Json::string(
+          if unified {
+            unified_progress_stage(envelope)
+          } else {
+            json_text(progress, "stage", "unknown")
+          },
+        ),
+        "gate_state": Json::string(
+          if unified {
+            if unified_progress_stage(envelope) == "G9 passed" {
+              "pass"
+            } else {
+              "at_gate"
+            }
+          } else {
+            json_text(progress, "gate_state", "unknown")
+          },
+        ),
       })
     } else {
       Json::object({
@@ -462,7 +713,11 @@ fn engineering_projection(
     "health": Json::object({
       "status": Json::string(
         if trusted {
-          engineering_health_status(health)
+          if unified {
+            unified_health_status(envelope)
+          } else {
+            engineering_health_status(health)
+          }
         } else {
           "unknown"
         },
@@ -478,7 +733,11 @@ fn engineering_projection(
       ),
       "release_eligibility": Json::string(
         if trusted {
-          json_text(production, "release_eligibility", "unknown")
+          if unified {
+            unified_release_eligibility(envelope, verdict)
+          } else {
+            json_text(production, "release_eligibility", "unknown")
+          }
         } else {
           "unknown"
         },
@@ -491,7 +750,13 @@ fn engineering_projection(
         []
       },
     ),
-    "observed_at": Json::string(json_text(progress, "observed_at", "")),
+    "observed_at": Json::string(
+      if unified {
+        json_text(envelope, "observed_at", "")
+      } else {
+        json_text(progress, "observed_at", "")
+      },
+    ),
     "ingested_at_ms": Json::number(@env.now().to_double()),
     "freshness": Json::string("fresh"),
     "supersedes": Json::string(supersedes),
@@ -639,6 +904,11 @@ fn engineering_unknown_projection(project : String) -> Json {
   Json::object({
     "schema": "moonsuite.engineering-projection.v1",
     "project": project,
+    "repository": "unknown",
+    "branch": "unknown",
+    "commit": "unknown",
+    "version": "unknown",
+    "tag": "unknown",
     "trusted": false,
     "freshness": "missing",
     "review_verdict": "needs_evidence",
@@ -649,6 +919,8 @@ fn engineering_unknown_projection(project : String) -> Json {
     },
     "health": { "status": "unknown" },
     "production": { "grade": "unknown", "release_eligibility": "unknown" },
+    "gates": [],
+    "redlines": [],
     "accepted_findings": [],
   })
 }

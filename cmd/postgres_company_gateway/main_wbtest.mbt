@@ -174,6 +174,14 @@ test "engineering audits only resolve registered Moon Suite repositories" {
 }
 
 ///|
+test "release rehearsal accepts bounded candidate labels only" {
+  assert_true(valid_release_candidate_identifier("release/0.1.0"))
+  assert_true(valid_release_candidate_identifier("v0.1.0-rc.1"))
+  assert_false(valid_release_candidate_identifier(""))
+  assert_false(valid_release_candidate_identifier("main; rm -rf"))
+}
+
+///|
 test "MoonClaw task identifiers are extracted from audit responses" {
   assert_true(
     moonclaw_task_id({ "task": { "id": "task-123" } }) is Some("task-123"),
