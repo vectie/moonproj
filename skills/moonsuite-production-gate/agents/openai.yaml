@@ -1,4 +1,4 @@
 interface:
   display_name: "MoonSuite Engineering Evidence"
-  short_description: "Test one candidate through the unified nine-gate ledger"
-  default_prompt: "Use $moonsuite-production-gate to collect one candidate-bound engineering ledger without guessing or publishing."
+  short_description: "Produce a bounded nine-gate candidate evidence draft"
+  default_prompt: "Use $moonsuite-production-gate as the producer task. Collect one candidate-bound draft with MoonBit and bounded shell evidence only; do not review or publish."

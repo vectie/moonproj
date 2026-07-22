@@ -15,7 +15,7 @@
             "id": "collect_unified_evidence",
             "title": "Test the exact candidate through G1-G9",
             "kind": "job.delegate",
-            "request_template": "Inspect ${proposal.title} at its exact candidate identity and produce one moonsuite.engineering-evidence.v2 ledger containing R1-R3 and G1-G9. Use the same receipts for progress, health, production quality, and release rehearsal. Do not edit or publish the repository.",
+            "request_template": "Inspect ${proposal.title} at its exact candidate identity and produce one moonsuite.engineering-evidence-draft.v1 containing R1-R3 and G1-G9. Use pure MoonBit plus bounded shell commands, never Python. Use the same receipts for progress, health, production quality, and release rehearsal. Do not edit, review, or publish the repository.",
             "child_profile": "moonsuite-production-worker",
             "include_parent_outputs": false,
             "max_depth": 2,
@@ -25,7 +25,7 @@
             "id": "independent_review",
             "title": "Independently review evidence",
             "kind": "job.delegate",
-            "request_template": "Independently review the single G1-G9 evidence ledger for ${proposal.title}. Verify candidate identity and producer/reviewer separation, rerun a risk-weighted sample, and reject unsupported receipts.",
+            "request_template": "In a separate MoonClaw task, independently review the G1-G9 producer draft for ${proposal.title}. Verify candidate identity and task separation, rerun a bounded risk-weighted sample with MoonBit plus shell only, reject unsupported receipts, and write the single reviewed moonsuite.engineering-evidence.v2 ledger.",
             "child_profile": "moonsuite-evidence-reviewer",
             "include_parent_outputs": true,
             "max_depth": 2,
@@ -54,36 +54,6 @@
           }
         ]
       },
-      "moonsuite-progress-worker": {
-        "family": "moonsuite_progress_worker",
-        "priority": 20,
-        "tags": ["moonsuite", "engineering", "progress", "worker"],
-        "steps": [{
-          "id": "audit_progress",
-          "title": "Audit lifecycle progress",
-          "kind": "job.analysis",
-          "prompt_template": "Use the MoonSuite progress audit skill for ${request}.",
-          "metadata": {
-            "preferred_skills": ["moonsuite-progress-audit"], "enable_tools": true,
-            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.project-progress-evidence.v1"}
-          }
-        }]
-      },
-      "moonsuite-health-worker": {
-        "family": "moonsuite_health_worker",
-        "priority": 20,
-        "tags": ["moonsuite", "engineering", "health", "worker"],
-        "steps": [{
-          "id": "audit_health",
-          "title": "Run engineering health checks",
-          "kind": "job.analysis",
-          "prompt_template": "Use the MoonSuite health audit skill for ${request}.",
-          "metadata": {
-            "preferred_skills": ["moonsuite-health-audit"], "enable_tools": true,
-            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.project-health-evidence.v1"}
-          }
-        }]
-      },
       "moonsuite-production-worker": {
         "family": "moonsuite_production_worker",
         "priority": 20,
@@ -92,10 +62,10 @@
           "id": "audit_production",
           "title": "Collect unified G1-G9 evidence",
           "kind": "job.analysis",
-          "prompt_template": "Use the MoonSuite production Gate skill for ${request}. Produce one candidate-bound ledger; do not emit separate progress, health, or production artifacts.",
+          "prompt_template": "Use the MoonSuite production Gate skill for ${request}. Produce one candidate-bound draft with bounded MoonBit and shell evidence only; do not emit separate progress, health, production, or review artifacts.",
           "metadata": {
             "preferred_skills": ["moonsuite-production-gate"], "enable_tools": true,
-            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.engineering-evidence.v2"}
+            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.engineering-evidence-draft.v1"}
           }
         }]
       },
@@ -107,10 +77,10 @@
           "id": "review_evidence",
           "title": "Review audit evidence",
           "kind": "job.analysis",
-          "prompt_template": "Use the MoonSuite evidence review skill for ${request}. You must be a different Agent identity from every evidence producer.",
+          "prompt_template": "Use the MoonSuite evidence review skill for ${request}. You must run as a different MoonClaw task from every evidence producer and use bounded MoonBit plus shell evidence only.",
           "metadata": {
             "preferred_skills": ["moonsuite-evidence-review"], "enable_tools": true,
-            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.evidence-review.v1"}
+            "role_runtime": {"planning_layer": "execution", "runtime_mode": "executor", "tool_access": "full", "memory_scope": "workspace", "allow_delegate": false, "allow_workspace_write": false, "allow_execution_tools": true, "output_contract": "moonsuite.engineering-evidence.v2"}
           }
         }]
       }

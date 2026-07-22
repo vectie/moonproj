@@ -96,7 +96,8 @@ fn engineering_project_name(index : Int) -> String {
 fn audit_state_badge(model : Model) -> @html.Html {
   match model.engineering_audit_state {
     "submitting" => status_badge("提交中", tone="warning")
-    "submitted" | "running" => status_badge("MoonClaw 执行中", tone="violet")
+    "submitted" | "running" =>
+      status_badge("生产与独立复核中", tone="violet")
     "awaiting_artifact" => status_badge("等待证据文件", tone="warning")
     "ingested" | "ready" => status_badge("证据已复核", tone="success")
     "failed" => status_badge("连接失败", tone="warning")

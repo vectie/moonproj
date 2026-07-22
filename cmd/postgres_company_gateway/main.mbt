@@ -810,12 +810,23 @@ async fn submit_moonsuite_audit(
     @env.now().to_string() +
     "-" +
     audit_sequence.to_string()
+  let draft_relative_path = "engineering/evidence/inbox/" +
+    audit_id +
+    ".producer.json"
   let evidence_relative_path = "engineering/evidence/inbox/" +
     audit_id +
     ".json"
   let release_handover = workspace_root +
     "/moongate/docs/LEPUSA_APP_RELEASE_HANDOVER.md"
-  let prompt = "moonsuite unified engineering evidence and release rehearsal. Audit the registered Moon Suite project '" +
+  let common_constraints = "Use pure MoonBit plus shell tooling only: never invoke python or python3. " +
+    "Never use an unbounded file-search tool. Bound every command output and receipt to 64 KiB; " +
+    "prefer counts, selected paths, exit codes, timestamps, and digests. " +
+    "The canonical Gate meanings are fixed: G1 intent/candidate identity; G2 functional completeness; " +
+    "G3 UI/accessibility/responsive/guidance; G4 build/test/engineering quality; " +
+    "G5 integration/persistence/data consistency; G6 security/compliance/secrets; " +
+    "G7 artifacts/compatibility/packaging; G8 install/runtime/rollback/recovery/cleanup; " +
+    "G9 repository/branch/commit/tag/checksum/release control. Do not remap them. "
+  let producer_prompt = "moonsuite unified engineering evidence producer. Audit the registered Moon Suite project '" +
     project +
     "' at " +
     target +
@@ -826,23 +837,91 @@ async fn submit_moonsuite_audit(
     "', tag='" +
     tag +
     "'. Resolve and record the exact current full commit and remote. " +
-    "Follow the workspace moonclaw.jobs.json controller and use " +
-    "$moonsuite-production-gate to produce one G1-G9 evidence ledger. " +
+    "Use $moonsuite-production-gate to produce one candidate-bound draft with R1-R3 and G1-G9. " +
     "Apply the Lepusa release procedure at " +
     release_handover +
-    " when it is relevant to this candidate, then use a different reviewer identity with " +
-    "$moonsuite-evidence-review. Do not invent scores. " +
+    " when it is relevant to this candidate. Do not invent scores and do not review your own work. " +
     "Return unknown when evidence is missing and include every command receipt. " +
-    "Your only durable output is " +
-    evidence_relative_path +
+    common_constraints +
+    "Your only durable output is the producer draft " +
+    draft_relative_path +
     " inside the MoonProj control workspace. " +
-    "Write it atomically only after independent review. It must exactly follow " +
-    "schema='moonsuite.engineering-evidence.v2' with R1-R3 and G1-G9 once each. " +
-    "MoonProj will derive all three evidence dimensions from that one ledger. " +
+    "Write it atomically with shell and jq. It must use schema='moonsuite.engineering-evidence-draft.v1', " +
+    "contain exact candidate identity, producer_agent='" +
+    audit_id +
+    ":producer', and R1-R3 plus G1-G9 once each. " +
     "Do not modify the audited repository or any other MoonProj file. Do not tag, push, publish, sign, or notarize."
+  try {
+    let producer_task_id = start_moonclaw_audit_task(
+      moonclaw_uri,
+      control_workspace,
+      "MoonProj evidence producer: " + project + " " + tag,
+      producer_prompt,
+    )
+    let reviewer_prompt = "moonsuite independent engineering evidence reviewer. You are a separate MoonClaw task from producer task '" +
+      producer_task_id +
+      "'. Wait up to 15 minutes for " +
+      draft_relative_path +
+      ", then use $moonsuite-evidence-review to verify that draft against project '" +
+      project +
+      "' at " +
+      target +
+      " and requested branch='" +
+      branch +
+      "', version='" +
+      version +
+      "', tag='" +
+      tag +
+      "'. Rerun a bounded risk-weighted sample in a separate ephemeral tree. " +
+      common_constraints +
+      "Your only durable output is " +
+      evidence_relative_path +
+      ". Write it atomically with shell and jq only after review. It must exactly follow " +
+      "schema='moonsuite.engineering-evidence.v2', preserve R1-R3 and G1-G9 once each, " +
+      "set review.producer_agent='" +
+      audit_id +
+      ":producer' and review.reviewer_agent='" +
+      audit_id +
+      ":reviewer', and cite producer_task_id='" +
+      producer_task_id +
+      "' in verified_receipts. Reject unsupported claims. Do not modify the audited repository, " +
+      "draft, or other MoonProj files. Do not tag, push, publish, sign, or notarize."
+    let reviewer_task_id = start_moonclaw_audit_task(
+      moonclaw_uri,
+      control_workspace,
+      "MoonProj evidence reviewer: " + project + " " + tag,
+      reviewer_prompt,
+    )
+    {
+      status: 202,
+      content_type: "application/json; charset=utf-8",
+      body: @encoding/utf8.encode(
+        Json::object({
+          "accepted": Json::boolean(true),
+          "project": Json::string(project),
+          "audit_id": Json::string(audit_id),
+          "task_id": Json::string(reviewer_task_id),
+          "producer_task_id": Json::string(producer_task_id),
+          "result_state": Json::string("unknown_until_independent_review"),
+        }).stringify(),
+      ),
+      www_authenticate: None,
+    }
+  } catch {
+    _ => raise GatewayError::Upstream("MoonClaw audit submission failed")
+  }
+}
+
+///|
+async fn start_moonclaw_audit_task(
+  moonclaw_uri : String,
+  cwd : String,
+  name : String,
+  prompt : String,
+) -> String raise GatewayError {
   let payload = Json::object({
-    "name": Json::string("MoonProj release rehearsal: " + project + " " + tag),
-    "cwd": Json::string(control_workspace),
+    "name": Json::string(name),
+    "cwd": Json::string(cwd),
     "message": Json::object({
       "role": Json::string("user"),
       "content": Json::string(prompt),
@@ -860,43 +939,24 @@ async fn submit_moonsuite_audit(
     let status = response.code
     client.close()
     if status != 201 && status != 409 {
-      return {
-        status: 502,
-        content_type: "application/json; charset=utf-8",
-        body: @encoding/utf8.encode(
-          Json::object({
-            "error": Json::string("MoonClaw rejected the engineering audit"),
-            "upstream_status": Json::number(status.to_double()),
-          }).stringify(),
-        ),
-        www_authenticate: None,
-      }
+      raise GatewayError::Upstream(
+        "MoonClaw rejected an engineering audit task with status " +
+        status.to_string(),
+      )
     }
     let upstream = @json.parse(@encoding/utf8.decode(response_body)) catch {
       _ => Json::null()
     }
-    let task_id = moonclaw_task_id(upstream).unwrap_or("")
-    if task_id.is_empty() {
-      raise GatewayError::Upstream(
-        "MoonClaw response did not contain a task id",
-      )
-    }
-    {
-      status: 202,
-      content_type: "application/json; charset=utf-8",
-      body: @encoding/utf8.encode(
-        Json::object({
-          "accepted": Json::boolean(true),
-          "project": Json::string(project),
-          "audit_id": Json::string(audit_id),
-          "task_id": Json::string(task_id),
-          "result_state": Json::string("unknown_until_independent_review"),
-        }).stringify(),
-      ),
-      www_authenticate: None,
+    match moonclaw_task_id(upstream) {
+      Some(task_id) if !task_id.is_empty() => task_id
+      _ =>
+        raise GatewayError::Upstream(
+          "MoonClaw response did not contain a task id",
+        )
     }
   } catch {
-    _ => raise GatewayError::Upstream("MoonClaw audit submission failed")
+    GatewayError::Upstream(message) => raise GatewayError::Upstream(message)
+    _ => raise GatewayError::Upstream("MoonClaw audit task request failed")
   }
 }
 

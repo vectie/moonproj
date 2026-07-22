@@ -9,8 +9,11 @@ MOONGATE_PORT=${MOONGATE_PORT:-15721}
 MOONGATE_MODEL=${MOONGATE_MODEL:-gpt-5.6-sol}
 
 mkdir -p "$SKILL_TARGET"
-for source in "$ROOT"/skills/moonsuite-*; do
-  test -d "$source" || continue
+rm -rf \
+  "$SKILL_TARGET/moonsuite-progress-audit" \
+  "$SKILL_TARGET/moonsuite-health-audit"
+for skill in moonsuite-production-gate moonsuite-evidence-review; do
+  source="$ROOT/skills/$skill"
   target="$SKILL_TARGET/${source##*/}"
   mkdir -p "$target"
   cp -R "$source/." "$target/"

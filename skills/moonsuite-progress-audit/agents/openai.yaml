@@ -1,4 +1,0 @@
-interface:
-  display_name: "MoonSuite Progress Audit"
-  short_description: "Determine project stage from repository evidence"
-  default_prompt: "Use $moonsuite-progress-audit to determine how far this project has progressed."

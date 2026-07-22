@@ -38,16 +38,16 @@ The Moon Suite page is the entry point:
 3. Choose **Let MoonClaw start audit**.
 4. The authenticated MoonProj gateway validates the project identifier against
    its allowlist, resolves its repository below `MOONSUITE_WORKSPACE_ROOT`, and
-   submits a task to `MOONCLAW_DAEMON_URI`. The task runs in MoonProj so its
-   controller and skills are discoverable; the selected sibling is passed as a
-   separate read-only audit target.
-5. The task prompt requires one `moonsuite.engineering-evidence.v2` ledger with
-   R1-R3 and G1-G9, followed by independent review. If the runtime cannot
-   establish a different reviewer identity, the review remains pending rather
-   than being treated as accepted.
-6. The gateway issues an audit identifier before submission. MoonClaw writes
-   the final independently reviewed envelope to the corresponding controlled
-   inbox path and changes no audited repository files.
+   submits separate producer and reviewer tasks to `MOONCLAW_DAEMON_URI`. Both
+   run in MoonProj so the controller and skills are discoverable; the selected
+   sibling is passed as a separate read-only audit target.
+5. The producer writes one `moonsuite.engineering-evidence-draft.v1` with
+   R1-R3 and G1-G9. The reviewer is a distinct MoonClaw task, cites the
+   producer task id, reruns a bounded sample, and is the only task allowed to
+   write the ingestible `moonsuite.engineering-evidence.v2` ledger.
+6. The gateway issues an audit identifier before submission. Both tasks use
+   pure MoonBit plus bounded shell tooling and change no audited repository
+   files; the reviewer writes the final envelope to the controlled inbox.
 7. Rabbita polls the authenticated gateway. While MoonClaw is generating, or
    while an idle task has not produced its envelope, all conclusions remain
    unknown.
@@ -73,9 +73,10 @@ The Moon Suite page is the entry point:
 - G8 installation, runtime readiness, operations, rollback, recovery, and cleanup.
 - G9 repository, branch, commit, tag, checksum, release consistency, and publication control.
 
-`skills/moonsuite-production-gate` now produces the unified ledger. The older
-progress and health skills remain migration references for legacy v1 evidence;
-new runs must not emit three independent artifacts.
+`skills/moonsuite-production-gate` produces the unified draft and
+`skills/moonsuite-evidence-review` produces the reviewed ledger. The retired
+progress and health producer skills are no longer installed or versioned; new
+runs cannot emit three independent artifacts.
 
 The producer contract is read-only. It records exact candidate identity,
 observation time, Gate states, and receipts. The reviewer rejects stale,
@@ -107,12 +108,17 @@ notarizes. Even when every Gate passes, the result is only
 | MoonClaw listened on IPv6 `localhost`, while MoonProj defaulted to IPv4 `127.0.0.1`. | The authenticated self-release request reached MoonProj but could not connect to the running Agent daemon. | Changed the default daemon URI to `http://localhost:18123`, matching MoonClaw's advertised endpoint while retaining environment override support. |
 | The first successful Agent task loaded only MoonClaw's system skill; repository `skills/` were not runtime-discoverable. | The prompt named the unified evidence and reviewer skills, but MoonClaw could not execute contracts it had not loaded. | Added `scripts/prepare_moonclaw_engineering_runtime.sh` to install all MoonProj engineering skills into the documented project-local MoonClaw directory. |
 | MoonGate wrote suite status at the suite root while MoonClaw resolves model discovery from the task working directory. | A live MoonGate service was still invisible to a task started in MoonProj. | The preparation script writes a project-local `.moonsuite/suite-status.json` that points to the live MoonGate catalog. |
-| The final self-release attempt reached the MoonGate model route but received `401 token_expired`. | No Agent reasoning or independent review could occur, so accepting a Gate artifact would be fabricated. | MoonProj retained `unknown`/locked state and persisted no audit. A fresh MoonGate Codex OAuth login is required before retrying the same candidate. |
+| The first self-release attempt reached MoonGate but loaded its older July 16 credential instead of Codex's refreshed July 19 credential. | MoonGate status reported a cached account as authenticated while real inference returned `401 token_expired`. | Preserved the old private cache, re-imported the current Codex credential, and verified the real OpenClaw model route with HTTP 200 before restarting the rehearsal. |
+| One MoonClaw task was asked to invent separate producer and reviewer identities. | Different strings inside one conversation are self-review, not independent verification. | MoonProj now launches two distinct MoonClaw tasks: the producer writes a draft, and the reviewer alone writes the ingestible v2 ledger after citing the producer task id and rerunning a bounded sample. |
+| The first producer used an unbounded file-search tool and returned about 7.8 MB. | MoonClaw spent minutes at full CPU tokenizing a 24 MB conversation, delaying review and making receipts hard to audit. | Both skills and server prompts prohibit unbounded search and cap every command output and receipt at 64 KiB, preferring counts, selected paths, exit codes, and digests. |
+| The first evidence writer invoked Python and its initial atomic write failed because it opened a `mktemp` file with exclusive-create mode. | Python violated the project's pure MoonBit-plus-shell boundary, and a successful retry would have given unacceptable provenance even if the JSON content was accurate. | The artifact was never ingested, was preserved as a rejected rehearsal artifact, and both producer/reviewer contracts now require shell plus `jq` and a same-directory atomic `mv`; Python is explicitly forbidden. |
+| A corrective message queued while MoonClaw was generating remained queued after the task became idle. | The same task did not automatically start another turn, so a UI could show idle while a release-control correction remained unapplied. | MoonProj no longer relies on mid-task identity correction: immutable no-Python, bounded-output, Gate-order, and task-separation constraints are present in each task's initial prompt. |
+| The failed ledger remapped G2-G6 to different meanings. | A nine-row document is not one system if Agents silently change what each Gate means. | Canonical Gate meanings are repeated in both skills and both task prompts; reviewers must reject renumbered or remapped criteria. |
 | The UI showed invented versions, CI results, coverage, grades, and Gate scores. | Demo values looked like company facts and could drive unsafe release decisions. | Removed the values from Moon Suite and production-quality views; unobserved state is now `unknown`. |
-| Progress, health, and production readiness were conflated. | A project can be advanced but unhealthy, or healthy but not production-ready. | Defined three independent schemas, skills, and UI cards. |
-| An Agent could produce and approve the same claim. | Self-review makes model confidence look like verification. | Added an independent-review skill and a different-identity requirement. |
+| Progress, health, and production readiness were conflated. | A project can be advanced but unhealthy, or healthy but not production-ready. | Defined three derived projections and UI cards over the same reviewed v2 ledger; no independent dimension schemas or producers remain in the active runtime. |
+| An Agent could produce and approve the same claim. | Self-review makes model confidence look like verification. | Added a reviewer skill executed by a separate MoonClaw task; the reviewer is the sole writer of the ingestible v2 ledger. |
 | Progress percentages had no declared denominator. | Commit/file counts are not project completion. | Percentages are forbidden unless milestones and their denominator are declared. |
-| Passing a build could be interpreted as production readiness. | Production also requires product, security, compliance, deploy, rollback, and operations evidence. | Added R1-R3 redlines and G1-G7 criterion states at an exact candidate digest. |
+| Passing a build could be interpreted as production readiness. | Production also requires product, security, compliance, deploy, rollback, and operations evidence. | Added R1-R3 redlines and G1-G9 criterion states at an exact candidate digest. |
 | Missing and skipped checks could look successful. | Absence of failure is not evidence of success. | Contracts distinguish `pass`, `fail`, `unknown`, and `not_applicable`. |
 | Evidence was not tied to a revision or time. | Results become stale or cannot be reproduced. | Every producer records full commit SHA, observation time, commands, exit status, and receipts. |
 | The browser would need an unsafe arbitrary `cwd` to call MoonClaw directly. | It creates path-injection and CORS/security problems. | Added an authenticated same-origin endpoint with a fixed project allowlist and server-side path resolution. |
@@ -169,8 +175,9 @@ skills and MoonGate discovery:
 scripts/prepare_moonclaw_engineering_runtime.sh
 ```
 
-This copies only versioned skill definitions and writes a runtime discovery
-receipt under `.moonsuite/`; it does not start services, change providers, log
-in, tag, push, or publish. Start MoonGate and verify its real model route before
-starting MoonClaw. An `authenticated` metadata flag is insufficient if the
-provider returns `token_expired` on an actual request.
+This copies only the active producer and reviewer skills, removes retired
+progress/health producer skills from the generated runtime, and writes a
+runtime discovery receipt under `.moonsuite/`; it does not start services,
+change providers, log in, tag, push, or publish. Start MoonGate and verify its
+real model route before starting MoonClaw. An `authenticated` metadata flag is
+insufficient if the provider returns `token_expired` on an actual request.

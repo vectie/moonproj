@@ -606,7 +606,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           engineering_audit_state: "submitting",
           engineering_audit_id: "",
           engineering_task_id: "",
-          notice: "正在通过 MoonProj 请求 MoonClaw 执行三项工程审计与独立复核。",
+          notice: "正在通过 MoonProj 请求独立的 MoonClaw 生产者与复核者生成一份工程证据。",
         },
       )
     EngineeringAuditSubmitted(audit_id, task_id) =>
@@ -645,7 +645,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else if (state == "running" || state == "awaiting_artifact") &&
-        model.engineering_poll_attempts < 90 {
+        model.engineering_poll_attempts < 600 {
         (
           @cmd.delay(
             poll_engineering_audit(
