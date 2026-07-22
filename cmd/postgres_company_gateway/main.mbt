@@ -1812,7 +1812,7 @@ async fn main {
     None => @env.get_env_var("COMPANY_GATEWAY_PUBLIC_DIR")
   }
   let moonclaw_uri = option(args, "--moonclaw-uri").unwrap_or(
-    @env.get_env_var("MOONCLAW_DAEMON_URI").unwrap_or("http://127.0.0.1:18123"),
+    @env.get_env_var("MOONCLAW_DAEMON_URI").unwrap_or("http://localhost:18123"),
   )
   let moonsuite_workspace_root = option(args, "--moonsuite-workspace-root").unwrap_or(
     @env.get_env_var("MOONSUITE_WORKSPACE_ROOT").unwrap_or(

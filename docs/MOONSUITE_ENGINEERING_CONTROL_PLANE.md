@@ -103,6 +103,8 @@ notarizes. Even when every Gate passes, the result is only
 | The first rendered release dashboard showed `moontown` while its request model still targeted `moonproj`. | Quality had retained a second product selector, so the visible candidate and submitted candidate could diverge. | Removed the separate Quality selection state; both pages now use the single engineering-project identity. |
 | Loading a missing PostgreSQL projection replaced the operator's requested `main` branch with `unknown`. | Starting a first rehearsal would fail candidate validation even though the form had a valid default. | Missing historical metadata no longer overwrites the candidate form; only observed branch identity replaces operator input. |
 | Navigation still advertised the retired seven-Gate policy after the dashboard moved to nine Gates. | Operators could not tell which policy governed the run. | Updated navigation, dashboard copy, controller prompts, and skill metadata to the same G1-G9 vocabulary. |
+| An unauthenticated browser run reported only a generic daemon/gateway failure. | The fail-closed behavior was correct, but the operator could not distinguish missing session identity from unavailable infrastructure. | The dashboard failure copy now names authentication and infrastructure without claiming which one failed. |
+| MoonClaw listened on IPv6 `localhost`, while MoonProj defaulted to IPv4 `127.0.0.1`. | The authenticated self-release request reached MoonProj but could not connect to the running Agent daemon. | Changed the default daemon URI to `http://localhost:18123`, matching MoonClaw's advertised endpoint while retaining environment override support. |
 | The UI showed invented versions, CI results, coverage, grades, and Gate scores. | Demo values looked like company facts and could drive unsafe release decisions. | Removed the values from Moon Suite and production-quality views; unobserved state is now `unknown`. |
 | Progress, health, and production readiness were conflated. | A project can be advanced but unhealthy, or healthy but not production-ready. | Defined three independent schemas, skills, and UI cards. |
 | An Agent could produce and approve the same claim. | Self-review makes model confidence look like verification. | Added an independent-review skill and a different-identity requirement. |
@@ -151,7 +153,7 @@ an envelope that the independent reviewer and PostgreSQL service accept.
 
 ## Runtime configuration
 
-The gateway defaults to MoonClaw at `http://127.0.0.1:18123`. Override with
+The gateway defaults to MoonClaw at `http://localhost:18123`. Override with
 `MOONCLAW_DAEMON_URI`. It resolves repositories relative to the parent of the
 gateway working directory; override with an absolute `MOONSUITE_WORKSPACE_ROOT`.
 The existing PostgreSQL company service remains the business system of record.

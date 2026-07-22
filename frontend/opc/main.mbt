@@ -745,7 +745,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           engineering_audit_state: "failed",
           engineering_audit_id: "",
           engineering_task_id: "",
-          notice: "审计请求失败；未生成任何评分。请确认 MoonClaw daemon 与 MoonProj gateway 已启动。",
+          notice: "候选测试请求失败；未生成任何结论。请确认已登录，并检查 MoonClaw daemon 与 MoonProj gateway。",
         },
       )
     RecordDecision(label) =>
