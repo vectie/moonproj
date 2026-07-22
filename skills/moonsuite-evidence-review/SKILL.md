@@ -32,7 +32,15 @@ The producer and reviewer must be different MoonClaw task IDs, not two role name
 
 ## Output
 
-Write JSON with schema `moonsuite.engineering-evidence.v2`. Preserve the producer draft's candidate identity, redlines, Gates, and findings after correcting rejected claims, then add exactly this review object:
+Write JSON with schema `moonsuite.engineering-evidence.v2`. Preserve the producer draft's candidate identity, redlines, Gates, and findings after correcting rejected claims. Do not preserve the draft-only top-level `producer_agent`; move that identity into `review.producer_agent` only.
+
+Before the atomic move, mechanically assert these exact sorted key sets with `jq`:
+
+- top level: `branch,commit,findings,gates,observed_at,project,redlines,repository,review,schema,tag,version`
+- every redline and Gate: `id,missing,receipts,status,summary`
+- review: `missing_evidence,producer_agent,rejected_claims,reviewer_agent,verified_receipts,verdict`
+
+Unknown or additional keys invalidate the file. Add exactly this review object:
 
 ```json
 "review": {

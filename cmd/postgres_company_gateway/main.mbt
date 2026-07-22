@@ -890,7 +890,12 @@ async fn submit_moonsuite_audit(
       "Your only durable output is " +
       evidence_path +
       ". Write it atomically with shell and jq only after review. It must exactly follow " +
-      "schema='moonsuite.engineering-evidence.v2', preserve R1-R3 and G1-G9 once each, " +
+      "schema='moonsuite.engineering-evidence.v2', preserve R1-R3 and G1-G9 once each, and have " +
+      "exactly these sorted top-level keys: branch,commit,findings,gates,observed_at,project," +
+      "redlines,repository,review,schema,tag,version. Remove the draft-only top-level producer_agent; " +
+      "each redline/Gate must have exactly id,missing,receipts,status,summary and review must have " +
+      "exactly missing_evidence,producer_agent,rejected_claims,reviewer_agent,verified_receipts,verdict. " +
+      "Mechanically assert all exact key sets with jq before the atomic move. Then " +
       "set review.producer_agent='" +
       audit_id +
       ":producer' and review.reviewer_agent='" +
