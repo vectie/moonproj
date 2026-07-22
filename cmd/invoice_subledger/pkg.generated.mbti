@@ -27,3 +27,4 @@ pub(all) suberror InvoiceSubledgerPromotionError {
 // Type aliases
 
 // Traits
+

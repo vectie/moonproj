@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/postgres_company_service"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/persistence/postgres",
+}
+
+// Values
+
+// Errors
+pub(all) suberror CompanyServiceError {
+  InvalidInput(String)
+  CommandRejected(Int, String)
+  Database(@postgres.PostgresError)
+} derive(@debug.Debug)
+
+// Types and methods
+type BudgetSourceRows
+
+type CashflowContext
+
+type CostSourceRows
+
+type DashboardContext
+
+type DynamicSourceRows
+
+type ExpenseSourceRows
+
+type InitiatedItem
+
+type InvestmentExcelSource
+
+type SourceRow
+
+type SupplierRiskMetrics
+
+type WebhookOverdueTicket
+
+type WorkflowSourceRows
+
+type XlsxColumn
+
+type XlsxSheet
+
+type XlsxZipEntry
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,67 @@
+{
+  "identifier": "dev.vectie.moonproj",
+  "productName": "MoonProj",
+  "version": "0.1.0-preview.1",
+  "icon": "assets/moonproj.icns",
+  "signing": {
+    "identity": "-"
+  },
+  "runtime": {
+    "backend": "system-webview",
+    "assetProtocol": "lepusa",
+    "devtools": false
+  },
+  "bundleResources": [
+    {
+      "source": "dist/opc",
+      "path": "public"
+    },
+    {
+      "source": "_build/native/release/build/cmd/postgres_company_service/postgres_company_service.exe",
+      "path": "moonproj-company-service",
+      "executable": true
+    },
+    {
+      "source": "_build/native/release/build/cmd/postgres_company_gateway/postgres_company_gateway.exe",
+      "path": "moonproj-company-gateway",
+      "executable": true
+    },
+    {
+      "source": "scripts/moonproj_desktop_service.sh",
+      "path": "moonproj-desktop-service",
+      "executable": true
+    }
+  ],
+  "window": {
+    "label": "main",
+    "title": "MoonProj",
+    "width": 1280,
+    "height": 820,
+    "resizable": true,
+    "source": {
+      "localhost": {
+        "port": 4173,
+        "path": "/",
+        "readinessPath": "/health",
+        "command": [
+          "moonproj-desktop-service"
+        ]
+      }
+    }
+  },
+  "plugins": [
+    { "name": "localhost" },
+    { "name": "serviceDiscovery" },
+    { "name": "opener" }
+  ],
+  "capabilities": [
+    {
+      "name": "main",
+      "windows": ["main"],
+      "permissions": ["localhost", "service-discovery", "opener"]
+    }
+  ],
+  "startup": {
+    "effect": "connect-moonproj"
+  }
+}

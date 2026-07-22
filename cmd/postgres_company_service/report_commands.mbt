@@ -602,7 +602,7 @@ async fn report_template_list_response() -> Json raise CompanyServiceError {
 }
 
 ///|
-async fn report_template_metadata_response_native() -> Json raise CompanyServiceError {
+fn report_template_metadata_response_native() -> Json {
   Json::object({
     "success": Json::boolean(true),
     "code": Json::number(0),

@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/postgres_read_model_server"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/persistence/postgres",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PostgresReadModelServerError {
+  InvalidInput(String)
+  Database(@postgres.PostgresError)
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

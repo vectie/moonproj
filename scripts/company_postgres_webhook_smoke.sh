@@ -20,7 +20,7 @@ SCAN_EVENT_ID="webhook:scan_overdue:$SCAN_KEY"
 
 psql() {
   PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
-    PGPASSWORD=${PGPASSWORD:-520825} "$PSQL_BIN" "$@"
+    PGPASSWORD=${PGPASSWORD:?PGPASSWORD is required} "$PSQL_BIN" "$@"
 }
 
 cleanup() {
@@ -33,7 +33,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" \
-  PGPASSWORD=${PGPASSWORD:-520825} PSQL_BIN="$PSQL_BIN" \
+  PGPASSWORD=${PGPASSWORD:?PGPASSWORD is required} PSQL_BIN="$PSQL_BIN" \
   MOONPROJ_SERVICE_TOKEN="$TOKEN" MOONPROJ_ACTOR_SIGNING_SECRET="$SECRET" \
   "$ROOT/scripts/company_postgres_service.sh" --port "$PORT" --database "$DATABASE" --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
 PID=$!

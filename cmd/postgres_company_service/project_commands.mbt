@@ -263,7 +263,7 @@ fn project_source_delete_request(
   project_id : String,
   body : Json,
   actor_id : String,
-) -> Json raise CompanyServiceError {
+) -> Json {
   let reason = json_text(body, "reason", "").trim().to_owned()
   Json::object({
     "command_type": Json::string("delete"),

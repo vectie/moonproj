@@ -19517,11 +19517,11 @@ async fn main {
       @socket.Addr::parse("127.0.0.1:4174")
     }
   }
-  let server = @http.Server::new(address, reuse_addr=true) catch {
+  let server = @http.Server(address, reuse_addr=true) catch {
     _ => {
       println("cannot start company native service")
       @sys.exit(1)
-      @http.Server::new(@socket.Addr::parse("127.0.0.1:4174"), reuse_addr=true) catch {
+      @http.Server(@socket.Addr::parse("127.0.0.1:4174"), reuse_addr=true) catch {
         _ => panic()
       }
     }

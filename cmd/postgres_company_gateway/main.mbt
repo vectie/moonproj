@@ -703,7 +703,7 @@ async fn proxy_request(
   idempotency_key : String?,
 ) -> ProxyResult raise GatewayError {
   try {
-    let client = @http.Client::new(service_uri)
+    let client = @http.Client(service_uri)
     let extra_headers : Map[String, String] = {
       "Authorization": "Bearer " + service_token,
       "X-Forwarded-Proto": "https",
@@ -947,7 +947,7 @@ async fn start_moonclaw_audit_task(
     "web_search": Json::boolean(false),
   }).stringify()
   try {
-    let client = @http.Client::new(moonclaw_uri)
+    let client = @http.Client(moonclaw_uri)
     client.request(@http.Post, "/v1/task", extra_headers={
       "Content-Type": "application/json; charset=utf-8",
     })
@@ -998,7 +998,7 @@ async fn poll_moonsuite_audit(
     raise fail("invalid engineering audit polling identifiers")
   }
   let task_payload = try {
-    let client = @http.Client::new(moonclaw_uri)
+    let client = @http.Client(moonclaw_uri)
     client.request(@http.Get, "/v1/task/" + task_id)
     let response = client.end_request()
     let bytes = client.read_all().binary()
@@ -1171,6 +1171,7 @@ async fn send_bytes(
   conn : @http.ServerConnection,
   request_method : @http.RequestMethod,
   result : ProxyResult,
+  extra_headers? : Map[String, String] = {},
 ) -> Unit {
   let headers : Map[String, String] = {
     "Content-Type": result.content_type,
@@ -1179,6 +1180,9 @@ async fn send_bytes(
   match result.www_authenticate {
     Some(value) => headers["WWW-Authenticate"] = value
     None => ()
+  }
+  for key, value in extra_headers {
+    headers[key] = value
   }
   conn.send_response(
     result.status,
@@ -1251,6 +1255,7 @@ async fn serve_static(
   path : String,
   request_method : @http.RequestMethod,
   conn : @http.ServerConnection,
+  extra_headers? : Map[String, String] = {},
 ) -> Unit {
   let file_path : String? = match public_dir {
     None => None
@@ -1299,7 +1304,7 @@ async fn serve_static(
         body,
         www_authenticate: None,
       }
-      send_bytes(conn, request_method, result)
+      send_bytes(conn, request_method, result, extra_headers~)
     }
   }
 }
@@ -1319,6 +1324,7 @@ async fn handle(
   dev_password : String,
   actor_id : String,
   trusted_identity_secret : String?,
+  desktop_actor : String?,
   public_dir : String?,
   sessions : Map[String, String],
   sequence : Ref[Int],
@@ -1334,6 +1340,34 @@ async fn handle(
       ", " +
       TRUSTED_IDENTITY_SIGNATURE_HEADER,
     })
+    return
+  }
+  if path == "/health" &&
+    (request.meth is @http.Get || request.meth is @http.Head) {
+    let health_request : @http.Request = {
+      meth: request.meth,
+      path: "/api/health",
+      headers: request.headers,
+    }
+    let result = proxy_request(
+      service_uri,
+      service_token,
+      actor_signing_secret,
+      request.meth,
+      health_request.path,
+      health_request,
+      b"",
+      None,
+    ) catch {
+      _ =>
+        {
+          status: 503,
+          content_type: "application/json; charset=utf-8",
+          body: b"{\"ok\":false,\"error\":\"company service unavailable\"}",
+          www_authenticate: None,
+        }
+    }
+    send_bytes(conn, request.meth, result)
     return
   }
   if path == "/api/session" && request.meth is @http.Get {
@@ -1785,7 +1819,33 @@ async fn handle(
     return
   }
   if request.meth is @http.Get || request.meth is @http.Head {
-    serve_static(public_dir, request.path, request.meth, conn)
+    let static_headers : Map[String, String] = {}
+    match desktop_actor {
+      Some(actor) if path == "/" || path == "/index.html" => {
+        let authenticated = match
+          cookie_value(header(request, "Cookie"), SESSION_COOKIE) {
+          Some(cookie) => sessions.get(cookie) is Some(_)
+          None => false
+        }
+        if !authenticated {
+          let token = session_token(session_secret, actor, sequence.val)
+          sequence.val += 1
+          sessions[token] = actor
+          static_headers["Set-Cookie"] = SESSION_COOKIE +
+            "=" +
+            token +
+            "; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800"
+        }
+      }
+      _ => ()
+    }
+    serve_static(
+      public_dir,
+      request.path,
+      request.meth,
+      conn,
+      extra_headers=static_headers,
+    )
   } else {
     send_json(
       conn,
@@ -1899,6 +1959,20 @@ async fn main {
       },
     ),
   )
+  let desktop_actor = match @env.get_env_var("MOONPROJ_DESKTOP_ACTOR") {
+    Some(value) if !value.is_empty() => {
+      if !valid_identifier(value) {
+        println("desktop actor contains unsupported characters")
+        @sys.exit(2)
+      }
+      if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+        println("desktop session bootstrap requires a loopback gateway")
+        @sys.exit(2)
+      }
+      Some(value)
+    }
+    _ => None
+  }
   let address = @socket.Addr::parse(host + ":" + port) catch {
     _ => {
       println("invalid gateway listen address")
@@ -1906,11 +1980,11 @@ async fn main {
       @socket.Addr::parse("127.0.0.1:4173")
     }
   }
-  let server = @http.Server::new(address, reuse_addr=true) catch {
+  let server = @http.Server(address, reuse_addr=true) catch {
     _ => {
       println("cannot start native company gateway")
       @sys.exit(1)
-      @http.Server::new(@socket.Addr::parse("127.0.0.1:4173"), reuse_addr=true) catch {
+      @http.Server(@socket.Addr::parse("127.0.0.1:4173"), reuse_addr=true) catch {
         _ => panic()
       }
     }
@@ -1924,7 +1998,7 @@ async fn main {
       handle(
         request, body, conn, service_uri, moonclaw_uri, moonsuite_workspace_root,
         service_token, actor_signing_secret, session_secret, dev_user, dev_password,
-        actor_id, trusted_identity_secret, public_dir, sessions, sequence,
+        actor_id, trusted_identity_secret, desktop_actor, public_dir, sessions, sequence,
       )
     },
     allow_failure=true,

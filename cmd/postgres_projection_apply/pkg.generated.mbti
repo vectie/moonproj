@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/postgres_projection_apply"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/persistence/postgres",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PostgresProjectionApplyError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+  Database(@postgres.PostgresError)
+} derive(@debug.Debug)
+
+// Types and methods
+type ProjectionItem
+
+type ProjectionReceipt
+
+// Type aliases
+
+// Traits
+

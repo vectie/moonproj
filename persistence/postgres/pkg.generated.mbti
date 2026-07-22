@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/persistence/postgres"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn connection_from_env() -> Connection
+
+pub async fn run_file(Connection, String) -> String raise PostgresError
+
+pub async fn run_sql(Connection, String) -> String raise PostgresError
+
+pub fn sql_literal(String) -> String
+
+// Errors
+pub(all) suberror PostgresError {
+  Process(String)
+  Failed(String)
+} derive(@debug.Debug)
+
+// Types and methods
+pub(all) struct Connection {
+  psql : String
+  host : String
+  port : String
+  user : String
+  database : String
+}
+pub fn Connection::with_overrides(Self, psql~ : String?, host~ : String?, port~ : String?, user~ : String?, database~ : String?) -> Self
+
+// Type aliases
+
+// Traits
+

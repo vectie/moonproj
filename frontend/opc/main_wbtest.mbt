@@ -1,9 +1,10 @@
 ///|
 test "basic OPC navigation is industry-neutral and complete" {
   let items = nav_items()
-  assert_eq(items.length(), 10)
+  assert_eq(items.length(), 11)
   assert_eq(page_path(Overview), "/")
   assert_eq(page_path(Evidence), "/evidence")
+  assert_eq(page_path(Guide), "/guide")
   for item in items {
     assert_true(!item.label.contains("地产"))
     assert_true(!item.label.contains("项目全周期"))
@@ -28,6 +29,9 @@ test "decision-first navigation covers command execute delivery assurance and go
   assert_true(
     items.any(fn(item) { item.group == "治理" && item.page == Evidence }),
   )
+  assert_true(
+    items.any(fn(item) { item.group == "帮助" && item.page == Guide }),
+  )
 }
 
 ///|
@@ -47,6 +51,8 @@ test "release dashboard starts from one unknown nine-gate ledger" {
     model.engineering_gate_states.all(fn(state) { state == "unknown" }),
   )
   assert_eq(model.engineering_branch, "main")
+  assert_eq(model.engineering_version, "0.1.0-preview.1")
+  assert_eq(model.engineering_tag, "v0.1.0-preview.1")
   assert_eq(model.engineering_review, "needs_evidence")
 }
 

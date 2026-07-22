@@ -160,6 +160,16 @@ test "native gateway parses session cookies and query keys" {
 }
 
 ///|
+test "desktop session cookie remains scoped to the localhost app" {
+  let token = session_token("desktop-secret", "desktop-owner", 0)
+  assert_true(!token.is_empty())
+  assert_true(valid_identifier("desktop-owner"))
+  assert_false(valid_identifier("desktop/owner"))
+  assert_true(static_relative_path("/") is Some("index.html"))
+  assert_true(static_relative_path("/quality") is Some("index.html"))
+}
+
+///|
 test "engineering audits only resolve registered Moon Suite repositories" {
   assert_true(
     moonsuite_project_path("/workspace", "moonproj")

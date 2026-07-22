@@ -15,6 +15,10 @@ default product.
 
 ## Documentation
 
+- [Desktop UI guide](docs/UI_GUIDE.md) — every Basic OPC page, the unified
+  nine-Gate release model, PostgreSQL boundary, and LEPUSA preview recovery.
+- [0.1.0 preview release notes](docs/releases/v0.1.0-preview.1.md) — packaged
+  features, verification evidence, prerequisites, and signing limitations.
 - [Moon Suite engineering control plane](docs/MOONSUITE_ENGINEERING_CONTROL_PLANE.md)
   — the three evidence views, project registry, MoonClaw skills and controller,
   independent review rule, UI workflow, problem ledger, and remaining connector

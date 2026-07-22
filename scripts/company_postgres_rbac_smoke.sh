@@ -11,7 +11,7 @@ PSQL_BIN=${PSQL_BIN:-/Library/PostgreSQL/18/bin/psql}
 PGHOST=${PGHOST:-/tmp}
 PGPORT=${PGPORT:-5432}
 PGUSER=${PGUSER:-moonproj}
-PGPASSWORD=${PGPASSWORD:-520825}
+PGPASSWORD=${PGPASSWORD:?PGPASSWORD is required}
 export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-rbac.XXXXXX")
 SERVICE_PID=""

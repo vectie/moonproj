@@ -108,3 +108,4 @@ pub fn CostSubjectLink::append_projection(Self, @store.AggregateProjection) -> @
 // Type aliases
 
 // Traits
+

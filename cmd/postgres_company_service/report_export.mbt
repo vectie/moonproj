@@ -488,7 +488,7 @@ fn xlsx_workbook_rels_xml(sheet_count : Int) -> String {
 }
 
 ///|
-async fn xlsx_export(body : Json) -> (String, Bytes) raise CompanyServiceError {
+fn xlsx_export(body : Json) -> (String, Bytes) raise CompanyServiceError {
   let sheets = xlsx_json_array(body, "sheets")
   if sheets.is_empty() {
     raise reject(422, "sheets must not be empty")

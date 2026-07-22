@@ -10,7 +10,7 @@ TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-investment-actual.XXXXXX"
 PID=""
 
 psql() {
-  PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" PGPASSWORD=${PGPASSWORD:-520825} "$PSQL_BIN" "$@"
+  PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" PGPASSWORD=${PGPASSWORD:?PGPASSWORD is required} "$PSQL_BIN" "$@"
 }
 
 cleanup() {
@@ -47,7 +47,7 @@ INSERT INTO company_record(record_type, record_id, schema_version, payload, sour
 ('legacy/raw/vcb_loan_simple','actual-smoke-loan',1,'{"loan_id":"actual-smoke-loan","proj_guid":"actual-smoke-project","loan_code":"SM-LOAN","subject":"Smoke loan","loan_amount":2000000,"remain_amount":1000000}'::jsonb,'investment-actual-smoke:loan');
 SQL
 
-PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" PGPASSWORD=${PGPASSWORD:-520825} MOONPROJ_SERVICE_TOKEN="$TOKEN" PSQL_BIN="$PSQL_BIN" "$ROOT/scripts/company_postgres_service.sh" --port "$PORT" --database "$DATABASE" --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
+PGHOST=${PGHOST:-localhost} PGUSER=${PGUSER:-postgres} PGDATABASE="$DATABASE" PGPASSWORD=${PGPASSWORD:?PGPASSWORD is required} MOONPROJ_SERVICE_TOKEN="$TOKEN" PSQL_BIN="$PSQL_BIN" "$ROOT/scripts/company_postgres_service.sh" --port "$PORT" --database "$DATABASE" --require-forwarded-tls >"$TMP_DIR/service.log" 2>&1 &
 PID=$!
 ready=0
 for i in $(seq 1 30); do

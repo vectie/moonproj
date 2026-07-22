@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/postgres_accounting_reconciliation"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/persistence/postgres",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PostgresAccountingReconciliationError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+  Database(@postgres.PostgresError)
+} derive(@debug.Debug)
+
+// Types and methods
+type DomainItem
+
+type LinkItem
+
+type PlanItem
+
+type Receipt
+
+// Type aliases
+
+// Traits
+

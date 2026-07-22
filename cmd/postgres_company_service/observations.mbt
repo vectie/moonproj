@@ -1620,7 +1620,7 @@ async fn admin_ocr_response() -> Json raise CompanyServiceError {
   ) -> Unit {
     let key_status : Map[String, Json] = {}
     for key in keys {
-      let configured = params.get(key).is_some() &&
+      let configured = params.get(key) is Some(_) &&
         !params.get_or_default(key, "").is_empty()
       key_status.set(
         key,
@@ -2754,7 +2754,7 @@ async fn rbac_role_detail_response(
 }
 
 ///|
-async fn rbac_permission_catalog_response() -> Json raise CompanyServiceError {
+fn rbac_permission_catalog_response() -> Json {
   let modules : Array[Json] = [
     Json::object({
       "module": Json::string("驾驶舱"),
@@ -2930,12 +2930,12 @@ async fn report_templates_response() -> Json raise CompanyServiceError {
 }
 
 ///|
-async fn report_templates_meta_response() -> Json raise CompanyServiceError {
+fn report_templates_meta_response() -> Json {
   report_template_metadata_response_native()
 }
 
 ///|
-async fn report_template_run_response() -> (Int, Json) raise CompanyServiceError {
+fn report_template_run_response() -> (Int, Json) {
   (
     501,
     Json::object({

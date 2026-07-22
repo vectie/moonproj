@@ -19,7 +19,7 @@ fn admin_sys_param_command_spec(
 }
 
 ///|
-fn admin_sys_param_value(body : Json) -> String raise CompanyServiceError {
+fn admin_sys_param_value(body : Json) -> String {
   match json_field(body, "value") {
     Some(String(value)) => value
     Some(Null) | None => ""

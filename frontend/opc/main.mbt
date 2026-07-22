@@ -9,6 +9,7 @@ using @html {
   h2,
   h3,
   header,
+  img,
   input,
   label,
   li,
@@ -43,6 +44,7 @@ enum Page {
   Operate
   Company
   Evidence
+  Guide
   Market
   Delivery
   Commerce
@@ -202,8 +204,8 @@ fn initial_model() -> Model {
     engineering_audit_id: "",
     engineering_task_id: "",
     engineering_branch: "main",
-    engineering_version: "0.1.0",
-    engineering_tag: "v0.1.0-rehearsal",
+    engineering_version: "0.1.0-preview.1",
+    engineering_tag: "v0.1.0-preview.1",
     engineering_commit: "unknown",
     engineering_repository: "unknown",
     engineering_review: "needs_evidence",
@@ -329,6 +331,13 @@ fn nav_items() -> Array[NavItem] {
       short_label: "证",
       description: "授权、拦截与责任链",
     },
+    {
+      page: Guide,
+      group: "帮助",
+      label: "使用指南",
+      short_label: "指",
+      description: "页面、证据与桌面运行方式",
+    },
   ]
 }
 
@@ -345,6 +354,7 @@ fn page_path(page : Page) -> String {
     Operate => "/operate"
     Company => "/company"
     Evidence => "/evidence"
+    Guide => "/guide"
     Market => "/market"
     Delivery => "/delivery"
     Commerce => "/commerce"
@@ -367,6 +377,7 @@ fn page_title(page : Page) -> String {
     Operate => "运维环"
     Company => "公司域"
     Evidence => "证据与审计"
+    Guide => "使用指南"
     Market => "市场与客户"
     Delivery => "工作与交付"
     Commerce => "商务与交换"
@@ -389,6 +400,7 @@ fn page_question(page : Page) -> String {
     Operate => "出事了吗，处置经验沉淀了吗？"
     Company => "公司还能活多久，承诺与义务是否受控？"
     Evidence => "Agent 做了什么，依据、授权和结果在哪里？"
+    Guide => "第一次使用 MoonProj，应该从哪里开始？"
     Market => "哪一个客户问题值得公司解决并获得回报？"
     Delivery => "公司承诺的结果如何被稳定交付和验收？"
     Commerce =>
@@ -1230,7 +1242,7 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   }
   div(class=if model.mobile_nav { "sidebar is-open" } else { "sidebar" }) <| [
     div(class="brand") <| [
-      span(class="brand-mark", "M"),
+      img(class="brand-mark", src="/moonproj.svg", alt="MoonProj"),
       div(class="brand-copy") <| [
         strong("MoonProj"),
         small("Basic OPC"),
@@ -1432,7 +1444,7 @@ fn empty_table(
 }
 
 ///|
-fn overview_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+fn _overview_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
     page_intro(
       Overview,
@@ -1761,7 +1773,7 @@ fn company_form(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn company_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+fn _company_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
     page_intro(
       Company,
@@ -3072,6 +3084,7 @@ fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     Operate => operate_view(emit, model)
     Company => company_domain_view(emit, model)
     Evidence => evidence_view(emit, model)
+    Guide => guide_view(emit, model)
     Market => market_view(emit, model)
     Delivery => delivery_view(emit, model)
     Commerce => commerce_view(emit, model)

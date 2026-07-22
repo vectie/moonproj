@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/postgres_exact_projection_parity"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/persistence/postgres",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PostgresExactProjectionParityError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+  Database(@postgres.PostgresError)
+} derive(@debug.Debug)
+
+// Types and methods
+type Actual
+
+type Expected
+
+type Key
+
+type Receipt
+
+// Type aliases
+
+// Traits
+

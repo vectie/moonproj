@@ -1473,7 +1473,7 @@ async fn warning_ticket_command(
 
 ///|
 async fn warning_empty_response(
-  table : String,
+  _table : String,
 ) -> Json raise CompanyServiceError {
   let rows = warning_context()
   warning_envelope(Json::array([]), warning_coverage(rows), 0)

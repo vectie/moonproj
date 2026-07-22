@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/cmd/postgres_target_apply"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "vectie/moonproj/persistence/postgres",
+}
+
+// Values
+
+// Errors
+pub(all) suberror PostgresTargetApplyError {
+  InvalidInput(String)
+  Io(@fs.IOError)
+  Database(@postgres.PostgresError)
+} derive(@debug.Debug)
+
+// Types and methods
+type RawRecord
+
+type Stage
+
+// Type aliases
+
+// Traits
+

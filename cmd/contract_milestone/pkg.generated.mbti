@@ -27,3 +27,4 @@ pub(all) suberror ContractMilestoneCohortError {
 // Type aliases
 
 // Traits
+

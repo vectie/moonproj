@@ -483,7 +483,7 @@ async fn main {
     @sys.exit(2)
   }
   let receipt = load_receipt(args[1]) catch {
-    error => {
+    _ => {
       println(
         "company PostgreSQL exact projection parity failed: \\{to_repr(error)}",
       )
@@ -499,7 +499,7 @@ async fn main {
     database=Some(option(args, "--database").unwrap_or("moonproj")),
   )
   let report = compare(receipt, connection) catch {
-    error => {
+    _ => {
       println(
         "company PostgreSQL exact projection parity failed: \\{to_repr(error)}",
       )
@@ -508,7 +508,7 @@ async fn main {
     }
   }
   @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
-    error => {
+    _ => {
       println(
         "company PostgreSQL exact projection parity failed: \\{to_repr(error)}",
       )

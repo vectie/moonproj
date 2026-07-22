@@ -340,11 +340,11 @@ async fn main {
       @socket.Addr::parse("127.0.0.1:4173")
     }
   }
-  let server = @http.Server::new(address, reuse_addr=true) catch {
+  let server = @http.Server(address, reuse_addr=true) catch {
     _ => {
       println("cannot start read-model server")
       @sys.exit(1)
-      @http.Server::new(@socket.Addr::parse("127.0.0.1:4173"), reuse_addr=true) catch {
+      @http.Server(@socket.Addr::parse("127.0.0.1:4173"), reuse_addr=true) catch {
         _ => panic()
       }
     }

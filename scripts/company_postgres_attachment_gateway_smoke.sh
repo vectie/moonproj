@@ -12,7 +12,7 @@ PASSWORD=${MOONPROJ_DEV_PASSWORD:-attachment-gateway-password}
 PGHOST=${PGHOST:-/tmp}
 PGPORT=${PGPORT:-5432}
 PGUSER=${PGUSER:-moonproj}
-PGPASSWORD=${PGPASSWORD:-520825}
+PGPASSWORD=${PGPASSWORD:?PGPASSWORD is required}
 export PGHOST PGPORT PGUSER PGPASSWORD
 TMP_DIR=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/moonproj-attachment-gateway.XXXXXX")
 SERVICE_PID=""
