@@ -804,6 +804,17 @@ async fn submit_moonsuite_audit(
   if !control_workspace_exists {
     raise fail("MoonProj control workspace does not contain moonclaw.jobs.json")
   }
+  let reviewer_workspace = control_workspace + "/.moonsuite/reviewer-workspace"
+  let reviewer_workspace_exists = @fs.exists(
+    reviewer_workspace + "/.moonsuite/suite-status.json",
+  ) catch {
+    _ => false
+  }
+  if !reviewer_workspace_exists {
+    raise fail(
+      "MoonClaw reviewer workspace is not prepared; run scripts/prepare_moonclaw_engineering_runtime.sh",
+    )
+  }
   let audit_id = "audit-" +
     project +
     "-" +
@@ -816,6 +827,8 @@ async fn submit_moonsuite_audit(
   let evidence_relative_path = "engineering/evidence/inbox/" +
     audit_id +
     ".json"
+  let draft_path = control_workspace + "/" + draft_relative_path
+  let evidence_path = control_workspace + "/" + evidence_relative_path
   let release_handover = workspace_root +
     "/moongate/docs/LEPUSA_APP_RELEASE_HANDOVER.md"
   let common_constraints = "Use pure MoonBit plus shell tooling only: never invoke python or python3. " +
@@ -861,7 +874,7 @@ async fn submit_moonsuite_audit(
     let reviewer_prompt = "moonsuite independent engineering evidence reviewer. You are a separate MoonClaw task from producer task '" +
       producer_task_id +
       "'. Wait up to 15 minutes for " +
-      draft_relative_path +
+      draft_path +
       ", then use $moonsuite-evidence-review to verify that draft against project '" +
       project +
       "' at " +
@@ -875,7 +888,7 @@ async fn submit_moonsuite_audit(
       "'. Rerun a bounded risk-weighted sample in a separate ephemeral tree. " +
       common_constraints +
       "Your only durable output is " +
-      evidence_relative_path +
+      evidence_path +
       ". Write it atomically with shell and jq only after review. It must exactly follow " +
       "schema='moonsuite.engineering-evidence.v2', preserve R1-R3 and G1-G9 once each, " +
       "set review.producer_agent='" +
@@ -888,7 +901,7 @@ async fn submit_moonsuite_audit(
       "draft, or other MoonProj files. Do not tag, push, publish, sign, or notarize."
     let reviewer_task_id = start_moonclaw_audit_task(
       moonclaw_uri,
-      control_workspace,
+      reviewer_workspace,
       "MoonProj evidence reviewer: " + project + " " + tag,
       reviewer_prompt,
     )

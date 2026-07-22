@@ -2,21 +2,24 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-SKILL_TARGET="$ROOT/.moonsuite/products/moonclaw/skills"
+REVIEWER_WORKSPACE="$ROOT/.moonsuite/reviewer-workspace"
 MOONGATE_BIN=${MOONGATE_BIN:-"$ROOT/../moongate/_build/native/release/build/cmd/main/main.exe"}
 MOONGATE_HOST=${MOONGATE_HOST:-127.0.0.1}
 MOONGATE_PORT=${MOONGATE_PORT:-15721}
 MOONGATE_MODEL=${MOONGATE_MODEL:-gpt-5.6-sol}
 
-mkdir -p "$SKILL_TARGET"
-rm -rf \
-  "$SKILL_TARGET/moonsuite-progress-audit" \
-  "$SKILL_TARGET/moonsuite-health-audit"
-for skill in moonsuite-production-gate moonsuite-evidence-review; do
-  source="$ROOT/skills/$skill"
-  target="$SKILL_TARGET/${source##*/}"
-  mkdir -p "$target"
-  cp -R "$source/." "$target/"
+for workspace in "$ROOT" "$REVIEWER_WORKSPACE"; do
+  skill_target="$workspace/.moonsuite/products/moonclaw/skills"
+  mkdir -p "$skill_target"
+  rm -rf \
+    "$skill_target/moonsuite-progress-audit" \
+    "$skill_target/moonsuite-health-audit"
+  for skill in moonsuite-production-gate moonsuite-evidence-review; do
+    source="$ROOT/skills/$skill"
+    target="$skill_target/${source##*/}"
+    mkdir -p "$target"
+    cp -R "$source/." "$target/"
+  done
 done
 
 if test ! -x "$MOONGATE_BIN"; then
@@ -28,6 +31,13 @@ fi
 mkdir -p "$ROOT/.moonsuite"
 "$MOONGATE_BIN" suite write-status \
   --path "$ROOT/.moonsuite/suite-status.json" \
+  --host "$MOONGATE_HOST" \
+  --port "$MOONGATE_PORT" \
+  --model "$MOONGATE_MODEL"
+
+mkdir -p "$REVIEWER_WORKSPACE/.moonsuite"
+"$MOONGATE_BIN" suite write-status \
+  --path "$REVIEWER_WORKSPACE/.moonsuite/suite-status.json" \
   --host "$MOONGATE_HOST" \
   --port "$MOONGATE_PORT" \
   --model "$MOONGATE_MODEL"

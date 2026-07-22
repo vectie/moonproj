@@ -109,7 +109,8 @@ notarizes. Even when every Gate passes, the result is only
 | The first successful Agent task loaded only MoonClaw's system skill; repository `skills/` were not runtime-discoverable. | The prompt named the unified evidence and reviewer skills, but MoonClaw could not execute contracts it had not loaded. | Added `scripts/prepare_moonclaw_engineering_runtime.sh` to install all MoonProj engineering skills into the documented project-local MoonClaw directory. |
 | MoonGate wrote suite status at the suite root while MoonClaw resolves model discovery from the task working directory. | A live MoonGate service was still invisible to a task started in MoonProj. | The preparation script writes a project-local `.moonsuite/suite-status.json` that points to the live MoonGate catalog. |
 | The first self-release attempt reached MoonGate but loaded its older July 16 credential instead of Codex's refreshed July 19 credential. | MoonGate status reported a cached account as authenticated while real inference returned `401 token_expired`. | Preserved the old private cache, re-imported the current Codex credential, and verified the real OpenClaw model route with HTTP 200 before restarting the rehearsal. |
-| One MoonClaw task was asked to invent separate producer and reviewer identities. | Different strings inside one conversation are self-review, not independent verification. | MoonProj now launches two distinct MoonClaw tasks: the producer writes a draft, and the reviewer alone writes the ingestible v2 ledger after citing the producer task id and rerunning a bounded sample. |
+| One MoonClaw task was asked to invent separate producer and reviewer identities. | Different strings inside one conversation are self-review, not independent verification. | MoonProj now launches two distinct MoonClaw tasks in separate generated control workspaces: the producer writes a draft, and the reviewer alone writes the ingestible v2 ledger after citing the producer task id and rerunning a bounded sample. |
+| MoonClaw rejected the first separate reviewer task because producer and reviewer shared one `cwd`. | MoonClaw permits only one running task per working directory, so the producer was live but no reviewer existed. | Runtime preparation now creates an ignored reviewer control workspace with its own copies of the two active skills and MoonGate discovery; the reviewer receives absolute draft/final paths but cannot collide with the producer task. |
 | The first producer used an unbounded file-search tool and returned about 7.8 MB. | MoonClaw spent minutes at full CPU tokenizing a 24 MB conversation, delaying review and making receipts hard to audit. | Both skills and server prompts prohibit unbounded search and cap every command output and receipt at 64 KiB, preferring counts, selected paths, exit codes, and digests. |
 | The first evidence writer invoked Python and its initial atomic write failed because it opened a `mktemp` file with exclusive-create mode. | Python violated the project's pure MoonBit-plus-shell boundary, and a successful retry would have given unacceptable provenance even if the JSON content was accurate. | The artifact was never ingested, was preserved as a rejected rehearsal artifact, and both producer/reviewer contracts now require shell plus `jq` and a same-directory atomic `mv`; Python is explicitly forbidden. |
 | A corrective message queued while MoonClaw was generating remained queued after the task became idle. | The same task did not automatically start another turn, so a UI could show idle while a release-control correction remained unapplied. | MoonProj no longer relies on mid-task identity correction: immutable no-Python, bounded-output, Gate-order, and task-separation constraints are present in each task's initial prompt. |
@@ -176,8 +177,9 @@ scripts/prepare_moonclaw_engineering_runtime.sh
 ```
 
 This copies only the active producer and reviewer skills, removes retired
-progress/health producer skills from the generated runtime, and writes a
-runtime discovery receipt under `.moonsuite/`; it does not start services,
-change providers, log in, tag, push, or publish. Start MoonGate and verify its
-real model route before starting MoonClaw. An `authenticated` metadata flag is
-insufficient if the provider returns `token_expired` on an actual request.
+progress/health producer skills from the generated runtime, creates an ignored
+reviewer control workspace, and writes MoonGate discovery into both task
+workspaces under `.moonsuite/`; it does not start services, change providers,
+log in, tag, push, or publish. Start MoonGate and verify its real model route
+before starting MoonClaw. An `authenticated` metadata flag is insufficient if
+the provider returns `token_expired` on an actual request.
