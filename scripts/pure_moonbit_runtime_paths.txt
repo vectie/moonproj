@@ -22,6 +22,7 @@ scripts/company_postgres_project_plan_smoke.sh
 scripts/company_postgres_loan_smoke.sh
 scripts/company_postgres_fund_smoke.sh
 scripts/company_postgres_gateway.sh
+scripts/prepare_moonclaw_engineering_runtime.sh
 scripts/company_postgres_gateway_smoke.sh
 scripts/company_postgres_report_export_smoke.sh
 scripts/company_postgres_report_export_gateway_smoke.sh

@@ -105,6 +105,9 @@ notarizes. Even when every Gate passes, the result is only
 | Navigation still advertised the retired seven-Gate policy after the dashboard moved to nine Gates. | Operators could not tell which policy governed the run. | Updated navigation, dashboard copy, controller prompts, and skill metadata to the same G1-G9 vocabulary. |
 | An unauthenticated browser run reported only a generic daemon/gateway failure. | The fail-closed behavior was correct, but the operator could not distinguish missing session identity from unavailable infrastructure. | The dashboard failure copy now names authentication and infrastructure without claiming which one failed. |
 | MoonClaw listened on IPv6 `localhost`, while MoonProj defaulted to IPv4 `127.0.0.1`. | The authenticated self-release request reached MoonProj but could not connect to the running Agent daemon. | Changed the default daemon URI to `http://localhost:18123`, matching MoonClaw's advertised endpoint while retaining environment override support. |
+| The first successful Agent task loaded only MoonClaw's system skill; repository `skills/` were not runtime-discoverable. | The prompt named the unified evidence and reviewer skills, but MoonClaw could not execute contracts it had not loaded. | Added `scripts/prepare_moonclaw_engineering_runtime.sh` to install all MoonProj engineering skills into the documented project-local MoonClaw directory. |
+| MoonGate wrote suite status at the suite root while MoonClaw resolves model discovery from the task working directory. | A live MoonGate service was still invisible to a task started in MoonProj. | The preparation script writes a project-local `.moonsuite/suite-status.json` that points to the live MoonGate catalog. |
+| The final self-release attempt reached the MoonGate model route but received `401 token_expired`. | No Agent reasoning or independent review could occur, so accepting a Gate artifact would be fabricated. | MoonProj retained `unknown`/locked state and persisted no audit. A fresh MoonGate Codex OAuth login is required before retrying the same candidate. |
 | The UI showed invented versions, CI results, coverage, grades, and Gate scores. | Demo values looked like company facts and could drive unsafe release decisions. | Removed the values from Moon Suite and production-quality views; unobserved state is now `unknown`. |
 | Progress, health, and production readiness were conflated. | A project can be advanced but unhealthy, or healthy but not production-ready. | Defined three independent schemas, skills, and UI cards. |
 | An Agent could produce and approve the same claim. | Self-review makes model confidence look like verification. | Added an independent-review skill and a different-identity requirement. |
@@ -158,3 +161,16 @@ The gateway defaults to MoonClaw at `http://localhost:18123`. Override with
 gateway working directory; override with an absolute `MOONSUITE_WORKSPACE_ROOT`.
 The existing PostgreSQL company service remains the business system of record.
 No MySQL or Python runtime has been added.
+
+Before starting MoonClaw for a release rehearsal, prepare its project-local
+skills and MoonGate discovery:
+
+```sh
+scripts/prepare_moonclaw_engineering_runtime.sh
+```
+
+This copies only versioned skill definitions and writes a runtime discovery
+receipt under `.moonsuite/`; it does not start services, change providers, log
+in, tag, push, or publish. Start MoonGate and verify its real model route before
+starting MoonClaw. An `authenticated` metadata flag is insufficient if the
+provider returns `token_expired` on an actual request.

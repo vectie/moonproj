@@ -5,6 +5,7 @@ target
 dist/
 .mooncakes/
 .moonagent/
+.moonsuite/
 
 # Controlled ERP migration artifacts. Keep exports and raw staging outside the
 # repository when possible; ignore them if a local rehearsal uses this tree.
