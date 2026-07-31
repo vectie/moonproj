@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/x/time",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/operations/project",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "test"

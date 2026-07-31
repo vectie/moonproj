@@ -99,7 +99,7 @@ No external agent runtime may bypass these rules or become the system of record.
 ### D4. Integration stays deliberately shallow
 
 The initial product has no required runtime dependency on MoonBook, MoonFlow,
-Moontown, Moondesk, MoonChat, MoonGate, MoonStat, or MoonLib.
+Moontown, Moondesk, MoonChat, MoonGate, or MoonLib.
 
 Future adapters may be added only when a concrete use case justifies them. An
 adapter's absence may reduce automation or convenience, but cannot prevent core

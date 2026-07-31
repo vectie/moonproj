@@ -2,7 +2,7 @@
 
 Recorded: 2026-07-13  
 Reference siblings: `/Users/kq/Workspace/moonbook`, `moonchat`, `moonclaw`,
-`moondesk`, `moonfish`, `moonflow`, `moongate`, `moonlib`, `moonstat`,
+`moondesk`, `moonfish`, `moonflow`, `moongate`, `moonlib`,
 `moontown`, and `moonrobo`
 
 This is an ownership map for the standalone company product. It is based on
@@ -45,7 +45,6 @@ sibling to write company aggregates.
 | Moontown | Town-level scheduling, standing goals, cross-book routing, mayor supervision, and orchestration | Optional scheduler for recurring company observations or agent work | Receive proposals/receipts; company product controls authority, deadlines, and business effects |
 | Moondesk | Human desktop shell for browsing books, reviewing artifacts, and submitting work | Optional UI; not a domain owner | Render company APIs or migration evidence without duplicating company rules in UI code |
 | MoonGate | Local proxy/provider gateway, usage, pricing, quota, failover, and suite status | Optional model/provider connectivity and operational observation | Consume provider calls or health projections; no company data ownership |
-| MoonStat | Observability, model/proxy status, usage and runtime metrics | Optional telemetry projection | Read metrics and provider readiness; never gate core accounting or settlement on it |
 | MoonLib | Shared filesystem, path, clock, UUID, OS, and versioned cross-product DTO contracts | Reuse only dependency-light primitives where compatible | Keep imports narrow; do not import Moon Suite product policy into the company core |
 | Moonfish | Market snapshots, deterministic indicators, validation, strategy routing, research routines, risk/safety, replay and cutover evidence | Absorb investment analytics and agent capability into native investment packages | Migrate evidence and deterministic algorithms; preserve mandate, approval, accounting, and risk authority locally |
 | Moonrobo | Robot-facing gateway, safety, calibration, telemetry, physical controls, and RoboBook/MoonData links | Separate physical-domain product; future company asset/capex integration only | Integrate through asset, procurement, and evidence ports after the company model is ready |
@@ -70,6 +69,20 @@ sibling to write company aggregates.
 6. UI and scheduler products observe or request; they do not bypass the
    company API to write database records.
 
+## First executable suite capability
+
+The first product-owned cross-suite capability is
+`moonproj/project.plan.prepare@0.1.0`. It accepts only the exact
+`moonproj/project-plan-request@1.0.0` schema and emits
+`moonproj/project-plan-artifact@1.0.0` under a `digital-artifact` claim
+ceiling.
+
+This is the concrete exception that proves the shallow integration rule: the
+MoonFlow adapter is optional, pack-local and restart-safe; the company product
+still runs without MoonFlow; and the output cannot authorize spending,
+accounting, payment, contracting or work. The implementation and call chain
+are recorded in [MOONFLOW_PROJECT_PLAN.md](MOONFLOW_PROJECT_PLAN.md).
+
 ## Integration order
 
 The safest order is:
@@ -81,7 +94,7 @@ basic OPC core
   -> Moonfish investment capability absorbed into native domain
   -> optional MoonBook/MoonFlow/Moondesk projections and receipts
   -> optional Moontown recurring coordination
-  -> optional MoonGate/MoonStat telemetry
+  -> optional MoonGate telemetry
   -> vertical extension integration only when its own owner enables it
 ```
 

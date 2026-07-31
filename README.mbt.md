@@ -1,5 +1,9 @@
 # MoonProj — Basic OPC Company Operating System
 
+> **Domain product · migration/operator-preview alpha.** Read the
+> [product contract](docs/PRODUCT_CONTRACT.md) for accounting authority,
+> system-of-record limits, operations and release gates.
+
 This repository is the home of a standalone operating system for a general
 One-Person Company (OPC). The company—not the founder's workspace—is the
 principal: it owns resources, delegates authority, makes commitments and
@@ -104,6 +108,9 @@ default product.
   boundary, responsive evidence, and local run commands for the default UI.
 - [Moon Suite boundary](docs/MOON_SUITE_BOUNDARY.md) — observed sibling
   ownership, reuse rules, and optional integration order.
+- [Governed project-plan capability](docs/MOONFLOW_PROJECT_PLAN.md) — the
+  product-owned planning pack, exact MoonFlow contracts, durable replay and
+  named-human review boundary.
 
 ## Current status
 
@@ -124,3 +131,9 @@ see [implementation status](docs/IMPLEMENTATION_STATUS.md) for the verified
 boundary and next slices. The migration rehearsal now supports separately
 versioned typed cohorts and a clean project-2 task-state wave, while preserving
 the inconsistent project-1 state rows as quarantine evidence.
+
+The optional suite projection now also publishes
+`moonproj/project.plan.prepare@0.1.0`. It reuses the native `ProjectPlan`
+dependency and fixed-point cost invariants, persists restart-safe MoonFlow
+intent and receipts, and emits only a review-pending digital planning artifact.
+It cannot spend, post, pay, sign, or execute work.

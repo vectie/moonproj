@@ -33,8 +33,8 @@ coupling would make ownership unclear and make a sibling outage look like a
 company outage.
 
 Decision: use explicit, optional ports. MoonClaw can execute bounded agent
-work; MoonBook, MoonChat, MoonFlow, Moontown, Moondesk, MoonGate, MoonStat, and
-other siblings can provide optional projections, scheduling, or interaction.
+work; MoonBook, MoonChat, MoonFlow, Moontown, Moondesk, MoonGate, and other
+siblings can provide optional projections, scheduling, or interaction.
 None can directly mutate company records.
 
 ## 4. Absorb Moonfish selectively

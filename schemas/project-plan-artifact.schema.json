@@ -1,0 +1,485 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "moonproj/project-plan-artifact@1.0.0",
+  "title": "MoonProj review-pending project plan artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_id",
+    "operation_ref",
+    "input_schema_ref",
+    "output_schema_ref",
+    "plan_request_id",
+    "attempt_id",
+    "request_digest",
+    "project",
+    "owners",
+    "budget",
+    "tasks",
+    "milestones",
+    "risks",
+    "acceptance_gates",
+    "source_evidence",
+    "workflow",
+    "authority_effects",
+    "claim_ceiling",
+    "recorded_at"
+  ],
+  "properties": {
+    "contract_id": {
+      "const": "moonproj.project-plan-artifact.v1"
+    },
+    "operation_ref": {
+      "const": "moonproj/project.plan.prepare@0.1.0"
+    },
+    "input_schema_ref": {
+      "const": "moonproj/project-plan-request@1.0.0"
+    },
+    "output_schema_ref": {
+      "const": "moonproj/project-plan-artifact@1.0.0"
+    },
+    "plan_request_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "attempt_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "request_digest": {
+      "$ref": "#/$defs/sha256"
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    },
+    "owners": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/owner"
+      }
+    },
+    "budget": {
+      "$ref": "#/$defs/budget"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/task"
+      }
+    },
+    "milestones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/milestone"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/risk"
+      }
+    },
+    "acceptance_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/acceptanceGate"
+      }
+    },
+    "source_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/sourceEvidence"
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "current_gate",
+        "review_required",
+        "accepted",
+        "next_actions"
+      ],
+      "properties": {
+        "status": {
+          "const": "pending_review"
+        },
+        "current_gate": {
+          "const": "named-human-plan-review"
+        },
+        "review_required": {
+          "const": true
+        },
+        "accepted": {
+          "const": false
+        },
+        "next_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonBlank"
+          }
+        }
+      }
+    },
+    "authority_effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spend_authorized",
+        "accounting_posted",
+        "payment_released",
+        "contract_signed",
+        "work_executed"
+      ],
+      "properties": {
+        "spend_authorized": {
+          "const": false
+        },
+        "accounting_posted": {
+          "const": false
+        },
+        "payment_released": {
+          "const": false
+        },
+        "contract_signed": {
+          "const": false
+        },
+        "work_executed": {
+          "const": false
+        }
+      }
+    },
+    "claim_ceiling": {
+      "const": "digital-artifact"
+    },
+    "recorded_at": {
+      "$ref": "#/$defs/utcTimestamp"
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "nonBlank": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "artifactRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id",
+        "principal_id",
+        "code",
+        "name",
+        "stage",
+        "state"
+      ],
+      "properties": {
+        "project_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "code": {
+          "$ref": "#/$defs/identifier"
+        },
+        "name": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "stage": {
+          "const": "planning"
+        },
+        "state": {
+          "const": "draft"
+        }
+      }
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner_id",
+        "display_name",
+        "role"
+      ],
+      "properties": {
+        "owner_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "display_name": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "role": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "limit_minor",
+        "contingency_minor",
+        "planned_total_minor",
+        "unallocated_minor"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "limit_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contingency_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned_total_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unallocated_minor": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "name",
+        "owner_id",
+        "milestone_id",
+        "planned_cost_minor",
+        "currency",
+        "dependencies",
+        "acceptance_gate_ids",
+        "source_evidence_refs",
+        "progress_bps",
+        "state"
+      ],
+      "properties": {
+        "task_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "name": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "milestone_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "planned_cost_minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "acceptance_gate_ids": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "source_evidence_refs": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "progress_bps": {
+          "const": 0
+        },
+        "state": {
+          "const": "planned"
+        }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "milestone_id",
+        "name",
+        "owner_id",
+        "target_date",
+        "task_ids",
+        "acceptance_gate_ids"
+      ],
+      "properties": {
+        "milestone_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "name": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "target_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "task_ids": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "acceptance_gate_ids": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "risk_id",
+        "summary",
+        "severity",
+        "owner_id",
+        "mitigation",
+        "related_task_ids",
+        "source_evidence_refs"
+      ],
+      "properties": {
+        "risk_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "owner_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "mitigation": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "related_task_ids": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "source_evidence_refs": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "acceptanceGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "name",
+        "owner_id",
+        "scope_type",
+        "scope_id",
+        "criteria",
+        "required_evidence"
+      ],
+      "properties": {
+        "gate_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "name": {
+          "$ref": "#/$defs/nonBlank"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scope_type": {
+          "enum": [
+            "project",
+            "task",
+            "milestone"
+          ]
+        },
+        "scope_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "criteria": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonBlank"
+          }
+        }
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_ref",
+        "digest",
+        "observed_at",
+        "kind"
+      ],
+      "properties": {
+        "artifact_ref": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/utcTimestamp"
+        },
+        "kind": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    }
+  }
+}

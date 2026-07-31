@@ -1,0 +1,88 @@
+{
+  "id": "moonproj",
+  "version": "0.1.0",
+  "display_name": "MoonProj Governed Company Project Planning",
+  "product_id": "moonproj",
+  "kind": "DomainPack",
+  "required_runtime_extensions": [],
+  "book_templates": [],
+  "schemas": [
+    {
+      "id": "project-plan-request",
+      "version": "1.0.0",
+      "path": "schemas/project-plan-request.schema.json"
+    },
+    {
+      "id": "project-plan-artifact",
+      "version": "1.0.0",
+      "path": "schemas/project-plan-artifact.schema.json"
+    }
+  ],
+  "tools": [
+    {
+      "id": "project.plan.prepare",
+      "owner_product": "moonproj",
+      "input_schema_id": "project-plan-request",
+      "output_schema_id": "project-plan-artifact",
+      "authority": "WorkspaceMutation",
+      "idempotent": true,
+      "evidence_outputs": [
+        ".moonsuite/products/moonproj/adapter-attempts",
+        ".moonsuite/products/moonproj/idempotency",
+        ".moonsuite/products/moonproj/health"
+      ],
+      "review_required": true
+    }
+  ],
+  "workflows": [
+    {
+      "id": "governed-project-plan-preparation",
+      "version": "1.0.0",
+      "path": "docs/MOONFLOW_PROJECT_PLAN.md"
+    }
+  ],
+  "skills": [],
+  "policies": [
+    {
+      "id": "project-plan-authority-boundary",
+      "version": "1.0.0",
+      "path": "policies/project-plan-authority.md"
+    }
+  ],
+  "provider_ports": [
+    {
+      "id": "moonflow-project-plan-adapter",
+      "version": "1.0.0",
+      "path": "providers/moonflow-project-plan-adapter.port.md"
+    }
+  ],
+  "schedules": [],
+  "app_entrypoints": [
+    {
+      "id": "project-portfolio",
+      "path": "frontend/opc",
+      "route": "/projects",
+      "audience": "company-operator"
+    }
+  ],
+  "migrations": [],
+  "evaluations": [
+    {
+      "id": "project-plan-adapter-conformance",
+      "version": "1.0.0",
+      "path": "evaluations/project-plan-adapter-conformance.md"
+    }
+  ],
+  "adapter_declarations": [
+    {
+      "id": "moonproj-project-plan-v1",
+      "version": "1.0.0",
+      "path": "adapters/moonflow/adapter-declaration.v1.json"
+    }
+  ],
+  "uninstall_contract": {
+    "id": "moonproj-project-plan-evidence-preservation",
+    "version": "1.0.0",
+    "path": "UNINSTALL.md"
+  }
+}
