@@ -1,7 +1,7 @@
 ///|
 test "basic OPC navigation is industry-neutral and complete" {
   let items = nav_items()
-  assert_eq(items.length(), 11)
+  assert_eq(items.length(), 12)
   assert_eq(page_path(Overview), "/")
   assert_eq(page_path(Evidence), "/evidence")
   assert_eq(page_path(Guide), "/guide")
@@ -21,6 +21,13 @@ test "decision-first navigation covers command execute delivery assurance and go
     items.any(fn(item) { item.group == "执行" && item.page == Fleet }),
   )
   assert_true(
+    items.any(fn(item) {
+      item.group == "交付" &&
+      item.page == Delivery &&
+      item.label == "工作与交付"
+    }),
+  )
+  assert_true(
     items.any(fn(item) { item.group == "交付" && item.page == Quality }),
   )
   assert_true(
@@ -32,6 +39,14 @@ test "decision-first navigation covers command execute delivery assurance and go
   assert_true(
     items.any(fn(item) { item.group == "帮助" && item.page == Guide }),
   )
+}
+
+///|
+test "session-local delivery view states its non-PostgreSQL evidence boundary" {
+  let notice = delivery_boundary_notice()
+  assert_true(notice.contains("SESSION-LOCAL / NOT POSTGRESQL EVIDENCE"))
+  assert_true(notice.contains("不写入 PostgreSQL"))
+  assert_true(notice.contains("签名网关与持久化收据"))
 }
 
 ///|

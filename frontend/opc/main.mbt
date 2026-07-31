@@ -84,6 +84,23 @@ struct Model {
   engineering_findings : Int
   engineering_poll_attempts : Int
   mobile_nav : Bool
+  dispatch_task_form_open : Bool
+  dispatch_task_title : String
+  dispatch_task_acceptance : String
+  dispatch_task_project_id : String
+  dispatch_task_owner_id : String
+  dispatch_task_actor_id : String
+  dispatch_task_begin_date : String
+  dispatch_task_end_date : String
+  dispatch_task_evidence_id : String
+  dispatch_task_id : String
+  dispatch_task_report_id : String
+  dispatch_task_stage : String
+  dispatch_task_pending_action : String
+  dispatch_task_event_id : String
+  dispatch_task_audit_id : String
+  dispatch_task_blocked : Bool
+  dispatch_task_note : String
   company_form_open : Bool
   company_name : String
   company_saved : Bool
@@ -151,6 +168,24 @@ enum Msg {
   EngineeringAuditFailed
   RecordDecision(String)
   ToggleMobileNav
+  OpenDispatchTaskForm
+  InputDispatchTaskTitle(String)
+  InputDispatchTaskAcceptance(String)
+  InputDispatchTaskProjectId(String)
+  InputDispatchTaskOwnerId(String)
+  InputDispatchTaskActorId(String)
+  InputDispatchTaskBeginDate(String)
+  InputDispatchTaskEndDate(String)
+  InputDispatchTaskEvidenceId(String)
+  CreateDispatchTask
+  DispatchTaskCreated(String, String, String)
+  StartDispatchTask
+  DispatchTaskStarted(String, String)
+  SubmitDispatchTask
+  DispatchTaskSubmitted(String, String, String)
+  AcceptDispatchTask
+  DispatchTaskAccepted(String, String)
+  DispatchTaskCommandFailed(String)
   OpenCompanyForm
   InputCompanyName(String)
   SaveCompany
@@ -220,6 +255,23 @@ fn initial_model() -> Model {
     engineering_findings: 0,
     engineering_poll_attempts: 0,
     mobile_nav: false,
+    dispatch_task_form_open: false,
+    dispatch_task_title: "",
+    dispatch_task_acceptance: "",
+    dispatch_task_project_id: "proj-0001",
+    dispatch_task_owner_id: "",
+    dispatch_task_actor_id: "admin",
+    dispatch_task_begin_date: "",
+    dispatch_task_end_date: "",
+    dispatch_task_evidence_id: "",
+    dispatch_task_id: "",
+    dispatch_task_report_id: "",
+    dispatch_task_stage: "empty",
+    dispatch_task_pending_action: "",
+    dispatch_task_event_id: "",
+    dispatch_task_audit_id: "",
+    dispatch_task_blocked: false,
+    dispatch_task_note: "尚未向 MoonProj 持久化任务。创建动作只在签名网关返回审计收据后推进。",
     company_form_open: false,
     company_name: "",
     company_saved: false,
@@ -281,6 +333,13 @@ fn nav_items() -> Array[NavItem] {
       label: "任务编排",
       short_label: "派",
       description: "分派、执行与验收",
+    },
+    {
+      page: Delivery,
+      group: "交付",
+      label: "工作与交付",
+      short_label: "工",
+      description: "会话内演练 · 非 PostgreSQL",
     },
     {
       page: Projects,
@@ -769,6 +828,214 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav })
+    OpenDispatchTaskForm =>
+      if model.dispatch_task_id.is_empty() {
+        (
+          none,
+          {
+            ..model,
+            dispatch_task_form_open: true,
+            dispatch_task_blocked: false,
+            dispatch_task_note: "填写任务、验收、项目范围和签名身份；保存会调用 MoonProj 的正式任务命令边界。",
+          },
+        )
+      } else {
+        (
+          none,
+          {
+            ..model,
+            notice: "当前界面已经绑定任务 \{model.dispatch_task_id}；请先完成它的验收闭环。",
+          },
+        )
+      }
+    InputDispatchTaskTitle(value) =>
+      (none, { ..model, dispatch_task_title: value })
+    InputDispatchTaskAcceptance(value) =>
+      (none, { ..model, dispatch_task_acceptance: value })
+    InputDispatchTaskProjectId(value) =>
+      (none, { ..model, dispatch_task_project_id: value })
+    InputDispatchTaskOwnerId(value) =>
+      (none, { ..model, dispatch_task_owner_id: value })
+    InputDispatchTaskActorId(value) =>
+      (none, { ..model, dispatch_task_actor_id: value })
+    InputDispatchTaskBeginDate(value) =>
+      (none, { ..model, dispatch_task_begin_date: value })
+    InputDispatchTaskEndDate(value) =>
+      (none, { ..model, dispatch_task_end_date: value })
+    InputDispatchTaskEvidenceId(value) =>
+      (none, { ..model, dispatch_task_evidence_id: value })
+    CreateDispatchTask =>
+      if !model.dispatch_task_pending_action.is_empty() {
+        (none, model)
+      } else if model.dispatch_task_title.trim().is_empty() ||
+        model.dispatch_task_acceptance.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            dispatch_task_note: "任务名称和可检查的验收标准都是必填项。",
+          },
+        )
+      } else if model.dispatch_task_project_id.trim().is_empty() ||
+        model.dispatch_task_actor_id.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            dispatch_task_note: "项目范围和签名身份不能为空；网关会再次验证它们。",
+          },
+        )
+      } else if model.dispatch_task_begin_date.trim().is_empty() ||
+        model.dispatch_task_end_date.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            dispatch_task_note: "计划开始和完成日期不能为空。",
+          },
+        )
+      } else if model.dispatch_task_end_date < model.dispatch_task_begin_date {
+        (
+          none,
+          {
+            ..model,
+            dispatch_task_note: "计划完成日期不能早于开始日期。",
+          },
+        )
+      } else {
+        (
+          request_dispatch_task_create(emit, model),
+          {
+            ..model,
+            dispatch_task_pending_action: "create",
+            dispatch_task_blocked: false,
+            dispatch_task_note: "正在通过签名网关创建任务；收到持久化收据前不会显示为已创建。",
+          },
+        )
+      }
+    DispatchTaskCreated(task_id, event_id, audit_id) =>
+      (
+        none,
+        {
+          ..model,
+          dispatch_task_form_open: false,
+          dispatch_task_id: task_id,
+          dispatch_task_stage: "pending",
+          dispatch_task_pending_action: "",
+          dispatch_task_event_id: event_id,
+          dispatch_task_audit_id: audit_id,
+          dispatch_task_blocked: false,
+          dispatch_task_note: "任务已写入 PostgreSQL 命令投影；尚未授权执行。",
+          notice: "正式任务 \{task_id} 已创建，并返回事件与审计收据。",
+        },
+      )
+    StartDispatchTask =>
+      if model.dispatch_task_stage != "pending" ||
+        !model.dispatch_task_pending_action.is_empty() {
+        (none, model)
+      } else {
+        (
+          request_dispatch_task_start(emit, model),
+          {
+            ..model,
+            dispatch_task_pending_action: "start",
+            dispatch_task_blocked: false,
+            dispatch_task_note: "正在请求 project:task:update 授权；收据返回前任务仍为待启动。",
+          },
+        )
+      }
+    DispatchTaskStarted(event_id, audit_id) =>
+      (
+        none,
+        {
+          ..model,
+          dispatch_task_stage: "in_progress",
+          dispatch_task_pending_action: "",
+          dispatch_task_event_id: event_id,
+          dispatch_task_audit_id: audit_id,
+          dispatch_task_blocked: false,
+          dispatch_task_note: "任务已由持久化命令推进为进行中；完成声明仍不等于验收。",
+          notice: "任务已开始；下一步必须提交带证据引用的工作报告。",
+        },
+      )
+    SubmitDispatchTask =>
+      if model.dispatch_task_stage != "in_progress" ||
+        !model.dispatch_task_pending_action.is_empty() {
+        (none, model)
+      } else if model.dispatch_task_evidence_id.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            dispatch_task_note: "提交验收前必须提供真实证据 ID 或可追溯引用。",
+          },
+        )
+      } else {
+        (
+          request_dispatch_task_submit(emit, model),
+          {
+            ..model,
+            dispatch_task_pending_action: "submit",
+            dispatch_task_blocked: false,
+            dispatch_task_note: "正在写入证据门控的任务报告；成功收据返回前不会进入待验收。",
+          },
+        )
+      }
+    DispatchTaskSubmitted(report_id, event_id, audit_id) =>
+      (
+        none,
+        {
+          ..model,
+          dispatch_task_report_id: report_id,
+          dispatch_task_stage: "submitted",
+          dispatch_task_pending_action: "",
+          dispatch_task_event_id: event_id,
+          dispatch_task_audit_id: audit_id,
+          dispatch_task_blocked: false,
+          dispatch_task_note: "任务报告已持久化；结果等待具名人员接受，不会自动完成。",
+          notice: "报告 \{report_id} 已提交验收；尚未形成接受事实。",
+        },
+      )
+    AcceptDispatchTask =>
+      if model.dispatch_task_stage != "submitted" ||
+        !model.dispatch_task_pending_action.is_empty() {
+        (none, model)
+      } else {
+        (
+          request_dispatch_task_accept(emit, model),
+          {
+            ..model,
+            dispatch_task_pending_action: "accept",
+            dispatch_task_blocked: false,
+            dispatch_task_note: "正在通过签名身份接受结果；命令被拒绝时任务会保持待验收。",
+          },
+        )
+      }
+    DispatchTaskAccepted(event_id, audit_id) =>
+      (
+        none,
+        {
+          ..model,
+          dispatch_task_stage: "accepted",
+          dispatch_task_pending_action: "",
+          dispatch_task_event_id: event_id,
+          dispatch_task_audit_id: audit_id,
+          dispatch_task_blocked: false,
+          dispatch_task_note: "任务已通过正式状态命令标记为完成；该收据不产生现金、会计或税务影响。",
+          notice: "任务已接受，Start → Submit → Accept 闭环完成。",
+        },
+      )
+    DispatchTaskCommandFailed(action) =>
+      (
+        none,
+        {
+          ..model,
+          dispatch_task_pending_action: "",
+          dispatch_task_blocked: true,
+          dispatch_task_note: dispatch_task_failure_note(action),
+          notice: "任务动作被安全阻断；没有把浏览器意图冒充为正式状态。",
+        },
+      )
     OpenCompanyForm =>
       (
         none,
@@ -2161,9 +2428,18 @@ fn work_card(model : Model, state : String, action : @html.Html) -> @html.Html {
 }
 
 ///|
+fn delivery_boundary_notice() -> String {
+  "SESSION-LOCAL / NOT POSTGRESQL EVIDENCE：此看板只演练定义 → 执行 → 提交 → 具名接受的界面状态，不写入 PostgreSQL，不构成正式交付、审计或结算证据。正式任务仍须通过任务编排的签名网关与持久化收据。"
+}
+
+///|
 fn delivery_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
     page_intro(Delivery, primary_button(emit, OpenWorkForm, "创建工作项")),
+    div(class="boundary-note") <| [
+      strong("会话内工作流演练"),
+      p(delivery_boundary_notice()),
+    ],
     if model.work_form_open {
       work_form(emit, model)
     } else {
