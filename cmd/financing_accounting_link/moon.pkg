@@ -8,6 +8,4 @@ import {
   "vectie/moonproj/foundation",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

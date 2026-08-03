@@ -5,6 +5,4 @@ import {
   "vectie/moonproj/migration/control",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

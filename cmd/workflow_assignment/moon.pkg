@@ -6,6 +6,4 @@ import {
   "vectie/moonproj/operations/workflow",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

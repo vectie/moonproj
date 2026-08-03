@@ -8,6 +8,4 @@ import {
   "vectie/moonproj/operations/sales",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

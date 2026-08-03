@@ -6,6 +6,4 @@ import {
   "vectie/moonproj/intelligence/warning" @warning_domain,
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

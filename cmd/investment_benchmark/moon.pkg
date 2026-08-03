@@ -5,6 +5,4 @@ import {
   "vectie/moonproj/investment/portfolio",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

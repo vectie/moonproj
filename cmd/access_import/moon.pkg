@@ -6,6 +6,4 @@ import {
   "vectie/moonproj/foundation/access",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

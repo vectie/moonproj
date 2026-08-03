@@ -12,6 +12,4 @@ import {
   "vectie/moonproj/persistence/store",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

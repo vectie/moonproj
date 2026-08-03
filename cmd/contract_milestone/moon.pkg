@@ -9,6 +9,4 @@ import {
   "vectie/moonproj/operations/settlement",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

@@ -6,6 +6,4 @@ import {
   "vectie/moonproj/investment/model",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

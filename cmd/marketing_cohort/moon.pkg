@@ -7,6 +7,4 @@ import {
   "vectie/moonproj/operations/marketing",
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")

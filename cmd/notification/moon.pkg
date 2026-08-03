@@ -6,6 +6,4 @@ import {
   "vectie/moonproj/intelligence/notification" @notification_domain,
 }
 
-options(
-  "is-main": true,
-)
+pkgtype(kind: "executable")
