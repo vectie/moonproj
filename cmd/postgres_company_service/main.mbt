@@ -19485,7 +19485,7 @@ fn parse_int_option(args : Array[String], name : String, fallback : Int) -> Int 
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   let token_env = option(args, "--token-env").unwrap_or(
     "MOONPROJ_SERVICE_TOKEN",
   )

@@ -11,7 +11,7 @@
 
 name = "vectie/moonproj"
 
-version = "0.1.0-preview.2"
+version = "0.1.0-preview.3"
 
 readme = "README.mbt.md"
 
