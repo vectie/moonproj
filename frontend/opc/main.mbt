@@ -3,6 +3,7 @@ using @html {
   a,
   article,
   button,
+  details,
   div,
   form,
   h1,
@@ -20,6 +21,7 @@ using @html {
   small,
   span,
   strong,
+  summary,
   table,
   tbody,
   td,
@@ -1483,9 +1485,11 @@ fn nav_item_view(
     on_click=emit(Navigate(item.page)),
   ) <| [
     span(
-      class="nav-mark",
-      attrs=@html.Attrs::build().aria_hidden("true"),
-      item.short_label,
+      class="nav-glyph",
+      attrs=@html.Attrs::build()
+        .aria_hidden("true")
+        .data_set("short-label", item.short_label),
+      [opc_glyph(page_glyph(item.page))],
     ),
     span(class="nav-copy") <| [
       strong(item.label),
@@ -1553,9 +1557,10 @@ fn topbar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   header(class="topbar") <| [
     button(
       class="mobile-menu",
+      title="打开主导航",
       attrs=@html.Attrs::build().aria_label("打开主导航"),
       on_click=emit(ToggleMobileNav),
-      "菜单",
+      [opc_glyph("menu"), span(class="visually-hidden", "菜单")],
     ),
     div(class="topbar-title") <| [
       small(

@@ -778,6 +778,7 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         "Create 与 Start/Accept 使用 `/api/company/plan/tasks` 权限命令；Submit 使用 `/api/company/plan/tasks/:id/report`。只有后端返回 event/audit receipt，界面才推进状态。",
       ),
     ],
+    dispatch_goal_flow(emit, model),
     if model.dispatch_task_form_open {
       dispatch_task_form(emit, model)
     } else {
@@ -791,7 +792,7 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     } else {
       p(class="boundary-note", model.dispatch_task_note)
     },
-    section(class="section-block") <| [
+    section(id="dispatch-task-workspace", class="section-block") <| [
       section_title(
         "当前正式任务",
         "Start → Submit → Accept；每一步都等待同一持久化边界的收据。",
@@ -812,66 +813,71 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         dispatch_durable_board(emit, model)
       },
     ],
-    section_title(
-      "编排参考投影", "以下卡片是界面布局样例，不是当前 PostgreSQL 任务或执行事实。",
-      "只读样例",
-    ),
-    div(class="dispatch-board") <| [
-      dispatch_lane(
-        "待分派 · 2",
-        "进入编队前的队列",
-        [
-          task_card(
-            "T-241", "软件", "统一发布证据格式", "待选择 Agent", 12,
-            "2",
-          ),
-          task_card(
-            "T-244", "公司", "更新季度现金计划", "待选择 Agent", 5,
-            "1",
-          ),
+    details(class="reference-projection") <| [
+      summary <| [
+        div <| [
+          strong("编排参考投影"),
+          small("布局样例 · 不是当前 PostgreSQL 事实"),
         ],
-        false,
-      ),
-      dispatch_lane(
-        "Agent 执行中 · 3",
-        "自治执行 · 证据留痕",
-        [
-          task_card(
-            "T-238", "软件", "实现 SLO 错误预算冻结", "Builder-02", 72,
-            "18",
-          ),
-          task_card(
-            "T-239", "硬件", "DVT 热循环测试", "Hardware-01", 54, "32",
-          ),
-        ],
-        false,
-      ),
-      dispatch_lane(
-        "待你验收 · 2",
-        "Gate 制 · 人类过闸",
-        [
-          task_card(
-            "T-230", "软件", "v0.8 灰度发布包", "Release-01", 100, "47",
-          ),
-          task_card(
-            "T-236", "运维", "支付服务事故复盘", "Ops-01", 100, "21",
-          ),
-        ],
-        true,
-      ),
-      dispatch_lane(
-        "已交付 · 4",
-        "证据归档",
-        [
-          task_card(
-            "T-221", "软件", "授权撤销回归", "Test-01", 100, "63",
-          ),
-          task_card(
-            "T-226", "公司", "税务申报证据核对", "Finance-01", 100, "28",
-          ),
-        ],
-        false,
-      ),
+        status_badge("只读样例", tone="muted"),
+      ],
+      div(class="dispatch-board") <| [
+        dispatch_lane(
+          "待分派 · 2",
+          "进入编队前的队列",
+          [
+            task_card(
+              "T-241", "软件", "统一发布证据格式", "待选择 Agent", 12,
+              "2",
+            ),
+            task_card(
+              "T-244", "公司", "更新季度现金计划", "待选择 Agent", 5,
+              "1",
+            ),
+          ],
+          false,
+        ),
+        dispatch_lane(
+          "Agent 执行中 · 3",
+          "自治执行 · 证据留痕",
+          [
+            task_card(
+              "T-238", "软件", "实现 SLO 错误预算冻结", "Builder-02", 72,
+              "18",
+            ),
+            task_card(
+              "T-239", "硬件", "DVT 热循环测试", "Hardware-01", 54, "32",
+            ),
+          ],
+          false,
+        ),
+        dispatch_lane(
+          "待你验收 · 2",
+          "Gate 制 · 人类过闸",
+          [
+            task_card(
+              "T-230", "软件", "v0.8 灰度发布包", "Release-01", 100, "47",
+            ),
+            task_card(
+              "T-236", "运维", "支付服务事故复盘", "Ops-01", 100, "21",
+            ),
+          ],
+          true,
+        ),
+        dispatch_lane(
+          "已交付 · 4",
+          "证据归档",
+          [
+            task_card(
+              "T-221", "软件", "授权撤销回归", "Test-01", 100, "63",
+            ),
+            task_card(
+              "T-226", "公司", "税务申报证据核对", "Finance-01", 100, "28",
+            ),
+          ],
+          false,
+        ),
+      ],
     ],
   ]
 }

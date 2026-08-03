@@ -1,6 +1,7 @@
 # MoonProj product contract
 
-Class: domain product
+Class: domain pack
+Visible surface: project and program operator UI
 Maturity: migration and operator-preview alpha
 Last reviewed: 2026-07-30
 

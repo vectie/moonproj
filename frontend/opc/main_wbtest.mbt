@@ -193,3 +193,36 @@ test "commitment effects require authority delivery treasury and ledger" {
     }),
   )
 }
+
+///|
+test "formal task goal flow follows durable task stages" {
+  let blank = initial_model()
+  assert_eq(dispatch_goal_stage(blank), 1)
+  assert_eq(dispatch_goal_stage({ ..blank, dispatch_task_stage: "pending" }), 2)
+  assert_eq(
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "in_progress" }),
+    3,
+  )
+  assert_eq(
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "submitted" }),
+    4,
+  )
+  assert_eq(
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "accepted" }),
+    5,
+  )
+}
+
+///|
+#warnings("-alert_unstable")
+test "formal task flow renders one next action denial and receipt boundary" {
+  let model = { ..initial_model(), page: Dispatch }
+  let page = @rabbita.simple_cell(model~, update=(_ : Msg, model) => model, view=(
+    emit,
+    model,
+  ) => dispatch_goal_flow(msg => emit(msg), model))
+  let html = @rabbita.render_to_string(page)
+  assert_true(html.contains("交付一个可验收的正式任务"))
+  assert_true(html.contains("创建正式任务"))
+  assert_true(html.contains("后端收据是唯一状态真相"))
+}
