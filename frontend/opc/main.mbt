@@ -45,6 +45,7 @@ enum Page {
   Observe
   Operate
   Company
+  PolicyRadar
   Evidence
   Guide
   Market
@@ -85,6 +86,16 @@ struct Model {
   engineering_freshness : String
   engineering_findings : Int
   engineering_poll_attempts : Int
+  policy_radar_state : String
+  policy_radar_projection : PolicyRadarProjection?
+  policy_radar_error : String
+  policy_review_kind : String
+  policy_review_target_id : String
+  policy_review_decision : String
+  policy_review_evidence : String
+  policy_review_pending : Bool
+  policy_last_audit_id : String
+  policy_last_review_target : String
   mobile_nav : Bool
   dispatch_task_form_open : Bool
   dispatch_task_title : String
@@ -165,6 +176,18 @@ enum Msg {
     String,
     Array[String]
   )
+  RefreshPolicyRadar
+  PolicyRadarLoaded(PolicyRadarProjection)
+  PolicyRadarFailed(String)
+  OpenPolicyReview(String, String, String)
+  SelectPolicyReviewDecision(String)
+  InputPolicyReviewEvidence(String)
+  SubmitPolicyReview
+  CancelPolicyReview
+  PolicyReviewSaved(String, String)
+  PolicyReviewFailed(String)
+  PreparePolicyValidationTask(String)
+  OpenPolicyEvidence
   RequestEngineeringRemediation
   EngineeringRemediationCreated
   EngineeringAuditFailed
@@ -256,6 +279,16 @@ fn initial_model() -> Model {
     engineering_freshness: "missing",
     engineering_findings: 0,
     engineering_poll_attempts: 0,
+    policy_radar_state: "idle",
+    policy_radar_projection: None,
+    policy_radar_error: "",
+    policy_review_kind: "",
+    policy_review_target_id: "",
+    policy_review_decision: "",
+    policy_review_evidence: "",
+    policy_review_pending: false,
+    policy_last_audit_id: "",
+    policy_last_review_target: "",
     mobile_nav: false,
     dispatch_task_form_open: false,
     dispatch_task_title: "",
@@ -386,6 +419,13 @@ fn nav_items() -> Array[NavItem] {
       description: "主体、商务、财税与资本",
     },
     {
+      page: PolicyRadar,
+      group: "治理",
+      label: "政策雷达",
+      short_label: "策",
+      description: "来源、变更、图谱与商机",
+    },
+    {
       page: Evidence,
       group: "治理",
       label: "证据与审计",
@@ -414,6 +454,7 @@ fn page_path(page : Page) -> String {
     Observe => "/observe"
     Operate => "/operate"
     Company => "/company"
+    PolicyRadar => "/policy-radar"
     Evidence => "/evidence"
     Guide => "/guide"
     Market => "/market"
@@ -437,6 +478,7 @@ fn page_title(page : Page) -> String {
     Observe => "监测环"
     Operate => "运维环"
     Company => "公司域"
+    PolicyRadar => "政策雷达"
     Evidence => "证据与审计"
     Guide => "使用指南"
     Market => "市场与客户"
@@ -460,6 +502,8 @@ fn page_question(page : Page) -> String {
     Observe => "系统健康吗，错误预算还剩多少？"
     Operate => "出事了吗，处置经验沉淀了吗？"
     Company => "公司还能活多久，承诺与义务是否受控？"
+    PolicyRadar =>
+      "今天哪一条政策变化值得核验，而不是立即相信？"
     Evidence => "Agent 做了什么，依据、授权和结果在哪里？"
     Guide => "第一次使用 MoonProj，应该从哪里开始？"
     Market => "哪一个客户问题值得公司解决并获得回报？"
@@ -612,7 +656,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   match msg {
     Navigate(page) =>
       (
-        if page == MoonSuite || page == Quality {
+        if page == PolicyRadar {
+          load_policy_radar(emit)
+        } else if page == MoonSuite || page == Quality {
           load_engineering_projection(
             emit,
             engineering_project_name(model.engineering_project),
@@ -620,7 +666,22 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         } else {
           none
         },
-        { ..model, page, mobile_nav: false, notice: "" },
+        {
+          ..model,
+          page,
+          policy_radar_state: if page == PolicyRadar {
+            "loading"
+          } else {
+            model.policy_radar_state
+          },
+          policy_radar_error: if page == PolicyRadar {
+            ""
+          } else {
+            model.policy_radar_error
+          },
+          mobile_nav: false,
+          notice: "",
+        },
       )
     SetMoonMode(enabled) =>
       (
@@ -794,6 +855,200 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
+    RefreshPolicyRadar =>
+      (
+        load_policy_radar(emit),
+        {
+          ..model,
+          policy_radar_state: "loading",
+          policy_radar_error: "",
+          notice: "正在读取经过认证网关的政策投影；旧数据不会被冒充为最新。",
+        },
+      )
+    PolicyRadarLoaded(projection) =>
+      (
+        none,
+        {
+          ..model,
+          policy_radar_state: "ready",
+          policy_radar_projection: Some(projection),
+          policy_radar_error: "",
+          policy_last_audit_id: policy_projection_latest_audit(projection),
+          notice: "政策投影已加载；来源采集状态、人工复核与商业门禁仍分别显示。",
+        },
+      )
+    PolicyRadarFailed(message) =>
+      (
+        none,
+        {
+          ..model,
+          policy_radar_state: "error",
+          policy_radar_error: message,
+          notice: "政策投影读取失败；界面没有回退到虚构的成功数据。",
+        },
+      )
+    OpenPolicyReview(kind, target_id, default_decision) =>
+      (
+        none,
+        {
+          ..model,
+          policy_review_kind: kind,
+          policy_review_target_id: target_id,
+          policy_review_decision: default_decision,
+          policy_review_evidence: "",
+          policy_review_pending: false,
+          policy_radar_error: "",
+        },
+      )
+    SelectPolicyReviewDecision(value) =>
+      (none, { ..model, policy_review_decision: value })
+    InputPolicyReviewEvidence(value) =>
+      (none, { ..model, policy_review_evidence: value })
+    SubmitPolicyReview =>
+      if model.policy_review_pending {
+        (none, model)
+      } else if model.policy_review_kind.is_empty() ||
+        model.policy_review_target_id.is_empty() ||
+        model.policy_review_decision.is_empty() {
+        (
+          none,
+          {
+            ..model,
+            policy_radar_error: "复核对象和结论不能为空。",
+          },
+        )
+      } else if model.policy_review_evidence.trim().is_empty() {
+        (
+          none,
+          {
+            ..model,
+            policy_radar_error: "必须填写可追溯的复核依据。",
+          },
+        )
+      } else {
+        (
+          request_policy_review(emit, model),
+          {
+            ..model,
+            policy_review_pending: true,
+            policy_radar_error: "",
+            notice: "正在写入政策复核命令和审计收据；成功响应前状态保持不变。",
+          },
+        )
+      }
+    CancelPolicyReview =>
+      (
+        none,
+        {
+          ..model,
+          policy_review_kind: "",
+          policy_review_target_id: "",
+          policy_review_decision: "",
+          policy_review_evidence: "",
+          policy_review_pending: false,
+          policy_radar_error: "",
+        },
+      )
+    PolicyReviewSaved(target_id, audit_id) =>
+      (
+        load_policy_radar(emit),
+        {
+          ..model,
+          policy_radar_state: "loading",
+          policy_review_kind: "",
+          policy_review_target_id: "",
+          policy_review_decision: "",
+          policy_review_evidence: "",
+          policy_review_pending: false,
+          policy_last_audit_id: audit_id,
+          policy_last_review_target: target_id,
+          policy_radar_error: "",
+          notice: "政策复核已持久化并返回审计收据；正在刷新投影。",
+        },
+      )
+    PolicyReviewFailed(message) =>
+      (
+        none,
+        {
+          ..model,
+          policy_review_pending: false,
+          policy_radar_error: message,
+          notice: "政策复核被安全阻断；原有状态没有改变。",
+        },
+      )
+    PreparePolicyValidationTask(opportunity_id) =>
+      if !model.dispatch_task_id.is_empty() {
+        (
+          none,
+          {
+            ..model,
+            notice: "已有正式任务绑定当前界面；完成该闭环后才能准备新的政策验证任务。",
+          },
+        )
+      } else {
+        match
+          policy_opportunity_by_id(
+            model.policy_radar_projection,
+            opportunity_id,
+          ) {
+          Some(opportunity) =>
+            if !policy_opportunity_actionable(
+                model.policy_radar_projection,
+                opportunity,
+              ) {
+              (
+                none,
+                {
+                  ..model,
+                  notice: "关联政策变化尚未确认；不能准备验证任务。",
+                },
+              )
+            } else {
+              (
+                none,
+                {
+                  ..model,
+                  page: Dispatch,
+                  dispatch_task_form_open: true,
+                  dispatch_task_title: "政策验证 · " + opportunity.title,
+                  dispatch_task_acceptance: opportunity.next_validation +
+                  "；记录反证、责任主体和是否继续。",
+                  dispatch_task_project_id: "policy-intelligence",
+                  dispatch_task_begin_date: policy_today(),
+                  dispatch_task_end_date: policy_validation_end_date(),
+                  dispatch_task_evidence_id: "policy-change:" +
+                  opportunity.source_change_id,
+                  dispatch_task_blocked: false,
+                  dispatch_task_note: "已从政策假设预填验证任务；仍需补充Owner并通过正式任务命令保存。",
+                  mobile_nav: false,
+                  notice: "已准备验证任务草稿；尚未写入PostgreSQL。",
+                },
+              )
+            }
+          None =>
+            (
+              none,
+              {
+                ..model,
+                notice: "政策机会不存在或投影尚未加载。",
+              },
+            )
+        }
+      }
+    OpenPolicyEvidence =>
+      (
+        none,
+        {
+          ..model,
+          page: Evidence,
+          mobile_nav: false,
+          notice: if model.policy_last_audit_id.is_empty() {
+            "尚无政策复核审计收据。"
+          } else {
+            "已定位最近的政策复核审计收据。"
+          },
+        },
+      )
     RequestEngineeringRemediation =>
       (
         request_engineering_remediation(emit, model),
@@ -3364,6 +3619,7 @@ fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     Observe => observe_view(emit, model)
     Operate => operate_view(emit, model)
     Company => company_domain_view(emit, model)
+    PolicyRadar => policy_radar_view(emit, model)
     Evidence => evidence_view(emit, model)
     Guide => guide_view(emit, model)
     Market => market_view(emit, model)

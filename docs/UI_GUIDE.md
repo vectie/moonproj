@@ -32,6 +32,7 @@ formal fact only after the PostgreSQL service accepts it.
 | Observe | Are SLOs and error budgets healthy? | Review warnings | Missing telemetry is unknown, not healthy |
 | Operate | Are incidents controlled and learned from? | Open an incident or runbook | No event does not prove readiness |
 | Company domain | Does the company own and control its resources? | Establish the company and authority | Session records remain informal until persisted |
+| Policy Radar | Which policy change deserves verification today? | Scan verified sources | Scores never imply law, funding, or procurement intent |
 | Evidence and audit | What happened and why may we trust it? | Inspect receipts and authorization | Missing evidence prevents acceptance |
 | Guide | How does the system work? | Follow the three-step start path | The guide is always available offline |
 

@@ -214,7 +214,7 @@ fn company_domain_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn evidence_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
+fn evidence_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
     page_intro(Evidence, status_badge("今日 363 条", tone="accent")),
     div(class="evidence-summary") <| [
@@ -243,6 +243,27 @@ fn evidence_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
             ],
           ],
           tbody <| [
+            if model.policy_last_audit_id.is_empty() {
+              @html.nothing
+            } else {
+              tr <| [
+                td("最近"),
+                td("Policy Reviewer"),
+                td("公司"),
+                td(
+                  "政策复核 · " +
+                  (if model.policy_last_review_target.is_empty() {
+                    "已持久化投影"
+                  } else {
+                    model.policy_last_review_target
+                  }),
+                ),
+                td(model.policy_last_audit_id),
+                td <| [
+                  status_badge("无外部效果", tone="accent"),
+                ],
+              ]
+            },
             tr <| [
               td("09:42:18"),
               td("Gatekeeper-01"),

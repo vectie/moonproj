@@ -317,6 +317,74 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   .notice { align-items: flex-start; }
 }
 
+/* Policy radar: evidence-first policy change review and opportunity triage. */
+.policy-boundary { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px; padding: 13px 15px; color: #f3d080; background: rgba(242,189,82,.075); border: 1px solid rgba(242,189,82,.28); border-radius: 10px; }
+.policy-boundary strong { flex: 0 0 auto; font-size: 10px; letter-spacing: .08em; }
+.policy-boundary p { margin: 0; color: #b8a477; font-size: 10px; line-height: 1.55; }
+.policy-stale-note, .policy-system-state { margin-bottom: 18px; padding: 16px; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 10px; }
+.policy-stale-note strong, .policy-system-state strong { display: block; color: var(--warning); font-size: 11px; }
+.policy-stale-note p, .policy-system-state p { margin: 6px 0 0; color: var(--ink-muted); font-size: 10px; line-height: 1.55; }
+.policy-system-state { min-height: 150px; display: flex; justify-content: center; flex-direction: column; }
+.policy-system-state.is-error { border-color: rgba(242,189,82,.38); background: rgba(242,189,82,.04); }
+.policy-system-state small { margin-top: 7px; color: var(--ink-muted); font-size: 9px; }
+.policy-review-form { margin-bottom: 18px; border-color: rgba(139,124,246,.35); }
+.policy-review-target { margin: 0 0 12px; color: var(--ink-muted); font-family: "SF Mono", "JetBrains Mono", monospace; font-size: 9px; overflow-wrap: anywhere; }
+.policy-review-choices, .policy-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.policy-review-choices { margin-bottom: 14px; }
+.policy-review-actions { justify-content: flex-end; margin-top: 14px; }
+.policy-inline-error { margin: 10px 0 0; color: var(--warning); font-size: 10px; }
+.policy-audit-link { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 18px; padding: 14px 16px; background: var(--accent-soft); border: 1px solid rgba(139,124,246,.28); border-radius: 10px; }
+.policy-audit-link strong { font-size: 11px; }
+.policy-audit-link p { margin: 4px 0 0; color: var(--ink-muted); font-size: 9px; }
+.policy-source-registry { margin-bottom: 18px; }
+.policy-source-table { min-width: 980px; }
+.policy-source-table td:first-child strong, .policy-source-table td:first-child small { display: block; }
+.policy-source-table td:first-child small { max-width: 390px; margin-top: 4px; overflow: hidden; color: var(--ink-muted); font-family: monospace; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.policy-source-table td:nth-child(5) small { display: block; margin-top: 5px; color: var(--ink-muted); font-size: 8px; }
+.policy-review-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; margin-bottom: 18px; }
+.policy-change-list { display: flex; flex-direction: column; gap: 8px; }
+.policy-change-item { padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+.policy-change-head, .policy-diff-label { display: flex; align-items: center; gap: 8px; }
+.policy-change-head strong { font-size: 11px; }
+.policy-change-item p { margin: 8px 0 6px; color: var(--ink-soft); font-size: 10px; line-height: 1.55; }
+.policy-change-item small { color: var(--ink-muted); font-size: 8px; }
+.policy-change-item > .button { margin-top: 10px; }
+.policy-diff-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.policy-diff-side { min-height: 170px; padding: 13px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+.policy-diff-side.is-removed { border-top: 2px solid var(--warning); }
+.policy-diff-side.is-added { border-top: 2px solid var(--success); }
+.policy-diff-side p { margin: 20px 0; color: var(--ink); font-family: "SF Mono", "JetBrains Mono", monospace; font-size: 11px; line-height: 1.75; }
+.policy-diff-side small { color: var(--ink-muted); font-size: 8px; }
+.policy-diff-conclusion { margin-top: 9px; padding: 12px; background: var(--accent-soft); border: 1px solid rgba(139,124,246,.25); border-radius: 9px; }
+.policy-diff-conclusion strong { color: #c8c1ff; font-size: 10px; }
+.policy-diff-conclusion p { margin: 6px 0 0; color: var(--ink-soft); font-size: 10px; line-height: 1.55; }
+.policy-graph-panel { margin-bottom: 18px; }
+.policy-graph { display: grid; grid-template-columns: minmax(0,1fr) 30px minmax(0,1fr) 30px minmax(0,1fr); align-items: stretch; gap: 10px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.policy-graph-column { display: flex; flex-direction: column; gap: 9px; }
+.policy-graph-node { flex: 1; min-height: 82px; padding: 11px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 9px; }
+.policy-graph-node small, .policy-graph-node strong, .policy-graph-node span { display: block; }
+.policy-graph-node small { color: var(--accent-dark); font-size: 8px; font-weight: 750; letter-spacing: .08em; }
+.policy-graph-node strong { margin-top: 8px; font-size: 11px; }
+.policy-graph-node span { margin-top: 5px; color: var(--ink-muted); font-size: 8px; }
+.policy-graph-arrow { display: grid; place-items: center; color: var(--accent-dark); font-size: 18px; }
+.policy-relation-details { margin-top: 10px; color: var(--ink-soft); font-size: 10px; }
+.policy-relation-details summary { min-height: 44px; padding: 13px 0; cursor: pointer; font-weight: 650; }
+.policy-opportunity-table { min-width: 920px; }
+.policy-opportunity-table td { line-height: 1.5; }
+
+@media (max-width: 1120px) {
+  .policy-review-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .policy-boundary { flex-direction: column; gap: 7px; }
+  .policy-diff-columns { grid-template-columns: 1fr; }
+  .policy-graph { grid-template-columns: 1fr; }
+  .policy-graph-arrow { min-height: 24px; transform: rotate(90deg); }
+  .policy-audit-link { align-items: stretch; flex-direction: column; }
+  .policy-audit-link .button, .policy-review-actions .button { width: 100%; }
+  .policy-review-actions { flex-direction: column-reverse; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
 }

@@ -1,10 +1,11 @@
 ///|
 test "basic OPC navigation is industry-neutral and complete" {
   let items = nav_items()
-  assert_eq(items.length(), 12)
+  assert_eq(items.length(), 13)
   assert_eq(page_path(Overview), "/")
   assert_eq(page_path(Evidence), "/evidence")
   assert_eq(page_path(Guide), "/guide")
+  assert_eq(page_path(PolicyRadar), "/policy-radar")
   for item in items {
     assert_true(!item.label.contains("地产"))
     assert_true(!item.label.contains("项目全周期"))
