@@ -1,0 +1,21 @@
+///|
+test "gateway allows only bounded policy review commands" {
+  assert_true(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/policy/sources/beijing-plan/reviews",
+    ),
+  )
+  assert_true(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/policy/changes/compute-node-wording/reviews",
+    ),
+  )
+  assert_false(
+    command_path_allowed(
+      @http.Post,
+      "/api/company/policy/changes/../secret/reviews",
+    ),
+  )
+}

@@ -350,6 +350,12 @@ fn command_path_allowed(
       path_with_identifier_suffix(
         "/api/company/engineering/projects/", "/remediations", path,
       ) ||
+      path_with_identifier_suffix(
+        "/api/company/policy/sources/", "/reviews", path,
+      ) ||
+      path_with_identifier_suffix(
+        "/api/company/policy/changes/", "/reviews", path,
+      ) ||
       path == "/api/company/expenses" ||
       path.has_prefix("/api/company/expenses/") ||
       path == "/api/company/budget-check" ||
