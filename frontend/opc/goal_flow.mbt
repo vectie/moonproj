@@ -9,6 +9,7 @@ fn page_glyph(page : Page) -> String {
     Observe => "observe"
     Operate => "operate"
     Company => "company"
+    PolicyRadar => "observe"
     Evidence => "evidence"
     Guide => "guide"
     MoonSuite => "suite"

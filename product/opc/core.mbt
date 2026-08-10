@@ -198,6 +198,12 @@ pub fn basic_opc() -> @product.ProductProfile {
         Delivery,
       ),
       capability(
+        "intelligence.policy",
+        "Policy change graph and B2B/B2G opportunity hypotheses",
+        Governance,
+        Learning,
+      ),
+      capability(
         "reporting.scorecard",
         "Customer, cash, control, and attention scorecards",
         Governance,

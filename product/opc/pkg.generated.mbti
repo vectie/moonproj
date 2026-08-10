@@ -15,4 +15,3 @@ pub fn basic_opc() -> @product.ProductProfile
 // Type aliases
 
 // Traits
-

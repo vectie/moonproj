@@ -32,11 +32,7 @@ test "policy review paths and contracts fail closed" {
   )
   assert_eq(json_text(source_review, "decision", ""), "verified")
   let projection = policy_review_projection(
-    source_review,
-    "owner-1",
-    1,
-    "policy:source-review:test",
-    "policy:source-review:test:audit",
+    source_review, "owner-1", 1, "policy:source-review:test", "policy:source-review:test:audit",
   )
   assert_false(json_bool(projection, "legal_effect", true))
   assert_false(json_bool(projection, "procurement_effect", true))
