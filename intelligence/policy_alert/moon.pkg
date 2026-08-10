@@ -1,0 +1,5 @@
+import {
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/intelligence/notification",
+  "vectie/moonproj/intelligence/policy",
+}

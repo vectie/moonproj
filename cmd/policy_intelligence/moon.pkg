@@ -1,0 +1,5 @@
+import {
+  "vectie/moonproj/intelligence/policy",
+}
+
+pkgtype(kind: "executable")

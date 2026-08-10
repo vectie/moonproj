@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/intelligence/policy_alert"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/intelligence/notification",
+  "vectie/moonproj/intelligence/policy",
+}
+
+// Values
+pub fn notification_for_policy_alert(@policy.PolicyAlert, principal_id~ : String, recipient_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @notification.Notification raise PolicyAlertBridgeError
+
+// Errors
+pub(all) suberror PolicyAlertBridgeError {
+  AlertNotReviewed
+  Notification(@notification.NotificationError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits
