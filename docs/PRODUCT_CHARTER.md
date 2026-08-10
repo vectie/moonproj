@@ -147,6 +147,20 @@ The existing ERP remains operational during development and migration. The new
 product is built beside it, verified through repeatable parity scenarios, run in
 shadow mode, and cut over only after reconciliation and rollback gates pass.
 
+### D9. Require evidence of pull before substantial product expansion
+
+MoonProj uses the upstream Product In-Gate in
+[`PRODUCT_IN_GATE.md`](PRODUCT_IN_GATE.md). Each new product or materially new
+user/job hypothesis must identify its primary value as a solution, convenience,
+or experience and provide behavioral evidence of the problem, current
+workaround, user commitment, measurable outcome, and adoption path.
+
+The Product In-Gate is separate from the fixed G1-G9 engineering release
+lifecycle. Direction approval, technical quality, parity, and owner acceptance
+do not prove that users will adopt the product. Bounded discovery and
+prototypes may gather evidence, but substantial implementation waits for a
+named-owner pass.
+
 ## Functional scope
 
 The basic OPC product covers all of the following as one coherent system:
@@ -238,6 +252,11 @@ authority, run projects, buy and sell, manage resources and contracts, account
 for economic activity, finance operations, satisfy tax obligations, invest
 capital, and understand its condition without requiring the old ERP to complete
 the lifecycle.
+
+Capability alone is insufficient: the initial workflow must also show
+activation, repeated use, and a measurable improvement over the user's prior
+behavior. Post-release usage and retention supersede the pre-build demand
+hypothesis.
 
 ## Open decisions
 

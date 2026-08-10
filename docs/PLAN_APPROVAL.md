@@ -37,3 +37,18 @@ The implementation-language boundary is now explicit: the company product
 must use pure MoonBit plus shell orchestration. Existing Python migration and
 PostgreSQL bridge scripts are transitional evidence only; they must be ported
 to MoonBit, shadow-compared, and removed from supported build/deployment paths.
+
+## Plan amendment (2026-08-04)
+
+The user approved an upstream Product In-Gate that tests whether a product will
+actually be adopted before substantial engineering. The gate requires a named
+user and buyer, a primary solution/convenience/experience hypothesis, recent
+problem behavior, a quantified workaround, behavioral commitment, a measurable
+outcome, and a credible adoption path.
+
+This amendment does not renumber or weaken engineering Gates G1-G9. MoonProj's
+initial Basic OPC decision is `experiment`, not `pass`: bounded discovery and
+work needed for ERP preservation, migration safety, recovery, or existing
+obligations remain authorized, while broad new module expansion waits for a
+commitment-backed initial workflow. The complete policy and execution packet
+are in `PRODUCT_IN_GATE.md`.

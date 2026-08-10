@@ -19,6 +19,13 @@ Target: standalone basic OPC product plus extension packs in this repository
 > Real project ratings intentionally remain unknown until actual independent
 > audit evidence is accepted.
 
+> Product-admission amendment (2026-08-04): the Product In-Gate in
+> `docs/PRODUCT_IN_GATE.md` now precedes substantial product engineering. The
+> existing G1-G9 meanings and order are unchanged. MoonProj's current Basic OPC
+> decision is `experiment`: migration, safety, recovery, existing obligations,
+> and bounded demand experiments may continue, but broad new module expansion
+> is not evidence of adoption and requires a commitment-backed workflow.
+
 ## 0. Product pivot (2026-07-20)
 
 MoonProj now targets a general One-Person Company. The default profile is not
@@ -50,6 +57,30 @@ The ordered pivot is:
 
 Detailed boundaries and maturity gates are defined in
 `OPC_PRODUCT_ARCHITECTURE.md`.
+
+## 0a. Product In-Gate execution (2026-08-04)
+
+Before the Basic OPC scope expands further, execute the demand packet defined
+in `PRODUCT_IN_GATE.md`:
+
+1. choose one narrow initial OPC user segment and one workflow for which a user
+   already pays through money, time, delay, risk, or recurring frustration;
+2. record at least three recent problem episodes across at least two
+   prospective users or organizations, including their current workaround;
+3. quantify one baseline and target outcome for that workflow;
+4. obtain either two independent commitments of recurring pilot time, data, or
+   workflow access, or one purchase/payment commitment;
+5. document introduction, approval, configuration, activation, and repeat-use
+   ownership;
+6. record a named-owner `pass`, `experiment`, or `park` decision with dated,
+   redacted receipt references.
+
+The first experiment should test the product contract's existing milestone to
+select one paid OPC workflow. Discovery interviews, a disposable prototype, or
+a concierge trial may be used to obtain evidence. They must not silently grow
+into production scope. Until the packet passes, continue only work needed to
+protect the working ERP, satisfy existing commitments, make migration and
+recovery safe, or run the bounded experiment.
 
 **Basic OPC UI checkpoint (2026-07-20).** The standalone Rabbita surface in
 `frontend/opc` now covers all eight neutral navigation areas, maps all 13

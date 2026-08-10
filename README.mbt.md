@@ -32,6 +32,8 @@ default product.
   the real-estate extension boundary.
 - [Product charter](docs/PRODUCT_CHARTER.md) — agreed product direction,
   boundaries, decisions, invariants, and success definition.
+- [Product In-Gate](docs/PRODUCT_IN_GATE.md) — demand evidence, commitment, and
+  adoption criteria required before substantial product engineering.
 - [Conversation decisions](docs/DESIGN_DECISIONS.md) — chronological rationale
   for the separate product, shallow integration, Moonfish absorption, and ERP
   migration strategy.

@@ -37,6 +37,7 @@ into company authority.
 | Procurement, sales, treasury and tax workflows | available locally |
 | Rabbita operator preview | available locally |
 | PostgreSQL company service | available for development |
+| Persisted Product In-Gate marking and audit trail | available locally |
 | Versioned project-plan pack and restart-safe MoonFlow adapter | available locally |
 | Existing ERP migration/shadowing | experimental |
 | Production system of record | not yet declared |
@@ -79,6 +80,10 @@ pending named-human review with no business effects. See
 
 ## Release gates and next milestones
 
+- Pass the upstream Product In-Gate for one narrow OPC workflow with dated
+  problem evidence, a quantified workaround, a qualifying user commitment, a
+  measurable outcome, and an adoption path. The current decision is
+  `experiment`; see [PRODUCT_IN_GATE.md](PRODUCT_IN_GATE.md).
 - Split oversized frontend and PostgreSQL service packages by business
   capability.
 - Complete one real ERP shadow period with reconciliation.

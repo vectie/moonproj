@@ -22,6 +22,31 @@ owns agent execution and receipts. Audit skills own the evaluation method. A
 different reviewer Agent verifies producer evidence. No layer may silently turn
 missing evidence into a pass.
 
+## Product admission before engineering release
+
+The control plane now has an upstream Product In-Gate. Before substantial
+engineering, a proposal must show behavioral evidence that a reachable user or
+buyer has a recurring problem, pays a meaningful workaround cost, will commit
+time, data, workflow access, or money, and has a credible path to repeated use.
+The proposal also names its primary value hypothesis: solution, convenience,
+or experience.
+
+The In-Gate is a portfolio-admission decision, not G0 and not a remapping of
+G1. G1-G9 remain the fixed candidate-bound engineering lifecycle after a
+product is admitted. Product approval, a complete build, business acceptance,
+and release readiness cannot substitute for demand evidence. Conversely, an
+In-Gate pass does not waive any engineering or release criterion.
+
+The controlling evidence requirements, decision states, freshness policy, and
+MoonProj's initial `experiment` decision are recorded in
+[`PRODUCT_IN_GATE.md`](PRODUCT_IN_GATE.md).
+
+The marking is also a native PostgreSQL system record. An authenticated owner
+can persist it from the Moon Suite page; MoonProj stores an immutable command,
+revisioned `product_in_gate` projection, and audit event. The projection
+explicitly carries `exit_gate_effect=false`. It is not displayed on the
+Quality page and cannot alter the G1-G9 release ledger.
+
 ## First portfolio
 
 `config/moonsuite-engineering.json` registers the first nine services:
