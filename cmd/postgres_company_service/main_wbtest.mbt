@@ -7,6 +7,122 @@ test "native company service validates bounded identifiers" {
 }
 
 ///|
+fn product_in_gate_test_body(
+  decision : String,
+  problem_evidence : Array[Json],
+  commitment_evidence : Array[Json],
+) -> Json {
+  Json::object({
+    "decision": Json::string(decision),
+    "primary_value": Json::string("solution"),
+    "segment": Json::string("owner-operated software company"),
+    "workflow": Json::string("weekly release decision"),
+    "decided_at": Json::string("2026-08-04"),
+    "problem_evidence": Json::array(problem_evidence),
+    "commitment_evidence": Json::array(commitment_evidence),
+    "current_behavior_cost": Json::string(
+      "manual review consumes two owner-days per release",
+    ),
+    "outcome_metric": Json::string(
+      "reduce release review from 2 days to 2 hours",
+    ),
+    "adoption_path": Json::string(
+      "owner introduces, configures, and repeats weekly",
+    ),
+    "unresolved_risks": Json::string("pilot retention is not yet observed"),
+    "next_experiment": Json::string(
+      "run the workflow with two owners for four weeks",
+    ),
+    "review_by": Json::string("2026-11-02"),
+  })
+}
+
+///|
+test "product in-gate is a persisted portfolio decision without exit-gate effect" {
+  assert_true(
+    product_in_gate_project("/api/company/products/moonproj/in-gate")
+    is Some("moonproj"),
+  )
+  assert_true(
+    product_in_gate_command_spec(
+      @http.Put,
+      "/api/company/products/moonproj/in-gate",
+    )
+    is Some("moonproj"),
+  )
+  assert_true(
+    product_in_gate_project("/api/company/products/../secret/in-gate") is None,
+  )
+  let normalized = normalize_product_in_gate_request(
+    product_in_gate_test_body("experiment", [], []),
+  )
+  let projection = product_in_gate_projection(
+    "moonproj", normalized, "owner-1", 1, "event-1",
+  )
+  assert_eq(json_text(projection, "decision", ""), "experiment")
+  assert_eq(json_text(projection, "primary_value", ""), "solution")
+  assert_true(json_bool(projection, "persisted", false))
+  assert_false(json_bool(projection, "exit_gate_effect", true))
+}
+
+///|
+test "product in-gate pass requires problem and commitment evidence" {
+  let mut rejected = false
+  try {
+    let _ = normalize_product_in_gate_request(
+      product_in_gate_test_body("pass", [], []),
+    )
+  } catch {
+    CompanyServiceError::CommandRejected(422, _) => rejected = true
+    _ => ()
+  }
+  assert_true(rejected)
+  let normalized = normalize_product_in_gate_request(
+    product_in_gate_test_body("pass", ["problem-1", "problem-2", "problem-3"], [
+      "level5:payment-1",
+    ]),
+  )
+  assert_eq(json_text(normalized, "decision", ""), "pass")
+  rejected = false
+  try {
+    let _ = normalize_product_in_gate_request(
+      product_in_gate_test_body(
+        "pass",
+        ["problem-1", "problem-2", "problem-3"],
+        ["level4:pilot-1"],
+      ),
+    )
+  } catch {
+    CompanyServiceError::CommandRejected(422, _) => rejected = true
+    _ => ()
+  }
+  assert_true(rejected)
+  let level4_pass = normalize_product_in_gate_request(
+    product_in_gate_test_body("pass", ["problem-1", "problem-2", "problem-3"], [
+      "level4:pilot-1", "level4:pilot-2",
+    ]),
+  )
+  assert_eq(json_text(level4_pass, "decision", ""), "pass")
+}
+
+///|
+test "product in-gate requires a bounded freshness review" {
+  let body = product_in_gate_test_body("experiment", [], [])
+  match body {
+    Object(fields) => fields["review_by"] = Json::string("2026-11-03")
+    _ => ()
+  }
+  let mut rejected = false
+  try {
+    let _ = normalize_product_in_gate_request(body)
+  } catch {
+    CompanyServiceError::CommandRejected(422, _) => rejected = true
+    _ => ()
+  }
+  assert_true(rejected)
+}
+
+///|
 fn engineering_test_envelope() -> Json {
   @json.parse(
     "{\"schema\":\"moonsuite.engineering-audit-envelope.v1\",\"project\":\"moonproj\",\"progress\":{\"schema\":\"moonsuite.project-progress-evidence.v1\",\"project\":\"moonproj\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"observed_at\":\"2026-07-21T10:00:00Z\",\"lifecycle\":\"delivery\",\"stage\":\"G3\",\"gate_state\":\"pass\",\"completed_milestones\":[\"build\"],\"current_work\":[\"audit\"],\"blockers\":[],\"next_gate\":{\"id\":\"G4\",\"name\":\"operate\",\"criteria\":[\"runbook\"],\"evidence\":[\"docs/runbook.md\"]},\"unknowns\":[]},\"health\":{\"schema\":\"moonsuite.project-health-evidence.v1\",\"project\":\"moonproj\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"observed_at\":\"2026-07-21T10:00:00Z\",\"checks\":[{\"dimension\":\"tests\",\"status\":\"pass\",\"command\":\"moon test\",\"exit_code\":0,\"duration_ms\":12,\"evidence\":[\"receipt:test\"]}],\"delivery\":{\"status\":\"pass\",\"evidence\":[\"ci\"]},\"operations\":{\"status\":\"unknown\",\"evidence\":[]},\"trend\":{\"status\":\"unknown\",\"baseline_evidence\":[]},\"failures\":[],\"unknowns\":[\"production telemetry\"]},\"production\":{\"schema\":\"moonsuite.production-gate-evidence.v1\",\"project\":\"moonproj\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"candidate\":\"main@0123456\",\"observed_at\":\"2026-07-21T10:00:00Z\",\"redlines\":[{\"id\":\"R1\",\"status\":\"pass\",\"evidence\":[\"receipt:r1\"]}],\"gates\":[{\"id\":\"G1\",\"status\":\"pass\",\"criteria\":[\"tests\"]}],\"computed_grade\":\"G1\",\"release_eligibility\":\"needs_evidence\",\"missing_evidence\":[\"rollback drill\"],\"owner_decisions\":[]},\"review\":{\"schema\":\"moonsuite.evidence-review.v1\",\"project\":\"moonproj\",\"producer_artifact\":\"audit-envelope\",\"producer_agent\":\"producer-01\",\"reviewer_agent\":\"reviewer-02\",\"commit\":\"0123456789abcdef0123456789abcdef01234567\",\"observed_at\":\"2026-07-21T10:01:00Z\",\"verdict\":\"accept\",\"verified_claims\":[\"moon test passed\"],\"rejected_claims\":[],\"rerun_receipts\":[\"receipt:rerun\"],\"missing_evidence\":[\"rollback drill\"]}}",

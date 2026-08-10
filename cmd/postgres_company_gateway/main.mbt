@@ -537,6 +537,7 @@ fn command_path_allowed(
       )
     @http.Put =>
       path == "/api/company/auth/profile" ||
+      path_with_identifier_suffix("/api/company/products/", "/in-gate", path) ||
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/rbac/users/", path) ||
       path_with_identifier("/api/company/loans/", path) ||

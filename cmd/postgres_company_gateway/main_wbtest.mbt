@@ -206,4 +206,10 @@ test "MoonClaw task identifiers are extracted from audit responses" {
       "/api/company/engineering/projects/moonproj/remediations",
     ),
   )
+  assert_true(
+    command_path_allowed(@http.Put, "/api/company/products/moonproj/in-gate"),
+  )
+  assert_false(
+    command_path_allowed(@http.Put, "/api/company/products/../secret/in-gate"),
+  )
 }

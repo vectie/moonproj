@@ -14963,6 +14963,10 @@ async fn route(
   if path == "/api/company/policy/radar" {
     return policy_radar_response()
   }
+  match product_in_gate_project(path) {
+    Some(product) => return product_in_gate_response(product)
+    None => ()
+  }
   let engineering_prefix = "/api/company/engineering/projects/"
   if path.has_prefix(engineering_prefix) {
     let project = path[engineering_prefix.length():].to_owned()
@@ -16573,6 +16577,41 @@ async fn handle(
       let result = persist_policy_review(
         kind, target_id, body, actor, idempotency_key,
       ) catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
+  match product_in_gate_command_spec(request.meth, path) {
+    Some(product) => {
+      let idempotency_key = header(request, "Idempotency-Key")
+      if idempotency_key.is_empty() {
+        send_json(
+          conn,
+          request.meth,
+          400,
+          Json::object({ "error": "Idempotency-Key is required" }),
+          false,
+        )
+        return
+      }
+      let actor = command_actor(request, actor_signing_secret) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let body = read_json_body(body_reader) catch {
+        error => {
+          let response = service_error_response(error)
+          send_json(conn, request.meth, response.0, response.1, false)
+          return
+        }
+      }
+      let result = mark_product_in_gate(product, body, actor, idempotency_key) catch {
         error => service_error_response(error)
       }
       send_json(conn, request.meth, result.0, result.1, false)
