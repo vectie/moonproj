@@ -86,6 +86,20 @@ struct Model {
   engineering_freshness : String
   engineering_findings : Int
   engineering_poll_attempts : Int
+  product_in_gate_decision : String
+  product_in_gate_primary_value : String
+  product_in_gate_segment : String
+  product_in_gate_workflow : String
+  product_in_gate_problem_evidence : String
+  product_in_gate_commitment_evidence : String
+  product_in_gate_current_behavior_cost : String
+  product_in_gate_outcome_metric : String
+  product_in_gate_adoption_path : String
+  product_in_gate_unresolved_risks : String
+  product_in_gate_next_experiment : String
+  product_in_gate_review_by : String
+  product_in_gate_owner : String
+  product_in_gate_persisted : Bool
   policy_radar_state : String
   policy_radar_projection : PolicyRadarProjection?
   policy_radar_error : String
@@ -176,6 +190,38 @@ enum Msg {
     String,
     Array[String]
   )
+  SelectProductInGateDecision(String)
+  SelectProductInGatePrimaryValue(String)
+  InputProductInGateSegment(String)
+  InputProductInGateWorkflow(String)
+  InputProductInGateProblemEvidence(String)
+  InputProductInGateCommitmentEvidence(String)
+  InputProductInGateCurrentBehaviorCost(String)
+  InputProductInGateOutcomeMetric(String)
+  InputProductInGateAdoptionPath(String)
+  InputProductInGateUnresolvedRisks(String)
+  InputProductInGateNextExperiment(String)
+  InputProductInGateReviewBy(String)
+  SaveProductInGate
+  ProductInGateSaved(String)
+  ProductInGateLoaded(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool
+  )
+  ProductInGateFailed(String)
   RefreshPolicyRadar
   PolicyRadarLoaded(PolicyRadarProjection)
   PolicyRadarFailed(String)
@@ -279,6 +325,20 @@ fn initial_model() -> Model {
     engineering_freshness: "missing",
     engineering_findings: 0,
     engineering_poll_attempts: 0,
+    product_in_gate_decision: "unknown",
+    product_in_gate_primary_value: "solution",
+    product_in_gate_segment: "",
+    product_in_gate_workflow: "",
+    product_in_gate_problem_evidence: "",
+    product_in_gate_commitment_evidence: "",
+    product_in_gate_current_behavior_cost: "",
+    product_in_gate_outcome_metric: "",
+    product_in_gate_adoption_path: "",
+    product_in_gate_unresolved_risks: "",
+    product_in_gate_next_experiment: "",
+    product_in_gate_review_by: "",
+    product_in_gate_owner: "",
+    product_in_gate_persisted: false,
     policy_radar_state: "idle",
     policy_radar_projection: None,
     policy_radar_error: "",
@@ -658,7 +718,18 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (
         if page == PolicyRadar {
           load_policy_radar(emit)
-        } else if page == MoonSuite || page == Quality {
+        } else if page == MoonSuite {
+          @cmd.batch([
+            load_engineering_projection(
+              emit,
+              engineering_project_name(model.engineering_project),
+            ),
+            load_product_in_gate(
+              emit,
+              engineering_project_name(model.engineering_project),
+            ),
+          ])
+        } else if page == Quality {
           load_engineering_projection(
             emit,
             engineering_project_name(model.engineering_project),
@@ -704,7 +775,14 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     SelectEngineeringProject(index) =>
       (
-        load_engineering_projection(emit, engineering_project_name(index)),
+        if model.page == MoonSuite {
+          @cmd.batch([
+            load_engineering_projection(emit, engineering_project_name(index)),
+            load_product_in_gate(emit, engineering_project_name(index)),
+          ])
+        } else {
+          load_engineering_projection(emit, engineering_project_name(index))
+        },
         {
           ..model,
           engineering_project: index,
@@ -724,6 +802,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           engineering_freshness: "missing",
           engineering_findings: 0,
           engineering_poll_attempts: 0,
+          product_in_gate_decision: "unknown",
+          product_in_gate_primary_value: "solution",
+          product_in_gate_segment: "",
+          product_in_gate_workflow: "",
+          product_in_gate_problem_evidence: "",
+          product_in_gate_commitment_evidence: "",
+          product_in_gate_current_behavior_cost: "",
+          product_in_gate_outcome_metric: "",
+          product_in_gate_adoption_path: "",
+          product_in_gate_unresolved_risks: "",
+          product_in_gate_next_experiment: "",
+          product_in_gate_review_by: "",
+          product_in_gate_owner: "",
+          product_in_gate_persisted: false,
           notice: "已选择工程审计对象；状态保持未知，直到 MoonClaw 返回独立复核证据。",
         },
       )
@@ -852,6 +944,107 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             } else {
               model.notice
             },
+          },
+        )
+      }
+    SelectProductInGateDecision(value) =>
+      (none, { ..model, product_in_gate_decision: value })
+    SelectProductInGatePrimaryValue(value) =>
+      (none, { ..model, product_in_gate_primary_value: value })
+    InputProductInGateSegment(value) =>
+      (none, { ..model, product_in_gate_segment: value })
+    InputProductInGateWorkflow(value) =>
+      (none, { ..model, product_in_gate_workflow: value })
+    InputProductInGateProblemEvidence(value) =>
+      (none, { ..model, product_in_gate_problem_evidence: value })
+    InputProductInGateCommitmentEvidence(value) =>
+      (none, { ..model, product_in_gate_commitment_evidence: value })
+    InputProductInGateCurrentBehaviorCost(value) =>
+      (none, { ..model, product_in_gate_current_behavior_cost: value })
+    InputProductInGateOutcomeMetric(value) =>
+      (none, { ..model, product_in_gate_outcome_metric: value })
+    InputProductInGateAdoptionPath(value) =>
+      (none, { ..model, product_in_gate_adoption_path: value })
+    InputProductInGateUnresolvedRisks(value) =>
+      (none, { ..model, product_in_gate_unresolved_risks: value })
+    InputProductInGateNextExperiment(value) =>
+      (none, { ..model, product_in_gate_next_experiment: value })
+    InputProductInGateReviewBy(value) =>
+      (none, { ..model, product_in_gate_review_by: value })
+    SaveProductInGate =>
+      (
+        request_product_in_gate_mark(emit, model),
+        {
+          ..model,
+          notice: "正在持久化 Product In-Gate 组合决策；这不会改变出厂 G1-G9。",
+        },
+      )
+    ProductInGateSaved(project) =>
+      if project != engineering_project_name(model.engineering_project) {
+        (none, model)
+      } else {
+        (
+          load_product_in_gate(emit, project),
+          {
+            ..model,
+            notice: "Product In-Gate 已写入 PostgreSQL；出厂 G1-G9 保持独立。",
+          },
+        )
+      }
+    ProductInGateLoaded(
+      project,
+      decision,
+      primary_value,
+      segment,
+      workflow,
+      problem_evidence,
+      commitment_evidence,
+      current_behavior_cost,
+      outcome_metric,
+      adoption_path,
+      unresolved_risks,
+      next_experiment,
+      review_by,
+      owner,
+      persisted
+    ) =>
+      if project != engineering_project_name(model.engineering_project) {
+        (none, model)
+      } else {
+        (
+          none,
+          {
+            ..model,
+            product_in_gate_decision: decision,
+            product_in_gate_primary_value: if primary_value == "unknown" {
+              "solution"
+            } else {
+              primary_value
+            },
+            product_in_gate_segment: segment,
+            product_in_gate_workflow: workflow,
+            product_in_gate_problem_evidence: problem_evidence,
+            product_in_gate_commitment_evidence: commitment_evidence,
+            product_in_gate_current_behavior_cost: current_behavior_cost,
+            product_in_gate_outcome_metric: outcome_metric,
+            product_in_gate_adoption_path: adoption_path,
+            product_in_gate_unresolved_risks: unresolved_risks,
+            product_in_gate_next_experiment: next_experiment,
+            product_in_gate_review_by: review_by,
+            product_in_gate_owner: owner,
+            product_in_gate_persisted: persisted,
+          },
+        )
+      }
+    ProductInGateFailed(project) =>
+      if project != engineering_project_name(model.engineering_project) {
+        (none, model)
+      } else {
+        (
+          none,
+          {
+            ..model,
+            notice: "Product In-Gate 未写入。请补齐字段与证据要求，并确认登录、网关和 PostgreSQL 可用。",
           },
         )
       }

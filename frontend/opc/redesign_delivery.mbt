@@ -176,6 +176,360 @@ fn engineering_project_button(
 }
 
 ///|
+#cfg(target="js")
+extern "js" fn product_in_gate_nonce() -> String =
+  #| () => String(Date.now())
+
+///|
+#cfg(target="js")
+extern "js" fn product_in_gate_today() -> String =
+  #| () => new Date().toISOString().slice(0, 10)
+
+///|
+fn product_in_gate_refs(value : String) -> Array[Json] {
+  let result : Array[Json] = []
+  for item in value.split(";") {
+    let trimmed = item.trim().to_owned()
+    if !trimmed.is_empty() {
+      result.push(Json::string(trimmed))
+    }
+  }
+  result
+}
+
+///|
+fn product_in_gate_root(value : Json) -> Json {
+  match value {
+    Object(root) => root.get("product_in_gate").unwrap_or(Json::null())
+    _ => Json::null()
+  }
+}
+
+///|
+fn product_in_gate_response_text(
+  value : Json,
+  key : String,
+  fallback : String,
+) -> String {
+  projection_item_text(product_in_gate_root(value), key, fallback)
+}
+
+///|
+fn product_in_gate_response_refs(value : Json, key : String) -> String {
+  match product_in_gate_root(value) {
+    Object(fields) =>
+      match fields.get(key) {
+        Some(Array(values)) =>
+          values
+          .filter_map(value => {
+            match value {
+              String(text) => Some(text)
+              _ => None
+            }
+          })
+          .join("; ")
+        _ => ""
+      }
+    _ => ""
+  }
+}
+
+///|
+fn product_in_gate_response_persisted(value : Json) -> Bool {
+  match product_in_gate_root(value) {
+    Object(fields) => fields.get("persisted") is Some(True)
+    _ => false
+  }
+}
+
+///|
+fn load_product_in_gate(emit : @rabbita.Emit[Msg], project : String) -> Cmd {
+  @http.get("/api/company/products/" + project + "/in-gate").expect_text(result => {
+    match result {
+      Ok(response) => {
+        let payload = @json.parse(response) catch { _ => Json::null() }
+        emit(
+          ProductInGateLoaded(
+            project,
+            product_in_gate_response_text(payload, "decision", "unknown"),
+            product_in_gate_response_text(payload, "primary_value", "unknown"),
+            product_in_gate_response_text(payload, "segment", ""),
+            product_in_gate_response_text(payload, "workflow", ""),
+            product_in_gate_response_refs(payload, "problem_evidence"),
+            product_in_gate_response_refs(payload, "commitment_evidence"),
+            product_in_gate_response_text(payload, "current_behavior_cost", ""),
+            product_in_gate_response_text(payload, "outcome_metric", ""),
+            product_in_gate_response_text(payload, "adoption_path", ""),
+            product_in_gate_response_text(payload, "unresolved_risks", ""),
+            product_in_gate_response_text(payload, "next_experiment", ""),
+            product_in_gate_response_text(payload, "review_by", ""),
+            product_in_gate_response_text(payload, "owner", ""),
+            product_in_gate_response_persisted(payload),
+          ),
+        )
+      }
+      Err(_) => emit(ProductInGateFailed(project))
+    }
+  })
+}
+
+///|
+fn request_product_in_gate_mark(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+) -> Cmd {
+  let project = engineering_project_name(model.engineering_project)
+  let body = Json::object({
+    "idempotency_key": Json::string(
+      "product-in-gate-" + project + "-" + product_in_gate_nonce(),
+    ),
+    "decision": Json::string(model.product_in_gate_decision),
+    "primary_value": Json::string(model.product_in_gate_primary_value),
+    "segment": Json::string(model.product_in_gate_segment.trim().to_owned()),
+    "workflow": Json::string(model.product_in_gate_workflow.trim().to_owned()),
+    "decided_at": Json::string(product_in_gate_today()),
+    "problem_evidence": Json::array(
+      product_in_gate_refs(model.product_in_gate_problem_evidence),
+    ),
+    "commitment_evidence": Json::array(
+      product_in_gate_refs(model.product_in_gate_commitment_evidence),
+    ),
+    "current_behavior_cost": Json::string(
+      model.product_in_gate_current_behavior_cost.trim().to_owned(),
+    ),
+    "outcome_metric": Json::string(
+      model.product_in_gate_outcome_metric.trim().to_owned(),
+    ),
+    "adoption_path": Json::string(
+      model.product_in_gate_adoption_path.trim().to_owned(),
+    ),
+    "unresolved_risks": Json::string(
+      model.product_in_gate_unresolved_risks.trim().to_owned(),
+    ),
+    "next_experiment": Json::string(
+      model.product_in_gate_next_experiment.trim().to_owned(),
+    ),
+    "review_by": Json::string(model.product_in_gate_review_by.trim().to_owned()),
+  }).stringify()
+  @http.put("/api/company/products/" + project + "/in-gate")
+  .with_text(body)
+  .expect_text(result => {
+    match result {
+      Ok(response) => {
+        let payload = @json.parse(response) catch { _ => Json::null() }
+        if product_in_gate_response_text(payload, "decision", "").is_empty() {
+          emit(ProductInGateFailed(project))
+        } else {
+          emit(ProductInGateSaved(project))
+        }
+      }
+      Err(_) => emit(ProductInGateFailed(project))
+    }
+  })
+}
+
+///|
+fn product_in_gate_choice(
+  emit : @rabbita.Emit[Msg],
+  selected : String,
+  value : String,
+  label : String,
+  decision : Bool,
+) -> @html.Html {
+  button(
+    type_="button",
+    class=if selected == value {
+      "button button-primary button-small"
+    } else {
+      "button button-secondary button-small"
+    },
+    on_click=if decision {
+      emit(SelectProductInGateDecision(value))
+    } else {
+      emit(SelectProductInGatePrimaryValue(value))
+    },
+    label,
+  )
+}
+
+///|
+fn product_in_gate_input(
+  id : String,
+  title : String,
+  value : String,
+  placeholder : String,
+  on_input : @rabbita.Emit[String],
+) -> @html.Html {
+  div(class="field") <| [
+    label(attrs=@html.Attrs::build().for_(id), title),
+    input(
+      input_type=Text,
+      attrs=@html.Attrs::build().id(id).required(true),
+      value~,
+      placeholder~,
+      on_input~,
+    ),
+  ]
+}
+
+///|
+fn product_in_gate_panel(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  selected : String,
+) -> @html.Html {
+  section(class="section-block release-candidate") <| [
+    div(class="form-heading") <| [
+      div <| [
+        h3("产品 In-Gate · 采用标记"),
+        p(
+          "持久化用户需求、承诺与重复使用判断。这不是 G0，不改变出厂 G1-G9。",
+        ),
+      ],
+      status_badge(
+        model.product_in_gate_decision,
+        tone=if model.product_in_gate_decision == "pass" {
+          "success"
+        } else if model.product_in_gate_decision == "experiment" {
+          "warning"
+        } else {
+          "muted"
+        },
+      ),
+    ],
+    p(
+      selected +
+      (if model.product_in_gate_persisted {
+        " · PostgreSQL 已持久化 · Owner " + model.product_in_gate_owner
+      } else {
+        " · 尚未持久化"
+      }),
+    ),
+    strong("决策"),
+    div(class="tag-row") <| [
+      product_in_gate_choice(
+        emit,
+        model.product_in_gate_decision,
+        "experiment",
+        "实验",
+        true,
+      ),
+      product_in_gate_choice(
+        emit,
+        model.product_in_gate_decision,
+        "pass",
+        "通过",
+        true,
+      ),
+      product_in_gate_choice(
+        emit,
+        model.product_in_gate_decision,
+        "park",
+        "暂存",
+        true,
+      ),
+    ],
+    strong("主要价值假设"),
+    div(class="tag-row") <| [
+      product_in_gate_choice(
+        emit,
+        model.product_in_gate_primary_value,
+        "solution",
+        "解决方案",
+        false,
+      ),
+      product_in_gate_choice(
+        emit,
+        model.product_in_gate_primary_value,
+        "convenience",
+        "便利",
+        false,
+      ),
+      product_in_gate_choice(
+        emit,
+        model.product_in_gate_primary_value,
+        "experience",
+        "体验",
+        false,
+      ),
+    ],
+    div(class="form-grid") <| [
+      product_in_gate_input(
+        "in-gate-segment",
+        "目标用户 / 买家",
+        model.product_in_gate_segment,
+        "一个可触达的细分用户群",
+        emit.map(value => InputProductInGateSegment(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-workflow",
+        "使用情境 / 重复工作流",
+        model.product_in_gate_workflow,
+        "触发、频率与用户会重复完成的工作",
+        emit.map(value => InputProductInGateWorkflow(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-problem-evidence",
+        "问题证据收据",
+        model.product_in_gate_problem_evidence,
+        "receipt-1; receipt-2; receipt-3",
+        emit.map(value => InputProductInGateProblemEvidence(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-commitment-evidence",
+        "承诺证据收据",
+        model.product_in_gate_commitment_evidence,
+        "level4:pilot-a; level4:pilot-b 或 level5:payment-1",
+        emit.map(value => InputProductInGateCommitmentEvidence(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-current-behavior-cost",
+        "当前做法与成本",
+        model.product_in_gate_current_behavior_cost,
+        "当前替代做法及其时间、金钱、延误或风险成本",
+        emit.map(value => InputProductInGateCurrentBehaviorCost(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-outcome",
+        "可测量结果",
+        model.product_in_gate_outcome_metric,
+        "基线、目标与时间窗口",
+        emit.map(value => InputProductInGateOutcomeMetric(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-adoption",
+        "采用路径",
+        model.product_in_gate_adoption_path,
+        "引入、配置、激活和重复使用责任人",
+        emit.map(value => InputProductInGateAdoptionPath(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-risks",
+        "未解决风险",
+        model.product_in_gate_unresolved_risks,
+        "仍需证伪的风险；没有则明确填写 none recorded",
+        emit.map(value => InputProductInGateUnresolvedRisks(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-next-experiment",
+        "下一个实验 / 暂存条件",
+        model.product_in_gate_next_experiment,
+        "下一个可证伪步骤",
+        emit.map(value => InputProductInGateNextExperiment(value)),
+      ),
+      product_in_gate_input(
+        "in-gate-review-by",
+        "复核日期",
+        model.product_in_gate_review_by,
+        "YYYY-MM-DD，须在决策后 90 天内",
+        emit.map(value => InputProductInGateReviewBy(value)),
+      ),
+    ],
+    primary_button(emit, SaveProductInGate, "持久化 Product In-Gate 标记"),
+  ]
+}
+
+///|
 fn request_engineering_audit(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
   let project = engineering_project_name(model.engineering_project)
   let body = Json::object({
@@ -428,6 +782,7 @@ fn moon_suite_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       engineering_project_button(emit, model, 7, "moonmoon"),
       engineering_project_button(emit, model, 8, "moonfish"),
     ],
+    product_in_gate_panel(emit, model, selected),
     div(class="repo-grid") <| [
       evidence_dimension(
         "走了多远",

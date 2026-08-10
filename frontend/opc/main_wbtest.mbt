@@ -73,6 +73,69 @@ test "release dashboard starts from one unknown nine-gate ledger" {
 }
 
 ///|
+test "product in-gate starts unknown and remains separate from nine exit gates" {
+  let model = initial_model()
+  assert_eq(model.product_in_gate_decision, "unknown")
+  assert_true(!model.product_in_gate_persisted)
+  assert_eq(model.product_in_gate_current_behavior_cost, "")
+  assert_eq(model.product_in_gate_review_by, "")
+  assert_eq(model.engineering_gate_states.length(), 9)
+  let refs = product_in_gate_refs("problem-1; problem-2; ; problem-3")
+  assert_eq(refs.length(), 3)
+}
+
+///|
+test "product in-gate response decoder preserves persisted portfolio marking" {
+  let payload = @json.parse(
+    "{\"product_in_gate\":{\"decision\":\"experiment\",\"primary_value\":\"solution\",\"problem_evidence\":[\"problem-1\",\"problem-2\"],\"persisted\":true}}",
+  ) catch {
+    _ => Json::null()
+  }
+  assert_eq(
+    product_in_gate_response_text(payload, "decision", "unknown"),
+    "experiment",
+  )
+  assert_eq(
+    product_in_gate_response_refs(payload, "problem_evidence"),
+    "problem-1; problem-2",
+  )
+  assert_true(product_in_gate_response_persisted(payload))
+}
+
+///|
+#warnings("-alert_unstable")
+test "product in-gate renders on Moon Suite but not on exit quality" {
+  let model = {
+    ..initial_model(),
+    page: MoonSuite,
+    moon_mode: true,
+    product_in_gate_decision: "experiment",
+    product_in_gate_owner: "owner-1",
+    product_in_gate_persisted: true,
+  }
+  let moon_page = @rabbita.simple_cell(
+    model~,
+    update=(_ : Msg, model) => model,
+    view=(emit, model) => moon_suite_view(msg => emit(msg), model),
+  )
+  let moon_html = @rabbita.render_to_string(moon_page)
+  assert_true(moon_html.contains("产品 In-Gate · 采用标记"))
+  assert_true(moon_html.contains("PostgreSQL 已持久化"))
+  assert_true(moon_html.contains("不是 G0，不改变出厂 G1-G9"))
+  assert_true(moon_html.contains("当前做法与成本"))
+  assert_true(moon_html.contains("复核日期"))
+  let quality_model = { ..model, page: Quality }
+  let quality_page = @rabbita.simple_cell(
+    model=quality_model,
+    update=(_ : Msg, model) => model,
+    view=(emit, model) => quality_view(msg => emit(msg), model),
+  )
+  let quality_html = @rabbita.render_to_string(quality_page)
+  assert_true(!quality_html.contains("产品 In-Gate · 采用标记"))
+  assert_true(quality_html.contains("统一九 Gate 证据账本"))
+}
+
+///|
 test "release projection reads gate states from the shared audit" {
   let payload = @json.parse(
     "{\"audit\":{\"gates\":[{\"id\":\"G1\",\"status\":\"pass\"},{\"id\":\"G2\",\"status\":\"blocked\"}]}}",
