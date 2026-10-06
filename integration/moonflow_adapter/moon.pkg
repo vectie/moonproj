@@ -6,6 +6,7 @@ import {
   "moonbitlang/x/time",
   "vectie/moonlib/fsx",
   "vectie/moonlib/pathx",
+  "vectie/moonproj/intelligence/agent_port",
   "vectie/moonproj/integration/project_plan",
 }
 

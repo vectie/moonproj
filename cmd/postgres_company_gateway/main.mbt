@@ -59,7 +59,7 @@ fn header(request : @http.Request, key : String) -> String {
 
 ///|
 fn valid_identifier(value : String) -> Bool {
-  if value.is_empty() || value.length() > 128 {
+  if value.is_empty() || value.length() > 128 || value == "." || value == ".." {
     return false
   }
   for char in value.iter() {

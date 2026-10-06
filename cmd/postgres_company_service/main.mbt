@@ -193,6 +193,8 @@ async fn raw_source_rows(
 fn valid_identifier(value : String) -> Bool {
   !value.is_empty() &&
   value.length() <= 128 &&
+  value != "." &&
+  value != ".." &&
   value
   .iter()
   .all(fn(char) {

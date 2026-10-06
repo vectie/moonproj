@@ -11,6 +11,7 @@ import {
   "moonbitlang/x/sys",
   "moonbitlang/x/crypto",
   "vectie/moonproj/persistence/postgres",
+  "vectie/moonproj/service/product_in_gate_projection",
 }
 
 supported_targets = "native"
