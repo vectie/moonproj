@@ -1,0 +1,334 @@
+MoonFlow product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonFlow is a durable, non-agent orchestration engine for declared work. Its baseline imports exact capability contracts, advances dependency-ready attempts when invoked, records authority and adapter evidence, and preserves review and recovery across revisions. It does not reason about objectives or run an autonomous scheduling loop. The recorded acceptance-review tests establish a small local contract; a complete external adapter journey, restart recovery and company-task receipt return still need qualification.
+Repository maturity claim local alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Declared work should be understandable before it can execute. A graph names operations, dependencies, allowed authority and evidence expectations; the engine advances only what those declarations permit. An installed product or a visible graph node is insufficient proof of capability. Exact manifests, adapter declarations and current health must agree before work becomes executable.
+The engine converts approved execution into inspectable attempts and reviewable outputs. It owns neither the intent behind a source nor the external effect of an adapter. Keeping those distinctions explicit permits a founder or operator to see what actually happened while retaining separate authority over artifact acceptance, customer acceptance and payment. Durable bookkeeping is useful only if it lowers the effort needed to close that handoff.
+Users and jobs
+Workflow operator
+Inspect and advance declared work while resolving blockers
+Trigger An authorized work graph is ready or interrupted
+Successful outcome Every transition has evidence and a safe next action
+Product adapter author
+Publish a conformant executable operation and reconciliation path
+Trigger A pack joins the capability catalog
+Successful outcome The declared schema, operation, authority and receipt agree
+MoonClaw host integrator
+Invoke dependency progression around model-assisted execution
+Trigger A reasoning session delegates a declared multi-step outcome
+Successful outcome Invocation advances eligible work without transferring planning authority
+MoonDesk reviewer
+Inspect graph results and accept or request revision
+Trigger An adapter returns an artifact requiring review
+Successful outcome Review names the exact output and does not masquerade as customer acceptance
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Source documented: 9; Partial: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS acceptance review 3/3 passed; no live MoonProj→Flow or external adapter end-to-end run.
+Open gap One cross-product run with restart/outcome evidence and adopted health declarations is release gate.
+Open gap Operator backup/restore/failed reconciliation workflow not proven in this review.
+Open gap A successful runtime attempt cannot stand in for customer acceptance.
+User scenarios
+Import a conformant work graph
+MF-W01 | Baseline scope. An operator imports a graph and capability source bundle
+1. Read the manifest, host adapter declaration and expiring health
+2. Compile moonflow.capability-source-bundle.v1 into moonflow.capability-catalog.v1
+3. Resolve product/tool@pack-version and product/schema@schema-version
+4. Refuse the graph if operation, schema, authority or claim differs
+Edge case An installed but unhealthy operation can remain discoverable while unavailable for execution.
+Failure and recovery A partial import must not leave executable nodes using stale catalog data.
+Acceptance Import a matching fixture; independently change each contract dimension and require a precise refusal with zero dispatched attempts.
+Evidence references docs/PRODUCT_CONTRACT.md#Adapter contract; docs/CAPABILITY_TRUTH.md
+Advance dependencies and attempts on invocation
+MF-W02 | Baseline scope. A host explicitly asks the engine to advance eligible work
+1. Load the canonical graph revision and event stream
+2. Identify satisfied dependencies and required authority decisions
+3. Create idempotent attempts for eligible operations
+4. Return events and blockers to the invoking host
+Edge case A graph with unmet dependencies remains waiting; the engine does not invent work to make progress.
+Failure and recovery If an invocation repeats after timeout, recover the same attempt rather than scheduling a duplicate.
+Acceptance A diamond graph advances only satisfied nodes; duplicate invocations and revoked authority do not produce unauthorized attempts.
+Evidence references README.mbt.md#Constitutional boundary; docs/PRODUCT_CONTRACT.md#Capability status
+Execute reconcile and review adapter results
+MF-W03 | Baseline scope. A dependency-ready authorized attempt is dispatched
+1. Send the canonical input and correlation identity to its product adapter
+2. Record the adapter-owned receipt and output references
+3. Request reconciliation for an uncertain external outcome
+4. Present the exact output for explicit review
+Edge case An adapter success is execution completion, not accepted work.
+Failure and recovery An unresolved effect remains unknown; a review rejection produces revision work rather than erasing the original receipt.
+Acceptance Exercise success, mismatched receipt, unknown outcome, accepted review and rejected review with preserved history.
+Evidence references README.mbt.md#Adapter contract; docs/PRODUCT_CONTRACT.md#Adapter contract
+Revise and recover work without rewriting history
+MF-W04 | Baseline scope. A reviewer requests changes or the engine restarts
+1. Create a child revision referencing its parent
+2. Retain accepted evidence and explicitly eligible reusable checkpoints
+3. Replay the event stream to reconstruct pending attempts
+4. Reconcile uncertain effects before retry
+Edge case Changing input, authority or capability version can invalidate reuse even when a node name is unchanged.
+Failure and recovery A damaged or incomplete checkpoint must be refused with an actionable restore path, not silently treated as current.
+Acceptance Restart after receipt persistence and after dispatch; both recover the same history, and a child revision never mutates accepted parent outputs.
+Evidence references README.mbt.md#Event stream v3; docs/PRODUCT_CONTRACT.md#Persistence and recovery
+Inspect work through CLI and host canvas
+MF-W05 | Baseline scope. An operator or reviewer opens a published work graph
+1. Load the graph, catalog and configured runtime
+2. Project node status and exact latest attempt
+3. Expose blocker, authority decision, receipt and review history
+4. Allow supported operator actions through the same engine contract
+Edge case An unconfigured canvas is an unavailable projection, not proof that the operations can execute.
+Failure and recovery If projection data is stale, show the age and stop unsafe actions until canonical state reloads.
+Acceptance Compare CLI and host views against one event fixture; no view may imply acceptance for unreviewed success.
+Evidence references README.mbt.md#CLI; docs/PRODUCT_CONTRACT.md#Capability status
+Reconcile company task and work packet
+MF-W06 | Roadmap scope. MoonProj supplies a signed approved work item
+1. Validate the task identity, approval revision and bounded work declaration
+2. Bind one immutable graph revision to that task
+3. Return attempts, artifacts and review receipts with the original identity
+4. Resume receipt delivery after restart or receiver outage
+Edge case A revised company task creates a revised binding instead of modifying an already approved graph invisibly.
+Failure and recovery Failed receipt return is a pending reporting handoff, not permission to repeat an adapter effect.
+Acceptance A signed synthetic task survives interrupted dispatch, engine restart and delayed receipt return with one graph binding.
+Evidence references moon-luna-investigation-ledger-20260930.md; docs/PRODUCT_CONTRACT.md#Persistence and recovery
+Minimal status for the accountable owner
+MF-W07 | Roadmap scope. A founder needs the next action on delegated work
+1. Summarize current outcome, next decision or blocker in ordinary language
+2. Link the exact artifact and evidence behind the summary
+3. Keep graph terminology available as advanced detail
+4. Distinguish internal review, customer acceptance and cash receipt
+Edge case Multiple blockers must preserve their order and ownership instead of collapsing into one misleading progress label.
+Failure and recovery A stale summary must not announce completion after a graph revision invalidates the result.
+Acceptance Test representative waiting, unknown, failed and review-ready states; the owner identifies who must act and why.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; moon-luna-investigation-ledger-20260930.md
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Exact catalog compilation
+MOONFLOW-B01 | Baseline | P0 | Source documented
+Compile the versioned source bundle only when manifest, adapter declaration, schema and health agree; keep discovery separate from execution readiness.
+Evidence docs/CAPABILITY_TRUTH.md
+Test 1. Import matching identities
+2. Refuse missing or conflicting operation/schema/authority claims
+3. Expire health between import and dispatch and block execution
+Dependencies Capability source bundle; Host adapter declarations
+Work revision validation
+MOONFLOW-B02 | Baseline | P0 | Source documented
+Validate declared dependencies and operation inputs before making a graph executable; preserve the accepted revision identity.
+Evidence docs/PRODUCT_CONTRACT.md#Adapter contract
+Test 1. Import a valid dependency graph
+2. Reject a cycle or missing operation with no executable partial state
+3. Repeat an identical import idempotently
+Dependencies Graph schema; Catalog compiler
+Invocation bounded progression
+MOONFLOW-B03 | Baseline | P0 | Source documented
+Advance only dependency-ready work when invoked by an authorized host; do not add independent reasoning or a self-scheduling loop.
+Evidence README.mbt.md#Constitutional boundary
+Test 1. Invoke one eligible graph and observe declared transitions
+2. Leave unmet prerequisites waiting
+3. Stop invoking and verify no new attempt is invented
+Dependencies Host invocation; Dependency evaluator
+Idempotent attempt creation
+MOONFLOW-B04 | Baseline | P0 | Source documented
+Associate an attempt with its work revision and request identity so duplicate host calls cannot create duplicate effectful attempts.
+Evidence README.mbt.md#Event stream v3
+Test 1. Repeat the same request before and after timeout
+2. Reject a conflicting request with the same key
+3. Recover the same attempt after restart
+Dependencies Event persistence
+Execution time authority
+MOONFLOW-B05 | Baseline | P0 | Source documented
+Record an explicit authority decision against the operation, input and actor at dispatch; inventory membership alone grants nothing.
+Evidence docs/PRODUCT_CONTRACT.md#Adapter contract
+Test 1. Allow a scoped valid decision
+2. Revoke or expire it before dispatch and refuse
+3. Require fresh authority for an expanded operation
+Dependencies Authority provider; Exact capability identity
+Adapter owned effect evidence
+MOONFLOW-B06 | Baseline | P0 | Source documented
+Accept only a receipt correlated to the exact work revision, attempt and adapter contract; retain output references without taking ownership of the domain effect.
+Evidence README.mbt.md#Adapter contract
+Test 1. Attach a matching receipt
+2. Refuse wrong attempt, input identity or adapter version
+3. Replay an identical receipt without creating a second event effect
+Dependencies Adapter execute contract
+Explicit result review
+MOONFLOW-B07 | Baseline | P0 | Partial
+Successful execution shall enter review when required; only an authorized review of the exact result can produce accepted work.
+Evidence moon-luna-investigation-ledger-20260930.md reports JS acceptance review 3/3; no external adapter end-to-end run.
+Test 1. Execute successfully and observe review pending
+2. Accept and reject exact result revisions
+3. Refuse a review bound to a replaced artifact
+Dependencies Reviewer identity; Artifact reference
+Reconcile unknown effects
+MOONFLOW-B08 | Baseline | P0 | Source documented
+Call adapter reconciliation before retrying an attempt whose external outcome is uncertain; preserve unknown when no reliable answer exists.
+Evidence docs/PRODUCT_CONTRACT.md#Persistence and recovery
+Test 1. Interrupt after adapter effect but before acknowledgement
+2. Recover the original effect receipt
+3. Return unknown and verify retry remains blocked
+Dependencies Adapter reconcile contract
+Child revision and checkpoint reuse
+MOONFLOW-B09 | Baseline | P0 | Source documented
+A child revision shall preserve accepted parent history and reuse checkpoints only when declared input, version and authority validity permit it.
+Evidence README.mbt.md#Event stream v3
+Test 1. Revise one node while retaining unaffected accepted history
+2. Change an input and invalidate its dependent checkpoint
+3. Refuse reuse after relevant capability drift
+Dependencies Revision graph; Checkpoint metadata
+Restart replay and operator projection
+MOONFLOW-B10 | Baseline | P0 | Source documented
+Reconstruct canonical work state from durable events and expose the same attempt, review and blocker facts through CLI and configured host projections.
+Evidence docs/PRODUCT_CONTRACT.md#Persistence and recovery; README.mbt.md#CLI
+Test 1. Restart at each persistence boundary
+2. Compare CLI and canvas state to canonical events
+3. Present corrupt or incomplete persistence as a recoverable blocker
+Dependencies Event store; Host projection
+Signed task binding and receipt return
+MOONFLOW-R01 | Roadmap | P0 | Proposed
+Bind approved MoonProj task revisions to exact work graphs and return execution, artifact and review receipts idempotently.
+Evidence moon-luna-investigation-ledger-20260930.md reports no live MoonProj to MoonFlow binding.
+Test 1. Run one signed synthetic task through an adapter and review
+2. Refuse changed task content under its old binding
+3. Interrupt return delivery and reconcile without repeating work
+Dependencies MoonProj signed gateway; Task binding schema
+Owner status projection
+MOONFLOW-R02 | Roadmap | P1 | Proposed
+Publish a minimal next-action projection with blocker owner, evidence and freshness while retaining the full graph for operators.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Render all significant states from one event history
+2. Change graph revision and invalidate stale completion
+3. Observe whether reviewers distinguish work acceptance from customer outcome
+Dependencies Host interface; MOONFLOW-B10
+Backup and restore qualification
+MOONFLOW-R03 | Roadmap | P0 | Proposed
+Qualify export, backup restore and failed-reconciliation handling with one live conformant adapter before operator release.
+Evidence moon-luna-investigation-ledger-20260930.md identifies backup, restore and cross-product restart evidence as unproven.
+Test 1. Restore a consistent backup into an isolated instance
+2. Detect an incomplete backup without executing missing work
+3. Reconcile external effects created after the restored checkpoint
+Dependencies Storage contract; Qualified adapter; Operator runbook
+Data state and authority
+Declared work and revisions
+Owner MoonFlow
+State model Imported, validated, blocked, eligible, executing, awaiting review, accepted and superseded
+Write authority Intent and permitted operations come from the caller; Flow cannot broaden them
+Retention and recovery Retain accepted parent history while any child or external commitment references it
+External effect and reconciliation receipt
+Owner Product adapter for effect; MoonFlow for correlated record
+State model Requested, confirmed, failed without effect or unknown
+Write authority Only the domain owner can assert its effect; retries require reconciliation
+Retention and recovery Preserve unresolved receipts and correlation identities until closure
+Artifact review
+Owner Named authorized reviewer
+State model Pending, accepted or changes requested for one exact revision
+Write authority Internal acceptance does not establish customer approval or cash receipt
+Retention and recovery Keep review decision and artifact identity with the work history
+Source intent and company task
+Owner MoonBook and MoonProj respectively
+State model Externally managed
+Write authority Flow consumes immutable references rather than replacing either owner
+Retention and recovery Minimize copied content; keep references sufficient to audit execution
+Interfaces and handoffs
+MoonClaw
+Payload Declared work, eligible operations, attempts and evidence
+Contract Claw reasons and invokes; Flow advances bounded dependencies
+Failure behavior An absent invocation leaves work waiting without inventing an autonomous scheduler
+Product adapters
+Payload Exact versioned input, authority and correlation identity
+Contract Adapter executes and reconciles; Flow records and reviews
+Failure behavior Unknown outcome blocks retry until resolved
+MoonDesk
+Payload Published graph, catalog, status and reviewable artifacts
+Contract The canvas projects canonical engine state and requires a configured runtime
+Failure behavior Unavailable or stale projections disclose blockers
+MoonProj and MoonBook
+Payload Approved-task/source references and returned receipts
+Contract Company commitments and reviewed knowledge remain external owners
+Failure behavior Receiver outage queues idempotent reporting, not repeated execution
+Nonfunctional requirements
+Deterministic replay
+MOONFLOW-N01
+Equivalent valid event histories shall reconstruct identical canonical state
+Acceptance test Replay fixtures before and after process restart and compare normalized state
+Evidence status Proposed
+Recovery integrity
+MOONFLOW-N02
+No unknown effect may become retryable merely because a checkpoint was restored
+Acceptance test Inject crash and backup gaps around effect and receipt persistence
+Evidence status Proposed
+Schema evolution
+MOONFLOW-N03
+Version changes require explicit compatibility rules with refusal of unsupported operations
+Acceptance test Replay prior-version fixtures and malformed catalog bundles
+Evidence status Proposed
+Bounded operation
+MOONFLOW-N04
+Define and enforce graph size, event backlog and adapter timeout limits before release
+Acceptance test Stress each declared limit and verify clear refusal without partial execution
+Evidence status Proposed
+Review usability
+MOONFLOW-N05
+The operator can locate the blocker, exact artifact and responsible authority from any incomplete state
+Acceptance test Proposed release gate: no critical state is mislabeled accepted or complete in usability scenarios
+Evidence status Proposed
+Delivery roadmap
+Baseline adapter qualification
+One declared workflow imports, executes and reaches explicit review
+Requirements MOONFLOW-B01, MOONFLOW-B06, MOONFLOW-B07, MOONFLOW-B08
+Exit gate Live adapter evidence includes an acknowledgement-loss reconciliation and exact artifact review
+Durable operator recovery
+Revision, restart and restore maintain the same truth
+Requirements MOONFLOW-B09, MOONFLOW-B10, MOONFLOW-R03
+Exit gate Restored event history agrees with adapter effects, or unresolved effects remain blocked
+Accountable task handoff
+Company work returns usable evidence to its owner
+Requirements MOONFLOW-R01, MOONFLOW-R02
+Exit gate One signed task round-trip survives restart and is understandable in the host
+Outcome measurement
+Completed handoffs
+Qualified work results with correlated adapter receipt and explicit required review
+Measurement Event and review audit
+Target All release fixtures; no inferred customer success
+Unresolved effect age
+Time from unknown outcome to evidence-backed reconciliation
+Measurement Attempt and reconciliation timestamps
+Target Establish baseline and expose every aging unresolved attempt
+Operator recovery effort
+Steps and active time needed to diagnose and safely resume one interrupted graph
+Measurement Observed recovery exercises
+Target Compare with manual coordination before setting a reduction claim
+Non goals
+Independent reasoning, goal formation or self-scheduling
+Execution of domain effects inside the engine
+Standalone consumer app or universal canvas
+Customer acceptance, billing or autonomous knowledge promotion
+Alternatives and optimality
+A script with a manifest and manual checklist
+Advantage Easy to understand for a short linear process
+Cost Weak recovery and duplicated evidence collection at scale
+When to choose Prefer for one-off reversible work without external uncertainty
+An established generic workflow engine
+Advantage Mature scheduling and operational tooling
+Cost Requires adapting MoonSuite exact capability, authority and review semantics
+When to choose Benchmark integration effort before claiming a bespoke engine is superior
+The non-agent boundary is a strong design choice because dependency progression and evidence replay benefit from deterministic behavior. It is not evidence that the implementation is optimal. A standard workflow engine with a thin authority and review layer may achieve the same user outcome at lower maintenance cost.
+The PRD should prefer one complete external adapter journey over broad nominal catalog coverage. Import, execution, receipt correlation, review rejection, revision and restart belong in the same qualification scenario. Isolated acceptance tests cannot establish that entire chain.
+A narrower first release could offer CLI inspection and a minimal host status projection before investing in a rich canvas. Operators need to understand the next safe action; visual graph density is not itself a measure of reduced coordination.
+Future task integration is valuable only if exact receipts return to the originating commitment after failures. It should not import company decision rules into the engine. A completed work graph can support artifact inspection, while separate customer acceptance and cash evidence stay in their owning records.
+Open product decisions
+Decision Which adapter establishes the first complete contract
+Recommendation Choose one with execute and reconcile support plus reviewable artifacts
+Consequence Avoids a release dependent on a large unqualified capability catalog
+Decision Should the canvas precede recovery qualification
+Recommendation Qualify event replay and CLI inspection first
+Consequence Reduces UI breadth while improving the truth exposed by every future view
+Sources and coverage
+Repository paths below are relative to moonflow. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/CAPABILITY_TRUTH.md
+moon-luna-investigation-ledger-20260930.md
+The recorded JS acceptance-review run passed three tests. It is evidence for the tested local review component, not a live company-task binding, configured canvas, external adapter effect, backup restore or end-to-end restart. The supplied source coverage did not exhaust all eight documentation files or adapter implementations. Requirements and exit gates describe desired behavior to verify; they do not relabel documented capabilities as delivered outcomes.

@@ -10,7 +10,15 @@ import {
 // Errors
 type GatewayError derive(@debug.Debug)
 
+type ProductCatalogReadError derive(@debug.Debug)
+
 // Types and methods
+type NativeBridge
+
+type NativeControl
+
+type ProductResources
+
 type ProxyResult
 
 // Type aliases

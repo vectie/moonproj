@@ -1,7 +1,7 @@
 ///|
 test "basic OPC navigation is industry-neutral and complete" {
   let items = nav_items()
-  assert_eq(items.length(), 13)
+  assert_eq(items.length(), 14)
   assert_eq(page_path(Overview), "/")
   assert_eq(page_path(Evidence), "/evidence")
   assert_eq(page_path(Guide), "/guide")
@@ -51,12 +51,15 @@ test "session-local delivery view states its non-PostgreSQL evidence boundary" {
 }
 
 ///|
-test "Moon product line is optional and hidden by default" {
+test "engineering names stay exact with Moon mode off" {
   let model = initial_model()
   assert_true(!model.moon_mode)
   assert_eq(page_path(MoonSuite), "/moon")
-  assert_eq(quality_product_name(model, 0), "Core Service")
-  assert_eq(quality_product_name({ ..model, moon_mode: true }, 0), "moonproj")
+  assert_eq(quality_product_name(model, "moonproj"), "moonproj")
+  assert_eq(
+    quality_product_name({ ..model, moon_mode: true, }, "moonproj"),
+    "moonproj",
+  )
 }
 
 ///|
@@ -124,7 +127,7 @@ test "product in-gate renders on Moon Suite but not on exit quality" {
   assert_true(moon_html.contains("不是 G0，不改变出厂 G1-G9"))
   assert_true(moon_html.contains("当前做法与成本"))
   assert_true(moon_html.contains("复核日期"))
-  let quality_model = { ..model, page: Quality }
+  let quality_model = { ..model, page: Quality, }
   let quality_page = @rabbita.simple_cell(
     model=quality_model,
     update=(_ : Msg, model) => model,
@@ -223,10 +226,10 @@ test "delivery transitions require their preceding state" {
   assert_true(!can_submit_work(blank))
   assert_true(!can_accept_work(blank))
   assert_true(
-    can_start_work({ ..blank, work_saved: true, workflow_ready: true }),
+    can_start_work({ ..blank, work_saved: true, workflow_ready: true, }),
   )
-  assert_true(can_submit_work({ ..blank, work_stage: 1 }))
-  assert_true(can_accept_work({ ..blank, work_stage: 2 }))
+  assert_true(can_submit_work({ ..blank, work_stage: 1, }))
+  assert_true(can_accept_work({ ..blank, work_stage: 2, }))
 }
 
 ///|
@@ -241,13 +244,17 @@ test "commitment effects require authority delivery treasury and ledger" {
     }),
   )
   assert_true(
-    can_sign_commitment({ ..blank, commitment_stage: 1, company_saved: true }),
+    can_sign_commitment({ ..blank, commitment_stage: 1, company_saved: true, }),
   )
   assert_true(
-    can_complete_commitment({ ..blank, commitment_stage: 2, work_stage: 3 }),
+    can_complete_commitment({ ..blank, commitment_stage: 2, work_stage: 3, }),
   )
   assert_true(
-    can_settle_commitment({ ..blank, commitment_stage: 3, treasury_ready: true }),
+    can_settle_commitment({
+      ..blank,
+      commitment_stage: 3,
+      treasury_ready: true,
+    }),
   )
   assert_true(
     can_recognize_commitment({
@@ -262,17 +269,20 @@ test "commitment effects require authority delivery treasury and ledger" {
 test "formal task goal flow follows durable task stages" {
   let blank = initial_model()
   assert_eq(dispatch_goal_stage(blank), 1)
-  assert_eq(dispatch_goal_stage({ ..blank, dispatch_task_stage: "pending" }), 2)
   assert_eq(
-    dispatch_goal_stage({ ..blank, dispatch_task_stage: "in_progress" }),
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "pending", }),
+    2,
+  )
+  assert_eq(
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "in_progress", }),
     3,
   )
   assert_eq(
-    dispatch_goal_stage({ ..blank, dispatch_task_stage: "submitted" }),
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "submitted", }),
     4,
   )
   assert_eq(
-    dispatch_goal_stage({ ..blank, dispatch_task_stage: "accepted" }),
+    dispatch_goal_stage({ ..blank, dispatch_task_stage: "accepted", }),
     5,
   )
 }
@@ -280,7 +290,7 @@ test "formal task goal flow follows durable task stages" {
 ///|
 #warnings("-alert_unstable")
 test "formal task flow renders one next action denial and receipt boundary" {
-  let model = { ..initial_model(), page: Dispatch }
+  let model = { ..initial_model(), page: Dispatch, }
   let page = @rabbita.simple_cell(model~, update=(_ : Msg, model) => model, view=(
     emit,
     model,
@@ -289,4 +299,51 @@ test "formal task flow renders one next action denial and receipt boundary" {
   assert_true(html.contains("交付一个可验收的正式任务"))
   assert_true(html.contains("创建正式任务"))
   assert_true(html.contains("后端收据是唯一状态真相"))
+}
+
+///|
+test "accepted task can open a clean next task draft" {
+  let completed = {
+    ..initial_model(),
+    dispatch_task_id: "task-completed",
+    dispatch_task_report_id: "report-completed",
+    dispatch_task_stage: "accepted",
+    dispatch_task_title: "Previous result",
+    dispatch_task_acceptance: "Previous acceptance",
+    dispatch_task_evidence_id: "previous-result.pdf",
+    dispatch_task_event_id: "previous-event",
+    dispatch_task_audit_id: "previous-audit",
+    dispatch_task_project_id: "my-product",
+    dispatch_task_owner_id: "owner",
+  }
+  let (_, next) = update(_ => none, OpenDispatchTaskForm, completed)
+  assert_true(next.dispatch_task_form_open)
+  assert_eq(next.dispatch_task_id, completed.dispatch_task_id)
+  assert_eq(next.dispatch_task_report_id, completed.dispatch_task_report_id)
+  assert_eq(next.dispatch_task_stage, "accepted")
+  assert_eq(next.dispatch_task_title, completed.dispatch_task_title)
+  assert_eq(next.dispatch_task_acceptance, completed.dispatch_task_acceptance)
+  assert_eq(next.dispatch_task_evidence_id, completed.dispatch_task_evidence_id)
+  assert_eq(next.dispatch_task_event_id, completed.dispatch_task_event_id)
+  assert_eq(next.dispatch_task_audit_id, completed.dispatch_task_audit_id)
+  assert_eq(next.dispatch_task_project_id, "my-product")
+  assert_eq(next.dispatch_task_owner_id, "owner")
+  assert_eq(dispatch_active_draft(next).unwrap().title, "")
+  assert_eq(dispatch_active_draft(next).unwrap().product_id, "")
+  assert_eq(dispatch_active_draft(next).unwrap().project_id, "")
+  let (_, draft) = update(
+    _ => none,
+    DraftAction(Input("title", "New result")),
+    next,
+  )
+  let (_, reopened) = update(_ => none, OpenDispatchTaskForm, draft)
+  assert_eq(reopened.dispatch_drafts[0].title, "New result")
+  assert_eq(reopened.dispatch_drafts.length(), 2)
+  for stage in ["pending", "in_progress", "submitted"] {
+    let active = { ..completed, dispatch_task_stage: stage, }
+    let (_, retained) = update(_ => none, OpenDispatchTaskForm, active)
+    assert_eq(retained.dispatch_task_id, "task-completed")
+    assert_eq(retained.dispatch_task_stage, stage)
+    assert_true(retained.dispatch_task_form_open)
+  }
 }

@@ -1,0 +1,356 @@
+MoonCast product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonCast is a rights-aware media production studio for a small producer taking a qualified lead through quote, bounded production, reviewed master and client delivery. The frozen baseline includes commercial intake, creative and rights gates, the G0–G7 production chain, graph/editor/review tools and local client-review surfaces. The corrected local host truthfully shows an empty portfolio and blocks invalid zero-baseline leads. Real-provider production, paid design-partner episodes, external client acceptance and payment remain unverified.
+Repository maturity claim deterministic pipeline alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A studio creates value when a client can inspect and accept a promised media deliverable. Graph nodes, completed provider jobs and an internal on-track indicator are intermediate evidence. The product should preserve one commercial commitment from sourced needs through approved production and an inspected artifact, then record client acceptance and cash receipt as independent facts.
+Rights and cost authority must precede generation rather than be reconstructed after a master exists. A named producer owns scope and editorial quality; a commercial approver owns the quote; the client owns acceptance. Provider cost, labor, revenue and founder hours remain unknown when evidence is absent. This lets the studio learn from an actual episode without turning fixture output or forecast margin into business performance.
+Users and jobs
+Founder or producer
+Qualify a lead and commit a feasible episode
+Trigger A client asks for a three to eight minute production
+Successful outcome Can see rights, capacity, expected work and unresolved cost assumptions before committing
+Editor
+Assemble and inspect a coherent master
+Trigger Approved source assets and production receipts are ready
+Successful outcome Can trace the cut to exact assets and quality decisions
+Rights and commercial approver
+Authorize permissible and affordable work
+Trigger A source, provider or scope changes
+Successful outcome Can approve the specific revision or hold it with a clear reason
+Client reviewer
+Accept or request changes to a versioned deliverable
+Trigger A private review package is shared
+Successful outcome Can inspect an accessible master and return an attributable response
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Verified local: 1; Source documented: 9
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior browser/native host check caught empty On-Track state and guarded a positive schedule baseline; native 75/75 passed after scoped x dependency correction.
+Evidence No real-provider paid episode, external publication, customer payment or actual commercial margin was tested.
+Open gap Two paid design-partner episodes and real-provider 3–8-minute acceptance not verified.
+Open gap Model provider and client identity/deployment conditional.
+Open gap Commercial quote/forecast data are not automatic billing or revenue facts.
+User scenarios
+Qualified lead quote capacity and project intake
+MC-W01 | Baseline scope. A producer enters a potential three to eight minute episode
+1. Record required lead fields and positive observed schedule baseline
+2. Model finite capacity, margin assumptions and founder hours
+3. Freeze an immutable quote with named commercial, production and client decisions
+4. Convert the exact approved quote to a project draft
+Edge case An empty portfolio has no schedule result; zero baseline is invalid and unknown commercial inputs are not free resources.
+Failure and recovery Missing lead evidence prevents recording; changed scope requires a new quote rather than silently altering the approved one.
+Acceptance The local lead gate rejects baseline zero; the complete quote-to-project acceptance still requires qualification.
+Evidence references README.mbt.md; docs/contract-quote-capacity-intake.md; ui/rabbita-mooncast/studio/journey_wbtest.mbt
+Rights and creative strategy intake
+MC-W02 | Baseline scope. A needs source is ready for production planning
+1. Bind the versioned MoonWiki needs source
+2. Develop brief, bible and script from that source
+3. Record named creative and rights decisions
+4. Open generation only for the approved source and scope
+Edge case A changed asset license or script can invalidate only the relevant downstream approval, but cannot be ignored.
+Failure and recovery Uncleared rights hold generation with a source-specific blocker; a model suggestion is not permission.
+Acceptance Every generated asset traces to the approved creative revision and recorded rights basis.
+Evidence references README.mbt.md; docs/moonwiki-needs-intake.md
+Project episode scene shot asset production
+MC-W03 | Baseline scope. A rights-cleared project enters G0–G7 production
+1. Create the project to episode to scene to shot to asset hierarchy
+2. Bind budget, provider route and immutable attempt IDs
+3. Collect provenance and generation receipts
+4. Perform QC and editorial review before master composition
+5. Build a versioned delivery package
+Edge case A deterministic three-minute fixture demonstrates a controlled path only; it is not a paid provider production.
+Failure and recovery Failed or ambiguous provider attempts reconcile before retry; rejected assets do not enter the approved master.
+Acceptance A reviewer traces every master component to its attempt, QC result and source while real-provider release remains gated.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md
+Graph Editor and Review workspace
+MC-W04 | Baseline scope. An editor refines a cut or repairs a failed dependency
+1. Inspect a typed graph revision and asset library
+2. Use bounded controls, preview and cut editing
+3. Capture a capsule of the relevant creative state
+4. Review a stale-aware repair proposal before applying it
+Edge case A repair against an older graph must be re-evaluated rather than applied to a changed cut.
+Failure and recovery Missing provider workers disable affected execution while local inspection remains available.
+Acceptance Preview and repaired graph identify their source revision; stale proposals fail without losing current edits.
+Evidence references docs/PRODUCT_CONTRACT.md#Creative-workspace boundary; docs/creative-workspace-implementation-journey.md
+Private client review and commercial delivery ledger
+MC-W05 | Baseline scope. A producer prepares a master for external review
+1. Create the private review package and expiry
+2. Associate comments and milestone records with the exact master
+3. Record the client response independently from internal QC
+4. Reference invoice and payment evidence only when supplied by the authorized host
+Edge case Opening a link or resolving an internal comment is not client acceptance; an invoice reference is not a payment receipt.
+Failure and recovery Expired links or unresolved host identity prevent access and require authorized reissue, preserving existing feedback.
+Acceptance Local review records are inspectable; actual identity, deployment and external commercial acceptance require separate evidence.
+Evidence references docs/customer-delivery-commercial-portal.md; docs/PRODUCT_CONTRACT.md#Capability status
+One client episode ledger
+MC-W06 | Roadmap scope. The studio wants to understand one completed commission
+1. Join one quote ID to rights, plan and asset lineage
+2. Record actual provider cost, labor and founder hours as evidence arrives
+3. Attach reviewed master and independent client response
+4. Reference invoice and received-payment records separately
+5. Prepare reviewed learning for the next episode
+Edge case Missing cost categories yield incomplete margin rather than a confident profit number.
+Failure and recovery A mismatched quote or master ID is held for reconciliation; corrections preserve old records.
+Acceptance The owner reconstructs the complete episode without joining unrelated dashboards or treating unknown facts as zero.
+Evidence references docs/contract-quote-capacity-intake.md; docs/customer-delivery-commercial-portal.md; docs/PRODUCT_CONTRACT.md
+Delivery ready media package
+MC-W07 | Roadmap scope. A client has a final deliverable to inspect
+1. Assemble accessible master, captions and required rights or AI labels
+2. Attach versioned QC and delivery manifest
+3. Verify the recipient can open the intended package
+4. Request and record a separate acceptance response
+Edge case A caption defect can block delivery even when the master renders; accepted scope changes need their own revision.
+Failure and recovery Broken access holds delivery confirmation and surfaces the affected artifact.
+Acceptance A named client confirms the exact package against the brief; publishing it elsewhere remains separately authorized.
+Evidence references docs/customer-delivery-commercial-portal.md; docs/PRODUCT_CONTRACT.md#Capability status
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Truthful empty and lead state
+MOONCAST-B01 | Baseline | P0 | Verified local
+Show no on-track claim for an empty portfolio and require complete fields plus a positive observed baseline before recording a local lead.
+Evidence Ledger: native-host browser recheck; UI JS 5/5; ui/rabbita-mooncast/studio/{model,views,journey_wbtest}.mbt
+Test 1. Open an empty portfolio and verify no fabricated schedule health
+2. Attempt baseline zero and confirm recording is disabled with guidance
+3. Enter required fields and positive baseline, then verify one synthetic local lead
+Dependencies Qualified native or web host
+Immutable quote and finite capacity
+MOONCAST-B02 | Baseline | P0 | Source documented
+Freeze a three to eight minute quote with finite capacity, named decisions and explicit modeled margin and founder-hour assumptions.
+Evidence docs/contract-quote-capacity-intake.md
+Test 1. Inspect all assumptions before quote approval
+2. Exceed available capacity and prevent an unsupported commitment
+3. Change scope and create a new quote revision without modifying the original
+Dependencies B01 qualified lead; Commercial and production reviewers
+Exact quote to draft conversion
+MOONCAST-B03 | Baseline | P0 | Source documented
+Create project intake from the exact approved quote identity and version; conversion grants no billing or CRM authority.
+Evidence docs/contract-quote-capacity-intake.md
+Test 1. Convert an approved quote and compare scope, dates and price assumptions
+2. Reject a superseded quote
+3. Retry conversion and return the same project identity rather than duplicate intake
+Dependencies B02 quote revision
+Versioned needs and creative approval
+MOONCAST-B04 | Baseline | P0 | Source documented
+Bind the MoonWiki needs source to brief, bible and script with named approval and visible revision lineage.
+Evidence docs/moonwiki-needs-intake.md
+Test 1. Trace a script decision to the needs source
+2. Change the source and flag affected approval as stale
+3. Preserve rejected and superseded creative revisions
+Dependencies MoonWiki source identity
+Rights before generation
+MOONCAST-B05 | Baseline | P0 | Source documented
+Require a recorded rights basis and authorized generation scope for every source asset before provider dispatch.
+Evidence README.mbt.md; docs/moonwiki-needs-intake.md
+Test 1. Dispatch a rights-cleared approved asset
+2. Hold an asset with missing or expired permission
+3. Revise its rights record and require renewed review before retry
+Dependencies Rights approver; B04 creative version
+Typed production and immutable attempts
+MOONCAST-B06 | Baseline | P0 | Source documented
+Maintain the project, episode, scene, shot and asset hierarchy through G0–G7 with budget, provider, provenance and immutable attempt receipts.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Inspect all hierarchy links for a fixture episode
+2. Reject malformed or duplicate conflicting provider receipts
+3. Reconcile an interrupted attempt before issuing replacement work
+Dependencies MoonFlow adapter.v2; Provider workers
+QC editorial and master gate
+MOONCAST-B07 | Baseline | P0 | Source documented
+Compose a master only from the approved asset revisions and preserve both technical QC and named editorial disposition.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md
+Test 1. Build a fixture master from approved assets
+2. Replace an asset and reopen affected QC and editorial review
+3. Reject a missing or failed asset instead of substituting an unreviewed version
+Dependencies B06 asset receipts; Editor
+Stale aware creative editing
+MOONCAST-B08 | Baseline | P1 | Source documented
+Support typed graph revisions, bounded controls, preview, cut editing, asset library and capsules; require matching revision for repair proposals.
+Evidence docs/creative-workspace-implementation-journey.md; docs/PRODUCT_CONTRACT.md#Creative-workspace boundary
+Test 1. Edit and preview the current graph
+2. Apply a proposal to a changed revision and require rebase or rejection
+3. Reload a capsule and retain its source graph identity
+Dependencies Graph store; Separately deployed provider workers
+Private review and milestones
+MOONCAST-B09 | Baseline | P0 | Source documented
+Bind expiring review links, comments and milestone records to a versioned master; host identity and deployment remain explicit dependencies.
+Evidence docs/customer-delivery-commercial-portal.md
+Test 1. Review the intended master with a permitted reviewer
+2. Reject expired access and prevent another project from loading
+3. Reissue authorized access without losing existing version-bound comments
+Dependencies Host identity and deployed review service
+Separate commercial evidence
+MOONCAST-B10 | Baseline | P0 | Source documented
+Keep internal completion, client acceptance, invoice issuance, cash receipt and publication authorization distinct. Preserve unknown actual cost categories.
+Evidence docs/customer-delivery-commercial-portal.md; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Complete QC without marking client acceptance or payment
+2. Attach a payment reference and verify its own evidence category
+3. Correct an amount with a superseding record rather than silent overwrite
+Dependencies Authorized commercial evidence owner
+Unified episode ledger
+MOONCAST-R01 | Roadmap | P1 | Proposed
+Join quote, rights, plan, source assets, actual costs, master, client response, invoice/payment references and founder hours under one episode identity.
+Evidence docs/contract-quote-capacity-intake.md; docs/customer-delivery-commercial-portal.md
+Test 1. Reconstruct one commission from a single episode view
+2. Leave absent labor or provider costs explicitly unknown
+3. Reject cross-project records and reconcile without duplicating costs
+Dependencies B03 through B10; Accounting host
+Accessible delivery package
+MOONCAST-R02 | Roadmap | P1 | Proposed
+Deliver master, captions, rights and AI labels, versioned QC and manifest with verified recipient access and separate client acceptance.
+Evidence docs/customer-delivery-commercial-portal.md; docs/PRODUCT_CONTRACT.md
+Test 1. Open every artifact as the intended client role
+2. Fail delivery for broken access or required missing captions
+3. Accept a corrected package as a new version while preserving earlier review
+Dependencies Delivery host; Client reviewer
+Real provider paid qualification
+MOONCAST-R03 | Roadmap | P0 | Proposed
+Qualify the three to eight minute production path with real providers and two paid design-partner episodes before making repeatable commercial production claims.
+Evidence Dossier known gaps; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Collect provider, cost, master and named client evidence for each episode
+2. Keep fixture runs out of paid qualification counts
+3. Record payment independently and investigate failed quality or margin assumptions
+Dependencies Authorized provider spend; Named design partners
+Data state and authority
+Lead and quote
+Owner Commercial owner
+State model incomplete, qualified, quoted, approved, superseded
+Write authority Named commercial and production decisions authorize scope
+Retention and recovery Retain immutable quote revisions and observed assumptions
+Creative and rights packet
+Owner Producer and rights approver
+State model draft, held, cleared, stale, revoked
+Write authority Permission applies to named sources and uses
+Retention and recovery Keep source versions and applicable rights evidence
+Production attempt and master
+Owner Production system; editor reviews
+State model dispatched, unknown, reconciled, rejected, QC passed, editorial approved
+Write authority Provider completion is not client acceptance
+Retention and recovery Preserve attempts, digests, approvals and superseded cuts
+Client review and payment references
+Owner Client reviewer; accounting host
+State model review requested, changes requested, accepted; invoiced and paid separately
+Write authority Client accepts delivery; accounting evidence establishes cash
+Retention and recovery Retention and access expiry follow agreed host policy
+Interfaces and handoffs
+MoonFlow
+Payload Typed dispatch and receipts
+Contract adapter.v2 preserves operation, authority and attempt identity
+Failure behavior Reconcile unknown result before retry
+MoonClaw and MoonGate
+Payload Bounded reasoning and provider route
+Contract Creative reasoning cannot grant rights or spend beyond approval
+Failure behavior Missing provider keeps execution unavailable, not silently simulated
+MoonDesk
+Payload Hosted studio state
+Contract Host reports deployed capabilities and identity honestly
+Failure behavior Retain local inspectable work when an external capability is absent
+MoonBook via Bookkeeper ingress
+Payload Ordered evidence outbox
+Contract Ingress is inert; orchestration and knowledge review occur downstream
+Failure behavior Do not claim learned or retained until downstream receipt and review
+Company commercial records
+Payload Invoice and cash receipt references
+Contract MoonCast references facts without becoming accounting authority
+Failure behavior Unknown revenue or payment stays unknown
+Nonfunctional requirements
+Rights enforcement
+MOONCAST-N01
+No generation path may bypass its current source-specific rights gate.
+Acceptance test Proposed gate: exercise UI, adapter and retry entry points with absent, stale and revoked rights.
+Evidence status Proposed
+Creative reproducibility
+MOONCAST-N02
+A master manifest must identify every exact input and approved revision.
+Acceptance test Rebuild the deterministic fixture and compare manifest and output digests; qualify provider nondeterminism separately.
+Evidence status Proposed
+Recovery and duplicate cost
+MOONCAST-N03
+Retries must reconcile attempt outcomes and avoid duplicate dispatch or cost attribution.
+Acceptance test Interrupt around provider receipt and ledger append, then recover the exact attempt.
+Evidence status Proposed
+Review access
+MOONCAST-N04
+Private review expiry and project separation must work under the chosen deployment.
+Acceptance test Test expired, unauthorized and cross-project access; local surfaces alone do not pass this gate.
+Evidence status Proposed
+Delivery accessibility
+MOONCAST-N05
+Required captions and labels must be readable and bundled with the reviewed master.
+Acceptance test Inspect the pilot package on supported playback surfaces and verify keyboard-accessible review controls.
+Evidence status Proposed
+Delivery roadmap
+Honest local studio
+Qualify the lead to fixture master journey
+Requirements MOONCAST-B01, MOONCAST-B03, MOONCAST-B05, MOONCAST-B07
+Exit gate Repeatable local scenario with truthful empty states, rights holds and recoverable attempts
+Real episode proof
+Provider and external client qualification
+Requirements MOONCAST-B09, MOONCAST-R02, MOONCAST-R03
+Exit gate Two paid design-partner episodes have inspected masters and independent client and payment evidence
+Episode economics and learning
+Reduce reconciliation effort for the founder
+Requirements MOONCAST-R01, MOONCAST-B10
+Exit gate One complete evidence ledger supports cost review and a separately reviewed learning record
+Outcome measurement
+Qualified episode completion
+Episodes with approved quote, rights, reviewed master and client disposition
+Measurement Episode evidence join
+Target Proposed pilot gate: both design-partner episodes
+Unknown actual cost
+Episode cost categories lacking supporting evidence
+Measurement Provider/labor/founder-hour ledger
+Target Report completeness before calculating margin; baseline unknown
+Revision recovery correctness
+Interrupted edits and attempts recovered without duplicate accepted results
+Measurement Graph and attempt identity audit
+Target Proposed target: all qualification cases
+Client revision burden
+Review cycles and founder hours from first package to acceptance
+Measurement Named feedback and time evidence
+Target Measure first episodes; no efficiency claim yet
+Non goals
+An autonomous media publishing or payment authority
+A general CRM, accounting system or independent learning application
+Treating deterministic fixture output as real-provider production
+Guaranteed margin, schedule or client satisfaction without measured evidence
+Alternatives and optimality
+Standard editor and shared review folder
+Advantage Familiar and fast for a simple single episode
+Cost Manual rights and cost reconciliation
+When to choose Prefer when the producer can maintain a reliable small ledger without orchestrated generation
+Existing studio project management tools
+Advantage Established client and scheduling workflows
+Cost May not bind AI attempts and asset lineage deeply
+When to choose Prefer when client collaboration dominates and provider lineage is minor
+Broad graph first creation platform
+Advantage Flexible experiments and advanced controls
+Cost High setup and coordination cost for the first client job
+When to choose Keep graph controls advanced; lead with quote and final review
+MoonCast has a clear specialist company journey: a feasible paid promise can become a reviewed media artifact. The PRD is strongest when one quote identity survives that entire journey. Adding more creative controls before this continuity works risks producing impressive demos with weak commercial evidence.
+The local empty-state and lead-gate fixes matter because false on-track status can influence a real commitment. Their verification is narrow and valuable. Native 75/75 and UI 5/5 do not prove rights-cleared provider use, deployed identity, client access or paid demand.
+A narrower initial release could center on one episode format, one provider configuration and a manually reconciled commercial ledger. An ordinary editor and review folder remain the better choice for low-volume work if the producer can maintain rights and delivery evidence reliably.
+Expansion should be justified by observed review burden, lost lineage, cost surprises or repeated client needs. Two paid design-partner episodes are a useful qualification gate, not proof of universal product-market fit or optimality. The product must preserve the ability to say that an episode was delivered but not yet accepted or paid.
+Open product decisions
+Decision Which episode format and provider define the first paid proof
+Recommendation Choose one repeatable three to eight minute offer
+Consequence Bounds rights, cost and playback qualification
+Decision Who hosts client identity and review links
+Recommendation Select and qualify the actual deployment before external review
+Consequence Local portal surfaces cannot stand in for secure client access
+Decision How founder hours and labor costs are captured
+Recommendation Use explicit evidence and unknown states before margin calculation
+Consequence Prevents apparently profitable quotes from hiding unpaid effort
+Sources and coverage
+Repository paths below are relative to mooncast. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/contract-quote-capacity-intake.md
+docs/moonwiki-needs-intake.md
+docs/customer-delivery-commercial-portal.md
+docs/creative-workspace-implementation-journey.md
+ui/rabbita-mooncast/studio/journey_wbtest.mbt
+moon-luna-investigation-ledger-20260930.md
+Selected contracts and section maps cover only part of 24 documents and the native studio APIs. The latest ledger verifies the native-host empty-state/lead journey, UI JS 5/5, build and native 75/75 after local x 0.4.50 compatibility pins. Those edits were local and uncommitted. No real-provider paid episode, external publication, customer payment or actual margin was tested. Acceptance criteria in this PRD extend beyond those bounded observations.

@@ -1,17 +1,12 @@
 ///|
 #cfg(target="js")
 extern "js" fn dispatch_command_nonce() -> String =
-  #| () => String(Date.now())
+  #| () => String(Date.now()) + "-" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
 
 ///|
 #cfg(target="js")
 extern "js" fn dispatch_today() -> String =
   #| () => new Date().toISOString().slice(0, 10)
-
-///|
-fn dispatch_task_failure_note(action : String) -> String {
-  "「\{action}」没有获得正式收据。MoonProj 签名网关、登录身份、PostgreSQL 或项目范围当前不可用或拒绝了命令；上一正式状态保持不变。请从受信任的 MoonProj gateway 打开此界面后重试。"
-}
 
 ///|
 fn dispatch_result_text(
@@ -48,92 +43,47 @@ fn dispatch_task_authority(model : Model, capability : String) -> Json {
 }
 
 ///|
-fn request_dispatch_task_create(
-  emit : @rabbita.Emit[Msg],
-  model : Model,
-) -> Cmd {
-  let nonce = dispatch_command_nonce()
-  let idempotency_key = "opc-dispatch-create-" + nonce
-  let task_id = "OPC-TASK-" + nonce
-  let body = Json::object({
-    "idempotency_key": Json::string(idempotency_key),
-    "task_id": Json::string(task_id),
-    "task_code": Json::string(task_id),
-    "task_name": Json::string(model.dispatch_task_title.trim().to_owned()),
-    "project_id": Json::string(model.dispatch_task_project_id.trim().to_owned()),
-    "task_type": Json::string("task"),
-    "plan_begin_date": Json::string(
-      model.dispatch_task_begin_date.trim().to_owned(),
-    ),
-    "plan_end_date": Json::string(
-      model.dispatch_task_end_date.trim().to_owned(),
-    ),
-    "owner_id": Json::string(model.dispatch_task_owner_id.trim().to_owned()),
-    "remarks": Json::string(
-      "验收标准：" + model.dispatch_task_acceptance.trim().to_owned(),
-    ),
-    "authority": dispatch_task_authority(model, "project:task:create"),
-  }).stringify()
-  @http.post("/api/company/plan/tasks")
-  .with_text(body)
-  .expect_text(result => {
-    match result {
-      Ok(response) => {
-        let persisted_task_id = dispatch_result_text(
-          response, "task", "task_id",
-        )
-        let state = dispatch_result_text(response, "task", "state")
-        if persisted_task_id.is_empty() || state != "pending" {
-          emit(DispatchTaskCommandFailed("创建任务"))
-        } else {
-          emit(
-            DispatchTaskCreated(
-              persisted_task_id,
-              dispatch_result_text(response, "task", "event_id"),
-              dispatch_result_text(response, "task", "audit_id"),
-            ),
-          )
-        }
-      }
-      Err(_) => emit(DispatchTaskCommandFailed("创建任务"))
-    }
-  })
-}
-
-///|
-fn request_dispatch_task_start(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
-  let idempotency_key = "opc-dispatch-start-" + dispatch_command_nonce()
-  let body = Json::object({
-    "idempotency_key": Json::string(idempotency_key),
-    "status": Json::string("in_progress"),
-    "progress_pct": Json::number(0),
-    "authority": dispatch_task_authority(model, "project:task:update"),
-  }).stringify()
-  @http.put("/api/company/plan/tasks/" + model.dispatch_task_id)
-  .with_text(body)
-  .expect_text(result => {
-    match result {
-      Ok(response) =>
-        if dispatch_result_text(response, "task", "state") == "in_progress" {
-          emit(
-            DispatchTaskStarted(
-              dispatch_result_text(response, "task", "event_id"),
-              dispatch_result_text(response, "task", "audit_id"),
-            ),
-          )
-        } else {
-          emit(DispatchTaskCommandFailed("开始任务"))
-        }
-      Err(_) => emit(DispatchTaskCommandFailed("开始任务"))
-    }
-  })
-}
-
-///|
 fn request_dispatch_task_submit(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> Cmd {
+  if !dispatch_report_requires_capture(model) {
+    return dispatch_post_task_report(
+      emit,
+      model,
+      dispatch_report_in_memory_body(model),
+    )
+  }
+  @cmd.custom_cmd(scheduler => {
+    match
+      dispatch_report_operation_body(
+        model,
+        dispatch_report_in_memory_body(model),
+      ) {
+      Err(error) =>
+        scheduler.add(emit(dispatch_failure(model, "提交验收", error)))
+      Ok(body) =>
+        if dispatch_selection_store(
+            dispatch_report_operation_key(model),
+            body.stringify(),
+            true,
+          ) {
+          scheduler.add(dispatch_post_task_report(emit, model, body))
+        } else {
+          scheduler.add(
+            emit(
+              dispatch_failure(
+                model, "提交验收", "无法保存准确报告操作，尚未提交。请启用浏览器本地存储后重试。",
+              ),
+            ),
+          )
+        }
+    }
+  })
+}
+
+///|
+fn dispatch_new_report_body(model : Model) -> Json {
   let nonce = dispatch_command_nonce()
   let report_id = "OPC-REPORT-" + nonce
   let body = Json::object({
@@ -143,17 +93,27 @@ fn request_dispatch_task_submit(
     "project_id": Json::string(model.dispatch_task_project_id.trim().to_owned()),
     "progress_pct": Json::number(100),
     "report_date": Json::string(dispatch_today()),
-    "summary": Json::string(
-      "提交验收：" +
-      model.dispatch_task_title.trim().to_owned() +
-      "；验收标准：" +
-      model.dispatch_task_acceptance.trim().to_owned(),
+    "summary": Json::string(dispatch_report_summary(model)),
+    "evidence_ids": Json::array(
+      dispatch_report_evidence(model).map(Json::string),
     ),
-    "evidence_ids": Json::array([
-      Json::string(model.dispatch_task_evidence_id.trim().to_owned()),
-    ]),
-  }).stringify()
-  @http.post("/api/company/plan/tasks/" + model.dispatch_task_id + "/report")
+  })
+  dispatch_report_with_source(body, model)
+}
+
+///|
+fn dispatch_post_task_report(
+  emit : @rabbita.Emit[Msg],
+  model : Model,
+  captured : Json,
+) -> Cmd {
+  let report_id = dispatch_json_text(captured, "report_id")
+  let body = captured.stringify()
+  @http.post(
+    "/api/company/plan/tasks/" +
+    dispatch_url_encode(model.dispatch_task_id) +
+    "/report",
+  )
   .with_text(body)
   .expect_text(result => {
     match result {
@@ -162,19 +122,43 @@ fn request_dispatch_task_submit(
           response, "task_report", "aggregate_id",
         )
         let state = dispatch_result_text(response, "task_report", "state")
-        if persisted_report_id.is_empty() || state != "observed" {
-          emit(DispatchTaskCommandFailed("提交验收"))
-        } else {
+        if persisted_report_id != report_id || state != "observed" {
           emit(
-            DispatchTaskSubmitted(
-              persisted_report_id,
-              dispatch_result_text(response, "task_report", "event_id"),
-              dispatch_result_text(response, "task_report", "audit_id"),
+            dispatch_failure(
+              model,
+              "提交验收",
+              dispatch_response_error(response),
             ),
           )
+        } else {
+          @cmd.batch([
+            if dispatch_report_requires_capture(model) {
+              @cmd.custom_cmd(_ => {
+                ignore(
+                  dispatch_selection_store(
+                    dispatch_report_operation_key(model),
+                    body,
+                    false,
+                  ),
+                )
+              })
+            } else {
+              none
+            },
+            emit(
+              DispatchTaskSubmitted(
+                model.dispatch_task_id,
+                model.dispatch_task_selection,
+                persisted_report_id,
+                dispatch_result_text(response, "task_report", "event_id"),
+                dispatch_result_text(response, "task_report", "audit_id"),
+              ),
+            ),
+          ])
         }
       }
-      Err(_) => emit(DispatchTaskCommandFailed("提交验收"))
+      Err(error) =>
+        emit(dispatch_failure(model, "提交验收", error.to_string()))
     }
   })
 }
@@ -185,28 +169,36 @@ fn request_dispatch_task_accept(
   model : Model,
 ) -> Cmd {
   let idempotency_key = "opc-dispatch-accept-" + dispatch_command_nonce()
-  let body = Json::object({
-    "idempotency_key": Json::string(idempotency_key),
-    "status": Json::string("done"),
-    "progress_pct": Json::number(100),
-    "authority": dispatch_task_authority(model, "project:task:update"),
-  }).stringify()
-  @http.put("/api/company/plan/tasks/" + model.dispatch_task_id)
+  let body = dispatch_accept_report_body(model, idempotency_key).stringify()
+  @http.put(
+    "/api/company/plan/tasks/" + dispatch_url_encode(model.dispatch_task_id),
+  )
   .with_text(body)
   .expect_text(result => {
     match result {
       Ok(response) =>
-        if dispatch_result_text(response, "task", "state") == "done" {
+        if dispatch_result_text(response, "task", "state") == "done" &&
+          dispatch_result_text(response, "task", "task_id") ==
+          model.dispatch_task_id {
           emit(
             DispatchTaskAccepted(
+              model.dispatch_task_id,
+              model.dispatch_task_selection,
               dispatch_result_text(response, "task", "event_id"),
               dispatch_result_text(response, "task", "audit_id"),
             ),
           )
         } else {
-          emit(DispatchTaskCommandFailed("接受结果"))
+          emit(
+            dispatch_failure(
+              model,
+              "接受结果",
+              dispatch_response_error(response),
+            ),
+          )
         }
-      Err(_) => emit(DispatchTaskCommandFailed("接受结果"))
+      Err(error) =>
+        emit(dispatch_failure(model, "接受结果", error.to_string()))
     }
   })
 }
@@ -248,143 +240,8 @@ fn meter(value : Int, tone : String) -> @html.Html {
 }
 
 ///|
-fn attention_item(
-  emit : @rabbita.Emit[Msg],
-  kind : String,
-  title : String,
-  detail : String,
-  source : String,
-  ready : Bool,
-) -> @html.Html {
-  article(class="attention-item") <| [
-    div(class="attention-main") <| [
-      div(class="attention-title") <| [
-        status_badge(kind, tone=if ready { "accent" } else { "warning" }),
-        strong(title),
-      ],
-      p(detail),
-      small(
-        if ready {
-          "来自 \{source} · 证据齐全 · 可裁决"
-        } else {
-          "来自 \{source} · 证据不足 · fail-closed 拦截"
-        },
-      ),
-    ],
-    div(class="attention-actions") <| [
-      button(
-        type_="button",
-        class=if ready {
-          "button button-primary button-small"
-        } else {
-          "button button-disabled button-small"
-        },
-        disabled=!ready,
-        on_click=emit(RecordDecision("裁决：\{title}")),
-        "裁决",
-      ),
-      secondary_button(
-        emit,
-        RecordDecision("委派补证：\{title}"),
-        "委派",
-      ),
-    ],
-  ]
-}
-
-///|
-fn cockpit_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
-  section(class="page command-page") <| [
-    page_intro(Overview, status_badge("5 项待决", tone="warning")),
-    div(class="kpi-grid") <| [
-      compact_kpi(
-        "现金跑道", "14.2 月", "余额 ¥85.2万 · 月耗 ¥6.0万", "ok",
-      ),
-      compact_kpi("Agent 编队", "9 运行", "2 个等待人类输入", "info"),
-      compact_kpi("今日待决", "5", "只处理需要 Owner 的事", "warn"),
-      compact_kpi(
-        "出厂质检", "A×2 · B×4 · C×2", "2 个产品存在红线风险",
-        "violet",
-      ),
-    ],
-    div(class="cockpit-grid") <| [
-      section(class="attention-column") <| [
-        section_title(
-          "注意力队列", "系统替你过滤；这里只出现必须由人承担的决定。",
-          "5 待决",
-        ),
-        attention_item(
-          emit, "Gate", "批准 v0.8.0 灰度发布", "G4/G6 证据齐全，回滚演练记录已归档。",
-          "Release-01", true,
-        ),
-        attention_item(
-          emit, "预算", "采购推理额度 ¥8,000", "缺少三家报价与预算归属，系统禁止批准。",
-          "Finance-01", false,
-        ),
-        attention_item(
-          emit, "升级", "生产告警连续三次自愈失败", "超出 L3 自治边界，需要决定降级或回滚。",
-          "Sentinel-01", true,
-        ),
-        attention_item(
-          emit, "审批", "年度服务合同续签", "法务差异已标记，现金影响在月度预算内。",
-          "Company-01", true,
-        ),
-      ],
-      section(class="loop-column") <| [
-        section_title(
-          "三环健康", "开发、监测、运维；治理轴贯穿全部动作。",
-          "",
-        ),
-        article(class="loop-card") <| [
-          div(class="loop-head") <| [
-            strong("开发环"),
-            strong("84"),
-          ],
-          meter(84, "violet"),
-          p("需求 → 设计 → 开发 → 测试 → 发布"),
-          secondary_button(emit, Navigate(Dispatch), "查看待验收 2"),
-        ],
-        article(class="loop-card") <| [
-          div(class="loop-head") <| [
-            strong("监测环"),
-            strong("91"),
-          ],
-          meter(91, "info"),
-          p("3/4 SLO 健康 · 错误预算消耗 34%"),
-          secondary_button(emit, Navigate(Observe), "查看监测"),
-        ],
-        article(class="loop-card") <| [
-          div(class="loop-head") <| [
-            strong("运维环"),
-            strong("78"),
-          ],
-          meter(78, "ok"),
-          p("1 个复盘未闭环 · 6/9 Runbook 已自动化"),
-          secondary_button(emit, Navigate(Operate), "查看运维"),
-        ],
-        article(class="governance-card") <| [
-          div(class="loop-head") <| [
-            strong("治理轴"),
-            status_badge("fail-closed", tone="accent"),
-          ],
-          div(class="mini-stats") <| [
-            div <| [
-              strong("312"),
-              small("授权放行"),
-            ],
-            div <| [
-              strong("4"),
-              small("越权拦截"),
-            ],
-            div <| [
-              strong("47"),
-              small("今日抽检"),
-            ],
-          ],
-        ],
-      ],
-    ],
-  ]
+fn cockpit_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  today_view(emit, model)
 }
 
 ///|
@@ -528,6 +385,8 @@ fn dispatch_task_stage_label(stage : String) -> String {
     "in_progress" => "执行中"
     "submitted" => "待验收"
     "accepted" => "已接受"
+    "loading" => "读取中"
+    "blocked" => "任务阻塞"
     _ => "尚未创建"
   }
 }
@@ -549,6 +408,7 @@ fn dispatch_task_input(
   value : String,
   placeholder : String,
   on_input : @rabbita.Emit[String],
+  read_only? : Bool = false,
 ) -> @html.Html {
   div(class="field") <| [
     label(attrs=@html.Attrs::build().for_(id), label_text),
@@ -557,79 +417,152 @@ fn dispatch_task_input(
       attrs=@html.Attrs::build().id(id),
       value~,
       placeholder~,
+      read_only~,
       on_input~,
     ),
   ]
 }
 
 ///|
-fn dispatch_task_form(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
+  let model = dispatch_draft_form_model(source)
+  let frozen = match dispatch_active_draft(source) {
+    Some(draft) => draft.state != "editing"
+    None => true
+  }
   form(
     class="inline-form",
-    attrs=@html.Attrs::build().aria_label("创建正式编排任务"),
+    attrs=@html.Attrs::build()
+      .id("dispatch-draft")
+      .aria_label("创建正式编排任务"),
   ) <| [
     div(class="form-heading") <| [
       div <| [
-        h3("创建可追溯任务"),
+        h3("准备任务 · 写清想要的结果"),
         p(
-          "任务先写入 MoonProj，再由签名身份逐步启动、提交与接受。",
+          "先保存任务，再明确开始执行。你仍可以查看输出、补充人工指令，最后提交并接受结果。",
         ),
       ],
-      status_badge("PostgreSQL 命令边界", tone="accent"),
+      status_badge("任务准备", tone="muted"),
     ],
+    products_preparation_context(model),
+    p(
+      match dispatch_active_draft(source) {
+        Some(draft) => draft.note
+        None => "没有打开的本地草稿"
+      },
+    ),
+    p(class="boundary-note", source.dispatch_draft_storage),
+    dispatch_source_context_form(emit, source, frozen),
+    dispatch_offer_local_view(emit, source, frozen),
     div(class="form-grid") <| [
       dispatch_task_input(
         "dispatch-task-title",
         "任务名称",
         model.dispatch_task_title,
         "需要交付的结果",
-        emit.map(value => InputDispatchTaskTitle(value)),
+        emit.map(value => DraftAction(Input("title", value))),
+        read_only=frozen,
       ),
       dispatch_task_input(
         "dispatch-task-acceptance",
         "验收标准",
         model.dispatch_task_acceptance,
         "如何判断结果可以接受？",
-        emit.map(value => InputDispatchTaskAcceptance(value)),
+        emit.map(value => DraftAction(Input("acceptance", value))),
+        read_only=frozen,
       ),
       dispatch_task_input(
-        "dispatch-task-project",
-        "项目 ID",
-        model.dispatch_task_project_id,
-        "已导入项目，例如 proj-0001",
-        emit.map(value => InputDispatchTaskProjectId(value)),
-      ),
-      dispatch_task_input(
-        "dispatch-task-actor",
-        "签名身份",
-        model.dispatch_task_actor_id,
-        "必须与网关登录身份一致",
-        emit.map(value => InputDispatchTaskActorId(value)),
-      ),
-      dispatch_task_input(
-        "dispatch-task-owner",
-        "负责人 ID（可选）",
-        model.dispatch_task_owner_id,
-        "授权范围内的负责人",
-        emit.map(value => InputDispatchTaskOwnerId(value)),
+        "dispatch-task-workspace-input",
+        "执行工作区（MoonBook / 本机目录）",
+        model.dispatch_task_workspace,
+        "MoonClaw 可访问的实际工作区路径",
+        emit.map(value => DraftAction(Input("workspace", value))),
+        read_only=frozen,
       ),
       dispatch_task_input(
         "dispatch-task-begin",
-        "计划开始",
+        "计划开始（必填）",
         model.dispatch_task_begin_date,
         "YYYY-MM-DD",
-        emit.map(value => InputDispatchTaskBeginDate(value)),
+        emit.map(value => DraftAction(Input("begin_date", value))),
+        read_only=frozen,
       ),
       dispatch_task_input(
         "dispatch-task-end",
-        "计划完成",
+        "计划完成（必填）",
         model.dispatch_task_end_date,
         "YYYY-MM-DD",
-        emit.map(value => InputDispatchTaskEndDate(value)),
+        emit.map(value => DraftAction(Input("end_date", value))),
+        read_only=frozen,
       ),
     ],
+    details(
+      class="journey-details",
+      open=model.dispatch_task_project_id.is_empty() ||
+        model.dispatch_task_actor_id.is_empty(),
+    ) <| [
+      summary("公司项目与登录身份"),
+      div(class="form-grid") <| [
+        dispatch_task_input(
+          "dispatch-task-project",
+          "项目 ID",
+          model.dispatch_task_project_id,
+          "真实公司项目 ID",
+          emit.map(value => DraftAction(Input("project_id", value))),
+          read_only=frozen,
+        ),
+        div(class="field") <| [
+          label("签名身份 · 来自网关会话"),
+          p(
+            if model.dispatch_task_actor_id.is_empty() {
+              "尚未登录"
+            } else {
+              model.dispatch_task_actor_id
+            },
+          ),
+          secondary_button(emit, LoadDispatchSession, "刷新登录身份"),
+        ],
+      ],
+    ],
+    details(class="journey-details") <| [
+      summary("可选设置 · 模型与负责人"),
+      div(class="form-grid") <| [
+        dispatch_task_input(
+          "dispatch-task-model",
+          "执行模型（可选）",
+          model.dispatch_task_model,
+          "留空使用 MoonClaw 已配置模型",
+          emit.map(value => DraftAction(Input("model", value))),
+          read_only=frozen,
+        ),
+        dispatch_task_input(
+          "dispatch-task-owner",
+          "负责人 ID（可选）",
+          model.dispatch_task_owner_id,
+          "授权范围内的负责人",
+          emit.map(value => DraftAction(Input("owner_id", value))),
+          read_only=frozen,
+        ),
+      ],
+    ],
+    details(class="journey-details", open=frozen) <| [
+      summary("草稿身份与恢复信息"),
+      p(dispatch_draft_note(source)),
+    ],
     div(class="form-actions") <| [
-      primary_button(emit, CreateDispatchTask, "写入正式任务"),
+      dispatch_draft_create_button(emit, source),
+      secondary_button(emit, DraftAction(Park), "暂存并关闭草稿"),
+      secondary_button(emit, DraftAction(New), "另建草稿"),
+      if !model.products.prepared_product_id.is_empty() {
+        secondary_button(
+          emit,
+          ProductsAction(CancelPreparation),
+          "暂存草稿，返回产品",
+        )
+      } else {
+        @html.nothing
+      },
     ],
   ]
 }
@@ -654,20 +587,69 @@ fn dispatch_task_action(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html 
   } else {
     match model.dispatch_task_stage {
       "pending" =>
-        primary_button(emit, StartDispatchTask, "Start · 开始执行")
+        if dispatch_can_start(model) {
+          primary_button(
+            emit,
+            StartDispatchTask,
+            if model.dispatch_run is None {
+              "Start · MoonClaw 执行"
+            } else {
+              dispatch_resume_label(model)
+            },
+          )
+        } else {
+          status_badge(
+            dispatch_native_label(model.dispatch_run),
+            tone="warning",
+          )
+        }
       "in_progress" =>
-        div(class="inline-form") <| [
-          dispatch_task_input(
-            "dispatch-task-evidence",
-            "证据 ID / 可追溯引用",
-            model.dispatch_task_evidence_id,
-            "真实制品、提交、报告或证据账本引用",
-            emit.map(value => InputDispatchTaskEvidenceId(value)),
-          ),
-          primary_button(emit, SubmitDispatchTask, "Submit · 提交验收"),
-        ]
+        if dispatch_can_start(model) {
+          primary_button(emit, StartDispatchTask, dispatch_resume_label(model))
+        } else if !dispatch_can_submit(model) {
+          status_badge(
+            dispatch_native_label(model.dispatch_run),
+            tone="warning",
+          )
+        } else {
+          div(class="inline-form") <| [
+            if dispatch_report_evidence(model).is_empty() {
+              dispatch_task_input(
+                "dispatch-task-evidence",
+                "证据 ID / 可追溯引用",
+                model.dispatch_task_evidence_id,
+                "真实制品、提交、报告或证据账本引用",
+                emit.map(value => InputDispatchTaskEvidenceId(value)),
+              )
+            } else {
+              small(
+                "已保留原生执行与交付证据；完整引用见结果详情。",
+              )
+            },
+            primary_button(emit, SubmitDispatchTask, "Submit · 提交验收"),
+          ]
+        }
       "submitted" =>
-        primary_button(emit, AcceptDispatchTask, "Accept · 接受结果")
+        div(class="inline-form") <| [
+          if dispatch_can_submit(model) {
+            primary_button(
+              emit,
+              SubmitDispatchTask,
+              "Submit · 为已选新来源提交另一份报告",
+            )
+          } else {
+            @html.nothing
+          },
+          if dispatch_can_accept_report(model) {
+            primary_button(
+              emit,
+              AcceptDispatchTask,
+              "Accept · 接受报告 " + model.dispatch_task_report_id,
+            )
+          } else {
+            small(dispatch_accept_report_blocker(model))
+          },
+        ]
       "accepted" => status_badge("闭环完成", tone="accent")
       _ => status_badge("先创建任务", tone="muted")
     }
@@ -679,7 +661,7 @@ fn dispatch_durable_task_card(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @html.Html {
-  article(class="work-card") <| [
+  article(class="work-card focused-work") <| [
     div(class="loop-head") <| [
       strong(model.dispatch_task_title),
       status_badge(
@@ -687,44 +669,90 @@ fn dispatch_durable_task_card(
         tone=dispatch_task_stage_tone(model.dispatch_task_stage),
       ),
     ],
-    p("验收标准 · \{model.dispatch_task_acceptance}"),
-    div(class="work-meta") <| [
-      span("任务 · \{model.dispatch_task_id}"),
-      span("项目 · \{model.dispatch_task_project_id}"),
-      span(
-        if model.dispatch_task_owner_id.is_empty() {
-          "负责人 · 未指定"
+    p("验收标准 · " + model.dispatch_task_acceptance),
+    dispatch_source_context_view(model.dispatch_task_source_context),
+    dispatch_offer_view(emit, model),
+    p(
+      "产品 · " +
+      dispatch_product_label(model, model.dispatch_task_product_id),
+    ),
+    details(class="journey-details") <| [
+      summary("任务身份与收据"),
+      p("任务 · " + model.dispatch_task_id),
+      p("公司项目 · " + model.dispatch_task_project_id),
+      p(
+        "负责人 · " +
+        (if model.dispatch_task_owner_id.is_empty() {
+          "未指定"
         } else {
-          "负责人 · \{model.dispatch_task_owner_id}"
+          model.dispatch_task_owner_id
+        }),
+      ),
+      a(
+        href="?task=" + dispatch_url_encode(model.dispatch_task_id),
+        "正式任务链接",
+      ),
+      if model.dispatch_task_report_id.is_empty() {
+        @html.nothing
+      } else {
+        p(
+          "任务报告 · " +
+          model.dispatch_task_report_id +
+          " / 创建时产品 · " +
+          dispatch_product_label(model, model.dispatch_report_product_id),
+        )
+      },
+      dispatch_task_receipts(model),
+      dispatch_commitment_receipts_view(model.dispatch_task_commitment),
+    ],
+    section(class="journey-section") <| [
+      h3("执行与结果"),
+      dispatch_execution_settings(emit, model),
+      dispatch_guidance_view(emit, model),
+      secondary_button(
+        emit,
+        RefreshDispatchTask(
+          model.dispatch_task_id,
+          model.dispatch_task_selection,
+        ),
+        "刷新状态",
+      ),
+      dispatch_native_result(model, emit~),
+    ],
+    if model.dispatch_run is Some(_) {
+      section(class="journey-section") <| [
+        h3(
+          if model.dispatch_task_stage == "accepted" {
+            "查看工作记录"
+          } else {
+            "需要调整？加入人工指令"
+          },
+        ),
+        p(
+          if model.dispatch_task_stage == "accepted" {
+            "此任务已接受。可以查看原始工作，新的目标请另建任务。"
+          } else {
+            "在 MoonDesk 检查输出，或继续此工作。回来后明确选择要提交的结果。"
+          },
+        ),
+        dispatch_desk_handoff_view(emit, model),
+      ]
+    } else {
+      @html.nothing
+    },
+    dispatch_continuation_view(emit, model),
+    section(id="dispatch-task-action", class="journey-section task-next-action") <| [
+      h3(
+        match model.dispatch_task_stage {
+          "pending" => "准备好后开始执行"
+          "submitted" => "检查报告并接受结果"
+          "accepted" => "任务已接受"
+          _ => "查看结果后提交报告"
         },
       ),
+      dispatch_task_action(emit, model),
     ],
-    if model.dispatch_task_report_id.is_empty() {
-      @html.nothing
-    } else {
-      small("任务报告 · \{model.dispatch_task_report_id}")
-    },
-    dispatch_task_receipts(model),
-    dispatch_task_action(emit, model),
-  ]
-}
-
-///|
-fn dispatch_durable_lane(
-  title : String,
-  active : Bool,
-  content : @html.Html,
-) -> @html.Html {
-  article(class="work-lane") <| [
-    div(class="lane-heading") <| [
-      strong(title),
-      span(if active { "1" } else { "0" }),
-    ],
-    if active {
-      content
-    } else {
-      div(class="lane-empty", "没有任务")
-    },
+    dispatch_learning_next(emit, model),
   ]
 }
 
@@ -733,28 +761,8 @@ fn dispatch_durable_board(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @html.Html {
-  let card = dispatch_durable_task_card(emit, model)
-  div(class="work-board") <| [
-    dispatch_durable_lane(
-      "可启动",
-      model.dispatch_task_stage == "pending",
-      card,
-    ),
-    dispatch_durable_lane(
-      "执行中",
-      model.dispatch_task_stage == "in_progress",
-      card,
-    ),
-    dispatch_durable_lane(
-      "待验收",
-      model.dispatch_task_stage == "submitted",
-      card,
-    ),
-    dispatch_durable_lane(
-      "已接受",
-      model.dispatch_task_stage == "accepted",
-      card,
-    ),
+  div(class="focused-workspace") <| [
+    dispatch_durable_task_card(emit, model),
   ]
 }
 
@@ -763,21 +771,8 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
     page_intro(
       Dispatch,
-      if model.dispatch_task_id.is_empty() {
-        primary_button(emit, OpenDispatchTaskForm, "创建任务")
-      } else {
-        status_badge(
-          dispatch_task_stage_label(model.dispatch_task_stage),
-          tone=dispatch_task_stage_tone(model.dispatch_task_stage),
-        )
-      },
+      secondary_button(emit, Navigate(Products), "选择产品与目标"),
     ),
-    div(class="extension-boundary") <| [
-      strong("正式边界 · plan task + evidence-gated report"),
-      p(
-        "Create 与 Start/Accept 使用 `/api/company/plan/tasks` 权限命令；Submit 使用 `/api/company/plan/tasks/:id/report`。只有后端返回 event/audit receipt，界面才推进状态。",
-      ),
-    ],
     dispatch_goal_flow(emit, model),
     if model.dispatch_task_form_open {
       dispatch_task_form(emit, model)
@@ -786,7 +781,7 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     },
     if model.dispatch_task_blocked {
       div(class="extension-boundary") <| [
-        status_badge("安全阻断", tone="warning"),
+        status_badge("操作未完成", tone="warning"),
         p(model.dispatch_task_note),
       ]
     } else {
@@ -795,7 +790,7 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     section(id="dispatch-task-workspace", class="section-block") <| [
       section_title(
         "当前正式任务",
-        "Start → Submit → Accept；每一步都等待同一持久化边界的收据。",
+        "执行 → 查看输出 → 按需人工调整 → 提交报告 → 接受结果",
         if model.dispatch_task_id.is_empty() {
           "0 个"
         } else {
@@ -806,12 +801,32 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         div(class="empty-panel") <| [
           strong("还没有正式任务"),
           p(
-            "点击“创建任务”填写验收标准；网关不可用时会明确阻断，不会生成浏览器假记录。",
+            "先从产品选择本次目标并准备任务。已有工作可以在下方打开或恢复。",
           ),
         ]
       } else {
         dispatch_durable_board(emit, model)
       },
+    ],
+    details(
+      class="journey-details task-history",
+      open=![
+          "", "未保存到此浏览器", "已保存到此浏览器", "已读取此浏览器草稿",
+        ].contains(model.dispatch_draft_storage) ||
+        (
+          model.dispatch_draft_storage == "未保存到此浏览器" &&
+          !model.dispatch_drafts.is_empty()
+        ) ||
+        model.dispatch_drafts.any(draft => {
+          [
+            "uncertain", "retryable", "rejected", "saving", "creating", "recovering",
+          ].contains(draft.state)
+        }),
+    ) <| [
+      summary("其他任务 · 草稿、恢复与手动打开"),
+      dispatch_open_form(emit, model),
+      dispatch_draft_list(emit, model),
+      secondary_button(emit, OpenDispatchTaskForm, "创建独立任务草稿"),
     ],
     details(class="reference-projection") <| [
       summary <| [

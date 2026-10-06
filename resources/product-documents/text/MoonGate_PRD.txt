@@ -1,0 +1,310 @@
+MoonGate product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonGate is a local model access boundary for route operators, application integrators and usage reviewers. Its baseline combines compatible proxy routing, host-held credentials, request inspection, controlled routing policy and exact capability resolution. The repository describes a feature-testing alpha. Four native routing-selection tests passed, but no current provider request, billing reconciliation or operator interface journey was exercised. The next product milestone should qualify one usable route and its failure behavior before expanding provider breadth. Task-level spending envelopes and a cross-product readiness view are separate roadmap work.
+Repository maturity claim feature-testing alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A client should know what it can call, under whose authority, and with what observable cost without obtaining provider credentials. MoonGate owns model access and provider/model selection. It does not decide the company objective, grant arbitrary tool authority or declare a generated answer correct. A route advertised in an inventory is a possibility; an accepted exact resolution and valid execution authority are prerequisites for dispatch.
+Within the OPC operating sequence, an approved commitment may consume a model through MoonGate and return a usage receipt for later review. The request result is an intermediate artifact: another product or person inspects its quality, records customer acceptance and reconciles actual cash separately. MoonGate can improve accountability through bounded consumption and truthful blockers, but no present evidence establishes reduced founder coordination time or a completed commercial loop.
+Users and jobs
+Route operator
+Configure compatible endpoints and host-secret references, inspect health and control routing changes.
+Trigger A client needs a route or a provider becomes unreliable.
+Successful outcome The selected route is explainable, recoverable and does not expose credentials.
+Application integrator
+Connect MoonClaw or another client to the local proxy and resolve a requested capability exactly.
+Trigger An authorized job needs model access or an installed adapter.
+Successful outcome Dispatch receives a usable contract or a specific blocker rather than a misleading ready flag.
+Usage reviewer
+Understand requests, quota, estimated price and policy effects.
+Trigger Unexpected usage, an incident or a budget review.
+Successful outcome A redacted evidence trail separates recorded consumption from missing telemetry and settled provider charges.
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Partial: 1; Source documented: 9
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior native routing selection 4/4 passed; no provider request, billing or operator UI run.
+Open gap Zero-configuration clean first run, durable config backup/migration, real-client compatibility and signed app release need qualification.
+Open gap Production credential vault/multi-user control not available; current provider terms/credentials unknown.
+User scenarios
+Configure and use a compatible local route
+MG01 | Baseline scope. An operator has an authorized provider account and a client request.
+1. Configure the endpoint and model with a host-secret reference; retain loopback binding by default.
+2. Resolve an eligible provider/model, dispatch the compatible request and return its response or stream.
+3. Record route choice, completion or failure, and available usage without exposing the secret.
+Edge case A configured provider may be unavailable; streamed output may already have reached the client when an upstream fails.
+Failure and recovery Fail closed when credentials or eligibility are missing. Apply only permitted failover; do not silently restart a partially delivered stream. A retry must be visible as another attempt.
+Acceptance A fixture client receives supported responses, missing configuration blocks dispatch, and disconnect/failover tests show no hidden duplicate completion. Real-provider qualification remains outstanding.
+Evidence references README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status
+Inspect usage quota pricing and requests
+MG02 | Baseline scope. A reviewer investigates cost or request behavior.
+1. Select the relevant request interval and inspect recorded usage, quota, pricing availability and latency percentiles.
+2. Open redacted request detail and distinguish measured values, estimates and unsupported fields.
+3. Use the evidence to decide whether a route or policy needs review.
+Edge case A provider may omit usage or price data; an empty interval has no meaningful percentile.
+Failure and recovery Show unavailable fields rather than zero spend or fabricated metrics. Refresh or reprocess available telemetry without creating a second request charge record.
+Acceptance Known fixtures reconcile to the visible totals, missing values stay unknown and sensitive payload fields remain redacted after filtering and export.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status
+Review activate and roll back a routing policy
+MG03 | Baseline scope. An operator proposes different provider/model selection.
+1. Evaluate the candidate in shadow mode and review its selection effects.
+2. Obtain fresh health and a named actor decision bound to MoonLib principal and authority references.
+3. Activate with a durable receipt; if necessary restore an identified prior policy through a separately authorized rollback.
+Edge case Health can become stale between review and activation; a policy must not change non-routing authority.
+Failure and recovery Reject stale or unauthorized activation without changing the active policy. Recover an uncertain result by reading its receipt before submitting another change.
+Acceptance Shadow evaluation does not alter production selection; activation and rollback each leave actor-bound evidence and unauthorized attempts have no effect.
+Evidence references docs/PRODUCT_CONTRACT.md#Security and data
+Resolve an installed capability for dispatch
+MG04 | Baseline scope. MoonFlow or MoonDesk needs a specific capability.
+1. Discover candidate products or packs without treating the inventory as a grant.
+2. Match the requested capability to an installed pack, compatible adapter and current health.
+3. Return the accepted exact resolution for the caller to use with its own execution authority.
+Edge case Two similarly named entries or an installed but unhealthy adapter must not resolve by convenient substitution.
+Failure and recovery Return the mismatched or missing prerequisite and prevent dispatch. After installation or health recovery, perform resolution again rather than reuse rejected evidence.
+Acceptance Ambiguous, absent and unhealthy fixtures fail closed; the successful fixture identifies the exact executable contract.
+Evidence references docs/CAPABILITY_REGISTRY.md; docs/PRODUCT_CONTRACT.md#Verification
+Check endpoint syntax and benchmark honestly
+MG05 | Baseline scope. An operator checks configuration before requesting live execution.
+1. Run URL syntax validation with a result explicitly limited to syntax.
+2. Run a deterministic fixture benchmark and label its data source.
+3. Attempt live benchmarking only when a qualified verifier, adapter and required authority exist.
+Edge case A syntactically valid URL can be unreachable or incompatible.
+Failure and recovery Missing live prerequisites block the benchmark; repair configuration and retry the appropriate check without upgrading prior fixture results into live evidence.
+Acceptance Tests prove syntax checking makes no network probe and fixture scores never render as provider availability or live performance.
+Evidence references docs/PRODUCT_CONTRACT.md#Security and data
+Enforce a commitment spending envelope
+MG06 | Roadmap scope. A founder approves model spending for one MoonProj task.
+1. Receive a non-secret task reference, currency, ceiling, scope and approval reference.
+2. Reserve estimated request exposure before dispatch and enforce the remaining envelope across retries.
+3. Return usage receipts to the commitment ledger for review and later charge reconciliation.
+Edge case Streaming usage, price uncertainty and simultaneous requests can exceed a naive check-after-completion budget.
+Failure and recovery Block when safe exposure cannot be bounded. Preserve unresolved reservations after uncertain responses, reconcile them, then release or adjust with evidence.
+Acceptance Concurrent and retry fixtures cannot double-spend the same envelope; missing prices block or require an explicitly approved alternative bound.
+Expose honest route readiness before work
+MG07 | Roadmap scope. An application prepares to start delegated work.
+1. Request a readiness snapshot for the exact configured model and capability.
+2. Show configuration, authority, live-health age and any missing prerequisite separately.
+3. Revalidate dispatch-sensitive prerequisites when work actually starts.
+Edge case Readiness can expire while an operator views the screen.
+Failure and recovery Report the exact blocker and a safe next action. A refresh replaces stale evidence but does not grant missing authority.
+Acceptance A syntax-only endpoint, stale health and unauthorized route each remain blocked; an eligible live route displays the model actually selected.
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Compatible route selection
+MOONGATE-B01 | Baseline | P0 | Partial
+Select only an eligible configured provider/model and serve the supported local proxy contract.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status; Investigation ledger: native routing selection 4/4; no provider request
+Test 1. Replay eligible and ineligible selection fixtures; compare the chosen route with policy.
+2. Exercise an actual compatible client separately; reject missing credentials or model and verify safe retry after correction.
+Dependencies Configured provider; Client compatibility qualification
+Host secret isolation
+MOONGATE-B02 | Baseline | P0 | Source documented
+Keep provider credentials at the host boundary and bind locally by default; client configuration and inspection must not disclose them.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md#Security and data
+Test 1. Inspect client traffic, errors and telemetry for planted test secrets.
+2. Remove a secret reference and confirm dispatch blocks; restoring it enables a new authorized attempt.
+Dependencies Host secret storage; production vault remains unavailable
+Streams failover and circuits
+MOONGATE-B03 | Baseline | P0 | Source documented
+Make streaming, permitted failover and circuit behavior explicit so upstream failures do not masquerade as completed responses.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Inject failures before response, midstream and during recovery; inspect attempt records.
+2. Verify circuit-open routes are excluded and recovery probes cannot silently duplicate a partially delivered stream.
+Dependencies Provider adapter behavior
+Usage quota and pricing evidence
+MOONGATE-B04 | Baseline | P1 | Source documented
+Expose recorded request usage, quota and available pricing while distinguishing unknown data from zero and estimates from settlement.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Reconcile a fixture interval against individual request records.
+2. Remove usage and pricing fields; confirm unknown displays and repeated refresh does not duplicate totals.
+Dependencies Provider telemetry and price source
+Redacted request inspection
+MOONGATE-B05 | Baseline | P1 | Source documented
+Provide request-level diagnostics and meaningful percentiles with unsupported fields and sensitive content explicitly handled.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Inspect a normal interval and an empty interval; show no fabricated percentile.
+2. Search error and detail views for test credentials and sensitive payload markers; verify redaction survives reload.
+Dependencies Telemetry schema; Redaction policy
+Shadow policy comparison
+MOONGATE-B06 | Baseline | P1 | Source documented
+Evaluate candidate provider/model policies without changing the active routing decision or extending execution permissions.
+Evidence docs/PRODUCT_CONTRACT.md#Security and data
+Test 1. Compare active and shadow choices for the same fixture set.
+2. Reject policy fields outside provider/model choice and confirm shadow failures leave active behavior unchanged.
+Dependencies Policy evaluator
+Authorized activation and rollback
+MOONGATE-B07 | Baseline | P0 | Source documented
+Require fresh health, named actor and MoonLib authority evidence for activation and rollback, retaining a durable decision receipt.
+Evidence docs/PRODUCT_CONTRACT.md#Security and data
+Test 1. Activate and restore an identified prior policy with accepted authority.
+2. Reject stale health and mismatched principal; after interrupted acknowledgement, read the receipt before retrying.
+Dependencies MoonLib principal and authority contract; Durable receipt storage
+Exact capability resolution
+MOONGATE-B08 | Baseline | P0 | Source documented
+Separate discovery from permission and require an exact installed pack, adapter and health match before a dispatch resolution is accepted.
+Evidence docs/CAPABILITY_REGISTRY.md; docs/PRODUCT_CONTRACT.md#Verification
+Test 1. Resolve an installed healthy fixture and inspect its exact identity.
+2. Reject absent, ambiguous or unhealthy entries; repair the prerequisite and obtain a new accepted resolution.
+Dependencies Pack inventory; Adapter contract; Health source
+Bounded endpoint validation
+MOONGATE-B09 | Baseline | P0 | Source documented
+Describe endpoint validation as syntax checking, with no implied network reachability or model availability.
+Evidence docs/PRODUCT_CONTRACT.md#Security and data
+Test 1. Validate well-formed and malformed URLs while detecting any attempted network call.
+2. Verify a well-formed unreachable endpoint is not labelled live-ready.
+Dependencies URL parser; Operator copy
+Truthful benchmark provenance
+MOONGATE-B10 | Baseline | P1 | Source documented
+Label deterministic fixture benchmarks and block live benchmarks without their verifier and adapter prerequisites.
+Evidence docs/PRODUCT_CONTRACT.md#Security and data
+Test 1. Repeat the fixture benchmark and retain its fixture identity.
+2. Attempt live mode without a verifier, then with an invalid adapter; both must block without provider execution.
+Dependencies Qualified live benchmark adapter
+Task spending reservations
+MOONGATE-R01 | Roadmap | P1 | Proposed
+Enforce an approved commitment envelope using conservative exposure reservations across concurrent requests and retries.
+Evidence Proposed requirement. No implementation verification claimed.
+Test 1. Race requests near the ceiling and show bounded reservation totals.
+2. Interrupt a request and reconcile its unresolved exposure before permitting reuse.
+Dependencies MoonProj approval contract; Reliable pricing or approved bound
+Commitment usage receipts
+MOONGATE-R02 | Roadmap | P1 | Proposed
+Return deduplicable usage and estimated-cost evidence linked to the approved commitment without owning its company ledger.
+Evidence Proposed requirement. No implementation verification claimed.
+Test 1. Deliver the same receipt twice; the consumer records it once.
+2. Keep missing usage unresolved and reconcile later without labelling it payment or customer acceptance.
+Dependencies Receipt consumer; Shared non-secret correlation identity
+Dispatch readiness contract
+MOONGATE-R03 | Roadmap | P0 | Proposed
+Expose exact model, authority, health freshness and blocker information that applications can revalidate at dispatch.
+Evidence Proposed requirement. No implementation verification claimed.
+Test 1. Render configured, syntax-only, stale-health and eligible-live fixtures distinctly.
+2. Expire health after display and confirm dispatch revalidation blocks until refreshed.
+Dependencies Qualified health checks; Client adoption
+Data state and authority
+Provider configuration and credentials
+Owner Local route operator
+State model Unconfigured, configured, blocked, eligible; lifecycle vocabulary to standardize.
+Write authority Operator controls configuration; clients receive no credential-writing authority.
+Retention and recovery Secret and configuration backup/migration policy remains a qualification gap; never copy raw secrets into receipts.
+Routing policy and receipts
+Owner Named policy operator
+State model Draft, shadow, active, superseded or rolled back.
+Write authority MoonLib principal and authority decision governs activation; inventory membership grants nothing.
+Retention and recovery Retain prior policy identity and decision evidence through review; proposed retention duration requires operator choice.
+Usage and capability evidence
+Owner Gateway recorder with authorized reviewer
+State model Observed, incomplete, reconciled; capability resolution accepted or rejected.
+Write authority Gateway records facts; consumers own execution approval and business interpretation.
+Retention and recovery Use a documented bounded telemetry window and redaction policy; concrete default duration is unresolved.
+Interfaces and handoffs
+MoonClaw and compatible clients
+Payload Model request, response and non-secret request identity
+Contract Client holds task authority; MoonGate owns only model routing and credential isolation.
+Failure behavior Return actionable route failure and attempt identity; caller decides whether work may resume.
+MoonFlow and MoonDesk
+Payload Inventory and accepted exact capability resolution
+Contract A product listing is never executable permission.
+Failure behavior Missing adapter or stale health blocks dispatch until resolution is repeated.
+MoonLib
+Payload Principal and authority references bound to policy receipts
+Contract Activation must match the named actor and approved scope.
+Failure behavior Unverifiable authority leaves the active policy unchanged.
+LunaNexa or another provider
+Payload Provider-neutral model request and usage response
+Contract LunaNexa is optional behind generic routing, not a source-level suite dependency.
+Failure behavior Provider unavailability follows declared retry and failover rules; no implied paid entitlement.
+Nonfunctional requirements
+Security
+MOONGATE-N01
+Proposed gate: zero test-secret disclosure across supported response, log and inspection paths.
+Acceptance test Seed distinct fake secrets and scan success, error and export fixtures.
+Evidence status Proposed
+Reliability
+MOONGATE-N02
+Proposed gate: every injected upstream failure has one inspectable terminal or explicitly unresolved attempt state.
+Acceptance test Interrupt connection, stream and receipt persistence; inspect recovery behavior.
+Evidence status Proposed
+Usability
+MOONGATE-N03
+Proposed gate: an operator can distinguish syntax validity, configuration and live readiness without reading implementation code.
+Acceptance test Observe a clean first-run qualification using blocked and eligible routes.
+Evidence status Proposed
+Compatibility
+MOONGATE-N04
+Qualify one named client/provider pair before asserting broader protocol support; publish unsupported fields.
+Acceptance test Run non-streaming, streaming, cancellation and error contracts against that pair.
+Evidence status Proposed
+Performance evidence
+MOONGATE-N05
+Publish measured proxy overhead separately from provider latency; no baseline latency or availability SLA is established.
+Acceptance test Record environment, concurrency, warmup and percentile sample counts for repeatable qualification.
+Evidence status Proposed
+Delivery roadmap
+Baseline qualification
+One recoverable and observable local route
+Requirements MOONGATE-B01, MOONGATE-B02, MOONGATE-B03, MOONGATE-B04, MOONGATE-B05, MOONGATE-B06, MOONGATE-B07, MOONGATE-B08, MOONGATE-B09, MOONGATE-B10
+Exit gate Qualify a named client/provider pair, operator recovery and secret-redaction checks; explicitly document remaining release and migration gaps.
+Application readiness
+Clients show truthful start blockers
+Requirements MOONGATE-R03
+Exit gate A host consumes exact readiness and rejects evidence that expires before dispatch.
+Commitment cost control
+One bounded spending loop with reconciled receipts
+Requirements MOONGATE-R01, MOONGATE-R02
+Exit gate Concurrency, uncertain usage and duplicate-delivery tests pass with a real consumer; paid reconciliation is separately authorized and evidenced.
+Outcome measurement
+Usable route completion
+Supported requests with a complete response divided by attempted eligible requests, separated by provider and failure type.
+Measurement Request and attempt receipts.
+Target Establish a qualified baseline; no production rate claimed.
+Unattributed usage
+Recorded consumption lacking a usable route identity or, on roadmap, commitment reference.
+Measurement Usage reconciliation report.
+Target Zero in release fixtures; production objective follows measured coverage.
+False ready incidents
+Dispatch blockers omitted from a prior readiness claim within its stated validity.
+Measurement Correlated readiness and dispatch records.
+Target Zero known false-ready paths in qualification.
+Non goals
+Agent planning or company strategy
+Customer acceptance and cash accounting
+Generic capability permission grants
+Production multi-user vault guarantees without qualification
+Treating fixture benchmarks as live-provider performance
+Alternatives and optimality
+Direct provider client
+Advantage Fewer moving parts for one trusted application.
+Cost Application owns credentials, telemetry and provider differences.
+When to choose Prefer when one route and minimal governance suffice.
+Existing managed gateway
+Advantage May offer qualified multi-user operations and support.
+Cost Additional service dependency and possible data-routing constraints.
+When to choose Evaluate when organizational credential control exceeds this local alpha.
+MoonGate local boundary
+Advantage Shared local routing and evidence without embedding provider secrets in clients.
+Cost Operator must qualify adapters, releases and recovery.
+When to choose Choose where several local clients benefit from this boundary.
+The strongest design center is a narrow, inspectable local model boundary. It concentrates credential handling and routing evidence where they can be reviewed, while leaving task purpose and customer decisions with their owners. This is a defensible fit for multiple local clients, not a universal best architecture.
+The current PRD should be narrowed around one demonstrably usable client/provider route. Adding providers before qualifying cancellation, stream failure and missing telemetry would increase the number of advertised paths faster than trustworthy coverage. Signed release and configuration recovery deserve qualification before wider deployment claims.
+Readiness should describe distinct facts instead of collapsing configuration, health and authority into one reassuring label. More checks can delay startup and health expires quickly; therefore snapshots need explicit freshness and dispatch revalidation rather than a promise of future success.
+Commitment budgets improve accountability only if uncertain cost is handled conservatively. Reservations may reject useful work when pricing is incomplete, but charging after completion cannot reliably enforce a ceiling. Keep this opt-in roadmap contract small and external to the company ledger. A direct provider client remains better when these governance benefits do not justify an extra service.
+Open product decisions
+Decision Which client and provider establish the first qualified route?
+Recommendation Select one named pair with streaming and cancellation needs.
+Consequence Support claims remain bounded to measured compatibility.
+Decision What telemetry retention and payload inspection are acceptable?
+Recommendation Choose a short, explicit retention window and redaction-first inspection.
+Consequence Some debugging detail is sacrificed to reduce sensitive content exposure.
+Decision How should unknown request cost affect a budget?
+Recommendation Require a conservative approved exposure bound or block dispatch.
+Consequence Some providers cannot participate in a hard spending envelope.
+Sources and coverage
+Repository paths below are relative to moongate. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/CAPABILITY_REGISTRY.md
+AGENTS.md
+The source map covers the README, product contract, capability-registry reference and repository guidance; nine documents, all provider clients and external route checks were not exhaustively examined. The latest ledger reports only native routing-selection 4/4 and no provider, billing or operator UI execution. Requirement acceptance steps are authored release targets, not passed tests. Source descriptions do not establish production credential storage, multi-user control, clean first-run behavior, durable migration or signed release readiness.

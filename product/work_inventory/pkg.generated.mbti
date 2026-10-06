@@ -1,0 +1,104 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/product/work_inventory"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn parse(Json, String) -> Inventory raise InventoryError
+
+pub fn parse_portfolio(Json, Array[String]) -> Array[Inventory] raise InventoryError
+
+// Errors
+pub suberror InventoryError {
+  Invalid(String)
+} derive(@debug.Debug)
+pub fn InventoryError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) struct Inventory {
+  schema : String
+  product_id : String
+  as_of : String
+  origin : String
+  source_scope : String
+  current_gap : String
+  vision_scope : String
+  full_target_estimate : String
+  next_milestone : Milestone
+  prd_source : String
+  prd_sha256 : String
+  philosophy : Array[String]
+  non_goals : Array[String]
+  requirements : Array[Requirement]
+  groups : Array[WorkGroup]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Inventory::count(Self, String) -> Int
+pub fn Inventory::equal(Self, Self) -> Bool
+pub fn Inventory::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Inventory::not_equal(Self, Self) -> Bool
+pub fn Inventory::projection(Self) -> Json
+pub fn Inventory::to_json(Self) -> Json
+pub fn Inventory::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Milestone {
+  title : String
+  estimate_low_days : Int?
+  estimate_high_days : Int?
+  unit : String
+  confidence : String
+  scope : String
+  linked_group_id : String?
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Milestone::equal(Self, Self) -> Bool
+pub fn Milestone::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Milestone::not_equal(Self, Self) -> Bool
+pub fn Milestone::to_json(Self) -> Json
+pub fn Milestone::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Requirement {
+  id : String
+  title : String
+  track : String
+  priority : String
+  statement : String
+  acceptance : Array[String]
+  dependencies : Array[String]
+  historical_status : String
+  historical_evidence : Array[String]
+  status : String
+  reason : String
+  evidence : Array[String]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Requirement::equal(Self, Self) -> Bool
+pub fn Requirement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Requirement::not_equal(Self, Self) -> Bool
+pub fn Requirement::to_json(Self) -> Json
+pub fn Requirement::to_repr(Self) -> @debug.Repr
+
+pub(all) struct WorkGroup {
+  id : String
+  title : String
+  requirement_ids : Array[String]
+  status : String
+  next_action : String
+  acceptance : Array[String]
+  dependencies : Array[String]
+  estimate_low_days : Int?
+  estimate_high_days : Int?
+  estimate_scope : String
+  confidence : String
+  assumptions : Array[String]
+  evidence : Array[String]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn WorkGroup::equal(Self, Self) -> Bool
+pub fn WorkGroup::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn WorkGroup::not_equal(Self, Self) -> Bool
+pub fn WorkGroup::to_json(Self) -> Json
+pub fn WorkGroup::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

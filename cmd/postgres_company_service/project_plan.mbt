@@ -2,21 +2,18 @@
 /// Native project, plan-task, and task-report read/command boundary.
 async fn plan_task_projection_rows(
   include_deleted : Bool,
+  project_id? : String,
+  task_type? : String,
+  product_id? : String,
 ) -> Array[SourceRow] raise CompanyServiceError {
-  let deleted_clause = if include_deleted {
-    ""
-  } else {
-    " WHERE coalesce(payload->>'state', '') <> 'deleted'"
-  }
   let output = run_sql(
-    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), " +
-    "encode(convert_to(payload::text, 'UTF8'), 'hex'), " +
-    "encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text " +
-    "FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, " +
-    "source_event_id, revision FROM company_aggregate_projection " +
-    "WHERE aggregate_type = 'plan_task' ORDER BY aggregate_id, revision DESC) latest" +
-    deleted_clause +
-    " ORDER BY aggregate_id LIMIT 500",
+    plan_task_projection_sql(
+      include_deleted,
+      project_id,
+      task_type,
+      product_id,
+      None,
+    ),
   )
   let result : Array[SourceRow] = []
   for line_view in output.split("\n") {
@@ -46,9 +43,17 @@ async fn plan_task_projection_rows(
 }
 
 ///|
-async fn project_import_projection_rows() -> Array[SourceRow] raise CompanyServiceError {
+async fn project_import_projection_rows(
+  include_deleted? : Bool = false,
+) -> Array[SourceRow] raise CompanyServiceError {
   let output = run_sql(
-    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, source_event_id, revision FROM company_aggregate_projection WHERE aggregate_type = 'project_import' ORDER BY aggregate_id, revision DESC) latest WHERE coalesce(payload->>'state', '') <> 'deleted' ORDER BY aggregate_id LIMIT 500",
+    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, source_event_id, revision FROM company_aggregate_projection WHERE aggregate_type = 'project_import' ORDER BY aggregate_id, revision DESC) latest" +
+    (if include_deleted {
+      ""
+    } else {
+      " WHERE coalesce(payload->>'state', '') <> 'deleted'"
+    }) +
+    " ORDER BY aggregate_id LIMIT 500",
   )
   let result : Array[SourceRow] = []
   for line_view in output.split("\n") {
@@ -97,6 +102,7 @@ fn project_plan_task_item(
   row : SourceRow,
   command : Bool,
   users : Array[SourceRow],
+  include_offer? : Bool = false,
 ) -> Json {
   let payload = row.payload
   let task_id = if command {
@@ -134,11 +140,12 @@ fn project_plan_task_item(
   } else {
     row.source_id
   }
-  Json::object({
+  let item = Json::object({
     "taskGuid": Json::string(task_id),
     "taskCode": Json::string(json_text(payload, "task_code", "")),
     "taskName": Json::string(json_text(payload, "task_name", "")),
     "projGuid": Json::string(project_id),
+    "product_id": plan_task_product_public(payload),
     "taskType": Json::string(task_type),
     "parentTaskGuid": Json::string(
       if command {
@@ -156,26 +163,33 @@ fn project_plan_task_item(
     "ownerName": Json::string(project_task_user_name(users, owner_id)),
     "status": Json::string(status),
     "remarks": Json::string(json_text(payload, "remarks", "")),
+    "source_context": json_field(payload, "source_context").unwrap_or(
+      Json::null(),
+    ),
+    "execution_workspace": Json::string(
+      json_text(payload, "execution_workspace", ""),
+    ),
+    "execution_model": Json::string(json_text(payload, "execution_model", "")),
+    "execution": plan_task_execution_public(payload),
+    "continuations": plan_task_continuations_public(payload),
+    "human_revisions": plan_task_human_revisions(payload).to_json(),
+    "selected_delivery_source": plan_task_delivery_source(payload),
+    "accepted_report_id": json_field(payload, "accepted_report_id").unwrap_or(
+      Json::null(),
+    ),
+    "accepted_delivery_source": json_field(payload, "accepted_delivery_source").unwrap_or(
+      Json::null(),
+    ),
     "sortOrder": Json::number(json_int(payload, "sort_order", 0).to_double()),
     "sourceKind": Json::string(if command { "command" } else { "imported" }),
     "sourceId": Json::string(source_id),
     "revision": Json::number(json_int(payload, "__revision", 0).to_double()),
     "delayed": Json::boolean(status == "overdue"),
   })
-}
-
-///|
-fn project_plan_task_matches(
-  item : Json,
-  project_id : String,
-  task_type : String?,
-) -> Bool {
-  if json_text(item, "projGuid", "") != project_id {
-    return false
-  }
-  match task_type {
-    Some(value) => json_text(item, "taskType", "task") == value
-    None => true
+  if command {
+    plan_task_offer_public(item, payload, include_offer)
+  } else {
+    item
   }
 }
 
@@ -184,48 +198,7 @@ async fn project_plan_tasks(
   project_id : String,
   task_type : String?,
 ) -> Array[Json] raise CompanyServiceError {
-  if !valid_identifier(project_id) {
-    raise reject(422, "invalid project_id")
-  }
-  match task_type {
-    Some(value) if !valid_identifier(value) =>
-      raise reject(422, "invalid task_type")
-    _ => ()
-  }
-  let users = raw_source_rows("sys_user", 500)
-  let raw = raw_source_rows("jd_task", 500)
-  let result : Array[Json] = []
-  for row in raw {
-    let item = project_plan_task_item(row, false, users)
-    if project_plan_task_matches(item, project_id, task_type) {
-      result.push(item)
-    }
-  }
-  let commands = plan_task_projection_rows(false)
-  for row in commands {
-    let item = project_plan_task_item(row, true, users)
-    if project_plan_task_matches(item, project_id, task_type) {
-      result.push(item)
-    }
-  }
-  result.sort_by(fn(left, right) {
-    let order = json_int(left, "sortOrder", 0) - json_int(right, "sortOrder", 0)
-    if order == 0 {
-      let begin_order = json_text(left, "planBeginDate", "").lexical_compare(
-        json_text(right, "planBeginDate", ""),
-      )
-      if begin_order == 0 {
-        json_text(left, "taskGuid", "").lexical_compare(
-          json_text(right, "taskGuid", ""),
-        )
-      } else {
-        begin_order
-      }
-    } else {
-      order
-    }
-  })
-  result
+  project_plan_task_items(Some(project_id), task_type, None)
 }
 
 ///|
@@ -236,18 +209,7 @@ async fn project_plan_task_reports(
   let users = raw_source_rows("sys_user", 500)
   let result : Array[Json] = []
   for report in reports {
-    let operator_id = json_text(report, "operator_id", "")
-    result.push(
-      Json::object({
-        "reportGuid": Json::string(json_text(report, "report_id", "")),
-        "reportDate": Json::string(json_text(report, "report_date", "")),
-        "progressPct": Json::string(json_text(report, "progress_pct", "0")),
-        "summary": Json::string(json_text(report, "summary", "")),
-        "operatorGuid": Json::string(operator_id),
-        "operatorName": Json::string(project_task_user_name(users, operator_id)),
-        "sourceKind": Json::string(json_text(report, "source_kind", "imported")),
-      }),
-    )
+    result.push(project_plan_task_report_item(report, task_id, users))
   }
   result
 }
@@ -377,10 +339,31 @@ async fn project_plan_project_item(
 }
 
 ///|
+async fn project_plan_project_rows() -> Array[SourceRow] raise CompanyServiceError {
+  let rows = raw_source_rows("ep_project", 500)
+  for row in project_import_projection_rows(include_deleted=true) {
+    rows.push(row)
+  }
+  for row in project_command_projection_rows(true) {
+    rows.push(row)
+  }
+  rows
+}
+
+///|
+fn project_plan_project_contains_id(
+  rows : Array[SourceRow],
+  project_id : String,
+) -> Bool raise CompanyServiceError {
+  !project_identity_live_rows(rows, project_id).is_empty()
+}
+
+///|
 async fn project_plan_project_items(
   project_id : String?,
   status : String?,
   keyword : String?,
+  catalog? : (Array[SourceRow], Array[Json]),
 ) -> Array[Json] raise CompanyServiceError {
   match project_id {
     Some(value) if !valid_identifier(value) =>
@@ -397,20 +380,41 @@ async fn project_plan_project_items(
       raise reject(422, "invalid project keyword")
     _ => ()
   }
-  let raw_projects = raw_source_rows("ep_project", 500)
-  let command_projects = project_import_projection_rows()
-  for row in command_projects {
-    raw_projects.push(row)
+  let (raw_projects, diagnostics) = match project_id {
+    Some(id) =>
+      (project_identity_live_rows(project_identity_rows(id, true), id), [])
+    None =>
+      match catalog {
+        Some(value) => value
+        None => project_identity_catalog(project_plan_project_rows())
+      }
   }
-  let native_project_commands = project_command_projection_rows(false)
-  for row in native_project_commands {
-    raw_projects.push(row)
-  }
-  let units = raw_source_rows("mu_business_unit", 500)
   let stages = raw_source_rows("proj_lifecycle_stage", 500)
   let instances = raw_source_rows("proj_lifecycle_instance", 500)
+  let listed_units = if project_id is None {
+    business_unit_rows(None)
+  } else {
+    []
+  }
   let result : Array[Json] = []
   for row in raw_projects {
+    let bu_id = json_text(row.payload, "bu_guid", "")
+    let units = if bu_id.is_empty() {
+      []
+    } else if project_id is None {
+      listed_units.filter(unit => {
+        json_text(unit.payload, "bu_guid", unit.record_id) == bu_id
+      })
+    } else {
+      business_unit_rows(Some(bu_id))
+    }
+    let units = project_catalog_unit_rows(
+      json_text(row.payload, "proj_guid", row.record_id),
+      bu_id,
+      units,
+      project_id is Some(_),
+      diagnostics,
+    )
     let item = project_plan_project_item(row, units, stages, instances)
     let id_ok = match project_id {
       Some(value) => json_text(item, "project_id", "") == value
@@ -452,7 +456,12 @@ async fn project_runtime_response(
   status : String?,
   keyword : String?,
 ) -> Json raise CompanyServiceError {
-  let items = project_plan_project_items(project_id, status, keyword)
+  let catalog = if project_id is None {
+    project_identity_catalog(project_plan_project_rows())
+  } else {
+    ([], [])
+  }
+  let items = project_plan_project_items(project_id, status, keyword, catalog~)
   let command_projects = project_import_projection_rows()
   let native_project_commands = project_command_projection_rows(false)
   let coverage = Json::object({
@@ -479,6 +488,7 @@ async fn project_runtime_response(
   })
   Json::object({
     "items": Json::array(items),
+    "diagnostics": Json::array(catalog.1),
     "source_kind": Json::string(
       if command_projects.is_empty() && native_project_commands.is_empty() {
         "imported"
@@ -508,8 +518,25 @@ async fn project_task_detail_response(
     return (400, Json::object({ "error": Json::string("invalid task_id") }))
   }
   let users = raw_source_rows("sys_user", 500)
-  let raw = raw_source_rows("jd_task", 500)
-  let commands = plan_task_projection_rows(false)
+  let raw = project_plan_source_task_rows(None, None, None, Some(task_id))
+  // Exact native lookup must not depend on the company-wide 500-row list.
+  let commands : Array[SourceRow] = match plan_task_latest(task_id) {
+    Some((payload, revision)) if json_text(payload, "state", "") != "deleted" => {
+      let fields = match payload {
+        Object(fields) => fields
+        _ => Map::new()
+      }
+      fields.set("__revision", Json::number(revision.to_double()))
+      [
+        {
+          record_id: task_id,
+          source_id: json_text(payload, "event_id", ""),
+          payload: Json::object(fields),
+        },
+      ]
+    }
+    _ => []
+  }
   let mut selected : Json? = None
   for row in raw {
     let item = project_plan_task_item(row, false, users)
@@ -519,7 +546,7 @@ async fn project_task_detail_response(
   }
   if selected is None {
     for row in commands {
-      let item = project_plan_task_item(row, true, users)
+      let item = project_plan_task_item(row, true, users, include_offer=true)
       if json_text(item, "taskGuid", "") == task_id {
         selected = Some(item)
       }
@@ -555,6 +582,12 @@ async fn project_task_detail_response(
           "data": Json::object({
             "task": detail_task,
             "reports": Json::array(reports),
+            "commitment": if json_text(detail_task, "sourceKind", "") ==
+              "command" {
+              plan_task_receipt_history(task_id)
+            } else {
+              Json::null()
+            },
           }),
           "source_kind": Json::string("imported_or_command"),
           "source_coverage": Json::object({
@@ -1007,25 +1040,17 @@ fn plan_task_authority(
 async fn plan_task_project_exists(
   project_id : String,
 ) -> Bool raise CompanyServiceError {
-  for row in raw_source_rows("ep_project", 500) {
-    if json_text(row.payload, "proj_guid", row.record_id) == project_id {
-      return true
-    }
-  }
-  false
+  project_plan_project_contains_id(
+    project_identity_rows(project_id, true),
+    project_id,
+  )
 }
 
 ///|
 async fn plan_task_imported_exists(
   task_id : String,
 ) -> Bool raise CompanyServiceError {
-  for row in raw_source_rows("jd_task", 500) {
-    if json_text(row.payload, "task_guid", row.record_id) == task_id ||
-      row.record_id == task_id {
-      return true
-    }
-  }
-  false
+  !project_plan_source_task_rows(None, None, None, Some(task_id)).is_empty()
 }
 
 ///|
@@ -1055,7 +1080,7 @@ async fn plan_task_command_request(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (String, Json, Bool, Json?) raise CompanyServiceError {
+) -> (String, Json, Bool, (Json, Int)?) raise CompanyServiceError {
   if command_type == "create" {
     let requested = plan_task_optional(
       body,
@@ -1070,9 +1095,7 @@ async fn plan_task_command_request(
     }
     let project_id = plan_task_required(body, "project_id", "proj_guid", true)
     if !plan_task_project_exists(project_id) {
-      raise reject(
-        409, "project-plan task requires an imported project identity",
-      )
+      raise reject(409, "project-plan task requires an active project identity")
     }
     let task_name = plan_task_required(body, "task_name", "taskName", false)
     let task_code = plan_task_optional(body, "task_code", ["taskCode"], true)
@@ -1128,18 +1151,29 @@ async fn plan_task_command_request(
       "owner_id": Json::string(owner_id),
       "status": Json::string("pending"),
       "remarks": Json::string(plan_task_optional(body, "remarks", [], false)),
+      "execution_workspace": Json::string(
+        plan_task_optional(body, "execution_workspace", [], false),
+      ),
+      "execution_model": Json::string(
+        plan_task_optional(body, "execution_model", [], false),
+      ),
       "sort_order": Json::number(sort_order.to_double()),
       "created_by": Json::string(actor_id),
       "authority": authority,
     })
+    let request = plan_task_with_product_metadata(request, body, true)
+    let request = @task_evidence.with_source_context(request, body) catch {
+      @task_evidence.InvalidSourceContext(message) => raise reject(422, message)
+    }
+    let request = plan_task_offer_on_create(request, body)
     return (id, request, true, None)
   }
   let id = match aggregate_id {
     Some(value) if valid_identifier(value) => value
     _ => raise reject(422, "task_id is required")
   }
-  let current = match plan_task_latest(id) {
-    Some((payload, _)) => payload
+  let (current, current_revision) = match plan_task_latest(id) {
+    Some(value) => value
     None => {
       if plan_task_imported_exists(id) {
         raise reject(
@@ -1173,10 +1207,21 @@ async fn plan_task_command_request(
         "authority": authority,
       }),
       false,
-      Some(current),
+      Some((current, current_revision)),
     )
   }
-  let changes : Map[String, Json] = {}
+  let changes = match plan_task_product_metadata(body, false) {
+    Object(fields) => fields
+    _ => Map::new()
+  }
+  for field in ["execution_workspace", "execution_model"] {
+    if json_field(body, field) is Some(_) {
+      changes.set(
+        field,
+        Json::string(plan_task_optional(body, field, [], false)),
+      )
+    }
+  }
   let task_name = plan_task_optional(body, "task_name", ["taskName"], false)
   if !task_name.is_empty() {
     changes.set("task_name", Json::string(task_name))
@@ -1237,6 +1282,23 @@ async fn plan_task_command_request(
       raise reject(422, "unsupported task status")
     }
     changes.set("status", Json::string(status))
+    if status == "done" && plan_task_acceptance_needs_binding(current, body) {
+      let report_id = json_text(body, "report_id", "")
+      let report = if valid_identifier(report_id) {
+        delivery_latest_payload("task_report", report_id)
+        .map(pair => pair.0)
+        .unwrap_or(Json::null())
+      } else {
+        Json::null()
+      }
+      match plan_task_acceptance_binding(current, body, report) {
+        Object(binding) =>
+          for key, value in binding {
+            changes.set(key, value)
+          }
+        _ => ()
+      }
+    }
   }
   if json_field(body, "progress_pct") is Some(_) ||
     json_field(body, "progressPct") is Some(_) {
@@ -1260,7 +1322,7 @@ async fn plan_task_command_request(
       "authority": authority,
     }),
     false,
-    Some(current),
+    Some((current, current_revision)),
   )
 }
 
@@ -1277,6 +1339,25 @@ async fn plan_task_command(
   }
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
+  }
+  if command_type == "update" && json_field(body, "offer_reply") is Some(_) {
+    return plan_task_reply_update_command(
+      aggregate_id, body, actor_id, idempotency_key,
+    )
+  }
+  if json_field(body, "offer_reply") is Some(_) ||
+    json_field(body, "reply_base_revision") is Some(_) {
+    raise reject(
+      422, "proposal replies require a reply-only update on a saved task",
+    )
+  }
+  if command_type == "update" && json_field(body, "offer_draft") is Some(_) {
+    return plan_task_offer_update_command(
+      aggregate_id, body, actor_id, idempotency_key,
+    )
+  }
+  if json_field(body, "offer_base_revision") is Some(_) {
+    raise reject(422, "offer_base_revision requires a proposal-only update")
   }
   let (id, request, create_mode, current_from_request) = plan_task_command_request(
     command_type, aggregate_id, body, actor_id, idempotency_key,
@@ -1307,11 +1388,8 @@ async fn plan_task_command(
         }
       }
       let current = current_from_request
-      let current_payload = current.unwrap_or(Json::null())
-      let current_revision = match plan_task_latest(id) {
-        Some((_, revision)) => revision
-        None => 0
-      }
+      let current_payload = current.map(pair => pair.0).unwrap_or(Json::null())
+      let current_revision = current.map(pair => pair.1).unwrap_or(0)
       let next_revision = if create_mode { 1 } else { current_revision + 1 }
       let event_id = "plan_task:" + command_type + ":" + idempotency_key
       let command_source = "moonproj:command:" + idempotency_key
@@ -1391,7 +1469,7 @@ async fn plan_task_command(
         "state": Json::string(next_state),
         "revision": Json::number(next_revision.to_double()),
       })
-      let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+      let command_sql = "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
         @postgres.sql_literal(event_id) +
         ", 4, " +
         @postgres.sql_literal(command_payload.stringify()) +
@@ -1415,11 +1493,19 @@ async fn plan_task_command(
         @postgres.sql_literal(result.stringify()) +
         "::jsonb) WHERE source_id = " +
         @postgres.sql_literal(command_source) +
-        "; COMMIT;"
-      let _ = run_sql(sql)
+        ";"
+      let _ = run_sql(
+        plan_task_acceptance_atomic_sql(
+          id, current_revision, command_source, request, command_sql,
+        ),
+      )
+      let persisted = plan_task_applied_command(
+        existing_company_command(idempotency_key),
+        request,
+      )
       let response = Json::object({
-        "command": command_payload,
-        "task": result,
+        "command": persisted,
+        "task": json_field(persisted, "result").unwrap_or(Json::null()),
         "idempotent_replay": Json::boolean(false),
       })
       (if create_mode { 201 } else { 200 }, response)

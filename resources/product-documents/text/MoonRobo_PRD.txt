@@ -1,0 +1,334 @@
+MoonRobo product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonRobo is an experimental robotics safety and bridge pack for named operators qualifying a bounded action on a specific robot. Its baseline defines robot readiness, a simulation-only design path, typed adapter/reconciliation contracts and a cockpit for queue, telemetry and proof inspection. The local platform queue passed 9/9; no device, SDK E1 or physical bridge was run. Physical release remains conditional on named hardware, firmware, environment, operator and negative-path evidence.
+Repository maturity claim experimental bounded hardware validation
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Physical work requires an authority chain that survives uncertainty. A model intention, digital design validation or lunar simulation result can inform a proposal but cannot establish current hardware readiness. The robot product owns command and interlock policy. Before dispatch, a named operator must see the bounded action, current calibration and safety evidence, and a valid separate grant. Human stop and takeover remain available.
+For a robotics service founder, the company commitment is a clearly scoped service or trial with inspected proof. The operational chain should connect approved work to the exact robot, command attempt, telemetry and reviewed outcome. A completed queue item is not physical success, customer acceptance or received payment. The first defensible product is one qualified hardware profile and bounded trial; most founders should never need this specialist surface.
+Users and jobs
+Robot operator
+Run or refuse a bounded trial safely
+Trigger An approved work request reaches the cockpit
+Successful outcome Sees current readiness and can stop or take over without relying on model judgment
+Safety approver
+Set the permitted action envelope and review failures
+Trigger A trial or material configuration change is proposed
+Successful outcome Can trace approval to exact hardware and current evidence
+Integration engineer
+Bind adapters, bridge and telemetry to one platform
+Trigger A supported hardware or firmware profile is qualified
+Successful outcome Can reconcile uncertain outcomes without repeating unsafe work
+Robotics service founder
+Commit and review a specialist delivery
+Trigger A client asks for a bounded physical service
+Successful outcome Can separate trial proof, client acceptance and commercial records
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	9	Source documented: 7; Partial: 2
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS queue 9/9 passed; no device, SDK or physical bridge run.
+Open gap Named hardware/firmware/environment and negative-path evidence required before a physical release claim.
+Open gap Full MoonFlow-dispatched MoonMoon→MoonRobo loop not verified.
+Open gap Broad fleet support is planned, not a current capability.
+User scenarios
+Robot profile calibration readiness and safety gates
+MR-W01 | Baseline scope. An operator prepares a robot for a named task
+1. Resolve the robot identity and versioned profile
+2. Inspect calibration, health and environment evidence
+3. Evaluate task-specific readiness and interlocks
+4. Present blockers or a bounded action for separate authorization
+Edge case A valid profile can coexist with stale calibration; no single green status should erase task-specific limitations.
+Failure and recovery Missing readiness evidence leaves the action blocked while inspection and diagnostics remain available.
+Acceptance The operator can identify which evidence is current, who owns the gate and why an action is refused.
+Evidence references README.mbt.md#Product Boundary; docs/PRODUCT_CONTRACT.md#Ownership
+Simulation only design build and validate
+MR-W02 | Baseline scope. A designer proposes an excavation-haul rover concept
+1. Submit the supported typed digital design request
+2. Build robot profile and URDF artifacts
+3. Validate structural consistency and record the design receipt
+4. Export exact design identity for a digital mission study
+Edge case Structural digital readiness is neither mission feasibility nor tested hardware readiness.
+Failure and recovery Invalid geometry, mismatched artifacts or unsupported design inputs prevent a valid design receipt.
+Acceptance The package binds profile, URDF and validation identities and remains explicitly simulation-only.
+Evidence references README.mbt.md#Design-linked digital build
+MoonFlow adapter and bridge reconciliation
+MR-W03 | Baseline scope. An authorized typed operation reaches the pack or an attempt is interrupted
+1. Validate operation, target and authority envelope
+2. Create an attempt with stable identity
+3. Dispatch only when the named bridge and current gates qualify
+4. Reconcile receipt or telemetry before accepting completion or retry
+Edge case A lost acknowledgement is an unknown outcome, not a failed action that is automatically safe to repeat.
+Failure and recovery An unavailable SDK E1 or physical bridge leaves physical dispatch blocked; local digital queue behavior does not fill the gap.
+Acceptance The operation record shows requested, dispatched, unknown and reconciled states distinctly; physical acceptance remains to be tested.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/BRIDGE_PROTOCOL.md
+Cockpit telemetry and proof sessions
+MR-W04 | Baseline scope. An operator monitors a bounded session
+1. Inspect queue, readiness and current authority
+2. Observe timestamped telemetry and proof artifacts
+3. Exercise human stop or takeover through the qualified platform path
+4. Review incidents and separate observed outcome from requested intent
+Edge case Telemetry loss can prevent proof of completion even if a command was sent; an empty queue is not proof of safety.
+Failure and recovery A stale stream or unexplained command outcome triggers a held or incident state pending platform-specific response.
+Acceptance The reviewer can reconstruct command intent, observed execution, interventions and remaining unknowns.
+Evidence references docs/PRODUCT_CONTRACT.md#Users and jobs; README.mbt.md
+Digital to physical trial gate
+MR-W05 | Roadmap scope. A MoonMoon simulation is offered as evidence for a trial
+1. Bind the exact simulation and robot design receipts
+2. Check current hardware, calibration, environment and safety policy
+3. Show the proposed bounded action and named authorization
+4. Dispatch only through a qualified bridge or record refusal
+Edge case A successful simulation may be irrelevant to changed hardware or an unsafe environment; refusal is a valid outcome.
+Failure and recovery Missing matching evidence or expired authority blocks dispatch and preserves the proposal for correction.
+Acceptance The reviewer sees separate digital result, current readiness and physical grant before any device action.
+Evidence references README.mbt.md#Product Boundary; docs/BRIDGE_PROTOCOL.md
+Incident and proof reconciliation
+MR-W06 | Roadmap scope. A device result is unknown, failed or aborted
+1. Collect raw telemetry and command acknowledgements
+2. Reconcile what physically occurred before considering repetition
+3. Record the incident, human interventions and corrective decision
+4. Send reviewed outcome evidence to knowledge with exact session identity
+Edge case Insufficient telemetry can leave an outcome unresolved; learning must preserve that uncertainty.
+Failure and recovery Failed reconciliation prohibits automatic retry; the responsible human chooses the next safe action under platform policy.
+Acceptance An interrupted action cannot be repeated merely because its queue receipt is missing, and incident lessons require named review.
+Evidence references docs/BRIDGE_PROTOCOL.md; docs/PRODUCT_CONTRACT.md#Ownership
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Profile and evidence identity
+MOONROBO-B01 | Baseline | P0 | Source documented
+Bind robot profile, calibration and readiness evidence to the exact robot identity; RoboBook decorates MoonBook identity rather than creating a competing truth store.
+Evidence README.mbt.md#Product Boundary; docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Load a profile with matching calibration and evidence
+2. Reject another robot’s calibration record
+3. Update a profile revision and invalidate dependent readiness checks
+Dependencies MoonBook identity; Robot profile schema
+Task specific safety gating
+MOONROBO-B02 | Baseline | P0 | Source documented
+Evaluate current readiness and interlocks for the proposed task and environment; robot-owned command policy governs dispatch.
+Evidence docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Show the gates needed for one named bounded action
+2. Hold the action for stale calibration or missing environment evidence
+3. Refresh evidence and re-evaluate rather than retaining an earlier ready state
+Dependencies Named hardware and firmware; Safety policy owner
+Simulation only digital design
+MOONROBO-B03 | Baseline | P1 | Source documented
+Build a supported excavation-haul rover profile and URDF with validation identity, claiming structural digital readiness only.
+Evidence README.mbt.md#Design-linked digital build
+Test 1. Build and validate a supported digital fixture
+2. Reject inconsistent profile/URDF identity or invalid structure
+3. Export a corrected version with new validation identity and explicit simulation-only label
+Dependencies Typed design schema; Digital validator
+Typed adapter and bounded dispatch
+MOONROBO-B04 | Baseline | P0 | Partial
+Accept only declared MoonFlow operations with exact target, attempt and authority identity; distinguish digital adapter behavior from physical bridge qualification.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; docs/BRIDGE_PROTOCOL.md; Ledger: JS platform queue 9/9 only
+Test 1. Accept a valid typed digital operation
+2. Reject an undeclared action or mismatched target
+3. Keep physical dispatch blocked without qualified bridge and current grant
+Dependencies MoonFlow adapter; Qualified platform bridge
+Reconcile before physical retry
+MOONROBO-B05 | Baseline | P0 | Partial
+Persist attempts and reconcile unknown device outcomes before repetition; idempotency must not be treated as proof that a physical action did not occur.
+Evidence docs/BRIDGE_PROTOCOL.md; Dossier: local attempt recovery and idempotency; no physical run
+Test 1. Replay an acknowledged local request and preserve its identity
+2. Simulate lost acknowledgement and hold automatic retry
+3. Require reconciled telemetry and renewed valid conditions before a separate retry decision
+Dependencies Durable attempt ledger; Device-specific reconciliation
+Cockpit state inspection
+MOONROBO-B06 | Baseline | P1 | Source documented
+Present queue, readiness, authority, incidents and proof session state with explicit freshness and uncertainty.
+Evidence docs/PRODUCT_CONTRACT.md#Users and jobs; README.mbt.md
+Test 1. Inspect a queued request and its readiness blockers
+2. Show stale telemetry separately from a healthy but idle robot
+3. Reload the cockpit without converting an unknown attempt to complete
+Dependencies Host cockpit; Telemetry reader
+Raw and derived proof lineage
+MOONROBO-B07 | Baseline | P0 | Source documented
+Store raw and derived captures in MoonData and bind proof to command, robot, time and processing version.
+Evidence docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Trace derived proof to raw capture and command attempt
+2. Reject evidence from a different robot or session
+3. Reprocess a capture as a new derived revision while preserving the original
+Dependencies MoonData capture storage; Time and identity metadata
+Human stop and takeover
+MOONROBO-B08 | Baseline | P0 | Source documented
+Preserve qualified human stop and takeover controls independently of autonomous reasoning; define their platform-specific behavior before physical release.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md#Users and jobs
+Test 1. Document the named platform’s stop and takeover path
+2. Exercise it during qualification including communication loss
+3. Prevent resume until current authority and readiness are re-established
+Dependencies Named operator; Platform-specific safety qualification
+No unattended autonomy
+MOONROBO-B09 | Baseline | P0 | Source documented
+Exclude autonomous unattended physical control; model proposals and simulation receipts cannot grant device authority.
+Evidence docs/PRODUCT_CONTRACT.md; README.mbt.md
+Test 1. Submit an unapproved model-generated command and reject it
+2. Present a successful simulation without a physical grant and hold dispatch
+3. Keep a human-reviewed digital artifact available after refusal
+Dependencies Authority enforcement; Bounded capability declaration
+Integrated digital to physical trial gate
+MOONROBO-R01 | Roadmap | P0 | Proposed
+Join exact MoonMoon simulation identity with current calibration, environment, bounded action and separate human authorization before trial dispatch.
+Evidence Dossier future use cases; docs/BRIDGE_PROTOCOL.md
+Test 1. Present matching digital and current hardware evidence
+2. Change firmware or calibration and invalidate the prior gate
+3. Record refusal or authorized trial without changing the original simulation result
+Dependencies MoonMoon evidence contract; B02 readiness; B08 stop qualification
+Incident learning and proof reconciliation
+MOONROBO-R02 | Roadmap | P1 | Proposed
+Create a reviewed incident record for failed, aborted or unknown actions, preserving telemetry gaps and explicit retry decisions.
+Evidence docs/BRIDGE_PROTOCOL.md; docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Reconcile a simulated lost acknowledgement from available telemetry
+2. Keep an inconclusive outcome unresolved and non-retryable by default
+3. Retain named review and matching durable knowledge receipt for any lesson
+Dependencies B05 reconciliation; B07 proof; MoonBook review host
+One platform physical qualification
+MOONROBO-R03 | Roadmap | P0 | Proposed
+Qualify one named hardware, firmware, SDK and environment with supervised positive and negative paths before any physical release claim.
+Evidence Dossier known gaps; Ledger: no device, SDK or bridge run
+Test 1. Record exact platform, operator, action envelope and approvals
+2. Test refused dispatch, communication loss, stop and unknown outcome under the approved plan
+3. Require reviewed proof and explicitly exclude untested platform variants
+Dependencies Authorized hardware access; Safety review; Qualified SDK bridge
+Data state and authority
+Robot profile and readiness
+Owner MoonRobo command/safety owner
+State model registered, calibrated, ready for task, stale, blocked
+Write authority Readiness is current and task-specific, not a blanket grant
+Retention and recovery Preserve profile and calibration history linked to exact identity
+Digital design
+Owner Robot designer
+State model draft, built, structurally validated, superseded
+Write authority Simulation-only artifacts have no device authority
+Retention and recovery Retain profile, URDF and validation identity
+Command attempt
+Owner Adapter and platform bridge
+State model proposed, authorized, dispatched, unknown, reconciled, failed, stopped
+Write authority Physical action requires separate current grant and safety gates
+Retention and recovery Keep immutable attempt and acknowledgement history
+Raw and derived captures
+Owner MoonData evidence owner
+State model captured, incomplete, processed, reviewed
+Write authority Evidence describes observations; it does not retroactively authorize action
+Retention and recovery Retention follows the qualified session policy with processing lineage
+Incident and learning
+Owner Named operator and safety reviewer
+State model open, investigated, unresolved, reviewed, closed
+Write authority Closure requires a human disposition; unknown outcomes remain explicit
+Retention and recovery Retain proof and corrective decisions with durable knowledge references
+Interfaces and handoffs
+MoonDesk and MoonFlow
+Payload Work request, target and authority envelope
+Contract Host presents the proposal; orchestration advances receipts; neither bypasses robot policy
+Failure behavior Missing capability or grant blocks dispatch
+MoonClaw
+Payload Bounded reasoning context
+Contract May propose or interpret; may not grant physical permission
+Failure behavior Malformed or out-of-scope proposal is held for human review
+MoonMoon
+Payload Exact digital simulation receipt
+Contract Simulation is evidence only; hardware readiness is checked independently
+Failure behavior Mismatched or stale evidence is rejected
+Device bridge and MoonData
+Payload Command acknowledgement and telemetry captures
+Contract Bridge execution and proof must reconcile under platform policy
+Failure behavior Unknown outcome prevents blind repeat
+MoonBook
+Payload Reviewed proof or incident lesson
+Contract RoboBook uses shared identity; retention and factual review remain separate
+Failure behavior No matching durable receipt means pending retention
+Nonfunctional requirements
+Fail closed authority
+MOONROBO-N01
+Missing, expired or mismatched grants must never permit physical dispatch.
+Acceptance test Proposed qualification gate: exercise all ingress paths with invalid authority and inspect bridge logs.
+Evidence status Proposed
+Stop and takeover assurance
+MOONROBO-N02
+Human intervention behavior must be specified and demonstrated on each qualified platform.
+Acceptance test Measure platform-specific stop behavior under the approved safety plan; no latency claim exists yet.
+Evidence status Proposed
+Outcome uncertainty
+MOONROBO-N03
+Telemetry gaps and acknowledgement loss must stay explicit until reconciled.
+Acceptance test Inject connection loss around dispatch and completion; verify no automatic duplicate physical action.
+Evidence status Proposed
+Proof integrity
+MOONROBO-N04
+Raw and derived proof must bind robot, command, timestamps and processing identity.
+Acceptance test Mutate each identity field and require rejection or an explicit untrusted evidence state.
+Evidence status Proposed
+Operator comprehension
+MOONROBO-N05
+The cockpit must make task readiness, active authority and unknown outcomes understandable under interruption.
+Acceptance test Proposed supervised usability test: operator identifies safe next action for blocked, stopped and unknown fixtures.
+Evidence status Proposed
+Delivery roadmap
+Digital and contract qualification
+Trustworthy typed design and queue behavior
+Requirements MOONROBO-B03, MOONROBO-B04, MOONROBO-B05
+Exit gate Digital happy, invalid-identity and interrupted-attempt paths pass without any physical claim
+Named platform qualification
+One supervised physical envelope
+Requirements MOONROBO-R03, MOONROBO-B02, MOONROBO-B08
+Exit gate Approved positive and negative trials establish current readiness, intervention and reconciliation evidence
+Evidence to reviewed service outcome
+Integrated trial and incident loop
+Requirements MOONROBO-R01, MOONROBO-R02, MOONROBO-B07
+Exit gate Exact digital evidence reaches an independently authorized trial; proof and incident disposition are reviewed
+Outcome measurement
+Unauthorized dispatches
+Physical dispatch attempts accepted without all current grants and gates
+Measurement Authority decision and bridge audit
+Target Proposed release target: zero
+Unreconciled outcomes
+Attempts whose physical result remains unknown
+Measurement Attempt and telemetry reconciliation ledger
+Target Report count and age; never hide as completed
+Proof completeness
+Reviewed sessions with matching raw, derived and command identities
+Measurement Evidence graph audit
+Target Proposed target: every qualified trial; current physical baseline absent
+Intervention performance
+Observed stop and takeover behavior for the named platform
+Measurement Supervised qualification measurements
+Target Set limits with the safety owner; no invented universal threshold
+Non goals
+Universal robotics autonomy or broad fleet support in the baseline
+Unattended physical execution
+Physical proof inferred from a queue test, URDF validation or lunar simulation
+Company billing, client acceptance or payment inferred from an operational receipt
+Alternatives and optimality
+Manufacturer cockpit and supervised checklist
+Advantage Uses established platform controls with less integration
+Cost Manual evidence and company-work linkage
+When to choose Prefer for occasional trials or when manufacturer safety tooling is already sufficient
+Robot middleware with custom safety integration
+Advantage Flexible engineering control and wider ecosystem
+Cost Significant integration and assurance work
+When to choose Prefer when required robot capabilities exceed the narrow supported envelope
+Narrow MoonRobo bridge
+Advantage Shared authority, attempt and proof records for repeated bounded work
+Cost Needs rigorous per-platform qualification
+When to choose Use only when that continuity reduces real operator ambiguity or reconciliation burden
+A credible first robotics PRD centers on one named platform and one bounded supervised action. Readiness, stop behavior and unknown-outcome reconciliation then become specific enough to test. Universal autonomy would spread assurance over untested hardware and environments.
+The local 9/9 queue suite cannot show that a device stops, telemetry reflects physical state or a lost acknowledgement is safe to retry. Physical proof and negative-path qualification therefore remain explicit release work.
+The digital design path can support MoonMoon studies before physical bridge qualification. Its output remains structurally validated simulation evidence. Later physical integration must never convert old digital artifacts into current hardware readiness.
+A manufacturer cockpit and disciplined checklist may be the safer, cheaper option for a small number of trials. MoonRobo is justified where repeated work needs shared identity, bounded authority and recoverable proof. Its success should be judged by reduced ambiguity and trustworthy refusal as much as successful execution, with no claim of absolute optimality.
+Open product decisions
+Decision Which hardware and action define the first physical release
+Recommendation Name one platform, firmware, SDK, environment and supervised envelope
+Consequence Everything else remains unqualified
+Decision Who owns safety and intervention criteria
+Recommendation Assign a named qualified safety owner and operator
+Consequence No generic software metric substitutes for platform assurance
+Sources and coverage
+Repository paths below are relative to moonrobo. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/BRIDGE_PROTOCOL.md
+AGENTS.md
+moon-luna-investigation-ledger-20260930.md
+Coverage is selected contracts, not all 21 documents or live hardware. JS queue tests passed 9/9; no device, SDK E1 or physical bridge ran. The full MoonFlow-dispatched MoonMoon-to-MoonRobo loop, physical qualification and intervention/recovery acceptance remain unverified.

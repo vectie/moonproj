@@ -1,0 +1,317 @@
+MoonLib product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonLib should remain a shared, policy-free library for MoonSuite package authors. The frozen baseline covers suite layout and path rules, conversation and pipeline wire contracts, experimental pack-support shapes, and low-level operating-system helpers. Four JavaScript pipeline-contract tests passed. This does not establish universal company, customer, task or artifact identity across MoonProj, MoonBook and MoonDesk. The recommended extension is a stable reference vocabulary proven by two real consumers, with versioned migration and replay; domain ownership and live service discovery must remain outside the library.
+Repository maturity claim available library; release process maturing
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Shared types are valuable when they let independently owned products exchange evidence without changing its identity or meaning. They are harmful when a convenient utility silently chooses company policy, discovers a service, infers approval or erases distinctions between a source, a task and an accepted artifact. MoonLib should offer deterministic building blocks whose effects and authority remain visible to the importing product.
+The primary user is an integration developer rather than a founder operating a daily application. In the source-to-learning sequence, MoonLib provides reference and wire continuity. It cannot decide whether a source is credible, a commitment approved, a process authorized, an artifact inspected, a customer satisfied or cash received. Each domain owner must retain those decisions even when it uses a common record shape. A library dependency is not evidence that a complete business workflow interoperates.
+Users and jobs
+MoonSuite package author
+Reuse stable path identity and serialization primitives
+Trigger A product needs a common contract already used elsewhere
+Successful outcome The package imports a versioned API without inheriting hidden service or policy behavior
+Integration developer
+Exchange conversation or pipeline records across product boundaries
+Trigger A producer and receiver must agree on exact wire meaning
+Successful outcome Compatible records replay exactly and incompatible required fields fail clearly
+Release maintainer
+Publish compatible interfaces and explain breaking changes
+Trigger Shared DTO or target behavior changes
+Successful outcome Consumers can determine impact and migrate using tested fixtures
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Source documented: 8; Partial: 1; Verified contract: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS pipeline contracts 4/4 passed; no universal MoonProj/Book/Desk identity integration proven.
+Open gap Multi-target CI and published compatibility notes for shared DTOs remain release work.
+Open gap A common utility package does not guarantee common company/customer/task identity across products.
+User scenarios
+Resolve suite layout and contained paths
+MOONLIB-W01 | Baseline scope. A product needs its suite root or product home
+1. Resolve the documented suite layout inputs
+2. Construct the product-home or relative path using shared helpers
+3. Validate the applicable containment rules
+4. Return the deterministic result to the consumer
+5. Let the consumer authorize any filesystem effect
+Edge case A path contains traversal, platform-specific syntax or an ambiguous root; the helper must follow the documented target semantics.
+Failure and recovery Invalid or escaping input returns a validation failure rather than guessing a usable path or granting access.
+Acceptance Run supported layout fixtures on each declared target, including a traversal boundary and missing root; confirm a returned path alone performs no authorized write.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; moonsuite/
+Exchange conversation journal and control records
+MOONLIB-W02 | Baseline scope. MoonChat or a host imports a base conversation record
+1. Serialize the supported base identity and DTO version
+2. Validate required fields on receipt
+3. Interpret only the supported record semantics
+4. Pass the base record to the consumer’s review or live-conversation layer
+Edge case Unknown fields may be ignored only if the versioned contract allows it; required data cannot be silently defaulted.
+Failure and recovery Unsupported required semantics or missing identity rejects the record while retaining the original evidence for diagnosis.
+Acceptance Round trip a supported journal and control fixture across producer and consumer; test an allowed optional field and a missing required field separately.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; conversation/
+Validate pipeline and pack support shapes
+MOONLIB-W03 | Baseline scope. A producer passes a pipeline payload or experimental pack descriptor
+1. Construct the documented shape with exact identifiers
+2. Validate the supported pipeline contract
+3. Return a typed result to the domain owner
+4. Keep experimental pack-support status visible
+Edge case A pack descriptor exists but no live service is available; parsing it must not imply service discovery or readiness.
+Failure and recovery Malformed required fields or unsupported versions produce structured failure; the library does not choose a replacement service.
+Acceptance Run the bounded pipeline fixtures, reject missing required content and inspect a pack descriptor without initiating network discovery.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; pipeline/; pack/; moon-luna-investigation-ledger-20260930.md
+Use operating system primitives explicitly
+MOONLIB-W04 | Baseline scope. An importing product needs a filesystem process clock random or UUID helper
+1. Call the specific helper for a declared purpose
+2. Receive a result or error in the documented target form
+3. Keep nondeterministic values and process effects explicit in the caller
+4. Let the caller decide domain interpretation and authority
+Edge case Clock and random outputs are observations, not deterministic business facts; target-specific support may differ.
+Failure and recovery OS failure returns a useful result category without starting a daemon, discovering a network service or inventing a successful effect.
+Acceptance Exercise success, denied operation and unavailable target behavior in harnesses; verify callers can test with controlled inputs where the API permits.
+Evidence references docs/PRODUCT_CONTRACT.md#Users and jobs
+Promote a shared reference vocabulary
+MOONLIB-W05 | Roadmap scope. Two real products need the same company task source or artifact reference
+1. Document the two consumer jobs and existing local shapes
+2. Separate stable identity fields from product-owned policy
+3. Define a versioned shared reference and compatibility rules
+4. Migrate a producer and receiver using preserved fixtures
+5. Replay prior records and verify exact linkage without conflating domain states
+Edge case Similar field names may conceal different domain meanings; a proposed common shape must be rejected if it erases an important distinction.
+Failure and recovery A failed migration keeps the previous supported contract available and leaves records unmigrated rather than silently relabeling identities.
+Acceptance Use two actual consumers, a representative historical fixture and a changed-version fixture; verify source and artifact links remain exact through forward migration and supported replay.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; Recommended stable cross product reference vocabulary
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Resolve deterministic suite layout
+MOONLIB-B01 | Baseline | P0 | Source documented
+Suite root and product-home helpers must apply documented inputs and target rules consistently without making a domain or permission decision.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; moonsuite/
+Test 1. Resolve the same supported inputs twice and compare results
+2. Test missing or ambiguous root input and require a clear result
+3. Confirm resolution does not create a product home or grant access implicitly
+Preserve path containment semantics
+MOONLIB-B02 | Baseline | P0 | Partial
+Path helpers must enforce their declared containment and normalization rules while leaving actual filesystem authority to the consumer.
+Evidence moonsuite/; docs/PRODUCT_CONTRACT.md#Capability status; Source identifies deterministic containment contracts; downstream enforcement is not established
+Test 1. Test ordinary relative paths and traversal boundaries
+2. Exercise platform-specific root syntax on each supported target
+3. Verify the host still performs its own authorization and does not treat a normalized path as a sandbox
+Version base conversation records
+MOONLIB-B03 | Baseline | P0 | Source documented
+Conversation journal and control DTOs must carry supported identities and version semantics reusable by MoonChat and live-conversation hosts.
+Evidence conversation/; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Round trip representative supported records
+2. Reject missing required identity fields
+3. Import the same record in two fixture consumers and compare the retained identifiers
+Dependencies MoonChat and host base record consumers
+Handle unknown fields deliberately
+MOONLIB-B04 | Baseline | P0 | Source documented
+Serialized unknown fields may be ignored only where the exact versioned contract permits it; missing required fields must fail validation.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Add an optional unknown field in a contract that explicitly allows it
+2. Remove each required field and require validation failure
+3. Use an unsupported semantic version and avoid silently coercing it to the nearest known record
+Validate supported pipeline contracts
+MOONLIB-B05 | Baseline | P0 | Verified contract
+The supported pipeline shape validators must preserve exact required content and expose invalid records as failures rather than domain success.
+Evidence pipeline/; Portfolio JavaScript pipeline contracts 4 of 4; bounded validation fixtures
+Test 1. Run the existing supported contract fixtures
+2. Add a missing-required-field negative case
+3. Repeat validation of the same payload and compare typed outcomes
+Keep pack support experimental
+MOONLIB-B06 | Baseline | P1 | Source documented
+Pack-support shapes must retain their experimental status and must not be interpreted as a live registry, service discovery mechanism or readiness signal.
+Evidence pack/; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Parse a supported pack shape with no service running
+2. Verify no implicit network or daemon activity
+3. Require the consumer to establish capability availability separately
+Expose explicit operating system results
+MOONLIB-B07 | Baseline | P1 | Source documented
+Filesystem, process, clock, random, UUID and OS helpers must report their declared results and errors without embedding business policy.
+Evidence docs/PRODUCT_CONTRACT.md#Users and jobs
+Test 1. Exercise one supported result and one failure category for each published helper family
+2. Confirm a process exit code is not mapped to artifact or customer acceptance
+3. Document target differences rather than hiding them behind a fabricated common success
+Keep the package policy free
+MOONLIB-B08 | Baseline | P0 | Source documented
+MoonLib must not own a live service, autonomous network discovery, approval policy or domain-state transition merely because it supplies related DTOs or primitives.
+Evidence docs/PRODUCT_CONTRACT.md#Users and jobs
+Test 1. Inspect public APIs for hidden startup or discovery effects
+2. Use wire parsing in an offline fixture
+3. Reject a proposed shared helper that decides source credibility or execution approval instead of returning neutral data
+Publish the interface contract
+MOONLIB-B09 | Baseline | P0 | Source documented
+Published MoonBit packages and generated pkg.generated.mbti interfaces must describe the imported surface; changes need a compatibility assessment before release.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Compare the release interface with the intended public API
+2. Build a representative consumer against the candidate package
+3. Flag removed fields or changed meaning as compatibility work rather than a routine patch
+Dependencies Release pipeline
+Require two consumer demand
+MOONLIB-B10 | Baseline | P0 | Source documented
+A product-local DTO may become shared only after at least two consumers demonstrate the same semantic need without transferring domain ownership.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Review two concrete consumer examples before promotion
+2. Document field meanings and reject superficial naming-only matches
+3. Keep a single-consumer DTO local until an independent use is established
+Define stable domain references
+MOONLIB-R01 | Roadmap | P0 | Proposed
+Introduce shared company task source or artifact references only for the two-consumer slice selected from an actual cross-product workflow.
+Evidence Recommended stable cross product reference vocabulary
+Test 1. Identify producer and receiver records for the selected slice
+2. Preserve distinct reference kinds and source identity
+3. Verify no shared status field collapses internal completion customer acceptance or payment
+Dependencies Two real consuming products
+Migrate and replay reference versions
+MOONLIB-R02 | Roadmap | P0 | Proposed
+The selected shared vocabulary must include versioned migration rules, preserved historical fixtures and explicit behavior for unsupported versions.
+Evidence Recommended stable cross product reference vocabulary
+Test 1. Migrate a historical fixture and compare exact linked identities
+2. Replay supported earlier records without rewriting immutable evidence
+3. Fail an incompatible migration without partially relabeling records
+Dependencies Consumer migration owners
+Qualify published compatibility across targets
+MOONLIB-R03 | Roadmap | P1 | Proposed
+Release qualification must include the supported MoonBit targets and two real consumer builds, with published compatibility notes for changed shared DTOs.
+Evidence Known gap multi target CI and compatibility notes
+Test 1. Run the same portable contract fixtures on each advertised target
+2. Build the selected producer and receiver against the release
+3. Publish measured exceptions and block claims for unqualified targets
+Dependencies Multi target CI; Consumer release fixtures
+Data state and authority
+Shared path identity and wire definitions
+Owner MoonLib maintainers
+State model Proposed, published supported, deprecated or incompatible
+Write authority Maintainers version shared representation; they do not decide domain policy
+Retention and recovery Retain version notes and canonical compatibility fixtures
+Company task source and artifact instances
+Owner Producing domain product
+State model Domain-specific lifecycle remains with its owner
+Write authority Product owns identity creation and meaning; shared types do not transfer ownership
+Retention and recovery Domain retention applies; immutable historical references must remain interpretable
+Filesystem and process authority
+Owner Importing application or runtime
+State model Requested, permitted, refused, completed according to the consumer
+Write authority Consumer authorizes effects and interprets results
+Retention and recovery Consumer owns audit evidence and effect retention
+Compatibility evidence
+Owner Release maintainer with participating consumers
+State model Candidate, tested, published, superseded
+Write authority Release claim limited to tested target and consumer matrix
+Retention and recovery Keep evidence with the corresponding package version
+Interfaces and handoffs
+MoonChat
+Payload Base conversation identity journal and control DTOs
+Contract MoonChat adds review meaning without redefining base identity
+Failure behavior Unsupported base semantics block interpretation
+Pipeline consumers
+Payload Typed pipeline records and validation outcomes
+Contract Each consumer independently accepts domain work or artifacts
+Failure behavior A parse success cannot be treated as completed execution
+MoonDesk and other hosts
+Payload Suite layout path and OS helpers
+Contract Host owns permissions effects and UI status
+Failure behavior Containment helper success is not a process-sandbox guarantee
+MoonProj and MoonBook candidates
+Payload Proposed typed cross product references
+Contract Require two-consumer semantic agreement and versioned migration
+Failure behavior No common company identity is claimed until actual producer and receiver linkage passes
+Nonfunctional requirements
+Wire compatibility
+MOONLIB-N01
+Required gate: supported records preserve required identifiers and semantics across serialization and validated import.
+Acceptance test Canonical fixtures include optional unknown fields required omissions and incompatible versions.
+Evidence status Proposed
+Target portability
+MOONLIB-N02
+Proposed release gate: every advertised target runs the portable fixture suite and documents OS-specific exceptions.
+Acceptance test CI records target versions and compares results; no universal portability claim from one JS package test.
+Evidence status Proposed
+Policy independence
+MOONLIB-N03
+Required gate: shared parsing and shape construction do not trigger unrequested service discovery or domain transitions.
+Acceptance test Offline effect inspection and public API review of candidate releases.
+Evidence status Proposed
+Failure determinism
+MOONLIB-N04
+Required gate: equivalent invalid deterministic inputs produce consistent error categories without partial records.
+Acceptance test Repeat malformed path and DTO cases; separately characterize OS-dependent failures.
+Evidence status Proposed
+Release reproducibility
+MOONLIB-N05
+Proposed release gate: public interfaces compatibility notes and consumer fixture evidence identify the exact released package.
+Acceptance test Build two selected consumers from pinned package versions and retain the generated interface comparison.
+Evidence status Proposed
+Delivery roadmap
+Freeze shared contracts
+Clarify layout DTO validation and ownership boundaries
+Requirements MOONLIB-B01, MOONLIB-B02, MOONLIB-B03, MOONLIB-B04, MOONLIB-B05, MOONLIB-B06, MOONLIB-B07, MOONLIB-B08, MOONLIB-B09, MOONLIB-B10
+Exit gate Existing shared contracts have explicit required fields target scope and consumer ownership
+Prove one shared reference slice
+Introduce only the vocabulary needed by two actual products
+Requirements MOONLIB-R01, MOONLIB-R02
+Exit gate Producer and receiver preserve exact reference linkage and supported historical replay
+Qualify release compatibility
+Publish a reproducible target and consumer matrix
+Requirements MOONLIB-R03
+Exit gate Advertised target checks and both consumer builds pass with compatibility notes
+Outcome measurement
+Required field escape count
+Invalid required-field fixtures accepted as valid records
+Measurement Contract test results grouped by DTO version
+Target Zero in the release fixture corpus
+Qualified consumer coverage
+Actual consumer versions passing the selected shared contract fixtures
+Measurement Pinned producer and receiver builds
+Target At least two before promoting a new shared DTO
+Compatibility regressions
+Previously supported fixture or consumer behavior changed without an explicit migration plan
+Measurement Interface diff and versioned fixture checks
+Target Zero unexplained regressions at release
+Hidden effect count
+Shared parsing or shape operations that initiate unrequested service or policy effects
+Measurement Offline harness observation and API review
+Target Zero for policy-free contract operations
+Non goals
+A live registry daemon or autonomous service discovery product
+Central business policy source approval execution authorization or customer acceptance logic
+Universal company identity inferred from a common dependency
+Promoting every product-local DTO into a portfolio-wide abstraction
+Alternatives and optimality
+Keep a DTO inside its product
+Advantage Fast change and unambiguous ownership
+Cost A later second consumer may need an explicit adapter
+When to choose Prefer until two genuine consumers need the same semantics
+Use a small explicit adapter
+Advantage Preserves domain differences and isolates migration
+Cost Adds mapping code and fixtures
+When to choose Prefer when similar records intentionally mean different things
+Create one universal suite object model
+Advantage Appears to centralize identity and reduce adapters
+Cost Couples unrelated products and risks collapsing authority or lifecycle distinctions
+When to choose Reject; share narrow references and keep domain state local
+The correct success measure is fewer identity and compatibility mistakes at real handoffs, not a larger common package. Shared utilities should be promoted because they remove repeated semantic work from two consumers. A single product’s future wishes are too weak a basis for a stable shared contract.
+The four passing pipeline tests demonstrate a useful bounded contract surface. They do not establish that MoonProj, MoonBook and MoonDesk refer to the same company or artifact in a live journey. The PRD is stronger when that integration is a separate milestone with exact readback and historical replay.
+Local DTOs and explicit adapters are often better than a common type. If two products use the same word for different concepts, centralization can make mistakes easier to compile. MoonLib should preserve reference kinds and require a semantic justification for every shared field, especially status or authority fields.
+The next iteration should choose one source or artifact handoff, inventory only the fields that must survive it, and qualify two consumers on the resulting versioned vocabulary. Broader company and customer models can wait. Multi-target release evidence should then support the exact published surface rather than a general claim that every package is portable.
+Open product decisions
+Decision When should a DTO become shared
+Recommendation Require two independent consumer jobs with the same meaning
+Consequence Some duplication remains temporarily but premature coupling is avoided
+Decision Where should domain status live
+Recommendation Keep status and authority decisions with each product owner
+Consequence Shared references provide continuity without centralizing business policy
+Decision What qualifies a compatibility claim
+Recommendation Exact package target and consumer evidence plus migration notes
+Consequence Release readiness becomes inspectable rather than inferred from one package test
+Sources and coverage
+Repository paths below are relative to moonlib. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.md
+docs/PRODUCT_CONTRACT.md
+moonsuite/
+conversation/
+pipeline/
+pack/
+moon-luna-investigation-ledger-20260930.md
+The supplied coverage includes README and product contract plus references to the suite, conversation, pipeline and pack packages. Four JavaScript pipeline-contract tests passed. Eight documentation files, all generated interfaces and downstream consumers were not exhaustively examined. No universal company, customer or task identity integration was demonstrated. Proposed two-consumer and multi-target acceptance gates remain future qualification work; they are not inferred from the available library or passing pipeline fixtures.

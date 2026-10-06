@@ -1,0 +1,347 @@
+MoonProj product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonProj should be the accountable founder's commitment and company-state spine. The immediate product priority is one buyer problem carried into authorized work and independently evidenced delivery and cash. The browser-local work packet is useful today; the signed live company path and commercial closure are release gates, not demonstrated outcomes.
+Repository maturity claim migration/operator-preview alpha
+Product philosophy and scope
+The company owns obligations, resources and business facts. A person authorizes material commitments, while agents can produce bounded proposals and artifacts. The primary screen should answer what was promised, to whom, what evidence supports it, who must decide next and what remains unpaid. A broad ERP capability inventory is a supporting domain model, not the starting navigation for a one-person company.
+Freeze the baseline around truthful drafting, signed-command semantics and domain boundaries. Keep the synthetic commercial kernel as a contract test. The connected timeline, external customer response and cash reconciliation are a separate roadmap. Expanding desired scope must not erase earlier local success or convert test success into revenue evidence.
+Users and jobs
+one person company founder owner
+Choose a buyer problem and hold one commitment from source through cash evidence.
+Trigger A buyer request, market signal or unresolved promise needs a next action.
+Successful outcome The owner can distinguish draft, authorized work, customer response and actual collection.
+company operator
+Prepare and reconcile company tasks without broadening their authority.
+Trigger An approved work packet needs canonical creation, progress reporting or exception handling.
+Successful outcome The task has the correct actor, idempotency identity and event receipt, or an explicit blocker.
+named financial or business approver
+Review the exact budget, procurement, accounting or treasury action within the assigned authority.
+Trigger A domain transition needs approval or a shadow ERP result differs from the authoritative system.
+Successful outcome The approver can accept, reject or request correction with the original evidence retained.
+bounded agent as proposal producer
+Produce a bounded plan, research result or artifact against the stated acceptance criterion.
+Trigger A person authorizes an exact proposal or runtime task.
+Successful outcome The agent returns inspectable output and receipts without signing, paying or accepting its own work.
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	7	Partial: 1; Verified local: 1; Blocked: 1; Source documented: 3; Verified contract: 1
+Roadmap	5	Proposed: 5
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior bounded browser: draft persisted across reload, actor blank, exported synthetic Markdown, missing gateway showed blocker and 0 formal tasks.
+Evidence MoonProj Basic OPC JS 31/31 and build/check passed; native gateway route 1/1 passed after project-local x 0.4.50 pin.
+Evidence Synthetic MoonBook ingest preserved founder packet text. No live signed gateway, customer, payment or provider call was tested.
+Open gap No live signed create/readback verified in this review.
+Open gap Professional-service commercial acceptance path is in-memory test state, not a PostgreSQL route or real payment/delivery channel.
+Open gap Basic OPC buyer segment, dated problem episodes, external commitment, baseline/target and adoption path remain unproven in Product In-Gate.
+Open gap Large ERP menu risks burying today's one customer commitment; repository's no-proof-as-healthy rule should be retained.
+User scenarios
+Founder cockpit  task dispatch  evidence audit and release quality navigation
+MOONPROJ-UC01 | Baseline scope. Open the founder cockpit after returning to work.
+1. Select the company context and inspect the current task and evidence views.
+2. Resume the local work packet and identify the next named owner action.
+3. Show formal task count and missing infrastructure honestly beside the draft.
+Edge case An empty company must show no established commitments rather than fixture business facts or a healthy release badge.
+Failure and recovery If the gateway is absent, keep the draft usable and explain the missing signed service; never add a formal task optimistically.
+Acceptance With an unavailable gateway, the packet remains reloadable and formal task count stays zero.
+Evidence references docs/UI_GUIDE.md#Start here; docs/UI_GUIDE.md#Page inventory; frontend/opc/main.mbt
+Source backed local founder work packet
+MOONPROJ-UC02 | Baseline scope. Capture one source-backed work packet.
+1. Enter a source reference, observed problem, title, owner, due date and explicit acceptance criterion.
+2. Save the packet in the current browser origin, reload and resume the same content.
+3. Export Markdown, inspect the caveats and manually ingest into MoonBook when ready.
+Edge case Actor identity, authority, credentials, tokens and evidence IDs must not persist in local draft storage or exported content.
+Failure and recovery On damaged local state, surface recovery options rather than silently inventing missing facts; Clear must remove the draft after reload.
+Acceptance Round-trip all allowed fields; actor stays blank; exported text retains source and acceptance context; Clear prevents restoration.
+Evidence references frontend/opc/founder_handoff.mbt; frontend/opc/founder_handoff_wbtest.mbt; frontend/opc/redesign_command.mbt
+Signed formal task create start report accept with receipt based state
+MOONPROJ-UC03 | Baseline scope. Promote authorized work into formal company state.
+1. Authenticate the company actor and submit the signed create command with an idempotency key.
+2. Bind only the returned canonical task ID and recover state using the existing read route.
+3. Start, report and accept through authorized commands with event and audit receipts.
+Edge case Reusing an idempotency key with altered content must reject. Internal task Accept must never populate customer acceptance or cash.
+Failure and recovery After an uncertain network response, query canonical state before retrying; keep the same request key and block concurrent create.
+Acceptance A live PostgreSQL run must return and reread one canonical task; a repeated identical request has one effect; mismatched replay rejects.
+Evidence references docs/UI_GUIDE.md#Desktop data and recovery; cmd/postgres_company_service; frontend/opc/main.mbt
+Projects  budgets  procurement  sales  tax  treasury  management accounting and ERP shadow migration
+MOONPROJ-UC04 | Baseline scope. Operate domain modules during ERP shadow migration.
+1. Record projects, budget proposals and procurement or sales context in their owning modules.
+2. Compare preview or shadow results with the original authoritative ERP.
+3. Obtain an explicit cutover decision before any module is presented as system of record.
+Edge case Accounting, treasury, tax and procurement permissions cannot be inferred from the founder having edited a project plan.
+Failure and recovery A reconciliation mismatch blocks cutover and retains both source values and the discrepancy for the named domain approver.
+Acceptance For each migrated module, identify authoritative source, reconciliation record and cutover approver; no preview is labeled posted business fact.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Current status; docs/IMPLEMENTATION_STATUS.md
+Product In Gate and nine engineering release Gates
+MOONPROJ-UC05 | Baseline scope. Evaluate a product and its release separately.
+1. Record the reachable buyer, dated problem episodes, proposed value and owner In-Gate decision.
+2. Attach adoption or experiment evidence independently of engineering test evidence.
+3. Evaluate the nine release Gates against the exact commit and unresolved redlines.
+Edge case A technically passing release with no demand evidence remains an experiment; a positive buyer conversation does not bypass a failed safety gate.
+Failure and recovery Missing or stale gate evidence yields an explicit unresolved decision, retaining earlier evidence without reusing its approval for changed scope.
+Acceptance An exact release record can show engineering pass and demand unproven simultaneously, with no collapsed green overall claim.
+Evidence references docs/PRODUCT_IN_GATE.md#MoonProj initial decision; docs/UI_GUIDE.md#One nine-Gate release system
+Fixed price market entry brief commercial kernel
+MOONPROJ-UC06 | Baseline scope. Rehearse the market-entry brief commercial kernel.
+1. Load the synthetic inbound order and four bounded role assignments.
+2. Create the brief work, independent review and modeled customer receipt.
+3. Record invoice, receivable and modeled collection as separate transitions.
+Edge case Synthetic fixtures and in-memory collections must remain visibly labeled and isolated from operational company ledgers.
+Failure and recovery A missing review or customer receipt prevents later acceptance state in the scenario; failure does not fabricate a cash receipt.
+Acceptance Reproduce the contract sequence and its negative cases in memory; no claim of PostgreSQL delivery, payment rail or live provider execution follows.
+Evidence references docs/OPC_SELLABLE_PRODUCT_USE_CASE.md#Evidence matrix; acceptance/opc_sellable_product
+Versioned project plan pack for MoonFlow
+MOONPROJ-UC07 | Baseline scope. Prepare a versioned project plan for orchestration.
+1. Supply project intent, dependencies and cost constraints to the native plan operation.
+2. Validate native planning invariants and produce a versioned review-pending plan.
+3. Expose the exact plan capability to MoonFlow and MoonClaw for bounded invocation.
+Edge case Plan generation cannot spend, post accounting, sign or pay; changing a dependency invalidates the affected plan review.
+Failure and recovery Reject incompatible capability versions or invalid cost dependencies with repairable errors and preserve the prior accepted plan.
+Acceptance The generated artifact identifies inputs and version, remains review pending, and cannot trigger financial side effects.
+Evidence references docs/PRODUCT_CONTRACT.md#Ownership; README.mbt.md#Current status
+One commitment timeline
+MOONPROJ-F01 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Create one commitment identifier at the decision boundary.
+2. Link source, authorized work, exact artifact, internal review, customer response and cash as separate evidence records.
+3. Show missing links and the person who can supply them.
+Edge case A replacement artifact needs a new digest without overwriting acceptance of the earlier version.
+Failure and recovery If an integration fails, show the last confirmed receipt and preserve the unresolved link.
+Acceptance No stage is inferred from its neighbor; a user can inspect each receipt and owner.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+First customer offer
+MOONPROJ-F02 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Choose one reachable buyer segment and record a dated problem episode.
+2. Draft a bounded offer with price hypothesis and measurable acceptance.
+3. Request an explicit external commitment before commissioning avoidable work.
+Edge case A friendly expression of interest remains interest, not a signed order or paid demand.
+Failure and recovery When evidence contradicts the offer, close or revise the experiment without deleting its learning.
+Acceptance A founder can state the offer, buyer, price assumption, proof sought and current no-demand state.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Signed execution handoff
+MOONPROJ-F03 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Approve an exact task scope and adapter authority in MoonProj.
+2. Create a conformant MoonFlow work item and MoonClaw run with linked attempt identity.
+3. Return artifact and review receipts to the same commitment.
+Edge case A restarted worker or duplicate callback cannot authorize a second charge or delivery.
+Failure and recovery Reconcile uncertain runs before retrying and require a new approval for material scope change.
+Acceptance An injected restart produces one authorized outcome with replayable attempt history.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+External acceptance and reconciled cash
+MOONPROJ-F04 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Record outbound artifact delivery independently of internal inspection.
+2. Attach a customer response to the exact accepted artifact and contract criterion.
+3. Reconcile invoice and receivable against an actual authorized provider or bank receipt.
+Edge case Partial acceptance, disputed delivery, partial payment and refund each need their own state.
+Failure and recovery Unknown provider outcome remains unreconciled; reconciliation must never create a second payment instruction.
+Acceptance A paid state requires authentic payment evidence; task Accept and invoice issuance alone cannot satisfy it.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Founder attention and learning
+MOONPROJ-F05 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Show a short queue of founder decisions, deadlines and blockers.
+2. At outcome review compare intention, execution, customer response and cash evidence.
+3. Submit a proposed correction to MoonBook and retrieve only reviewed guidance at the next matching decision.
+Edge case A single unusual outcome should not silently become a universal company rule.
+Failure and recovery A rejected correction retains the evidence and reason without changing accepted guidance.
+Acceptance The next similar commitment exposes the reviewed lesson with its applicable conditions and source.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Founder cockpit  task dispatch  evidence audit and release quality navigation
+MOONPROJ-B01 | Baseline | P0 | Partial
+The product shall support this bounded outcome: Show formal task count and missing infrastructure honestly beside the draft. It shall preserve the boundary: An empty company must show no established commitments rather than fixture business facts or a healthy release badge.
+Evidence Basic OPC browser draft/reload/export and missing-gateway blocker were exercised; full signed company route was not.; docs/UI_GUIDE.md#Start here; docs/UI_GUIDE.md#Page inventory; frontend/opc/main.mbt
+Test 1. Exercise the stated scenario from its named starting state. With an unavailable gateway, the packet remains reloadable and formal task count stays zero.
+2. Inject the boundary or interruption case. If the gateway is absent, keep the draft usable and explain the missing signed service; never add a formal task optimistically.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+Source backed local founder work packet
+MOONPROJ-B02 | Baseline | P0 | Verified local
+The product shall support this bounded outcome: Export Markdown, inspect the caveats and manually ingest into MoonBook when ready. It shall preserve the boundary: Actor identity, authority, credentials, tokens and evidence IDs must not persist in local draft storage or exported content.
+Evidence Source reference, problem, owner, due date and acceptance criteria persist in this browser origin; actor/credential not stored; Markdown export was manually ingested into MoonBook.; frontend/opc/founder_handoff.mbt; frontend/opc/founder_handoff_wbtest.mbt; frontend/opc/redesign_command.mbt
+Test 1. Exercise the stated scenario from its named starting state. Round-trip all allowed fields; actor stays blank; exported text retains source and acceptance context; Clear prevents restoration.
+2. Inject the boundary or interruption case. On damaged local state, surface recovery options rather than silently inventing missing facts; Clear must remove the draft after reload.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+Signed formal task create start report accept with receipt based state
+MOONPROJ-B03 | Baseline | P0 | Blocked
+The product shall support this bounded outcome: Start, report and accept through authorized commands with event and audit receipts. It shall preserve the boundary: Reusing an idempotency key with altered content must reject. Internal task Accept must never populate customer acceptance or cash.
+Evidence Frontend and native route contracts tested; live signed PostgreSQL create/readback unavailable in prior browser run. Internal task Accept is not customer acceptance.; docs/UI_GUIDE.md#Desktop data and recovery; cmd/postgres_company_service; frontend/opc/main.mbt
+Test 1. Exercise the stated scenario from its named starting state. A live PostgreSQL run must return and reread one canonical task; a repeated identical request has one effect; mismatched replay rejects.
+2. Inject the boundary or interruption case. After an uncertain network response, query canonical state before retrying; keep the same request key and block concurrent create.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+Projects  budgets  procurement  sales  tax  treasury  management accounting and ERP shadow migration
+MOONPROJ-B04 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Obtain an explicit cutover decision before any module is presented as system of record. It shall preserve the boundary: Accounting, treasury, tax and procurement permissions cannot be inferred from the founder having edited a project plan.
+Evidence Broad domain models and development service exist; original ERP remains authoritative until cutover. Production system-of-record status is explicitly undeclared.; docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Current status; docs/IMPLEMENTATION_STATUS.md
+Test 1. Exercise the stated scenario from its named starting state. For each migrated module, identify authoritative source, reconciliation record and cutover approver; no preview is labeled posted business fact.
+2. Inject the boundary or interruption case. A reconciliation mismatch blocks cutover and retains both source values and the discrepancy for the named domain approver.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+Product In Gate and nine engineering release Gates
+MOONPROJ-B05 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Evaluate the nine release Gates against the exact commit and unresolved redlines. It shall preserve the boundary: A technically passing release with no demand evidence remains an experiment; a positive buyer conversation does not bypass a failed safety gate.
+Evidence Owner decision, adoption evidence, exact commit/release evidence and redlines are separate. Current Basic OPC demand decision is experiment, not proven adoption.; docs/PRODUCT_IN_GATE.md#MoonProj initial decision; docs/UI_GUIDE.md#One nine-Gate release system
+Test 1. Exercise the stated scenario from its named starting state. An exact release record can show engineering pass and demand unproven simultaneously, with no collapsed green overall claim.
+2. Inject the boundary or interruption case. Missing or stale gate evidence yields an explicit unresolved decision, retaining earlier evidence without reusing its approval for changed scope.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+Fixed price market entry brief commercial kernel
+MOONPROJ-B06 | Baseline | P1 | Verified contract
+The product shall support this bounded outcome: Record invoice, receivable and modeled collection as separate transitions. It shall preserve the boundary: Synthetic fixtures and in-memory collections must remain visibly labeled and isolated from operational company ledgers.
+Evidence Synthetic in-memory acceptance test covers signed inbound order, four bounded roles, independent review, customer receipt, invoice/receivable and modeled collection; no PostgreSQL service routes, real outbound artifact delivery, real payment rail or provider execution for this scenario.; docs/OPC_SELLABLE_PRODUCT_USE_CASE.md#Evidence matrix; acceptance/opc_sellable_product
+Test 1. Exercise the stated scenario from its named starting state. Reproduce the contract sequence and its negative cases in memory; no claim of PostgreSQL delivery, payment rail or live provider execution follows.
+2. Inject the boundary or interruption case. A missing review or customer receipt prevents later acceptance state in the scenario; failure does not fabricate a cash receipt.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+Versioned project plan pack for MoonFlow
+MOONPROJ-B07 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Expose the exact plan capability to MoonFlow and MoonClaw for bounded invocation. It shall preserve the boundary: Plan generation cannot spend, post accounting, sign or pay; changing a dependency invalidates the affected plan review.
+Evidence Creates review-pending digital plan under native dependency and cost invariants; cannot spend, post, pay or sign.; docs/PRODUCT_CONTRACT.md#Ownership; README.mbt.md#Current status
+Test 1. Exercise the stated scenario from its named starting state. The generated artifact identifies inputs and version, remains review pending, and cannot trigger financial side effects.
+2. Inject the boundary or interruption case. Reject incompatible capability versions or invalid cost dependencies with repairable errors and preserve the prior accepted plan.
+Dependencies Formal company facts require the PostgreSQL service's signed command and event/audit receipt; preview state and localStorage drafts are not company facts.
+One commitment timeline
+MOONPROJ-R01 | Roadmap | P1 | Proposed
+Founder sees source, decision, authorized work, artifact, customer response and cash state on one stable ID, with each step's own receipt and owner. A replacement artifact needs a new digest without overwriting acceptance of the earlier version.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. No stage is inferred from its neighbor; a user can inspect each receipt and owner.
+2. If an integration fails, show the last confirmed receipt and preserve the unresolved link.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+First customer offer
+MOONPROJ-R02 | Roadmap | P1 | Proposed
+A narrow design-partner offer records reachable buyer, dated problem, price hypothesis, criteria and explicit no-demand state before work is commissioned. A friendly expression of interest remains interest, not a signed order or paid demand.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A founder can state the offer, buyer, price assumption, proof sought and current no-demand state.
+2. When evidence contradicts the offer, close or revise the experiment without deleting its learning.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Signed execution handoff
+MOONPROJ-R03 | Roadmap | P1 | Proposed
+One authorized MoonProj task creates a conformant MoonFlow work item, MoonClaw run and exact artifact/review receipts; restart and retry never duplicate effects. A restarted worker or duplicate callback cannot authorize a second charge or delivery.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. An injected restart produces one authorized outcome with replayable attempt history.
+2. Reconcile uncertain runs before retrying and require a new approval for material scope change.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+External acceptance and reconciled cash
+MOONPROJ-R04 | Roadmap | P1 | Proposed
+Separate inbound customer receipt, outbound artifact delivery, invoice and actual provider/bank receipt are attached without deriving them from internal Accept. Partial acceptance, disputed delivery, partial payment and refund each need their own state.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A paid state requires authentic payment evidence; task Accept and invoice issuance alone cannot satisfy it.
+2. Unknown provider outcome remains unreconciled; reconciliation must never create a second payment instruction.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Founder attention and learning
+MOONPROJ-R05 | Roadmap | P2 | Proposed
+Each morning shows actionable owner decisions and blockers; end-of-day outcome correction is reviewable in MoonBook and retrievable at the next similar commitment. A single unusual outcome should not silently become a universal company rule.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. The next similar commitment exposes the reviewed lesson with its applicable conditions and source.
+2. A rejected correction retains the evidence and reason without changing accepted guidance.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Data state and authority
+Local work packet
+Owner Browser-origin draft owned by the current human workspace
+State model Empty, locally saved, exported, cleared; never formal by implication
+Write authority Draft edit and export do not confer company actor authority
+Retention and recovery Allow explicit clear and readable export; do not retain credentials or actor identifiers
+Formal company task and command receipt
+Owner MoonProj signed PostgreSQL company service
+State model Proposed command, accepted command, task created, started, reported, internally accepted; rejected commands remain auditable
+Write authority Named actor with exact company and operation authority; canonical service decides state
+Retention and recovery Preserve command key, full request comparison, event and audit receipt for retry and investigation
+Commercial commitment and financial evidence
+Owner MoonProj domain records with original ERP authoritative until explicit cutover
+State model Offer, ordered, delivered, customer accepted or disputed, invoiced, receivable, partially or fully collected are distinct proposed commercial states
+Write authority Contract, customer-response and financial authority are separate approvals
+Retention and recovery Retain links to original external evidence and corrective events; never rewrite historical cash evidence
+Interfaces and handoffs
+MoonBook
+Payload Exported source-backed Markdown today; proposed typed commitment and outcome records
+Contract Manual ingest preserves content but not a verified shared company/task/source identity
+Failure behavior Retry import without duplicating authoritative facts; source trust still requires explicit interpretation
+MoonFlow and MoonClaw
+Payload Versioned project plan and authorized work packet with attempt and artifact IDs
+Contract MoonProj owns business meaning; Flow owns declared work; Claw owns execution
+Failure behavior A run completion returns to review and cannot accept a customer delivery or record collection
+ERP and financial providers
+Payload Reconciliation inputs, receipts and controlled cutover records
+Contract Original ERP remains authoritative during shadow operation; payment evidence is independently sourced
+Failure behavior Unavailable or conflicting receipt blocks reconciliation and marks the record unresolved
+Nonfunctional requirements
+Authority isolation
+MOONPROJ-N01
+Separate browser drafts, signed company records and financial authority. Credentials and sensitive actor state must not enter URLs or local draft exports.
+Acceptance test Inspect browser storage, exported packet and URL after save, reload and task binding; only a validated nonsecret canonical task ID may appear in the task URL.
+Evidence status Partial
+Idempotency and reconciliation
+MOONPROJ-N02
+Persist request identity across retry and reject altered content with a reused key. A timeout must not imply failure or authorize a duplicate effect.
+Acceptance test Inject a timeout after the service applies a command, retry identically, then attempt changed content; observe one effect and explicit conflict.
+Evidence status Partial
+Recovery and audit
+MOONPROJ-N03
+A restart must recover canonical signed state from the service while keeping local drafts visibly separate. Failed commands and domain reconciliation gaps remain discoverable.
+Acceptance test Restart the client during create and the service during readback; reconcile against event and audit receipts with no synthetic success.
+Evidence status Proposed
+Usability and accessibility
+MOONPROJ-N04
+The primary founder path must expose source, owner, criterion, next decision and blocker with keyboard access and textual state.
+Acceptance test Perform capture, resume, review and export without pointer input and with unavailable gateway; no essential action relies only on color.
+Evidence status Unknown
+Performance and operating cost
+MOONPROJ-N05
+Measure task read, draft restore and evidence-navigation latency under a representative company dataset before defining a service target.
+Acceptance test Publish workload shape and percentile measurements including error behavior; no SLA is claimed without measured service evidence.
+Evidence status Proposed
+Delivery roadmap
+Phase 1 Qualify the baseline
+Reproduce the product's critical local, contract and configured paths with exact versions and observable receipts. Close missing prerequisites without widening authority.
+Requirements MOONPROJ-B01, MOONPROJ-B02, MOONPROJ-B03, MOONPROJ-B04, MOONPROJ-B05, MOONPROJ-B06, MOONPROJ-B07
+Exit gate Every P0 baseline acceptance has an explicit result and evidence locator; unresolved dependency and integration states remain visible.
+Phase 2 Complete one connected outcome
+Implement the smallest useful cross-product scenario and test review, interruption and recovery with real authorized inputs.
+Requirements MOONPROJ-R01, MOONPROJ-R02, MOONPROJ-R03, MOONPROJ-R04
+Exit gate A named user accepts the exact output and can recover its evidence chain without reconstructing identities manually.
+Phase 3 Expand only after measured value
+Add remaining proposed workflows where observed use demonstrates reduced coordination cost or a distinct required capability.
+Requirements MOONPROJ-R05
+Exit gate Measure the outcome against the simpler alternative, include review overhead, and retain the ability to stop or narrow low-value scope.
+Outcome measurement
+Commitment continuity
+Commitments with openable source, owner, criterion and next action divided by active commitments
+Measurement Sample canonical and draft records separately; log missing links
+Target Establish current baseline before setting improvement target
+Founder coordination time
+Human minutes spent reconstructing context, chasing work and reconciling status per completed commitment
+Measurement Time a narrow design-partner journey including review overhead
+Target Reduce against the same manual workflow; no measured baseline yet
+Commercial closure
+Completed commitments with separate customer acceptance and reconciled cash evidence
+Measurement Audit exact artifact and receipt links; report partial payments separately
+Target Require independent evidence for every paid claim; revenue target remains a business decision
+Non goals
+Autonomous signing, procurement, spending, posting or payment based on an agent result
+Replacing the authoritative ERP before a documented cutover
+Declaring market demand from repository tests, offer drafts or modeled collections
+Presenting every domain module on the beginner founder home screen
+Alternatives and optimality
+A document and spreadsheet with an existing invoicing tool
+Advantage Lowest adoption and integration cost for one offer and one buyer
+Cost Manual provenance, authority and retry history can fragment
+When to choose Use while validating the first paid workflow if software coordination would exceed the work itself
+Existing ERP with a narrow founder dashboard
+Advantage Keeps a proven financial system of record and established controls
+Cost Cross-product research and artifact links may remain manual
+When to choose Prefer during shadow migration; add MoonProj authority only after reconciliation passes
+The proposed PRD is conditionally stronger when it centers one commitment and keeps financial invariants behind progressive disclosure. Its value is not the number of ERP modules. The first release should make an observed buyer problem, one authorized task and the exact delivered artifact easier to track than a shared document.
+The largest product risk is completing internal work without learning whether a buyer accepted or paid. A signed live task rehearsal is necessary but insufficient. Qualify demand and external closure before widening automation or domain scope.
+Baseline completion should be reported per bounded path. Local draft continuity can be fulfilled while signed service availability remains blocked and the broader commercial path remains proposed. A single aggregate maturity percentage would hide these materially different conclusions.
+Open product decisions
+Decision Which reachable buyer and fixed-scope offer should anchor the first operational journey?
+Recommendation Choose one design partner and one artifact acceptance test before expanding the dashboard.
+Consequence Without a buyer commitment, delivery tests demonstrate capability but cannot establish product value.
+Decision What system owns financial truth during migration?
+Recommendation Keep the existing ERP authoritative until module-by-module reconciliation and explicit cutover.
+Consequence Premature dual authority risks conflicting obligations, receipts and reporting.
+Sources and coverage
+Repository paths below are relative to moonproj. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/UI_GUIDE.md
+docs/PRODUCT_IN_GATE.md
+docs/OPC_SELLABLE_PRODUCT_USE_CASE.md
+frontend/opc/main.mbt (prior implementation/test evidence)
+frontend/opc/founder_handoff.mbt (prior implementation/test evidence)
+Coverage is partial: the full ERP documentation, PostgreSQL routes, schemas, acceptance fixtures and frontend views were not exhaustively inspected. Acceptance tests are defined targets. Local evidence does not establish commercial, provider or physical outcomes.

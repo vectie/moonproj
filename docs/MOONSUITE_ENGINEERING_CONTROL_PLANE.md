@@ -47,12 +47,16 @@ revisioned `product_in_gate` projection, and audit event. The projection
 explicitly carries `exit_gate_effect=false`. It is not displayed on the
 Quality page and cannot alter the G1-G9 release ledger.
 
-## First portfolio
+## Product catalog and engineering subset
 
-`config/moonsuite-engineering.json` registers the first nine services:
+`config/moonsuite-engineering.json` is the versioned twenty-product catalog.
+Its explicit `engineering_target` subset preserves the first nine enrollments:
 MoonProj, MoonClaw, MoonBook, MoonTown, MoonDesk, MoonGate, MoonRobo, MoonMoon,
-and MoonFish. MoonFish remains an investment-analysis extension; its presence
-does not couple the basic engineering product to the broader OPC domains.
+and MoonFish. Inventory-only rows gain no audit authority. MoonFish retains its
+configured target; repository presence is checked on the serving machine.
+The gateway resolves audit targets from this catalog, without a duplicate list.
+See [Product portfolio](PRODUCT_PORTFOLIO.md) for document resources, provenance,
+unknown repository states and PostgreSQL-independent reads.
 
 ## UI workflow
 
@@ -62,7 +66,8 @@ The Moon Suite page is the entry point:
 2. Observe all three dimensions as **unknown** before evidence exists.
 3. Choose **Let MoonClaw start audit**.
 4. The authenticated MoonProj gateway validates the project identifier against
-   its allowlist, resolves its repository below `MOONSUITE_WORKSPACE_ROOT`, and
+   the catalog's explicit engineering subset, resolves its declared repository
+   below `MOONSUITE_WORKSPACE_ROOT`, and
    submits separate producer and reviewer tasks to `MOONCLAW_DAEMON_URI`. Both
    run in MoonProj so the controller and skills are discoverable; the selected
    sibling is passed as a separate read-only audit target.

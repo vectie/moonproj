@@ -8,15 +8,23 @@ import {
 // Values
 pub fn adapter_id() -> String
 
+pub async fn bind_company_task(String, String) -> Json
+
 pub fn capability_json(healthy? : Bool) -> Json
 
+pub async fn company_task_report_status(String, String, String) -> Json
+
 pub async fn execute(String, String, String) -> Json
+
+pub async fn prepare_company_task_report(String, String, String, String, String, String, Array[String], progress_pct? : Int) -> Json
 
 pub fn protocol() -> String
 
 pub async fn publish_health(String, String, String, String) -> Json
 
 pub async fn reconcile(String, String, String) -> Json
+
+pub async fn record_company_task_report_receipt(String, String, String, String) -> Json
 
 // Errors
 
@@ -26,4 +34,3 @@ type FlowRequest derive(Eq, @debug.Debug)
 // Type aliases
 
 // Traits
-

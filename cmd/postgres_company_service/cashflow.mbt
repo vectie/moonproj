@@ -23,7 +23,7 @@ async fn cashflow_context() -> CashflowContext raise CompanyServiceError {
     rows.set(table, values)
     coverage.set(table, values.length())
   }
-  { rows, coverage }
+  { rows, coverage, }
 }
 
 ///|

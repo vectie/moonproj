@@ -1,0 +1,221 @@
+///|
+import {
+  "moonbitlang/async@0.19.4",
+  "moonbitlang/async@0.19.4/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/x@0.4.50/crypto",
+}
+
+// Run from the MoonProj repository. Only an explicit import writes the one
+// packaged assessment file; --check compares bytes without changing anything.
+
+///|
+fn field(value : Json, key : String) -> Json {
+  match value {
+    Object(fields) => fields.get(key).unwrap_or(Json::null())
+    _ => Json::null()
+  }
+}
+
+///|
+fn text(value : Json, key : String) -> String {
+  match field(value, key) {
+    String(value) => value
+    _ => ""
+  }
+}
+
+///|
+fn array(value : Json, key : String) -> Array[Json] {
+  match field(value, key) {
+    Array(values) => values
+    _ => []
+  }
+}
+
+///|
+fn digest(bytes : Bytes) -> String {
+  @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  assert_true(
+    args.length() >= 3,
+    msg="Expected source workspace, assessment.json, then optional --check",
+  )
+  let source_root = args[1]
+  let assessment = @json.parse(@fs.read_file(args[2]).text())
+  assert_eq(text(assessment, "schema"), "moonsuite.work-assessment.v1")
+  let catalog = @json.parse(
+    @fs.read_file("config/moonsuite-engineering.json").text(),
+  )
+  let manifest = @json.parse(
+    @fs.read_file("resources/product-documents/manifest.json").text(),
+  )
+  let assessments = array(assessment, "products")
+  let products = array(catalog, "products")
+  assert_eq(assessments.length(), products.length())
+  let inventories : Array[Json] = []
+  let mut functional_count = 0
+  let mut quality_count = 0
+  for product in products {
+    let id = text(product, "id")
+    let candidates = assessments.filter(item => text(item, "id") == id)
+    assert_eq(
+      candidates.length(),
+      1,
+      msg="One assessment per exact catalog ID: " + id,
+    )
+    let assessed = candidates[0]
+    let asset = array(manifest, "assets").filter(item => {
+        text(item, "product_id") == id
+      })[0]
+    let definition_path = text(asset, "definition_path")
+    let definition_bytes = @fs.read_file(source_root + "/" + definition_path).binary()
+    assert_eq(
+      digest(definition_bytes),
+      text(asset, "definition_sha256"),
+      msg="Authored PRD source changed: " + id,
+    )
+    let definition = @json.parse(
+      @fs.read_file(source_root + "/" + definition_path).text(),
+    )
+    assert_eq(text(definition, "id"), id)
+    let extraction = field(asset, "text_extraction")
+    let body = @fs.read_file(
+      "resources/product-documents/" + text(extraction, "path"),
+    ).text()
+    let doc = array(product, "documents")[0]
+    assert_eq(text(doc, "sha256"), text(asset, "packaged_sha256"))
+    let overrides = array(assessed, "overrides")
+    let requirements : Array[Json] = []
+    let original_requirements = array(definition, "requirements")
+    let qualities = array(definition, "quality")
+    for row in original_requirements + qualities {
+      let requirement_id = text(row, "id")
+      let quality = qualities.any(item => text(item, "id") == requirement_id)
+      let matches = overrides.filter(item => {
+        text(item, "requirement_id") == requirement_id
+      })
+      assert_eq(
+        matches.length(),
+        1,
+        msg="Each requirement needs one explicit current assessment: " +
+          requirement_id,
+      )
+      let current = matches[0]
+      let statement = if quality {
+        text(row, "requirement")
+      } else {
+        text(row, "statement")
+      }
+      let acceptance = if quality {
+        [field(row, "test")]
+      } else {
+        array(row, "acceptance")
+      }
+      assert_true(
+        body.contains(requirement_id),
+        msg="Requirement ID absent from packaged PRD: " + requirement_id,
+      )
+      assert_true(
+        body.contains(statement),
+        msg="Requirement statement absent from packaged PRD: " + requirement_id,
+      )
+      for criterion in acceptance {
+        guard criterion is String(criterion) else { fail("Invalid acceptance") }
+        assert_true(
+          body.contains(criterion),
+          msg="Acceptance absent from packaged PRD: " + requirement_id,
+        )
+      }
+      requirements.push({
+        "id": requirement_id.to_json(),
+        "title": (if quality { text(row, "area") } else { text(row, "title") }).to_json(),
+        "track": (if quality { "quality" } else { text(row, "track") }).to_json(),
+        "priority": (if quality { "" } else { text(row, "priority") }).to_json(),
+        "statement": statement.to_json(),
+        "acceptance": acceptance.to_json(),
+        "dependencies": array(row, "dependencies").to_json(),
+        "historical_status": field(row, "status"),
+        "historical_evidence": (if quality {
+          array(definition, "sources")
+        } else {
+          array(row, "evidence")
+        }).to_json(),
+        "status": field(current, "status"),
+        "reason": field(current, "reason"),
+        "evidence": field(current, "evidence"),
+      })
+    }
+    assert_eq(
+      overrides.length(),
+      requirements.length(),
+      msg="Unexpected requirement override",
+    )
+    let assigned : Array[String] = []
+    for group in array(assessed, "groups") {
+      for item in array(group, "requirement_ids") {
+        guard item is String(item) else { fail("Invalid group requirement ID") }
+        assert_false(
+          assigned.contains(item),
+          msg="Duplicate work scope: " + item,
+        )
+        assert_true(
+          requirements.any(row => text(row, "id") == item),
+          msg="Unknown work scope: " + item,
+        )
+        assigned.push(item)
+      }
+    }
+    assert_eq(
+      assigned.length(),
+      requirements.length(),
+      msg="Unassigned requirement scope: " + id,
+    )
+    inventories.push({
+      "schema": "moonsuite.product-work-inventory.v1",
+      "product_id": id.to_json(),
+      "as_of": field(assessment, "as_of"),
+      "origin": "packaged_prd_assessment",
+      "source_scope": field(assessed, "source_scope"),
+      "current_gap": field(assessed, "current_gap"),
+      "vision_scope": field(assessed, "vision_scope"),
+      "full_target_estimate": field(assessed, "full_target_estimate"),
+      "next_milestone": field(assessed, "next_milestone"),
+      "prd_source": (definition_path + " + " + text(doc, "path")).to_json(),
+      "prd_sha256": field(doc, "sha256"),
+      "philosophy": field(definition, "philosophy"),
+      "non_goals": field(definition, "non_goals"),
+      "requirements": requirements.to_json(),
+      "groups": field(assessed, "groups"),
+    })
+    functional_count += original_requirements.length()
+    quality_count += qualities.length()
+  }
+  assert_eq(functional_count, 242)
+  assert_eq(quality_count, 102)
+  let output : Json = {
+    "schema": "moonsuite.work-inventory.v1",
+    "as_of": field(assessment, "as_of"),
+    "source_assessment_sha256": digest(@fs.read_file(args[2]).binary()).to_json(),
+    "products": inventories.to_json(),
+  }
+  let contents = output.stringify(indent=2) + "\n"
+  let destination = "config/moonsuite-work-inventory.json"
+  if args.contains("--check") {
+    assert_eq(
+      @fs.read_file(destination).text(),
+      contents,
+      msg="Packaged work inventory differs from its exact sources",
+    )
+  } else {
+    @fs.write_file(destination, contents, create_mode=@fs.CreateOrTruncate)
+  }
+  println(
+    "Verified all \{inventories.length()} products, \{functional_count} functional requirements and \{quality_count} quality requirements against packaged PRD body text.",
+  )
+}

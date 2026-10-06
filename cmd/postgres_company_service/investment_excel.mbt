@@ -82,7 +82,7 @@ async fn investment_excel_source(
     }
   }
   match selected {
-    Some(import_row) => Some({ import_row, rows, coverage })
+    Some(import_row) => Some({ import_row, rows, coverage, })
     None => None
   }
 }

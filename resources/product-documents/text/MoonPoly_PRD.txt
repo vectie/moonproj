@@ -1,0 +1,352 @@
+MoonPoly product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonPoly is a policy-formation and advisory-delivery pack. Its baseline supports policy understanding, option appraisal, editable public-document analysis, cutoff-safe forecasting and bounded writing review. It preserves dissent, provenance and procedural readiness while a named public body retains adoption, amendment and publication authority. The seeded Changping 2021–2027 slice and three passing formation tests do not establish other-jurisdiction readiness or a live policy campaign.
+Repository maturity claim first packed Changping slice with many local contracts
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Policy analysis should make the path from official text and evidence to interpretation and alternatives visible. A resident asking what a policy means, an analyst appraising options and an authorized official deciding what to adopt have different jobs. The product should preserve these three modes rather than presenting a draft, a readiness score or a generated forecast as an official act.
+For an independent policy consultant or founder affected by regulation, the useful company loop is a sourced question, a bounded advisory commitment, an inspected brief and separate client review. Knowledge retention can support future work, but acceptance of an imported source does not certify its truth. Policy adoption belongs outside the company operating system, and customer payment is not inferred from completion of an advisory document.
+Users and jobs
+Policy analyst or consultant
+Explain formation and compare defensible options
+Trigger A dated policy or client question needs analysis
+Successful outcome Can distinguish evidence, inference, dissent and missing procedure
+Official or authorized reviewer
+Inspect readiness before a public decision
+Trigger An advisory option enters formal review
+Successful outcome Sees the responsible authority and unresolved procedural gates
+Resident or business reader
+Understand a policy relevant to a situation
+Trigger A change may affect eligibility or obligations
+Successful outcome Receives dated official text and clearly qualified interpretation
+Operator
+Run a bounded document review session
+Trigger A draft needs a repeatable quality pass
+Successful outcome Preserves frozen evidence, role outputs and recovery state
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Source documented: 8; Partial: 1; Blocked: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS formation 3/3 passed; no real public authority adoption or live multi-role policy campaign exercised.
+Open gap Changping example is not proof of general jurisdiction readiness.
+Open gap MoonBook provider capability/persistence receipt remains conditional.
+Open gap Forecast and generated prose cannot be marketed as official truth.
+User scenarios
+Understand existing policy across time and domains
+MP-W01 | Baseline scope. A reader asks how an existing policy formed
+1. Select jurisdiction, date and question
+2. Navigate typed stage and domain views with governance layers
+3. Inspect actors, resources and evidence drill-down
+4. Separate the official source from reconstructed interpretation
+Edge case Changping 2021–2027 is an example boundary; another jurisdiction may have no supported evidence.
+Failure and recovery An absent source or date coverage produces an explicit gap rather than borrowing authority from the seeded example.
+Acceptance A reader can trace a formation claim to a dated source and see where interpretation begins.
+Evidence references README.mbt.md#Current status; docs/PRODUCT_CONTRACT.md#User modes
+Design and appraise policy options
+MP-W02 | Baseline scope. An analyst frames a policy problem
+1. Document problem, affected stakeholders and evidence
+2. Include a no-action option alongside interventions
+3. Compare expected impacts, resources and procedures
+4. Preserve dissent and mark readiness for named review
+Edge case A high-scoring option may remain unready because a required procedure or affected stakeholder is missing.
+Failure and recovery Unresolved authority prevents adoption; disagreement is retained rather than overwritten by a consensus summary.
+Acceptance Every recommendation can be compared with no action and carries both dissent and procedural blockers.
+Evidence references docs/PRODUCT_CONTRACT.md#MoonPoly owns; docs/PRODUCT_CONTRACT.md#Non-negotiable invariants
+Public document analysis drafting and editable session
+MP-W03 | Baseline scope. A public document must be understood or adapted into an advisory draft
+1. Import the source into an editable session
+2. Trace strategy to power and resources to logic chain
+3. Inspect the provenance rail and reconstruction fidelity
+4. Edit with undo and redo, save locally and export a dated draft
+Edge case Local browser storage is useful continuity but is neither durable MoonBook retention nor official publication.
+Failure and recovery Corrupt or unavailable local state offers an explicit recovery route without replacing the source document.
+Acceptance An exported draft retains provenance and advisory status, and undo restores the previous reviewed content.
+Evidence references README.mbt.md#Current status; docs/POLICY_DOCUMENT_EDITOR.md#Session lifecycle
+Cutoff safe document forecast
+MP-W04 | Baseline scope. An analyst asks which policy document or option could emerge after a cutoff
+1. Freeze available evidence and cutoff
+2. Rank alternatives with stated assumptions
+3. Expose invalidation conditions and missing evidence
+4. Label the output as an analytical forecast
+Edge case Support scores are not calibrated probabilities and cannot establish government intent.
+Failure and recovery Evidence published after the cutoff is rejected from the original forecast and requires a separately versioned update.
+Acceptance A retrospective evaluation reproduces the original evidence set without hindsight leakage.
+Evidence references docs/PRODUCT_CONTRACT.md#Non-negotiable invariants; docs/POLICY_DOCUMENT_FORECASTING.md
+Bounded Writer Reviewer Rewriter loop
+MP-W05 | Baseline scope. A draft needs structured quality review
+1. Freeze the evidence package and role assignments
+2. Run bounded Writer, Reviewer and Rewriter responsibilities
+3. Advance MoonFlow only through valid receipt-driven events
+4. Request MoonBook persistence only when the host advertises the matching capability
+Edge case Reviewer disagreement can end in a held draft; repeated rewriting must not erase a dissenting assessment.
+Failure and recovery Missing host receipt leaves persistence pending; a stale role output cannot advance the current session.
+Acceptance The final draft links each role result and shows whether durable retention was actually acknowledged.
+Evidence references README.mbt.md#Current status; docs/PRODUCT_CONTRACT.md#Non-negotiable invariants
+Founder policy impact brief
+MP-W06 | Roadmap scope. A founder asks how a dated change affects one customer segment
+1. Bound the segment, jurisdiction and effective date
+2. Quote or reference official provisions and separate interpretation
+3. List unknown eligibility and needed verification
+4. Produce a short decision brief tied to a company work commitment
+Edge case A plausible fit does not establish eligibility; missing business facts remain questions for the owner.
+Failure and recovery Unavailable official text prevents a confident impact claim and leaves a verification plan.
+Acceptance The founder can distinguish sourced obligations, interpretations and unanswered eligibility before deciding next work.
+Evidence references docs/PRODUCT_CONTRACT.md#User modes; docs/PRODUCT_CONTRACT.md#Non-negotiable invariants
+Consulting deliverable review
+MP-W07 | Roadmap scope. A client is ready to review an advisory document
+1. Freeze the client question and draft revision
+2. Check citations, procedure and reconstruction fidelity
+3. Request named client review with outstanding caveats
+4. Retain the response and reviewed learning independently
+Edge case Client acceptance confirms the deliverable against scope, not a government decision or payment.
+Failure and recovery Changes after review create a new revision and reopen affected acceptance criteria.
+Acceptance A final package contains the advisory draft, evidence register and named review outcome without an adoption claim.
+Evidence references docs/POLICY_DOCUMENT_EDITOR.md; docs/PRODUCT_CONTRACT.md#MoonPoly owns
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Three distinct user modes
+MOONPOLY-B01 | Baseline | P0 | Source documented
+Keep public understanding, option design and authorized decision review visibly separate; describe the responsible authority in each mode.
+Evidence docs/PRODUCT_CONTRACT.md#User modes
+Test 1. Open the same policy in each mode and compare available actions
+2. Ensure a public reader cannot adopt or amend policy
+3. Return to an earlier mode without losing source context
+Dependencies Typed mode model; Host identity boundary
+Dated formation evidence
+MOONPOLY-B02 | Baseline | P0 | Source documented
+Expose the stage and domain matrix, governance layers, actors and resources with dated source drill-down and jurisdiction coverage.
+Evidence README.mbt.md#Current status
+Test 1. Trace a Changping claim to its source and date
+2. Request a jurisdiction outside coverage and display the gap
+3. Revise an interpretation while preserving its predecessor
+Dependencies Source corpus and provenance
+Comparable options and no action
+MOONPOLY-B03 | Baseline | P0 | Source documented
+Record problem, stakeholders, resources and expected impact for each option, including no action, before recommending a direction.
+Evidence docs/PRODUCT_CONTRACT.md#MoonPoly owns
+Test 1. Compare intervention and no-action alternatives against the same question
+2. Flag an omitted stakeholder or unsupported impact
+3. Revise the assumptions without rewriting the original appraisal
+Dependencies B02 formation evidence
+Dissent procedure and readiness
+MOONPOLY-B04 | Baseline | P0 | Source documented
+Retain dissent and procedural gates separately from readiness; readiness never confers adoption authority.
+Evidence docs/PRODUCT_CONTRACT.md#Non-negotiable invariants
+Test 1. Approve advisory readiness while keeping unresolved dissent visible
+2. Block an official-action claim with missing procedure
+3. Reopen a gate when the relevant evidence changes
+Dependencies Named analyst and reviewer
+Editable analysis and fidelity
+MOONPOLY-B05 | Baseline | P1 | Source documented
+Maintain a strategy to power/resource to logic-chain reconstruction with provenance, undo/redo and fidelity review.
+Evidence docs/POLICY_DOCUMENT_EDITOR.md; README.mbt.md
+Test 1. Edit a reconstructed paragraph and inspect its source mapping
+2. Undo then redo without changing the original source
+3. Flag unsupported added meaning before export
+Dependencies Document editor session
+Honest local session continuity
+MOONPOLY-B06 | Baseline | P0 | Source documented
+Label browser-local save and export as local draft operations; do not report MoonBook persistence or publication without their separate evidence.
+Evidence docs/POLICY_DOCUMENT_EDITOR.md#Session lifecycle
+Test 1. Save and reopen a draft on the supported origin
+2. Simulate missing local state and offer recovery from export
+3. Verify local success never produces an official published badge
+Dependencies Browser storage and export
+Cutoff safe forecast inputs
+MOONPOLY-B07 | Baseline | P0 | Source documented
+Freeze the forecast evidence cutoff and reject later information from the original ranked alternatives.
+Evidence docs/POLICY_DOCUMENT_FORECASTING.md
+Test 1. Replay a forecast using only the frozen evidence
+2. Inject a post-cutoff document and reject it
+3. Create a new forecast version when later evidence is intentionally admitted
+Dependencies Time-stamped evidence register
+Qualified forecast presentation
+MOONPOLY-B08 | Baseline | P0 | Source documented
+Show assumptions, alternative rankings and invalidation; describe support scores as support rather than calibrated probability or government intent.
+Evidence docs/PRODUCT_CONTRACT.md#Non-negotiable invariants; docs/POLICY_DOCUMENT_FORECASTING.md
+Test 1. Inspect an alternative and locate its assumptions
+2. Verify numeric score labels cannot imply probability
+3. Withhold ranking if inputs do not support a meaningful comparison
+Dependencies B07 cutoff manifest
+Receipt driven quality roles
+MOONPOLY-B09 | Baseline | P1 | Partial
+Run exact bounded Writer, Reviewer and Rewriter roles against frozen evidence; preserve each attributed result and accept only matching workflow events.
+Evidence README.mbt.md#Current status; Ledger: JS formation 3/3; full live campaign untested
+Test 1. Run each role and bind output to the same evidence revision
+2. Reject a stale or wrong-role receipt
+3. Resume an interrupted loop without duplicate accepted stages
+Dependencies MoonClaw role capability; MoonFlow reducer and adapter
+Durable knowledge capability gate
+MOONPOLY-B10 | Baseline | P0 | Blocked
+Confirm MoonBook retention only after a matching host capability and durable receipt; keep local and durable state separate.
+Evidence docs/PRODUCT_CONTRACT.md#Non-negotiable invariants; Dossier: live host receipt conditional
+Test 1. Persist with a matching host and verify receipt identity
+2. Reject a receipt for another document revision
+3. Retry a pending export idempotently when the host returns
+Dependencies MoonBook host adapter
+Founder impact brief
+MOONPOLY-R01 | Roadmap | P1 | Proposed
+Produce a segment-specific dated brief that separates official text, interpretation, unknown eligibility and verification actions.
+Evidence docs/PRODUCT_CONTRACT.md#User modes
+Test 1. Ask about one segment and identify the exact policy date
+2. Withhold an eligibility conclusion when facts are missing
+3. Update after verification while retaining earlier caveats
+Dependencies B02 source coverage; Company question owner
+Client advisory acceptance
+MOONPOLY-R02 | Roadmap | P1 | Proposed
+Bind citation, procedure and fidelity checks to a client-reviewed draft revision and store acceptance independently from public adoption and payment.
+Evidence docs/POLICY_DOCUMENT_EDITOR.md; docs/PRODUCT_CONTRACT.md
+Test 1. Review a frozen draft and record named acceptance or requested changes
+2. Change material content and reopen review
+3. Ensure acceptance alone does not mark a policy adopted or an invoice paid
+Dependencies Client identity and review channel
+Reviewed implementation learning
+MOONPOLY-R03 | Roadmap | P2 | Proposed
+Compare observed implementation with the original assumptions and dissent without retroactively improving the forecast.
+Evidence docs/PRODUCT_CONTRACT.md
+Test 1. Link an observation to its date and original option
+2. Preserve a failed prediction rather than rewriting it
+3. Require human review before publishing a lesson to knowledge
+Dependencies B07 frozen forecast; B10 durable knowledge
+Data state and authority
+Official source
+Owner Issuing public body; local custodian records it
+State model published, amended, superseded, unavailable
+Write authority Only the source authority establishes official text
+Retention and recovery Retain lawful source copies and version references
+Analysis and option appraisal
+Owner Named analyst
+State model draft, evidenced, challenged, review ready
+Write authority Analyst recommends; authorized public body decides
+Retention and recovery Preserve assumptions and dissent through subsequent revisions
+Editable advisory session
+Owner Document author
+State model local saved, exported, pending durable receipt, retained
+Write authority Local save does not establish official publication
+Retention and recovery Provide deliberate local-clear and export behavior; retention policy chosen by host
+Forecast
+Owner Forecast owner
+State model cutoff frozen, ranked, invalidated, evaluated
+Write authority Forecast has no governmental authority
+Retention and recovery Keep original cutoff and outcomes for evaluation
+Client review
+Owner Client reviewer
+State model requested, changes requested, accepted, superseded
+Write authority Acceptance applies to the advisory scope only
+Retention and recovery Keep exact reviewed revision and response
+Interfaces and handoffs
+MoonDesk
+Payload Policy-specific views and session identity
+Contract Host exposes the three modes without expanding authority
+Failure behavior Missing hosting capability leaves a usable export with truthful state
+MoonTown
+Payload moonsuite.policy-formation-projection.v1
+Contract Read-only projection of formation state
+Failure behavior Reject incompatible schema; never write back a public decision
+MoonClaw and MoonFlow
+Payload Frozen evidence, exact roles and stage receipts
+Contract Reasoning stays bounded; orchestration advances valid events only
+Failure behavior Stale role output is held for inspection
+MoonBook
+Payload Versioned perspective, decision context and review
+Contract Matching durable capability receipt is required
+Failure behavior Pending local export is not durable knowledge
+Nonfunctional requirements
+Provenance fidelity
+MOONPOLY-N01
+All material advisory claims must map to source text or be labeled interpretation.
+Acceptance test Proposed release gate: sample every material claim in the pilot and reject unlabeled reconstruction.
+Evidence status Proposed
+Temporal integrity
+MOONPOLY-N02
+Forecast evaluation must reproduce original cutoffs and evidence identity.
+Acceptance test Inject later official documents and compare replay with the frozen original.
+Evidence status Proposed
+Authority clarity
+MOONPOLY-N03
+No screen or export may imply that local drafting or readiness constitutes adoption.
+Acceptance test Review all state labels with analyst, public-reader and official-role fixtures.
+Evidence status Proposed
+Session recovery
+MOONPOLY-N04
+Undo, export and restart must preserve provenance and named review references.
+Acceptance test Interrupt after edits and role receipts; reopen and compare canonical content and attribution.
+Evidence status Proposed
+Accessible explanation
+MOONPOLY-N05
+Readers must distinguish official text, interpretation and missing coverage without relying on color.
+Acceptance test Proposed usability and accessibility gate: keyboard review of the first supported policy and all blockers.
+Evidence status Proposed
+Delivery roadmap
+Evidence and local authoring
+One honest jurisdiction-bounded advisory flow
+Requirements MOONPOLY-B01, MOONPOLY-B02, MOONPOLY-B05, MOONPOLY-B06
+Exit gate Inspect a sourced policy, edit and recover a draft without claiming official authority
+Qualified review integration
+Traceable multi-role review and retention
+Requirements MOONPOLY-B09, MOONPOLY-B10
+Exit gate Live matching host receipts and interrupted-loop recovery pass
+Founder and consulting delivery
+One accepted advisory deliverable and learning cycle
+Requirements MOONPOLY-R01, MOONPOLY-R02, MOONPOLY-R03
+Exit gate Named client review confirms scope; later observations remain separate from original forecasts
+Outcome measurement
+Traceable material claims
+Claims with source or explicit interpretation label
+Measurement Claim-to-source audit
+Target Proposed pilot target: all material claims
+Hidden procedural gaps
+Review-ready options with undisclosed missing procedure
+Measurement Gate and dissent audit
+Target Proposed release target: zero
+Recovery fidelity
+Recovered sessions matching last acknowledged revision
+Measurement Content and provenance digests
+Target Proposed target: all qualification restart fixtures
+Review effort
+Time and corrections needed to understand a brief and its caveats
+Measurement Consented pilot review log
+Target Measure baseline first; no time-saving claim yet
+Non goals
+Autonomous government policy adoption, amendment or official publication
+Universal jurisdiction or policy-domain coverage inferred from Changping
+Calibrated forecasting probabilities without calibration evidence
+Legal eligibility determinations or automatic client billing
+Alternatives and optimality
+Official website and short memo
+Advantage Low setup cost for one clear policy question
+Cost Manual citation and change tracking
+When to choose Prefer for one-off explanation when the source and authority are straightforward
+Document editor with review checklist
+Advantage Familiar client collaboration and efficient drafting
+Cost No typed formation graph or cutoff-safe forecasts
+When to choose Prefer when procedural analysis adds little beyond a sourced memo
+General autonomous policymaker
+Advantage Broad apparent scope
+Cost Unsupported authority and high risk of confusing advice with action
+When to choose Exclude; retain narrow explanation and advisory delivery
+The best OPC entry point is likely a founder impact brief or a consulting deliverable, not a dense formation matrix. The matrix can supply traceability behind those views. It earns its cost only when a reviewer needs to traverse policy history, governance layers or contested assumptions.
+The source boundary is strong: public authority owns legal acts, and support scores remain analytical. The PRD should preserve that distinction throughout labels, exports and client review. A local draft that looks official can mislead even if the backend is carefully bounded.
+A narrower first product should choose one jurisdiction and one recurring advisory question, then validate citation fidelity and client comprehension. The Changping example and formation tests are useful development evidence, but generalizing their success to a live jurisdiction or multi-role campaign would overstate readiness.
+There is no absolute optimum between typed policy infrastructure and a careful human memo. If a source document and checklist answer the client question reliably, the simpler method wins. Expansion should follow evidence of reduced reconstruction effort, fewer missed procedural gaps and repeatable client review.
+Open product decisions
+Decision Which jurisdiction and advisory question define the pilot
+Recommendation Choose one supported source corpus and recurring client question
+Consequence Controls research burden and avoids universal coverage claims
+Decision Who may approve public action
+Recommendation Keep public adoption outside pack authority and name the relevant public body
+Consequence Advisory readiness cannot become an automated legal act
+Decision What proves durable retention
+Recommendation Require matching host capability and receipt
+Consequence Without it, label drafts local or exported only
+Sources and coverage
+Repository paths below are relative to moonpoly. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/POLICY_DOCUMENT_EDITOR.md
+docs/POLICY_DOCUMENT_FORECASTING.md
+AGENTS.md
+moon-luna-investigation-ledger-20260930.md
+The dossier includes selected contract sections and the editor section map rather than all 15 documents, matrix cells or metrics. The latest ledger reports JS formation 3/3 with no browser run, actual public adoption or live multi-role campaign. MoonBook persistence remains conditional on the host. Broader workflow and quality acceptance in this PRD are proposed tests, not claims that the component suite proved the full product.

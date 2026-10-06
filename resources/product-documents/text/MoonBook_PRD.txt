@@ -1,0 +1,297 @@
+MoonBook product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonBook should preserve company memory as raw sources, editable knowledge, reviewed outcomes and reproducible projections. Local ingest and timestamp-safe state exchange have bounded evidence. The highest-priority product decision is separating imported-source integrity from human factual review; the current accepted and verified labels must not imply that review occurred.
+Repository maturity claim local alpha; contract claims L2 local Bookkeeper journey
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Durable memory must make corrections possible. Raw source bytes, accepted knowledge and generated views have different owners and meanings. A founder should be able to see why a claim exists, what contradicted it, who reviewed it and what later outcome changed the interpretation.
+Executable books can declare intent and propose work, but accepted book truth and operational authority remain separate. Bookkeeper learning should compare intention, execution and observed outcome before a person accepts a reusable rule. The purpose is less repeated reconstruction and fewer repeated mistakes, not automatic self-improving authority.
+Users and jobs
+founder or researcher maintaining company knowledge
+Recover the source and outcome context of company knowledge across days and projects.
+Trigger A new decision resembles an earlier commitment or an external source changes.
+Successful outcome The user finds applicable reviewed guidance and its evidence without reconstructing the history.
+book curator reviewer
+Separate imported material from reviewed claims and approve corrections within their scope.
+Trigger A source, synthesized claim or Bookkeeper outcome reaches a review queue.
+Successful outcome Accepted knowledge has a clear reviewer, basis, version and correction path.
+operator
+Maintain book health, projections, backups and portable pack compatibility.
+Trigger A book is installed, exported, upgraded or recovered after failure.
+Successful outcome Raw evidence and accepted history survive a reproducible restore or rollback.
+MoonClaw MoonFlow consumer
+Consume exact versioned declarations and return artifacts for book-owned review.
+Trigger A book requests bounded execution under separately granted authority.
+Successful outcome The runtime can act on the declaration without interpreting it as self-approved truth or permissions.
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	6	Source documented: 4; Partial: 1; Verified contract: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Synthetic wiki init/ingest from MoonProj packet succeeded with exact text retained.
+Evidence Prior native suite 369/369, CLI state/bundle decode and realistic millisecond timestamp roundtrip passed; external consumer compatibility not universally proven.
+Open gap Unreviewed imported page was labelled review_status accepted/source_quality verified; meaning of these fields and promotion policy await founder decision, so do not claim factual validation.
+Open gap No end-to-end current company outcome closure with external customer and cash evidence shown.
+Open gap Multi-user hosted service and cross-product L3 remain conditional; UI visibility for Three-Gap records and backup/restore release gates remain open.
+User scenarios
+Book lifecycle and static book rendering
+MOONBOOK-UC01 | Baseline scope. Create and maintain a readable book.
+1. Initialize a book and its structure using the documented book and wiki CLI.
+2. Use SUMMARY-driven rendering, serving or watch to create reader projections.
+3. Run doctor and inspect pack or skill structure before publishing a reusable local bundle.
+Edge case A generated view is replaceable output and must not become a competing authoritative source.
+Failure and recovery If rendering fails, preserve editable book content and report the broken section or input rather than overwriting source files.
+Acceptance A clean book can be rendered and rebuilt from its source; missing entries are reported with their locations.
+Evidence references README.mbt.md#Current Capabilities; docs/FEATURE_MATRIX.md#CLI
+Raw first wiki ingest  query  review and lint
+MOONBOOK-UC02 | Baseline scope. Ingest a source and query its retained context.
+1. Store the raw input before deriving a wiki page.
+2. Ingest a founder work packet and retain source, problem and acceptance text exactly.
+3. Query with citations and inspect review and lint surfaces for subsequent curation.
+Edge case Current ingest can label an unreviewed page accepted and verified; these labels must be interpreted as existing mechanics, not factual validation.
+Failure and recovery On malformed input preserve the raw source and surface a repairable ingest failure; repeated ingest must not silently overwrite accepted claims.
+Acceptance Round-trip the synthetic packet text; distinguish import integrity, claim review and query interpretation in the qualification record.
+Evidence references docs/WIKI_WORKFLOW.md#Ingest Sources; docs/WIKI_WORKFLOW.md#Review; docs/WIKI_WORKFLOW.md#Lint
+Source  knowledge bundle  graph and state projections
+MOONBOOK-UC03 | Baseline scope. Export portable state and knowledge projections.
+1. Generate state, bundle and graph outputs from the book.
+2. Serialize timestamps as exact numeric epoch milliseconds within the documented safe range.
+3. Decode the resulting current state through the MoonTown adapter and retain source references.
+Edge case Legacy overflowed negative or small values can remain historical corrupted times; decoding does not repair chronology.
+Failure and recovery Reject noninteger, nonfinite or unsafe numeric timestamps at the consumer boundary and retain the original snapshot for diagnosis.
+Acceptance Test realistic millisecond values through producer and consumer; source references and field types remain unchanged.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Quick Start
+Executable work declaration and review queue
+MOONBOOK-UC04 | Baseline scope. Declare executable work without promoting its output.
+1. Prepare a versioned book intent and requirements artifact.
+2. Import the exact declaration into MoonFlow after required review and authority checks.
+3. Return produced artifacts to a review queue before updating accepted knowledge.
+Edge case A successful work attempt is not an accepted book claim or a new permission.
+Failure and recovery Incompatible import versions or stale evidence block activation and preserve the declaration for correction.
+Acceptance wiki.requirements.prepare@0.1.0 produces a review-pending artifact whose execution cannot directly rewrite accepted evidence.
+Evidence references docs/PRODUCT_CONTRACT.md#Ownership; docs/EXECUTABLE_BOOK_BOUNDARY.md
+Keeper standing watch and Bookkeeper Three Gap outcome records
+MOONBOOK-UC05 | Baseline scope. Close an outcome with Bookkeeper and Keeper.
+1. Maintain an explicit standing watch or intent with acceptance conditions.
+2. Submit intent, execution and post-delivery observations as a Three-Gap record.
+3. Have a named reviewer accept, reject or narrow the proposed correction before capability promotion.
+Edge case An internal successful run with no customer outcome leaves the post-delivery gap unresolved.
+Failure and recovery Missing outcome evidence prevents closure; failed or rejected improvements remain visible without altering accepted guidance.
+Acceptance bookkeeper.outcome.submit@0.1.0 and close@0.1.0 keep separate evidence and named review before any promotion.
+Evidence references docs/PRODUCT_CONTRACT.md#Three-Gap contract; docs/BOOKKEEPER_OUTCOME_CLOSURE.md
+Portable agent pack inspect verify merge upgrade rollback
+MOONBOOK-UC06 | Baseline scope. Move and evolve a portable agent pack.
+1. Pack and inspect the local book and declared capabilities.
+2. Verify a proposed merge or upgrade against protected accepted evidence.
+3. Apply a reviewed change and retain a rollback path to the preceding version.
+Edge case A valid local pack is not cross-machine deployment qualification.
+Failure and recovery A conflict, incompatible version or failed verification leaves the installed accepted pack unchanged and supports rollback.
+Acceptance A fixture upgrade and rollback preserve accepted evidence and expose rejected changes; cross-machine behavior requires separate qualification.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/PORTABLE_EVOLVING_AGENT.md
+Company source ledger
+MOONBOOK-F01 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Assign each company source a stable origin and snapshot identity.
+2. Record retrieval time, excerpt, counterevidence and independently defined review state.
+3. Expose a decision-oriented ledger that follows links back to raw input.
+Edge case A trustworthy import of a false claim must remain factually unreviewed.
+Failure and recovery When origin disappears preserve the lawful snapshot and mark current accessibility separately.
+Acceptance A founder can distinguish source availability, byte integrity and claim acceptance without ambiguous labels.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Outcome linked memory
+MOONBOOK-F02 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Receive exact commitment, task, artifact and outcome references from MoonProj.
+2. Bind these to one Bookkeeper outcome record with unresolved gaps visible.
+3. Retrieve the record when a later decision shares the relevant conditions.
+Edge case Matching topic alone is insufficient to reuse a customer-specific lesson outside its scope.
+Failure and recovery Missing or conflicting receipts prevent automatic closure and ask for review.
+Acceptance A later decision exposes the reviewed lesson and its applicability without altering the original outcome evidence.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Founder correction review
+MOONBOOK-F03 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Present differences between intended, executed and observed results.
+2. Let the founder accept, reject or edit the proposed reusable rule.
+3. Record reviewer, scope and version before making the rule available to consumers.
+Edge case A correction may supersede guidance without deleting evidence that justified the earlier decision.
+Failure and recovery Rejected changes leave accepted guidance untouched and retain the reasoning summary.
+Acceptance A version change can be traced to named review and can be rolled back without corrupting raw sources.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Book lifecycle and static book rendering
+MOONBOOK-B01 | Baseline | P0 | Source documented
+The product shall support this bounded outcome: Run doctor and inspect pack or skill structure before publishing a reusable local bundle. It shall preserve the boundary: A generated view is replaceable output and must not become a competing authoritative source.
+Evidence Book/pack/skill/doctor/wiki CLI, SUMMARY-based render/serve/watch and generated reader projections.; README.mbt.md#Current Capabilities; docs/FEATURE_MATRIX.md#CLI
+Test 1. Exercise the stated scenario from its named starting state. A clean book can be rendered and rebuilt from its source; missing entries are reported with their locations.
+2. Inject the boundary or interruption case. If rendering fails, preserve editable book content and report the broken section or input rather than overwriting source files.
+Dependencies Raw evidence, accepted knowledge and generated projections are distinct stores/statuses.
+Raw first wiki ingest  query  review and lint
+MOONBOOK-B02 | Baseline | P0 | Partial
+The product shall support this bounded outcome: Query with citations and inspect review and lint surfaces for subsequent curation. It shall preserve the boundary: Current ingest can label an unreviewed page accepted and verified; these labels must be interpreted as existing mechanics, not factual validation.
+Evidence Synthetic MoonProj Markdown was ingested into an isolated wiki and retained source/problem/acceptance content; wider query/review/lint behavior documented.; docs/WIKI_WORKFLOW.md#Ingest Sources; docs/WIKI_WORKFLOW.md#Review; docs/WIKI_WORKFLOW.md#Lint
+Test 1. Exercise the stated scenario from its named starting state. Round-trip the synthetic packet text; distinguish import integrity, claim review and query interpretation in the qualification record.
+2. Inject the boundary or interruption case. On malformed input preserve the raw source and surface a repairable ingest failure; repeated ingest must not silently overwrite accepted claims.
+Dependencies Raw evidence, accepted knowledge and generated projections are distinct stores/statuses.
+Source  knowledge bundle  graph and state projections
+MOONBOOK-B03 | Baseline | P0 | Verified contract
+The product shall support this bounded outcome: Decode the resulting current state through the MoonTown adapter and retain source references. It shall preserve the boundary: Legacy overflowed negative or small values can remain historical corrupted times; decoding does not repair chronology.
+Evidence Prior CLI state/bundle and native suite checks passed; projections are portable outputs, not automatic company truth.; docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Quick Start
+Test 1. Exercise the stated scenario from its named starting state. Test realistic millisecond values through producer and consumer; source references and field types remain unchanged.
+2. Inject the boundary or interruption case. Reject noninteger, nonfinite or unsafe numeric timestamps at the consumer boundary and retain the original snapshot for diagnosis.
+Dependencies Raw evidence, accepted knowledge and generated projections are distinct stores/statuses.
+Executable work declaration and review queue
+MOONBOOK-B04 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Return produced artifacts to a review queue before updating accepted knowledge. It shall preserve the boundary: A successful work attempt is not an accepted book claim or a new permission.
+Evidence Book intent may feed MoonFlow work after exact versioned import; accepted book knowledge remains separately reviewed.; docs/PRODUCT_CONTRACT.md#Ownership; docs/EXECUTABLE_BOOK_BOUNDARY.md
+Test 1. Exercise the stated scenario from its named starting state. wiki.requirements.prepare@0.1.0 produces a review-pending artifact whose execution cannot directly rewrite accepted evidence.
+2. Inject the boundary or interruption case. Incompatible import versions or stale evidence block activation and preserve the declaration for correction.
+Dependencies Raw evidence, accepted knowledge and generated projections are distinct stores/statuses.
+Keeper standing watch and Bookkeeper Three Gap outcome records
+MOONBOOK-B05 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Have a named reviewer accept, reject or narrow the proposed correction before capability promotion. It shall preserve the boundary: An internal successful run with no customer outcome leaves the post-delivery gap unresolved.
+Evidence Records intent, execution and post-delivery gaps; named review gates capability improvements and promotion.; docs/PRODUCT_CONTRACT.md#Three-Gap contract; docs/BOOKKEEPER_OUTCOME_CLOSURE.md
+Test 1. Exercise the stated scenario from its named starting state. bookkeeper.outcome.submit@0.1.0 and close@0.1.0 keep separate evidence and named review before any promotion.
+2. Inject the boundary or interruption case. Missing outcome evidence prevents closure; failed or rejected improvements remain visible without altering accepted guidance.
+Dependencies Raw evidence, accepted knowledge and generated projections are distinct stores/statuses.
+Portable agent pack inspect verify merge upgrade rollback
+MOONBOOK-B06 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Apply a reviewed change and retain a rollback path to the preceding version. It shall preserve the boundary: A valid local pack is not cross-machine deployment qualification.
+Evidence Local pack lifecycle with protected accepted evidence; cross-machine qualification still a release gate.; docs/PRODUCT_CONTRACT.md#Capability status; docs/PORTABLE_EVOLVING_AGENT.md
+Test 1. Exercise the stated scenario from its named starting state. A fixture upgrade and rollback preserve accepted evidence and expose rejected changes; cross-machine behavior requires separate qualification.
+2. Inject the boundary or interruption case. A conflict, incompatible version or failed verification leaves the installed accepted pack unchanged and supports rollback.
+Dependencies Raw evidence, accepted knowledge and generated projections are distinct stores/statuses.
+Company source ledger
+MOONBOOK-R01 | Roadmap | P1 | Proposed
+For each founder decision, preserve origin, retrieval time, excerpt, counterevidence and review status without treating ingest as factual verification. A trustworthy import of a false claim must remain factually unreviewed.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A founder can distinguish source availability, byte integrity and claim acceptance without ambiguous labels.
+2. When origin disappears preserve the lawful snapshot and mark current accessibility separately.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Outcome linked memory
+MOONBOOK-R02 | Roadmap | P1 | Proposed
+A MoonProj commitment's exact task/artifact/customer outcome binds to a Bookkeeper record and can be retrieved for the next similar decision. Matching topic alone is insufficient to reuse a customer-specific lesson outside its scope.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A later decision exposes the reviewed lesson and its applicability without altering the original outcome evidence.
+2. Missing or conflicting receipts prevent automatic closure and ask for review.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Founder correction review
+MOONBOOK-R03 | Roadmap | P2 | Proposed
+Human sees what changed between intended, executed and observed outcomes, then accepts/rejects a reusable rule before any capability promotion. A correction may supersede guidance without deleting evidence that justified the earlier decision.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A version change can be traced to named review and can be rolled back without corrupting raw sources.
+2. Rejected changes leave accepted guidance untouched and retain the reasoning summary.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Data state and authority
+Raw source and provenance
+Owner MoonBook raw evidence store
+State model Imported snapshot, derived page, superseded snapshot; source review semantics pending decision
+Write authority Import permission does not prove factual authority; reviewer must be explicitly named for claim acceptance
+Retention and recovery Retain original bytes, digest and origin; preserve lawful evidence under a documented retention policy
+Accepted knowledge and review history
+Owner MoonBook curator or named reviewer
+State model Proposed claim, in review, accepted, rejected, corrected or superseded as proposed explicit semantics
+Write authority Human review promotes reusable knowledge; external runtime cannot self-approve
+Retention and recovery Preserve prior versions and review events; never repair old timestamps by guessing
+Generated projections and executable declarations
+Owner MoonBook generator with owning runtime for execution
+State model Generated, exported, imported for review, activated under separate authority
+Write authority Projection generation cannot accept knowledge or grant a new capability
+Retention and recovery Rebuild projections from source; preserve exact version and digest for execution links
+Interfaces and handoffs
+MoonProj
+Payload Current manual Markdown packet; proposed exact commitment and outcome references
+Contract Import preserves content; typed shared company identity is still proposed
+Failure behavior Keep unresolved or hypothetical commercial claims visible and do not infer payment
+MoonTown
+Payload State, bundles, source context and pending review records
+Contract Current adapter has bounded realistic timestamp evidence; consumers still require explicit version compatibility
+Failure behavior Reject invalid numeric timestamps; decode legacy corrupted times without calling them corrected chronology
+MoonFlow and MoonClaw
+Payload Versioned declarations, bounded tasks and resulting artifacts
+Contract Flow owns work lifecycle, Claw owns runtime, Book owns accepted knowledge
+Failure behavior Return results to review and block promotion when evidence or authority is missing
+Nonfunctional requirements
+Trust semantics
+MOONBOOK-N01
+Import integrity, factual claim review and accepted reusable knowledge must be separately interpretable. Existing defaults must not be silently changed before an approved migration.
+Acceptance test Ingest intact but false text and show that byte preservation does not establish factual approval; test a complete source-review transition before changing defaults.
+Evidence status Blocked
+Timestamp interoperability
+MOONBOOK-N02
+Serialize exact integer epoch milliseconds within plus or minus 2 to the power 53 minus 1 and preserve numeric wire type. Consumers reject invalid numeric shape.
+Acceptance test Round-trip realistic positive values and boundary fixtures through Book and Town; keep legacy corrupted chronology explicitly historical.
+Evidence status Verified contract
+Backup and restore
+MOONBOOK-N03
+Raw sources, accepted knowledge and review events must be recoverable independently of generated views.
+Acceptance test Restore into an isolated book and compare source digests, accepted versions and pending reviews; record recovery duration before proposing an objective.
+Evidence status Unknown
+Knowledge privacy
+MOONBOOK-N04
+Exports and agent packs must contain only authorized source and knowledge scope. Sensitive source material needs explicit access boundaries.
+Acceptance test Export a selected book fixture and verify no outside raw files, credentials or rejected private material appear.
+Evidence status Proposed
+Review usability
+MOONBOOK-N05
+A curator must be able to understand and accept, reject or narrow a correction without interpreting runtime logs.
+Acceptance test Present intent, execution, outcome and proposed rule side by side; verify both rejection and supersession retain history.
+Evidence status Proposed
+Delivery roadmap
+Phase 1 Qualify the baseline
+Reproduce the product's critical local, contract and configured paths with exact versions and observable receipts. Close missing prerequisites without widening authority.
+Requirements MOONBOOK-B01, MOONBOOK-B02, MOONBOOK-B03, MOONBOOK-B04, MOONBOOK-B05, MOONBOOK-B06
+Exit gate Every P0 baseline acceptance has an explicit result and evidence locator; unresolved dependency and integration states remain visible.
+Phase 2 Complete one connected outcome
+Implement the smallest useful cross-product scenario and test review, interruption and recovery with real authorized inputs.
+Requirements MOONBOOK-R01, MOONBOOK-R02
+Exit gate A named user accepts the exact output and can recover its evidence chain without reconstructing identities manually.
+Phase 3 Expand only after measured value
+Add remaining proposed workflows where observed use demonstrates reduced coordination cost or a distinct required capability.
+Requirements MOONBOOK-R03
+Exit gate Measure the outcome against the simpler alternative, include review overhead, and retain the ability to stop or narrow low-value scope.
+Outcome measurement
+Context recovery time
+Time required to reconstruct the source and review basis of a current company decision
+Measurement Use repeatable retrieval tasks and record human effort
+Target Compare before and after the ledger; baseline not yet measured
+Trust state clarity
+Reviewers correctly distinguishing imported integrity from factual acceptance
+Measurement Test false-but-intact source and corrected-claim examples
+Target Every acceptance-critical claim has an explicit review state and reviewer or remains unresolved
+Outcome reuse
+Reviewed lessons retrieved and judged applicable to later commitments
+Measurement Record retrieval, applicability decision and subsequent outcome separately
+Target Measure useful reuse without rewarding raw query or ingest counts
+Non goals
+Automatic factual truth from ingest success
+Automatic company authority or capability promotion from outcome text
+Silent migration of existing accepted and verified semantics before a product decision
+Treating all external consumers or multi-user hosting as qualified by local suite results
+Alternatives and optimality
+Plain Markdown with version control
+Advantage Simple, portable and directly editable evidence notes
+Cost Review queues, outcome linkage and trusted projections need conventions or scripts
+When to choose Use for a small static knowledge base where execution and multi-book review add little value
+A conventional hosted wiki
+Advantage Familiar collaborative review and access controls
+Cost Executable intent and exact evidence lineage may require integrations
+When to choose Choose if collaboration and managed backup are more urgent than local programmable books
+Reusable reviewed memory is a strong OPC boundary, but the PRD is not optimal while accepted and verified can mean both successful import and factual review. Resolve terminology and migration behavior before adding more automated learning.
+A narrow improvement can preserve existing workflows by splitting integrity status from claim-review status and adding an explicit source-review transition. Merely changing every imported source to pending would be incomplete if no approval route exists. This is a proposed design requiring the founder's choice.
+Prioritize a complete correction lifecycle and one retrievable outcome lesson. Cross-machine portability and multi-user hosting should advance only with backup, restore and compatibility acceptance, rather than being implied by the breadth of the CLI.
+Open product decisions
+Decision What should accepted and verified mean for an imported source?
+Recommendation Keep import integrity and human claim review as separate fields and provide a source-review transition.
+Consequence The current labels cannot be used as evidence of factual approval; default changes need compatible migration.
+Decision What qualifies an outcome for closure?
+Recommendation Require observable outcome evidence and a named decision on the proposed correction.
+Consequence Internal execution alone leaves customer and commercial learning incomplete.
+Sources and coverage
+Repository paths below are relative to moonbook. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/FEATURE_MATRIX.md (headings)
+docs/WIKI_WORKFLOW.md (workflow sections)
+Moon Luna investigation ledger dated 30 September 2026 version 3
+OPC OS consolidated product evidence and source index dated 30 September 2026
+Coverage remains partial. Areas not exhaustively inspected include all 19 docs in full; all CLI subcommands and UI projections; multi-user/backup qualification. Current acceptance statements define what must be demonstrated and do not upgrade source-only claims. No commercial, provider or physical outcome is inferred from local tests.

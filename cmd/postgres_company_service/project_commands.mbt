@@ -31,10 +31,10 @@ async fn latest_project_command_payload(
 ) -> (Json, Int)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
-    "FROM company_aggregate_projection WHERE aggregate_type = 'project' " +
-    "AND payload->>'source_kind' = 'command' AND aggregate_id = " +
+    "FROM (SELECT revision, payload FROM company_aggregate_projection WHERE aggregate_type = 'project' " +
+    "AND aggregate_id = " +
     @postgres.sql_literal(project_id) +
-    " ORDER BY revision DESC LIMIT 1",
+    " ORDER BY revision DESC LIMIT 1) latest WHERE payload->>'source_kind' = 'command'",
   )
   let value = output.trim().to_owned()
   if value.is_empty() {
@@ -54,7 +54,7 @@ async fn project_command_projection_rows(
   let deleted_clause = if include_deleted {
     ""
   } else {
-    " WHERE coalesce(payload->>'state', '') <> 'deleted'"
+    " AND coalesce(payload->>'state', '') <> 'deleted'"
   }
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), " +
@@ -62,8 +62,8 @@ async fn project_command_projection_rows(
     "encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text " +
     "FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, " +
     "source_event_id, revision FROM company_aggregate_projection WHERE " +
-    "aggregate_type = 'project' AND payload->>'source_kind' = 'command' " +
-    "ORDER BY aggregate_id, revision DESC) latest" +
+    "aggregate_type = 'project' " +
+    "ORDER BY aggregate_id, revision DESC) latest WHERE payload->>'source_kind' = 'command'" +
     deleted_clause +
     " ORDER BY aggregate_id LIMIT 500",
   )
@@ -151,6 +151,11 @@ fn project_source_create_request(
   }
   let project_code = project_required_value(body, "projCode", "proj_code")
   let project_name = project_required_value(body, "projName", "proj_name")
+  if project_code.length() > 128 || project_name.length() > 256 {
+    raise reject(
+      422, "projCode must fit 128 characters and projName must fit 256 characters",
+    )
+  }
   let bu_guid = project_required_value(body, "buGuid", "bu_guid")
   if !valid_identifier(bu_guid) {
     raise reject(422, "buGuid contains unsupported characters")
@@ -304,9 +309,14 @@ async fn project_source_alias_result(
 ) -> Json raise CompanyServiceError {
   let project = json_field(result, "project").unwrap_or(Json::null())
   let project_id = json_text(project, "project_id", "")
-  let row = match latest_project_command_payload(project_id) {
-    Some((payload, _)) => project_source_row_from_payload(project_id, payload)
-    None => project_source_row_from_payload(project_id, project)
+  let snapshot = json_field(result, "project_snapshot").unwrap_or(Json::null())
+  let row = if snapshot is Object(_) {
+    project_source_row_from_payload(project_id, snapshot)
+  } else {
+    match latest_project_command_payload(project_id) {
+      Some((payload, _)) => project_source_row_from_payload(project_id, payload)
+      None => project_source_row_from_payload(project_id, project)
+    }
   }
   let command = json_field(result, "command").unwrap_or(Json::null())
   Json::object({
@@ -339,9 +349,7 @@ async fn project_source_command(
   actor_id : String,
   idempotency_key : String,
 ) -> (Int, Json) raise CompanyServiceError {
-  if !valid_identifier(idempotency_key) {
-    raise reject(422, "Idempotency-Key contains unsupported characters")
-  }
+  company_command_validate_ids("project:" + command_type + ":", idempotency_key)
   let request = if command_type == "create" {
     project_source_create_request(body, idempotency_key, actor_id)
   } else {
@@ -357,179 +365,147 @@ async fn project_source_command(
       raise reject(404, "unsupported project command")
     }
   }
-  match existing_company_command(idempotency_key) {
-    Some(existing) => {
-      let stored_request = json_field(existing, "request").unwrap_or(
-        Json::null(),
-      )
-      if !json_equal(stored_request, request) {
-        raise reject(
-          409, "Idempotency-Key was already used for another request",
-        )
+  let (status, response) = try {
+    let output = run_sql(
+      project_source_atomic_sql(command_type, request, idempotency_key),
+    )
+    company_command_parse_response(output)
+  } catch {
+    _ => {
+      let persisted = existing_company_command(idempotency_key) catch {
+        _ => None
       }
+      let canonical = company_command_recovery_receipt(persisted, request)
       return (
         200,
         project_source_alias_result(
           Json::object({
-            "command": existing,
-            "project": json_field(existing, "result").unwrap_or(Json::null()),
-            "idempotent_replay": Json::boolean(true),
+            "command": canonical,
+            "project": json_field(canonical, "result").unwrap_or(Json::null()),
+            "project_snapshot": json_field(canonical, "project_snapshot").unwrap_or(
+              Json::null(),
+            ),
+            "idempotent_replay": true,
           }),
         ),
       )
     }
-    None => ()
   }
+  if status != 200 {
+    return (status, response)
+  }
+  (200, project_source_alias_result(response))
+}
+
+///|
+/// Recheck the canonical receipt, every authoritative identity, and the current
+/// revision inside one transaction. A waiting identical create observes the
+/// first receipt and cannot attempt a second aggregate/audit insert.
+fn project_source_atomic_sql(
+  command_type : String,
+  request : Json,
+  key : String,
+) -> String {
   let id = json_text(request, "project_id", "")
-  let current = latest_project_command_payload(id)
-  if command_type == "create" {
-    if current is Some(_) {
-      raise reject(409, "project already exists")
-    }
-    for row in raw_source_rows("ep_project", 500) {
-      if json_text(row.payload, "proj_guid", row.record_id) == id {
-        raise reject(409, "project already exists")
-      }
-    }
-  } else {
-    match current {
-      Some((payload, _)) if json_text(payload, "state", "active") == "deleted" =>
-        raise reject(409, "project is deleted")
-      Some(_) => ()
-      None => {
-        let imported = raw_source_rows("ep_project", 500).any(fn(row) {
-          json_text(row.payload, "proj_guid", row.record_id) == id
-        })
-        if imported {
-          raise reject(
-            409, "imported project is read-only; use a distinct local identity",
-          )
-        } else {
-          raise reject(404, "project not found")
-        }
-      }
-    }
-  }
-  let (current_payload, current_revision) = match current {
-    Some(value) => value
-    None => (Json::object({}), 0)
-  }
-  let next_revision = current_revision + 1
-  let next_payload = if command_type == "create" {
-    let fields = project_copy_fields(request)
-    fields.set("state", Json::string("active"))
-    fields.set("source_kind", Json::string("command"))
-    fields.set("event_id", Json::string("project:create:" + idempotency_key))
-    fields.set("updated_by", Json::string(actor_id))
-    Json::object(fields)
-  } else {
-    match current_payload {
-      Object(fields) => {
-        if command_type == "update" {
-          match json_field(request, "changes") {
-            Some(Object(changes)) =>
-              for key, value in changes {
-                fields.set(key, value)
-              }
-            _ => ()
-          }
-        }
-        fields.set(
-          "state",
-          Json::string(
-            if command_type == "delete" {
-              "deleted"
-            } else {
-              "active"
-            },
-          ),
-        )
-        fields.set("source_kind", Json::string("command"))
-        fields.set(
-          "event_id",
-          Json::string("project:" + command_type + ":" + idempotency_key),
-        )
-        fields.set("updated_by", Json::string(actor_id))
-        Json::object(fields)
-      }
-      _ => raise fail("invalid project command projection")
-    }
-  }
-  let event_id = "project:" + command_type + ":" + idempotency_key
+  let event_id = "project:" + command_type + ":" + key
   let audit_id = event_id + ":audit"
-  let command_source = "moonproj:command:" + idempotency_key
-  let state = if command_type == "delete" { "deleted" } else { "active" }
-  let result = Json::object({
-    "project_id": Json::string(id),
-    "project_code": Json::string(json_text(next_payload, "proj_code", id)),
-    "state": Json::string(state),
-    "revision": Json::number(next_revision.to_double()),
-    "event_id": Json::string(event_id),
-    "audit_id": Json::string(audit_id),
-    "actor_id": Json::string(actor_id),
-    "source_kind": Json::string("command"),
-    "cash_effect": Json::boolean(false),
-    "accounting_effect": Json::boolean(false),
-    "tax_effect": Json::boolean(false),
-  })
-  let command_payload = Json::object({
-    "kind": Json::string("company_command"),
-    "command_family": Json::string("project"),
-    "command_type": Json::string(command_type),
-    "idempotency_key": Json::string(idempotency_key),
-    "aggregate_type": Json::string("project"),
-    "aggregate_id": Json::string(id),
-    "actor_id": Json::string(actor_id),
-    "request": request,
-    "result": result,
-  })
-  let audit = Json::object({
-    "audit_id": Json::string(audit_id),
-    "action": Json::string("project." + command_type),
-    "aggregate_type": Json::string("project"),
-    "aggregate_id": Json::string(id),
-    "actor_id": Json::string(actor_id),
-    "event_id": Json::string(event_id),
-    "state": Json::string(state),
-    "revision": Json::number(next_revision.to_double()),
-    "cash_effect": Json::boolean(false),
-    "accounting_effect": Json::boolean(false),
-    "tax_effect": Json::boolean(false),
-  })
-  let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; " +
+  let source = "moonproj:command:" + key
+  let create_mode = command_type == "create"
+  let changes = json_field(request, "changes").unwrap_or(Json::null())
+  let unit_id = if create_mode {
+    json_text(request, "bu_guid", "")
+  } else {
+    json_text(changes, "bu_guid", "")
+  }
+  let check_unit = create_mode || !unit_id.is_empty()
+  let next_state = if command_type == "delete" { "deleted" } else { "active" }
+  let body = "DECLARE canonical jsonb; current_payload jsonb; current_revision integer; identity_count integer; " +
+    "unit_count integer; selected_unit jsonb; next_payload jsonb; result jsonb; receipt jsonb; response jsonb; request jsonb := " +
+    @postgres.sql_literal(request.stringify()) +
+    "::jsonb; BEGIN " +
+    "SELECT payload INTO canonical FROM company_record WHERE source_id = " +
+    @postgres.sql_literal(source) +
+    "; " +
+    "SELECT payload, revision INTO current_payload, current_revision FROM company_aggregate_projection WHERE aggregate_type = 'project' AND aggregate_id = " +
+    @postgres.sql_literal(id) +
+    " ORDER BY revision DESC LIMIT 1; " +
+    "SELECT count(*) INTO identity_count FROM (" +
+    project_identity_sql(id, true) +
+    ") identities; " +
+    (if check_unit {
+      "SELECT count(*) INTO unit_count FROM (" +
+      business_unit_candidates_sql(Some(unit_id)) +
+      ") units; " +
+      "SELECT payload INTO selected_unit FROM (" +
+      business_unit_candidates_sql(Some(unit_id)) +
+      ") units WHERE " +
+      business_unit_active_sql() +
+      " LIMIT 1; "
+    } else {
+      ""
+    }) +
+    "IF canonical IS NOT NULL THEN IF canonical->'request' IS DISTINCT FROM request THEN " +
+    "response := jsonb_build_object('status', 409, 'body', jsonb_build_object('error', 'Idempotency-Key was already used for another request')); " +
+    "ELSE response := jsonb_build_object('status', 200, 'body', jsonb_build_object('command', canonical, 'project', canonical->'result', 'project_snapshot', canonical->'project_snapshot', 'idempotent_replay', true)); END IF; " +
+    (if create_mode {
+      "ELSIF identity_count <> 0 OR current_payload IS NOT NULL THEN response := jsonb_build_object('status', 409, 'body', jsonb_build_object('error', 'project identity already exists')); "
+    } else {
+      "ELSIF identity_count > 1 THEN response := jsonb_build_object('status', 409, 'body', jsonb_build_object('error', 'project identity is ambiguous across authoritative sources')); " +
+      "ELSIF current_payload IS NULL OR current_payload->>'source_kind' IS DISTINCT FROM 'command' THEN " +
+      "response := jsonb_build_object('status', CASE WHEN identity_count > 0 THEN 409 ELSE 404 END, 'body', jsonb_build_object('error', CASE WHEN identity_count > 0 THEN 'imported project is read-only; use a distinct local identity' ELSE 'project not found' END)); " +
+      "ELSIF current_payload->>'state' = 'deleted' THEN response := jsonb_build_object('status', 409, 'body', jsonb_build_object('error', 'project is deleted')); "
+    }) +
+    (if check_unit {
+      "ELSIF unit_count <> 1 OR selected_unit IS NULL THEN response := jsonb_build_object('status', 409, 'body', jsonb_build_object('error', 'business unit is missing, deleted, or ambiguous')); "
+    } else {
+      ""
+    }) +
+    "ELSE current_revision := coalesce(current_revision, 0) + 1; " +
+    (if create_mode {
+      "next_payload := request; "
+    } else {
+      "next_payload := current_payload || coalesce(request->'changes', '{}'::jsonb); "
+    }) +
+    "next_payload := next_payload || jsonb_build_object('state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'source_kind', 'command', 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'updated_by', request->>'actor_id'); " +
+    (if check_unit {
+      "next_payload := next_payload || jsonb_build_object('bu_name', coalesce(selected_unit->>'bu_name', '')); "
+    } else {
+      ""
+    }) +
+    "result := jsonb_build_object('project_id', request->>'project_id', 'project_code', next_payload->>'proj_code', 'state', " +
+    @postgres.sql_literal(next_state) +
+    ", 'revision', current_revision, 'event_id', " +
+    @postgres.sql_literal(event_id) +
+    ", 'audit_id', " +
+    @postgres.sql_literal(audit_id) +
+    ", 'actor_id', request->>'actor_id', 'source_kind', 'command', 'cash_effect', false, 'accounting_effect', false, 'tax_effect', false); " +
+    "receipt := jsonb_build_object('kind', 'company_command', 'command_family', 'project', 'command_type', " +
+    @postgres.sql_literal(command_type) +
+    ", 'idempotency_key', " +
+    @postgres.sql_literal(key) +
+    ", 'aggregate_type', 'project', 'aggregate_id', request->>'project_id', 'actor_id', request->>'actor_id', 'request', request, 'result', result, 'project_snapshot', next_payload); " +
     "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
     @postgres.sql_literal(event_id) +
-    ", 4, " +
-    @postgres.sql_literal(command_payload.stringify()) +
-    "::jsonb, " +
-    @postgres.sql_literal(command_source) +
-    ") ON CONFLICT (source_id) DO NOTHING; " +
+    ", 4, receipt, " +
+    @postgres.sql_literal(source) +
+    "); " +
     "INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) VALUES ('project', " +
     @postgres.sql_literal(id) +
-    ", " +
-    next_revision.to_string() +
-    ", " +
-    @postgres.sql_literal(next_payload.stringify()) +
-    "::jsonb, " +
+    ", current_revision, next_payload, " +
     @postgres.sql_literal(event_id) +
     "); " +
     "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_audit_event', " +
     @postgres.sql_literal(audit_id) +
-    ", 4, " +
-    @postgres.sql_literal(audit.stringify()) +
-    "::jsonb, " +
+    ", 4, result || jsonb_build_object('action', " +
+    @postgres.sql_literal("project." + command_type) +
+    ", 'aggregate_type', 'project', 'aggregate_id', request->>'project_id'), " +
     @postgres.sql_literal("moonproj:audit:" + event_id) +
     "); " +
-    "UPDATE company_record SET payload = payload || jsonb_build_object('result', " +
-    @postgres.sql_literal(result.stringify()) +
-    "::jsonb) WHERE source_id = " +
-    @postgres.sql_literal(command_source) +
-    "; COMMIT;"
-  let _ = run_sql(sql)
-  let response = Json::object({
-    "command": command_payload,
-    "project": result,
-    "idempotent_replay": Json::boolean(false),
-  })
-  (200, project_source_alias_result(response))
+    "response := jsonb_build_object('status', 200, 'body', jsonb_build_object('command', receipt, 'project', result, 'project_snapshot', next_payload, 'idempotent_replay', false)); " +
+    "END IF; INSERT INTO moonproj_command_response VALUES(response); END;"
+  company_command_transaction_sql(body)
 }

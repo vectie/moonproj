@@ -1,0 +1,1071 @@
+///|
+/// Build-time DOCX main-body extraction. Run with --check for a read-only check.
+/// Script-only pinned dependencies do not change MoonProj runtime dependencies.
+import {
+  "Milky2018/xml@0.5.0",
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/x@0.4.50/crypto",
+}
+
+///|
+let w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+///|
+let base_limitations : Array[String] = [
+  "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+  "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines.",
+]
+
+///|
+struct Node {
+  name : String
+  attrs : Map[String, String]
+  children : Array[Node]
+  mut text : String
+}
+
+///|
+fn qname(uri : String?, local_name : String) -> String {
+  match uri {
+    Some(uri) => "{" + uri + "}" + local_name
+    None => local_name
+  }
+}
+
+///|
+fn tag(local_name : String) -> String {
+  qname(Some(w), local_name)
+}
+
+///|
+fn Node::child(self : Node, name : String) -> Node? {
+  self.children.iter().find_first(n => n.name == tag(name))
+}
+
+///|
+fn Node::attr(self : Node, name : String) -> String? {
+  self.attrs.get(tag(name))
+}
+
+///|
+fn Node::descendants(self : Node, name : String) -> Array[Node] {
+  let result = []
+  if self.name == tag(name) {
+    result.push(self)
+  }
+  for node in self.children {
+    result.append(node.descendants(name))
+  }
+  result
+}
+
+///|
+fn element_node(element : @xml.NamespaceElement) -> Node {
+  let attrs = Map([])
+  for attr in element.attributes {
+    attrs[qname(attr.name.namespace_uri, attr.name.local_name)] = attr.value
+  }
+  {
+    name: qname(element.name.namespace_uri, element.name.local_name),
+    attrs,
+    children: [],
+    text: "",
+  }
+}
+
+///|
+fn parse_xml(input : String) -> Node raise {
+  let reader = @xml.NamespaceReader::from_string(input)
+  let roots : Array[Node] = []
+  let stack : Array[Node] = []
+  for ;; {
+    match reader.read_event().kind {
+      Start(element) | Empty(element) as event => {
+        let node = element_node(element)
+        if stack.last() is Some(parent) {
+          parent.children.push(node)
+        } else {
+          roots.push(node)
+        }
+        if event is Start(_) {
+          stack.push(node)
+        }
+      }
+      End(_) => ignore(stack.pop())
+      Text(text) | CData(text) =>
+        if stack.last() is Some(parent) {
+          parent.text += text
+        }
+      Eof => break
+      _ => ()
+    }
+  }
+  guard roots is [root] else { fail("XML must have one document element") }
+  root
+}
+
+///|
+struct Extraction {
+  warnings : Map[String, Bool]
+  counts : Map[String, Int]
+  styles : Map[String, Node]
+  nums : Map[String, Node]
+  abstracts : Map[String, Node]
+}
+
+///|
+fn index_children(
+  root : Node?,
+  name : String,
+  key : String,
+) -> Map[String, Node] {
+  let result = Map([])
+  if root is Some(root) {
+    for node in root.children {
+      if node.name == tag(name) && node.attr(key) is Some(identifier) {
+        result[identifier] = node
+      }
+    }
+  }
+  result
+}
+
+///|
+fn Extraction::warn(self : Extraction, value : String) -> Unit {
+  self.warnings[value] = true
+}
+
+///|
+fn Extraction::properties(self : Extraction, node : Node) -> Unit {
+  let name = node.name
+    .strip_prefix("{" + w + "}")
+    .unwrap_or(node.name[:])
+    .to_owned()
+  if ["vanish", "webHidden", "specVanish"].contains(name) &&
+    !["0", "false", "off"].contains(node.attr("val").unwrap_or("true")) {
+    self.warn(
+      "Hidden-text formatting is present; visibility is not resolved and stored text may include hidden runs.",
+    )
+  }
+  if name.has_suffix("Change") ||
+    ["cellIns", "cellDel", "cellMerge"].contains(name) {
+    self.warn(
+      "Tracked revisions are present; revision acceptance and final document state are not resolved.",
+    )
+  }
+  if ["vMerge", "hMerge", "gridSpan"].contains(name) {
+    self.warn(
+      "Merged table cells are present; cell associations are not reconstructed.",
+    )
+  }
+  if name == "numPr" &&
+    node.child("numId") is Some(num_id) &&
+    num_id.attr("val") is Some(identifier) &&
+    identifier != "0" {
+    let formats = match self.nums.get(identifier) {
+      Some(num) =>
+        match num.child("abstractNumId") {
+          Some(abstract_id) =>
+            match self.abstracts.get(abstract_id.attr("val").unwrap_or("")) {
+              Some(definition) =>
+                definition
+                .descendants("numFmt")
+                .map(n => n.attr("val").unwrap_or(""))
+              None => []
+            }
+          None => []
+        }
+      None => []
+    }
+    if formats.is_empty() || formats.any(fmt => fmt != "bullet") {
+      self.warn(
+        "Automatic numbered-list labels are not reconstructed; refer to the source DOCX for numbering.",
+      )
+    }
+  }
+  for child in node.children {
+    self.properties(child)
+  }
+}
+
+///|
+fn Extraction::style_properties(self : Extraction, identifier : String) -> Unit {
+  let seen : Map[String, Bool] = Map([])
+  for identifier = identifier; !seen.contains(identifier); {
+    seen[identifier] = true
+    guard self.styles.get(identifier) is Some(style) else { break }
+    self.properties(style)
+    guard style.child("basedOn") is Some(base) &&
+      base.attr("val") is Some(parent) else {
+      break
+    }
+    continue parent
+  }
+}
+
+///|
+fn Extraction::children(self : Extraction, node : Node) -> String {
+  node.children.map(child => self.render(child)).join("")
+}
+
+///|
+fn without_final_newline(value : String) -> String {
+  value.strip_suffix("\n").unwrap_or(value[:]).to_owned()
+}
+
+///|
+fn Extraction::render(self : Extraction, node : Node) -> String {
+  let name = node.name
+    .strip_prefix("{" + w + "}")
+    .unwrap_or(node.name[:])
+    .to_owned()
+  match name {
+    "p" => {
+      self.counts["paragraphs"] += 1
+      if node.child("pPr") is Some(props) &&
+        props.child("pStyle") is Some(style) &&
+        style.attr("val") is Some(identifier) {
+        self.style_properties(identifier)
+      }
+      self.children(node) + "\n"
+    }
+    "tbl" => {
+      self.counts["tables"] += 1
+      self.children(node)
+    }
+    "tr" => {
+      self.counts["table_rows"] += 1
+      let cells : Array[String] = []
+      for child in node.children {
+        let text = self.render(child)
+        if child.name == tag("tc") || text != "" {
+          cells.push(without_final_newline(text))
+        }
+      }
+      cells.join("\t") + "\n"
+    }
+    "tc" => {
+      self.counts["table_cells"] += 1
+      self.children(node)
+    }
+    "t" => node.text
+    "tab" | "ptab" => "\t"
+    "br" | "cr" => "\n"
+    "noBreakHyphen" => "\u2011"
+    "softHyphen" => "\u00ad"
+    "pPr" | "rPr" | "tblPr" | "tblGrid" | "trPr" | "tcPr" | "sectPr" => {
+      self.properties(node)
+      if name == "rPr" &&
+        node.child("rStyle") is Some(style) &&
+        style.attr("val") is Some(identifier) {
+        self.style_properties(identifier)
+      }
+      ""
+    }
+    "r"
+    | "hyperlink"
+    | "sdtContent"
+    | "smartTag"
+    | "customXml"
+    | "dir"
+    | "bdo" => self.children(node)
+    "bookmarkStart"
+    | "bookmarkEnd"
+    | "proofErr"
+    | "commentRangeStart"
+    | "commentRangeEnd"
+    | "commentReference"
+    | "permStart"
+    | "permEnd"
+    | "lastRenderedPageBreak" => ""
+    "sdt" => {
+      self.warn(
+        "Content controls are present; cached body text is extracted but data bindings are not resolved.",
+      )
+      node.children
+      .filter(child => child.name == tag("sdtContent"))
+      .map(child => self.render(child))
+      .join("")
+    }
+    "drawing" => {
+      self.warn(
+        "Drawing or image content is not extracted (including any text inside it).",
+      )
+      ""
+    }
+    "pict" => {
+      self.warn(
+        "Legacy drawing or image content is not extracted (including any text inside it).",
+      )
+      ""
+    }
+    "object" => {
+      self.warn("Embedded object content is not extracted.")
+      ""
+    }
+    "altChunk" => {
+      self.warn("Imported altChunk content is not extracted.")
+      ""
+    }
+    "footnoteReference" => {
+      self.warn("Referenced footnote content is not extracted.")
+      ""
+    }
+    "endnoteReference" => {
+      self.warn("Referenced endnote content is not extracted.")
+      ""
+    }
+    "del" => {
+      self.warn(
+        "Tracked revisions are present; deleted text is omitted and final document state is not resolved.",
+      )
+      ""
+    }
+    "moveFrom" => {
+      self.warn(
+        "Tracked revisions are present; moved-out text is omitted and final document state is not resolved.",
+      )
+      ""
+    }
+    "sym" => {
+      self.warn("Font-encoded symbol content is not decoded.")
+      ""
+    }
+    "subDoc" => {
+      self.warn("Referenced subdocument content is not extracted.")
+      ""
+    }
+    "ins" | "moveTo" => {
+      self.warn(
+        "Tracked revisions are present; inserted/moved-in text is included without resolving final document state.",
+      )
+      self.children(node)
+    }
+    "fldSimple" | "fldChar" | "instrText" => {
+      self.warn(
+        "Field codes are present; only stored result text is retained and fields are not evaluated.",
+      )
+      if name == "fldSimple" {
+        self.children(node)
+      } else {
+        ""
+      }
+    }
+    "{http://schemas.openxmlformats.org/markup-compatibility/2006}AlternateContent" => {
+      self.warn(
+        "Alternate content is present; alternate representations are omitted to avoid duplicated or misleading text.",
+      )
+      ""
+    }
+    _ => {
+      self.warn(
+        "Unsupported body element " +
+        node.name +
+        "; only recognized descendant text is retained.",
+      )
+      self.children(node)
+    }
+  }
+}
+
+///|
+fn extract_body(
+  document : String,
+  styles : String?,
+  numbering : String?,
+) -> (String, Json) raise {
+  let root = parse_xml(document)
+  guard root.name == tag("document") &&
+    root.children.filter(n => n.name == tag("body")) is [body] else {
+    fail("DOCX must contain one supported WordprocessingML document body")
+  }
+  let styles = match styles {
+    Some(text) => Some(parse_xml(text))
+    None => None
+  }
+  let numbering = match numbering {
+    Some(text) => Some(parse_xml(text))
+    None => None
+  }
+  let extraction : Extraction = {
+    warnings: Map([]),
+    counts: { "paragraphs": 0, "tables": 0, "table_rows": 0, "table_cells": 0 },
+    styles: index_children(styles, "style", "styleId"),
+    nums: index_children(numbering, "num", "numId"),
+    abstracts: index_children(numbering, "abstractNum", "abstractNumId"),
+  }
+  if styles is Some(styles) {
+    if styles.child("docDefaults") is Some(defaults) {
+      extraction.properties(defaults)
+    }
+    for style in styles.children {
+      if style.name == tag("style") &&
+        style.attr("default") is Some("1" | "true") {
+        extraction.properties(style)
+      }
+    }
+  }
+  let text = extraction.children(body)
+  if text.trim().is_empty() {
+    extraction.warn("The main body contains no readable text.")
+  }
+  let warnings = extraction.warnings.keys().to_array()
+  warnings.sort()
+  let description : Json = {
+    "coverage": if warnings.is_empty() {
+      "complete"
+    } else {
+      "partial"
+    },
+    "limitations": (base_limitations + warnings).to_json(),
+    "counts": extraction.counts.to_json(),
+  }
+  (text, description)
+}
+
+///|
+async fn command(program : String, args : Array[String]) -> String {
+  let result = @shell.Cmd(program, args).output()
+  result.check()
+  result.stdout()
+}
+
+///|
+async fn extract_docx(path : String) -> (String, Json) {
+  ignore(command("unzip", ["-tqq", path]))
+  let members = command("unzip", ["-Z1", path])
+    .split("\n")
+    .map(s => s.to_owned())
+    .collect()
+  guard members.contains("[Content_Types].xml") &&
+    members.contains("word/document.xml") else {
+    fail("DOCX must contain [Content_Types].xml and word/document.xml")
+  }
+  // unzip treats member arguments as glob patterns, so bracket characters are escaped.
+  ignore(parse_xml(command("unzip", ["-p", path, "\\[Content_Types\\].xml"])))
+  let document = command("unzip", ["-p", path, "word/document.xml"])
+  let styles = if members.contains("word/styles.xml") {
+    Some(command("unzip", ["-p", path, "word/styles.xml"]))
+  } else {
+    None
+  }
+  let numbering = if members.contains("word/numbering.xml") {
+    Some(command("unzip", ["-p", path, "word/numbering.xml"]))
+  } else {
+    None
+  }
+  extract_body(document, styles, numbering)
+}
+
+///|
+fn digest(bytes : Bytes) -> String {
+  @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+}
+
+///|
+fn field(value : Json, name : String) -> Json raise {
+  guard value is Object(fields) && fields.get(name) is Some(value) else {
+    fail("Missing field " + name)
+  }
+  value
+}
+
+///|
+fn text_field(value : Json, name : String) -> String raise {
+  guard field(value, name) is String(value) else {
+    fail("Expected text field " + name)
+  }
+  value
+}
+
+///|
+fn declared_relative(value : String) -> Unit raise {
+  guard value != "" &&
+    !value.has_prefix("/") &&
+    !value.contains("\\") &&
+    !value.split("/").any(part => part == "" || part == "." || part == "..") else {
+    fail("Invalid declared resource path: " + value)
+  }
+}
+
+///|
+async fn check_contained(root : String, relative : String) -> Unit {
+  declared_relative(relative)
+  let path = root + "/" + relative
+  let parts = relative.split("/").map(s => s.to_owned()).collect()
+  for part in parts; prefix = root {
+    let prefix = prefix + "/" + part
+    if @fs.exists(prefix) && @fs.kind(prefix, follow_symlink=false) == SymLink {
+      fail("Resource symlinks are not packaged copies: " + relative)
+    }
+    continue prefix
+  }
+  if @fs.exists(path) && !@fs.realpath(path).has_prefix(root + "/") {
+    fail("Resource outside packaged root: " + relative)
+  }
+}
+
+///|
+async fn prepare(repository : String, check : Bool) -> Json {
+  let root = @fs.realpath(repository + "/resources/product-documents")
+  let manifest_path = root + "/manifest.json"
+  let manifest = @json.parse(@fs.read_file(manifest_path).text())
+  guard manifest
+    is {
+      "schema": "moonsuite.product-documents.v1",
+      "assets": Array(assets),
+      ..
+    } else {
+    fail("Unsupported resource manifest")
+  }
+  let used : Map[String, Bool] = { "manifest.json": true }
+  for asset in assets {
+    used[text_field(asset, "path")] = true
+  }
+  let pending : Array[(String, String)] = []
+  let mut complete = 0
+  let mut partial = 0
+  let mut total = 0
+  for asset in assets {
+    let docx = text_field(asset, "path")
+    check_contained(root, docx)
+    let source = @fs.read_file(root + "/" + docx).binary()
+    guard asset is Object(fields) else { fail("Expected asset object") }
+    let relative = match fields.get("text_extraction") {
+      Some(record) => text_field(record, "path")
+      None =>
+        "text/" +
+        docx.strip_suffix(".docx").unwrap_or(docx[:]).to_owned() +
+        ".txt"
+    }
+    check_contained(root, relative)
+    guard !used.contains(relative) else {
+      fail("Duplicate extraction resource path: " + relative)
+    }
+    used[relative] = true
+    let (text, description) = extract_docx(root + "/" + docx)
+    let bytes = @utf8.encode(text)
+    let record : Json = {
+      "schema": "moonsuite.product-document-text.v1",
+      "path": relative,
+      "media_type": "text/plain; charset=utf-8",
+      "source_docx_sha256": digest(source),
+      "source_docx_size_bytes": source.length(),
+      "text_sha256": digest(bytes),
+      "size_bytes": bytes.length(),
+      "extraction_version": "docx-body-v1",
+      "coverage": field(description, "coverage"),
+      "limitations": field(description, "limitations"),
+      "counts": field(description, "counts"),
+    }
+    if check {
+      guard fields.get("text_extraction") == Some(record) &&
+        @fs.exists(root + "/" + relative) &&
+        @fs.read_file(root + "/" + relative).binary() == bytes else {
+        fail(
+          "Missing or stale PRD text extraction: " +
+          text_field(asset, "product_id") +
+          "/" +
+          text_field(asset, "document_id"),
+        )
+      }
+    }
+    fields["text_extraction"] = record
+    pending.push((relative, text))
+    if text_field(description, "coverage") == "complete" {
+      complete += 1
+    } else {
+      partial += 1
+    }
+    total += bytes.length()
+  }
+  // Parse every source before writing any resource. DOCX/catalog metadata is never rewritten.
+  if !check {
+    for (relative, text) in pending {
+      let parts = relative.split("/").map(s => s.to_owned()).collect()
+      ignore(parts.pop())
+      let directory = root + "/" + parts.join("/")
+      if !@fs.exists(directory) {
+        @fs.mkdir(directory, recursive=true)
+      }
+      @fs.write_file(root + "/" + relative, text, create_mode=CreateOrTruncate)
+    }
+    @fs.write_file(
+      manifest_path,
+      manifest.stringify(indent=2, escape_slash=false) + "\n",
+      create_mode=CreateOrTruncate,
+    )
+  }
+  {
+    "status": if check {
+      "checked"
+    } else {
+      "prepared"
+    },
+    "text_sidecars": pending.length(),
+    "complete_body_extractions": complete,
+    "partial_body_extractions": partial,
+    "total_text_bytes": total,
+    "extraction_version": "docx-body-v1",
+  }
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args is [_, repository, "--test", source_workspace] {
+    self_test()
+    corpus_test(repository, source_workspace)
+    package_test(repository)
+    return
+  }
+  guard args is [_, repository, .. options] &&
+    options.all(option => option == "--check") else {
+    fail(
+      "Usage: moon run scripts/prepare_product_document_text.mbtx REPOSITORY [--check]",
+    )
+  }
+  println(prepare(repository, options.contains("--check")).stringify(indent=2))
+}
+
+///|
+fn document_fixture(body : String) -> String {
+  "<w:document xmlns:w=\"" +
+  w +
+  "\" xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:x=\"urn:test\"><w:body>" +
+  body +
+  "</w:body></w:document>"
+}
+
+///|
+fn paragraph_fixture(text : String) -> String {
+  "<w:p><w:r><w:t xml:space=\"preserve\">" +
+  @xml.escape(text) +
+  "</w:t></w:r></w:p>"
+}
+
+///|
+fn self_test() -> Unit raise {
+  let p = paragraph_fixture
+  let body = p("Before") +
+    "<w:tbl><w:tr><w:tc>" +
+    p("A") +
+    p("A continued") +
+    "</w:tc><w:tc>" +
+    p("B") +
+    "</w:tc></w:tr><w:tr><w:tc>" +
+    p("C") +
+    "</w:tc><w:tc>" +
+    p("D") +
+    "</w:tc></w:tr></w:tbl>" +
+    "<w:p><w:r><w:t>After </w:t></w:r><w:hyperlink><w:r><w:t>link</w:t><w:tab/><w:t>日本語 🌓</w:t><w:br/><w:t>end</w:t><w:noBreakHyphen/><w:softHyphen/></w:r></w:hyperlink></w:p>"
+  let (text, info) = extract_body(document_fixture(body), None, None)
+  assert_eq(
+    text, "Before\nA\nA continued\tB\nC\tD\nAfter link\t日本語 🌓\nend\u2011\u00ad\n",
+  )
+  assert_eq(text_field(info, "coverage"), "complete")
+  assert_eq(field(info, "counts"), {
+    "paragraphs": 7,
+    "tables": 1,
+    "table_rows": 2,
+    "table_cells": 4,
+  })
+  let (text, _) = extract_body(
+    document_fixture(p("  retained  ") + "<w:p/>" + p("tail & < > 🌓")),
+    None,
+    None,
+  )
+  assert_eq(text, "  retained  \n\ntail & < > 🌓\n")
+  let nested = "<w:tbl><w:tr><w:tc>" +
+    p("outer before") +
+    "<w:tbl><w:tr><w:tc>" +
+    p("inner") +
+    "</w:tc></w:tr></w:tbl>" +
+    p("outer after") +
+    "</w:tc></w:tr></w:tbl>"
+  let (text, info) = extract_body(document_fixture(nested), None, None)
+  assert_eq(text, "outer before\ninner\nouter after\n")
+  assert_eq(field(field(info, "counts"), "tables"), 2)
+  let unsupported = [
+    "<w:p><w:r><w:drawing><w:t>picture text</w:t></w:drawing></w:r></w:p>",
+    "<w:p><w:r><w:pict/></w:r></w:p>",
+    "<w:p><w:r><w:object/></w:r></w:p>",
+    "<w:altChunk/>",
+    "<w:p><w:r><w:footnoteReference w:id=\"1\"/></w:r></w:p>",
+    "<w:p><w:r><w:endnoteReference w:id=\"1\"/></w:r></w:p>",
+    "<w:del><w:p><w:r><w:delText>deleted</w:delText></w:r></w:p></w:del>",
+    "<w:ins>" + p("inserted") + "</w:ins>",
+    "<w:moveFrom>" + p("moved") + "</w:moveFrom>",
+    "<w:moveTo>" + p("moved") + "</w:moveTo>",
+    "<w:p><w:fldSimple w:instr=\"DATE\"><w:r><w:t>cached date</w:t></w:r></w:fldSimple></w:p>",
+    "<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/><w:instrText>DATE</w:instrText><w:t>cached</w:t></w:r></w:p>",
+    "<w:p><w:r><w:sym w:font=\"Wingdings\" w:char=\"F000\"/></w:r></w:p>",
+    "<mc:AlternateContent><mc:Choice Requires=\"x\">" +
+    p("duplicate") +
+    "</mc:Choice><mc:Fallback>" +
+    p("duplicate") +
+    "</mc:Fallback></mc:AlternateContent>",
+    "<w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>hidden</w:t></w:r></w:p>",
+    "<w:p><w:pPr><w:pPrChange/></w:pPr><w:r><w:t>modified</w:t></w:r></w:p>",
+    "<w:sdt><w:sdtContent>" + p("cached binding") + "</w:sdtContent></w:sdt>",
+    "<w:tbl><w:tr><w:tc><w:tcPr><w:gridSpan w:val=\"2\"/></w:tcPr>" +
+    p("merged") +
+    "</w:tc></w:tr></w:tbl>",
+    "<x:future>" + p("retained child") + "</x:future>",
+    "<x:math><x:t>equation</x:t></x:math>",
+  ]
+  for body in unsupported {
+    let (text, info) = extract_body(
+      document_fixture(p("ordinary") + body + p("after")),
+      None,
+      None,
+    )
+    assert_eq(text_field(info, "coverage"), "partial")
+    assert_true(text.has_prefix("ordinary\n") && text.has_suffix("after\n"))
+    assert_true(!text.contains("duplicate"))
+    guard field(info, "limitations") is Array(limits) &&
+      limits.length() > base_limitations.length() else {
+      fail("Missing explicit unsupported-content limitation")
+    }
+  }
+  for
+    invalid in [
+      "<malformed",
+      "<wrong/>",
+      "<w:document xmlns:w=\"" + w + "\"><w:body/><w:body/></w:document>",
+      "<x xmlns='urn:a' xmlns:q='urn:b'><q:y></x>",
+    ] {
+    let rejected = try {
+      ignore(extract_body(invalid, None, None))
+      false
+    } catch {
+      _ => true
+    }
+    assert_true(rejected)
+  }
+  let styled_body = "<w:p><w:pPr><w:pStyle w:val=\"List\"/></w:pPr><w:r><w:t>item</w:t></w:r></w:p>"
+  let styles = "<w:styles xmlns:w=\"" +
+    w +
+    "\"><w:style w:styleId=\"List\"><w:pPr><w:numPr><w:numId w:val=\"1\"/></w:numPr></w:pPr></w:style></w:styles>"
+  for (format, coverage) in [("bullet", "complete"), ("decimal", "partial")] {
+    let numbering = "<w:numbering xmlns:w=\"" +
+      w +
+      "\"><w:num w:numId=\"1\"><w:abstractNumId w:val=\"1\"/></w:num><w:abstractNum w:abstractNumId=\"1\"><w:lvl w:ilvl=\"0\"><w:numFmt w:val=\"" +
+      format +
+      "\"/></w:lvl></w:abstractNum></w:numbering>"
+    let (text, info) = extract_body(
+      document_fixture(styled_body),
+      Some(styles),
+      Some(numbering),
+    )
+    assert_eq(text, "item\n")
+    assert_eq(text_field(info, "coverage"), coverage)
+  }
+  let styles = "<w:styles xmlns:w=\"" +
+    w +
+    "\"><w:style w:styleId=\"List\"><w:basedOn w:val=\"Parent\"/></w:style><w:style w:styleId=\"Parent\"><w:rPr><w:vanish/></w:rPr></w:style></w:styles>"
+  assert_eq(
+    text_field(
+      extract_body(document_fixture(styled_body), Some(styles), None).1,
+      "coverage",
+    ),
+    "partial",
+  )
+  assert_eq(
+    text_field(extract_body(document_fixture(""), None, None).1, "coverage"),
+    "partial",
+  )
+  let defaults = "<w:styles xmlns:w=\"" +
+    w +
+    "\"><w:docDefaults><w:rPrDefault><w:rPr><w:vanish/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>"
+  assert_eq(
+    text_field(
+      extract_body(document_fixture(p("hidden default")), Some(defaults), None).1,
+      "coverage",
+    ),
+    "partial",
+  )
+  let alias_document = "<z:document xmlns:z=\"" +
+    w +
+    "\"><z:body><z:p><z:r><z:t>&#x1F313; &amp; <![CDATA[<raw>]]></z:t></z:r></z:p></z:body></z:document>"
+  assert_eq(extract_body(alias_document, None, None).0, "🌓 & <raw>\n")
+  for
+    invalid in [
+      "../outside.txt", "/tmp/outside.txt", "text/../outside.txt", "text//extra.txt",
+      "text\\outside.txt",
+    ] {
+    assert_true(
+      try {
+        declared_relative(invalid)
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  println(
+    "PASS: paragraph/table/Unicode order, empty text, XML namespaces/entities, 20 unsupported-content fixtures, numbered/bulleted/inherited/default styles, malformed XML, and declared paths",
+  )
+}
+
+///|
+fn array_field(value : Json, name : String) -> Array[Json] raise {
+  guard field(value, name) is Array(values) else {
+    fail("Expected array field " + name)
+  }
+  values
+}
+
+///|
+fn assert_includes(text : String, value : Json) -> Unit raise {
+  guard value is String(value) else { fail("Expected source text") }
+  assert_true(text.contains(value), msg="Missing source text: " + value)
+}
+
+///|
+async fn corpus_test(repository : String, source_workspace : String) -> Unit {
+  let root = repository + "/resources/product-documents"
+  let manifest = @json.parse(@fs.read_file(root + "/manifest.json").text())
+  let assets = array_field(manifest, "assets")
+  assert_eq(assets.length(), 20)
+  let mut requirements = 0
+  let mut acceptance = 0
+  let mut non_goals = 0
+  let mut workflows = 0
+  let mut quality = 0
+  for asset in assets {
+    let record = field(asset, "text_extraction")
+    let text = @fs.read_file(root + "/" + text_field(record, "path")).text()
+    let source = parse_xml(
+      command("unzip", [
+        "-p",
+        root + "/" + text_field(asset, "path"),
+        "word/document.xml",
+      ]),
+    )
+    let body = source.child("body").unwrap()
+    for run in body.descendants("t"); remaining = text {
+      guard remaining.find(run.text) is Some(found) else {
+        fail("Lost or reordered source run: " + run.text)
+      }
+      continue remaining[found + run.text.length():].to_owned()
+    }
+    assert_eq(
+      field(field(record, "counts"), "paragraphs"),
+      body.descendants("p").length().to_json(),
+    )
+    assert_eq(field(field(record, "counts"), "tables"), 1)
+    assert_true(
+      text.contains("Scope\tRequirement count\tEvidence distribution\n"),
+    )
+    assert_true(
+      text.contains(
+        "Verified local means a bounded behavior was directly exercised.",
+      ),
+    )
+    assert_true(text.contains("Sources and coverage"))
+    let authored = @json.parse(
+      @fs.read_file(
+        source_workspace + "/" + text_field(asset, "definition_path"),
+      ).text(),
+    )
+    assert_includes(text, field(authored, "summary"))
+    for value in array_field(authored, "philosophy") {
+      assert_includes(text, value)
+    }
+    for item in array_field(authored, "requirements") {
+      requirements += 1
+      assert_includes(text, field(item, "id"))
+      assert_includes(text, field(item, "statement"))
+      for value in array_field(item, "acceptance") {
+        assert_includes(text, value)
+        acceptance += 1
+      }
+    }
+    for item in array_field(authored, "quality") {
+      quality += 1
+      for key in ["id", "requirement", "test"] {
+        assert_includes(text, field(item, key))
+      }
+    }
+    for item in array_field(authored, "workflows") {
+      workflows += 1
+      for key in ["id", "trigger", "edge", "failure", "acceptance"] {
+        assert_includes(text, field(item, key))
+      }
+      for value in array_field(item, "happy") {
+        assert_includes(text, value)
+      }
+    }
+    for value in array_field(authored, "non_goals") {
+      assert_includes(text, value)
+      non_goals += 1
+    }
+  }
+  assert_eq(requirements, 242)
+  assert_eq(acceptance, 666)
+  assert_eq(non_goals, 82)
+  assert_eq(workflows, 138)
+  assert_eq(quality, 102)
+  println(
+    "PASS: 20 real DOCX documents; every stored text run in order; 242 requirements, 666 acceptance statements, 82 non-goals, 138 workflow criteria, 102 quality requirements; renderer-only evidence text retained",
+  )
+}
+
+///|
+async fn resource_snapshot(root : String) -> Map[String, Bytes] {
+  let result : Map[String, Bytes] = Map([])
+  @fs.walk(root, (directory, names) => {
+    for name in names {
+      let path = directory + "/" + name
+      if @fs.kind(path) == Regular {
+        result[path] = @fs.read_file(path).binary()
+      }
+    }
+  })
+  result
+}
+
+///|
+async fn package_test(repository : String) -> Unit {
+  let temp = @fs.tmpdir(prefix="moonproj-prd-text-")
+  let root = temp + "/resources/product-documents"
+  @fs.mkdir(temp + "/resources")
+  ignore(
+    command("cp", ["-R", repository + "/resources/product-documents", root]),
+  )
+  let before = resource_snapshot(root)
+  ignore(prepare(temp, false))
+  let first = resource_snapshot(root)
+  ignore(prepare(temp, false))
+  assert_eq(first, resource_snapshot(root))
+  // Manifest pretty-print normalization may differ from a different JSON writer.
+  for path, bytes in before {
+    if !path.has_suffix("/manifest.json") {
+      assert_eq(first[path], bytes)
+    }
+  }
+  assert_eq(field(prepare(temp, true), "complete_body_extractions"), 20)
+  let manifest_path = root + "/manifest.json"
+  let original_manifest = @fs.read_file(manifest_path).text()
+  let manifest = @json.parse(original_manifest)
+  let assets = array_field(manifest, "assets")
+  let first_asset = assets[0]
+  let record = field(first_asset, "text_extraction")
+  let text_path = root + "/" + text_field(record, "path")
+  let original_text = @fs.read_file(text_path).binary()
+  @fs.write_file(
+    text_path,
+    "A lossy product summary",
+    create_mode=CreateOrTruncate,
+  )
+  assert_true(
+    try {
+      ignore(prepare(temp, true))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  @fs.write_file(text_path, original_text, create_mode=CreateOrTruncate)
+  @fs.remove(text_path)
+  assert_true(
+    try {
+      ignore(prepare(temp, true))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  @fs.write_file(text_path, original_text, create_mode=CreateNew)
+  let last_asset = assets[assets.length() - 1]
+  let docx_path = root + "/" + text_field(last_asset, "path")
+  let original_docx = @fs.read_file(docx_path).binary()
+  @fs.write_file(docx_path, "broken archive", create_mode=CreateOrTruncate)
+  let malformed_before = resource_snapshot(root)
+  assert_true(
+    try {
+      ignore(prepare(temp, false))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_eq(malformed_before, resource_snapshot(root))
+  @fs.write_file(docx_path, original_docx, create_mode=CreateOrTruncate)
+  // Exercise an unsupported future DOCX and a malformed XML member using zip.
+  let fixture_root = temp + "/fixture"
+  @fs.mkdir(fixture_root + "/word", recursive=true)
+  @fs.write_file(
+    fixture_root + "/[Content_Types].xml",
+    "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"/>",
+    create_mode=CreateNew,
+  )
+  @fs.write_file(
+    fixture_root + "/word/document.xml",
+    document_fixture(paragraph_fixture("Readable") + "<w:altChunk/>"),
+    create_mode=CreateNew,
+  )
+  let fixture_docx = temp + "/fixture.docx"
+  @shell.Cmd(
+    "zip",
+    ["-q", fixture_docx, "[Content_Types].xml", "word/document.xml"],
+    cwd=fixture_root,
+  ).run()
+  @fs.write_file(
+    docx_path,
+    @fs.read_file(fixture_docx),
+    create_mode=CreateOrTruncate,
+  )
+  assert_true(
+    try {
+      ignore(prepare(temp, true))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_eq(field(prepare(temp, false), "partial_body_extractions"), 1)
+  assert_eq(field(prepare(temp, true), "partial_body_extractions"), 1)
+  let fresh_assets = array_field(
+    @json.parse(@fs.read_file(manifest_path).text()),
+    "assets",
+  )
+  let fresh_asset = fresh_assets[fresh_assets.length() - 1]
+  assert_eq(
+    field(fresh_asset, "packaged_sha256"),
+    field(last_asset, "packaged_sha256"),
+  )
+  assert_true(
+    field(field(fresh_asset, "text_extraction"), "source_docx_sha256") !=
+    field(last_asset, "packaged_sha256"),
+  )
+  @fs.write_file(
+    fixture_root + "/word/document.xml",
+    "<malformed",
+    create_mode=CreateOrTruncate,
+  )
+  @fs.remove(fixture_docx)
+  @shell.Cmd(
+    "zip",
+    ["-q", fixture_docx, "[Content_Types].xml", "word/document.xml"],
+    cwd=fixture_root,
+  ).run()
+  assert_true(
+    try {
+      ignore(extract_docx(fixture_docx))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  @fs.rmdir(temp, recursive=true)
+  println(
+    "PASS: deterministic regeneration, unchanged DOCX/sidecar bytes, stale/missing sidecars, corrupt ZIP and malformed XML, all-source-before-write behavior, partial future DOCX, preserved original snapshot hashes",
+  )
+}

@@ -1,0 +1,298 @@
+MoonDesk product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonDesk should be the human inspection and intervention workbench for sources, files and agent output. The verified local web path demonstrates bounded browsing and document-selection continuity. Native desktop distribution, long-lived sessions and broad host integrations remain separate qualification work.
+Repository maturity claim local single-user alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+The founder needs to open the exact artifact, see what changed and decide what to accept. MoonDesk should preserve the current commitment context while exposing supported file actions and honest dependency states. It should not create a second company ledger or duplicate the accepted knowledge store.
+Progressive disclosure is a product requirement: browse, inspect and review come first. Code editing, Office editing, graphs and domain packs appear when the task and installed capabilities need them. A rich desktop shell only creates leverage when it lowers the time and confusion between a work result and a human decision.
+Users and jobs
+human workspace operator
+Locate the correct workspace item and choose a supported action.
+Trigger A file, inbox item or favorite needs inspection or an edit.
+Successful outcome The selected path and context persist, and unsupported actions are explicit.
+founder inspecting work
+Inspect the exact output of a company commitment and resolve the next review decision.
+Trigger A produced artifact or unresolved discrepancy is ready for human attention.
+Successful outcome The founder sees source, criterion, file version and blocker in one context.
+reviewer editor
+Compare and safely edit supported content, then record a bounded review.
+Trigger A document requires correction or an external edit creates a conflict.
+Successful outcome Save and apply preserve original bytes and make review scope unambiguous.
+pack application user
+Use a domain pack through its genuine configured host surface.
+Trigger A task needs a specialist capability beyond generic file inspection.
+Successful outcome Installed capabilities and authority are clear, with domain meaning owned by the pack.
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	6	Verified local: 1; Source documented: 3; Blocked: 2
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior web-only synthetic browse/Markdown/DOCX journey and targeted 78/78 tests; Markdown unsupported viewer action was corrected, supported DOCX selected path persisted.
+Evidence Native macOS launch was denied with 'Application ChatGPT Computer Use has no permission to open (null)'; no native UX qualification was claimed.
+Open gap Clean-machine signed/notarized app and long lifecycle soak not proven.
+Open gap No verified shared MoonProj founder packet task ID in Desk inspection/review.
+Open gap Full 63-stage graph live end-to-end requires installed catalog, adapters and authorities; inventory rows are not readiness.
+User scenarios
+Workspace browse search favorites inbox preview
+MOONDESK-UC01 | Baseline scope. Find and inspect a real workspace file.
+1. Browse or search the workspace using favorites or inbox context.
+2. Select the real file and show a supported preview rather than an unrelated empty workspace.
+3. Navigate or reload while retaining the supported selected document path.
+Edge case Markdown must not offer an unsupported Wiki document action; DOCX selection uses the supported route.
+Failure and recovery Missing or moved files yield a clear unavailable state and preserve the surrounding workspace context.
+Acceptance Reproduce the web Markdown and DOCX paths; supported DOCX selection persists after handoff and reload.
+Evidence references README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status
+Direct code and bounded DOCX XLSX PPTX editing with review compare
+MOONDESK-UC02 | Baseline scope. Edit a supported code or Office document safely.
+1. Open a file whose format and feature subset are supported.
+2. Edit with semantic changes and compare the result against the saved version.
+3. Validate apply, save and reload while preserving conflicts and unsupported content.
+Edge case An unsupported Office feature cannot be silently discarded or presented as faithfully editable.
+Failure and recovery External modification creates a recoverable conflict; failed apply leaves the original file intact.
+Acceptance For code and supported DOCX/XLSX/PPTX fixtures, verify save/reload, diff and conflict preservation separately.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/EXECUTABLE_DOCUMENT_UX.md
+MoonWiki MoonCode sessions and MoonClaw review control
+MOONDESK-UC03 | Baseline scope. Review runtime work and durable book state.
+1. Open the projected MoonBook or MoonClaw journal for the selected work.
+2. Use configured service descriptors to launch optional sessions or sidecars.
+3. Inspect run results and return a bounded review decision to the owning service.
+Edge case Selecting a service or viewing a journal does not grant new execution authority.
+Failure and recovery An absent sidecar remains unavailable with a repairable configuration message; the shell must not simulate a running session.
+Acceptance A configured host round-trip demonstrates that Desk projects Book truth and Claw state without taking ownership of either.
+Evidence references README.mbt.md; README.md#Optional MoonTown Service
+Universal Find   Add  document conversations and anchored discussions
+MOONDESK-UC04 | Baseline scope. Find linked material and discuss an anchored item.
+1. Search files, code, book knowledge, tasks, runs, reviews and artifacts.
+2. Add only the selected material to a document conversation or anchored discussion.
+3. Recover the thread within its documented local or server boundary.
+Edge case A changed artifact needs a stale-anchor warning rather than attaching old comments to unrelated new content.
+Failure and recovery An unavailable index or server should state the search/recovery scope and preserve unsent local content.
+Acceptance Search results reveal source type and exact target; anchored comments remain bound or explicitly stale after edits.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status
+Published Work graph composition and MoonFlow import
+MOONDESK-UC05 | Baseline scope. Compose and import a Published Work graph.
+1. Select nodes from the exact capability catalog and validate schema versions.
+2. Check adapter health, compatibility and required authority before import.
+3. Import the declared graph into MoonFlow and show pending review or execution state.
+Edge case Catalog inventory or selection alone does not establish installed health or permission.
+Failure and recovery Incompatible, unhealthy or unauthorized nodes block activation and identify the offending edge or capability.
+Acceptance A valid graph imports only after all checks; fixture-only graph rows cannot appear executable.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability-truth rule
+Evidence Watch and Work Package export
+MOONDESK-UC06 | Baseline scope. Watch evidence and export a reviewable work package.
+1. Configure the source and purpose of an Evidence Watch through its wizard.
+2. Provision the owning Book/Town records and inspect the resulting watch status.
+3. Export visible work, reviews, sources and warnings as an HTML Work Package.
+Edge case Export must not include hidden reasoning, credentials or material outside the selected package.
+Failure and recovery A partially configured watch remains incomplete; missing evidence in an export stays visible as a warning.
+Acceptance An exported package opens independently with its visible evidence and warnings; the watch names its actual owning service.
+Evidence references README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status
+One commitment workspace
+MOONDESK-F01 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Open a MoonProj commitment with its stable ID.
+2. Show exact source, work packet, artifact versions and pending reviews in one workspace.
+3. Retain the same context when changing viewers or returning after interruption.
+Edge case Multiple artifact versions must not collapse into one ambiguous file selection.
+Failure and recovery A broken link preserves the commitment and identifies the unavailable record.
+Acceptance The founder reaches each acceptance-critical file without reconstructing paths manually.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Inspection to acceptance handoff
+MOONDESK-F02 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Inspect the exact artifact and compare it with the accepted criterion.
+2. Record the named internal reviewer and the artifact digest.
+3. Return the receipt to MoonProj while leaving external customer acceptance independent.
+Edge case A file changed after review invalidates reuse of the old receipt.
+Failure and recovery A failed receipt submission remains pending and retries safely without duplicate acceptance.
+Acceptance MoonProj can open the reviewed version and sees internal inspection separately from customer response.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Beginner progressive disclosure
+MOONDESK-F03 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Show today's relevant source, work and review decisions on first entry.
+2. Reveal advanced pack, code, Office and canvas controls in task context.
+3. Keep a direct path for experienced operators to reach full tools.
+Edge case An unconfigured feature should not occupy the primary navigation as an apparently ready action.
+Failure and recovery If personalization state is lost, default to a simple truthful workspace rather than an empty advanced canvas.
+Acceptance A beginner can inspect and review one artifact without learning the full pack and graph vocabulary.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Workspace browse search favorites inbox preview
+MOONDESK-B01 | Baseline | P0 | Verified local
+The product shall support this bounded outcome: Navigate or reload while retaining the supported selected document path. It shall preserve the boundary: Markdown must not offer an unsupported Wiki document action; DOCX selection uses the supported route.
+Evidence Prior web journey traversed synthetic MoonBook Markdown and DOCX; native app could not be launched under current Mac permission restriction.; README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Exercise the stated scenario from its named starting state. Reproduce the web Markdown and DOCX paths; supported DOCX selection persists after handoff and reload.
+2. Inject the boundary or interruption case. Missing or moved files yield a clear unavailable state and preserve the surrounding workspace context.
+Dependencies MoonDesk projects MoonBook and MoonClaw records; it does not own accepted knowledge or model reasoning.
+Direct code and bounded DOCX XLSX PPTX editing with review compare
+MOONDESK-B02 | Baseline | P0 | Source documented
+The product shall support this bounded outcome: Validate apply, save and reload while preserving conflicts and unsupported content. It shall preserve the boundary: An unsupported Office feature cannot be silently discarded or presented as faithfully editable.
+Evidence Contract documents save/reload/diff/conflict preservation, semantic change labels and validated apply for supported Office subset.; docs/PRODUCT_CONTRACT.md#Capability status; docs/EXECUTABLE_DOCUMENT_UX.md
+Test 1. Exercise the stated scenario from its named starting state. For code and supported DOCX/XLSX/PPTX fixtures, verify save/reload, diff and conflict preservation separately.
+2. Inject the boundary or interruption case. External modification creates a recoverable conflict; failed apply leaves the original file intact.
+Dependencies MoonDesk projects MoonBook and MoonClaw records; it does not own accepted knowledge or model reasoning.
+MoonWiki MoonCode sessions and MoonClaw review control
+MOONDESK-B03 | Baseline | P0 | Blocked
+The product shall support this bounded outcome: Inspect run results and return a bounded review decision to the owning service. It shall preserve the boundary: Selecting a service or viewing a journal does not grant new execution authority.
+Evidence Host projects durable book truth and runtime journals; configured service descriptor is required for launching optional MoonClaw/MoonTown sidecars.; README.mbt.md; README.md#Optional MoonTown Service
+Test 1. Exercise the stated scenario from its named starting state. A configured host round-trip demonstrates that Desk projects Book truth and Claw state without taking ownership of either.
+2. Inject the boundary or interruption case. An absent sidecar remains unavailable with a repairable configuration message; the shell must not simulate a running session.
+Dependencies MoonDesk projects MoonBook and MoonClaw records; it does not own accepted knowledge or model reasoning.
+Universal Find   Add  document conversations and anchored discussions
+MOONDESK-B04 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Recover the thread within its documented local or server boundary. It shall preserve the boundary: A changed artifact needs a stale-anchor warning rather than attaching old comments to unrelated new content.
+Evidence Search spans files, code, book knowledge, tasks, runs, reviews, artifacts; follow-up and conversations have bounded local/server recovery behavior.; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Exercise the stated scenario from its named starting state. Search results reveal source type and exact target; anchored comments remain bound or explicitly stale after edits.
+2. Inject the boundary or interruption case. An unavailable index or server should state the search/recovery scope and preserve unsent local content.
+Dependencies MoonDesk projects MoonBook and MoonClaw records; it does not own accepted knowledge or model reasoning.
+Published Work graph composition and MoonFlow import
+MOONDESK-B05 | Baseline | P1 | Blocked
+The product shall support this bounded outcome: Import the declared graph into MoonFlow and show pending review or execution state. It shall preserve the boundary: Catalog inventory or selection alone does not establish installed health or permission.
+Evidence Only exact catalog-compatible nodes with healthy adapters are executable; selection alone grants no authority.; docs/PRODUCT_CONTRACT.md#Capability-truth rule
+Test 1. Exercise the stated scenario from its named starting state. A valid graph imports only after all checks; fixture-only graph rows cannot appear executable.
+2. Inject the boundary or interruption case. Incompatible, unhealthy or unauthorized nodes block activation and identify the offending edge or capability.
+Dependencies MoonDesk projects MoonBook and MoonClaw records; it does not own accepted knowledge or model reasoning.
+Evidence Watch and Work Package export
+MOONDESK-B06 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Export visible work, reviews, sources and warnings as an HTML Work Package. It shall preserve the boundary: Export must not include hidden reasoning, credentials or material outside the selected package.
+Evidence Wizard provisions a MoonBook/MoonTown watch; HTML export bundles visible work/reviews/sources and warnings, not hidden reasoning.; README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Exercise the stated scenario from its named starting state. An exported package opens independently with its visible evidence and warnings; the watch names its actual owning service.
+2. Inject the boundary or interruption case. A partially configured watch remains incomplete; missing evidence in an export stays visible as a warning.
+Dependencies MoonDesk projects MoonBook and MoonClaw records; it does not own accepted knowledge or model reasoning.
+One commitment workspace
+MOONDESK-R01 | Roadmap | P1 | Proposed
+Founder opens a MoonProj commitment and sees its exact source, work packet, produced files, review decisions and unresolved blockers without reconstructing paths. Multiple artifact versions must not collapse into one ambiguous file selection.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. The founder reaches each acceptance-critical file without reconstructing paths manually.
+2. A broken link preserves the commitment and identifies the unavailable record.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Inspection to acceptance handoff
+MOONDESK-R02 | Roadmap | P1 | Proposed
+A reviewed artifact in Desk returns a digest-bound, named receipt to MoonProj; internal inspection is visibly distinct from customer acceptance. A file changed after review invalidates reuse of the old receipt.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. MoonProj can open the reviewed version and sees internal inspection separately from customer response.
+2. A failed receipt submission remains pending and retries safely without duplicate acceptance.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Beginner progressive disclosure
+MOONDESK-R03 | Roadmap | P2 | Proposed
+Default navigation shows today's source/work/review decisions; advanced pack/canvas machinery appears only when configured and relevant. An unconfigured feature should not occupy the primary navigation as an apparently ready action.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A beginner can inspect and review one artifact without learning the full pack and graph vocabulary.
+2. If personalization state is lost, default to a simple truthful workspace rather than an empty advanced canvas.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Data state and authority
+Workspace files and edit sessions
+Owner Filesystem owner; Desk owns the local interaction and edit session
+State model Selected, previewed, edited, validated, saved, conflict or recovery needed
+Write authority File write permissions and chosen apply action bound edits
+Retention and recovery Keep originals and recoverable edit history where supported; do not equate preview cache with source
+Review and conversation projection
+Owner Owning Book, Claw or domain service; Desk owns UI anchors
+State model Loaded, locally drafted, submitted, confirmed or stale
+Write authority Named reviewer approves only exact artifact and allowed operation
+Retention and recovery Persist according to declared local/server mode and expose incomplete recovery
+Work graph and package
+Owner Desk composition with MoonFlow lifecycle ownership
+State model Draft graph, validated import, pending review, activated elsewhere; package exported
+Write authority Catalog selection confers no runtime authority
+Retention and recovery Keep exact catalog/version references and visible export warnings
+Interfaces and handoffs
+MoonBook and MoonClaw
+Payload Book projections, run journals, review controls and session references
+Contract Desk is the human surface, not accepted-knowledge or model-runtime owner
+Failure behavior Unavailable services retain clear status and do not become synthetic local truth
+MoonLeaf and MoonEdit
+Payload Supported file sessions, operations, validation and conflict records
+Contract Core format/editor contracts define supported edits; host UX requires separate acceptance
+Failure behavior Unsupported operations fail safely and preserve file bytes
+MoonFlow and domain packs
+Payload moonsuite.work-model.v1 and moonflow.capability-catalog.v1 graph payloads
+Contract Exact schema, version, authority and healthy adapter match are all required
+Failure behavior Reject incompatible nodes before activation; domain packs provide their own domain UI
+Nonfunctional requirements
+Safe file handling
+MOONDESK-N01
+Preview and bounded edit must preserve unsupported data, external modifications and original bytes when apply fails.
+Acceptance test Exercise unsupported Office content, malformed files and concurrent external edits; verify fail-safe recovery and clear unsupported labels.
+Evidence status Source documented
+Context continuity
+MOONDESK-N02
+Supported document path and selection survive navigation and reload without routing a file type to an unsupported viewer.
+Acceptance test Repeat synthetic Markdown and DOCX navigation fixtures and verify exact selected DOCX path after reload.
+Evidence status Verified local
+Native lifecycle qualification
+MOONDESK-N03
+Desktop launch, installation trust, permissions, long-lived sessions and recovery must be qualified on a clean supported machine.
+Acceptance test Run an authorized clean-machine install and interruption soak with the actual native host; report permission blockers separately.
+Evidence status Unknown
+Export privacy
+MOONDESK-N04
+Work Package export includes selected visible evidence, review records and warnings only.
+Acceptance test Inspect an export with private unrelated files and secret-like configuration present outside scope; confirm their exclusion.
+Evidence status Proposed
+Accessible inspection
+MOONDESK-N05
+Core browse, preview, compare and review actions need keyboard navigation, readable focus and non-color-only status.
+Acceptance test Complete one review using keyboard and accessibility inspection, including conflict and missing-service paths.
+Evidence status Unknown
+Delivery roadmap
+Phase 1 Qualify the baseline
+Reproduce the product's critical local, contract and configured paths with exact versions and observable receipts. Close missing prerequisites without widening authority.
+Requirements MOONDESK-B01, MOONDESK-B02, MOONDESK-B03, MOONDESK-B04, MOONDESK-B05, MOONDESK-B06
+Exit gate Every P0 baseline acceptance has an explicit result and evidence locator; unresolved dependency and integration states remain visible.
+Phase 2 Complete one connected outcome
+Implement the smallest useful cross-product scenario and test review, interruption and recovery with real authorized inputs.
+Requirements MOONDESK-R01, MOONDESK-R02
+Exit gate A named user accepts the exact output and can recover its evidence chain without reconstructing identities manually.
+Phase 3 Expand only after measured value
+Add remaining proposed workflows where observed use demonstrates reduced coordination cost or a distinct required capability.
+Requirements MOONDESK-R03
+Exit gate Measure the outcome against the simpler alternative, include review overhead, and retain the ability to stop or narrow low-value scope.
+Outcome measurement
+Inspection completion time
+Time from selecting a commitment to opening the correct artifact and criterion
+Measurement Observe beginner and expert tasks separately in web and native hosts
+Target Establish baseline before promising improvement
+Wrong context incidents
+Reviews or edits attempted against the wrong file, version or commitment
+Measurement Log recoverable mismatch detections and confirmed incidents separately
+Target Zero silent wrong-version acceptance in qualification fixtures
+Recovery success
+Interrupted sessions restored with correct file and explicit unsaved/conflict state
+Measurement Inject reload, moved file, service outage and external file modification
+Target Require deterministic recovery for supported paths; native soak remains unmeasured
+Non goals
+A separate authoritative company ledger or accepted knowledge store
+Claiming full Office fidelity for an explicitly bounded subset
+Turning capability catalog inventory into readiness or authority
+Claiming native qualification from a web-only journey
+Alternatives and optimality
+File manager plus existing editor
+Advantage Familiar tools and low onboarding cost
+Cost Cross-app evidence and review context can be lost
+When to choose Use for isolated files if Desk cannot reduce inspection time
+Each domain app with its own review surface
+Advantage Preserves specialist workflow and terminology
+Cost Repeated navigation and inconsistent review state increase burden
+When to choose Prefer for deep domain operations; keep Desk as a common inspection entry rather than replacing every app
+A human evidence workbench is a clear role, but feature breadth currently risks overwhelming the beginning founder. The proposed commitment workspace is worthwhile if it measurably reduces wrong-file review and context reconstruction.
+The PRD should gate each host path independently. A stable editor core, web preview and native app have different acceptance obligations. Clean-machine native installation and lifecycle recovery are prerequisites to a mature desktop claim.
+Keep advanced graph composition behind installed-capability evidence. A simple browse-to-review path with precise errors is more useful than a complete-looking canvas that cannot actually run.
+Open product decisions
+Decision Which three actions belong on the default founder surface?
+Recommendation Start with browse source, inspect result and resolve review; reveal specialist actions contextually.
+Consequence Exposing every mode at first run increases learning cost without proving value.
+Decision What is the first native desktop release gate?
+Recommendation Require clean-machine launch, supported file selection, save/reload and interruption recovery before a native maturity claim.
+Consequence The prior permission-denied launch leaves native UX unqualified rather than disproven.
+Sources and coverage
+Repository paths below are relative to moondesk. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+README.md
+docs/PRODUCT_CONTRACT.md
+docs/FIRST_RUN_AND_VOCABULARY.md (section index)
+docs/EXECUTABLE_DOCUMENT_UX.md
+Moon Luna investigation ledger dated 30 September 2026 version 3
+OPC OS consolidated product evidence and source index dated 30 September 2026
+Coverage remains partial. Areas not exhaustively inspected include 72 docs in full; clean-machine native application UI under denied launch permission; each editor and pack host interaction. Current acceptance statements define what must be demonstrated and do not upgrade source-only claims. No commercial, provider or physical outcome is inferred from local tests.

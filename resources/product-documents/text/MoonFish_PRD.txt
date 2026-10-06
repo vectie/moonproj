@@ -1,0 +1,340 @@
+MoonFish product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonFish is a governed, shadow-only financial research pack for A-shares and exchangeable bonds. Its frozen baseline produces deterministic research, independent challenge, named paper release and attributable paper outcomes. It must never submit a trade or change company cash. Local follow-up tests passed 8/8; licensed point-in-time data, permitted commercial use and the required 120 forward shadow sessions remain unverified. These are release gates, not evidence that the product has failed them.
+Repository maturity claim shadow-only alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A useful research product makes the chain from market observation to paper decision inspectable. Price policy, data cutoff, factor evidence, contradictions and invalidation belong beside the conclusion. A model may explain or challenge a deterministic result but may not quietly change scores, weights, exits or the governing 40–65-session policy. A 10× outcome is an extreme bull scenario, never an expected return or default sales claim.
+For a one-person company, this pack belongs only in a legitimate financial research offer or a separately governed research activity. A founder can commit to producing an inspected research packet and learn from paper results; that commitment is distinct from investment execution, client acceptance and cash receipt. MoonProj remains responsible for business accounting. The first product should be a repeatable shadow research service rather than a broad autonomous investing workspace.
+Users and jobs
+Financial researcher
+Produce a small defensible candidate set
+Trigger A licensed daily data bundle closes
+Successful outcome Can reproduce each score and explain exclusions
+Investment policy reviewer
+Challenge evidence and approve paper release
+Trigger Bull and bear reviews are ready
+Successful outcome Sees disagreements and the exact policy revision before signing
+Paper account operator
+Record and reconcile hypothetical outcomes
+Trigger A released plan reaches its next session
+Successful outcome Maintains an immutable, after-cost paper history without broker authority
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Blocked: 2; Source documented: 8
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior local JS follow-up 8/8 passed; no licensed market data, 120-session live shadow evidence or financial transaction tested.
+Open gap Customer-owned licensed data and commercial permitted-use evidence absent from this review.
+Open gap Forward-only shadow period not accrued in verified evidence.
+Open gap No live broker integration by design; product fit depends on a narrow buyer and regulated use context.
+User scenarios
+A share candidate dossier and next session plan
+MF-W01 | Baseline scope. A researcher requests the next session screen
+1. Bind the licensed point-in-time bundle, cutoff and exact policy revision
+2. Compute a deterministic set of zero to five candidates
+3. Inspect factor evidence, contradictions, entry context, goal and invalidation
+4. Save a next-session paper plan for review
+Edge case Zero eligible candidates is a complete result; missing observations cannot be replaced with current hindsight data.
+Failure and recovery A stale bundle or undefined policy boundary blocks release and preserves an incomplete dossier for correction.
+Acceptance Replaying identical inputs returns identical candidates; a plan outside the declared 40–65-session policy is rejected.
+Evidence references docs/PRODUCT_CONTRACT.md#User-visible recommendation; README.mbt.md#Product Scope And Boundary
+Independent challenge and named release
+MF-W02 | Baseline scope. A scored dossier awaits review
+1. Freeze scores and source references
+2. Collect separately attributed bull and bear challenges
+3. Record reviewer disposition of unresolved contradictions
+4. Release only the exact reviewed paper revision
+Edge case A persuasive narrative cannot override a deterministic exit; disagreement can remain visible in a withheld recommendation.
+Failure and recovery Missing reviewer identity or changed evidence invalidates release and returns the packet to review.
+Acceptance The release records who reviewed which revision; altered weights require a new policy revision, not a prose edit.
+Evidence references docs/PRODUCT_CONTRACT.md#Data and recommendation policy
+Paper account replay backtest and attribution
+MF-W03 | Baseline scope. A released plan produces a hypothetical fill or exit
+1. Record paper assumptions and costs
+2. Append immutable account and NAV revisions
+3. Replay or backtest with explicit historical mode
+4. Attribute realized after-cost outcomes to the original policy
+5. Accrue eligible forward shadow sessions separately
+Edge case A backtest with 120 observations is not 120 forward sessions; a no-position session remains identifiable.
+Failure and recovery A duplicate event returns its existing revision; a broken parent chain stops account advancement.
+Acceptance Recompute NAV and attribution from stored events; account labels remain paper throughout export and restart.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Current Product Surfaces
+Exchangeable bond daily close screen
+MF-W04 | Baseline scope. An operator requests the EB closing table
+1. Select the independent EB policy and close date
+2. Apply inclusive eligibility thresholds
+3. Produce the seven-column close table
+4. Compare the six-stage lifecycle against the previous close
+Edge case An instrument exactly at a threshold is treated by the inclusive rule; missing lifecycle evidence stays unknown.
+Failure and recovery An A-share classifier or policy cannot silently handle an EB; incomplete close data is flagged before release.
+Acceptance Boundary fixtures verify inclusive eligibility and stage deltas without conflating EB and A-share results.
+Evidence references README.mbt.md#Product Scope And Boundary; eb/screening
+Price action migration reference
+MF-W05 | Baseline scope. A maintainer evaluates a replacement analysis path
+1. Retain the original market snapshot and deterministic indicators
+2. Compare routing and validation outputs
+3. Run the documented two-stage analysis
+4. Record cutover evidence and a reversible rollback point
+Edge case The migration foundation is a reference path, not an extra promise of live strategy coverage.
+Failure and recovery A material output difference blocks cutover until explained; failed migration restores the prior version without rewriting its outcomes.
+Acceptance A reviewer can reconstruct old and new outputs from the same snapshot and recover the previous route.
+Evidence references README.mbt.md#Product Scope And Boundary
+Decision ready research packet
+MF-W06 | Roadmap scope. A named reviewer needs one release view
+1. Assemble price policy, freshness and licensing context
+2. Show bear case, invalidation and prohibited actions before approval
+3. Attach reviewer decision and exact evidence identity
+Edge case An apparently attractive candidate may remain withheld because commercial data use is not demonstrated.
+Failure and recovery Absent gate evidence yields an actionable blocker instead of a publish-ready badge.
+Acceptance The reviewer can locate every release precondition without opening several unrelated tools.
+Evidence references docs/PRODUCT_CONTRACT.md#Data and recommendation policy
+Paper outcome to reviewed learning
+MF-W07 | Roadmap scope. A paper position closes or a thesis expires
+1. Bind the after-cost result to its policy and released dossier
+2. Draft a lesson separating data, decision and hindsight
+3. Request named review and durable MoonBook receipt
+Edge case A rejected lesson remains in the research history; it does not become approved company knowledge.
+Failure and recovery An unavailable knowledge host leaves a retryable export, never a false persistence confirmation.
+Acceptance The reviewed outcome carries exact paper identity and cannot populate a MoonProj cash balance.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Current Product Surfaces
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Point in time data admission
+MOONFISH-B01 | Baseline | P0 | Blocked
+Require dataset identity, market cutoff, observation freshness and permitted-use evidence before a releasable research run. Missing licensed data blocks qualified use.
+Evidence docs/PRODUCT_CONTRACT.md#Data and recommendation policy; Ledger: no licensed data tested
+Test 1. Admit a complete licensed manifest and preserve its digest
+2. Reject future-dated observations or absent use terms
+3. Retry with a corrected bundle as a new run without altering the rejected record
+Dependencies Customer-owned licensed point-in-time data
+Deterministic A share selection
+MOONFISH-B02 | Baseline | P0 | Source documented
+Generate zero to five candidates under the exact 40–65-session policy, preserving input, policy, factor and contradiction evidence.
+Evidence docs/PRODUCT_CONTRACT.md#User-visible recommendation
+Test 1. Replay identical inputs and compare scores and order
+2. Exercise zero and five candidates and each policy boundary
+3. Reject a sixth emitted recommendation or an unversioned weight change
+Dependencies B01 data admission; Versioned deterministic scorer
+Inspectable next session plan
+MOONFISH-B03 | Baseline | P0 | Source documented
+Bind entry context, goal, invalidation and next-session intent to each candidate; label extreme bull scenarios distinctly.
+Evidence docs/PRODUCT_CONTRACT.md#User-visible recommendation
+Test 1. Open a candidate and trace all plan fields to evidence
+2. Test missing invalidation and prevent release
+3. Verify a 10× scenario never appears as expected return
+Dependencies B02 candidate dossier
+Independent bull and bear review
+MOONFISH-B04 | Baseline | P0 | Source documented
+Keep independently attributed challenges alongside frozen numeric output; model text has no score or exit authority.
+Evidence docs/PRODUCT_CONTRACT.md#Data and recommendation policy
+Test 1. Attach both reviews with source references
+2. Attempt to alter an exit through generated prose and reject it
+3. Revise policy deliberately and require a fresh dossier review
+Dependencies MoonClaw bounded text; Frozen policy inputs
+Named paper release
+MOONFISH-B05 | Baseline | P0 | Source documented
+Require a named reviewer and exact dossier revision for paper release; changed material inputs invalidate that release.
+Evidence docs/PRODUCT_CONTRACT.md#Data and recommendation policy
+Test 1. Approve a complete unchanged dossier
+2. Reject anonymous approval and stale revision approval
+3. Retain a rejection reason and allow corrected resubmission
+Dependencies B03 plan; B04 challenge
+Persistent paper revision chain
+MOONFISH-B06 | Baseline | P0 | Source documented
+Append account and NAV events without rewriting history and retain explicit assumptions for fills, costs and realized P&L.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Rebuild an account from its immutable revisions
+2. Reject a wrong parent and duplicate conflicting event
+3. Restart and reconcile a pending append before creating another
+Dependencies Durable paper storage
+Replay and after cost attribution
+MOONFISH-B07 | Baseline | P1 | Source documented
+Keep backtest, replay and forward modes distinct while attributing outcomes to the exact released policy and cost model.
+Evidence README.mbt.md#Current Product Surfaces
+Test 1. Recompute realized P&L with recorded costs
+2. Show an unknown cost as unknown instead of zero
+3. Replay a historical run without increasing forward-session count
+Dependencies B06 account events
+Forward shadow promotion gate
+MOONFISH-B08 | Baseline | P0 | Blocked
+Require evidence of 120 qualifying forward shadow sessions before considering promotion; this gate does not introduce trade authority.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; Ledger: forward evidence not verified
+Test 1. At session 119 keep promotion blocked
+2. At 120 request a separate evidence review rather than auto-promote
+3. Reject backdated, duplicate or backtest sessions from accrual
+Dependencies Forward-only session ledger; Named policy review
+Independent EB close pipeline
+MOONFISH-B09 | Baseline | P1 | Source documented
+Use the separate EB policy for the seven-column table, inclusive thresholds and six-stage lifecycle deltas.
+Evidence eb/screening; README.mbt.md
+Test 1. Test equality at each eligibility threshold
+2. Produce all seven columns with explicit missing values
+3. Reprocess a corrected close as a new version and compare lifecycle changes
+Dependencies EB data and policy
+Reversible price action migration
+MOONFISH-B10 | Baseline | P1 | Source documented
+Retain deterministic snapshots, indicators, routing, validation and two-stage outputs as cutover and rollback evidence.
+Evidence README.mbt.md#Product Scope And Boundary
+Test 1. Compare both routes against the same snapshot
+2. Block unexplained output divergence
+3. Rollback and recover the former route and revision chain
+Dependencies Versioned migration artifacts
+Consolidated release packet
+MOONFISH-R01 | Roadmap | P1 | Proposed
+Present policy, freshness, challenge, invalidation and prohibited actions in a single review packet with explicit missing gates.
+Evidence docs/PRODUCT_CONTRACT.md
+Test 1. Reviewer locates all release evidence in one packet
+2. Missing license prevents a ready state
+3. Updated evidence produces a new packet requiring review
+Dependencies B01 through B05
+Reviewed paper learning handoff
+MOONFISH-R02 | Roadmap | P1 | Proposed
+Export policy-bound after-cost outcomes to MoonBook and confirm durable retention only with a matching host receipt.
+Evidence README.mbt.md
+Test 1. Export an outcome with immutable research identity
+2. Reject a receipt for another outcome
+3. Retry once by idempotent outcome identity without duplicating the lesson
+Dependencies MoonBook durable capability; Named learning reviewer
+Commercial research qualification
+MOONFISH-R03 | Roadmap | P2 | Proposed
+Define a narrow permitted buyer, deliverable and review boundary before offering paid research; retain client acceptance independently from paper performance.
+Evidence docs/PRODUCT_CONTRACT.md; Dossier known gaps
+Test 1. Review permitted data uses against proposed deliverable
+2. Keep unverified commercial terms blocking publication
+3. Record client acceptance without implying an executed trade or received payment
+Dependencies Licensed use review; Commercial owner
+Data state and authority
+Dataset manifest
+Owner Licensed data custodian
+State model received, admissible, stale, withdrawn
+Write authority Data entitlement permits research use only
+Retention and recovery Retain source identifiers and permitted evidence according to license; do not invent redistribution rights
+Policy and dossier
+Owner Research owner
+State model draft, frozen, challenged, released, superseded
+Write authority Reviewer releases paper recommendations; text has no numeric override
+Retention and recovery Preserve superseded revisions for replay
+Paper account
+Owner Paper account operator
+State model pending, appended, reconciled, disputed
+Write authority No brokerage or cash movement authority
+Retention and recovery Keep immutable revisions and costs through outcome review
+Reviewed lesson
+Owner MoonBook knowledge owner
+State model exported, receipt confirmed, reviewed, superseded
+Write authority Import acceptance is not factual verification
+Retention and recovery Retain review provenance separately from ingestion labels
+Interfaces and handoffs
+MoonDesk and MoonFlow
+Payload Typed research request and run receipts
+Contract Host UI and orchestration expose exact policy and bounded work
+Failure behavior Missing capability leaves the run blocked with recoverable context
+MoonClaw
+Payload Frozen evidence and assigned bull or bear role
+Contract Text can challenge but cannot mutate deterministic decisions
+Failure behavior Unbounded or malformed response is rejected
+MoonBook
+Payload Paper outcome and review references
+Contract Durable receipt must match exported identity
+Failure behavior Keep pending export until matching receipt arrives
+MoonProj
+Payload Optional research-delivery commitment reference
+Contract Company cash, invoice and customer facts stay in company records
+Failure behavior Never infer revenue or treasury position from paper NAV
+Nonfunctional requirements
+Reproducibility
+MOONFISH-N01
+The same inputs and policy must produce identical scored output.
+Acceptance test Proposed gate: replay frozen fixtures across supported environments and compare canonical digests.
+Evidence status Proposed
+Temporal integrity
+MOONFISH-N02
+No later observation may enter a cutoff-bound historical result.
+Acceptance test Inject future observations, duplicate sessions and time-zone boundaries; require explicit rejection.
+Evidence status Proposed
+Authority safety
+MOONFISH-N03
+No public action surface may place orders, transfer funds or imply brokerage authority.
+Acceptance test Inspect exported capabilities and attempt unauthorized dispatch; require refusal and recorded reason.
+Evidence status Proposed
+Continuity
+MOONFISH-N04
+Interrupted account writes must reconcile before retry, without duplicate NAV events.
+Acceptance test Terminate before and after durable append, restart and compare the rebuilt revision chain.
+Evidence status Proposed
+Review usability
+MOONFISH-N05
+Every release blocker must identify missing evidence and the responsible role.
+Acceptance test Proposed usability study: reviewers distinguish stale data, absent permission and rejected policy without assistance.
+Evidence status Proposed
+Delivery roadmap
+Baseline qualification
+Reproducible licensed shadow workflow
+Requirements MOONFISH-B01, MOONFISH-B02, MOONFISH-B05, MOONFISH-B06, MOONFISH-B09
+Exit gate Admissible data and deterministic/recovery acceptance pass; no production performance claim
+Forward evidence
+Decision-ready paper service
+Requirements MOONFISH-B08, MOONFISH-R01
+Exit gate 120 forward sessions are evidenced and independently reviewed; no automatic promotion
+Reviewed delivery
+Bounded commercial and learning loop
+Requirements MOONFISH-R02, MOONFISH-R03
+Exit gate One permitted research deliverable has a matching knowledge receipt and independent client review
+Outcome measurement
+Reproducible runs
+Runs reproducing canonical results from frozen inputs
+Measurement Run digest comparison
+Target Proposed release gate: all qualification fixtures
+Unexplained data gaps
+Released packets with unacknowledged stale or missing observations
+Measurement Release-gate audit
+Target Proposed target: zero
+Qualifying forward sessions
+Distinct forward-only sessions accepted by the shadow ledger
+Measurement Immutable session identity and mode
+Target Required promotion evidence: 120; current verified count unknown
+Reviewed outcome coverage
+Closed paper outcomes with named learning disposition
+Measurement Outcome and knowledge receipt join
+Target Proposed initial target: every pilot outcome; no baseline measured
+Non goals
+Live broker integration, automated trades or money transfers
+Company cash management or accounting
+Guaranteed returns or personalized investment suitability claims
+General market-data redistribution or an inference that a test pass establishes licensing
+Alternatives and optimality
+Licensed terminal and research notebook
+Advantage Fast for one analyst and few decisions
+Cost Manual provenance and inconsistent replay
+When to choose Prefer when a single researcher can maintain a trustworthy review trail without integration
+Spreadsheet paper portfolio
+Advantage Transparent calculations with low setup cost
+Cost Revision and temporal integrity need discipline
+When to choose Prefer for a small fixed strategy; adopt MoonFish when reproducibility and review coordination justify it
+Broad autonomous investing platform
+Advantage Could unite research and execution
+Cost Large authority, regulatory and safety burden
+When to choose Exclude from this PRD; shadow research is the narrower defendable boundary
+The strongest early product is a small, inspectable paper recommendation packet. Zero candidates must be a legitimate outcome, reducing pressure to manufacture opportunities for a dashboard. Reviewers should concentrate on whether evidence supports a decision.
+The separation of deterministic policy and narrative challenge is defensible. Practical value remains conditional on licensed point-in-time inputs and forward results. Local tests cannot establish data rights, commercial viability, suitability or future returns.
+A narrower first release could offer one A-share policy, a separately labeled EB report and manual reviewed learning export. A notebook is better when volume and audit burden are small. Expansion should follow measured reviewer effort, rejected releases, shadow attribution and buyer acceptance. This is a constrained product hypothesis, not a globally optimal investment or founder operating system.
+Open product decisions
+Decision Which licensed data and permitted uses qualify the first release
+Recommendation Choose one customer-owned point-in-time source with explicit commercial scope
+Consequence Until chosen, release qualification stays blocked
+Decision What counts as a forward session
+Recommendation Freeze an auditable session definition before accrual
+Consequence Avoids promoting retrospective evidence into prospective validation
+Decision Who signs paper recommendations
+Recommendation Name an accountable reviewer distinct from automated narrative generation
+Consequence Release remains withheld without a named decision
+Sources and coverage
+Repository paths below are relative to moonfish. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+eb/screening
+AGENTS.md
+moon-luna-investigation-ledger-20260930.md
+Coverage is selected contracts, not all 18 documents or adapters. The ledger reports JS follow-up 8/8, without financial actions. Licensed data, paid providers, 120 forward sessions and commercial acceptance remain unverified, not disproven. Other workflow and quality tests are proposed acceptance targets.

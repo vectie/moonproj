@@ -1,0 +1,332 @@
+MoonClaw product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonClaw is the shared execution runtime for application hosts and operators. Its frozen baseline covers planned sessions, durable jobs, workspace and journal records, operator controls, capability dispatch, and recovery. It supplies a bounded execution record to other products; it does not decide company strategy or certify customer acceptance. Local job and native-suite evidence is substantial, but configured provider execution, remote agents, live company-task binding, clean-machine installation and multi-day recovery remain separate release gates.
+Repository maturity claim advanced local alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A useful run begins with a comprehensible objective, permitted sources, named authority and a stop condition. The runtime should make those constraints enforceable at the moment of execution, rather than treating an earlier conversation as unlimited permission. Each model or tool action must remain attributable to a job and reviewable afterward. More actions, longer sessions and autonomous continuations are not success measures.
+MoonClaw occupies the approved-execution and inspected-artifact part of an accountable work cycle. MoonProj retains company commitments, MoonFlow retains declared dependencies, MoonGate retains provider policy, and MoonBook retains reviewed knowledge. A runtime memory entry or successful execution receipt cannot silently cross these ownership boundaries. The best integration returns enough evidence for a human to decide whether the intended result was delivered.
+Users and jobs
+Runtime operator
+Start, diagnose, steer and safely stop durable jobs
+Trigger A host submits approved work or a run becomes interrupted
+Successful outcome The operator knows what executed and can recover without duplicate external effects
+Application host integrator
+Expose sessions, artifacts and controls through a product interface
+Trigger A product needs model-assisted work beyond a single synchronous request
+Successful outcome Stable runtime identities and honest states survive host reload
+Capability adapter author
+Provide a versioned operation with explicit authority and evidence
+Trigger A pack becomes invocable through the shared runtime
+Successful outcome Only a conformant healthy adapter receives an authorized request
+Approving owner
+Authorize a bounded work packet and inspect its result
+Trigger Work is delegated from an accountable commitment
+Successful outcome The owner can distinguish completion, uncertainty and pending review without reading raw logs
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	10	Partial: 2; Source documented: 8
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior native job manager 4/4, job package 284/284 and full native suite 1,959/1,959 passed with stripped bounded test settings.
+Evidence No paid provider, remote agent, live MoonProj task binding or business outcome tested.
+Open gap Clean-machine daemon/update/rollback and multi-day restart soak are release gates.
+Open gap Every pack needs live conformant adapter and health evidence; package test is not whole-company handoff.
+Open gap Cold full suite compilation remains costly; efficient test settings are documented but do not change compiler internals.
+User scenarios
+Plan and durable background execution
+MC-W01 | Baseline scope. An application submits a request needing sustained model or tool work
+1. Record objective and input references with the initiating actor
+2. Present the proposed plan and required authority
+3. Create a durable job before starting its execution
+4. Expose progress, journal and artifacts for operator inspection
+Edge case A request without a usable provider remains blocked rather than appearing active.
+Failure and recovery On cancellation or host loss, preserve the last known state and distinguish acknowledged stop from uncertain execution.
+Acceptance Reload the host mid-run and recover the same job identity; no successful state is inferred from a disconnected stream.
+Evidence references README.mbt.md#Current Capabilities; docs/PRODUCT_CONTRACT.md#Outcome
+Workspace checkpoints and runtime memory
+MC-W02 | Baseline scope. A job edits an artifact or needs continuity across sessions
+1. Associate one workspace and journal with the run
+2. Record relevant artifact revisions and git checkpoints where supported
+3. Persist runtime memory with source and producing-run references
+4. Let the reviewer open the exact artifact revision
+Edge case An uncommitted workspace is still work in progress; a memory entry is not accepted company knowledge.
+Failure and recovery A failed checkpoint leaves an explicit incomplete record and preserves available artifacts for inspection.
+Acceptance Reopen a completed run and identify the exact inspected revision without promoting its memory into MoonBook.
+Evidence references README.mbt.md#Main Subsystems; docs/PRODUCT_CONTRACT.md#Ownership
+Gateway and remote agent control
+MC-W03 | Baseline scope. An operator selects a configured gateway or ACP remote agent
+1. Resolve the versioned session/control protocol
+2. Verify transport and scoped authority
+3. Start or attach to the intended session
+4. Propagate steer, stop and status acknowledgements to the host
+Edge case A listed remote capability can be unavailable or unauthenticated.
+Failure and recovery After transport loss, show an unknown remote outcome until a status or reconcile response arrives; do not spawn a replacement blindly.
+Acceptance A transport fixture covers denial, disconnect and reconnection without presenting an unacknowledged cancellation as final.
+Evidence references README.mbt.md#Operator UX; docs/PRODUCT_CONTRACT.md#Capability status
+Installed pack capability invocation
+MC-W04 | Baseline scope. A planned step names a catalog capability
+1. Resolve product/tool@pack-version and its exact schema
+2. Recheck active installation, adapter health and authority
+3. Send the bounded input and correlation identity to the adapter
+4. Attach the adapter receipt and output references to the run
+Edge case A catalog entry with expired health is discoverable but not executable.
+Failure and recovery Version or schema drift refuses dispatch and explains which contract changed; it does not substitute a similar tool.
+Acceptance Exercise healthy, expired, uninstalled and mismatched adapters and verify that only the exact authorized target receives an invocation.
+Evidence references docs/CAPABILITY_INVOCATION.md; docs/PRODUCT_CONTRACT.md#Authority and evidence
+Unknown outcome reconciliation
+MC-W05 | Baseline scope. A process ends or acknowledgement is lost after a potentially effectful invocation
+1. Persist the attempt and its last confirmed stage
+2. Mark outcome unknown rather than failed
+3. Query the adapter using its correlation identity
+4. Attach found receipt or confirmed no-effect evidence before offering retry
+Edge case A successful receipt still enters result inspection, not automatic acceptance.
+Failure and recovery If reconciliation cannot determine the effect, keep retry disabled and expose a manual investigation path.
+Acceptance Inject acknowledgement loss after an effect; repeated recovery must resolve to the original effect or remain unknown without duplicate execution.
+Evidence references docs/PRODUCT_CONTRACT.md#Authority and evidence; docs/HARNESS_REPLAY.md
+Commitment scoped delegated job
+MC-W06 | Roadmap scope. MoonProj offers an approved work item for execution
+1. Bind commitment, source scope, actor, objective, ceiling and stop condition
+2. Validate that the approval covers the selected runtime action
+3. Execute under that immutable envelope
+4. Return the exact attempt and artifact receipt to the originating task
+Edge case A changed objective or budget requires a new approval revision.
+Failure and recovery If receipt return fails, retain a pending handoff with the same identity; do not rerun work to repair reporting.
+Acceptance One authorized synthetic commitment round-trip preserves every binding and separately records runtime completion and owner review.
+Evidence references docs/PRODUCT_CONTRACT.md#Ownership; moon-luna-investigation-ledger-20260930.md
+Recovery view for the approving owner
+MC-W07 | Roadmap scope. An owner returns after an interruption without runtime expertise
+1. Show whether work ran, did not run, remains unknown or awaits review
+2. Display the last verified action and available artifact
+3. Offer only presently safe reconcile, retry, steer or stop controls
+4. Retain advanced journal detail behind the concise summary
+Edge case A mixed run can contain completed steps and one unknown effect; summarize both.
+Failure and recovery A stale projection must disclose its timestamp and refresh failure rather than offer unsafe controls.
+Acceptance Owners correctly identify the safe next action in interruption scenarios; any unknown effect remains visible until reconciled.
+Evidence references docs/PRODUCT_CONTRACT.md#Authority and evidence; docs/HARNESS_REPLAY.md
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Durable run identity
+MOONCLAW-B01 | Baseline | P0 | Partial
+Create a stable session, job and attempt identity with reconstructable state before effectful execution begins. Host reconnects must recover those identities.
+Evidence moon-luna-investigation-ledger-20260930.md reports native job manager 4/4, job package 284/284 and full native suite 1959/1959; whole-host continuity was not tested.
+Test 1. Create a job, detach and reattach the host; observe one canonical job
+2. Interrupt persistence before dispatch and verify no unrecorded attempt starts
+3. Replay the creation request and reject conflicting content
+Dependencies Durable store; Host session contract
+Bounded plan approval
+MOONCLAW-B02 | Baseline | P0 | Source documented
+Attach objective, permitted operations, inputs, actor and stop condition to the approved plan; request fresh authority for material scope changes.
+Evidence docs/PRODUCT_CONTRACT.md#Authority and evidence
+Test 1. Approve one operation and permit it
+2. Change target or authority scope and refuse execution
+3. Resume a paused job with the original envelope or explicit replacement approval
+Dependencies Host approval surface; MoonLib authority references
+Acknowledged operator controls
+MOONCLAW-B03 | Baseline | P0 | Source documented
+Steer and cancel commands shall carry correlation and acknowledgement; cancellation requested and cancellation confirmed remain distinct states.
+Evidence README.mbt.md#Current Capabilities
+Test 1. Steer a running fixture and show acknowledgement
+2. Cancel before dispatch and verify no effect
+3. Lose remote acknowledgement and retain uncertainty until reconciliation
+Dependencies Runtime control protocol
+Artifact and checkpoint lineage
+MOONCLAW-B04 | Baseline | P0 | Source documented
+Bind workspace, artifact revisions, journal and supported git checkpoints to the producing attempt without treating saved content as accepted output.
+Evidence README.mbt.md#Main Subsystems
+Test 1. Produce two revisions and open each exact artifact
+2. Fail checkpoint persistence and expose incomplete lineage
+3. Restart and retain the last confirmed revision without overwriting newer work
+Dependencies Workspace storage; Artifact identity
+Runtime memory boundary
+MOONCLAW-B05 | Baseline | P1 | Source documented
+Persist useful execution memory with provenance and scope; export to knowledge products only through their own review contract.
+Evidence docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Recover a memory entry with producing-run reference
+2. Reject cross-workspace lookup without authority
+3. Export an entry and preserve unreviewed status
+Dependencies Memory store; MoonBook import boundary
+Versioned remote control
+MOONCLAW-B06 | Baseline | P0 | Source documented
+Negotiate supported gateway and ACP control versions and fail visibly when transport, credential or protocol requirements are absent.
+Evidence README.mbt.md#Operator UX
+Test 1. Attach through a supported fixture version
+2. Refuse an unsupported version without a partial job
+3. Disconnect and reconnect using the original remote identity
+Dependencies Gateway deployment; Remote-agent adapter
+Exact capability dispatch
+MOONCLAW-B07 | Baseline | P0 | Source documented
+Use canonical capability and schema identities from MoonFlow; recheck active pack, health and operation authority at invocation time.
+Evidence docs/CAPABILITY_INVOCATION.md
+Test 1. Invoke the exact healthy version
+2. Expire health after planning and block dispatch
+3. Change schema or uninstall the pack and require replanning
+Dependencies MoonFlow catalog; Conformant pack adapter
+Correlated execution receipt
+MOONCLAW-B08 | Baseline | P0 | Source documented
+Record the adapter-owned result, effect identity and artifact references against the original attempt; a receipt is execution evidence only.
+Evidence docs/PRODUCT_CONTRACT.md#Authority and evidence
+Test 1. Accept a correctly correlated receipt
+2. Reject wrong attempt or version
+3. Replay the same receipt idempotently without accepting the artifact on behalf of its reviewer
+Dependencies Adapter receipt contract
+Reconcile before effectful retry
+MOONCLAW-B09 | Baseline | P0 | Partial
+Unknown outcomes shall be reconciled using stable attempt identifiers before any retry that might duplicate an external effect.
+Evidence docs/HARNESS_REPLAY.md; moon-luna-investigation-ledger-20260930.md reports broad native tests but no live external-effect trial.
+Test 1. Lose acknowledgement after an effect and recover its original receipt
+2. Return unknown from reconcile and keep effectful retry unavailable
+3. Prove no effect and retry once under the existing approved scope
+Dependencies Adapter reconciliation contract; Durable journal
+Inspection and evidence export
+MOONCLAW-B10 | Baseline | P1 | Source documented
+Hosts shall retrieve the plan, authority reference, journal and exact artifacts with explicit completion, uncertainty and review-needed distinctions.
+Evidence docs/PRODUCT_CONTRACT.md#Outcome
+Test 1. Inspect a completed fixture run
+2. Inspect a run containing a failed and an unknown attempt
+3. Export evidence without secrets and preserve its identity on reimport
+Dependencies Host presentation; Redaction
+Company commitment binding
+MOONCLAW-R01 | Roadmap | P0 | Proposed
+Accept a versioned MoonProj approved-work envelope and return correlated execution and artifact receipts without owning the company task state.
+Evidence moon-luna-investigation-ledger-20260930.md states live task binding was not exercised.
+Test 1. Round-trip one signed task through one runtime job
+2. Reject changed source scope, actor or budget under the old approval
+3. Retry receipt delivery after a receiver outage without repeating execution
+Dependencies MoonProj signed task gateway; Shared binding schema
+Owner oriented recovery projection
+MOONCLAW-R02 | Roadmap | P1 | Proposed
+Provide a compact host projection of what ran, what remains uncertain and which next controls are safe, with journal detail available for operators.
+Evidence docs/HARNESS_REPLAY.md
+Test 1. Render interruption fixtures with partial effects
+2. Verify stale projections cannot authorize a retry
+3. Reconcile and update the same summary without losing its history
+Dependencies MOONCLAW-B09; Host usability validation
+Qualified installation and restart path
+MOONCLAW-R03 | Roadmap | P0 | Proposed
+Qualify clean-machine daemon installation, update, rollback and multi-day restart recovery before a supported operator release.
+Evidence moon-luna-investigation-ledger-20260930.md identifies installation and soak as outstanding release gates.
+Test 1. Install and start on a named clean environment
+2. Interrupt an update and restore the previous executable and data schema
+3. Run a bounded multi-day soak with restart and receipt reconciliation evidence
+Dependencies Packaging; Migration and backup policy
+Data state and authority
+Run and attempt journal
+Owner MoonClaw
+State model Planned, authorized, running, stopping, completed, failed, unknown and review pending are distinct
+Write authority Initiating authority constrains execution; operator controls cannot expand it
+Retention and recovery Proposed configurable retention; retain unresolved effects and references until reconciliation is closed
+Workspace artifacts and memory
+Owner MoonClaw for runtime records; domain owner for accepted meaning
+State model Produced, checkpointed, inspected and exported
+Write authority The owning reviewer accepts artifacts; MoonBook governs durable knowledge promotion
+Retention and recovery Retain exact referenced revisions while reviews remain open; make deletion policy explicit
+Company commitment and budget
+Owner MoonProj and approving owner
+State model Approved, revised, revoked and closed
+Write authority MoonClaw consumes an authority reference and cannot infer a new commitment
+Retention and recovery Keep opaque reference and execution-relevant envelope; avoid duplicating the whole company ledger
+Interfaces and handoffs
+MoonFlow
+Payload Versioned capability identity, schema, attempt and receipt
+Contract Flow owns declared dependencies; Claw supplies reasoning and execution sessions
+Failure behavior Stale catalog or adapter health blocks dispatch
+MoonGate
+Payload Scoped model request and usage correlation
+Contract Gate selects allowed provider/model; runtime never embeds provider secrets in exported evidence
+Failure behavior Unconfigured route blocks model work with explicit cause
+MoonDesk and MoonProj
+Payload Job status, controls, approval reference and exact artifact receipt
+Contract Host presents controls; company authority remains external
+Failure behavior Lost reporting retries delivery rather than execution
+MoonBook and domain packs
+Payload Unreviewed runtime evidence or adapter-owned effect request
+Contract Knowledge acceptance and domain effects belong to their respective owners
+Failure behavior Unaccepted exports remain runtime evidence
+Nonfunctional requirements
+Recovery safety
+MOONCLAW-N01
+No duplicate external effect in the qualified acknowledgement-loss scenarios
+Acceptance test Fault injection around dispatch, receipt persistence and process restart; retain unknown when proof is unavailable
+Evidence status Proposed
+Secret isolation
+MOONCLAW-N02
+Host exports and journals shall exclude credentials and redact sensitive model/tool payloads according to explicit retention policy
+Acceptance test Seed canary secrets and inspect journal, artifact metadata, export and error paths
+Evidence status Proposed
+Responsiveness
+MOONCLAW-N03
+Proposed local control acknowledgement target is p95 within one second under the documented test workload; external stop completion is measured separately
+Acceptance test Measure local acknowledgement with workload and environment recorded; do not advertise this as achieved
+Evidence status Proposed
+Resource boundedness
+MOONCLAW-N04
+Bound concurrent jobs, event backlog and stored payload sizes with explicit overload errors
+Acceptance test Flood declared limits and verify bounded memory and recoverable queue states
+Evidence status Proposed
+Test reproducibility
+MOONCLAW-N05
+Maintain the documented bounded stripped-native test route and a separate symbol-rich diagnostic route
+Acceptance test Reproduce selected and full-suite commands with toolchain, duration and peak memory; compilation performance is not runtime throughput
+Evidence status Source documented
+Delivery roadmap
+Baseline contract consolidation
+One host can inspect a complete bounded run and its recovery state
+Requirements MOONCLAW-B01, MOONCLAW-B03, MOONCLAW-B07, MOONCLAW-B09
+Exit gate A real configured adapter interruption trial produces a correlated receipt without duplicate effect
+Commitment handoff
+Approved company work returns inspectable evidence
+Requirements MOONCLAW-R01, MOONCLAW-R02
+Exit gate One task-to-job-to-artifact round-trip survives host and receiver restart
+Operator release qualification
+Installation and recovery are supported beyond a development checkout
+Requirements MOONCLAW-R03
+Exit gate Named clean-machine, update, rollback and soak evidence reviewed
+Outcome measurement
+Reconciliation closure
+Unknown attempts resolved with evidence divided by unknown attempts, reported with unresolved age
+Measurement Attempt journal and reconcile receipts
+Target Establish a baseline; zero unsafe retries in qualification
+Inspectable result coverage
+Completed runs with exact artifact and authority references
+Measurement Host export audit
+Target All release-gate scenarios
+Owner recovery accuracy
+Owners selecting a safe next action in controlled interruption scenarios
+Measurement Observed usability sessions
+Target Proposed zero unsafe selections; measure effort before claiming time saved
+Non goals
+Independent company strategy or autonomous commercial commitments
+Customer acceptance, invoice or payment determination
+Domain-specific execution policy duplicated from packs
+A new orchestrator competing with MoonFlow
+Alternatives and optimality
+Direct synchronous tool call
+Advantage Minimal integration for one short reversible action
+Cost Little durability or interruption recovery
+When to choose Prefer it when no background state, review chain or effect reconciliation is needed
+Application specific job runner
+Advantage Can closely fit one product and existing infrastructure
+Cost Duplicates authority, journal and recovery mechanisms across hosts
+When to choose Use shared MoonClaw only when common contracts reduce actual integration cost
+The runtime boundary concentrates durable execution and recovery while leaving business authority outside. Its value depends on hosts sharing those contracts. Parallel job identities or hidden approval stores would erase that advantage, so the architecture is defensible rather than universally optimal.
+Qualify one host, provider route and effectful adapter before expanding the catalog. Demonstrated cancellation and acknowledgement-loss recovery matter more than capability count. Additional remote transports should wait until the existing control contract is stable and its operational cost is understood.
+A direct request or established task queue may suit short, reversible work better. MoonClaw should justify adoption through shared controls, inspectable artifacts and safer recovery, measured against that simpler option. A large test suite alone cannot establish superior user value.
+The next proof is a commitment-scoped run with an inspected result and an honest interrupted state. Customer acceptance, cash receipt and reviewed learning remain external outcomes. Their absence must not be obscured by calling runtime completion a successful company workflow.
+Open product decisions
+Decision Which live adapter is the first release gate
+Recommendation Choose one bounded reversible operation with a reconcile endpoint
+Consequence Limits initial breadth while proving the hardest recovery contract
+Decision How long should unresolved runtime records persist
+Recommendation Require an explicit retention policy that preserves unresolved effect evidence
+Consequence Storage cleanup must not destroy reconciliation authority
+Sources and coverage
+Repository paths below are relative to moonclaw. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/CAPABILITY_INVOCATION.md
+docs/HARNESS_REPLAY.md
+docs/RESPONSIBILITY_AND_TESTABILITY.md
+moon-luna-investigation-ledger-20260930.md
+The recorded native tests establish bounded local passes, not provider execution, remote control, live MoonProj binding or commercial outcomes. Sixty-one documentation files and all transport/provider paths were not exhaustively reviewed. Acceptance procedures remain proposed tests unless explicitly identified as recorded evidence.

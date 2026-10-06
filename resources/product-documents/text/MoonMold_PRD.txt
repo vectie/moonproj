@@ -1,0 +1,331 @@
+MoonMold product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonMold is a bounded digital spatial-modeling pack for turning constrained intent into editable source and derived representations with validation and lineage. Its baseline is a typed semantic API, a qualified mock digital procedure, operation and recovery contracts, and an operator review surface. A synthetic validate, build and reload journey now passes locally. Live Blender qualification, broad parametric CAD and physical readiness remain outside the verified capability.
+Repository maturity claim early digital-model alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A visually convincing model does not establish dimensional accuracy, engineering fitness or manufacturing safety. The editable source and its frame, units, digest and constraints are the reference. Presentation, simulation and manufacturing-candidate siblings must declare their relationships and known losses so a client can understand what each representation supports.
+For a digital-modeling founder, the accountable loop begins with a sourced brief and a bounded promise: deliver a specific inspectable digital artifact. Approved execution produces receipts and files; a named reviewer evaluates them; the client separately accepts the agreed package. Payment and any later fabrication require their own evidence and authority. The pack should make this narrow loop reliable before adding a general-purpose modeling studio.
+Users and jobs
+Spatial designer
+Translate constrained intent into editable digital source
+Trigger A brief specifies dimensions, frame and intended use
+Successful outcome Can inspect what the model represents and what transformations lose
+Engineering reviewer
+Evaluate the digital evidence and limitations
+Trigger A build produces validation and representation reports
+Successful outcome Can reject unsupported engineering or fabrication claims
+Digital artifact buyer
+Review the agreed model package
+Trigger The designer offers a delivery revision
+Successful outcome Receives editable source with intelligible validation and limits
+Operator
+Dispatch and recover bounded modeling operations
+Trigger An authorized build or validation is ready
+Successful outcome Can distinguish fixture backend results from qualified live output
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	9	Source documented: 5; Verified local: 1; Partial: 2; Verified contract: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior synthetic CLI validate/build/reload and negative wrong input digest/wrong execution parent checks; no live Blender or fabrication.
+Open gap Blender adapter needs qualified environment and live interrupted-provider recovery.
+Open gap General parametric CAD, assemblies and constraints are future scope.
+Open gap No customer design acceptance or manufacturing certification evidence verified.
+User scenarios
+Semantic request and representation lineage
+MM-W01 | Baseline scope. A designer requests a bounded spatial artifact
+1. Select a supported typed operation
+2. Declare dimensions, units, coordinate frame and source digest
+3. Create editable source and requested derived siblings
+4. Record representation purpose, parent identity and known losses
+Edge case A manufacturing-candidate representation remains analysis data; its existence grants no machine or printer authority.
+Failure and recovery Unsupported arbitrary script or shell content is rejected; ambiguous units require correction rather than a guessed conversion.
+Acceptance The reviewer can traverse every sibling to exact source and identify dimensional or semantic losses.
+Evidence references README.mbt.md; docs/PRODUCT_CONTRACT.md#Representation truth
+Mock digital procedure and preview
+MM-W02 | Baseline scope. An operator starts the first qualified synthetic request
+1. Open a fresh operator workspace with empty recovery state
+2. Validate the synthetic semantic input
+3. Build the digital representation under a labeled mock backend
+4. Preview the artifact and reload recovery state
+Edge case No prior recovery record is normal, not an error; fixture results remain labeled after reload and export.
+Failure and recovery Invalid input stops before build and preserves a useful explanation; a previous receipt cannot validate changed input.
+Acceptance The latest local browser path completes validate, build and reload without claiming live Blender or physical proof.
+Evidence references README.mbt.md#Qualification; docs/EXPERIMENT_REPORT.md
+MoonFlow operation attestation and recovery
+MM-W03 | Baseline scope. A digital operation is dispatched or its acknowledgement is interrupted
+1. Receive typed operation and parent evidence
+2. Create a durable attempt and bind input identity
+3. Persist output digests and operation-specific attestation
+4. Reconcile interrupted work before advancing the next operation
+Edge case Validation and execution have different parent progression; a validation receipt cannot impersonate a completed build.
+Failure and recovery Wrong input SHA or stale execution parent is rejected; unknown provider outcome remains unresolved until reconciliation.
+Acceptance Negative receipt and parent tests reject mismatches, while broader live interruption recovery requires additional qualification.
+Evidence references docs/PRODUCT_CONTRACT.md#Pack and adapter contract; docs/PACK_ADAPTER.md
+Operator request load run and review
+MM-W04 | Baseline scope. A designer opens an existing request for inspection
+1. Load request and backend qualification
+2. Inspect supported capabilities and representation lineage
+3. Run only authorized typed digital operations
+4. Record a named review of the exact output revision
+Edge case A supported preview may remain usable while the live backend is unavailable; review must state which backend produced it.
+Failure and recovery Stale review targets require refresh; failed recovery leaves the original evidence visible for diagnosis.
+Acceptance The operator can distinguish request, execution, digital validation and human review rather than treating all as done.
+Evidence references README.mbt.md#First-class pack adapter and operator; docs/OPERATOR_APP.md
+Client digital model brief
+MM-W05 | Roadmap scope. A founder commits to a digital modeling deliverable
+1. Capture source dimensions, constraints and intended use
+2. Name the editable and derived deliverables
+3. Agree review criteria and a stable commitment reference
+4. Freeze the brief before dispatching work
+Edge case A buyer may request physical suitability, which must be excluded or sent to separate qualified review rather than inferred.
+Failure and recovery Changed dimensions reopen scope and invalidate affected downstream validation.
+Acceptance The final artifact can be tested against the original brief without reconstructing a chat history.
+Evidence references docs/PRODUCT_CONTRACT.md#Representation truth; docs/OPERATOR_APP.md
+Validated design handoff
+MM-W06 | Roadmap scope. A buyer is ready to inspect the digital package
+1. Package editable source and requested siblings
+2. Attach validation, representation-loss report and exact digests
+3. Explain unsupported uses and required physical qualifications
+4. Record named client acceptance against the frozen brief
+Edge case Client acceptance of a digital package does not certify fabrication or establish received payment.
+Failure and recovery A missing editable source or mismatched digest blocks package completion even if a rendering looks correct.
+Acceptance The buyer can reopen source, inspect losses and return a revision-bound response; physical execution remains unavailable.
+Evidence references docs/PRODUCT_CONTRACT.md#Representation truth; docs/PACK_ADAPTER.md
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Typed semantic request boundary
+MOONMOLD-B01 | Baseline | P0 | Source documented
+Expose only declared semantic operations with validated dimensions, units, frame and digest; provide no public arbitrary script or shell API.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md
+Test 1. Submit a supported operation with explicit units and frame
+2. Reject unknown operation and embedded arbitrary code
+3. Correct an invalid request as a new revision without altering its rejection record
+Dependencies Published semantic schemas; Pack capability declaration
+Representation truth and losses
+MOONMOLD-B02 | Baseline | P0 | Source documented
+Track editable, presentation, simulation and manufacturing-candidate siblings with exact parent identity and known conversion losses.
+Evidence docs/PRODUCT_CONTRACT.md#Representation truth
+Test 1. Trace a presentation artifact to editable source
+2. Request an unavailable representation and expose the limitation
+3. Change source dimensions and mark derived siblings stale
+Dependencies B01 semantic source; Representation manifest
+Qualified mock first run
+MOONMOLD-B03 | Baseline | P0 | Verified local
+Support the bounded fresh-workspace synthetic validate, build and reload path with mock provenance intact.
+Evidence Ledger: isolated synthetic browser validate/build/reload; ui/rabbita-moonmold/main/{model,update}.mbt; docs/EXPERIMENT_REPORT.md
+Test 1. Open a fresh workspace with no recovery record
+2. Validate then build the supported synthetic artifact
+3. Reload and inspect the recovered attempt and fixture label
+Dependencies Mock adapter; Qualified operator host
+Operation specific parent progression
+MOONMOLD-B04 | Baseline | P0 | Partial
+Preserve separate validation and execution lineage so each operation advances from the correct parent receipt.
+Evidence docs/PACK_ADAPTER.md; Ledger: operation-aware progression fixed; mock path verified
+Test 1. Run validation followed by digital build and inspect parent identities
+2. Reject execution using a stale parent
+3. Reconcile an interrupted attempt before selecting the next operation parent
+Dependencies MoonFlow adapter.v2; Durable attempt storage
+Receipt identity rejection
+MOONMOLD-B05 | Baseline | P0 | Verified contract
+Reject a validation receipt with the wrong input SHA and an execution request with a stale parent.
+Evidence adapter/operator-validation.test.mjs; Ledger: positive and negative Node integrity tests 2/2
+Test 1. Present the correct input digest and operation parent
+2. Mutate the validation input SHA and require rejection
+3. Use a stale execution parent and verify no new execution is accepted
+Dependencies Receipt validator
+Immutable output attestation
+MOONMOLD-B06 | Baseline | P0 | Source documented
+Bind digital outputs, backend identity and digests to durable attempts; report health and reconciliation status separately from artifact validity.
+Evidence docs/PRODUCT_CONTRACT.md#Pack and adapter contract; docs/PACK_ADAPTER.md
+Test 1. Verify an output digest against the stored artifact
+2. Reject a receipt for a different operation or backend
+3. Recover a completed attempt without rewriting its original attestation
+Dependencies Artifact store; Backend adapter
+Explicit backend qualification
+MOONMOLD-B07 | Baseline | P0 | Partial
+Distinguish fixture mock operation from live Blender qualification in capability, preview, receipt and export surfaces.
+Evidence README.mbt.md#Qualification; docs/OPERATOR_APP.md; Ledger: mock only; no live Blender
+Test 1. Inspect a mock result in every supported surface
+2. Start without a qualified Blender environment and show a blocker
+3. Never relabel retained mock evidence after enabling a live backend
+Dependencies Backend qualification manifest
+Named digital review
+MOONMOLD-B08 | Baseline | P1 | Source documented
+Let the operator load, inspect and review exact output revisions while keeping machine validation and human review distinct.
+Evidence docs/OPERATOR_APP.md
+Test 1. Record a review with reviewer and output digest
+2. Change output and require fresh review
+3. Reject a stale review target without discarding the current session
+Dependencies Host reviewer identity; B02 lineage
+Digital authority ceiling
+MOONMOLD-B09 | Baseline | P0 | Source documented
+Declare digital-artifact authority in pack.json and prevent a manufacturing candidate or model suggestion from becoming physical execution.
+Evidence docs/PRODUCT_CONTRACT.md; docs/PACK_ADAPTER.md
+Test 1. Inspect exported capabilities for only declared digital actions
+2. Attempt a printer, robot or machine command and reject it
+3. Keep the artifact inspectable after refusing the physical request
+Dependencies Pack capability enforcement; MoonFlow authority envelope
+Stable client model brief
+MOONMOLD-R01 | Roadmap | P1 | Proposed
+Bind dimensions, constraints, intended use, deliverables and review criteria to a stable founder commitment before execution.
+Evidence docs/PRODUCT_CONTRACT.md; docs/OPERATOR_APP.md
+Test 1. Create a complete digital-only brief
+2. Flag ambiguous tolerances or use requirements for review
+3. Revise dimensions and reopen affected acceptance checks
+Dependencies Company commitment reference; Named designer and client
+Validated digital handoff package
+MOONMOLD-R02 | Roadmap | P1 | Proposed
+Deliver editable source with requested siblings, digests, representation losses, validation and a separate named client acceptance record.
+Evidence docs/PRODUCT_CONTRACT.md#Representation truth
+Test 1. Open all deliverables and compare digests
+2. Block delivery when source or loss report is missing
+3. Accept a corrected version without overwriting earlier client feedback
+Dependencies B02 lineage; B08 review; R01 brief
+Live Blender interruption qualification
+MOONMOLD-R03 | Roadmap | P0 | Proposed
+Qualify one supported Blender environment, including interruption and recovery, before claiming a live digital backend.
+Evidence Dossier known gaps; README.mbt.md#Qualification
+Test 1. Record exact environment and backend versions
+2. Interrupt before and after output creation and reconcile safely
+3. Retain failed qualification evidence and keep the backend unavailable until corrected
+Dependencies Authorized qualified environment; Live backend tests
+Data state and authority
+Semantic brief
+Owner Designer; client approves requested scope
+State model draft, constrained, approved, revised
+Write authority Authorizes a digital artifact only
+Retention and recovery Preserve source dimensions and scope revisions
+Editable source and siblings
+Owner MoonMold artifact lineage
+State model created, derived, stale, validated, superseded
+Write authority A representation carries purpose and losses, not physical certification
+Retention and recovery Retain source and derivation digests through delivery review
+Attempt and attestation
+Owner Adapter operation owner
+State model requested, running, unknown, reconciled, completed, failed
+Write authority Only declared digital operations within the authority envelope
+Retention and recovery Keep immutable attempts and output identity
+Named review and client response
+Owner Engineering reviewer and client respectively
+State model pending, changes requested, accepted, superseded
+Write authority Review addresses digital criteria; client acceptance does not grant fabrication
+Retention and recovery Retain reviewed revision and caveats separately from machine validation
+Interfaces and handoffs
+MoonFlow
+Payload Typed operation, authority envelope and attestation
+Contract Pack adapter validates identity, operation parents and receipt schema
+Failure behavior Unknown outcome requires reconciliation before retry
+MoonClaw
+Payload Constrained intent and evidence for reasoning
+Contract Reasoning can propose semantic operations but cannot send arbitrary scripts
+Failure behavior Unsupported proposals are returned as errors or review items
+MoonDesk
+Payload Hosted operator request and review state
+Contract Host displays actual backend qualification and named reviewer context
+Failure behavior Unavailable backend does not turn a mock preview into live proof
+Client or knowledge host
+Payload Digital package and review references
+Contract Source, losses and validation travel together; persistence needs an actual receipt
+Failure behavior Missing receipt leaves an exported package pending rather than falsely retained
+Nonfunctional requirements
+Unit and frame integrity
+MOONMOLD-N01
+Conversions must preserve declared units and coordinate frame or explicitly report transformation and loss.
+Acceptance test Proposed gate: test mixed units, missing frame and round-trip representation fixtures.
+Evidence status Proposed
+Evidence integrity
+MOONMOLD-N02
+Input and output digests must bind to the exact operation, backend and parent.
+Acceptance test Expand the passing wrong-SHA and stale-parent cases to tampered outputs and mismatched backend receipts.
+Evidence status Partial
+Recovery durability
+MOONMOLD-N03
+A restart may not duplicate accepted builds or silently replace unknown work.
+Acceptance test Interrupt at request, validation, output and receipt boundaries for each qualified backend.
+Evidence status Proposed
+Safe resource bounds
+MOONMOLD-N04
+Modeling operations must declare and enforce supported input size and execution limits.
+Acceptance test Define a pilot resource envelope, then reject oversized or pathological inputs without losing the session.
+Evidence status Proposed
+Review legibility
+MOONMOLD-N05
+Preview and export must expose backend type, lineage and known losses without relying on hidden metadata.
+Acceptance test Ask a reviewer to identify fixture provenance and an unsupported physical use from the delivered package.
+Evidence status Proposed
+Delivery roadmap
+Reliable mock digital path
+Preserve the corrected first-run and recovery behavior
+Requirements MOONMOLD-B03, MOONMOLD-B04, MOONMOLD-B05, MOONMOLD-B07
+Exit gate Fresh and interrupted mock paths pass with exact digest and parent checks
+One live backend
+Qualify a constrained real digital operation
+Requirements MOONMOLD-R03, MOONMOLD-B06
+Exit gate Supported Blender environment passes identity, interruption and output checks
+Client digital delivery
+One inspectable committed model package
+Requirements MOONMOLD-R01, MOONMOLD-R02, MOONMOLD-B08
+Exit gate Named client reviews source, losses and validation against the brief; physical claims remain separate
+Outcome measurement
+Reconstructable representations
+Delivered siblings with valid source, frame, units and loss records
+Measurement Manifest audit
+Target Proposed target: every delivered sibling
+Recovery reconciliation
+Interrupted attempts reaching an unambiguous outcome without duplicate execution
+Measurement Attempt ledger and digest checks
+Target Proposed target: all qualification cases
+False backend claims
+Mock outputs presented as qualified live results
+Measurement Surface and export label audit
+Target Proposed release target: zero
+Client clarification burden
+Unanswered dimensions or intended-use questions after brief approval
+Measurement Brief revisions and client review log
+Target Measure the first digital pilot before setting an improvement target
+Non goals
+Fabrication, printer, robot or machine control
+General parametric CAD, assemblies or universal constraint solving in the baseline
+Manufacturing certification or engineering safety approval inferred from a render
+A live Blender claim based on mock receipts or synthetic browser success
+Alternatives and optimality
+Blender and a manual delivery checklist
+Advantage Direct creative control and mature modeling tools
+Cost Manual lineage and recovery evidence
+When to choose Prefer for one experienced designer when reproducibility and automation add little value
+Established parametric CAD
+Advantage Mature assemblies, dimensions and engineering workflows
+Cost Heavier setup and different licensing or collaboration model
+When to choose Prefer whenever actual CAD constraint or certification requirements dominate
+Bounded MoonMold pack
+Advantage Repeatable semantic operations and explicit representation truth
+Cost Requires adapter qualification and host integration
+When to choose Choose for repeated constrained digital deliverables with meaningful provenance needs
+MoonMold is most credible when it delivers one digital artifact that another person can inspect and reuse. The semantic API and representation-loss model are useful constraints: they prevent an attractive preview from becoming an unsupported engineering claim and reduce the execution surface that must be qualified.
+The fixed null recovery, command-argument linkage and operation-parent path now make the mock journey coherent. That is meaningful local progress, but it says little about Blender interruption behavior or the engineering adequacy of a client model. Those require specific environment and review evidence.
+A narrower first offer should select one repeatable object family or spatial transformation, one unit/frame convention and a clear source-plus-report package. Broad parametric CAD and fabrication promises would make the product harder to validate while competing with mature tools.
+The right choice depends on repetition and evidence burden. For an occasional bespoke model, Blender plus a checklist can be simpler and better. MoonMold earns its integration cost only if exact lineage, controlled execution and recovery reduce observed rework without obscuring designer judgment.
+Open product decisions
+Decision Which constrained artifact defines the pilot
+Recommendation Choose a repeatable digital deliverable with explicit dimensions and review tests
+Consequence Makes validation meaningful rather than a generic successful build
+Decision What environment qualifies live Blender
+Recommendation Specify one supported version and operation envelope before testing
+Consequence Other versions remain unqualified until evidenced
+Decision Who reviews engineering limitations
+Recommendation Name a reviewer for digital validation and keep physical certification separate
+Consequence Prevents customer acceptance from being overextended into safety claims
+Sources and coverage
+Repository paths below are relative to moonmold. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/PACK_ADAPTER.md
+docs/OPERATOR_APP.md
+docs/EXPERIMENT_REPORT.md
+adapter/operator-validation.test.mjs
+AGENTS.md
+moon-luna-investigation-ledger-20260930.md
+Coverage is selected contracts and operator sections rather than all 12 documents or live Blender behavior. The latest ledger reports UI 8/8, Node validation/integrity 2/2, native capability command and build success, plus an isolated synthetic validate/build/reload browser path. Wrong input SHA and stale execution parent reject. No live Blender, fabrication, client acceptance or manufacturing certification was verified; broader acceptance targets remain to be executed.

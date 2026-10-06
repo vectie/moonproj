@@ -1,0 +1,344 @@
+MoonLeaf product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonLeaf should provide conservative preview and narrowly bounded editing of DOCX, XLSX, PPTX, CSV and TSV through a host such as MoonDesk. Its frozen baseline returns a neutral scene, capabilities and diagnostics, preserves unknown package parts where supported, and verifies a save-as-copy rather than silently rewriting the source. Nine JavaScript document-session tests passed. A synthetic MoonDesk DOCX web preview was checked separately, but full Office fidelity and real-document visual acceptance remain unqualified. The recommended direction is trustworthy business-document intake and a reviewed client copy, not a universal Office replacement.
+Repository maturity claim conservative OOXML alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A preview is a useful representation of a file, not proof that every feature survived or that the user may edit everything visible. MoonLeaf should state what it understands, what it preserves without interpreting and what it cannot safely change. When the requested operation exceeds those capabilities, refusal with a precise diagnostic is preferable to plausible-looking output that loses formulas, layout or package relationships.
+The library serves document-host developers. MoonDesk owns file access, user confirmation, destinations and conflict handling; MoonLeaf owns its declared parsing, transformation and evidence contract. In an accountable business workflow, intake produces a source reference, bounded edits produce an inspectable artifact, and MoonProj or another domain owner records delivery and customer acceptance separately. A rendered page is not proof that its claims are true, and a successful save is not evidence of customer approval.
+Users and jobs
+Document host developer
+Expose supported preview and edit actions without hiding fidelity limits
+Trigger A user opens an external Office or delimited text file
+Successful outcome The host can show capability diagnostics and preserve the original
+Document reviewer through a host
+Inspect business content and cite the exact source artifact
+Trigger A proposal spreadsheet or presentation needs review
+Successful outcome Visible content has a stable source reference and unsupported features are understandable
+Deliverable author through MoonDesk
+Make a small authorized change and create a verified copy
+Trigger A client artifact needs a bounded text correction
+Successful outcome The copy reopens with the intended change and no hidden claim of full fidelity
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	12	Partial: 3; Source documented: 8; Verified contract: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS document session 9/9 passed; MoonDesk synthetic DOCX web preview checked separately. Existing dirty user work preserved; no full Office fidelity QA in this pass.
+Open gap Advanced Office fidelity, macros, recalculation, signatures and collaboration outside scope.
+Open gap Real-producer and malformed fixtures, host active-content isolation and print-ready visual acceptance remain gates.
+User scenarios
+Preview and edit supported DOCX content
+MOONLEAF-W01 | Baseline scope. MoonDesk receives a supported DOCX file
+1. Validate the archive and package structure
+2. Build ordered paragraph and table preview metadata
+3. Report capabilities and unsupported layout or content
+4. Apply an exact supported text replacement to a copy
+5. Reopen and inspect the resulting scene
+Edge case Rich layout or a font lies outside the native PDF subset; preview availability must not imply print readiness.
+Failure and recovery An unsupported replacement or invalid package fails without changing the source file.
+Acceptance Use a supported paragraph and table fixture; replace exact text, reopen the copy and compare order and content. Reject an unsupported layout for print-ready output.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/PRESERVATION_MATRIX.md
+Inspect an XLSX cell and make a bounded edit
+MOONLEAF-W02 | Baseline scope. A reviewer opens a spreadsheet
+1. Show supported cell values, formulas and style metadata
+2. Identify which cells support inline text replacement
+3. Apply a bounded text change to a copy
+4. Preserve formula and unsupported feature limitations in diagnostics
+Edge case A formula cell may show cached information; no general recalculation claim is available.
+Failure and recovery A request to recalculate formulas or edit advanced charts is rejected or explicitly unsupported.
+Acceptance Reopen an edited inline text cell while retaining formula text and style metadata in the supported fixture; show that calculation freshness is not asserted.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status
+Preview and replace exact presentation text
+MOONLEAF-W03 | Baseline scope. A host opens a supported PPTX presentation
+1. Build a slide scene with supported text, shapes and pictures
+2. Show slide order and unsupported features
+3. Apply an exact supported text replacement
+4. Reopen the copy and compare the affected slide scene
+Edge case An animation or advanced layout may remain in package parts without being represented by the preview.
+Failure and recovery A requested transformation outside exact text replacement cannot be approximated silently.
+Acceptance Change a known text run in a fixture; retain slide order and supported picture relationships, and keep animation or fidelity warnings visible.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/PRESERVATION_MATRIX.md
+Round trip delimited text and verify the copy
+MOONLEAF-W04 | Baseline scope. A user opens CSV or TSV and requests a small edit
+1. Parse using the supported bounded format rules
+2. Expose the document session and diagnostics
+3. Serialize the changed copy to the host-selected destination
+4. Reopen and rerender the copy
+5. Return verification evidence and any remaining limits
+Edge case Quoting, embedded delimiters, empty cells and inconsistent rows require explicit supported handling.
+Failure and recovery An invalid or oversized input is rejected predictably; failed verification cannot mark the copy verified.
+Acceptance Exercise supported quoting and delimiter boundaries, failed serialization and a successful retry; compare reopened cell values with intended edits.
+Evidence references docs/PRODUCT_CONTRACT.md#Security and fidelity; moon-luna-investigation-ledger-20260930.md
+Review business document intake
+MOONLEAF-W05 | Roadmap scope. A founder receives a source file relevant to a decision
+1. Open it in MoonDesk with a stable artifact identity
+2. Read support, unknown-part and fidelity warnings before choosing an action
+3. Inspect the relevant content
+4. Pass a source reference and diagnostic summary to the knowledge or decision workflow
+Edge case The document is partially supported; the host may allow inspection while disabling unsupported editing.
+Failure and recovery A blocked parse or active-content concern leaves the source retained but not presented as safely editable.
+Acceptance Run representative real-producer files and malformed fixtures through the host; a tester can identify unsupported features and cite the original digest.
+Evidence references docs/PRODUCT_CONTRACT.md#Security and fidelity; docs/PRESERVATION_MATRIX.md
+Create a reviewed client copy
+MOONLEAF-W06 | Roadmap scope. An author needs to correct supported content in a customer deliverable
+1. Retain the original artifact and its digest
+2. Preview the exact permitted change
+3. Save to a distinct destination and verify the copy
+4. Inspect before and after content with fidelity diagnostics
+5. Attach the copy digest to the MoonProj deliverable record
+Edge case The destination already exists or the source changes during review; the host must resolve the conflict before writing.
+Failure and recovery A failed reopen or render-evidence check leaves the result unverified and prevents a print-ready or completed-delivery claim.
+Acceptance A real host produces a reviewed copy, retains the original unchanged, recovers from a failed first write and reads back the linked deliverable digest.
+Evidence references docs/PRODUCT_CONTRACT.md#Security and fidelity; docs/PRESERVATION_MATRIX.md
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Return explicit session capabilities
+MOONLEAF-B01 | Baseline | P0 | Partial
+Each supported document session must return its scene, diagnostics and capabilities so that the host can distinguish preview, supported edit and unsupported operation.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; JS document session 9 of 9; broader host behavior unqualified
+Test 1. Open one fixture of each supported format
+2. Check disabled actions against reported capabilities
+3. Submit an unsupported operation and verify a useful error without source mutation
+Preserve ordered DOCX preview content
+MOONLEAF-B02 | Baseline | P0 | Source documented
+Supported DOCX paragraphs and tables must appear in their defined order with available rich preview metadata.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; docs/PRESERVATION_MATRIX.md
+Test 1. Compare paragraph and table order with the supported fixture
+2. Include empty paragraphs and table boundaries
+3. Report omitted or unsupported features rather than flattening them into an unexplained full-fidelity claim
+Make exact DOCX replacements
+MOONLEAF-B03 | Baseline | P0 | Partial
+DOCX edits must stay within the documented exact text replacement subset and use save-as-copy verification.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; Bounded session tests do not establish arbitrary DOCX edit fidelity
+Test 1. Replace one known supported span and reopen the copy
+2. Try an ambiguous or unsupported target and require refusal
+3. Retry a valid replacement and confirm the original digest is unchanged
+Gate print ready DOCX claims
+MOONLEAF-B04 | Baseline | P0 | Source documented
+A print-ready DOCX claim requires moonleaf.render-evidence.v1 for the supported native font and layout subset; unsupported layout must fail closed.
+Evidence docs/PRODUCT_CONTRACT.md#Security and fidelity
+Test 1. Produce evidence for a supported bounded fixture
+2. Use an unsupported font or layout and deny print-ready status
+3. Verify that preview success alone does not satisfy the print-ready gate
+Expose spreadsheet content honestly
+MOONLEAF-B05 | Baseline | P0 | Source documented
+XLSX preview must distinguish cell values, formulas and supported styles without claiming general formula recalculation.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Open a fixture containing values formulas and styles
+2. Change an inline text cell and preserve the formula representation
+3. Display stale or unknown calculation status without inventing recalculated values
+Limit spreadsheet edits
+MOONLEAF-B06 | Baseline | P1 | Source documented
+XLSX editing must be restricted to the documented inline text subset; advanced chart, layout and general calculation operations remain unsupported.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Edit a supported inline text cell and reopen
+2. Request chart or formula recalculation and obtain an unsupported result
+3. Verify refusal leaves the original and prior valid copy intact
+Preserve supported slide structure
+MOONLEAF-B07 | Baseline | P1 | Source documented
+PPTX preview must expose supported slides, text, shapes and pictures and permit only documented exact text replacement.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Compare slide order and supported objects before and after a replacement
+2. Attempt an unsupported animation edit and refuse it
+3. Reopen the edited copy and retain fidelity diagnostics
+Round trip bounded CSV and TSV
+MOONLEAF-B08 | Baseline | P0 | Verified contract
+Supported delimited text parsing and serialization must preserve intended cell content and report boundary violations.
+Evidence docs/PRODUCT_CONTRACT.md#Security and fidelity; Supplied evidence identifies bounded parse serialization and copy verification as tested contracts
+Test 1. Round trip supported quoted delimiters empty cells and line endings
+2. Reject an input beyond the declared parser bounds without a partial verified result
+3. Serialize a corrected fixture and verify reopened values
+Validate Office package boundaries
+MOONLEAF-B09 | Baseline | P0 | Source documented
+Office archive handling must apply the documented ZIP and OPC path, CRC and size policy before interpreting or emitting a package.
+Evidence docs/PRODUCT_CONTRACT.md#Security and fidelity
+Test 1. Test traversal paths invalid CRC and oversized archive entries
+2. Reject malformed package relationships where required by policy
+3. After refusal confirm no source overwrite or falsely verified copy exists
+Report preservation limits
+MOONLEAF-B10 | Baseline | P0 | Source documented
+Unknown package parts may be preserved only within the documented preservation matrix; preservation must not be described as semantic support or signature validation.
+Evidence docs/PRESERVATION_MATRIX.md; docs/PRODUCT_CONTRACT.md#Security and fidelity
+Test 1. Use a fixture with a preserved unknown part and compare package evidence
+2. Show an explicit warning that the part was not interpreted
+3. Try a transformation incompatible with preservation and fail or report the limitation before save
+Verify every claimed saved copy
+MOONLEAF-B11 | Baseline | P0 | Partial
+A copy can be marked verified only after supported reopen and rerender checks complete, with diagnostics retained.
+Evidence docs/PRODUCT_CONTRACT.md#Security and fidelity; JS document session 9 of 9; real-producer visual checks remain a gate
+Test 1. Save a supported change and compare the reopened scene
+2. Inject corruption or failed reopen and mark verification failed
+3. Retry to a new copy and retain both failure information and the successful evidence
+Dependencies Host write and readback effects
+Leave host authority explicit
+MOONLEAF-B12 | Baseline | P0 | Source documented
+MoonDesk must own file permission, user confirmation, save destination and version conflicts; MoonLeaf must return transformation evidence without authorizing those effects.
+Evidence docs/PRODUCT_CONTRACT.md#Security and fidelity
+Test 1. Run the library with an in-memory host fixture
+2. Deny a host write and retain the unchanged source
+3. Reject an attempt to interpret library verification as delivery or customer acceptance
+Dependencies MoonDesk file host
+Expose intake warnings before edits
+MOONLEAF-R01 | Roadmap | P0 | Proposed
+The host must show support, fidelity and unknown-part limits at the point where a user chooses inspection or editing, alongside a stable original artifact reference.
+Evidence Recommended reviewable business document intake
+Test 1. Open a partially supported real-producer document
+2. Ask a tester to identify its unsupported features and original source
+3. Verify unsupported actions stay disabled after reload
+Dependencies MoonDesk capability UI
+Review the original and client copy
+MOONLEAF-R02 | Roadmap | P0 | Proposed
+A client-copy workflow must retain the original and present the intended bounded change, verification result and remaining fidelity limits for review.
+Evidence Recommended safe client copy
+Test 1. Compare before and after supported content
+2. Reject the copy and retain the original
+3. Interrupt the first save and retry without silently overwriting an existing destination
+Dependencies Host comparison and conflict handling
+Link the inspected deliverable artifact
+MOONLEAF-R03 | Roadmap | P1 | Proposed
+The host must attach the verified copy digest and diagnostic reference to a MoonProj deliverable without labeling it customer accepted or paid.
+Evidence Recommended safe client copy
+Test 1. Attach a reviewed copy and read back its exact digest
+2. Change the copy bytes and require a new reference or review
+3. Fail the attachment step and leave explicit pending linkage
+Dependencies MoonProj deliverable reference contract
+Data state and authority
+Original file and source identity
+Owner File host
+State model Observed, retained, changed externally
+Write authority Host grants access and retains the original; library cannot overwrite by inference
+Retention and recovery Keep original through copy review and the host’s document retention policy
+Neutral scene capabilities and diagnostics
+Owner MoonLeaf
+State model Parsed, partially supported, refused, edited copy, verified or failed verification
+Write authority Library declares only supported transformations and evidence
+Retention and recovery Keep diagnostics with the copy evidence and source reference
+Save destination and external conflict
+Owner MoonDesk
+State model Selected, conflict pending, write pending, saved, failed
+Write authority Host obtains destination and overwrite authority
+Retention and recovery Retain recoverable work through declared recovery window
+Deliverable acceptance
+Owner MoonProj and the customer facing workflow
+State model Attached, inspected, delivered, customer accepted; payment remains separate
+Write authority Named domain owner and customer decide acceptance
+Retention and recovery Preserve artifact digest and independent acceptance evidence
+Interfaces and handoffs
+MoonDesk
+Payload Scene capabilities diagnostics edit request and copy evidence
+Contract Host owns file effects confirmation and conflict resolution
+Failure behavior Unsupported or failed verification must remain visible
+MoonBook
+Payload Original artifact reference and supported extraction context
+Contract Intake supplies evidence rather than factual truth
+Failure behavior Partial preview cannot become complete-source or verified-claim assurance
+MoonProj
+Payload Reviewed copy digest and verification limitations
+Contract Artifact inspection differs from delivery customer acceptance and cash receipt
+Failure behavior Missing digest linkage leaves the deliverable handoff pending
+Native render path
+Payload Bounded render input and moonleaf.render-evidence.v1
+Contract Only the documented font and layout subset may qualify as print ready
+Failure behavior No arbitrary rendering-engine fallback may bypass an unsupported-layout refusal
+Nonfunctional requirements
+Package safety
+MOONLEAF-N01
+Required gate: path traversal, invalid CRC and declared size violations fail without source mutation.
+Acceptance test Malformed ZIP and OPC fixture corpus; inspect failed outputs and retained originals.
+Evidence status Proposed
+Fidelity transparency
+MOONLEAF-N02
+Required gate: unsupported features in the release fixture set are disclosed and cannot unlock unsupported editing.
+Acceptance test Compare the preservation matrix, returned capabilities and host controls for every fixture.
+Evidence status Proposed
+Visual acceptance
+MOONLEAF-N03
+Proposed host gate: real-producer supported documents pass before and after visual inspection at their intended size.
+Acceptance test Review rendered pages or slides and spreadsheet scenes; parser tests alone do not establish visual fidelity.
+Evidence status Proposed
+Bounded resource use
+MOONLEAF-N04
+Proposed release requirement: publish archive, entry, scene and edit size limits and measured memory behavior.
+Acceptance test Boundary and over-limit tests on named targets; no current performance SLA is claimed.
+Evidence status Proposed
+Active content isolation
+MOONLEAF-N05
+Required integration gate: a host treats imported document content as data and does not execute macros or active content through preview.
+Acceptance test Inspect the host path with active-content fixtures; MoonLeaf alone is not a general hostile-document sandbox.
+Evidence status Proposed
+Copy integrity
+MOONLEAF-N06
+Required gate: a verified copy can be traced to the retained original and exact transformation result.
+Acceptance test Compare source and copy digests, reopen results and failed verification states during retry.
+Evidence status Proposed
+Delivery roadmap
+Conservative baseline freeze
+Publish supported format operations preservation limits and failure behavior
+Requirements MOONLEAF-B01, MOONLEAF-B02, MOONLEAF-B03, MOONLEAF-B04, MOONLEAF-B05, MOONLEAF-B06, MOONLEAF-B07, MOONLEAF-B08, MOONLEAF-B09, MOONLEAF-B10, MOONLEAF-B11, MOONLEAF-B12
+Exit gate Format and malformed fixture checks pass; unsupported cases remain explicit
+Qualify business intake
+Make source identity and fidelity warnings understandable in Desk
+Requirements MOONLEAF-R01
+Exit gate Real-producer and malformed host fixtures pass with visible action gating
+Qualify a client copy
+Inspect retain and link a bounded edited deliverable
+Requirements MOONLEAF-R02, MOONLEAF-R03
+Exit gate Original remains unchanged; reviewed copy reopens and exact digest is read back from the deliverable record
+Outcome measurement
+False fidelity claims
+Unsupported fixtures incorrectly labeled fully editable or print ready
+Measurement Capability and render-evidence qualification assertions
+Target Zero in release qualification
+Verified copy agreement
+Copies passing independent reopen and supported before and after comparison
+Measurement Copy verification result keyed by original and copy digest
+Target Every copy marked verified in the qualification corpus
+Format refusal clarity
+Unsupported or malformed cases with a diagnostic actionable by the host
+Measurement Diagnostic category and host usability check
+Target Every declared refusal case; no production adoption baseline
+Original preservation
+Copy workflows retaining unchanged original bytes
+Measurement Digest comparison around writes failures and retries
+Target Every release qualification case
+Non goals
+Full Microsoft Office equivalence or arbitrary document round trip fidelity
+General formula recalculation advanced chart editing animation editing or collaborative coauthoring
+Macro execution digital signature validation or general hostile-document containment
+Automatic factual verification of imported content or proof of customer acceptance
+Alternatives and optimality
+Native Office application
+Advantage Best choice for complex layout formulas animation and established collaboration
+Cost Separate application and automation boundary
+When to choose Prefer whenever required fidelity exceeds the published MoonLeaf subset
+Read only text extraction
+Advantage Small implementation surface for indexing simple content
+Cost Loses rich visual structure and cannot verify a client copy
+When to choose Prefer when the only job is searchable source text with clear extraction limits
+External general renderer
+Advantage May cover additional formats or typography
+Cost Adds operational and fidelity assumptions that require separate qualification
+When to choose Do not use as a silent fallback for a failed print-ready gate
+The optimal scope is conservative because a business document can be damaged while still looking superficially reasonable. Explicit capabilities and preserved originals are core product value, not temporary disclaimers. Every supported edit should have a narrow transformation contract and a meaningful reopen check.
+Library and host maturity need different gates. The nine session tests and separate synthetic Desk preview demonstrate bounded progress, but neither establishes a safe Office replacement. Real-producer documents, malformed archives, host active-content isolation and intended-size visual inspection are the next evidence requirements.
+The simpler alternative wins for advanced authoring. Opening the original in a native Office application is better than extending MoonLeaf to an untested corner of charts, formulas or typography just to keep the user inside the suite. MoonLeaf earns its place for reliable intake and small reversible edits that can be described precisely.
+The PRD could narrow its first client-copy release to DOCX exact text replacement and CSV or TSV values, while keeping XLSX and PPTX as clearly bounded previews until their copy behavior is qualified. That reduces the simultaneous fidelity surface and lets one complete retained-original to inspected-copy to deliverable-reference journey establish integration value.
+Open product decisions
+Decision Which formats should support the first reviewed client copy
+Recommendation Qualify the narrowest supported DOCX and delimited text cases before widening edit claims
+Consequence The host can expose more previews than editable deliverable formats
+Decision How should unknown package parts be presented
+Recommendation Distinguish preserved but uninterpreted from supported
+Consequence Users gain a truthful view of fidelity risk
+Decision When is print ready an allowed label
+Recommendation Only when the bounded native render evidence and visual acceptance gate are satisfied
+Consequence Preview success alone cannot authorize a delivery quality claim
+Sources and coverage
+Repository paths below are relative to moonleaf. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/PRESERVATION_MATRIX.md (referenced)
+moon-luna-investigation-ledger-20260930.md
+The supplied evidence covers README and product contract with the preservation matrix referenced, nine passing JavaScript document-session tests and a separate synthetic DOCX preview in MoonDesk. Seven documentation files, the full fixture set and real-document visual comparisons were not exhaustively reviewed. Pre-existing dirty work was preserved. Proposed acceptance cases do not imply format-wide fidelity, hostile-document containment or production performance, and no current host print-ready journey is established.

@@ -170,17 +170,22 @@ test "desktop session cookie remains scoped to the localhost app" {
 }
 
 ///|
-test "engineering audits only resolve registered Moon Suite repositories" {
+async test "engineering audits only resolve registered Moon Suite repositories" {
+  let catalog = @registry.parse(
+    @fs.read_file("config/moonsuite-engineering.json").text(),
+  )
   assert_true(
-    moonsuite_project_path("/workspace", "moonproj")
+    moonsuite_project_path(catalog, "/workspace", "moonproj")
     is Some("/workspace/moonproj"),
   )
   assert_true(
-    moonsuite_project_path("/workspace", "moonclaw")
+    moonsuite_project_path(catalog, "/workspace", "moonclaw")
     is Some("/workspace/moonclaw"),
   )
-  assert_true(moonsuite_project_path("/workspace", "../secret") is None)
-  assert_true(moonsuite_project_path("/workspace", "unknown") is None)
+  assert_true(
+    moonsuite_project_path(catalog, "/workspace", "../secret") is None,
+  )
+  assert_true(moonsuite_project_path(catalog, "/workspace", "unknown") is None)
 }
 
 ///|

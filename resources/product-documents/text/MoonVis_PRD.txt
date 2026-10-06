@@ -1,0 +1,309 @@
+MoonVis product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonVis should remain an internal design-token, asset-lineage and visual-guidance pack. Its frozen baseline covers versioned marks and variants, a handbook, deterministic token and asset-bundle resolution, a MoonFlow adapter and a Rabbita bundle inspector. Four JavaScript token-resolution tests passed. No cross-product browser visual review, final composited accessibility proof or public asset-redistribution approval was established. The next useful outcome is two consuming products using the same versioned status and evidence token meanings while retaining their own task-specific interaction and layout.
+Repository maturity claim executable local pack
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Visual consistency should help users recognize an action or state correctly. A familiar color or mark is harmful if it makes a draft look approved, an internal success look customer accepted or an unavailable route look ready. MoonVis should give products stable visual vocabulary, explicit usage limits and provenance, while leaving the product owner responsible for whether a particular state is true. A design system can communicate evidence quality; it cannot create that evidence.
+The customer is a designer, UI engineer or asset reviewer integrating a product. A founder benefits through clearer controls in MoonProj, MoonDesk or MoonFind and should not need another daily visual-management application. In the operating sequence, MoonVis helps people inspect source, decision and execution states without confusing them. It does not own commitments, runtime authority, artifact acceptance, cash receipt or reviewed learning. The consuming product’s named acceptance is the final usability gate.
+Users and jobs
+Product designer
+Choose versioned tokens and asset variants appropriate to a product and channel
+Trigger A product needs a coherent set of status evidence and identity controls
+Successful outcome Meaning is consistent and any local adaptation is deliberate and documented
+UI engineer
+Resolve a reproducible asset bundle and integrate it without copied token definitions
+Trigger An application adopts or updates the design system
+Successful outcome The shipped UI can be traced to an exact manifest and regressions are reviewable
+Brand and asset reviewer
+Verify lineage rights decisions and limitations before use
+Trigger A source mark is exported adapted or proposed for public redistribution
+Successful outcome The asset version source and permitted use are clear; unresolved rights do not become implicit permission
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	9	Source documented: 8; Verified contract: 1
+Roadmap	4	Proposed: 4
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS token resolution 4/4 passed; no cross-product browser visual QA or public asset-redistribution approval in this review.
+Open gap Need adoption by at least two products without copied tokens, composited-pixel accessibility proof and rights confirmation.
+Open gap Generated reference bundle is not a working product UI.
+User scenarios
+Select versioned marks and visual guidance
+MOONVIS-W01 | Baseline scope. A designer needs a mark variant or product adaptation
+1. Locate the source mark and its versioned variants
+2. Read the relevant handbook and adaptation guidance
+3. Inspect lineage and recorded rights decisions
+4. Select a variant suited to the intended product and channel
+5. Retain the asset reference and any limits with the adoption record
+Edge case A desired channel or redistribution use is outside the recorded rights decision.
+Failure and recovery Missing provenance or unresolved rights prevents an unrestricted-use claim; the product cannot infer permission from the asset being present.
+Acceptance Trace a selected export to its source version and usage guidance; flag an unsupported channel and retain the original source reference.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.md
+Resolve a deterministic visual bundle
+MOONVIS-W02 | Baseline scope. A product requests a token and asset bundle
+1. Construct moonvis/visual-asset-bundle-request@1.0.0
+2. Resolve the requested versions and channel
+3. Emit moonvis/visual-asset-bundle-manifest@1.0.0 with content address
+4. Include token and asset versions contrast expectation drift and limitations
+5. Materialize only the manifest within the granted workspace-mutation scope
+Edge case A token version or asset variant is unavailable, or requested adaptation drifts from the expected bundle.
+Failure and recovery Resolution returns a precise limitation or failure rather than silently replacing the requested version or claiming a completed product UI.
+Acceptance Resolve identical supported input twice and compare output identity; test missing version and drift cases and verify all limitations remain in the manifest.
+Evidence references docs/PRODUCT_CONTRACT.md#Adoption contract; moon-luna-investigation-ledger-20260930.md
+Inspect and reconcile a local bundle
+MOONVIS-W03 | Baseline scope. MoonFlow invokes bundle resolution or a reviewer opens the Rabbita inspector
+1. Invoke moonvis/visual.asset-bundle.resolve@0.1.0 with the exact request
+2. Reconcile the local operation result and its manifest
+3. Expose health for the supported local capability
+4. Inspect the resolved assets and limitations in the bundle UI
+Edge case A healthy local capability may still produce a bundle unsuitable for a particular consuming product.
+Failure and recovery Failed invoke or incompatible output blocks successful reconciliation; the inspector cannot substitute for a product-specific acceptance test.
+Acceptance Use a supported local invocation and an invalid request, then inspect the manifest. Verify health and result status remain distinct from adopted UI readiness.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/PRODUCT_CONTRACT.md#Adoption contract
+Adopt consistent founder controls
+MOONVIS-W04 | Roadmap scope. MoonProj MoonDesk or MoonFind needs common status and evidence semantics
+1. Choose two products and identify concrete overlapping controls
+2. Agree token meanings without merging their domain lifecycles
+3. Import a shared versioned bundle without copying token values
+4. Adapt layout to each task and inspect final composited pixels
+5. Run interaction visual-regression and contrast checks
+6. Record named product acceptance and manifest linkage
+Edge case The same visual token would imply different domain meanings in the two products; adapt the mapping or keep separate tokens rather than forcing uniform appearance.
+Failure and recovery An inaccessible combination, copied token drift or unclear state label blocks adoption even when bundle resolution succeeds.
+Acceptance Two real products demonstrate matching intended meanings, correct task-specific behavior, accessible composited contrast and traceable manifest versions across an update.
+Evidence references docs/PRODUCT_CONTRACT.md#Adoption contract; Recommended consistent founder controls
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Version source marks and variants
+MOONVIS-B01 | Baseline | P0 | Source documented
+Source marks, variants and exported assets must retain a versioned lineage sufficient to identify the origin of an adopted visual.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; README.md
+Test 1. Select an exported variant and trace its source version
+2. Change the source and identify the resulting distinct export
+3. Reject a provenance-free asset from the qualified adoption set
+Preserve guidance and rights decisions
+MOONVIS-B02 | Baseline | P0 | Source documented
+Adoption records must retain product adaptation guidance and applicable rights decisions; the presence of an asset cannot imply public redistribution approval.
+Evidence README.md; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Review a known variant for its intended channel
+2. Flag a requested use not covered by the recorded decision
+3. Retain the unresolved status until an authorized rights decision is recorded
+Dependencies Asset rights owner
+Resolve supported tokens deterministically
+MOONVIS-B03 | Baseline | P0 | Verified contract
+The supported token resolver must produce consistent results for identical versioned inputs.
+Evidence Portfolio JavaScript token resolution 4 of 4; docs/PRODUCT_CONTRACT.md#Adoption contract
+Test 1. Run the supported resolution fixtures repeatedly
+2. Compare token values and version references
+3. Use an unsupported required token and require the documented failure rather than an arbitrary replacement
+Emit the exact versioned manifest
+MOONVIS-B04 | Baseline | P0 | Source documented
+The resolution operation must accept moonvis/visual-asset-bundle-request@1.0.0 and return moonvis/visual-asset-bundle-manifest@1.0.0 with a content-addressed identity.
+Evidence docs/PRODUCT_CONTRACT.md#Adoption contract
+Test 1. Round trip the supported request and manifest
+2. Alter a material manifest field and require a distinct or invalid identity
+3. Reject an incompatible request version and preserve a useful diagnostic
+Report channel contrast drift and limits
+MOONVIS-B05 | Baseline | P0 | Source documented
+The manifest must retain token and asset versions, intended channel, contrast expectations, drift information and limitations.
+Evidence docs/PRODUCT_CONTRACT.md#Adoption contract
+Test 1. Inspect all required adoption fields in a supported bundle
+2. Request a drifting adaptation and surface the difference
+3. Verify an unknown contrast context is not labeled final-pixel accessible
+Restrict workspace mutation authority
+MOONVIS-B06 | Baseline | P0 | Source documented
+The pack’s workspace-mutation authority may materialize the manifest only; it must not rewrite a consuming product’s UI or broaden asset-use permissions.
+Evidence docs/PRODUCT_CONTRACT.md#Adoption contract
+Test 1. Invoke resolution in a fixture workspace and compare changed files
+2. Attempt to direct it to product implementation changes and reject the unsupported action
+3. Retry a valid manifest output without retaining broader attempted authority
+Reconcile the local MoonFlow operation
+MOONVIS-B07 | Baseline | P1 | Source documented
+The MoonFlow adapter must use moonvis/visual.asset-bundle.resolve@0.1.0 and reconcile the exact local request and result identities.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Invoke a supported local fixture and read back its manifest identity
+2. Return a mismatched result and block successful reconciliation
+3. Repeat reconciliation and avoid creating a second logical adoption result
+Dependencies MoonFlow adapter consumer
+Separate inspector health from adoption
+MOONVIS-B08 | Baseline | P1 | Source documented
+The Rabbita bundle inspector and local capability health must describe asset inspection and operation availability, not a completed product interface.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Open a resolved bundle and inspect versions and limitations
+2. Compare a healthy resolver with an unadopted product
+3. Show a failed operation without presenting the product’s UI as ready
+Dependencies Rabbita inspector host
+Keep final UI accountability with consumers
+MOONVIS-B09 | Baseline | P0 | Source documented
+Consuming products must own final accessibility, composited contrast, interaction behavior and named acceptance, even when the bundle reports contrast expectations.
+Evidence docs/PRODUCT_CONTRACT.md#Adoption contract
+Test 1. Combine tokens in a real host and inspect the resulting pixels
+2. Verify product owner signoff is separate from resolver success
+3. Reject a host-ready claim supported only by token fixtures
+Dependencies Consuming product design and engineering owners
+Adopt one bundle in two products
+MOONVIS-R01 | Roadmap | P0 | Proposed
+Two selected products must import the same supported bundle contract without copying token definitions into untracked local constants.
+Evidence Known gap two product adoption
+Test 1. Trace both products to explicit manifest versions
+2. Update a shared token through the supported integration and inspect both products
+3. Detect a copied or divergent token and block unexplained adoption drift
+Dependencies Two selected consuming products
+Align status and evidence meanings
+MOONVIS-R02 | Roadmap | P0 | Proposed
+The selected products must agree on overlapping token meanings while preserving distinctions among draft, approved, executed, inspected and customer-accepted domain states.
+Evidence Recommended consistent founder controls
+Test 1. Map actual controls in MoonProj Desk or Find to documented meanings
+2. Ask reviewers to distinguish the relevant states without color alone
+3. Reject a mapping that makes an internal completion look like customer acceptance
+Dependencies Product state owners
+Qualify composited visual behavior
+MOONVIS-R03 | Roadmap | P0 | Proposed
+Each adopting product must pass task-specific visual-regression, contrast and interaction checks against the final rendered interface.
+Evidence Recommended consistent founder controls
+Test 1. Inspect normal focus disabled error and selected states in the real host
+2. Measure contrast on composited pixels under the consumer’s declared accessibility standard
+3. Exercise keyboard interaction and inspect regressions after a bundle update
+Dependencies Host browser or native visual tests
+Record reviewable adoption and rollback
+MOONVIS-R04 | Roadmap | P1 | Proposed
+Adoption must retain manifest version, local adaptations, named acceptance and a supported route back to the prior compatible bundle if the update fails.
+Evidence Recommended consistent founder controls; Known gap cross product visual QA
+Test 1. Record acceptance for each of the two products
+2. Introduce a regression and restore the prior supported bundle
+3. Verify restored UI references the prior manifest while preserving the failed update evidence
+Dependencies Consumer release process
+Data state and authority
+Source marks asset variants and rights record
+Owner MoonVis asset maintainers and authorized rights reviewer
+State model Draft, versioned, approved for stated use, restricted or superseded
+Write authority Rights owner approves usage; asset availability is not legal permission
+Retention and recovery Keep source lineage and decisions for every distributed version
+Token definitions and resolved manifest
+Owner MoonVis
+State model Requested, resolved, limited, failed or superseded
+Write authority Resolver declares supported bundle content and limits only
+Retention and recovery Retain content-addressed manifests needed to reproduce an adoption
+Product adaptation and final pixels
+Owner Consuming product
+State model Candidate, under inspection, accepted, regressed or rolled back
+Write authority Product owns layout interaction accessibility and named acceptance
+Retention and recovery Keep manifest linkage and visual qualification with the product release
+Operation receipt and health
+Owner MoonFlow adapter and local host
+State model Invoked, reconciled, failed; health reported separately
+Write authority Adapter reports local operation status without deciding product readiness
+Retention and recovery Retain request and result identities under host policy
+Interfaces and handoffs
+MoonFlow
+Payload Versioned request manifest and local operation receipt
+Contract Exact operation identity and content-addressed result govern reconciliation
+Failure behavior Invalid or mismatched output cannot become successful adoption
+Rabbita inspector
+Payload Resolved tokens assets provenance and limitations
+Contract Inspector supports review of a bundle rather than building product-specific UI
+Failure behavior Unavailable preview or failed health remains visible
+MoonProj MoonDesk and MoonFind
+Payload Shared bundle plus adaptation guidance
+Contract Products own truthful state mapping final pixels interaction and acceptance
+Failure behavior Bundle success cannot bypass host accessibility or task usability failures
+Asset rights reviewer
+Payload Source lineage intended channel and proposed use
+Contract Approval covers only the stated asset use and scope
+Failure behavior Unresolved rights prevent unrestricted public redistribution claims
+Nonfunctional requirements
+Resolution reproducibility
+MOONVIS-N01
+Required gate: identical supported requests yield consistent token results and manifest identity.
+Acceptance test Repeat canonical fixtures across clean local runs and compare normalized outputs.
+Evidence status Proposed
+Provenance completeness
+MOONVIS-N02
+Required gate: every qualified exported asset can be traced to its source version and applicable usage decision.
+Acceptance test Audit the adopted asset subset; exclude unknown rights or origin from unrestricted distribution.
+Evidence status Proposed
+Final contrast
+MOONVIS-N03
+Proposed host gate: adopting controls meet the product’s declared accessibility criteria on composited pixels.
+Acceptance test Measure actual foreground background transparency and focus states; token contrast expectations alone are insufficient.
+Evidence status Proposed
+Meaning without color
+MOONVIS-N04
+Proposed host gate: critical status evidence and action meaning remain understandable without color discrimination.
+Acceptance test Inspect labels icons and state transitions in both selected products with keyboard and assistive technology checks.
+Evidence status Proposed
+Regression and drift
+MOONVIS-N05
+Proposed adoption gate: bundle upgrades produce only reviewed visual differences and all local adaptations are recorded.
+Acceptance test Compare host screenshots and manifest versions; investigate unexplained changes before release.
+Evidence status Proposed
+Delivery roadmap
+Freeze bundle and provenance contracts
+Clarify exact resolution scope lineage and consumer ownership
+Requirements MOONVIS-B01, MOONVIS-B02, MOONVIS-B03, MOONVIS-B04, MOONVIS-B05, MOONVIS-B06, MOONVIS-B07, MOONVIS-B08, MOONVIS-B09
+Exit gate Supported manifests and local adapter fixtures pass; rights and final UI gaps remain explicit
+Qualify two product adoption
+Prove shared meanings without copied tokens or forced layouts
+Requirements MOONVIS-R01, MOONVIS-R02, MOONVIS-R03
+Exit gate Two real product interfaces pass meaning interaction contrast and visual-regression checks
+Make bundle updates recoverable
+Retain named acceptance adaptation records and rollback evidence
+Requirements MOONVIS-R04
+Exit gate A failed candidate update can be rolled back with exact manifest linkage and no erased review history
+Outcome measurement
+Traceable adopted assets
+Assets in the qualified consumer subset with source version and rights-use reference
+Measurement Manifest and adoption record audit
+Target Every adopted asset in release qualification
+Unexplained token drift
+Rendered consumer values differing from the selected bundle without a recorded adaptation
+Measurement Consumer token inspection and manifest comparison
+Target Zero unexplained differences at adoption
+Host visual qualification
+Selected products passing composited contrast meaning and interaction checks
+Measurement Named product acceptance and linked visual test results
+Target Two real products before claiming shared adoption
+Resolution mismatch count
+Identical supported requests producing different normalized results
+Measurement Deterministic fixture comparison
+Target Zero in release fixtures; no production service SLA claimed
+Non goals
+A generic UI composer or automatic product interface implementation
+A founder daily application or substitute for coherent product workflows
+Automatic public asset-redistribution permission
+Accessibility certification from token values alone
+Central ownership of every product’s layout domain states or release acceptance
+Alternatives and optimality
+Product local visual constants
+Advantage Fast and flexible for one small experimental interface
+Cost Manual drift and no common lineage across products
+When to choose Prefer before there is a concrete shared control or asset need
+Static style guide and asset folder
+Advantage Simple for human-led infrequent design work
+Cost Harder to reproduce exact adopted versions or detect drift
+When to choose Prefer when deterministic build integration would add more cost than value
+Full component framework
+Advantage Can standardize interaction as well as appearance
+Cost Much larger host and layout contract with migration costs
+When to choose Do not expand MoonVis into this role without separately proven product demand
+MoonVis has a clear reason to exist when a product can answer which token and asset version produced its visible controls. A deterministic bundle and content-addressed manifest make that answer inspectable. Broadening into a UI generator would weaken the boundary between visual inputs and the product’s responsibility for meaningful interaction.
+The four token tests are library evidence. They cannot demonstrate contrast after transparency and compositing, keyboard focus behavior or whether a founder mistakes an approved task for customer-accepted work. The next acceptance evidence must come from actual host pixels and task scenarios rather than additional token snapshots alone.
+A static style guide is often sufficient for one product with infrequent changes. Programmatic resolution earns its cost when two products share assets or semantics and need reproducible updates. The adoption milestone should therefore be two concrete products, not a mandate to redesign the whole portfolio.
+The PRD can narrow the first shared-control slice to a small set of overlapping status and evidence indicators in MoonProj and one host. Layout and domain-specific actions should remain local. Once provenance, drift detection and rollback work on that slice, additional products can adopt the same contract with independent acceptance.
+Open product decisions
+Decision Which products should adopt first
+Recommendation Select two with a real overlapping status or evidence control
+Consequence Shared meaning can be tested without imposing uniform layouts
+Decision What does resolver success establish
+Recommendation Only a supported bundle and its manifest
+Consequence Product readiness still needs final rendered interaction and accessibility evidence
+Decision How should uncertain asset rights be handled
+Recommendation Keep the asset restricted until the specific intended use is approved
+Consequence No public redistribution claim is inferred from local availability
+Sources and coverage
+Repository paths below are relative to moonvis. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.md
+docs/PRODUCT_CONTRACT.md
+moon-luna-investigation-ledger-20260930.md
+The supplied source coverage includes README and product contract plus four passing JavaScript token-resolution tests. Four documentation files, all asset licenses and final rendered product pixels were not exhaustively inspected. No cross-product browser visual QA or public redistribution approval was established. The detailed host contrast, interaction, two-product adoption and rollback cases are proposed acceptance gates, not completed evaluations.

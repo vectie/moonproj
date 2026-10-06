@@ -40,7 +40,7 @@ async fn dashboard_context(
     }
   }
   missing.sort_by(fn(left, right) { left.compare(right) })
-  { rows, coverage, missing }
+  { rows, coverage, missing, }
 }
 
 ///|

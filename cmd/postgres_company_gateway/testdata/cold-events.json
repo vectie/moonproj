@@ -1,0 +1,681 @@
+{
+  "kind": "mooncode-runtime-events-state",
+  "protocol": "mooncode.v1",
+  "owner": "moonclaw",
+  "session_id": "moonproj-native-capture",
+  "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+  "journal_jsonl": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z/.moonsuite/products/moonclaw/mooncode/sessions/moonproj-native-capture/journal.jsonl",
+  "event_count": 20,
+  "durable_event_count": 20,
+  "watcher_update_ready": false,
+  "moon_check_watcher": {},
+  "live_binding_ready": false,
+  "events": [
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-command.queued_for_runtime_turn-1790924685879",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-1",
+      "lane": "runtime",
+      "kind": "command.queued_for_runtime_turn",
+      "title": "MoonCode command queued for native runtime turn",
+      "status": "queued",
+      "detail": "Queued `prompt` for MoonClaw native runtime-turn execution without spawning a generic task.",
+      "created_at": 1790924685879,
+      "source": "moonclaw-native-mooncode",
+      "journal_sequence": "2"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-mooncode-service-moonproj-native-capture-runtime.service_started-1790924685887",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "mooncode-service-moonproj-native-capture",
+      "lane": "runtime",
+      "kind": "runtime.service_started",
+      "title": "Runtime service started",
+      "status": "running",
+      "detail": "MoonClaw native runtime service is supervising queued MoonCode commands.",
+      "source": "moonclaw-native-mooncode",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "service_id": "mooncode-service-moonproj-native-capture",
+      "runtime_service": true,
+      "consumer_id": "moonclaw-native-runtime-service",
+      "max_turns": 1,
+      "live_wait_ms": 5000,
+      "poll_ms": 250,
+      "created_at": 1790924685887,
+      "journal_sequence": "3"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-runtime.turn_started-1790924685904",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-1",
+      "lane": "runtime",
+      "kind": "runtime.turn_started",
+      "title": "MoonCode native runtime turn started",
+      "status": "running",
+      "detail": "MoonClaw claimed command moonproj-native-command-1 for book-local native tool execution.",
+      "created_at": 1790924685904,
+      "source": "moonclaw-native-mooncode",
+      "journal_sequence": "5"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-planner-step-1-1790924685906",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-1",
+      "lane": "runtime",
+      "kind": "reasoning_delta",
+      "event": "reasoning_delta",
+      "title": "MoonCode planner step 1",
+      "status": "running",
+      "detail": "Planner step 1 used explicit-tool-calls and selected 2 tool call(s).",
+      "content": "Planner step 1 used explicit-tool-calls and selected 2 tool call(s).",
+      "planner_step": 1,
+      "planner_mode": "explicit-tool-calls",
+      "model": "",
+      "tool_call_count": 2,
+      "created_at": 1790924685906,
+      "source": "moonclaw-native-runtime-turn",
+      "journal_sequence": "6"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-tool-call-1-0-write-1790924685906",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-1",
+      "lane": "diff",
+      "kind": "tool_call",
+      "event": "tool_call",
+      "title": "Tool started: write",
+      "status": "running",
+      "detail": "{\n  \"path\": \"finding.txt\",\n  \"content\": \"NATIVE_FINDING_42\"\n}",
+      "content": "{\n  \"path\": \"finding.txt\",\n  \"content\": \"NATIVE_FINDING_42\"\n}",
+      "tool": "write",
+      "tool_name": "write",
+      "tool_call_id": "runtime-step-1-tool-0",
+      "arguments": "{\n  \"path\": \"finding.txt\",\n  \"content\": \"NATIVE_FINDING_42\"\n}",
+      "tool_call": {
+        "id": "runtime-step-1-tool-0",
+        "type": "function",
+        "function": {
+          "name": "write",
+          "arguments": "{\n  \"path\": \"finding.txt\",\n  \"content\": \"NATIVE_FINDING_42\"\n}"
+        }
+      },
+      "path": "finding.txt",
+      "planner_step": 1,
+      "planner_mode": "explicit-tool-calls",
+      "model": "",
+      "created_at": 1790924685906,
+      "source": "moonclaw-native-runtime-turn",
+      "journal_sequence": "7"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-tool-write-1790924685912",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "command_id": "moonproj-native-command-1",
+      "lane": "diff",
+      "kind": "tool_result",
+      "event": "tool_result",
+      "title": "MoonCode tool `write` completed",
+      "status": "done",
+      "detail": "wrote 17 chars to finding.txt",
+      "path": "finding.txt",
+      "changed_paths": [],
+      "diff": "--- /dev/null\n+++ b/finding.txt\n@@\n+NATIVE_FINDING_42\n",
+      "tool": "write",
+      "tool_result": {
+        "tool": "write",
+        "ok": true,
+        "is_error": false,
+        "message": "wrote 17 chars to finding.txt",
+        "output": "",
+        "metadata": {
+          "path": "finding.txt",
+          "absolute_path": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z/finding.txt",
+          "char_count": 17,
+          "changed": true,
+          "before_fingerprint": "absent",
+          "after_fingerprint": "present:lDawSOQV+B/so8Gv9Xx+4POZc7YGt7t1dQdT+mJgWL8=",
+          "diff": "--- /dev/null\n+++ b/finding.txt\n@@\n+NATIVE_FINDING_42\n"
+        }
+      },
+      "created_at": 1790924685912,
+      "source": "moonclaw-native-tool-exec",
+      "journal_sequence": "8"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-tool-finish-1790924685915",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "command_id": "moonproj-native-command-1",
+      "lane": "review",
+      "kind": "finish",
+      "event": "finish",
+      "title": "MoonCode tool `finish` completed",
+      "status": "done",
+      "detail": "finished",
+      "path": "",
+      "changed_paths": [],
+      "diff": "",
+      "tool": "finish",
+      "tool_result": {
+        "tool": "finish",
+        "ok": true,
+        "is_error": false,
+        "message": "finished",
+        "output": "NATIVE_ANSWER_42",
+        "metadata": {
+          "answer": "NATIVE_ANSWER_42"
+        }
+      },
+      "created_at": 1790924685915,
+      "source": "moonclaw-native-tool-exec",
+      "journal_sequence": "9"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-continuation-after-step-0-2-",
+      "protocol": "mooncode.v1",
+      "contract_id": "moonsuite-conversation-control.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-1",
+      "target_command_id": "moonproj-native-command-1",
+      "lane": "runtime-control",
+      "kind": "runtime.turn_checkpointed",
+      "event": "runtime.turn_checkpointed",
+      "state": "after-step",
+      "status": "running",
+      "approval_id": "",
+      "step_index": 0,
+      "tool_index": 2,
+      "planner_turn_end_step": 0,
+      "plan": {
+        "kind": "mooncode-runtime-turn-planner",
+        "protocol": "mooncode.v1",
+        "planner_mode": "explicit-tool-calls",
+        "tool_calls": [
+          {
+            "tool": "write",
+            "arguments": {
+              "path": "finding.txt",
+              "content": "NATIVE_FINDING_42"
+            }
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "NATIVE_ANSWER_42"
+            }
+          }
+        ],
+        "events": []
+      },
+      "planner_steps": [
+        {
+          "kind": "mooncode-runtime-turn-planner",
+          "protocol": "mooncode.v1",
+          "planner_mode": "explicit-tool-calls"
+        }
+      ],
+      "tool_result_count": 2,
+      "tool_result_digest": "c9ce90f24891a49a2f15a0e0fc443b1cb05125898439c13c6623275410f7b809",
+      "tool_result_references": [
+        {
+          "event_id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-tool-write-1790924685912",
+          "event_digest": "fa167404fed96ae32108443ccb03943a0f8e3bf6dcfadc744c28bdb6a72f5ccb",
+          "execution": {
+            "accepted": true,
+            "kind": "mooncode-tool-execution",
+            "protocol": "mooncode.v1",
+            "owner": "moonclaw",
+            "session_id": "moonproj-native-capture",
+            "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+            "command_id": "moonproj-native-command-1",
+            "tool": "write",
+            "arguments": {
+              "path": "finding.txt",
+              "content": "NATIVE_FINDING_42"
+            }
+          },
+          "journaled_result": true
+        },
+        {
+          "inline_execution": {
+            "accepted": true,
+            "kind": "mooncode-tool-execution",
+            "protocol": "mooncode.v1",
+            "owner": "moonclaw",
+            "session_id": "moonproj-native-capture",
+            "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+            "command_id": "moonproj-native-command-1",
+            "tool": "finish",
+            "arguments": {
+              "answer": "NATIVE_ANSWER_42"
+            },
+            "result": {
+              "tool": "finish",
+              "ok": true,
+              "is_error": false,
+              "message": "finished",
+              "output": "NATIVE_ANSWER_42",
+              "metadata": {
+                "answer": "NATIVE_ANSWER_42"
+              }
+            },
+            "event": {
+              "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-tool-finish-1790924685915",
+              "protocol": "mooncode.v1",
+              "session_id": "moonproj-native-capture",
+              "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+              "command_id": "moonproj-native-command-1",
+              "lane": "review",
+              "kind": "finish",
+              "event": "finish",
+              "title": "MoonCode tool `finish` completed",
+              "status": "done",
+              "detail": "finished",
+              "path": "",
+              "changed_paths": [],
+              "diff": "",
+              "tool": "finish",
+              "tool_result": {
+                "tool": "finish",
+                "ok": true,
+                "is_error": false,
+                "message": "finished",
+                "output": "NATIVE_ANSWER_42",
+                "metadata": {
+                  "answer": "NATIVE_ANSWER_42"
+                }
+              },
+              "created_at": 1790924685915,
+              "source": "moonclaw-native-tool-exec"
+            }
+          },
+          "journaled_result": false
+        }
+      ],
+      "step_result_suffix_count": 2,
+      "approval": {},
+      "created_at": 1790924685918,
+      "source": "moonclaw-native-runtime-continuation",
+      "journal_sequence": "10"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-runtime.turn_finished-1790924685922",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-1",
+      "lane": "runtime",
+      "kind": "runtime.turn_finished",
+      "title": "MoonCode native runtime turn completed",
+      "status": "done",
+      "detail": "MoonClaw native runtime turn executed 2 tool call(s): the final finish follows accepted non-verification work.",
+      "created_at": 1790924685922,
+      "source": "moonclaw-native-mooncode",
+      "journal_sequence": "11"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-mooncode-service-moonproj-native-capture-runtime.service_finished-1790924685949",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "mooncode-service-moonproj-native-capture",
+      "lane": "runtime",
+      "kind": "runtime.service_finished",
+      "title": "Runtime service finished",
+      "status": "done",
+      "detail": "MoonClaw native runtime loop completed 1 turn(s) and reached an idle queue.",
+      "source": "moonclaw-native-mooncode",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "service_id": "mooncode-service-moonproj-native-capture",
+      "runtime_service": true,
+      "consumer_id": "moonclaw-native-runtime-service",
+      "max_turns": 1,
+      "live_wait_ms": 5000,
+      "poll_ms": 250,
+      "created_at": 1790924685949,
+      "ran_turn_count": 1,
+      "failed_turn_count": 0,
+      "stopped_by": "idle",
+      "journal_sequence": "13"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-command.queued_for_runtime_turn-1790924685993",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-2",
+      "lane": "runtime",
+      "kind": "command.queued_for_runtime_turn",
+      "title": "MoonCode command queued for native runtime turn",
+      "status": "queued",
+      "detail": "Queued `prompt` for MoonClaw native runtime-turn execution without spawning a generic task.",
+      "created_at": 1790924685993,
+      "source": "moonclaw-native-mooncode",
+      "journal_sequence": "15"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-mooncode-service-moonproj-native-capture-runtime.service_started-1790924686004",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "mooncode-service-moonproj-native-capture",
+      "lane": "runtime",
+      "kind": "runtime.service_started",
+      "title": "Runtime service started",
+      "status": "running",
+      "detail": "MoonClaw native runtime service is supervising queued MoonCode commands.",
+      "source": "moonclaw-native-mooncode",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "service_id": "mooncode-service-moonproj-native-capture",
+      "runtime_service": true,
+      "consumer_id": "moonclaw-native-runtime-service",
+      "max_turns": 1,
+      "live_wait_ms": 5000,
+      "poll_ms": 250,
+      "created_at": 1790924686004,
+      "journal_sequence": "16"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-runtime.turn_started-1790924686043",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-2",
+      "lane": "runtime",
+      "kind": "runtime.turn_started",
+      "title": "MoonCode native runtime turn started",
+      "status": "running",
+      "detail": "MoonClaw claimed command moonproj-native-command-2 for book-local native tool execution.",
+      "created_at": 1790924686043,
+      "source": "moonclaw-native-mooncode",
+      "journal_sequence": "18"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-planner-step-1-1790924686048",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-2",
+      "lane": "runtime",
+      "kind": "reasoning_delta",
+      "event": "reasoning_delta",
+      "title": "MoonCode planner step 1",
+      "status": "running",
+      "detail": "Planner step 1 used explicit-tool-calls and selected 2 tool call(s).",
+      "content": "Planner step 1 used explicit-tool-calls and selected 2 tool call(s).",
+      "planner_step": 1,
+      "planner_mode": "explicit-tool-calls",
+      "model": "",
+      "tool_call_count": 2,
+      "created_at": 1790924686048,
+      "source": "moonclaw-native-runtime-turn",
+      "journal_sequence": "19"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-tool-call-1-0-write-1790924686048",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-2",
+      "lane": "diff",
+      "kind": "tool_call",
+      "event": "tool_call",
+      "title": "Tool started: write",
+      "status": "running",
+      "detail": "{\n  \"path\": \"unrelated.txt\",\n  \"content\": \"WRONG_LATER_ARTIFACT\"\n}",
+      "content": "{\n  \"path\": \"unrelated.txt\",\n  \"content\": \"WRONG_LATER_ARTIFACT\"\n}",
+      "tool": "write",
+      "tool_name": "write",
+      "tool_call_id": "runtime-step-1-tool-0",
+      "arguments": "{\n  \"path\": \"unrelated.txt\",\n  \"content\": \"WRONG_LATER_ARTIFACT\"\n}",
+      "tool_call": {
+        "id": "runtime-step-1-tool-0",
+        "type": "function",
+        "function": {
+          "name": "write",
+          "arguments": "{\n  \"path\": \"unrelated.txt\",\n  \"content\": \"WRONG_LATER_ARTIFACT\"\n}"
+        }
+      },
+      "path": "unrelated.txt",
+      "planner_step": 1,
+      "planner_mode": "explicit-tool-calls",
+      "model": "",
+      "created_at": 1790924686048,
+      "source": "moonclaw-native-runtime-turn",
+      "journal_sequence": "20"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-tool-write-1790924686057",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "command_id": "moonproj-native-command-2",
+      "lane": "diff",
+      "kind": "tool_result",
+      "event": "tool_result",
+      "title": "MoonCode tool `write` completed",
+      "status": "done",
+      "detail": "wrote 20 chars to unrelated.txt",
+      "path": "unrelated.txt",
+      "changed_paths": [],
+      "diff": "--- /dev/null\n+++ b/unrelated.txt\n@@\n+WRONG_LATER_ARTIFACT\n",
+      "tool": "write",
+      "tool_result": {
+        "tool": "write",
+        "ok": true,
+        "is_error": false,
+        "message": "wrote 20 chars to unrelated.txt",
+        "output": "",
+        "metadata": {
+          "path": "unrelated.txt",
+          "absolute_path": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z/unrelated.txt",
+          "char_count": 20,
+          "changed": true,
+          "before_fingerprint": "absent",
+          "after_fingerprint": "present:8nS7tjeZHehDPnnK1sZG45To6bH/TdnsgVhaqWhHfGs=",
+          "diff": "--- /dev/null\n+++ b/unrelated.txt\n@@\n+WRONG_LATER_ARTIFACT\n"
+        }
+      },
+      "created_at": 1790924686057,
+      "source": "moonclaw-native-tool-exec",
+      "journal_sequence": "21"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-tool-finish-1790924686063",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "command_id": "moonproj-native-command-2",
+      "lane": "review",
+      "kind": "finish",
+      "event": "finish",
+      "title": "MoonCode tool `finish` completed",
+      "status": "done",
+      "detail": "finished",
+      "path": "",
+      "changed_paths": [],
+      "diff": "",
+      "tool": "finish",
+      "tool_result": {
+        "tool": "finish",
+        "ok": true,
+        "is_error": false,
+        "message": "finished",
+        "output": "WRONG_LATER_ANSWER",
+        "metadata": {
+          "answer": "WRONG_LATER_ANSWER"
+        }
+      },
+      "created_at": 1790924686063,
+      "source": "moonclaw-native-tool-exec",
+      "journal_sequence": "22"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-continuation-after-step-0-2-",
+      "protocol": "mooncode.v1",
+      "contract_id": "moonsuite-conversation-control.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-2",
+      "target_command_id": "moonproj-native-command-2",
+      "lane": "runtime-control",
+      "kind": "runtime.turn_checkpointed",
+      "event": "runtime.turn_checkpointed",
+      "state": "after-step",
+      "status": "running",
+      "approval_id": "",
+      "step_index": 0,
+      "tool_index": 2,
+      "planner_turn_end_step": 0,
+      "plan": {
+        "kind": "mooncode-runtime-turn-planner",
+        "protocol": "mooncode.v1",
+        "planner_mode": "explicit-tool-calls",
+        "tool_calls": [
+          {
+            "tool": "write",
+            "arguments": {
+              "path": "unrelated.txt",
+              "content": "WRONG_LATER_ARTIFACT"
+            }
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "WRONG_LATER_ANSWER"
+            }
+          }
+        ],
+        "events": []
+      },
+      "planner_steps": [
+        {
+          "kind": "mooncode-runtime-turn-planner",
+          "protocol": "mooncode.v1",
+          "planner_mode": "explicit-tool-calls"
+        }
+      ],
+      "tool_result_count": 2,
+      "tool_result_digest": "77e98155e97cf065ee4eef9697d083e769e62f5d7bfe895497c7678de1cb7706",
+      "tool_result_references": [
+        {
+          "event_id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-tool-write-1790924686057",
+          "event_digest": "01e29d301c3130f5ddf3a1ebbe93aedad0c993aa96ad13532dc91fbb963970b5",
+          "execution": {
+            "accepted": true,
+            "kind": "mooncode-tool-execution",
+            "protocol": "mooncode.v1",
+            "owner": "moonclaw",
+            "session_id": "moonproj-native-capture",
+            "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+            "command_id": "moonproj-native-command-2",
+            "tool": "write",
+            "arguments": {
+              "path": "unrelated.txt",
+              "content": "WRONG_LATER_ARTIFACT"
+            }
+          },
+          "journaled_result": true
+        },
+        {
+          "inline_execution": {
+            "accepted": true,
+            "kind": "mooncode-tool-execution",
+            "protocol": "mooncode.v1",
+            "owner": "moonclaw",
+            "session_id": "moonproj-native-capture",
+            "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+            "command_id": "moonproj-native-command-2",
+            "tool": "finish",
+            "arguments": {
+              "answer": "WRONG_LATER_ANSWER"
+            },
+            "result": {
+              "tool": "finish",
+              "ok": true,
+              "is_error": false,
+              "message": "finished",
+              "output": "WRONG_LATER_ANSWER",
+              "metadata": {
+                "answer": "WRONG_LATER_ANSWER"
+              }
+            },
+            "event": {
+              "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-tool-finish-1790924686063",
+              "protocol": "mooncode.v1",
+              "session_id": "moonproj-native-capture",
+              "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+              "command_id": "moonproj-native-command-2",
+              "lane": "review",
+              "kind": "finish",
+              "event": "finish",
+              "title": "MoonCode tool `finish` completed",
+              "status": "done",
+              "detail": "finished",
+              "path": "",
+              "changed_paths": [],
+              "diff": "",
+              "tool": "finish",
+              "tool_result": {
+                "tool": "finish",
+                "ok": true,
+                "is_error": false,
+                "message": "finished",
+                "output": "WRONG_LATER_ANSWER",
+                "metadata": {
+                  "answer": "WRONG_LATER_ANSWER"
+                }
+              },
+              "created_at": 1790924686063,
+              "source": "moonclaw-native-tool-exec"
+            }
+          },
+          "journaled_result": false
+        }
+      ],
+      "step_result_suffix_count": 2,
+      "approval": {},
+      "created_at": 1790924686067,
+      "source": "moonclaw-native-runtime-continuation",
+      "journal_sequence": "23"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-runtime.turn_finished-1790924686073",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "moonproj-native-command-2",
+      "lane": "runtime",
+      "kind": "runtime.turn_finished",
+      "title": "MoonCode native runtime turn completed",
+      "status": "done",
+      "detail": "MoonClaw native runtime turn executed 2 tool call(s): the final finish follows accepted non-verification work.",
+      "created_at": 1790924686073,
+      "source": "moonclaw-native-mooncode",
+      "journal_sequence": "24"
+    },
+    {
+      "id": "moonclaw-moonproj-native-capture-mooncode-service-moonproj-native-capture-runtime.service_finished-1790924686115",
+      "protocol": "mooncode.v1",
+      "session_id": "moonproj-native-capture",
+      "command_id": "mooncode-service-moonproj-native-capture",
+      "lane": "runtime",
+      "kind": "runtime.service_finished",
+      "title": "Runtime service finished",
+      "status": "done",
+      "detail": "MoonClaw native runtime loop completed 1 turn(s) and reached an idle queue.",
+      "source": "moonclaw-native-mooncode",
+      "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+      "service_id": "mooncode-service-moonproj-native-capture",
+      "runtime_service": true,
+      "consumer_id": "moonclaw-native-runtime-service",
+      "max_turns": 1,
+      "live_wait_ms": 5000,
+      "poll_ms": 250,
+      "created_at": 1790924686115,
+      "ran_turn_count": 1,
+      "failed_turn_count": 0,
+      "stopped_by": "idle",
+      "journal_sequence": "26"
+    }
+  ]
+}

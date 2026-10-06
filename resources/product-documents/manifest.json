@@ -1,0 +1,1259 @@
+{
+  "schema": "moonsuite.product-documents.v1",
+  "prepared_on": "2026-10-02",
+  "catalog": "config/moonsuite-engineering.json",
+  "catalog_sha256": "7092ac92ab51f13645a3ef0a1885ddc1c6a0ffa4eea65c4fb4a659f7983a2c2a",
+  "document_root": "resources/product-documents",
+  "media_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "asset_count": 20,
+  "total_size_bytes": 942223,
+  "source_file_hashes": {
+    "moonproj/config/moonsuite-engineering.json": "854b912b094e68be0026ccda40d1648c37367dcf8fb645d849aefddd36306f3b",
+    "recovery/recovered-source-manifest.json": "6edb561bea1b88bd64c364585becf9bc3926b51f8995a4f6a8945a0aad641bb1",
+    "prd_work/delivery_manifest.json": "e2966fe22c1312fc3c3a212a078205d9b59b65e13ba71db674e66ec0373819a4",
+    "recovery/product-data-reconstruction/founder-intent-2026-10-02.json": "3693bd6422feafcf56372ef1b5c11fc267c9c3b0203f3bbd3953de580eafa51c",
+    "prd_work/content/moonbook.json": "26ed3d3ee868a296dbdf387b34864dbd77f552b7f35dc5165223323a8312f3f5",
+    "prd_work/output/MoonBook_PRD.docx": "70e75d5956710d003d0f9a507c7b1cb9abfca27c859750a6bf22b4b83dd7f5fb",
+    "prd_work/content/mooncast.json": "a556b754a758c726e3be9e8add70dcb3e6f51635c9cc55952db9f406fd7ebb69",
+    "prd_work/output/MoonCast_PRD.docx": "5df2e07542062d4f27efb9d82bc45ddc2e77544d656b59211a9f71628922ec2d",
+    "prd_work/content/moonchat.json": "00e11fdf99588e81cd94ee9b04dc29443e70036d227749378ae93bd662245d76",
+    "prd_work/output/MoonChat_PRD.docx": "ecb953d5c60f52165572ea5bd3a5f60b4c2612c281c03cce884929fcdc3f3165",
+    "prd_work/content/moonclaw.json": "513fd4e440a2de7d74cdbe7f927fb4350e9fd5ee92231f0b50f90be6df16e262",
+    "prd_work/output/MoonClaw_PRD.docx": "06b45aee82d4f16452a3b7b47741511230e70ea5cc34dafd4dac074580bb1d46",
+    "prd_work/content/moondesk.json": "9058e778f97e48dc1a4bbe1d78e21a77872d7e27aa85ef1a69266d131caed533",
+    "prd_work/output/MoonDesk_PRD.docx": "3c407a8174eda99f2cabd7e089a6110979df6e8f7c8187b8fd43dbcb1a030616",
+    "prd_work/content/moonedit.json": "d8328d89a834eafe761c4c5db40a9935e8e8606546ef7ae2c8366c28d8154e49",
+    "prd_work/output/MoonEdit_PRD.docx": "462892a541703ca9df303f67b426368643873ff9290e20a7cfabfff01273a6f4",
+    "prd_work/content/moonfind.json": "38efaaf181589ddfbc2d92a621050b37867c449c693108f4f860b82da4482790",
+    "prd_work/output/MoonFind_PRD.docx": "9c842e94af55ff3357fea2b460cf4300ab877b37eb2fce6cdf2900fb074c6ec5",
+    "prd_work/content/moonfish.json": "b12412bf58afa21f3c574c798a1277b40e156821c917dd1b3fb4266c1e335074",
+    "prd_work/output/MoonFish_PRD.docx": "bdf65d9b48a33139353ff2f095922ed95b780e2a7cc0752b147ae745cae2f5ea",
+    "prd_work/content/moonflow.json": "9b5f0ef5ad7dc507b076628a23465a3f86c47e291887e75688d0f350a5421a21",
+    "prd_work/output/MoonFlow_PRD.docx": "0704e23539a07493aac9a9cbacbe00750cb6c11021efc55267f098f0a3466de6",
+    "prd_work/content/moonfort.json": "b881b91eb7711b597ef4cf9a97cfe871f841a18513b2e5e7770a9c2e70044d5e",
+    "prd_work/output/MoonFort_PRD.docx": "e1ab15ea9512e4fe7bb8d792e8c142fd7dd57579eb6c136769d1b0e3276ae067",
+    "prd_work/content/moongate.json": "fd90cb30a06fead59fb99c7bd4f439916150634226d2203cd272f34477ee5503",
+    "prd_work/output/MoonGate_PRD.docx": "67a7cd8e83da12bdeabf4078f5221f02b43653a9b682eb57a9a5a4815a870a7a",
+    "prd_work/content/moonleaf.json": "02e8d911a589091309c2ca7c456f26f839d2cfed6a6da1db4fc5e63fa8359552",
+    "prd_work/output/MoonLeaf_PRD.docx": "5230f13b33c6faa712ca137b0c59ffc2670a0395c144d7ec4f40ffa57ca5ec36",
+    "prd_work/content/moonlib.json": "a51ffd40df3f75d00ea76f1164ae685b5d38e3bab20ed4c698b642d17dfab658",
+    "prd_work/output/MoonLib_PRD.docx": "3c579e13260b2a0d50895e28364bf561bef1503525b562c3cf5ab97ea32f1327",
+    "prd_work/content/moonmold.json": "9197ef199fcb3f2bb432d4fd67bae7a7288f1243756e3475a432dad26b136ea0",
+    "prd_work/output/MoonMold_PRD.docx": "7ad895d93d5671719fa2f1c72942959684ae2c58cc51dc5f115ee9f4dd8b4af8",
+    "prd_work/content/moonmoon.json": "f63649ff1bd8cf7131bae208fd90f0a7b6ca0399157f3be5de2f128f7cc6a2c6",
+    "prd_work/output/MoonMoon_PRD.docx": "a583d0fbd21bc6bf384acbbbef1c53cbedbba4280d7630b7c94619d757cd0471",
+    "prd_work/content/moonpoly.json": "5b8bead6c1e308b78a24e3440decb9b1103312bcb88822c4ab1dacc7efc73002",
+    "prd_work/output/MoonPoly_PRD.docx": "9b99833b0e475dacf60e807d5b450fc4db24f33c0609c5054f2daaf65cbeda94",
+    "prd_work/content/moonproj.json": "8802f85005ed0fd89798412d333f3a48712907a9fd0d8879298c04db50cf9d4d",
+    "prd_work/output/MoonProj_PRD.docx": "b8bbc571f18e532287c121b9d0c2e2eae6ae7b449b8e0e9af84bcf6e952ce65a",
+    "prd_work/content/moonrobo.json": "c4e7a20acdf645d073459e080dd1d398349752766d91a525fe575baa9c399e50",
+    "prd_work/output/MoonRobo_PRD.docx": "4be381c1f03ed9fea4e795498101ec306c5a2795ad03137cb44223607fecfcd5",
+    "prd_work/content/moontown.json": "372d449a0532058b1bbc0e55b2c3c31cab4c13cb60c977bfb02bcba1a4a8bb83",
+    "prd_work/output/MoonTown_PRD.docx": "7fbba12c2524f265670e309d36d38c5b6c353d356743a54093f30728851f2c86",
+    "prd_work/content/moonvis.json": "0def548abdbc8a1bb5fc684d847da61c53cc7ed1f56c7f8638257ac61f400300",
+    "prd_work/output/MoonVis_PRD.docx": "cd41d85807b431880db61994d2c6f481fa55e7b9473fe375324d5e430029331b"
+  },
+  "original_engineering_portfolio": {
+    "schema": "moonsuite.engineering-portfolio.v1",
+    "workspace_root": "..",
+    "policy": {
+      "unknown_is_pass": false,
+      "self_review_allowed": false,
+      "trusted_review_verdict": "accept",
+      "progress_percent_requires_declared_milestones": true,
+      "release_candidate_requires_digest": true
+    },
+    "projects": [
+      {
+        "id": "moonproj",
+        "repository": "../moonproj",
+        "lifecycle": "software",
+        "role": "engineering governance and company operating system",
+        "tier": "control-plane"
+      },
+      {
+        "id": "moonbook",
+        "repository": "../moonbook",
+        "lifecycle": "software",
+        "role": "durable knowledge and executable-book workspace",
+        "tier": "core"
+      },
+      {
+        "id": "moonclaw",
+        "repository": "../moonclaw",
+        "lifecycle": "software",
+        "role": "agent execution, jobs, sessions and proof runtime",
+        "tier": "core"
+      },
+      {
+        "id": "moontown",
+        "repository": "../moontown",
+        "lifecycle": "software",
+        "role": "standing-goal orchestration and continuity",
+        "tier": "core"
+      },
+      {
+        "id": "moondesk",
+        "repository": "../moondesk",
+        "lifecycle": "software",
+        "role": "human desktop and review surface",
+        "tier": "core"
+      },
+      {
+        "id": "moongate",
+        "repository": "../moongate",
+        "lifecycle": "software",
+        "role": "provider access, usage, metrics and suite discovery",
+        "tier": "core"
+      },
+      {
+        "id": "moonrobo",
+        "repository": "../moonrobo",
+        "lifecycle": "hardware-software",
+        "role": "robot safety, proof and physical execution boundary",
+        "tier": "field"
+      },
+      {
+        "id": "moonmoon",
+        "repository": "../moonmoon",
+        "lifecycle": "software",
+        "role": "lunar terrain and mission world model",
+        "tier": "field"
+      },
+      {
+        "id": "moonfish",
+        "repository": "../moonfish",
+        "lifecycle": "software",
+        "role": "investment analysis Agent extension",
+        "tier": "extension"
+      }
+    ]
+  },
+  "repository_checks": [
+    {
+      "id": "moonproj",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonproj.git",
+      "source_revision": "903a790654d09966b4eb63d4323938074d9298ae",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonbook",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonbook.git",
+      "source_revision": "d75aaaa6a3f3c7aba71df68007436d54fc2ded59",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonclaw",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonclaw.git",
+      "source_revision": "c5b6d5232169167ac51084413efea34f2157855b",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moontown",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moontown.git",
+      "source_revision": "56a44f231c8140a74a3e252de8575461b5f1a4ee",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moondesk",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moondesk.git",
+      "source_revision": "e22ea828d613d246edb33a08e5cb37d5f42536aa",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moongate",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moongate.git",
+      "source_revision": "b728e1877a18cc254da4e78e215e4a3a28ef452b",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonrobo",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonrobo.git",
+      "source_revision": "cee4280c32d9a9a8617186544bd6531024d80b86",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonmoon",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonmoon.git",
+      "source_revision": "7ac7e6d93dd98a1539b41a3972b0a27fe9af7d7a",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonfish",
+      "original_configured_path": "../moonfish",
+      "path_meaning": "configured relative target, not an observed checkout or verified remote"
+    },
+    {
+      "id": "mooncast",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/mooncast.git",
+      "source_revision": "561479f745cf55fb6259f4bae061ba5768dd38d0",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonchat",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonchat.git",
+      "source_revision": "d567f1d23c1d2bf128e99d094f857d4e6ff5061f",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonfind",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonfind.git",
+      "source_revision": "ee3439c962f7d21dee44b87d1e029ae536070327",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonflow",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonflow.git",
+      "source_revision": "b335ac48e2c4577daac310bb61c416099610b4e7",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonfort",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonfort.git",
+      "source_revision": "76dc827a846fdd07ed445f2e98184e0c45ddef73",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonlib",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonlib.git",
+      "source_revision": "ede9b6bcaf11b3228e35048c6b5cff0489f636df",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    },
+    {
+      "id": "moonmold",
+      "directory_observed": true,
+      "origin_matches_recovered_manifest": true,
+      "head_matches_recovered_manifest": true,
+      "observation_provenance": "recovery/recovered-source-manifest.json",
+      "origin": "https://github.com/vectie/moonmold.git",
+      "source_revision": "5dfac89b7bfd13f1281378aefe11d0f23123b1da",
+      "matches_retained_historical_origin_and_revision": true,
+      "revision_meaning": "recovered git HEAD; local patches are not represented as a new commit"
+    }
+  ],
+  "inventory": {
+    "active_product_ids": [
+      "moonproj",
+      "moonbook",
+      "moonclaw",
+      "moontown",
+      "moondesk",
+      "moongate",
+      "moonrobo",
+      "moonmoon",
+      "moonfish",
+      "mooncast",
+      "moonchat",
+      "moonedit",
+      "moonfind",
+      "moonflow",
+      "moonfort",
+      "moonleaf",
+      "moonlib",
+      "moonmold",
+      "moonpoly",
+      "moonvis"
+    ],
+    "source_manifest_product_ids": [
+      "moonbook",
+      "mooncast",
+      "moonchat",
+      "moonclaw",
+      "moondesk",
+      "moonfind",
+      "moonflow",
+      "moonfort",
+      "moongate",
+      "moonlib",
+      "moonmold",
+      "moonmoon",
+      "moonproj",
+      "moonrobo",
+      "moontown"
+    ],
+    "configured_only_repository_ids": [
+      "moonfish"
+    ],
+    "unknown_repository_ids": [
+      "moonedit",
+      "moonleaf",
+      "moonpoly",
+      "moonvis"
+    ],
+    "unresolved_in_source_manifest": [
+      "moonfish",
+      "moonpoly",
+      "moonedit",
+      "moonleaf",
+      "moonvis"
+    ],
+    "excluded_product_ids": [
+      "moonprop",
+      "mooncake"
+    ],
+    "retired_product_ids": [
+      "moonstat"
+    ],
+    "supporting_repository_ids": [
+      "moonbit-webview",
+      "moonxi-net"
+    ],
+    "infrastructure_outside_product_catalog": [
+      "lunanexa"
+    ]
+  },
+  "evidence_limits": [
+    "Catalog purpose and philosophy are authored intent, not observed capability, installation, release, customer acceptance, revenue, or agent status.",
+    "The four current founder directions take precedence for catalog intent; the older PRD files are preserved byte for byte.",
+    "Repository paths are relative to the explicitly configured serving workspace root. Current presence must be checked by that runtime.",
+    "Source revisions identify the recovered git HEAD in recovery/recovered-source-manifest.json, not local patch modifications. All fifteen origin/revision values also match the retained earlier source-manifest values.",
+    "Library identities are successful historical upload receipts and are metadata only. No current Library browser URLs are declared.",
+    "The packaged copies preserve source bytes and Library identity; no live Library version synchronization was performed.",
+    "LunaNexa remains infrastructure outside this twenty-product catalog.",
+    "Reconstructed after workspace reset from surviving PRD inputs and retained task/tool content. Missing historical proposal hashes were not guessed; provenance changes require a new catalog hash and fresh verification."
+  ],
+  "founder_direction_capture": {
+    "schema": "moonsuite.founder-direction.v1",
+    "captured_on": "2026-10-02",
+    "reconstructed_at": "2026-10-02T08:41:44Z",
+    "provenance": "Current founder direction retained in the authorized implementation task and its MoonProj purpose clarification. Reconstructed after the cloud workspace reset from the completed task's retained tool-call and task-message content.",
+    "unavailable_source": "The original product-registry-next.md bytes and historical SHA were not recovered. No proposal hash or old-byte identity is asserted.",
+    "directions": {
+      "moonproj": {
+        "heading": "Top-down management",
+        "direction": "Product philosophy and PRDs guide goals, bounded work, decisions, and concrete working results across the product landscape. Management can run autonomously; human inspection and intervention remain available when wanted. Existing task acceptance semantics remain separate."
+      },
+      "moondesk": {
+        "heading": "Quick prototyping and human interleaving",
+        "direction": "A place for a person to inspect, intervene, and iteratively shape work and prototypes."
+      },
+      "moontown": {
+        "heading": "Bottom-up reuse and emergence",
+        "direction": "Repeated local work can reveal reusable patterns and broader coordination opportunities."
+      },
+      "moonbook": {
+        "heading": "Experienced agent and memory",
+        "direction": "Accumulated experience and durable memory support continuity and better future work."
+      }
+    },
+    "evidence_limit": "These are authored product intentions. They do not assert implementation maturity or change execution, approval, or acceptance authority."
+  },
+  "reconstruction": {
+    "reconstructed_at": "2026-10-02T08:41:44Z",
+    "historical_catalog_sha256": "e56fdc015cf1012b263cfb6edcfa69b804a2c89248efef695a47ffd47173395e",
+    "historical_byte_match_claimed": false,
+    "reason_for_new_hash": "The lost proposal hash in the founder provenance cannot be verified. Founder text is retained, with explicitly reconstructed provenance and a new source hash."
+  },
+  "assets": [
+    {
+      "product_id": "moonproj",
+      "document_id": "prd",
+      "path": "MoonProj_PRD.docx",
+      "source_path": "prd_work/output/MoonProj_PRD.docx",
+      "source_sha256": "b8bbc571f18e532287c121b9d0c2e2eae6ae7b449b8e0e9af84bcf6e952ce65a",
+      "packaged_sha256": "b8bbc571f18e532287c121b9d0c2e2eae6ae7b449b8e0e9af84bcf6e952ce65a",
+      "size_bytes": 48647,
+      "definition_path": "prd_work/content/moonproj.json",
+      "definition_sha256": "8802f85005ed0fd89798412d333f3a48712907a9fd0d8879298c04db50cf9d4d",
+      "purpose_provenance": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moonproj",
+      "product_kind_provenance": "prd_work/content/moonproj.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_7fdb4b44fc088191a3c5dbb915694c0b",
+        "file_name": "MoonProj_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonProj_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "b8bbc571f18e532287c121b9d0c2e2eae6ae7b449b8e0e9af84bcf6e952ce65a",
+        "source_docx_size_bytes": 48647,
+        "text_sha256": "b4fb39069350c325f5bd22512a79bff6ac76dcb64d5bba30b8e2cc1dc4386f65",
+        "size_bytes": 36482,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 353,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonbook",
+      "document_id": "prd",
+      "path": "MoonBook_PRD.docx",
+      "source_path": "prd_work/output/MoonBook_PRD.docx",
+      "source_sha256": "70e75d5956710d003d0f9a507c7b1cb9abfca27c859750a6bf22b4b83dd7f5fb",
+      "packaged_sha256": "70e75d5956710d003d0f9a507c7b1cb9abfca27c859750a6bf22b4b83dd7f5fb",
+      "size_bytes": 47014,
+      "definition_path": "prd_work/content/moonbook.json",
+      "definition_sha256": "26ed3d3ee868a296dbdf387b34864dbd77f552b7f35dc5165223323a8312f3f5",
+      "purpose_provenance": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moonbook",
+      "product_kind_provenance": "prd_work/content/moonbook.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_d803cc803a5c8191becff73d61d479cd",
+        "file_name": "MoonBook_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonBook_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "70e75d5956710d003d0f9a507c7b1cb9abfca27c859750a6bf22b4b83dd7f5fb",
+        "source_docx_size_bytes": 47014,
+        "text_sha256": "7a760b693e9379633fcd74a9d1db6f1f4a70a8b26be15be0bcd9ae48c70dcfc6",
+        "size_bytes": 29127,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 303,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonclaw",
+      "document_id": "prd",
+      "path": "MoonClaw_PRD.docx",
+      "source_path": "prd_work/output/MoonClaw_PRD.docx",
+      "source_sha256": "06b45aee82d4f16452a3b7b47741511230e70ea5cc34dafd4dac074580bb1d46",
+      "packaged_sha256": "06b45aee82d4f16452a3b7b47741511230e70ea5cc34dafd4dac074580bb1d46",
+      "size_bytes": 47517,
+      "definition_path": "prd_work/content/moonclaw.json",
+      "definition_sha256": "513fd4e440a2de7d74cdbe7f927fb4350e9fd5ee92231f0b50f90be6df16e262",
+      "purpose_provenance": "prd_work/content/moonclaw.json#summary",
+      "product_kind_provenance": "prd_work/content/moonclaw.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_9edc55d740108191b97ea9bd1d5ee682",
+        "file_name": "MoonClaw_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonClaw_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "06b45aee82d4f16452a3b7b47741511230e70ea5cc34dafd4dac074580bb1d46",
+        "source_docx_size_bytes": 47517,
+        "text_sha256": "aca1c184b4c709628c5e5916ec9dc85efbdee88ca6fd3441ec35a7e5da766172",
+        "size_bytes": 24886,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 338,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moontown",
+      "document_id": "prd",
+      "path": "MoonTown_PRD.docx",
+      "source_path": "prd_work/output/MoonTown_PRD.docx",
+      "source_sha256": "7fbba12c2524f265670e309d36d38c5b6c353d356743a54093f30728851f2c86",
+      "packaged_sha256": "7fbba12c2524f265670e309d36d38c5b6c353d356743a54093f30728851f2c86",
+      "size_bytes": 46261,
+      "definition_path": "prd_work/content/moontown.json",
+      "definition_sha256": "372d449a0532058b1bbc0e55b2c3c31cab4c13cb60c977bfb02bcba1a4a8bb83",
+      "purpose_provenance": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moontown",
+      "product_kind_provenance": "prd_work/content/moontown.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_1ad3fc600a5c8191bac5d7a6977e95aa",
+        "file_name": "MoonTown_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonTown_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "7fbba12c2524f265670e309d36d38c5b6c353d356743a54093f30728851f2c86",
+        "source_docx_size_bytes": 46261,
+        "text_sha256": "ea2b82713fe909350843f14f1a81321c89b1b9069cb94eb9fef3a128c0d301b3",
+        "size_bytes": 26218,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 287,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moondesk",
+      "document_id": "prd",
+      "path": "MoonDesk_PRD.docx",
+      "source_path": "prd_work/output/MoonDesk_PRD.docx",
+      "source_sha256": "3c407a8174eda99f2cabd7e089a6110979df6e8f7c8187b8fd43dbcb1a030616",
+      "packaged_sha256": "3c407a8174eda99f2cabd7e089a6110979df6e8f7c8187b8fd43dbcb1a030616",
+      "size_bytes": 46764,
+      "definition_path": "prd_work/content/moondesk.json",
+      "definition_sha256": "9058e778f97e48dc1a4bbe1d78e21a77872d7e27aa85ef1a69266d131caed533",
+      "purpose_provenance": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moondesk",
+      "product_kind_provenance": "prd_work/content/moondesk.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_c3c23fffd2a881919f679966abf1b9f9",
+        "file_name": "MoonDesk_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonDesk_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "3c407a8174eda99f2cabd7e089a6110979df6e8f7c8187b8fd43dbcb1a030616",
+        "source_docx_size_bytes": 46764,
+        "text_sha256": "d3e8a9184233dd21869823c1e4c49497f639786f3abc34169d24e94996cce112",
+        "size_bytes": 27750,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 304,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moongate",
+      "document_id": "prd",
+      "path": "MoonGate_PRD.docx",
+      "source_path": "prd_work/output/MoonGate_PRD.docx",
+      "source_sha256": "67a7cd8e83da12bdeabf4078f5221f02b43653a9b682eb57a9a5a4815a870a7a",
+      "packaged_sha256": "67a7cd8e83da12bdeabf4078f5221f02b43653a9b682eb57a9a5a4815a870a7a",
+      "size_bytes": 47688,
+      "definition_path": "prd_work/content/moongate.json",
+      "definition_sha256": "fd90cb30a06fead59fb99c7bd4f439916150634226d2203cd272f34477ee5503",
+      "purpose_provenance": "prd_work/content/moongate.json#summary",
+      "product_kind_provenance": "prd_work/content/moongate.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_156f976a94708191b0e0696ac9560514",
+        "file_name": "MoonGate_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonGate_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "67a7cd8e83da12bdeabf4078f5221f02b43653a9b682eb57a9a5a4815a870a7a",
+        "source_docx_size_bytes": 47688,
+        "text_sha256": "70dfebe67e396fcce529d782d73ba32f1e25d29542f3ecf0baa72b2d2905c937",
+        "size_bytes": 26145,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 316,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonrobo",
+      "document_id": "prd",
+      "path": "MoonRobo_PRD.docx",
+      "source_path": "prd_work/output/MoonRobo_PRD.docx",
+      "source_sha256": "4be381c1f03ed9fea4e795498101ec306c5a2795ad03137cb44223607fecfcd5",
+      "packaged_sha256": "4be381c1f03ed9fea4e795498101ec306c5a2795ad03137cb44223607fecfcd5",
+      "size_bytes": 46754,
+      "definition_path": "prd_work/content/moonrobo.json",
+      "definition_sha256": "c4e7a20acdf645d073459e080dd1d398349752766d91a525fe575baa9c399e50",
+      "purpose_provenance": "prd_work/content/moonrobo.json#summary",
+      "product_kind_provenance": "prd_work/content/moonrobo.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_6330cbe2473081918d64ae770c05b7c5",
+        "file_name": "MoonRobo_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonRobo_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "4be381c1f03ed9fea4e795498101ec306c5a2795ad03137cb44223607fecfcd5",
+        "source_docx_size_bytes": 46754,
+        "text_sha256": "39ffb289f3864dc3364f569d299044acf814285631eb528693bf8c63f634dfbf",
+        "size_bytes": 23988,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 340,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonmoon",
+      "document_id": "prd",
+      "path": "MoonMoon_PRD.docx",
+      "source_path": "prd_work/output/MoonMoon_PRD.docx",
+      "source_sha256": "a583d0fbd21bc6bf384acbbbef1c53cbedbba4280d7630b7c94619d757cd0471",
+      "packaged_sha256": "a583d0fbd21bc6bf384acbbbef1c53cbedbba4280d7630b7c94619d757cd0471",
+      "size_bytes": 46549,
+      "definition_path": "prd_work/content/moonmoon.json",
+      "definition_sha256": "f63649ff1bd8cf7131bae208fd90f0a7b6ca0399157f3be5de2f128f7cc6a2c6",
+      "purpose_provenance": "prd_work/content/moonmoon.json#summary",
+      "product_kind_provenance": "prd_work/content/moonmoon.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_077a1856f1cc81919a21a9ec80d7a3d4",
+        "file_name": "MoonMoon_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonMoon_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "a583d0fbd21bc6bf384acbbbef1c53cbedbba4280d7630b7c94619d757cd0471",
+        "source_docx_size_bytes": 46549,
+        "text_sha256": "ac50c8894faef4f764fb60ee043682804ec180512cd14ef3e3cc1e4006a15542",
+        "size_bytes": 23378,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 333,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonfish",
+      "document_id": "prd",
+      "path": "MoonFish_PRD.docx",
+      "source_path": "prd_work/output/MoonFish_PRD.docx",
+      "source_sha256": "bdf65d9b48a33139353ff2f095922ed95b780e2a7cc0752b147ae745cae2f5ea",
+      "packaged_sha256": "bdf65d9b48a33139353ff2f095922ed95b780e2a7cc0752b147ae745cae2f5ea",
+      "size_bytes": 46930,
+      "definition_path": "prd_work/content/moonfish.json",
+      "definition_sha256": "b12412bf58afa21f3c574c798a1277b40e156821c917dd1b3fb4266c1e335074",
+      "purpose_provenance": "prd_work/content/moonfish.json#summary",
+      "product_kind_provenance": "prd_work/content/moonfish.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_bfdfcfec443c8191907ad3c5fcc32204",
+        "file_name": "MoonFish_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonFish_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "bdf65d9b48a33139353ff2f095922ed95b780e2a7cc0752b147ae745cae2f5ea",
+        "source_docx_size_bytes": 46930,
+        "text_sha256": "0c41a38f42fa788b51ddbcb764c6b99ca27a3ce98e7ed99c610feee9cc6a22c1",
+        "size_bytes": 23253,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 346,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "mooncast",
+      "document_id": "prd",
+      "path": "MoonCast_PRD.docx",
+      "source_path": "prd_work/output/MoonCast_PRD.docx",
+      "source_sha256": "5df2e07542062d4f27efb9d82bc45ddc2e77544d656b59211a9f71628922ec2d",
+      "packaged_sha256": "5df2e07542062d4f27efb9d82bc45ddc2e77544d656b59211a9f71628922ec2d",
+      "size_bytes": 47570,
+      "definition_path": "prd_work/content/mooncast.json",
+      "definition_sha256": "a556b754a758c726e3be9e8add70dcb3e6f51635c9cc55952db9f406fd7ebb69",
+      "purpose_provenance": "prd_work/content/mooncast.json#summary",
+      "product_kind_provenance": "prd_work/content/mooncast.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_de80a23a69008191840c44a213674929",
+        "file_name": "MoonCast_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonCast_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "5df2e07542062d4f27efb9d82bc45ddc2e77544d656b59211a9f71628922ec2d",
+        "source_docx_size_bytes": 47570,
+        "text_sha256": "a4e97c313b58fed94c3cd5c6d9bc5a915ceda5834d7ea9734752999b059b915f",
+        "size_bytes": 25669,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 362,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonchat",
+      "document_id": "prd",
+      "path": "MoonChat_PRD.docx",
+      "source_path": "prd_work/output/MoonChat_PRD.docx",
+      "source_sha256": "ecb953d5c60f52165572ea5bd3a5f60b4c2612c281c03cce884929fcdc3f3165",
+      "packaged_sha256": "ecb953d5c60f52165572ea5bd3a5f60b4c2612c281c03cce884929fcdc3f3165",
+      "size_bytes": 46501,
+      "definition_path": "prd_work/content/moonchat.json",
+      "definition_sha256": "00e11fdf99588e81cd94ee9b04dc29443e70036d227749378ae93bd662245d76",
+      "purpose_provenance": "prd_work/content/moonchat.json#summary",
+      "product_kind_provenance": "prd_work/content/moonchat.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_b1d46948af7481919d80a431184321c4",
+        "file_name": "MoonChat_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonChat_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "ecb953d5c60f52165572ea5bd3a5f60b4c2612c281c03cce884929fcdc3f3165",
+        "source_docx_size_bytes": 46501,
+        "text_sha256": "4ae9285082de6b11279b72be85800cdcbf8706b64d1357461972507602186189",
+        "size_bytes": 23005,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 299,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonedit",
+      "document_id": "prd",
+      "path": "MoonEdit_PRD.docx",
+      "source_path": "prd_work/output/MoonEdit_PRD.docx",
+      "source_sha256": "462892a541703ca9df303f67b426368643873ff9290e20a7cfabfff01273a6f4",
+      "packaged_sha256": "462892a541703ca9df303f67b426368643873ff9290e20a7cfabfff01273a6f4",
+      "size_bytes": 47265,
+      "definition_path": "prd_work/content/moonedit.json",
+      "definition_sha256": "d8328d89a834eafe761c4c5db40a9935e8e8606546ef7ae2c8366c28d8154e49",
+      "purpose_provenance": "prd_work/content/moonedit.json#summary",
+      "product_kind_provenance": "prd_work/content/moonedit.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_19283a2a4098819184ca85a070821047",
+        "file_name": "MoonEdit_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonEdit_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "462892a541703ca9df303f67b426368643873ff9290e20a7cfabfff01273a6f4",
+        "source_docx_size_bytes": 47265,
+        "text_sha256": "9478771cbadfddf14a547c5916dd8f47199f6982d3c08873a8ebcf46a84f4635",
+        "size_bytes": 24496,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 328,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonfind",
+      "document_id": "prd",
+      "path": "MoonFind_PRD.docx",
+      "source_path": "prd_work/output/MoonFind_PRD.docx",
+      "source_sha256": "9c842e94af55ff3357fea2b460cf4300ab877b37eb2fce6cdf2900fb074c6ec5",
+      "packaged_sha256": "9c842e94af55ff3357fea2b460cf4300ab877b37eb2fce6cdf2900fb074c6ec5",
+      "size_bytes": 46852,
+      "definition_path": "prd_work/content/moonfind.json",
+      "definition_sha256": "38efaaf181589ddfbc2d92a621050b37867c449c693108f4f860b82da4482790",
+      "purpose_provenance": "prd_work/content/moonfind.json#summary",
+      "product_kind_provenance": "prd_work/content/moonfind.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_6572e50315e08191b865cf6b8c4455ee",
+        "file_name": "MoonFind_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonFind_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "9c842e94af55ff3357fea2b460cf4300ab877b37eb2fce6cdf2900fb074c6ec5",
+        "source_docx_size_bytes": 46852,
+        "text_sha256": "3cd3c440fff9fc99a5b72823625c83316962e81e1505c9a6125dae7cc4a3b84a",
+        "size_bytes": 28416,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 304,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonflow",
+      "document_id": "prd",
+      "path": "MoonFlow_PRD.docx",
+      "source_path": "prd_work/output/MoonFlow_PRD.docx",
+      "source_sha256": "0704e23539a07493aac9a9cbacbe00750cb6c11021efc55267f098f0a3466de6",
+      "packaged_sha256": "0704e23539a07493aac9a9cbacbe00750cb6c11021efc55267f098f0a3466de6",
+      "size_bytes": 47060,
+      "definition_path": "prd_work/content/moonflow.json",
+      "definition_sha256": "9b5f0ef5ad7dc507b076628a23465a3f86c47e291887e75688d0f350a5421a21",
+      "purpose_provenance": "prd_work/content/moonflow.json#summary",
+      "product_kind_provenance": "prd_work/content/moonflow.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_3a6cc26fc1b08191ac6ac2219dad2ecc",
+        "file_name": "MoonFlow_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonFlow_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "0704e23539a07493aac9a9cbacbe00750cb6c11021efc55267f098f0a3466de6",
+        "source_docx_size_bytes": 47060,
+        "text_sha256": "3f02bdc1778e89cd4a4e23f81c7005fdabde0fa66389ea6050fdbdfd7c26729b",
+        "size_bytes": 24204,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 340,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonfort",
+      "document_id": "prd",
+      "path": "MoonFort_PRD.docx",
+      "source_path": "prd_work/output/MoonFort_PRD.docx",
+      "source_sha256": "e1ab15ea9512e4fe7bb8d792e8c142fd7dd57579eb6c136769d1b0e3276ae067",
+      "packaged_sha256": "e1ab15ea9512e4fe7bb8d792e8c142fd7dd57579eb6c136769d1b0e3276ae067",
+      "size_bytes": 47777,
+      "definition_path": "prd_work/content/moonfort.json",
+      "definition_sha256": "b881b91eb7711b597ef4cf9a97cfe871f841a18513b2e5e7770a9c2e70044d5e",
+      "purpose_provenance": "prd_work/content/moonfort.json#summary",
+      "product_kind_provenance": "prd_work/content/moonfort.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_80e522df962c8191be69320981da3fa4",
+        "file_name": "MoonFort_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonFort_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "e1ab15ea9512e4fe7bb8d792e8c142fd7dd57579eb6c136769d1b0e3276ae067",
+        "source_docx_size_bytes": 47777,
+        "text_sha256": "eac0cdd9d8375483c596991d46e9c82491c391b62eb1e65a2190b8669ab3ac44",
+        "size_bytes": 27226,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 356,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonleaf",
+      "document_id": "prd",
+      "path": "MoonLeaf_PRD.docx",
+      "source_path": "prd_work/output/MoonLeaf_PRD.docx",
+      "source_sha256": "5230f13b33c6faa712ca137b0c59ffc2670a0395c144d7ec4f40ffa57ca5ec36",
+      "packaged_sha256": "5230f13b33c6faa712ca137b0c59ffc2670a0395c144d7ec4f40ffa57ca5ec36",
+      "size_bytes": 47443,
+      "definition_path": "prd_work/content/moonleaf.json",
+      "definition_sha256": "02e8d911a589091309c2ca7c456f26f839d2cfed6a6da1db4fc5e63fa8359552",
+      "purpose_provenance": "prd_work/content/moonleaf.json#summary",
+      "product_kind_provenance": "prd_work/content/moonleaf.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_7929c739f1a881918af40160e8023a40",
+        "file_name": "MoonLeaf_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonLeaf_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "5230f13b33c6faa712ca137b0c59ffc2670a0395c144d7ec4f40ffa57ca5ec36",
+        "source_docx_size_bytes": 47443,
+        "text_sha256": "a70cb6d2b743099c1e37200925a01903e0922b932406f413e18025e7a21fd9da",
+        "size_bytes": 26620,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 350,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonlib",
+      "document_id": "prd",
+      "path": "MoonLib_PRD.docx",
+      "source_path": "prd_work/output/MoonLib_PRD.docx",
+      "source_sha256": "3c579e13260b2a0d50895e28364bf561bef1503525b562c3cf5ab97ea32f1327",
+      "packaged_sha256": "3c579e13260b2a0d50895e28364bf561bef1503525b562c3cf5ab97ea32f1327",
+      "size_bytes": 47011,
+      "definition_path": "prd_work/content/moonlib.json",
+      "definition_sha256": "a51ffd40df3f75d00ea76f1164ae685b5d38e3bab20ed4c698b642d17dfab658",
+      "purpose_provenance": "prd_work/content/moonlib.json#summary",
+      "product_kind_provenance": "prd_work/content/moonlib.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_160dd14b9a388191944d0e8e79bedee5",
+        "file_name": "MoonLib_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonLib_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "3c579e13260b2a0d50895e28364bf561bef1503525b562c3cf5ab97ea32f1327",
+        "source_docx_size_bytes": 47011,
+        "text_sha256": "fc5bea80c7436377097c4dcbcceebfa9b5f163a37b8c64107e05bf308520d894",
+        "size_bytes": 24547,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 323,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonmold",
+      "document_id": "prd",
+      "path": "MoonMold_PRD.docx",
+      "source_path": "prd_work/output/MoonMold_PRD.docx",
+      "source_sha256": "7ad895d93d5671719fa2f1c72942959684ae2c58cc51dc5f115ee9f4dd8b4af8",
+      "packaged_sha256": "7ad895d93d5671719fa2f1c72942959684ae2c58cc51dc5f115ee9f4dd8b4af8",
+      "size_bytes": 46733,
+      "definition_path": "prd_work/content/moonmold.json",
+      "definition_sha256": "9197ef199fcb3f2bb432d4fd67bae7a7288f1243756e3475a432dad26b136ea0",
+      "purpose_provenance": "prd_work/content/moonmold.json#summary",
+      "product_kind_provenance": "prd_work/content/moonmold.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_5f02bc60c05c819189f8d4a2458aed0c",
+        "file_name": "MoonMold_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonMold_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "7ad895d93d5671719fa2f1c72942959684ae2c58cc51dc5f115ee9f4dd8b4af8",
+        "source_docx_size_bytes": 46733,
+        "text_sha256": "04e07b0289db3d8ef4c23d82b490b8e6e4064afaefa0f278e0fb27ab909d6b1f",
+        "size_bytes": 23702,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 337,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonpoly",
+      "document_id": "prd",
+      "path": "MoonPoly_PRD.docx",
+      "source_path": "prd_work/output/MoonPoly_PRD.docx",
+      "source_sha256": "9b99833b0e475dacf60e807d5b450fc4db24f33c0609c5054f2daaf65cbeda94",
+      "packaged_sha256": "9b99833b0e475dacf60e807d5b450fc4db24f33c0609c5054f2daaf65cbeda94",
+      "size_bytes": 47177,
+      "definition_path": "prd_work/content/moonpoly.json",
+      "definition_sha256": "5b8bead6c1e308b78a24e3440decb9b1103312bcb88822c4ab1dacc7efc73002",
+      "purpose_provenance": "prd_work/content/moonpoly.json#summary",
+      "product_kind_provenance": "prd_work/content/moonpoly.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_688f7d02f3ac819191bce8d9e821697d",
+        "file_name": "MoonPoly_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonPoly_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "9b99833b0e475dacf60e807d5b450fc4db24f33c0609c5054f2daaf65cbeda94",
+        "source_docx_size_bytes": 47177,
+        "text_sha256": "59e4c7716dddd8b8c238df4d124ddcea4e7d7a4cffd4d542b60cc7fa5848bd3e",
+        "size_bytes": 24290,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 358,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    },
+    {
+      "product_id": "moonvis",
+      "document_id": "prd",
+      "path": "MoonVis_PRD.docx",
+      "source_path": "prd_work/output/MoonVis_PRD.docx",
+      "source_sha256": "cd41d85807b431880db61994d2c6f481fa55e7b9473fe375324d5e430029331b",
+      "packaged_sha256": "cd41d85807b431880db61994d2c6f481fa55e7b9473fe375324d5e430029331b",
+      "size_bytes": 46710,
+      "definition_path": "prd_work/content/moonvis.json",
+      "definition_sha256": "0def548abdbc8a1bb5fc684d847da61c53cc7ed1f56c7f8638257ac61f400300",
+      "purpose_provenance": "prd_work/content/moonvis.json#summary",
+      "product_kind_provenance": "prd_work/content/moonvis.json#summary",
+      "classification_method": "editorial product type from the authored definition; not maturity or installation status",
+      "library": {
+        "library_file_id": "libfile_5ec42590c67081918d27fb94c6d75657",
+        "file_name": "MoonVis_PRD.docx",
+        "captured_version_number": 0,
+        "captured_status": "succeeded",
+        "captured_on": "2026-09-30"
+      },
+      "text_extraction": {
+        "schema": "moonsuite.product-document-text.v1",
+        "path": "text/MoonVis_PRD.txt",
+        "media_type": "text/plain; charset=utf-8",
+        "source_docx_sha256": "cd41d85807b431880db61994d2c6f481fa55e7b9473fe375324d5e430029331b",
+        "source_docx_size_bytes": 46710,
+        "text_sha256": "e2435a45308fa92116348ef49bccfcc97460c307c3d300f64a7bd77b08e98088",
+        "size_bytes": 24199,
+        "extraction_version": "docx-body-v1",
+        "coverage": "complete",
+        "limitations": [
+          "Scope is visible main-body paragraph and table text in document order; headers, footers, comments, and document metadata are outside this scope.",
+          "Plain text does not reproduce page layout, styling, list-label glyphs, or table cell geometry; table cells are separated by tabs and rows by newlines."
+        ],
+        "counts": {
+          "paragraphs": 315,
+          "tables": 1,
+          "table_rows": 3,
+          "table_cells": 9
+        }
+      }
+    }
+  ]
+}

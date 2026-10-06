@@ -1,0 +1,350 @@
+MoonFort product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonFort is an execution authority boundary for operators and MoonClaw hosts. The frozen baseline covers profile preflight, trusted single-use approval grants, supervised local backends, a fail-closed AEN backend contract, scratch evidence and reviewed artifact promotion. Eight native command-preflight tests passed. No complete Firecracker or AEN deployment, hostile-host trial or production arbitrary-code containment was established. The next product milestone is a clearly scoped approved action whose refusal or completion receipt returns to its task, followed by a separately reviewed artifact promotion. Founder-facing UI belongs in the requesting host.
+Repository maturity claim local supervised backends and fail-closed AEN contract; production qualification outstanding
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Approval must identify the actual authority being granted: readable and writable locations, executable tools, network scope and resource limits. A caller should not be able to turn approval for one bounded action into a weaker backend or broader profile. Refusal is a legitimate outcome when the required enforcement is unavailable. An apparently successful process is not a safe result if the system cannot say which restrictions were enforced and which were degraded.
+MoonFort supports the approved-execution step of accountable work. MoonClaw owns task execution coordination; MoonDesk owns workspace presentation; domain products own commitments and durable knowledge. MoonFort contributes constrained process execution and evidence. Scratch output is not automatically an accepted artifact, and a retained receipt is not customer acceptance. The human should see intelligible authority, results and promotion choices without needing to operate sandbox internals every day.
+Users and jobs
+Security and operator engineer
+Configure and qualify enforcement backends without hidden fallback
+Trigger A host needs bounded process execution on a supported deployment
+Successful outcome The exact enforced and degraded controls are documented and a missing strict backend refuses
+MoonClaw host developer
+Submit a trusted approved action and reconcile its result
+Trigger A task requests process or tool execution
+Successful outcome Only the authorized grant can start execution and each outcome has a task linked receipt
+Named approver or artifact reviewer
+Understand requested scope and inspect output before promotion
+Trigger Delegated work needs authority or a scratch artifact should enter durable storage
+Successful outcome The approved scope is visible and only the specifically reviewed artifact revision is promoted
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	11	Verified contract: 1; Source documented: 8; Partial: 1; Blocked: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior native command preflight 8/8 passed; no complete Firecracker/AEN deployment or hostile host trial in this review.
+Open gap Full adversarial local-host and AEN deployment evidence remains release requirement.
+Open gap Shared-kernel local backend cannot verify every aggregate quota or descendant escape guarantee.
+User scenarios
+Preflight a trusted one shot action
+MOONFORT-W01 | Baseline scope. MoonClaw submits an opaque approval identifier
+1. Resolve the trusted single-use grant
+2. Select executor-owned paths, tool policy and resource profile
+3. Preflight the command against that profile
+4. Consume the grant according to its single-use contract
+5. Return refusal or an execution-bound receipt
+Edge case A caller supplies a profile or backend override; it cannot weaken the executor’s trusted choice.
+Failure and recovery Missing, invalid or already consumed approval refuses execution and must not start an unsandboxed process.
+Acceptance Run valid and invalid preflight fixtures, replay a consumed grant and attempt a caller downgrade; verify no unauthorized execution begins.
+Evidence references README.mbt.md#Current status; docs/EXECUTION_BOUNDARY_GUARD.md; moon-luna-investigation-ledger-20260930.md
+Run in a supervised local backend
+MOONFORT-W02 | Baseline scope. An approved action selects a qualified local macOS or Linux profile
+1. Create private workspace and scratch boundaries
+2. Apply the supported sandbox-exec or bubblewrap controls
+3. Run with declared network, process, resource and output restrictions
+4. Collect termination status and enforcement evidence
+5. Retain output and scratch inventory for inspection
+Edge case Shared-kernel limitations or incomplete aggregate quota enforcement must be visible in the claim level.
+Failure and recovery Backend setup failure refuses rather than running on the host without the requested boundary.
+Acceptance On each supported host, test allowed access, denied access, network refusal, timeout and excessive output; label controls only as strongly as observed enforcement permits.
+Evidence references README.mbt.md#Current status; docs/LOCAL_BACKEND_EVIDENCE.md
+Require the strict AEN backend
+MOONFORT-W03 | Baseline scope. A workload requires stronger arbitrary-code containment
+1. Resolve the approved strict backend requirement
+2. Validate the required attested deployment and provisioner contract
+3. Run only if qualification and deployment prerequisites are met
+4. Return evidence associated with the strict execution boundary
+Edge case An available local backend is weaker than the requested strict profile and is not an acceptable substitute.
+Failure and recovery Missing attestation, deployment or required enforcement produces a precise refusal with no host fallback.
+Acceptance Remove a strict prerequisite and verify refusal. A positive production claim requires independent microVM qualification, not a unit test or local substitute.
+Evidence references README.mbt.md#Current status; docs/AEN_PROVISIONER_CONTRACT.md
+Retain scratch artifacts and inspect promotion
+MOONFORT-W04 | Baseline scope. A bounded process exits with output or workspace changes
+1. Inventory scratch changes and compute fingerprints or digests
+2. Retain large output in an artifact spool rather than relying on a truncated screen
+3. Associate evidence with the execution receipt
+4. Present candidate changes for a separate reviewed promotion
+5. Recheck fingerprints before applying selected changes
+Edge case The destination changed since review, or scratch bytes differ from the inspected fingerprint.
+Failure and recovery A stale fingerprint or unapproved change blocks promotion; canonical MoonBook files are never bulk copied back as a shortcut.
+Acceptance Review a selected artifact, change its bytes and verify refusal; retry with a newly inspected matching artifact and retain the source execution evidence.
+Evidence references README.mbt.md#Current status; docs/PROMOTION_RECOVERY_INSPECTION.md
+Approve a bounded action from a task
+MOONFORT-W05 | Roadmap scope. A MoonProj or MoonClaw task requests consequential delegated work
+1. Show file, network, tool and budget scope in the requesting host
+2. Record the named approval for that bounded request
+3. Submit only the trusted approval identifier
+4. Receive a denial or completion receipt
+5. Read the receipt back from the originating task
+Edge case The request changes after approval; the existing grant cannot authorize new scope.
+Failure and recovery Disconnected receipt delivery remains pending and can retry without replaying the process.
+Acceptance A host tester approves and denies otherwise identical tasks; each returns a precise linked receipt, and retrying receipt delivery does not execute again.
+Evidence references docs/EXECUTION_BOUNDARY_GUARD.md; Recommended founder approved bounded action
+Promote only the reviewed artifact
+MOONFORT-W06 | Roadmap scope. A named reviewer accepts a specific scratch result for durable use
+1. Open the retained artifact and its origin receipt
+2. Select the exact files or changes to promote
+3. Review destination conflicts and digests
+4. Authorize promotion of that selection
+5. Confirm destination readback and record the promotion outcome
+Edge case Unselected changes or unknown side effects remain in scratch even if one artifact is accepted.
+Failure and recovery Interrupted promotion requires inspection of actual destination state before recovery; an uncertain result cannot be called complete.
+Acceptance Qualify selective promotion, changed destination, interrupted write and recovery; only the inspected matching selection reaches the durable workspace.
+Evidence references docs/PROMOTION_RECOVERY_INSPECTION.md; Recommended review before promotion
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Validate command preflight
+MOONFORT-B01 | Baseline | P0 | Verified contract
+Command preflight must evaluate a request against the trusted executor boundary before any process starts.
+Evidence docs/EXECUTION_BOUNDARY_GUARD.md; Portfolio native command preflight 8 of 8; bounded preflight evidence
+Test 1. Run accepted and rejected command fixtures
+2. Verify rejection occurs before process start
+3. Repeat rejected preflight and retain a stable refusal category
+Accept only trusted approval identifiers
+MOONFORT-B02 | Baseline | P0 | Source documented
+The executor interface must resolve an opaque approval ID to a trusted single-use grant and must not trust caller-supplied authority claims.
+Evidence README.mbt.md#Current status; docs/EXECUTION_BOUNDARY_GUARD.md
+Test 1. Resolve a valid grant with its exact scope
+2. Reject fabricated expired or unavailable grant references according to the grant contract
+3. Attempt to reuse a consumed grant and prove no second process starts
+Dependencies Trusted grant issuer and store
+Keep profiles executor owned
+MOONFORT-B03 | Baseline | P0 | Source documented
+Paths, tools, limits and backend selection must be derived from the trusted executor configuration; a caller cannot supply a weaker replacement.
+Evidence docs/EXECUTION_BOUNDARY_GUARD.md
+Test 1. Submit a valid request without profile overrides
+2. Attempt broader paths or weaker backend selection and refuse
+3. Retry using the original approved scope without carrying rejected overrides forward
+Refuse unsandboxed fallback
+MOONFORT-B04 | Baseline | P0 | Source documented
+If the requested enforcement backend cannot initialize or satisfy its required profile, the action must refuse without falling back to ordinary host execution.
+Evidence docs/EXECUTION_BOUNDARY_GUARD.md; docs/AEN_PROVISIONER_CONTRACT.md
+Test 1. Force backend initialization failure and confirm no host process executes the payload
+2. Remove a required strict prerequisite and require refusal
+3. Restore the prerequisite and require fresh valid authority before any new execution
+Isolate local workspace effects
+MOONFORT-B05 | Baseline | P0 | Partial
+Supported local backends must expose only the declared workspace and scratch access and apply the documented network and process restrictions.
+Evidence docs/LOCAL_BACKEND_EVIDENCE.md; README.mbt.md#Current status; Local supervised architecture described; adversarial deployment not established
+Test 1. On macOS and Linux independently test allowed and denied file access
+2. Attempt network use under the denied-network profile
+3. Verify setup failure and child termination behavior without claiming untested descendant guarantees
+Dependencies Qualified sandbox-exec or bubblewrap deployment
+Declare resource and output limits
+MOONFORT-B06 | Baseline | P0 | Source documented
+The run must apply its documented time, resource and output controls and report limits that cannot be fully verified on the local shared-kernel backend.
+Evidence docs/LOCAL_BACKEND_EVIDENCE.md
+Test 1. Run timeout and output-bound fixtures
+2. Inspect retained output when the display is truncated
+3. Report aggregate quota uncertainty explicitly instead of marking all resource controls verified
+Gate strict AEN execution
+MOONFORT-B07 | Baseline | P0 | Blocked
+AEN or Firecracker execution must require its attested deployment contract and independent qualification before production arbitrary untrusted code is supported.
+Evidence docs/AEN_PROVISIONER_CONTRACT.md; README.mbt.md#Current status; No complete deployment or independent microVM qualification in supplied evidence
+Test 1. Reject missing attestation or deployment
+2. Do not substitute a local shared-kernel run
+3. Complete an independent qualification record before enabling the production claim
+Dependencies Attested AEN deployment; Independent microVM qualification
+Report enforcement truthfully
+MOONFORT-B08 | Baseline | P0 | Source documented
+Receipts must distinguish refused, degraded and verified enforcement and tie each claim to the exact supported controls and backend.
+Evidence docs/LOCAL_BACKEND_EVIDENCE.md; docs/AEN_PROVISIONER_CONTRACT.md
+Test 1. Compare refused setup, degraded local and qualified strict examples
+2. Ensure a successful exit does not upgrade a degraded boundary
+3. Preserve the original enforcement result through receipt export and reconciliation
+Retain scratch inventory and large output
+MOONFORT-B09 | Baseline | P1 | Source documented
+Execution evidence must include fingerprinted scratch changes and references to retained large output sufficient for later inspection.
+Evidence docs/PROMOTION_RECOVERY_INSPECTION.md; README.mbt.md#Current status
+Test 1. Produce multiple scratch changes and compare inventory to actual files
+2. Exceed display output length and retrieve retained output through its reference
+3. Handle spool failure explicitly rather than claiming complete retained evidence
+Bind promotion to reviewed fingerprints
+MOONFORT-B10 | Baseline | P0 | Source documented
+Promotion must apply only separately authorized changes whose current fingerprints match the inspected evidence and expected destination state.
+Evidence docs/PROMOTION_RECOVERY_INSPECTION.md
+Test 1. Select one file while leaving another unselected
+2. Change scratch or destination bytes after review and block promotion
+3. Reinspect and approve the updated selection before a successful retry
+Dependencies Host reviewer and promotion authority
+Protect canonical knowledge storage
+MOONFORT-B11 | Baseline | P0 | Source documented
+Promotion must not bulk copy canonical MoonBook files back from scratch or let execution output bypass MoonBook’s own acceptance boundary.
+Evidence docs/PROMOTION_RECOVERY_INSPECTION.md; README.mbt.md#Current status
+Test 1. Include a canonical knowledge path among scratch changes and prevent bulk promotion
+2. Export a candidate artifact through the supported review route
+3. Verify MoonBook remains responsible for accepting any resulting knowledge
+Dependencies MoonBook intake contract
+Present the requested authority clearly
+MOONFORT-R01 | Roadmap | P0 | Proposed
+The requesting host must show the exact file, network, tool and budget scope plus the material backend limitation before a human approves the action.
+Evidence Recommended founder approved bounded action
+Test 1. Compare displayed scope with the resolved grant
+2. Change the request after approval and reject reuse
+3. Deny the request and verify no execution occurs
+Dependencies MoonClaw or MoonProj approval UI
+Link the outcome without replaying execution
+MOONFORT-R02 | Roadmap | P0 | Proposed
+A task must receive a precise refusal or completion receipt; delivery retry must be independent of process retry and cannot consume new authority implicitly.
+Evidence Recommended founder approved bounded action
+Test 1. Complete a bounded action and read its receipt from the source task
+2. Interrupt receipt delivery and retry twice
+3. Verify exactly one execution identity and no duplicate process
+Dependencies Task receipt storage and reconciliation
+Inspect and recover selective promotion
+MOONFORT-R03 | Roadmap | P0 | Proposed
+A named reviewer must inspect the selected artifact and authorize its destination change; interrupted promotion must reconcile actual state before resuming.
+Evidence Recommended review before promotion; docs/PROMOTION_RECOVERY_INSPECTION.md
+Test 1. Review and promote one matching artifact
+2. Interrupt during the destination update and inspect resulting state
+3. Recover with an explicit result receipt and no promotion of unselected changes
+Dependencies Host artifact inspection; Durable workspace write contract
+Data state and authority
+Approval grant
+Owner Trusted approval authority
+State model Issued, consumed, refused or expired under the grant contract
+Write authority Named approval applies to one bounded request; executor resolves it
+Retention and recovery Retain a nonsecret reference and audit evidence; avoid exposing grant internals
+Execution profile and enforcement receipt
+Owner MoonFort executor
+State model Preflight, refused, running, terminated; enforcement separately refused degraded or verified
+Write authority Executor chooses trusted profile and reports its actual evidence
+Retention and recovery Keep receipt through task audit and artifact review policy
+Scratch inventory and spooled output
+Owner MoonFort with operator managed storage
+State model Created, retained, inspected, selected, expired
+Write authority Execution may create scratch; it does not own durable company state
+Retention and recovery Publish retention and cleanup rules before operational readiness
+Promotion decision and durable artifact
+Owner Named reviewer and destination owner
+State model Pending inspection, approved selection, blocked conflict, promoted or uncertain
+Write authority Only the selected fingerprint bound changes may move
+Retention and recovery Preserve origin receipt and promotion readback evidence
+Interfaces and handoffs
+MoonClaw
+Payload Approval identifier and execution outcome receipt
+Contract Caller cannot override trusted scope; receipt delivery differs from execution retry
+Failure behavior Missing grant or enforcement refuses without unsandboxed fallback
+MoonDesk
+Payload Artifact references and authority explanations
+Contract VFS presentation is not process sandbox enforcement
+Failure behavior UI access to a path cannot imply permission to execute against it
+MoonProj
+Payload Task linked approval and outcome evidence
+Contract Task completion reflects bounded execution only
+Failure behavior No receipt or uncertain delivery leaves explicit pending status
+MoonBook
+Payload Reviewed candidate artifact
+Contract Knowledge acceptance remains with MoonBook; no canonical bulk copy
+Failure behavior Unreviewed execution output stays outside accepted knowledge
+AEN provisioner
+Payload Strict deployment and attestation evidence
+Contract Required contract must hold before the strict run
+Failure behavior Missing prerequisite refuses rather than degrades silently
+Nonfunctional requirements
+Fail closed behavior
+MOONFORT-N01
+Required gate: all missing grant, invalid scope and unavailable-backend cases produce no payload execution.
+Acceptance test Instrument process start independently across the negative qualification matrix.
+Evidence status Proposed
+Deployment qualification
+MOONFORT-N02
+Required gate: each advertised backend has a named host configuration and independent adversarial evidence appropriate to its claim.
+Acceptance test Run local and microVM qualification separately; unit preflight results do not satisfy containment proof.
+Evidence status Proposed
+Receipt integrity
+MOONFORT-N03
+Required gate: receipts bind task grant backend scope and retained artifacts without allowing a successful exit to imply stronger enforcement.
+Acceptance test Round trip receipts and tamper with scope or artifact references; require detection or refusal.
+Evidence status Proposed
+Operational limits
+MOONFORT-N04
+Proposed release requirement: document termination, spool capacity and scratch retention behavior for each backend.
+Acceptance test Measure boundary workloads and storage exhaustion; publish limits and degradation before making availability or latency promises.
+Evidence status Proposed
+Promotion safety
+MOONFORT-N05
+Required gate: no stale fingerprint, unselected file or unresolved destination conflict is promoted.
+Acceptance test Fault-inject scratch changes destination races and interrupted writes with independent destination readback.
+Evidence status Proposed
+Secret minimizing diagnostics
+MOONFORT-N06
+Required gate: operator diagnostics carry enough identity to audit refusals without exposing credentials or unnecessary payload content.
+Acceptance test Inspect logs and receipts using sensitive test fixtures and check access boundaries on retained artifacts.
+Evidence status Proposed
+Delivery roadmap
+Freeze authority and refusal contracts
+Make preflight grant ownership and evidence levels explicit
+Requirements MOONFORT-B01, MOONFORT-B02, MOONFORT-B03, MOONFORT-B04, MOONFORT-B05, MOONFORT-B06, MOONFORT-B07, MOONFORT-B08, MOONFORT-B09, MOONFORT-B10, MOONFORT-B11
+Exit gate Negative scope tests pass and each backend’s unqualified claims remain blocked or labeled
+Qualify a bounded task action
+Connect understandable approval to a reconciled task receipt
+Requirements MOONFORT-R01, MOONFORT-R02
+Exit gate Host denial completion stale scope and disconnected receipt cases pass without duplicate execution
+Qualify reviewed promotion
+Move only inspected artifact revisions into durable storage
+Requirements MOONFORT-R03
+Exit gate Selective and interrupted promotion cases have digest verified destination readback; strict production use remains gated by independent qualification
+Outcome measurement
+Unauthorized process starts
+Payload starts observed in negative authority or backend cases
+Measurement Independent process observation correlated with approval and request IDs
+Target Zero required in qualification
+Receipt reconciliation
+Terminated or refused runs whose receipt is read back from the task
+Measurement Execution identity and source task linkage
+Target Every host qualification case
+Unreviewed promotion count
+Destination changes not covered by an inspected matching selection
+Measurement Before and after destination inventory and promotion receipt
+Target Zero required in qualification
+Evidence completeness
+Runs with retrievable inventory and output for their declared retention period
+Measurement Spool health and artifact reference readback
+Target Define operational target after storage limits are measured; no current SLA
+Non goals
+Production arbitrary-code safety based solely on preflight tests
+Unconditional descendant escape or aggregate quota guarantees on a shared kernel
+Founder daily sandbox management UI or autonomous business approval
+Bulk synchronization into canonical knowledge storage or automatic output acceptance
+Alternatives and optimality
+No process execution
+Advantage Smallest security surface for read only tasks
+Cost Cannot complete tasks needing tools or generated artifacts
+When to choose Prefer whenever the task can be fulfilled without running a process
+Supervised local backend
+Advantage Practical bounded execution on supported hosts
+Cost Shared-kernel limitations and deployment-specific evidence
+When to choose Use only within its declared qualified scope
+Independently qualified microVM service
+Advantage Stronger isolation appropriate to untrusted workloads
+Cost Attestation deployment operations and audit cost
+When to choose Require for production arbitrary-code claims rather than relabeling a local backend
+A useful sandbox product is defined by what it can refuse and prove, not by how often it launches a process. Keeping the approval-ID-only interface and executor-owned profiles reduces the number of places that can expand authority. Adding convenience overrides would undermine the main value of the component.
+The strongest evidence currently covers preflight, not complete containment. The PRD must retain that distinction even when local backends are useful for supervised work. A security label should refer to specific enforced controls on a qualified deployment, never to an undifferentiated passing test count.
+A simpler no-execution path is optimal for read-only requests that do not need tools. For trusted bounded development work, a declared local backend may be adequate. For arbitrary untrusted workloads, the additional microVM qualification cost is justified; a weak fallback is not an acceptable optimization.
+The roadmap can become narrower by qualifying one task type, one backend and one artifact promotion route before widening host support. That slice should include denial, changed scope, retained output and interrupted promotion. It proves the full authority boundary while avoiding a founder-facing control panel full of backend mechanics.
+Open product decisions
+Decision What is the first supported operational scope
+Recommendation Choose one supervised task class and publish the backend’s limits
+Consequence A useful local release can proceed without implying production arbitrary-code containment
+Decision What happens when strict enforcement is absent
+Recommendation Refuse with the missing prerequisite and no fallback
+Consequence Availability is lower but authority remains trustworthy
+Decision Who accepts execution output
+Recommendation A named reviewer and the destination domain owner
+Consequence Process success cannot silently promote artifacts or knowledge
+Sources and coverage
+Repository paths below are relative to moonfort. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/EXECUTION_BOUNDARY_GUARD.md
+docs/LOCAL_BACKEND_EVIDENCE.md
+docs/AEN_PROVISIONER_CONTRACT.md
+docs/PROMOTION_RECOVERY_INSPECTION.md
+docs/IMPLEMENTATION_PLAN.md (referenced)
+docs/COMPLETION_AUDIT.md (referenced)
+moon-luna-investigation-ledger-20260930.md
+The supplied evidence includes README and references to execution, local-backend, AEN and promotion contracts, with implementation and audit documents noted but not exhaustively inspected. Eight native command-preflight tests passed. Eleven documentation files, adversarial local deployment and complete AEN qualification were not comprehensively reviewed. No Firecracker or AEN execution was demonstrated. All proposed host journeys, deployment gates and resource targets remain acceptance requirements rather than observed safety guarantees.

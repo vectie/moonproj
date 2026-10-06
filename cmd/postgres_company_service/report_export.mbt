@@ -336,7 +336,7 @@ fn xlsx_styles_xml() -> String {
 ///|
 fn xlsx_zip_entry(name : String, xml : String) -> XlsxZipEntry {
   let data = @encoding/utf8.encode(xml)
-  { name, data, crc: xlsx_crc32(data) }
+  { name, data, crc: xlsx_crc32(data), }
 }
 
 ///|

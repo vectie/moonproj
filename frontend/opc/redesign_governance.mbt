@@ -127,7 +127,7 @@ fn company_domain_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         emit,
         OpenCompanyForm,
         if model.company_saved {
-          "编辑公司档案"
+          "查看公司工作区"
         } else {
           "建立公司档案"
         },
@@ -138,13 +138,20 @@ fn company_domain_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     } else {
       @html.nothing
     },
+    company_setup_status(emit, model),
     div(class="kpi-grid") <| [
       compact_kpi(
-        "现金余额", "¥85.2万", "银行连接后形成正式事实", "ok",
+        "现金余额", "未知", "尚无已连接的银行记录", "muted",
       ),
-      compact_kpi("现金跑道", "14.2 月", "按当前月耗估算", "ok"),
-      compact_kpi("应收合同", "¥12.6万", "3 份履约中", "info"),
-      compact_kpi("本月税务", "2 项", "申报证据待核", "warn"),
+      compact_kpi(
+        "现金跑道", "未知", "尚无可核实的现金与支出数据", "muted",
+      ),
+      compact_kpi(
+        "应收合同", "未知", "尚无已读取的合同记录", "muted",
+      ),
+      compact_kpi(
+        "本月税务", "未知", "尚无已核实的税务事项", "muted",
+      ),
     ],
     div(class="company-domain-grid") <| [
       div(class="domain-card") <| [
@@ -196,19 +203,11 @@ fn company_domain_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     section(class="section-block") <| [
       section_title(
-        "合规日历", "申报、支付和对账都必须具备完整证据链。",
-        "本月 2 项",
+        "合规日历", "按实际适用义务与正式记录维护。", "尚无已核实记录",
       ),
-      div(class="compliance-row") <| [
-        strong("增值税及附加申报"),
-        span("07-15"),
-        status_badge("待复核", tone="warning"),
-      ],
-      div(class="compliance-row") <| [
-        strong("企业所得税预缴"),
-        span("07-31"),
-        status_badge("证据准备中", tone="muted"),
-      ],
+      p(
+        "工作区创建不会产生纳税义务、法定期限或已完成申报的事实。",
+      ),
     ],
   ]
 }

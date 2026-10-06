@@ -4,6 +4,8 @@ import {
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/http",
   "moonbitlang/core/json",
+  "vectie/moonproj/product/work_inventory",
+  "vectie/moonproj/operations/task_evidence",
 }
 
 supported_targets = "js"

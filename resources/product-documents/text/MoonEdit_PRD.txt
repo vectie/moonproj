@@ -1,0 +1,322 @@
+MoonEdit product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonEdit is an alpha, host-independent text and code editing core. Its frozen baseline is deterministic in-memory editing, UTF-16 positions, selections, revisions, bounded undo and redo, a host effect protocol, merge receipts and typed language-service lanes. Nine JavaScript core editor tests passed; those results do not establish file persistence, large-file performance, actual language-server transport or a usable conflict-choice interface. The recommended next slice is one MoonDesk edit, conflict, reviewed save and reopen journey. There is no separate MoonEdit application roadmap.
+Repository maturity claim editor-core alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+An editor should protect the difference between a user’s working text, an external file version and a suggestion that has not been accepted. MoonEdit makes those distinctions explicit in its state and effects. Determinism allows the same edit history to be explained and tested; revision binding prevents a delayed host response from silently changing a newer document. A successful core transition does not mean bytes reached durable storage.
+The library contributes to the inspected-artifact part of accountable work. MoonDesk owns the user’s file picker, filesystem access, save destination, persistence and visible conflict choices. Other systems own agent execution and knowledge acceptance. MoonEdit should allow a founder to refine a deliverable through the host without granting an agent ownership of the document or treating saved prose as verified company truth.
+Users and jobs
+MoonDesk editor host developer
+Connect deterministic editing state to storage and accessible controls
+Trigger A host opens or saves a text based artifact
+Successful outcome UI state and acknowledged file revision remain coherent after delayed and failed effects
+Text or code tool integrator
+Apply atomic edits and offer bounded undo and semantic assistance
+Trigger An application embeds text editing without needing another shell
+Successful outcome Unicode positions, revisions and service replies are validated consistently
+Artifact author through MoonDesk
+Resolve concurrent changes and inspect the saved result
+Trigger A local document changes while an external process or collaborator also updates it
+Successful outcome No unreviewed suggestion or ambiguous overlap overwrites their text
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	11	Verified contract: 1; Source documented: 8; Partial: 2
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS core 9/9 passed; host integration and large-file performance not freshly exercised.
+Open gap Concrete persistence/LSP and conflict-choice UI remain host work.
+Open gap Large-file performance and recovery bounds not established in evidence.
+User scenarios
+Edit and navigate the text revision
+MOONEDIT-W01 | Baseline scope. A host sends an edit command or selection change
+1. Validate UTF-16 positions against the current document
+2. Apply the edit atomically and advance the revision
+3. Update selections using the defined position rules
+4. Record bounded undo history and allow redo after undo
+Edge case A selection crosses a surrogate pair boundary or an edit targets a stale revision; the core must enforce its position and revision contract.
+Failure and recovery Invalid edits return an explicit result without partial text mutation or inconsistent selection.
+Acceptance Apply insertion, replacement and deletion to mixed Unicode text; undo and redo within the declared history bound restore the expected text and selection.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md; moon-luna-investigation-ledger-20260930.md
+Save load and reload through the host
+MOONEDIT-W02 | Baseline scope. The user requests persistence or the host discovers a new file version
+1. Core emits a typed effect request
+2. Host performs the filesystem operation with its own permission checks
+3. Host returns a callback bound to request, revision and file version
+4. Core accepts only the matching response and exposes the resulting state
+Edge case Two saves complete out of order, or reload arrives after a newer local edit.
+Failure and recovery Failed or stale callbacks cannot clear newer dirty state; the host retains a retryable error and working text.
+Acceptance Delay revision A save until after revision B exists; acknowledge A and verify B still needs saving. Reopen only after a matching successful save acknowledgement.
+Evidence references docs/PRODUCT_CONTRACT.md#Host contract
+Merge concurrent edits with a receipt
+MOONEDIT-W03 | Baseline scope. Local text and an externally changed version share an earlier base
+1. Identify base, local and external revisions
+2. Compose nonoverlapping changes where the contract is unambiguous
+3. Preserve ambiguous overlap in a conflict receipt
+4. Let the host show choices and apply the explicitly selected result
+Edge case An agent suggestion overlaps a manual edit; a proposal cannot count as human acceptance.
+Failure and recovery Missing base or invalid revision binding leaves the merge unresolved and retains both candidate texts.
+Acceptance Use disjoint changes, identical edits and conflicting overlap fixtures; prove that only the first qualified cases compose automatically and the overlap remains reviewable.
+Evidence references docs/MERGE_CONTRACT.md; docs/PRODUCT_CONTRACT.md#Capability status
+Coordinate language service results
+MOONEDIT-W04 | Baseline scope. The host requests semantic tokens, completion or a definition
+1. Send a typed request for the current document context
+2. Let the host own transport and service lifecycle
+3. Receive a response with the originating context
+4. Apply only a still relevant response or discard it with a diagnostic
+Edge case A completion response arrives after the user has changed the document or closed it.
+Failure and recovery Unavailable language service leaves ordinary editing usable; transport failure is not a document load failure.
+Acceptance Exercise the three typed lanes with fixture responses, including stale and missing replies. Treat a fixture success separately from actual LSP transport qualification.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status
+Save a conflict safe deliverable in Desk
+MOONEDIT-W05 | Roadmap scope. An author edits a customer deliverable that also changes externally
+1. Open the file with a known external version
+2. Make a local edit and encounter the changed external version at save
+3. Inspect the exact conflicting spans and preserve alternatives
+4. Choose the merged result explicitly
+5. Save and reopen the acknowledged revision, retaining a conflict receipt
+Edge case The application closes after conflict choice but before save acknowledgement; recovery must not imply a completed save.
+Failure and recovery Storage denial or version race leaves the author’s working text recoverable and the original external file untouched by an unapproved overwrite.
+Acceptance Run a real MoonDesk journey with injected external change, failed first save, retry and reopen; compare saved bytes and the chosen revision.
+Evidence references docs/PRODUCT_CONTRACT.md#Host contract; docs/MERGE_CONTRACT.md
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Apply atomic revisioned edits
+MOONEDIT-B01 | Baseline | P0 | Verified contract
+A valid in-memory edit must produce one coherent text revision; invalid input must leave text and revision unchanged.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status; Portfolio JS core editor 9 of 9; bounded deterministic core behavior
+Test 1. Apply insert, delete and replace to known text
+2. Submit an invalid range and verify no partial mutation
+3. Repeat the same edit history from the same initial state and compare revisions and text
+Use explicit UTF sixteen positions
+MOONEDIT-B02 | Baseline | P0 | Source documented
+All host facing text positions must use the documented UTF-16 coordinate model, including selections and service requests.
+Evidence README.mbt.md
+Test 1. Use ASCII, astral characters, combining sequences and multiline fixtures
+2. Test positions at the supported boundaries
+3. Reject or normalize invalid boundaries according to the documented API; never reinterpret bytes as characters silently
+Keep selections consistent
+MOONEDIT-B03 | Baseline | P1 | Partial
+Selection updates must follow deterministic edit mapping and remain valid for the resulting document.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; Nine core tests do not establish every Unicode boundary
+Test 1. Replace text before and inside a selection and check mapping
+2. Undo and redo an edit and verify expected selection state
+3. Submit an out of range selection and require a bounded error
+Bound undo and redo history
+MOONEDIT-B04 | Baseline | P0 | Source documented
+The core must support its declared history capacity and predictable invalidation of redo when a new edit branch is created.
+Evidence README.mbt.md; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Undo and redo a known edit sequence
+2. Exceed the declared bound and verify deterministic eviction
+3. Undo then make a new edit; verify old redo cannot overwrite the new branch
+Emit typed workspace effects
+MOONEDIT-B05 | Baseline | P0 | Source documented
+Load, save and reload must use host effects; the core must not acquire filesystem permission or perform unowned persistence.
+Evidence docs/PRODUCT_CONTRACT.md#Host contract
+Test 1. Capture each effect request without a filesystem implementation
+2. Deny the host effect and preserve the working text
+3. Confirm the public core can run with a deterministic fake effect handler
+Dependencies MoonDesk effect implementation
+Bind callbacks to exact requests
+MOONEDIT-B06 | Baseline | P0 | Source documented
+Effect callbacks must be checked against their request, document revision and external file version before changing current state.
+Evidence docs/PRODUCT_CONTRACT.md#Host contract
+Test 1. Complete two outstanding saves in reverse order
+2. Return a response for a closed or different file and reject it
+3. Retry a failed matching save without accepting an earlier stale acknowledgement
+Represent save failure honestly
+MOONEDIT-B07 | Baseline | P0 | Source documented
+A failed or stale save response must not clear newer unsaved work or present an acknowledged revision as the latest durable file.
+Evidence docs/PRODUCT_CONTRACT.md#Host contract
+Test 1. Fail a save and retain the full working text
+2. Acknowledge an older revision while newer edits exist and retain dirty state
+3. Recover with a successful matching save and verify only that revision is acknowledged
+Dependencies Host persistence status presentation
+Compose unambiguous concurrent changes
+MOONEDIT-B08 | Baseline | P1 | Source documented
+Three-way merge must use an explicit common base and compose only changes unambiguous under the merge contract.
+Evidence docs/MERGE_CONTRACT.md
+Test 1. Merge disjoint line and range changes using the documented granularity
+2. Reject a missing or inconsistent base
+3. Repeat a valid merge and compare result and receipt identity
+Preserve ambiguous overlap
+MOONEDIT-B09 | Baseline | P0 | Source documented
+An ambiguous merge must retain the conflicting alternatives and an inspectable receipt rather than silently select local, external or agent content.
+Evidence docs/MERGE_CONTRACT.md
+Test 1. Create overlapping replacements and inspect both alternatives
+2. Cancel the host choice and preserve the unresolved state
+3. Apply a chosen result only after an explicit choice associated with the conflict receipt
+Dependencies Host conflict controls
+Separate suggestions from acceptance
+MOONEDIT-B10 | Baseline | P0 | Source documented
+An agent suggestion must remain a proposal until the host records the user’s choice; producing a suggestion cannot authorize document replacement.
+Evidence docs/MERGE_CONTRACT.md; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Introduce an overlapping agent proposal and verify unchanged accepted text
+2. Reject the proposal and retain manual edits
+3. Accept a specifically displayed proposal and bind the result to its source revision
+Expose typed semantic lanes
+MOONEDIT-B11 | Baseline | P1 | Partial
+Core coordination must support typed semantic token, completion and definition lanes without owning actual language-server transport.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status; Typed lanes described; host LSP transport planned
+Test 1. Round trip fixtures for each lane
+2. Receive stale completion after an edit and avoid applying it to unrelated text
+3. Simulate absent transport and keep ordinary editing operational
+Dependencies Host LSP transport
+Show exact conflict choices in Desk
+MOONEDIT-R01 | Roadmap | P0 | Proposed
+MoonDesk must display the base context, local change and external conflict sufficiently for a user to select the intended result without losing alternatives.
+Evidence Recommended conflict safe artifact edit
+Test 1. Inject a concurrent external edit and inspect both spans in the UI
+2. Navigate and select a resolution by keyboard
+3. Cancel and reopen the conflict without losing either version
+Dependencies MoonDesk conflict UI
+Recover the edit save reopen journey
+MOONEDIT-R02 | Roadmap | P0 | Proposed
+The selected host must preserve unsaved text across its declared recovery boundary and reopen the exact successfully saved revision after a reviewed merge.
+Evidence Recommended conflict safe artifact edit; Known gap recovery bounds
+Test 1. Interrupt before save acknowledgement and recover working text within the declared boundary
+2. Fail the first save then retry against the current external version
+3. Reopen and compare content to the selected merge result
+Dependencies MoonDesk persistence and recovery
+Qualify a real language service
+MOONEDIT-R03 | Roadmap | P2 | Proposed
+After edit safety is qualified, one supported language service may be integrated with explicit version, document lifecycle and cancellation behavior.
+Evidence Known gap concrete host LSP transport
+Test 1. Use a real service for tokens, completion and definition
+2. Restart the service without losing editor state
+3. Send a late response after close and verify no visible mutation
+Dependencies Selected language server and host transport
+Data state and authority
+Working text selection and revision
+Owner MoonEdit core
+State model Loaded, edited, undoable, conflict pending; names describe product states rather than new wire enums
+Write authority Core validates transitions; host supplies authorized commands
+Retention and recovery In-memory retention and declared undo bounds; crash persistence belongs to host
+File bytes external version and save destination
+Owner MoonDesk or embedding host
+State model Observed, changed externally, save pending, acknowledged, failed
+Write authority Host authorizes filesystem effects and decides recovery policy
+Retention and recovery Original and recovery copy retention must be explicit before a host readiness claim
+Conflict receipt and proposed edit
+Owner Core receipt with host review record
+State model Proposed, unresolved, selected, applied or abandoned
+Write authority User chooses ambiguous changes; agent proposal has no independent acceptance authority
+Retention and recovery Keep receipt and alternatives through the host recovery window
+Language service connection
+Owner Host
+State model Disconnected, connecting, available, failed
+Write authority Host owns process or network authority
+Retention and recovery Do not retain source content in service logs beyond the host’s approved policy
+Interfaces and handoffs
+MoonDesk
+Payload Commands effects callbacks and visible editor state
+Contract Exact request revision and file version binding; host owns file access
+Failure behavior Denied or stale effects leave unsaved state intact
+Language service host
+Payload Typed tokens completion and definition messages
+Contract Host supplies transport and response relevance checks
+Failure behavior Unavailable service must degrade to text editing
+Agent suggestion producer
+Payload Proposed edit with source context
+Contract Suggestions cannot replace human conflict acceptance
+Failure behavior Stale or overlapping suggestion remains unresolved
+MoonBook or delivery workflow
+Payload Saved artifact reference supplied by the host
+Contract Saving text is not factual verification or customer acceptance
+Failure behavior Receiver must independently inspect or accept the artifact
+Nonfunctional requirements
+Deterministic state
+MOONEDIT-N01
+Required gate: supported command histories reproduce text, selections and revision results exactly.
+Acceptance test Replay a corpus of valid and rejected commands with identical initial states.
+Evidence status Proposed
+Unicode safety
+MOONEDIT-N02
+Required gate: no supported edit or rejected position corrupts UTF-16 text or produces an invalid selection.
+Acceptance test Boundary corpus includes surrogate pairs, combining marks, empty documents and trailing newlines.
+Evidence status Proposed
+Large file bounds
+MOONEDIT-N03
+Proposed release requirement: declare supported document size, edit size and undo memory limits before advertising large-file readiness.
+Acceptance test Benchmark representative and boundary files on named targets; record latency and memory, then set targets from measured needs.
+Evidence status Proposed
+Recovery integrity
+MOONEDIT-N04
+Required host gate: no successful qualification scenario loses an acknowledged edit or silently overwrites an external version.
+Acceptance test Fault injection across request, write, callback and reload stages; compare retained and durable bytes.
+Evidence status Proposed
+Accessible conflict review
+MOONEDIT-N05
+Proposed host gate: every conflict alternative and resolution action is available without pointer-only or color-only cues.
+Acceptance test Keyboard and screen-reader inspection of the full conflict journey; core tests cannot establish the result.
+Evidence status Proposed
+Delivery roadmap
+Freeze and test core contract
+Clarify positions history callbacks and merge semantics
+Requirements MOONEDIT-B01, MOONEDIT-B02, MOONEDIT-B03, MOONEDIT-B04, MOONEDIT-B05, MOONEDIT-B06, MOONEDIT-B07, MOONEDIT-B08, MOONEDIT-B09, MOONEDIT-B10, MOONEDIT-B11
+Exit gate Documented API cases and negative callback fixtures pass; host gaps remain separately labeled
+Qualify safe Desk editing
+Complete conflict inspection recovery and exact saved revision reopen
+Requirements MOONEDIT-R01, MOONEDIT-R02
+Exit gate The real host passes external change, failure, retry and reopen with byte comparison
+Add one language service
+Demonstrate a useful service without weakening editing safety
+Requirements MOONEDIT-R03
+Exit gate Three lanes and restart or stale reply tests pass in the selected host
+Outcome measurement
+Silent overwrite failures
+Qualification cases where external or working text changes without an authorized matching transition
+Measurement Fault-injected host tests keyed by revision and effect
+Target Zero required for host qualification
+Exact reopen agreement
+Successful save cases whose reopened bytes match the acknowledged revision
+Measurement Save receipt plus independent reload comparison
+Target All release fixtures; no measured production rate claimed
+Stale callback rejection
+Mismatched request revision or file version replies rejected without state corruption
+Measurement Effect protocol negative fixtures
+Target Every defined stale callback case
+Bounded edit cost
+Latency and memory by document size and operation
+Measurement Named target benchmark harness
+Target Establish baseline first; publish supported limits rather than inventing an SLA
+Non goals
+A standalone editor shell or replacement for MoonDesk navigation
+Filesystem permissions, autonomous agent runs or domain knowledge approval
+General real-time collaborative editing without an explicit future contract
+Unqualified large-file claims or automatic acceptance of generated edits
+Alternatives and optimality
+Host native textarea or simple editor widget
+Advantage Minimal integration for small notes without external concurrency
+Cost Limited revision effects and merge evidence
+When to choose Prefer for small disposable text where overwrite risk is negligible
+Mature existing editor component
+Advantage Broad language and UI ecosystem with established host integrations
+Cost Dependency weight and adaptation to the suite’s effect and authority model
+When to choose Prefer when rich code editing matters more than portable MoonBit core reuse
+Independent editor application
+Advantage Can optimize a dedicated authoring workflow
+Cost Duplicates shell persistence and navigation ownership
+When to choose Do not pursue within this library PRD
+The central product risk is a boundary failure between deterministic core state and asynchronous storage, not a shortage of editing commands. A smaller set of reliable edit, save and merge operations is more useful than broad language features if users can trust that no stale callback will erase their latest work.
+A library-level PRD is appropriate because integrations own the user’s actual experience. The nine passing core tests should remain a narrow maturity statement. Measuring core correctness separately from host recovery and conflict usability prevents an alpha core from being advertised as a finished editor.
+For a single small notes field, a native text widget is better: less state to synchronize and fewer dependencies. MoonEdit earns adoption when the host needs revisioned effects, explainable concurrent edits or portable core behavior across targets. Those needs should be demonstrated rather than assumed from portfolio membership.
+The PRD can be improved by naming one document size envelope and one host storage implementation before adding general LSP transport. Qualification should first prove a realistic deliverable can survive an external edit and failed save. Richer services can then reuse a stable document lifecycle rather than adding another source of stale state.
+Open product decisions
+Decision What recovery boundary will MoonDesk guarantee
+Recommendation Choose and document the exact persistence points before host qualification
+Consequence The product avoids implying that in-memory undo protects against every crash
+Decision How should ambiguous merges resolve
+Recommendation Require an inspectable receipt and explicit host choice
+Consequence Some saves pause for review but no side wins silently
+Decision When should actual LSP support be released
+Recommendation After save and conflict recovery passes in one host
+Consequence Editing safety remains the first integration milestone
+Sources and coverage
+Repository paths below are relative to moonedit. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/MERGE_CONTRACT.md (referenced)
+moon-luna-investigation-ledger-20260930.md
+The supplied source coverage includes README and product contract with the merge contract referenced, plus nine passing JavaScript editor tests. Full editor APIs, seven documentation files, actual language-server transport, large-file benchmarks and a real host conflict journey were not exhaustively examined. Detailed acceptance cases here specify the desired behavior; they are not additional test results. Host readiness and recovery bounds remain unqualified.

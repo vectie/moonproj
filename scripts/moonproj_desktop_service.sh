@@ -6,6 +6,12 @@ umask 077
 APP_DATA_DIR=${LEPUSA_APP_DATA_DIR:-"$HOME/Library/Application Support/dev.vectie.moonproj"}
 RESOURCE_DIR=${LEPUSA_RESOURCE_DIR:-$(CDPATH= cd -- "$(dirname -- "$0")/../Resources" && pwd)}
 PUBLIC_DIR="$RESOURCE_DIR/public"
+# Bundled catalog/PRDs do not depend on the working directory or company DB.
+MOONPROJ_PRODUCT_CATALOG=${MOONPROJ_PRODUCT_CATALOG:-"$RESOURCE_DIR/config/moonsuite-engineering.json"}
+MOONPROJ_PRODUCT_DOCUMENT_ROOT=${MOONPROJ_PRODUCT_DOCUMENT_ROOT:-"$RESOURCE_DIR/product-documents"}
+# A source/audit workspace is an independent, operator-configured location.
+MOONSUITE_WORKSPACE_ROOT=${MOONSUITE_WORKSPACE_ROOT:-"$APP_DATA_DIR/workspaces"}
+export MOONPROJ_PRODUCT_CATALOG MOONPROJ_PRODUCT_DOCUMENT_ROOT MOONSUITE_WORKSPACE_ROOT
 
 mkdir -p "$APP_DATA_DIR"
 

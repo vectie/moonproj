@@ -4819,7 +4819,7 @@ async fn cost_source_rows() -> CostSourceRows raise CompanyServiceError {
   let units = raw_source_rows("mu_business_unit", 500)
   let users = raw_source_rows("sys_user", 500)
   let tasks = raw_source_rows("jd_task", 500)
-  { contracts, applies, plans, milestones, projects, units, users, tasks }
+  { contracts, applies, plans, milestones, projects, units, users, tasks, }
 }
 
 ///|
@@ -5716,7 +5716,7 @@ async fn budget_source_rows() -> BudgetSourceRows raise CompanyServiceError {
   let units = raw_source_rows("mu_business_unit", 500)
   let loans = raw_source_rows("vcb_loan_simple", 500)
   let projects = raw_source_rows("ep_project", 500)
-  { users, units, loans, projects }
+  { users, units, loans, projects, }
 }
 
 ///|
@@ -6648,7 +6648,7 @@ struct DynamicSourceRows {
 async fn dynamic_source_rows() -> DynamicSourceRows raise CompanyServiceError {
   let costs = raw_source_rows("cb_cost", 500)
   let projects = raw_source_rows("ep_project", 500)
-  { costs, projects }
+  { costs, projects, }
 }
 
 ///|
@@ -15016,6 +15016,9 @@ async fn route(
   if path == "/api/company/business-units/tree" {
     return (200, business_units_tree_response())
   }
+  if path == "/api/company/profile" {
+    return (200, company_profile_read_response())
+  }
   if path == "/api/company/budget/dict/cost-subjects" {
     return (200, budget_cost_subjects_response())
   }
@@ -15822,22 +15825,12 @@ async fn route(
   if path.has_prefix(project_tasks_prefix) && path.has_suffix("/tasks") {
     let project_id = path[project_tasks_prefix.length():path.length() -
     "/tasks".length()].to_owned()
-    let task_items = project_plan_tasks(
-      project_id,
+    let task_items = project_plan_task_items(
+      Some(project_id),
       query_alias_decoded(query, "taskType", "type"),
+      query_decoded(query, "product_id"),
     )
-    return (
-      200,
-      Json::object({
-        "success": Json::boolean(true),
-        "code": Json::number(0),
-        "data": Json::array(task_items),
-        "items": Json::array(task_items),
-        "source_kind": Json::string("imported_or_command"),
-        "command_projection": Json::boolean(true),
-        "authorizing": Json::boolean(false),
-      }),
-    )
+    return (200, project_plan_tasks_response(task_items))
   }
   let project_plan_summary_suffix = "/plan-summary"
   if path.has_prefix(project_tasks_prefix) &&
@@ -15880,7 +15873,14 @@ async fn route(
     return project_task_detail_response(task_id)
   }
   if path == "/api/company/tasks" {
-    return (200, Json::object({ "items": Json::array([]) }))
+    return (
+      200,
+      product_work_tasks_response(
+        query_decoded(query, "project_id"),
+        query_alias_decoded(query, "taskType", "type"),
+        query_decoded(query, "product_id"),
+      ),
+    )
   }
   if path == "/api/company/delivery/progress" {
     return (
@@ -16955,6 +16955,38 @@ async fn handle(
       return
     }
     None => ()
+  }
+  if request.meth is @http.Post && path == "/api/company/profile" {
+    let idempotency_key = header(request, "Idempotency-Key")
+    if idempotency_key.is_empty() {
+      send_json(
+        conn,
+        request.meth,
+        400,
+        Json::object({ "error": Json::string("Idempotency-Key is required") }),
+        false,
+      )
+      return
+    }
+    let actor = command_actor(request, actor_signing_secret) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let body = read_json_body(body_reader) catch {
+      error => {
+        let response = service_error_response(error)
+        send_json(conn, request.meth, response.0, response.1, false)
+        return
+      }
+    }
+    let result = company_profile_create_command(body, actor, idempotency_key) catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
   }
   match project_source_command_spec(request.meth, path) {
     Some((command_type, project_guid)) => {
@@ -19025,6 +19057,38 @@ async fn handle(
     }
     None => ()
   }
+  match plan_task_continuation_route(path) {
+    Some(task_id) if request.meth is @http.Post => {
+      let result = try {
+        let actor = command_actor(request, actor_signing_secret)
+        let key = header(request, "Idempotency-Key")
+        if key.is_empty() {
+          raise reject(400, "Idempotency-Key is required")
+        }
+        let body = read_json_body(body_reader)
+        plan_task_continuation_command(task_id, body, actor, key)
+      } catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    _ => ()
+  }
+  match plan_task_execution_route(path) {
+    Some((task_id, action)) if request.meth is @http.Post => {
+      let result = try {
+        let actor = command_actor(request, actor_signing_secret)
+        let body = read_json_body(body_reader)
+        plan_task_execution_command(task_id, action, body, actor)
+      } catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    _ => ()
+  }
   match plan_task_command_spec(request.meth, path) {
     Some((command_type, task_id)) => {
       let idempotency_key = header(request, "Idempotency-Key")
@@ -19075,7 +19139,7 @@ async fn handle(
         let result = plan_task_command(
           command_type, task_id, body, actor, idempotency_key,
         ) catch {
-          error => service_error_response(error)
+          error => plan_task_acceptance_error_response(task_id, body, error)
         }
         send_json(conn, request.meth, result.0, result.1, false)
       }

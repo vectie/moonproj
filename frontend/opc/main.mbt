@@ -32,7 +32,7 @@ using @html {
 }
 
 ///|
-using @rabbita {cell, new, none, type Cmd}
+using @rabbita {new, none, type Cmd}
 
 ///|
 enum Page {
@@ -40,6 +40,7 @@ enum Page {
   Fleet
   Dispatch
   Projects
+  Products
   MoonSuite
   Quality
   Observe
@@ -69,7 +70,9 @@ struct NavItem {
 struct Model {
   page : Page
   moon_mode : Bool
-  engineering_project : Int
+  products : ProductsState
+  today : TodayState
+  engineering_project : String
   engineering_audit_state : String
   engineering_audit_id : String
   engineering_task_id : String
@@ -111,9 +114,35 @@ struct Model {
   policy_last_audit_id : String
   policy_last_review_target : String
   mobile_nav : Bool
+  dispatch_drafts : Array[DispatchDraft]
+  dispatch_offer_drafts : Array[DispatchOfferDraft]
+  dispatch_offer_task : Json
+  dispatch_offer_storage : String
+  dispatch_reply_drafts : Array[DispatchReplyDraft]
+  dispatch_reply_storage : String
+  dispatch_reply_generation : Int
+  dispatch_draft_id : String
+  dispatch_draft_storage : String
+  dispatch_recent_tasks : Array[String]
+  dispatch_task_product_id : String
+  dispatch_report_product_id : String
+  dispatch_task_selection : Int
+  dispatch_desk_handoff : DispatchDeskHandoff
+  dispatch_lesson_handoff : DispatchLessonHandoff
+  dispatch_guidance : DispatchGuidanceState
+  dispatch_outcome_drafts : Array[DispatchOutcomeDraft]
+  dispatch_outcome_sequence : Int
+  dispatch_accepted_human_export : DispatchAcceptedHumanExport
+  dispatch_continuation : DispatchContinuationState
+  dispatch_task_open_id : String
+  dispatch_task_workspace : String
+  dispatch_task_model : String
+  dispatch_run : DispatchRun?
   dispatch_task_form_open : Bool
   dispatch_task_title : String
   dispatch_task_acceptance : String
+  dispatch_task_source_context : Json
+  dispatch_task_commitment : Json
   dispatch_task_project_id : String
   dispatch_task_owner_id : String
   dispatch_task_actor_id : String
@@ -121,6 +150,7 @@ struct Model {
   dispatch_task_end_date : String
   dispatch_task_evidence_id : String
   dispatch_task_id : String
+  dispatch_task_report_summary : String
   dispatch_task_report_id : String
   dispatch_task_stage : String
   dispatch_task_pending_action : String
@@ -129,6 +159,7 @@ struct Model {
   dispatch_task_blocked : Bool
   dispatch_task_note : String
   company_form_open : Bool
+  company_setup : CompanySetupState
   company_name : String
   company_saved : Bool
   market_form_open : Bool
@@ -167,15 +198,21 @@ struct Model {
 
 ///|
 enum Msg {
+  AcceptedHumanExportAction(DispatchAcceptedHumanExportMsg)
+  OutcomeAction(Json, DispatchOutcomeMsg)
+  LessonHandoffAction(DispatchLessonHandoffMsg)
+  GuidanceAction(DispatchGuidanceMsg)
   Navigate(Page)
   SetMoonMode(Bool)
-  SelectEngineeringProject(Int)
+  ProductsAction(ProductsMsg)
+  TodayAction(TodayMsg)
+  SelectEngineeringProject(String)
   InputEngineeringBranch(String)
   InputEngineeringVersion(String)
   InputEngineeringTag(String)
   RequestEngineeringAudit
-  EngineeringAuditSubmitted(String, String)
-  EngineeringAuditStatus(String, String)
+  EngineeringAuditSubmitted(String, Int, String, String)
+  EngineeringAuditStatus(String, Int, String)
   EngineeringProjectionLoaded(
     String,
     String,
@@ -235,31 +272,42 @@ enum Msg {
   PreparePolicyValidationTask(String)
   OpenPolicyEvidence
   RequestEngineeringRemediation
-  EngineeringRemediationCreated
-  EngineeringAuditFailed
+  EngineeringRemediationCreated(String, Int)
+  EngineeringAuditFailed(String, Int)
   RecordDecision(String)
   ToggleMobileNav
   OpenDispatchTaskForm
-  InputDispatchTaskTitle(String)
-  InputDispatchTaskAcceptance(String)
-  InputDispatchTaskProjectId(String)
-  InputDispatchTaskOwnerId(String)
-  InputDispatchTaskActorId(String)
-  InputDispatchTaskBeginDate(String)
-  InputDispatchTaskEndDate(String)
+  DraftAction(DispatchDraftMsg)
+  OfferAction(DispatchOfferMsg)
+  ReplyAction(DispatchReplyMsg)
+  SelectDispatchTask(String)
+  InputDispatchTaskWorkspace(String)
+  InputDispatchTaskModel(String)
+  InputDispatchTaskOpenId(String)
+  OpenDispatchTask
+  DeskHandoffAction(DispatchDeskHandoffMsg)
+  ContinuationAction(DispatchContinuationMsg)
+  RefreshDispatchTask(String, Int)
+  DispatchTaskLoaded(String, Int, DispatchSnapshot)
+  DispatchSessionLoaded(String)
+  LoadDispatchSession
+  RestoreDispatchTask(String)
+  RestorePageRoute(Page, String)
+  RestoreProductPageRoute(Page, String, String)
   InputDispatchTaskEvidenceId(String)
   CreateDispatchTask
-  DispatchTaskCreated(String, String, String)
+  SaveDispatchExecutionSettings
+  DispatchExecutionSettingsSaved(String, Int)
   StartDispatchTask
-  DispatchTaskStarted(String, String)
   SubmitDispatchTask
-  DispatchTaskSubmitted(String, String, String)
+  DispatchTaskSubmitted(String, Int, String, String, String)
   AcceptDispatchTask
-  DispatchTaskAccepted(String, String)
-  DispatchTaskCommandFailed(String)
+  DispatchTaskAccepted(String, Int, String, String)
+  DispatchTaskCommandFailed(String, Int, String, String)
   OpenCompanyForm
   InputCompanyName(String)
   SaveCompany
+  CompanySetupAction(CompanySetupMsg)
   OpenMarketForm
   InputMarketParty(String)
   InputMarketProblem(String)
@@ -303,9 +351,11 @@ enum Msg {
 ///|
 fn initial_model() -> Model {
   {
-    page: Overview,
+    page: Products,
     moon_mode: false,
-    engineering_project: 0,
+    products: products_initial(),
+    today: today_initial(),
+    engineering_project: "",
     engineering_audit_state: "idle",
     engineering_audit_id: "",
     engineering_task_id: "",
@@ -350,16 +400,43 @@ fn initial_model() -> Model {
     policy_last_audit_id: "",
     policy_last_review_target: "",
     mobile_nav: false,
+    dispatch_drafts: [],
+    dispatch_offer_drafts: [],
+    dispatch_offer_task: Json::null(),
+    dispatch_offer_storage: "未保存到此浏览器",
+    dispatch_reply_drafts: [],
+    dispatch_reply_storage: "尚未保留到当前标签页",
+    dispatch_reply_generation: 0,
+    dispatch_draft_id: "",
+    dispatch_draft_storage: "未保存到此浏览器",
+    dispatch_recent_tasks: [],
+    dispatch_task_product_id: "",
+    dispatch_report_product_id: "",
+    dispatch_task_selection: 0,
+    dispatch_desk_handoff: empty_dispatch_desk_handoff(),
+    dispatch_lesson_handoff: empty_dispatch_lesson_handoff(),
+    dispatch_guidance: empty_dispatch_guidance(),
+    dispatch_outcome_drafts: [],
+    dispatch_outcome_sequence: 0,
+    dispatch_accepted_human_export: empty_dispatch_accepted_human_export(),
+    dispatch_continuation: empty_dispatch_continuation(),
+    dispatch_task_open_id: "",
+    dispatch_task_workspace: "",
+    dispatch_task_model: "",
+    dispatch_run: None,
     dispatch_task_form_open: false,
     dispatch_task_title: "",
     dispatch_task_acceptance: "",
-    dispatch_task_project_id: "proj-0001",
+    dispatch_task_source_context: Json::null(),
+    dispatch_task_commitment: Json::null(),
+    dispatch_task_project_id: "",
     dispatch_task_owner_id: "",
-    dispatch_task_actor_id: "admin",
+    dispatch_task_actor_id: "",
     dispatch_task_begin_date: "",
     dispatch_task_end_date: "",
     dispatch_task_evidence_id: "",
     dispatch_task_id: "",
+    dispatch_task_report_summary: "",
     dispatch_task_report_id: "",
     dispatch_task_stage: "empty",
     dispatch_task_pending_action: "",
@@ -368,6 +445,7 @@ fn initial_model() -> Model {
     dispatch_task_blocked: false,
     dispatch_task_note: "尚未向 MoonProj 持久化任务。创建动作只在签名网关返回审计收据后推进。",
     company_form_open: false,
+    company_setup: company_setup_initial(),
     company_name: "",
     company_saved: false,
     market_form_open: false,
@@ -408,6 +486,13 @@ fn initial_model() -> Model {
 ///|
 fn nav_items() -> Array[NavItem] {
   [
+    {
+      page: Products,
+      group: "指挥",
+      label: "产品",
+      short_label: "产",
+      description: "产品意图、PRD 与真实工作",
+    },
     {
       page: Overview,
       group: "指挥",
@@ -508,6 +593,7 @@ fn page_path(page : Page) -> String {
     Overview => "/"
     Fleet => "/fleet"
     Dispatch => "/dispatch"
+    Products => "/products"
     Projects => "/projects"
     MoonSuite => "/moon"
     Quality => "/quality"
@@ -532,6 +618,7 @@ fn page_title(page : Page) -> String {
     Overview => "驾驶舱"
     Fleet => "Agent 编队"
     Dispatch => "任务编排"
+    Products => "产品"
     Projects => "项目组合"
     MoonSuite => "Moon 专案"
     Quality => "出厂质检"
@@ -556,6 +643,8 @@ fn page_question(page : Page) -> String {
     Overview => "公司今天需要你做出什么决定？"
     Fleet => "我的 Agent 劳动力正在做什么？"
     Dispatch => "开发环转到哪里，什么需要我验收？"
+    Products =>
+      "我们在做哪些产品，为什么做，下一步在哪里？"
     Projects => "每项交付处在哪个阶段，Gate 是否通过？"
     MoonSuite => "Moon Suite 各产品离出厂还有多远？"
     Quality => "凭什么让这个产品出厂？"
@@ -713,26 +802,127 @@ fn can_recognize_commitment(model : Model) -> Bool {
 
 ///|
 fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+  let (command, next) = update_model(emit, msg, model)
+  let (command, next) = today_reconcile(emit, command, next)
+  let next = dispatch_guidance_reconcile(next)
+  let next = dispatch_accepted_human_export_reconcile(next)
+  let command = dispatch_guidance_transition(model, next, command)
+  // Only an explicit product choice pushes history. Catalog reads and route
+  // restoration use the same read-only selection reducer without adding entries.
+  let product_navigation = match msg {
+    ProductsAction(Select(_)) | SelectEngineeringProject(_) => true
+    _ => false
+  }
+  if product_navigation &&
+    next.products.selected_id != model.products.selected_id {
+    return (
+      @cmd.batch([
+        remember_product_route(next.page, next.products.selected_id),
+        command,
+      ]),
+      next,
+    )
+  }
+  // Only deliberate page changes add history. Task selection owns its single
+  // combined page/task entry; hydration and async replies never push a page.
+  let navigation = match msg {
+    Navigate(_)
+    | SetMoonMode(_)
+    | OpenPolicyEvidence
+    | OpenCompanyForm
+    | OpenDispatchTaskForm
+    | PreparePolicyValidationTask(_)
+    | ProductsAction(
+      Prepare
+      | PrepareWork(_, _)
+      | CancelPreparation
+      | OpenEngineering(_)
+    )
+    | DraftAction(New | Resume(_) | Revise(_)) => true
+    _ => false
+  }
+  if navigation &&
+    next.page != model.page &&
+    next.dispatch_task_selection == model.dispatch_task_selection {
+    (
+      @cmd.batch([
+        remember_page_route(next.page, next.dispatch_task_id, push=true),
+        command,
+      ]),
+      next,
+    )
+  } else {
+    (command, next)
+  }
+}
+
+///|
+fn update_model(
+  emit : @rabbita.Emit[Msg],
+  msg : Msg,
+  model : Model,
+) -> (Cmd, Model) {
   match msg {
+    AcceptedHumanExportAction(action) =>
+      dispatch_accepted_human_export_update(emit, model, action)
+    CompanySetupAction(action) => company_setup_update(emit, action, model)
+    ProductsAction(action) => products_update(emit, action, model)
+    TodayAction(action) => today_update(emit, action, model)
+    Navigate(Overview) =>
+      today_update(emit, Refresh, {
+        ..model,
+        page: Overview,
+        mobile_nav: false,
+        dispatch_desk_handoff: {
+          ..model.dispatch_desk_handoff,
+          pending: false,
+        },
+        dispatch_continuation: {
+          ..model.dispatch_continuation,
+          request: model.dispatch_continuation.request + 1,
+          phase: "idle",
+        },
+      })
+    Navigate(page) if page == model.page =>
+      (none, { ..model, mobile_nav: false, })
     Navigate(page) =>
       (
-        if page == PolicyRadar {
+        if page == Products ||
+          (
+            (page == Quality || page == MoonSuite) &&
+            model.products.state != "ready"
+          ) {
+          products_load_catalog(emit, model.products.request + 1)
+        } else if page == PolicyRadar {
           load_policy_radar(emit)
-        } else if page == MoonSuite {
+        } else if page == MoonSuite && products_engineering_enrolled(model) {
           @cmd.batch([
             load_engineering_projection(
               emit,
               engineering_project_name(model.engineering_project),
+              model.products.selection,
             ),
             load_product_in_gate(
               emit,
               engineering_project_name(model.engineering_project),
+              model.products.selection,
             ),
           ])
-        } else if page == Quality {
+        } else if page == Dispatch {
+          @cmd.batch([
+            emit(CompanySetupAction(Refresh)),
+            emit(
+              RefreshDispatchTask(
+                model.dispatch_task_id,
+                model.dispatch_task_selection,
+              ),
+            ),
+          ])
+        } else if page == Quality && products_engineering_enrolled(model) {
           load_engineering_projection(
             emit,
             engineering_project_name(model.engineering_project),
+            model.products.selection,
           )
         } else {
           none
@@ -740,6 +930,28 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         {
           ..model,
           page,
+          dispatch_desk_handoff: {
+            ..model.dispatch_desk_handoff,
+            pending: false,
+          },
+          dispatch_continuation: {
+            ..model.dispatch_continuation,
+            request: model.dispatch_continuation.request + 1,
+            phase: "idle",
+          },
+          products: if page == Products ||
+            (
+              (page == Quality || page == MoonSuite) &&
+              model.products.state != "ready"
+            ) {
+            {
+              ..model.products,
+              state: "loading",
+              request: model.products.request + 1,
+            }
+          } else {
+            model.products
+          },
           policy_radar_state: if page == PolicyRadar {
             "loading"
           } else {
@@ -773,96 +985,69 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    SelectEngineeringProject(index) =>
-      (
-        if model.page == MoonSuite {
-          @cmd.batch([
-            load_engineering_projection(emit, engineering_project_name(index)),
-            load_product_in_gate(emit, engineering_project_name(index)),
-          ])
-        } else {
-          load_engineering_projection(emit, engineering_project_name(index))
-        },
-        {
-          ..model,
-          engineering_project: index,
-          engineering_audit_state: "idle",
-          engineering_audit_id: "",
-          engineering_task_id: "",
-          engineering_commit: "unknown",
-          engineering_repository: "unknown",
-          engineering_review: "needs_evidence",
-          engineering_gate_states: [
-            "unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "unknown",
-            "unknown", "unknown",
-          ],
-          engineering_progress: "unknown",
-          engineering_health: "unknown",
-          engineering_production: "unknown",
-          engineering_freshness: "missing",
-          engineering_findings: 0,
-          engineering_poll_attempts: 0,
-          product_in_gate_decision: "unknown",
-          product_in_gate_primary_value: "solution",
-          product_in_gate_segment: "",
-          product_in_gate_workflow: "",
-          product_in_gate_problem_evidence: "",
-          product_in_gate_commitment_evidence: "",
-          product_in_gate_current_behavior_cost: "",
-          product_in_gate_outcome_metric: "",
-          product_in_gate_adoption_path: "",
-          product_in_gate_unresolved_risks: "",
-          product_in_gate_next_experiment: "",
-          product_in_gate_review_by: "",
-          product_in_gate_owner: "",
-          product_in_gate_persisted: false,
-          notice: "已选择工程审计对象；状态保持未知，直到 MoonClaw 返回独立复核证据。",
-        },
-      )
+    SelectEngineeringProject(id) => products_update(emit, Select(id), model)
     InputEngineeringBranch(value) =>
-      (none, { ..model, engineering_branch: value })
+      (none, { ..model, engineering_branch: value, })
     InputEngineeringVersion(value) =>
-      (none, { ..model, engineering_version: value })
-    InputEngineeringTag(value) => (none, { ..model, engineering_tag: value })
+      (none, { ..model, engineering_version: value, })
+    InputEngineeringTag(value) => (none, { ..model, engineering_tag: value, })
     RequestEngineeringAudit =>
-      (
-        request_engineering_audit(emit, model),
-        {
-          ..model,
-          engineering_audit_state: "submitting",
-          engineering_audit_id: "",
-          engineering_task_id: "",
-          notice: "正在通过 MoonProj 请求独立的 MoonClaw 生产者与复核者生成一份工程证据。",
-        },
-      )
-    EngineeringAuditSubmitted(audit_id, task_id) =>
-      (
-        @cmd.delay(
-          poll_engineering_audit(
-            emit,
-            engineering_project_name(model.engineering_project),
-            audit_id,
-            task_id,
+      if !products_can_audit(model) {
+        (
+          none,
+          {
+            ..model,
+            notice: "此产品未登记可用的工程审计仓库；没有启动审计。",
+          },
+        )
+      } else {
+        (
+          request_engineering_audit(emit, model),
+          {
+            ..model,
+            engineering_audit_state: "submitting",
+            engineering_audit_id: "",
+            engineering_task_id: "",
+            notice: "正在通过 MoonProj 请求独立的 MoonClaw 生产者与复核者生成一份工程证据。",
+          },
+        )
+      }
+    EngineeringAuditSubmitted(project, selection, audit_id, task_id) =>
+      if project != model.engineering_project ||
+        selection != model.products.selection {
+        (none, model)
+      } else {
+        (
+          @cmd.delay(
+            poll_engineering_audit(
+              emit,
+              engineering_project_name(model.engineering_project),
+              audit_id,
+              task_id,
+              model.products.selection,
+            ),
+            2000,
           ),
-          2000,
-        ),
-        {
-          ..model,
-          engineering_audit_state: "submitted",
-          engineering_audit_id: audit_id,
-          engineering_task_id: task_id,
-          engineering_poll_attempts: 1,
-          notice: "MoonClaw 审计任务已提交。独立复核完成前，结论仍为未知。",
-        },
-      )
-    EngineeringAuditStatus(project, state) =>
-      if project != engineering_project_name(model.engineering_project) {
+          {
+            ..model,
+            engineering_audit_state: "submitted",
+            engineering_audit_id: audit_id,
+            engineering_task_id: task_id,
+            engineering_poll_attempts: 1,
+            notice: "MoonClaw 审计任务已提交。独立复核完成前，结论仍为未知。",
+          },
+        )
+      }
+    EngineeringAuditStatus(project, selection, state) =>
+      if project != engineering_project_name(model.engineering_project) ||
+        selection != model.products.selection {
         (none, model)
       } else if state == "ingested" {
         (
           load_engineering_projection(
             emit,
             engineering_project_name(model.engineering_project),
+            model.products.selection,
           ),
           {
             ..model,
@@ -879,6 +1064,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
               engineering_project_name(model.engineering_project),
               model.engineering_audit_id,
               model.engineering_task_id,
+              model.products.selection,
             ),
             2000,
           ),
@@ -948,29 +1134,29 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       }
     SelectProductInGateDecision(value) =>
-      (none, { ..model, product_in_gate_decision: value })
+      (none, { ..model, product_in_gate_decision: value, })
     SelectProductInGatePrimaryValue(value) =>
-      (none, { ..model, product_in_gate_primary_value: value })
+      (none, { ..model, product_in_gate_primary_value: value, })
     InputProductInGateSegment(value) =>
-      (none, { ..model, product_in_gate_segment: value })
+      (none, { ..model, product_in_gate_segment: value, })
     InputProductInGateWorkflow(value) =>
-      (none, { ..model, product_in_gate_workflow: value })
+      (none, { ..model, product_in_gate_workflow: value, })
     InputProductInGateProblemEvidence(value) =>
-      (none, { ..model, product_in_gate_problem_evidence: value })
+      (none, { ..model, product_in_gate_problem_evidence: value, })
     InputProductInGateCommitmentEvidence(value) =>
-      (none, { ..model, product_in_gate_commitment_evidence: value })
+      (none, { ..model, product_in_gate_commitment_evidence: value, })
     InputProductInGateCurrentBehaviorCost(value) =>
-      (none, { ..model, product_in_gate_current_behavior_cost: value })
+      (none, { ..model, product_in_gate_current_behavior_cost: value, })
     InputProductInGateOutcomeMetric(value) =>
-      (none, { ..model, product_in_gate_outcome_metric: value })
+      (none, { ..model, product_in_gate_outcome_metric: value, })
     InputProductInGateAdoptionPath(value) =>
-      (none, { ..model, product_in_gate_adoption_path: value })
+      (none, { ..model, product_in_gate_adoption_path: value, })
     InputProductInGateUnresolvedRisks(value) =>
-      (none, { ..model, product_in_gate_unresolved_risks: value })
+      (none, { ..model, product_in_gate_unresolved_risks: value, })
     InputProductInGateNextExperiment(value) =>
-      (none, { ..model, product_in_gate_next_experiment: value })
+      (none, { ..model, product_in_gate_next_experiment: value, })
     InputProductInGateReviewBy(value) =>
-      (none, { ..model, product_in_gate_review_by: value })
+      (none, { ..model, product_in_gate_review_by: value, })
     SaveProductInGate =>
       (
         request_product_in_gate_mark(emit, model),
@@ -984,7 +1170,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         (none, model)
       } else {
         (
-          load_product_in_gate(emit, project),
+          load_product_in_gate(emit, project, model.products.selection),
           {
             ..model,
             notice: "Product In-Gate 已写入 PostgreSQL；出厂 G1-G9 保持独立。",
@@ -1094,9 +1280,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectPolicyReviewDecision(value) =>
-      (none, { ..model, policy_review_decision: value })
+      (none, { ..model, policy_review_decision: value, })
     InputPolicyReviewEvidence(value) =>
-      (none, { ..model, policy_review_evidence: value })
+      (none, { ..model, policy_review_evidence: value, })
     SubmitPolicyReview =>
       if model.policy_review_pending {
         (none, model)
@@ -1170,63 +1356,41 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     PreparePolicyValidationTask(opportunity_id) =>
-      if !model.dispatch_task_id.is_empty() {
-        (
-          none,
-          {
-            ..model,
-            notice: "已有正式任务绑定当前界面；完成该闭环后才能准备新的政策验证任务。",
-          },
-        )
-      } else {
-        match
-          policy_opportunity_by_id(
+      match
+        policy_opportunity_by_id(model.policy_radar_projection, opportunity_id) {
+        Some(opportunity) if policy_opportunity_actionable(
             model.policy_radar_projection,
-            opportunity_id,
-          ) {
-          Some(opportunity) =>
-            if !policy_opportunity_actionable(
-                model.policy_radar_projection,
-                opportunity,
-              ) {
-              (
-                none,
-                {
-                  ..model,
-                  notice: "关联政策变化尚未确认；不能准备验证任务。",
-                },
-              )
-            } else {
-              (
-                none,
-                {
-                  ..model,
-                  page: Dispatch,
-                  dispatch_task_form_open: true,
-                  dispatch_task_title: "政策验证 · " + opportunity.title,
-                  dispatch_task_acceptance: opportunity.next_validation +
-                  "；记录反证、责任主体和是否继续。",
-                  dispatch_task_project_id: "policy-intelligence",
-                  dispatch_task_begin_date: policy_today(),
-                  dispatch_task_end_date: policy_validation_end_date(),
-                  dispatch_task_evidence_id: "policy-change:" +
-                  opportunity.source_change_id,
-                  dispatch_task_blocked: false,
-                  dispatch_task_note: "已从政策假设预填验证任务；仍需补充Owner并通过正式任务命令保存。",
-                  mobile_nav: false,
-                  notice: "已准备验证任务草稿；尚未写入PostgreSQL。",
-                },
-              )
-            }
-          None =>
-            (
-              none,
-              {
-                ..model,
-                notice: "政策机会不存在或投影尚未加载。",
-              },
-            )
+            opportunity,
+          ) => {
+          let (_, prepared) = dispatch_prepare_draft(
+            emit,
+            model,
+            "",
+            "policy-intelligence",
+            None,
+            true,
+          )
+          match dispatch_active_draft(prepared) {
+            Some(draft) =>
+              dispatch_save_draft(emit, prepared, {
+                ..draft,
+                title: "政策验证 · " + opportunity.title,
+                acceptance: opportunity.next_validation +
+                "；记录反证、责任主体和是否继续。",
+                begin_date: policy_today(),
+                end_date: policy_validation_end_date(),
+              })
+            None => (none, model)
+          }
         }
+        _ =>
+          (
+            none,
+            {
+              ..model,
+              notice: "政策机会不存在或关联变化尚未确认。",
+            },
+          )
       }
     OpenPolicyEvidence =>
       (
@@ -1250,25 +1414,35 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           notice: "正在从已接受的审计发现创建整改项。",
         },
       )
-    EngineeringRemediationCreated =>
-      (
-        none,
-        {
-          ..model,
-          notice: "整改项已从已接受证据创建；没有接受证据时服务端会拒绝此操作。",
-        },
-      )
-    EngineeringAuditFailed =>
-      (
-        none,
-        {
-          ..model,
-          engineering_audit_state: "failed",
-          engineering_audit_id: "",
-          engineering_task_id: "",
-          notice: "候选测试请求失败；未生成任何结论。请确认已登录，并检查 MoonClaw daemon 与 MoonProj gateway。",
-        },
-      )
+    EngineeringRemediationCreated(project, selection) =>
+      if project != model.engineering_project ||
+        selection != model.products.selection {
+        (none, model)
+      } else {
+        (
+          none,
+          {
+            ..model,
+            notice: "整改项已从已接受证据创建；没有接受证据时服务端会拒绝此操作。",
+          },
+        )
+      }
+    EngineeringAuditFailed(project, selection) =>
+      if project != model.engineering_project ||
+        selection != model.products.selection {
+        (none, model)
+      } else {
+        (
+          none,
+          {
+            ..model,
+            engineering_audit_state: "failed",
+            engineering_audit_id: "",
+            engineering_task_id: "",
+            notice: "候选测试请求失败；未生成任何结论。请确认已登录，并检查 MoonClaw daemon 与 MoonProj gateway。",
+          },
+        )
+      }
     RecordDecision(label) =>
       (
         none,
@@ -1277,142 +1451,77 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           notice: "已记录「\{label}」界面意图；证据写入 PostgreSQL 前不会产生正式业务影响。",
         },
       )
-    ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav })
+    ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav, })
+    DraftAction(action) => dispatch_draft_update(emit, action, model)
+    OfferAction(action) => dispatch_offer_update(emit, model, action)
+    ReplyAction(action) => dispatch_reply_update(emit, model, action)
+    SelectDispatchTask(id) =>
+      open_dispatch_task(emit, { ..model, dispatch_task_open_id: id, })
     OpenDispatchTaskForm =>
-      if model.dispatch_task_id.is_empty() {
-        (
-          none,
-          {
-            ..model,
-            dispatch_task_form_open: true,
-            dispatch_task_blocked: false,
-            dispatch_task_note: "填写任务、验收、项目范围和签名身份；保存会调用 MoonProj 的正式任务命令边界。",
-          },
-        )
-      } else {
-        (
-          none,
-          {
-            ..model,
-            notice: "当前界面已经绑定任务 \{model.dispatch_task_id}；请先完成它的验收闭环。",
-          },
-        )
-      }
-    InputDispatchTaskTitle(value) =>
-      (none, { ..model, dispatch_task_title: value })
-    InputDispatchTaskAcceptance(value) =>
-      (none, { ..model, dispatch_task_acceptance: value })
-    InputDispatchTaskProjectId(value) =>
-      (none, { ..model, dispatch_task_project_id: value })
-    InputDispatchTaskOwnerId(value) =>
-      (none, { ..model, dispatch_task_owner_id: value })
-    InputDispatchTaskActorId(value) =>
-      (none, { ..model, dispatch_task_actor_id: value })
-    InputDispatchTaskBeginDate(value) =>
-      (none, { ..model, dispatch_task_begin_date: value })
-    InputDispatchTaskEndDate(value) =>
-      (none, { ..model, dispatch_task_end_date: value })
+      dispatch_prepare_draft(emit, model, "", "", None, true)
+    InputDispatchTaskWorkspace(value) =>
+      (none, { ..model, dispatch_task_workspace: value, })
+    InputDispatchTaskModel(value) =>
+      (none, { ..model, dispatch_task_model: value, })
+    InputDispatchTaskOpenId(value) =>
+      (none, { ..model, dispatch_task_open_id: value, })
     InputDispatchTaskEvidenceId(value) =>
-      (none, { ..model, dispatch_task_evidence_id: value })
-    CreateDispatchTask =>
-      if !model.dispatch_task_pending_action.is_empty() {
+      (none, { ..model, dispatch_task_evidence_id: value, })
+    CreateDispatchTask => dispatch_draft_update(emit, Create, model)
+    SaveDispatchExecutionSettings =>
+      if model.dispatch_run is Some(_) ||
+        !model.dispatch_task_pending_action.is_empty() ||
+        model.dispatch_task_workspace.trim().is_empty() ||
+        model.dispatch_task_id.is_empty() {
         (none, model)
-      } else if model.dispatch_task_title.trim().is_empty() ||
-        model.dispatch_task_acceptance.trim().is_empty() {
-        (
-          none,
-          {
-            ..model,
-            dispatch_task_note: "任务名称和可检查的验收标准都是必填项。",
-          },
-        )
-      } else if model.dispatch_task_project_id.trim().is_empty() ||
-        model.dispatch_task_actor_id.trim().is_empty() {
-        (
-          none,
-          {
-            ..model,
-            dispatch_task_note: "项目范围和签名身份不能为空；网关会再次验证它们。",
-          },
-        )
-      } else if model.dispatch_task_begin_date.trim().is_empty() ||
-        model.dispatch_task_end_date.trim().is_empty() {
-        (
-          none,
-          {
-            ..model,
-            dispatch_task_note: "计划开始和完成日期不能为空。",
-          },
-        )
-      } else if model.dispatch_task_end_date < model.dispatch_task_begin_date {
-        (
-          none,
-          {
-            ..model,
-            dispatch_task_note: "计划完成日期不能早于开始日期。",
-          },
-        )
       } else {
         (
-          request_dispatch_task_create(emit, model),
+          save_dispatch_execution_settings(emit, model),
           {
             ..model,
-            dispatch_task_pending_action: "create",
-            dispatch_task_blocked: false,
-            dispatch_task_note: "正在通过签名网关创建任务；收到持久化收据前不会显示为已创建。",
+            dispatch_task_pending_action: "settings",
+            dispatch_task_note: "正在保存原生执行工作区。",
           },
         )
       }
-    DispatchTaskCreated(task_id, event_id, audit_id) =>
-      (
-        none,
-        {
-          ..model,
-          dispatch_task_form_open: false,
-          dispatch_task_id: task_id,
-          dispatch_task_stage: "pending",
-          dispatch_task_pending_action: "",
-          dispatch_task_event_id: event_id,
-          dispatch_task_audit_id: audit_id,
-          dispatch_task_blocked: false,
-          dispatch_task_note: "任务已写入 PostgreSQL 命令投影；尚未授权执行。",
-          notice: "正式任务 \{task_id} 已创建，并返回事件与审计收据。",
-        },
-      )
-    StartDispatchTask =>
-      if model.dispatch_task_stage != "pending" ||
-        !model.dispatch_task_pending_action.is_empty() {
+    DispatchExecutionSettingsSaved(task_id, selection) =>
+      if !dispatch_response_matches(model, task_id, selection) ||
+        model.dispatch_task_pending_action != "settings" {
         (none, model)
       } else {
+        (
+          load_dispatch_task(emit, task_id, selection),
+          { ..model, dispatch_task_pending_action: "load", },
+        )
+      }
+    StartDispatchTask =>
+      if !dispatch_can_start(model) {
+        (none, model)
+      } else if !dispatch_guidance_start_blocker(model).is_empty() {
+        (
+          none,
+          {
+            ..model,
+            notice: dispatch_guidance_start_blocker(model),
+            dispatch_task_note: dispatch_guidance_start_blocker(model),
+          },
+        )
+      } else {
+        let model = dispatch_guidance_capture_start(model)
         (
           request_dispatch_task_start(emit, model),
           {
             ..model,
             dispatch_task_pending_action: "start",
             dispatch_task_blocked: false,
-            dispatch_task_note: "正在请求 project:task:update 授权；收据返回前任务仍为待启动。",
+            dispatch_task_note: "正在将正式任务交给 MoonClaw 原生执行；等待执行回执。",
           },
         )
       }
-    DispatchTaskStarted(event_id, audit_id) =>
-      (
-        none,
-        {
-          ..model,
-          dispatch_task_stage: "in_progress",
-          dispatch_task_pending_action: "",
-          dispatch_task_event_id: event_id,
-          dispatch_task_audit_id: audit_id,
-          dispatch_task_blocked: false,
-          dispatch_task_note: "任务已由持久化命令推进为进行中；完成声明仍不等于验收。",
-          notice: "任务已开始；下一步必须提交带证据引用的工作报告。",
-        },
-      )
     SubmitDispatchTask =>
-      if model.dispatch_task_stage != "in_progress" ||
-        !model.dispatch_task_pending_action.is_empty() {
+      if !dispatch_can_submit(model) {
         (none, model)
-      } else if model.dispatch_task_evidence_id.trim().is_empty() {
+      } else if dispatch_report_evidence(model).is_empty() {
         (
           none,
           {
@@ -1421,35 +1530,40 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else {
+        dispatch_begin_report(emit, model)
+      }
+    DispatchTaskSubmitted(task_id, selection, report_id, event_id, audit_id) =>
+      if !dispatch_response_matches(model, task_id, selection) ||
+        model.dispatch_task_pending_action != "submit" {
+        (none, model)
+      } else {
         (
-          request_dispatch_task_submit(emit, model),
+          load_dispatch_task(emit, task_id, selection),
           {
             ..model,
-            dispatch_task_pending_action: "submit",
+            dispatch_task_report_id: report_id,
+            dispatch_continuation: dispatch_record_acknowledged_report(
+              model, report_id,
+            ),
+            dispatch_task_stage: "submitted",
+            dispatch_task_pending_action: "load",
+            dispatch_task_event_id: event_id,
+            dispatch_task_audit_id: audit_id,
             dispatch_task_blocked: false,
-            dispatch_task_note: "正在写入证据门控的任务报告；成功收据返回前不会进入待验收。",
+            dispatch_task_note: "任务报告已持久化；结果等待具名人员接受，不会自动完成。",
+            notice: "报告 \{report_id} 已提交验收；尚未形成接受事实。",
           },
         )
       }
-    DispatchTaskSubmitted(report_id, event_id, audit_id) =>
-      (
-        none,
-        {
-          ..model,
-          dispatch_task_report_id: report_id,
-          dispatch_task_stage: "submitted",
-          dispatch_task_pending_action: "",
-          dispatch_task_event_id: event_id,
-          dispatch_task_audit_id: audit_id,
-          dispatch_task_blocked: false,
-          dispatch_task_note: "任务报告已持久化；结果等待具名人员接受，不会自动完成。",
-          notice: "报告 \{report_id} 已提交验收；尚未形成接受事实。",
-        },
-      )
     AcceptDispatchTask =>
-      if model.dispatch_task_stage != "submitted" ||
-        !model.dispatch_task_pending_action.is_empty() {
-        (none, model)
+      if !dispatch_can_accept_report(model) {
+        (
+          none,
+          {
+            ..model,
+            notice: "本次未接受：" + dispatch_accept_report_blocker(model),
+          },
+        )
       } else {
         (
           request_dispatch_task_accept(emit, model),
@@ -1461,54 +1575,138 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
-    DispatchTaskAccepted(event_id, audit_id) =>
-      (
-        none,
-        {
-          ..model,
-          dispatch_task_stage: "accepted",
-          dispatch_task_pending_action: "",
-          dispatch_task_event_id: event_id,
-          dispatch_task_audit_id: audit_id,
-          dispatch_task_blocked: false,
-          dispatch_task_note: "任务已通过正式状态命令标记为完成；该收据不产生现金、会计或税务影响。",
-          notice: "任务已接受，Start → Submit → Accept 闭环完成。",
-        },
-      )
-    DispatchTaskCommandFailed(action) =>
-      (
-        none,
-        {
-          ..model,
-          dispatch_task_pending_action: "",
-          dispatch_task_blocked: true,
-          dispatch_task_note: dispatch_task_failure_note(action),
-          notice: "任务动作被安全阻断；没有把浏览器意图冒充为正式状态。",
-        },
-      )
-    OpenCompanyForm =>
-      (
-        none,
-        { ..model, page: Company, company_form_open: true, mobile_nav: false },
-      )
-    InputCompanyName(value) => (none, { ..model, company_name: value })
-    SaveCompany =>
-      if model.company_name.trim().is_empty() {
-        (none, { ..model, notice: "请先填写公司名称。" })
+    DispatchTaskAccepted(task_id, selection, event_id, audit_id) =>
+      if !dispatch_response_matches(model, task_id, selection) ||
+        model.dispatch_task_pending_action != "accept" {
+        (none, model)
+      } else {
+        (
+          load_dispatch_task(emit, task_id, selection),
+          {
+            ..model,
+            dispatch_task_stage: "accepted",
+            dispatch_task_pending_action: "load",
+            dispatch_task_event_id: event_id,
+            dispatch_task_audit_id: audit_id,
+            dispatch_task_blocked: false,
+            dispatch_task_note: "任务已通过正式状态命令标记为完成；该收据不产生现金、会计或税务影响。",
+            notice: "任务已接受，Start → Submit → Accept 闭环完成。",
+          },
+        )
+      }
+    DispatchTaskCommandFailed(task_id, selection, action, detail) =>
+      if !dispatch_response_matches(model, task_id, selection) {
+        (none, model)
       } else {
         (
           none,
           {
             ..model,
-            company_saved: true,
-            company_form_open: false,
-            notice: "公司档案已保存在当前界面会话中。连接 PostgreSQL 后才会成为正式记录。",
+            dispatch_task_pending_action: "",
+            dispatch_task_blocked: true,
+            dispatch_task_note: action + "失败：" + detail,
+            notice: "未确认新的任务状态；可以刷新正式记录后重试。",
           },
         )
       }
-    OpenMarketForm => (none, { ..model, market_form_open: true })
-    InputMarketParty(value) => (none, { ..model, market_party: value })
-    InputMarketProblem(value) => (none, { ..model, market_problem: value })
+    LoadDispatchSession => company_setup_update(emit, Refresh, model)
+    DispatchSessionLoaded(actor) =>
+      if actor == model.dispatch_task_actor_id && !actor.is_empty() {
+        (none, model)
+      } else {
+        company_setup_session(emit, model, actor)
+      }
+    RestoreDispatchTask(task_id) => {
+      let (_, model) = products_restore_route(emit, "", model)
+      if task_id.is_empty() {
+        (
+          none,
+          {
+            ..model,
+            page: Products,
+            dispatch_task_form_open: false,
+            dispatch_task_selection: model.dispatch_task_selection + 1,
+            dispatch_task_id: "",
+            dispatch_task_pending_action: "",
+            dispatch_run: None,
+            products: products_clear_preparation(model.products),
+          },
+        )
+      } else {
+        open_dispatch_task(
+          emit,
+          { ..model, dispatch_task_open_id: task_id, },
+          push=false,
+        )
+      }
+    }
+    RestorePageRoute(page, task_id) =>
+      restore_page_route(emit, page, task_id, model)
+    RestoreProductPageRoute(page, task_id, product) =>
+      restore_page_route(emit, page, task_id, model, product~)
+    OpenDispatchTask => open_dispatch_task(emit, model)
+    DeskHandoffAction(action) =>
+      dispatch_desk_handoff_update(emit, action, model)
+    LessonHandoffAction(action) =>
+      dispatch_lesson_handoff_update(emit, model, action)
+    GuidanceAction(action) => dispatch_guidance_update(emit, model, action)
+    OutcomeAction(source, action) =>
+      dispatch_outcome_update(emit, model, source, action)
+    ContinuationAction(action) =>
+      dispatch_continuation_update(emit, action, model)
+    RefreshDispatchTask(task_id, selection) =>
+      if task_id.is_empty() ||
+        !dispatch_response_matches(model, task_id, selection) ||
+        !model.dispatch_task_pending_action.is_empty() ||
+        model.page != Dispatch {
+        (none, model)
+      } else {
+        (
+          load_dispatch_task(emit, task_id, selection),
+          { ..model, dispatch_task_pending_action: "load", },
+        )
+      }
+    DispatchTaskLoaded(task_id, selection, snapshot) =>
+      if !dispatch_response_matches(model, task_id, selection) ||
+        snapshot.task_id != task_id {
+        (none, model)
+      } else if model.dispatch_continuation.task_id == task_id &&
+        snapshot.revision < model.dispatch_continuation.revision {
+        if model.dispatch_task_pending_action == "load" {
+          (
+            @cmd.delay(emit(RefreshDispatchTask(task_id, selection)), 200),
+            { ..model, dispatch_task_pending_action: "", },
+          )
+        } else {
+          (none, model)
+        }
+      } else {
+        let next = dispatch_guidance_after_read(
+          apply_dispatch_snapshot(model, snapshot),
+        )
+        (
+          @cmd.batch([
+            emit(ContinuationAction(Refresh)),
+            if dispatch_run_pollable(next.dispatch_run) && next.page == Dispatch {
+              @cmd.delay(emit(RefreshDispatchTask(task_id, selection)), 2000)
+            } else {
+              none
+            },
+          ]),
+          next,
+        )
+      }
+    OpenCompanyForm =>
+      (
+        emit(CompanySetupAction(Refresh)),
+        { ..model, page: Company, company_form_open: true, mobile_nav: false, },
+      )
+    InputCompanyName(value) =>
+      company_setup_update(emit, Input("company_name", value), model)
+    SaveCompany => company_setup_update(emit, Save("company"), model)
+    OpenMarketForm => (none, { ..model, market_form_open: true, })
+    InputMarketParty(value) => (none, { ..model, market_party: value, })
+    InputMarketProblem(value) => (none, { ..model, market_problem: value, })
     SaveMarket =>
       if model.market_party.trim().is_empty() ||
         model.market_problem.trim().is_empty() {
@@ -1530,9 +1728,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       }
-    OpenWorkForm => (none, { ..model, work_form_open: true })
-    InputWorkTitle(value) => (none, { ..model, work_title: value })
-    InputWorkAcceptance(value) => (none, { ..model, work_acceptance: value })
+    OpenWorkForm => (none, { ..model, work_form_open: true, })
+    InputWorkTitle(value) => (none, { ..model, work_title: value, })
+    InputWorkAcceptance(value) => (none, { ..model, work_acceptance: value, })
     SaveWork =>
       if model.work_title.trim().is_empty() ||
         model.work_acceptance.trim().is_empty() {
@@ -1587,7 +1785,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         (
           none,
-          { ..model, notice: "只有进行中的工作可以提交验收。" },
+          { ..model, notice: "只有进行中的工作可以提交验收。", },
         )
       }
     AcceptWork =>
@@ -1601,16 +1799,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else {
-        (none, { ..model, notice: "只有待验收结果可以被接受。" })
+        (none, { ..model, notice: "只有待验收结果可以被接受。", })
       }
-    OpenCommitmentForm => (none, { ..model, commitment_form_open: true })
-    InputCommitmentTitle(value) => (none, { ..model, commitment_title: value })
+    OpenCommitmentForm => (none, { ..model, commitment_form_open: true, })
+    InputCommitmentTitle(value) => (none, { ..model, commitment_title: value, })
     InputCommitmentCounterparty(value) =>
-      (none, { ..model, commitment_counterparty: value })
+      (none, { ..model, commitment_counterparty: value, })
     SaveCommitment =>
       if model.commitment_title.trim().is_empty() ||
         model.commitment_counterparty.trim().is_empty() {
-        (none, { ..model, notice: "承诺需要事项和交易对手。" })
+        (none, { ..model, notice: "承诺需要事项和交易对手。", })
       } else {
         (
           none,
@@ -1636,7 +1834,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         (
           none,
-          { ..model, notice: "批准前需要承诺草案和授权台账。" },
+          { ..model, notice: "批准前需要承诺草案和授权台账。", },
         )
       }
     SignCommitment =>
@@ -1868,7 +2066,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           notice: "连续性清单已启用；备份恢复和受托人演练仍需真实验证。",
         },
       )
-    DismissNotice => (none, { ..model, notice: "" })
+    DismissNotice => (none, { ..model, notice: "", })
   }
 }
 
@@ -1923,10 +2121,15 @@ fn nav_item_view(
   item : NavItem,
   active : Page,
 ) -> @html.Html {
+  let label_text = if item.page == Delivery {
+    "交付演练（会话内）"
+  } else {
+    item.label
+  }
   let selected = item.page == active
   let attrs = @html.Attrs::build()
     .aria_current(if selected { "page" } else { "false" })
-    .aria_label("\{item.label}：\{item.description}")
+    .aria_label("\{label_text}：\{item.description}")
   button(
     class=if selected { "nav-item is-active" } else { "nav-item" },
     attrs~,
@@ -1940,7 +2143,7 @@ fn nav_item_view(
       [opc_glyph(page_glyph(item.page))],
     ),
     span(class="nav-copy") <| [
-      strong(item.label),
+      strong(label_text),
       small(item.description),
     ],
   ]
@@ -1949,16 +2152,28 @@ fn nav_item_view(
 ///|
 fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let items : Array[@html.Html] = []
+  let more : Array[@html.Html] = []
   let mut current_group = ""
   for item in nav_items() {
-    if item.page != MoonSuite || model.moon_mode {
+    if [Products, Dispatch, Guide].contains(item.page) {
+      items.push(nav_item_view(emit, item, model.page))
+    } else if item.page != MoonSuite || model.moon_mode {
       if item.group != current_group {
         current_group = item.group
-        items.push(p(class="nav-group", item.group))
+        more.push(p(class="nav-group", item.group))
       }
-      items.push(nav_item_view(emit, item, model.page))
+      more.push(nav_item_view(emit, item, model.page))
     }
   }
+  items.push(
+    details(
+      class="nav-more",
+      open=![Products, Dispatch, Guide].contains(model.page),
+    ) <| [
+      summary("更多工具"),
+      div <| more,
+    ],
+  )
   div(class=if model.mobile_nav { "sidebar is-open" } else { "sidebar" }) <| [
     div(class="brand") <| [
       img(class="brand-mark", src="/moonproj.svg", alt="MoonProj"),
@@ -1994,7 +2209,7 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       attrs=@html.Attrs::build().aria_label("基础 OPC 主导航"),
     ) <| items,
     div(class="sidebar-foot") <| [
-      span("治理轴运行中"),
+      span("证据与授权边界"),
       status_badge("fail-closed", tone="accent"),
     ],
   ]
@@ -2019,11 +2234,6 @@ fn topbar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         },
       ),
       strong(page_title(model.page)),
-    ],
-    div(class="topbar-state") <| [
-      span("待决 5"),
-      span("Agent 在线 11/12"),
-      status_badge("治理正常", tone="accent"),
     ],
   ]
 }
@@ -2462,34 +2672,7 @@ fn _overview_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn company_form(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  form(
-    class="inline-form",
-    attrs=@html.Attrs::build().aria_label("建立公司档案"),
-  ) <| [
-    div(class="form-heading") <| [
-      div <| [
-        h3("建立公司档案"),
-        p(
-          "此处只收集产品运行所需的最小身份，不预设行业或组织结构。",
-        ),
-      ],
-      status_badge("界面会话", tone="muted"),
-    ],
-    div(class="field") <| [
-      label(attrs=@html.Attrs::build().for_("company-name"), "公司名称"),
-      input(
-        input_type=Text,
-        attrs=@html.Attrs::build().id("company-name").required(true),
-        value=model.company_name,
-        placeholder="填写法定或经营名称",
-        on_input=emit.map(value => InputCompanyName(value)),
-      ),
-      small("保存到 PostgreSQL 前，这不是正式主体记录。"),
-    ],
-    div(class="form-actions") <| [
-      primary_button(emit, SaveCompany, "保存公司档案"),
-    ],
-  ]
+  company_setup_form(emit, model)
 }
 
 ///|
@@ -2501,7 +2684,7 @@ fn _company_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         emit,
         OpenCompanyForm,
         if model.company_saved {
-          "编辑公司档案"
+          "查看公司工作区"
         } else {
           "建立公司档案"
         },
@@ -3806,6 +3989,7 @@ fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     Overview => cockpit_view(emit, model)
     Fleet => fleet_view(emit, model)
     Dispatch => dispatch_view(emit, model)
+    Products => products_view(emit, model)
     Projects => projects_view(emit, model)
     MoonSuite => moon_suite_view(emit, model)
     Quality => quality_view(emit, model)
@@ -3851,6 +4035,19 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn main {
-  let app = cell(model=initial_model(), update~, view~)
-  new(app).mount("app")
+  let (emit, app) = @rabbita.cell_with_emit(
+    model=initial_model(),
+    update~,
+    view~,
+  )
+  let runtime = new(app)
+  runtime.with_init(
+    @cmd.batch([
+      emit(ProductsAction(Refresh)),
+      emit(CompanySetupAction(Refresh)),
+      emit(saved_page_route()),
+      dispatch_history_listener(emit),
+    ]),
+  )
+  runtime.mount("app")
 }

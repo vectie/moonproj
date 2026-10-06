@@ -78,18 +78,8 @@ fn projects_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
 }
 
 ///|
-fn engineering_project_name(index : Int) -> String {
-  match index {
-    0 => "moonproj"
-    1 => "moonclaw"
-    2 => "moonbook"
-    3 => "moontown"
-    4 => "moondesk"
-    5 => "moongate"
-    6 => "moonrobo"
-    7 => "moonmoon"
-    _ => "moonfish"
-  }
+fn engineering_project_name(id : String) -> String {
+  id
 }
 
 ///|
@@ -160,17 +150,17 @@ fn evidence_dimension(
 fn engineering_project_button(
   emit : @rabbita.Emit[Msg],
   model : Model,
-  index : Int,
+  id : String,
   name : String,
 ) -> @html.Html {
   button(
     type_="button",
-    class=if model.engineering_project == index {
+    class=if model.engineering_project == id {
       "button button-primary button-small"
     } else {
       "button button-secondary button-small"
     },
-    on_click=emit(SelectEngineeringProject(index)),
+    on_click=emit(SelectEngineeringProject(id)),
     name,
   )
 }
@@ -243,34 +233,12 @@ fn product_in_gate_response_persisted(value : Json) -> Bool {
 }
 
 ///|
-fn load_product_in_gate(emit : @rabbita.Emit[Msg], project : String) -> Cmd {
-  @http.get("/api/company/products/" + project + "/in-gate").expect_text(result => {
-    match result {
-      Ok(response) => {
-        let payload = @json.parse(response) catch { _ => Json::null() }
-        emit(
-          ProductInGateLoaded(
-            project,
-            product_in_gate_response_text(payload, "decision", "unknown"),
-            product_in_gate_response_text(payload, "primary_value", "unknown"),
-            product_in_gate_response_text(payload, "segment", ""),
-            product_in_gate_response_text(payload, "workflow", ""),
-            product_in_gate_response_refs(payload, "problem_evidence"),
-            product_in_gate_response_refs(payload, "commitment_evidence"),
-            product_in_gate_response_text(payload, "current_behavior_cost", ""),
-            product_in_gate_response_text(payload, "outcome_metric", ""),
-            product_in_gate_response_text(payload, "adoption_path", ""),
-            product_in_gate_response_text(payload, "unresolved_risks", ""),
-            product_in_gate_response_text(payload, "next_experiment", ""),
-            product_in_gate_response_text(payload, "review_by", ""),
-            product_in_gate_response_text(payload, "owner", ""),
-            product_in_gate_response_persisted(payload),
-          ),
-        )
-      }
-      Err(_) => emit(ProductInGateFailed(project))
-    }
-  })
+fn load_product_in_gate(
+  emit : @rabbita.Emit[Msg],
+  project : String,
+  selection : Int,
+) -> Cmd {
+  products_load_detail(emit, "admission", project, selection)
 }
 
 ///|
@@ -562,11 +530,28 @@ fn request_engineering_audit(emit : @rabbita.Emit[Msg], model : Model) -> Cmd {
         }
         match (audit_id, task_id) {
           (Some(audit), Some(task)) =>
-            emit(EngineeringAuditSubmitted(audit, task))
-          _ => emit(EngineeringAuditFailed)
+            emit(
+              EngineeringAuditSubmitted(
+                project,
+                model.products.selection,
+                audit,
+                task,
+              ),
+            )
+          _ =>
+            emit(
+              EngineeringAuditStatus(
+                project,
+                model.products.selection,
+                "failed",
+              ),
+            )
         }
       }
-      Err(_) => emit(EngineeringAuditStatus(project, "failed"))
+      Err(_) =>
+        emit(
+          EngineeringAuditStatus(project, model.products.selection, "failed"),
+        )
     }
   })
 }
@@ -577,6 +562,7 @@ fn poll_engineering_audit(
   project : String,
   audit_id : String,
   task_id : String,
+  selection : Int,
 ) -> Cmd {
   @http.get(
     "/api/moonsuite/engineering/audits/" +
@@ -597,9 +583,9 @@ fn poll_engineering_audit(
             }
           _ => "failed"
         }
-        emit(EngineeringAuditStatus(project, state))
+        emit(EngineeringAuditStatus(project, selection, state))
       }
-      Err(_) => emit(EngineeringAuditStatus(project, "failed"))
+      Err(_) => emit(EngineeringAuditStatus(project, selection, "failed"))
     }
   })
 }
@@ -688,55 +674,9 @@ fn projection_item_text(
 fn load_engineering_projection(
   emit : @rabbita.Emit[Msg],
   project : String,
+  selection : Int,
 ) -> Cmd {
-  @http.get("/api/company/engineering/projects/" + project).expect_text(result => {
-    match result {
-      Ok(response) => {
-        let payload = @json.parse(response) catch { _ => Json::null() }
-        let freshness = match payload {
-          Object(root) =>
-            match root.get("audit") {
-              Some(Object(audit)) =>
-                match audit.get("freshness") {
-                  Some(String(value)) => value
-                  _ => "missing"
-                }
-              _ => "missing"
-            }
-          _ => "missing"
-        }
-        let findings = match payload {
-          Object(root) =>
-            match root.get("audit") {
-              Some(Object(audit)) =>
-                match audit.get("accepted_findings") {
-                  Some(Array(values)) => values.length()
-                  _ => 0
-                }
-              _ => 0
-            }
-          _ => 0
-        }
-        emit(
-          EngineeringProjectionLoaded(
-            project,
-            projection_text(payload, "progress", "stage"),
-            projection_text(payload, "health", "status"),
-            projection_text(payload, "production", "release_eligibility"),
-            freshness,
-            projection_root_text(payload, "audit_id", ""),
-            findings,
-            projection_root_text(payload, "repository", "unknown"),
-            projection_root_text(payload, "branch", "unknown"),
-            projection_root_text(payload, "commit", "unknown"),
-            projection_root_text(payload, "review_verdict", "needs_evidence"),
-            projection_gate_states(payload),
-          ),
-        )
-      }
-      Err(_) => emit(EngineeringAuditStatus(project, "failed"))
-    }
-  })
+  products_load_detail(emit, "engineering", project, selection)
 }
 
 ///|
@@ -750,8 +690,9 @@ fn request_engineering_remediation(
   .with_text(Json::object({ "idempotency_key": key }).stringify())
   .expect_text(result => {
     match result {
-      Ok(_) => emit(EngineeringRemediationCreated)
-      Err(_) => emit(EngineeringAuditFailed)
+      Ok(_) =>
+        emit(EngineeringRemediationCreated(project, model.products.selection))
+      Err(_) => emit(EngineeringAuditFailed(project, model.products.selection))
     }
   })
 }
@@ -768,20 +709,11 @@ fn moon_suite_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       ),
     ],
     section_title(
-      "选择首批服务", "从我们的 Moon Suite 仓库开始建立工程基线。",
-      "9 个已登记",
+      "选择已登记产品",
+      "来自同一产品目录；登记不等于已安装或通过验收。",
+      products_state_label(model.products.state),
     ),
-    div(class="tag-row") <| [
-      engineering_project_button(emit, model, 0, "moonproj"),
-      engineering_project_button(emit, model, 1, "moonclaw"),
-      engineering_project_button(emit, model, 2, "moonbook"),
-      engineering_project_button(emit, model, 3, "moontown"),
-      engineering_project_button(emit, model, 4, "moondesk"),
-      engineering_project_button(emit, model, 5, "moongate"),
-      engineering_project_button(emit, model, 6, "moonrobo"),
-      engineering_project_button(emit, model, 7, "moonmoon"),
-      engineering_project_button(emit, model, 8, "moonfish"),
-    ],
+    engineering_catalog_selector(emit, model),
     product_in_gate_panel(emit, model, selected),
     div(class="repo-grid") <| [
       evidence_dimension(
@@ -837,21 +769,11 @@ fn moon_suite_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn quality_product_name(model : Model, index : Int) -> String {
-  if model.moon_mode {
-    engineering_project_name(index)
+fn quality_product_name(_model : Model, id : String) -> String {
+  if id.is_empty() {
+    "尚未选择产品"
   } else {
-    match index {
-      0 => "Core Service"
-      1 => "Agent Runtime"
-      2 => "Investment Pack"
-      3 => "Desktop Console"
-      4 => "Knowledge Service"
-      5 => "Model Gateway"
-      6 => "Robotics Runtime"
-      7 => "World Model"
-      _ => "Goal Orchestrator"
-    }
+    id
   }
 }
 
@@ -925,17 +847,7 @@ fn quality_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         "不得发布"
       },
     ),
-    div(class="tag-row") <| [
-      engineering_project_button(emit, model, 0, "moonproj"),
-      engineering_project_button(emit, model, 1, "moonclaw"),
-      engineering_project_button(emit, model, 2, "moonbook"),
-      engineering_project_button(emit, model, 3, "moontown"),
-      engineering_project_button(emit, model, 4, "moondesk"),
-      engineering_project_button(emit, model, 5, "moongate"),
-      engineering_project_button(emit, model, 6, "moonrobo"),
-      engineering_project_button(emit, model, 7, "moonmoon"),
-      engineering_project_button(emit, model, 8, "moonfish"),
-    ],
+    engineering_catalog_selector(emit, model),
     section(class="section-block release-candidate") <| [
       div(class="form-heading") <| [
         div <| [
@@ -989,11 +901,15 @@ fn quality_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         span("Repository · \{model.engineering_repository}"),
         span("Commit · \{model.engineering_commit}"),
       ],
-      primary_button(
-        emit,
-        RequestEngineeringAudit,
-        "让 MoonClaw 测试这个候选",
-      ),
+      if products_can_audit(model) {
+        primary_button(
+          emit,
+          RequestEngineeringAudit,
+          "让 MoonClaw 测试这个候选",
+        )
+      } else {
+        p("未选择可用的已登记仓库，不能启动审计。")
+      },
     ],
     div(class="repo-grid release-dimensions") <| [
       evidence_dimension(

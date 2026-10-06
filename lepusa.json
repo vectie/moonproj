@@ -30,6 +30,18 @@
       "source": "scripts/moonproj_desktop_service.sh",
       "path": "moonproj-desktop-service",
       "executable": true
+    },
+    {
+      "source": "config/moonsuite-engineering.json",
+      "path": "config/moonsuite-engineering.json"
+    },
+    {
+      "source": "config/moonsuite-work-inventory.json",
+      "path": "config/moonsuite-work-inventory.json"
+    },
+    {
+      "source": "resources/product-documents",
+      "path": "product-documents"
     }
   ],
   "window": {
@@ -42,7 +54,7 @@
       "localhost": {
         "port": 4173,
         "path": "/",
-        "readinessPath": "/health",
+        "readinessPath": "/ready",
         "command": [
           "moonproj-desktop-service"
         ]

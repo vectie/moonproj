@@ -1,0 +1,281 @@
+MoonTown product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonTown should coordinate recurring goals and cross-book evidence for operators who already maintain several useful books. Its adapter and lifecycle tests support bounded local contracts. The next product question is whether recurring synthesis saves more founder attention than supervision costs; autonomous company operation is outside the product claim.
+Repository maturity claim experimental local alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A standing goal needs a durable purpose, source boundary, acceptance criterion and named reviewer. Town membership, scheduling and synthesis can provide leverage, but MoonBook continues to own accepted knowledge and the founder continues to own company decisions. The mayor and resident metaphors should not obscure who can approve an action.
+Introduce MoonTown after a basic commitment and book workflow already works. Its output should be a small number of meaningful review items and contradictions. A busy spatial view or many worker messages cannot count as useful coordination. Measure decisions improved and human attention consumed.
+Users and jobs
+multi book operator
+Supervise standing goals across multiple books with recoverable scheduling.
+Trigger Several recurring evidence lanes create material manual follow-up.
+Successful outcome The operator sees due work, active runs and review queues without duplicate dispatch.
+founder with recurring research lanes
+Receive meaningful changes to customer or market assumptions within an attention budget.
+Trigger A recurring company decision depends on outside signals.
+Successful outcome The founder gets a small sourced decision queue whose value exceeds review overhead.
+book Keeper
+Maintain the participating book and review proposed cross-book updates.
+Trigger A goal requests book context or a synthesis proposes a knowledge change.
+Successful outcome Book truth changes only through the book-owned acceptance transition.
+Mayor supervisor role
+Coordinate roles and intervene in blocked or conflicting work.
+Trigger The town has a stalled goal, source conflict or supervision exception.
+Successful outcome The supervisor can reconcile or pause work without inheriting company or physical authority.
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	5	Source documented: 4; Partial: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS lifecycle 8/8 and native MoonBook adapter 86/86; fresh MoonBook CLI state fixture decoded.
+Evidence No multi-day supervised town, real user acceptance, live provider or customer outcome tested.
+Open gap Production service installation, auth, backups and multi-day recovery remain open.
+Open gap Repeated Wenyu civic runs with accepted book updates and backend/frontend sync remain incomplete per README.
+Open gap No proof the town reduces founder attention cost compared with a simpler task/book view.
+User scenarios
+Town bootstrap  book catalog  standing goals and supervised daemon
+MOONTOWN-UC01 | Baseline scope. Bootstrap and supervise a town with standing goals.
+1. Create durable town, book catalog and standing-goal records.
+2. Plan due work and run the supported one-shot, foreground or supervised background mode.
+3. Inspect health, worker lifecycle and restart state without losing goal intent.
+Edge case Two supervisors must not independently dispatch the same due goal with conflicting state.
+Failure and recovery After a daemon interruption reconcile existing tasks and due state before another dispatch; preserve failures and restart evidence.
+Acceptance A restart fixture resumes the same goal ledger and exposes unresolved work instead of presenting an empty healthy town.
+Evidence references README.mbt.md#Current Status; docs/PRODUCT_CONTRACT.md#Capability status
+MoonBook Keeper lanes and MoonClaw proposal run lifecycle
+MOONTOWN-UC02 | Baseline scope. Dispatch a Keeper lane through participating runtimes.
+1. Select a reviewed participating book and a bounded standing goal.
+2. Create the MoonClaw proposal/run through the configured adapter and poll its state.
+3. Persist the result and surface it for the proper book review.
+Edge case A decoded book state is not proof that the gateway, model route or authority is ready.
+Failure and recovery Missing runtime, stale state or failed polling leaves the task blocked and retains its known run identity.
+Acceptance Qualify one configured goal-to-run-to-review path; current lifecycle and adapter tests are component evidence only.
+Evidence references README.mbt.md#Current Status; docs/PRODUCT_CONTRACT.md#Integration contract
+Cross book synthesis and research salon
+MOONTOWN-UC03 | Baseline scope. Synthesize across books in a research salon.
+1. Select a scoped question and explicit book inputs.
+2. Use the versioned civic synthesis operation to compare findings and contradictions.
+3. Deliver a review-pending synthesis to the named human or book curator.
+Edge case The research-salon name is scenario configuration, not a callable operation ID or authority grant.
+Failure and recovery Unavailable books or incompatible snapshots remain named gaps and cannot be replaced with invented consensus.
+Acceptance A synthesis cites its input snapshots and remains pending review until the owning book accepts a change.
+Evidence references README.mbt.md#What MoonTown Feels Like; README.mbt.md#Final Integration Portfolio
+Planbook cookbook  PDF evidence watch and book template requests
+MOONTOWN-UC04 | Baseline scope. Recover planned work through Planbook and Cookbook.
+1. Write intent and acceptance conditions in plan.md before dispatch.
+2. Select a documented recipe such as PDF evidence watch or a book-template request.
+3. Recover the plan and decision context after interruption or a book request transition.
+Edge case A recipe description does not prove that every product has a universal plan-first user experience.
+Failure and recovery A missing or invalid plan blocks execution or prompts repair while retaining existing evidence and task identity.
+Acceptance A recovery exercise reconstructs why the work exists and how it will be accepted from the plan, without private runtime state.
+Evidence references README.mbt.md#Planbook Workflow; docs/PLANBOOK.md#plan.md Contract; docs/COOKBOOK.md
+Civic communication and spatial operator view
+MOONTOWN-UC05 | Baseline scope. Use civic communication and the spatial operator view.
+1. Inspect membership, roles and current communication in the town view.
+2. Drill into the exact goal, book or review item behind an activity.
+3. Let the supervisor intervene within the owning service's authority boundary.
+Edge case Movement, role activity or message counts must not be labeled business outcomes.
+Failure and recovery Stale frontend/backend synchronization is visible and disables misleading state-changing controls.
+Acceptance Every actionable visual item resolves to a durable record and displays the freshness of its state.
+Evidence references README.mbt.md#Current Capabilities; docs/PRODUCT_CONTRACT.md#Ownership
+Recurring company signal watch
+MOONTOWN-F01 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Create one source-bounded watch tied to a company assumption.
+2. Compare new evidence with the previous reviewed state and suppress immaterial repeats.
+3. Send a meaningful change with provenance to the MoonProj decision queue.
+Edge case Frequent source noise should not increase founder notifications without changed decision relevance.
+Failure and recovery Unavailable sources produce a bounded health item rather than fabricated absence of change.
+Acceptance One changed assumption produces one review item with the exact source and a clear next owner action.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Cross book contradiction review
+MOONTOWN-F02 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Compare related claims across explicitly selected books.
+2. Produce one contradiction record with both sources and applicable contexts.
+3. Let a reviewer resolve, preserve or defer the conflict without silently editing either book.
+Edge case Two claims can both be valid under different dates or conditions.
+Failure and recovery A source update invalidates the old comparison and requests re-review rather than reusing the earlier verdict.
+Acceptance Both book owners can trace the same reversible review item and see whether accepted knowledge changed.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Coordination budget
+MOONTOWN-F03 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Set an attention and execution budget per standing goal.
+2. Measure useful decisions, manual follow-up avoided and review overhead.
+3. Pause or simplify low-value coordination with owner approval.
+Edge case A reduction in worker runtime can still increase human review burden.
+Failure and recovery Missing measurement stays unknown and cannot be counted as time saved.
+Acceptance The founder can compare the watch with a simpler manual check using the same outcome definition.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Town bootstrap  book catalog  standing goals and supervised daemon
+MOONTOWN-B01 | Baseline | P0 | Source documented
+The product shall support this bounded outcome: Inspect health, worker lifecycle and restart state without losing goal intent. It shall preserve the boundary: Two supervisors must not independently dispatch the same due goal with conflicting state.
+Evidence Durable town/goal/catalog state, due planning, worker lifecycle, health/restart and one-shot/foreground/background modes.; README.mbt.md#Current Status; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Exercise the stated scenario from its named starting state. A restart fixture resumes the same goal ledger and exposes unresolved work instead of presenting an empty healthy town.
+2. Inject the boundary or interruption case. After a daemon interruption reconcile existing tasks and due state before another dispatch; preserve failures and restart evidence.
+Dependencies moontown/civic.communication.synthesize@0.1.0 accepts versioned handoff and returns a review-pending civic synthesis; 'research-salon' is scenario configuration, not operation ID.
+MoonBook Keeper lanes and MoonClaw proposal run lifecycle
+MOONTOWN-B02 | Baseline | P0 | Partial
+The product shall support this bounded outcome: Persist the result and surface it for the proper book review. It shall preserve the boundary: A decoded book state is not proof that the gateway, model route or authority is ready.
+Evidence Goal dispatch, run polling, result persistence and review surfacing require configured participating runtimes and reviewed books.; README.mbt.md#Current Status; docs/PRODUCT_CONTRACT.md#Integration contract
+Test 1. Exercise the stated scenario from its named starting state. Qualify one configured goal-to-run-to-review path; current lifecycle and adapter tests are component evidence only.
+2. Inject the boundary or interruption case. Missing runtime, stale state or failed polling leaves the task blocked and retains its known run identity.
+Dependencies moontown/civic.communication.synthesize@0.1.0 accepts versioned handoff and returns a review-pending civic synthesis; 'research-salon' is scenario configuration, not operation ID.
+Cross book synthesis and research salon
+MOONTOWN-B03 | Baseline | P0 | Source documented
+The product shall support this bounded outcome: Deliver a review-pending synthesis to the named human or book curator. It shall preserve the boundary: The research-salon name is scenario configuration, not a callable operation ID or authority grant.
+Evidence One fixture scenario plus civic communication patterns; output remains pending human review, not accepted book truth.; README.mbt.md#What MoonTown Feels Like; README.mbt.md#Final Integration Portfolio
+Test 1. Exercise the stated scenario from its named starting state. A synthesis cites its input snapshots and remains pending review until the owning book accepts a change.
+2. Inject the boundary or interruption case. Unavailable books or incompatible snapshots remain named gaps and cannot be replaced with invented consensus.
+Dependencies moontown/civic.communication.synthesize@0.1.0 accepts versioned handoff and returns a review-pending civic synthesis; 'research-salon' is scenario configuration, not operation ID.
+Planbook cookbook  PDF evidence watch and book template requests
+MOONTOWN-B04 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Recover the plan and decision context after interruption or a book request transition. It shall preserve the boundary: A recipe description does not prove that every product has a universal plan-first user experience.
+Evidence Plan.md keeps intent/acceptance for recovery; daemon can process book requests; actual universal plan-first UX across products is not verified.; README.mbt.md#Planbook Workflow; docs/PLANBOOK.md#plan.md Contract; docs/COOKBOOK.md
+Test 1. Exercise the stated scenario from its named starting state. A recovery exercise reconstructs why the work exists and how it will be accepted from the plan, without private runtime state.
+2. Inject the boundary or interruption case. A missing or invalid plan blocks execution or prompts repair while retaining existing evidence and task identity.
+Dependencies moontown/civic.communication.synthesize@0.1.0 accepts versioned handoff and returns a review-pending civic synthesis; 'research-salon' is scenario configuration, not operation ID.
+Civic communication and spatial operator view
+MOONTOWN-B05 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Let the supervisor intervene within the owning service's authority boundary. It shall preserve the boundary: Movement, role activity or message counts must not be labeled business outcomes.
+Evidence Wenyu patterns, town visualization and role supervision; not an economic outcome or company authority by itself.; README.mbt.md#Current Capabilities; docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Exercise the stated scenario from its named starting state. Every actionable visual item resolves to a durable record and displays the freshness of its state.
+2. Inject the boundary or interruption case. Stale frontend/backend synchronization is visible and disables misleading state-changing controls.
+Dependencies moontown/civic.communication.synthesize@0.1.0 accepts versioned handoff and returns a review-pending civic synthesis; 'research-salon' is scenario configuration, not operation ID.
+Recurring company signal watch
+MOONTOWN-R01 | Roadmap | P1 | Proposed
+A founder creates one source-bounded watch for a customer/market assumption; only meaningful changes reach today's MoonProj decision queue with provenance and review status. Frequent source noise should not increase founder notifications without changed decision relevance.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. One changed assumption produces one review item with the exact source and a clear next owner action.
+2. Unavailable sources produce a bounded health item rather than fabricated absence of change.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Cross book contradiction review
+MOONTOWN-R02 | Roadmap | P1 | Proposed
+Conflicting findings across books arrive as one explicit, reversible review item, never as a silently accepted company fact. Two claims can both be valid under different dates or conditions.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. Both book owners can trace the same reversible review item and see whether accepted knowledge changed.
+2. A source update invalidates the old comparison and requests re-review rather than reusing the earlier verdict.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Coordination budget
+MOONTOWN-R03 | Roadmap | P2 | Proposed
+Town displays saved founder follow-up time versus supervisory overhead per standing goal; unused visual/role complexity stays hidden. A reduction in worker runtime can still increase human review burden.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. The founder can compare the watch with a simpler manual check using the same outcome definition.
+2. Missing measurement stays unknown and cannot be counted as time saved.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Data state and authority
+Town membership catalog and standing goals
+Owner MoonTown durable coordination store
+State model Created, scheduled, due, dispatched, awaiting review, revised or paused
+Write authority Operator configures goals; authority to execute remains on the owning runtime
+Retention and recovery Retain plan, schedule revision, task identity and restart history
+Book sources and accepted knowledge
+Owner Each participating MoonBook
+State model Snapshot read, synthesis proposed, review pending, accepted or rejected by book owner
+Write authority Town may propose changes but cannot self-accept book truth
+Retention and recovery Retain exact snapshot and review links; recover from book-owned accepted state
+Run and synthesis receipts
+Owner MoonTown owns coordination receipt; Claw owns run and Flow owns declared work
+State model Planned, invoked, running, result persisted, review surfaced, reconciled
+Write authority A result receipt cannot sign company commitments or grant physical authority
+Retention and recovery Keep incomplete runs discoverable across restarts and avoid duplicate goal dispatch
+Interfaces and handoffs
+MoonBook
+Payload State snapshots, Keeper context and review-pending synthesis
+Contract Current primary adapter supports exact-safe numeric millisecond fields and has bounded producer/consumer evidence
+Failure behavior Invalid, stale or incompatible snapshots block interpretation and retain the original input
+MoonClaw and MoonFlow
+Payload Goal proposal, run IDs and declared work references
+Contract Town schedules and coordinates; Claw executes; Flow owns declared-work lifecycle
+Failure behavior Do not rerun on uncertain polling without reconciling existing identity
+MoonProj
+Payload Proposed assumption watch and decision-review link
+Contract No current customer commitment or cash-state integration has been verified
+Failure behavior Send explicit pending evidence rather than accepted company facts
+Nonfunctional requirements
+Durable supervision
+MOONTOWN-N01
+Daemon restart must reconcile scheduled work, active run identity and persisted results before new dispatch.
+Acceptance test Interrupt before and after dispatch and during polling; confirm no lost review record or duplicate authorized effect.
+Evidence status Partial
+Authority and source boundaries
+MOONTOWN-N02
+Goals and civic messages cannot expand runtime permissions or mutate accepted book truth without owning-service approval.
+Acceptance test Inject a goal requesting broader scope and a synthesis claiming approval; reject promotion and preserve the pending review.
+Evidence status Proposed
+Adapter validity
+MOONTOWN-N03
+Book state decode must validate finite integer numeric milliseconds and explicit compatible schema.
+Acceptance test Decode the current producer snapshot plus fractional, unsafe and invalid timestamp fixtures; reject invalid input without guessing.
+Evidence status Verified contract
+Service operability
+MOONTOWN-N04
+Production supervision requires authentication, backups, restore and multi-day lifecycle evidence.
+Acceptance test Qualify a bounded continuous watch, forced restart and isolated restore before declaring an always-on service.
+Evidence status Unknown
+Attention budget
+MOONTOWN-N05
+Deduplicate immaterial watch output and expose the actual human review burden per goal.
+Acceptance test Repeat unchanged evidence then introduce one material change; verify quiet unchanged state and one sourced review item.
+Evidence status Proposed
+Delivery roadmap
+Phase 1 Qualify the baseline
+Reproduce the product's critical local, contract and configured paths with exact versions and observable receipts. Close missing prerequisites without widening authority.
+Requirements MOONTOWN-B01, MOONTOWN-B02, MOONTOWN-B03, MOONTOWN-B04, MOONTOWN-B05
+Exit gate Every P0 baseline acceptance has an explicit result and evidence locator; unresolved dependency and integration states remain visible.
+Phase 2 Complete one connected outcome
+Implement the smallest useful cross-product scenario and test review, interruption and recovery with real authorized inputs.
+Requirements MOONTOWN-R01, MOONTOWN-R02
+Exit gate A named user accepts the exact output and can recover its evidence chain without reconstructing identities manually.
+Phase 3 Expand only after measured value
+Add remaining proposed workflows where observed use demonstrates reduced coordination cost or a distinct required capability.
+Requirements MOONTOWN-R03
+Exit gate Measure the outcome against the simpler alternative, include review overhead, and retain the ability to stop or narrow low-value scope.
+Outcome measurement
+Useful changes per watch
+Review items that caused a confirmed decision, correction or bounded experiment
+Measurement Named reviewer tags usefulness and records resulting action
+Target Baseline from a small watch cohort; no claimed saved time yet
+Coordination burden
+Founder review and supervision minutes plus manual follow-up minutes per standing goal
+Measurement Compare Town-supported and simpler manual workflows over equivalent periods
+Target Adopt only where net attention improves
+Recovery and duplicate work
+Restarts reconciled without duplicate authorized effects or lost review records
+Measurement Inject daemon, adapter and polling faults in qualification runs
+Target No silent lost task or duplicated effect in supported failure fixtures
+Non goals
+Autonomous company strategy, customer commitments or financial authority
+Promoting cross-book synthesis directly to accepted knowledge
+Using spatial activity as evidence of economic value
+Requiring every new founder to configure a town before doing useful work
+Alternatives and optimality
+One book and a recurring checklist
+Advantage Minimal setup and clear human ownership
+Cost Cross-book contradictions and repetitive polling remain manual
+When to choose Prefer until several independent recurring evidence lanes create material follow-up cost
+A basic scheduled query with a review inbox
+Advantage Simple recurring signal detection with less metaphor and role machinery
+Cost Limited durable multi-book coordination and recovery lineage
+When to choose Use when one watch and one reviewer suffice; earn additional Town complexity through measured benefit
+MoonTown has a defensible role as an advanced coordination layer. It is not the optimal beginner front door without evidence that the extra roles and spatial UI reduce attention cost. Start with one recurring source-bound watch and one review queue.
+The product needs multi-day recovery, authentication and backup qualification before standing goals become trusted infrastructure. Passing state decoding is valuable integration evidence but does not prove continuous service operation.
+The strongest roadmap addition is an explicit coordination budget. It makes the simpler alternative a first-class decision and prevents worker activity from becoming a self-justifying metric.
+Open product decisions
+Decision Which recurring decision is costly enough to justify Town?
+Recommendation Choose one repeated assumption check with a named reviewer and measurable manual baseline.
+Consequence Without that comparison, more synthesis may simply create more review work.
+Decision When may synthesis alter a book?
+Recommendation Only through the owning book's explicit review and acceptance transition.
+Consequence Town coordination receipts alone must never become accepted knowledge.
+Sources and coverage
+Repository paths below are relative to moontown. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/PLANBOOK.md (section index and workflow)
+docs/COOKBOOK.md (index)
+Moon Luna investigation ledger dated 30 September 2026 version 3
+OPC OS consolidated product evidence and source index dated 30 September 2026
+Coverage remains partial. Areas not exhaustively inspected include 30 docs in full; civic scenario executions and daemon soak; all spatial UI interactions. Current acceptance statements define what must be demonstrated and do not upgrade source-only claims. No commercial, provider or physical outcome is inferred from local tests.

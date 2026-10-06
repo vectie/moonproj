@@ -1,0 +1,293 @@
+MoonChat product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonChat should remain a portable review contract for artifact-producing applications. Its frozen baseline binds an artifact revision to questions, objections, proposals, participants and append-only decisions; it does not operate live chat or accept company knowledge on another product’s behalf. Five JavaScript review tests passed in the portfolio investigation. That bounded core evidence does not qualify a host review screen, an end-to-end founder decision or a completed MoonFind to MoonBook handoff. The next release decision is whether one real host can make review understandable and return a digest-bound receipt without obscuring dissent.
+Repository maturity claim native v1 capability; L1 structured, consumer UI wiring product-owned
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+Accountability requires knowing what was reviewed, who decided and which uncertainty remains. A conversational transcript is useful evidence, but the volume or fluency of its turns cannot establish approval. MoonChat should make the distinction between a question, an objection, a proposal and an authorized decision machine-readable while retaining the original source binding. A later artifact revision must require an explicit new review scope rather than inheriting the approval of older bytes.
+The primary customer is a pack or host developer. A founder encounters MoonChat through the artifact they are already considering, not through another destination or inbox. In the operating sequence from source to understanding, commitment, execution and inspected artifact, MoonChat supports the review step. MoonProj owns commitments, MoonClaw owns live conversations and execution, and MoonBook independently owns knowledge acceptance. Customer acceptance and cash receipt are outside this review contract.
+Users and jobs
+Review workflow developer
+Embed an artifact scoped review that can be exported and replayed
+Trigger A pack needs a named decision before continuing
+Successful outcome A receiving host can verify source binding and explain the projected review state
+Named reviewer in a host application
+Approve, defer or reject a proposal with visible objections
+Trigger An artifact or commitment requires a human decision
+Successful outcome The decision covers the displayed revision and unresolved dissent remains retrievable
+MoonFind or MoonBook integrator
+Consume review evidence without importing another application’s authority
+Trigger A source artifact or knowledge candidate crosses an application boundary
+Successful outcome The receiver records its own import and acceptance choice with traceable evidence
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	9	Source documented: 6; Verified contract: 1; Partial: 2
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior JS review 5/5 passed; no host review screen or end-to-end founder decision was exercised.
+Open gap MoonFind stakeholder and MoonBook closure consumption remain integration intent.
+Open gap Ordinary user's path must be qualified in host applications before claiming L2.
+User scenarios
+Create a portable review bundle
+MOONCHAT-W01 | Baseline scope. A producing pack has an artifact requiring review
+1. Capture the artifact identifier, revision and digest
+2. Add participants and required decision roles
+3. Attach questions, objections and proposals to that scope
+4. Export the versioned bundle and display its projected review state
+Edge case An artifact changes after review starts; the host must distinguish the old binding from the new revision.
+Failure and recovery Missing source identity or an unsupported schema produces a validation error and no authoritative review projection.
+Acceptance Import a valid bundle in a second fixture consumer; reject a changed digest and an incomplete required identity without silently substituting current bytes.
+Evidence references docs/PRODUCT_CONTRACT.md#Ownership; docs/PRODUCT_CONTRACT.md#Canonical identities
+Retain and replay the review journal
+MOONCHAT-W02 | Baseline scope. A reviewer adds a decision or changes an earlier position
+1. Write a new content-addressed event
+2. Retain prior rejected or deferred evidence
+3. Replay the ordered journal into a current projection
+4. Export the evidence needed to explain that projection
+Edge case A repeated submission has the same event content; it must not create a second logical decision.
+Failure and recovery Truncated, inconsistent or unsupported journal content is surfaced as incomplete evidence; it cannot be repaired by overwriting earlier events.
+Acceptance Replay the same journal twice and compare projected state; append a superseding decision and confirm that prior dissent remains available.
+Evidence references docs/PRODUCT_CONTRACT.md#Import, export and versioning; moon-luna-investigation-ledger-20260930.md
+Produce a MoonFlow review record
+MOONCHAT-W03 | Baseline scope. MoonFlow requests a conversation review record
+1. Validate the operation identity and input bundle
+2. Evaluate the required named human decisions
+3. Emit the record with its supported claim ceiling
+4. Let MoonFlow reconcile the operation result without expanding its authority
+Edge case An incomplete or deferred decision set must not yield accepted knowledge merely because the adapter succeeded.
+Failure and recovery Unknown decision authority or source mismatch returns a nonqualifying record or structured refusal.
+Acceptance Exercise complete, missing, deferred and mismatched approvals; only the complete authorized case may qualify for the documented accepted knowledge ceiling.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; docs/PRODUCT_CONTRACT.md#Canonical identities
+Consume review evidence in a product
+MOONCHAT-W04 | Baseline scope. MoonFind exports stakeholder review or MoonBook receives a closure candidate
+1. The producer exports evidence with source binding
+2. The receiver validates identity and supported version
+3. The receiver shows review state alongside its own domain state
+4. The receiver independently chooses import and acceptance
+Edge case A receiver may preserve a review without accepting its claims. A newer artifact may coexist with the reviewed revision.
+Failure and recovery Missing receiving integration leaves the handoff pending; exporting a bundle alone is not a completed closure.
+Acceptance A fixture retains rejected evidence and independently rejects knowledge intake even when a review record contains approval.
+Evidence references docs/PRODUCT_CONTRACT.md#Import, export and versioning
+Review a founder objection in context
+MOONCHAT-W05 | Roadmap scope. A MoonProj commitment or MoonFind artifact contains a consequential unresolved objection
+1. Open review from the producing record
+2. Show the exact source, proposed action, named decider and unresolved objections
+3. Record a human choice with reasons
+4. Return the receipt to the source record
+5. Confirm the host shows the decision without claiming execution or customer acceptance
+Edge case A reviewer switches artifact revisions mid-session; the host must restart or explicitly rebind review.
+Failure and recovery A disconnected return path retains the decision locally as pending delivery and supports idempotent retry.
+Acceptance A named tester completes approve, reject and defer journeys in one host; receipt readback matches displayed artifact and retained dissent after reload.
+Evidence references docs/PRODUCT_CONTRACT.md#Import, export and versioning
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Bind the review source
+MOONCHAT-B01 | Baseline | P0 | Source documented
+Every review bundle must identify the source artifact revision and digest so that approval cannot drift onto replacement content.
+Evidence docs/PRODUCT_CONTRACT.md#Canonical identities
+Test 1. Create a review for revision A and validate its binding
+2. Replace bytes under the same display name and reject reuse of A approval
+3. Reimport unchanged A and preserve its identity
+Declare participants and required decisions
+MOONCHAT-B02 | Baseline | P0 | Source documented
+The bundle must distinguish participants from required decision authorities and expose incomplete decisions in its projection.
+Evidence docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. A complete required set permits the appropriate projection
+2. An observer turn cannot satisfy a named reviewer requirement
+3. A missing required decision remains visible on export and reimport
+Preserve review meanings
+MOONCHAT-B03 | Baseline | P1 | Source documented
+Questions, objections, proposals and decisions must retain their type and source context across portable serialization.
+Evidence docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Round trip one example of every turn type
+2. Preserve objection content after an affirmative decision
+3. Reject a decision shape that omits required identity rather than coercing it to a valid approval
+Append journal evidence
+MOONCHAT-B04 | Baseline | P0 | Verified contract
+Journal updates must create new content-addressed evidence rather than rewrite earlier rejected or deferred decisions.
+Evidence docs/PRODUCT_CONTRACT.md#Import, export and versioning; Portfolio investigation JS review 5 of 5; bounded append and replay contract
+Test 1. Append a later decision and retrieve both historical records
+2. Attempt mutation through the journal API and require rejection
+3. Repeat the same content and retain one logical event identity
+Replay a deterministic projection
+MOONCHAT-B05 | Baseline | P0 | Partial
+The same valid review evidence must reproduce the same current projection while retaining the event history that explains it.
+Evidence docs/PRODUCT_CONTRACT.md#Import, export and versioning; JS review 5 of 5 does not establish all malformed and consumer cases
+Test 1. Replay the same fixture twice and compare canonical projection
+2. Include rejected then superseding accepted decisions and retain both
+3. On incomplete input return an explicit evidence error rather than a fabricated completion
+Version portable imports
+MOONCHAT-B06 | Baseline | P0 | Source documented
+Export and import must carry a supported schema version and reject incompatible required semantics.
+Evidence docs/PRODUCT_CONTRACT.md#Import, export and versioning
+Test 1. Round trip a supported bundle without identity changes
+2. Try an unsupported major version and require a useful diagnostic
+3. Retry with a compatible bundle without destroying the original failed import
+Respect the review claim ceiling
+MOONCHAT-B07 | Baseline | P0 | Source documented
+The MoonFlow operation moonchat/conversation.review.record@0.1.0 may produce accepted-knowledge only with complete named human approval. Operation success alone cannot supply that claim.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Test full approval against its bound source
+2. Test missing, deferred and unauthorized approval as nonqualifying
+3. Repeat reconciliation and verify no second authority decision is invented
+Dependencies MoonFlow operation consumer
+Keep receiver acceptance independent
+MOONCHAT-B08 | Baseline | P0 | Partial
+MoonFind and MoonBook integrations must preserve the receiver’s separate import and domain acceptance decision.
+Evidence docs/PRODUCT_CONTRACT.md#Import, export and versioning; Consumer integration remains intent
+Test 1. Import approved review into a receiver that declines acceptance
+2. Show both review state and receiver state without collapsing them
+3. Retry the import and preserve the receiver’s prior decision
+Dependencies MoonFind consumer; MoonBook consumer
+Keep runtime ownership outside the pack
+MOONCHAT-B09 | Baseline | P0 | Source documented
+MoonChat must add review semantics to MoonLib conversation records without becoming a live model, conversation or execution runtime.
+Evidence docs/PRODUCT_CONTRACT.md#Ownership
+Test 1. Validate a record using the supported MoonLib base version
+2. Inspect the public operation surface for undeclared model or execution effects
+3. Reject a request that treats a review decision as an executable tool grant
+Dependencies MoonLib base conversation contract
+Open review from the producing record
+MOONCHAT-R01 | Roadmap | P0 | Proposed
+A selected host must open the exact MoonProj commitment or MoonFind artifact and show the scope, proposed decision, required reviewer and unresolved objections together.
+Evidence Recommended founder objection review
+Test 1. Open from a source record and compare digest with the review header
+2. Switch to a different source revision and visibly invalidate stale approval scope
+3. Use the host with only keyboard navigation and locate each objection
+Dependencies One selected host owner
+Return and recover the decision receipt
+MOONCHAT-R02 | Roadmap | P0 | Proposed
+The host must attach the receipt to the producing record with explicit delivery status and idempotent retry after disconnection.
+Evidence Recommended founder objection review
+Test 1. Complete review and read the receipt back from the producer
+2. Interrupt the return path after decision creation and retain a pending status
+3. Retry twice and obtain one linked receipt with identical source binding
+Dependencies Producing record attachment contract
+Qualify the hosted decision journey
+MOONCHAT-R03 | Roadmap | P1 | Proposed
+L2 or ordinary user readiness must require a demonstrated approve, reject and defer journey in a real consuming host, including reload and disagreement visibility.
+Evidence Known gap ordinary user host qualification
+Test 1. Run the three choices as named test cases
+2. Reload each resulting state and retrieve dissent
+3. Report failures by host version and do not promote core test success into host readiness
+Data state and authority
+Review bundle and immutable events
+Owner MoonChat contract with producer held storage
+State model Draft, decision incomplete, qualifying, superseded; exact serialized enum mapping follows the supported contract
+Write authority Named reviewer decides only for the bound source; producer controls creation
+Retention and recovery Retain events needed to replay a receipt; deleting review history requires a separate retention policy
+Live conversation and its projection
+Owner MoonClaw runtime and MoonDesk host
+State model Runtime conversation states remain outside the review overlay
+Write authority Host controls presentation; a runtime turn is not automatically approval
+Retention and recovery Host sets retention and links exported evidence
+Accepted company knowledge
+Owner MoonBook
+State model Imported, under review, accepted or rejected according to MoonBook policy
+Write authority MoonBook acceptance remains independent
+Retention and recovery Preserve original source and review receipt references
+Interfaces and handoffs
+MoonLib
+Payload Versioned base conversation identity and records
+Contract MoonChat overlays review semantics without redefining base identities
+Failure behavior Incompatible base version blocks interpretation
+MoonFlow
+Payload Bound review record and qualifying claim
+Contract Exact operation identity and named approval conditions govern reconciliation
+Failure behavior Failed validation cannot become accepted knowledge
+MoonFind and MoonProj
+Payload Artifact revision and decision receipt
+Contract Producer keeps source authority and reads back receipt linkage
+Failure behavior Pending receipt delivery is visible and retryable
+MoonBook
+Payload Review evidence and retained dissent
+Contract Import is evidence intake; knowledge acceptance belongs to receiver
+Failure behavior Rejected or unconsumed evidence remains distinct from accepted knowledge
+Nonfunctional requirements
+Replay integrity
+MOONCHAT-N01
+Required gate: all canonical fixtures reproduce identical projections and event identities.
+Acceptance test Compare repeated export, import and replay including supersession and duplicate submissions.
+Evidence status Proposed
+Authority clarity
+MOONCHAT-N02
+Required gate: no invalid or incomplete named decision set produces a qualifying claim.
+Acceptance test Run a negative approval matrix including observer, omitted reviewer, changed digest and deferred decision.
+Evidence status Proposed
+Host accessibility
+MOONCHAT-N03
+Proposed host target: every review action and unresolved objection is reachable and understandable without color or pointer dependence.
+Acceptance test Keyboard and assistive technology review of the selected host; core schema tests do not satisfy this gate.
+Evidence status Proposed
+Bounded evidence handling
+MOONCHAT-N04
+Proposed release target: document supported event and payload limits; reject oversized evidence predictably without partially accepting it.
+Acceptance test Measure import and replay at declared limits and one item beyond; publish results before setting latency targets.
+Evidence status Proposed
+Privacy and diagnostics
+MOONCHAT-N05
+Required gate: routine diagnostics expose identities and error categories without unnecessarily copying review content.
+Acceptance test Inspect logs for a sensitive fixture and verify the evidence remains available only through authorized host storage.
+Evidence status Proposed
+Delivery roadmap
+Baseline contract freeze
+Publish exact supported review semantics and evidence boundaries
+Requirements MOONCHAT-B01, MOONCHAT-B02, MOONCHAT-B03, MOONCHAT-B04, MOONCHAT-B05, MOONCHAT-B06, MOONCHAT-B07, MOONCHAT-B08, MOONCHAT-B09
+Exit gate Versioned fixture suite passes; missing host integration is labeled explicitly
+One host qualification
+Complete the source to named decision to receipt journey
+Requirements MOONCHAT-R01, MOONCHAT-R02, MOONCHAT-R03
+Exit gate A real host passes approval, rejection, deferral, stale revision and disconnected return cases before a broader readiness claim
+Outcome measurement
+Receipt linkage coverage
+Completed hosted reviews whose receipt is read back from the producing record divided by completed hosted reviews
+Measurement Host source and receipt identifiers with delivery state
+Target Proposed release gate of every qualification case linked; no production baseline claimed
+Invalid approval escape count
+Negative authority cases that incorrectly produce a qualifying claim
+Measurement Contract test result by failure category
+Target Zero in release qualification
+Dissent preservation
+Reviewed fixtures whose earlier objections remain retrievable after superseding decisions
+Measurement Replay fixture assertions and host retrieval tests
+Target Every retained objection in the approved fixture set
+Non goals
+Standalone chat destination, model provider or live conversation engine
+Automatic business decisions, execution grants, customer acceptance or payment verification
+Universal knowledge acceptance policy for MoonBook
+Broad social messaging, arbitrary collaboration permissions or replacement of host retention policy
+Alternatives and optimality
+Structured review fields in one host
+Advantage Lowest implementation cost for one simple approval flow
+Cost No portable replay contract until a second consumer exists
+When to choose Prefer when no cross product evidence exchange is needed
+Comments in an artifact editor
+Advantage Immediate context with familiar interaction
+Cost Comments alone may lack source digest and named decision semantics
+When to choose Use for informal discussion; add MoonChat only at a consequential review boundary
+Standalone review application
+Advantage Central queue and dedicated review controls
+Cost Adds navigation and separates the decision from its producing context
+When to choose Reject for this scope; embed in existing hosts
+MoonChat is most useful as a small review contract with a host acceptance obligation. A separate chat application would duplicate MoonClaw and MoonDesk without proving that a human understood the exact artifact. Portability matters only when another product can interpret the receipt’s authority.
+Baseline readiness should depend on identity, replay and claim semantics. The five passing tests are bounded evidence. Keep consumer gaps explicit and require receipt readback before claiming an end-to-end decision journey.
+A host-native decision field wins for one simple reviewer with no portability need. MoonChat earns its structure when revisions, retained dissent, multiple decisions or independent receivers make informal comments insufficient.
+Qualify one artifact type, one producer and one receiving record first. This narrow slice tests the difficult authority and delivery boundaries. Richer conversations and review dashboards should wait until it demonstrates understandable decisions and recoverable receipt linkage.
+Open product decisions
+Decision Which host should qualify first
+Recommendation Choose the host that already owns a consequential artifact and a clear named reviewer
+Consequence The PRD avoids inventing another inbox and makes one team accountable for UI acceptance
+Decision What does approval mean after source revision changes
+Recommendation Require a new binding and explicit review transition
+Consequence Old approval remains valid historical evidence but cannot authorize new content
+Decision Can review approval directly accept knowledge
+Recommendation Retain independent MoonBook acceptance
+Consequence Integration is slightly more explicit but review evidence cannot silently become company truth
+Sources and coverage
+Repository paths below are relative to moonchat. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+AGENTS.md
+moon-luna-investigation-ledger-20260930.md
+Coverage includes README, product contract, repository guidance and the ledger’s five passing JavaScript review tests. Consumer implementations and production adoption were not exhaustively examined. No hosted review screen or founder decision was exercised. Journal evidence is bounded; host accessibility, payload limits and the authored acceptance cases remain release targets rather than observed results.

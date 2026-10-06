@@ -1,0 +1,298 @@
+MoonFind product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonFind should deliver an inspectable answer to a bounded decision question, with openable files, source provenance, contradictions and unresolved verification gaps. Its local startup and missing-gateway behavior have been tested. A configured provider-backed research delivery remains a qualification gate.
+Repository maturity claim evidence-backed research alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A researcher buys a usable answer and evidence, not an impressive agent graph. Every job begins with audience, decision, source limits, desired files and acceptance criteria. The researcher must be able to reject an answer, inspect the source and revise the brief while preserving what was previously delivered.
+Research can reduce uncertainty but cannot establish that a customer will buy. For the OPC spine, MoonFind explains what is known and what would falsify a belief. MoonProj retains the decision and commitment; MoonBook retains reviewed learning. Specialized robotics or lunar series remain optional templates behind this general file-delivery contract.
+Users and jobs
+researcher
+Convert a bounded research question into an answer and openable source-backed files.
+Trigger A decision depends on evidence the researcher has not yet assembled.
+Successful outcome The delivered files answer the brief and expose contradictions and missing verification.
+founder deciding what to test
+Choose what business assumption to test next using research and a falsifying customer experiment.
+Trigger A buyer, offer or strategy decision has competing explanations.
+Successful outcome The founder understands the evidence and uncertainty without treating research as demand proof.
+domain expert reviewer
+Evaluate technical adequacy and material claims in the delivered artifact.
+Trigger A manifest-complete research package is submitted for domain review.
+Successful outcome The expert can accept, reject or narrow conclusions with a digest-bound review record.
+operator configuring MoonClaw
+Configure the gateway and route with the required runtime authority.
+Trigger A research brief is ready but execution is unavailable or unhealthy.
+Successful outcome The route is genuinely usable or the missing prerequisite stays explicit; no readiness is guessed.
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	6	Source documented: 5; Blocked: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior bounded local UI showed route and startup states; 9/9 startup/route checks passed.
+Evidence Missing MoonClaw gateway was visible; no paid/provider research job run in this review.
+Open gap Configured-model happy path and complete provider run require valid gateway and authority.
+Open gap Independent truth review is outside delivery-manifest byte verification.
+Open gap Licensed full text and several external discovery sources require terms approval.
+Open gap No shared task/source identity with MoonProj verified.
+User scenarios
+General brief for literature  local corpus  comparison  evidence brief or experiment plan
+MOONFIND-UC01 | Baseline scope. Turn an uncertain question into a bounded research brief.
+1. Choose literature review, local corpus, comparison, evidence brief or experiment-plan intent.
+2. Specify objective, audience, source scope, output filenames and criteria.
+3. Review the brief before any runtime submission and retain it with the job identity.
+Edge case A broad question with no decision or output criterion needs narrowing rather than immediate execution.
+Failure and recovery An incomplete brief remains editable and cannot appear as a completed research answer.
+Acceptance For each template, another reviewer can identify the decision and evaluate the promised files without inspecting agent internals.
+Evidence references docs/PRODUCT_CONTRACT.md#Outcome; README.mbt.md#Start a general research job
+Source intake and provenance
+MOONFIND-UC02 | Baseline scope. Ingest evidence within source rights and provenance limits.
+1. Add pasted text, CSV, JSON, BibTeX, a local file or allowed public HTTPS/PDF snapshot.
+2. Preserve origin, retrieval record, content digest and applicable source restrictions.
+3. Distinguish full text, metadata and abstract availability in the evidence view.
+Edge case arXiv metadata and abstracts must not be presented as a licensed full-text review.
+Failure and recovery Denied licensed access or unavailable snapshots yield explicit gaps; no fallback should silently change the authorized source scope.
+Acceptance A changed source produces a new snapshot identity; denied input cannot enter the evidence set as if read.
+Evidence references README.mbt.md#Start a general research job; docs/PRODUCT_CONTRACT.md#Evidence and document security
+MoonClaw plan run  pause resume and child revision
+MOONFIND-UC03 | Baseline scope. Run a job through the configured MoonClaw gateway.
+1. Select a valid model route explicitly after runtime readiness is known.
+2. Submit the reviewed plan to MoonClaw and retain session, proposal and run identity.
+3. Pause, resume the same job or create a child revision that preserves earlier outputs.
+Edge case A missing gateway or blank route must not show Ready or allow a misleading job start.
+Failure and recovery After interruption recover the same run before starting another; uncertain provider outcome stays unresolved.
+Acceptance The blocked local path remains truthful; qualify a separate real configured run before marking this end-to-end path fulfilled.
+Evidence references README.mbt.md#Start a general research job; docs/PRODUCT_CONTRACT.md#Capability status
+Files  preview  complete ZIP and delivery manifest
+MOONFIND-UC04 | Baseline scope. Inspect and deliver a complete research file set.
+1. Open each requested file and inspect its actual bytes.
+2. Compare the manifest against filenames, SHA-256 digests and submitted criteria receipts.
+3. Download the complete ZIP and leave missing or stale artifacts visible.
+Edge case A valid digest proves byte identity, not scientific truth or satisfaction of a subjective criterion.
+Failure and recovery A missing file or changed digest blocks complete delivery status and allows a revision without overwriting the previous manifest.
+Acceptance An intentionally removed file and a modified file are both detected; a reviewer can open all files from the final manifest.
+Evidence references README.mbt.md#Start a general research job; docs/PRODUCT_CONTRACT.md#Outcome
+Humanoid arXiv specialization and MoonTown challenge
+MOONFIND-UC05 | Baseline scope. Challenge a specialized humanoid or arXiv hypothesis.
+1. Select the specialized research question and permitted paper sources.
+2. Develop counter-hypotheses and a smallest falsifying experiment alongside the synthesis.
+3. Send a scoped challenge to MoonTown when the required participating services exist.
+Edge case A fixture-only robotics graph is not an installed catalog of runnable capabilities.
+Failure and recovery Unavailable specialization nodes are identified before execution and the user can continue a simpler file-based brief.
+Acceptance The report distinguishes evidence, interpretation and experimental prediction; every executable claim cites installed capability evidence.
+Evidence references README.mbt.md#Specialized evidence and learning loop; docs/PRODUCT_CONTRACT.md#Capability status
+Lunar Habitat Decision Series
+MOONFIND-UC06 | Baseline scope. Run a staged Lunar Habitat Decision Series.
+1. Create a series with decision stages and named human review points.
+2. Deliver the file set and uncertainty register for the current stage.
+3. Advance only after the stage decision is recorded, carrying unresolved assumptions forward.
+Edge case Later-stage artifacts cannot retroactively make an earlier human gate pass.
+Failure and recovery Rejected findings create a revision of the stage and retain its prior sources and decision history.
+Acceptance A series replay demonstrates a blocked human gate, a revision and explicit stage advancement.
+Evidence references docs/SERIES_USE_CASES.md#Lunar Habitat Decision Series
+Decision linked research brief
+MOONFIND-F01 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Receive a commitment ID, question, audience, deadline and source constraints from MoonProj.
+2. Validate the payload and let the researcher refine the brief without changing company authority.
+3. Return job and output identities to the originating commitment.
+Edge case Credential fields are rejected and only necessary customer context is transferred.
+Failure and recovery Incompatible payload version returns a repairable error, preserving the original decision link.
+Acceptance Round-trip the commitment link without exposing secrets or creating a company decision.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Evidence to choice comparison
+MOONFIND-F02 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Place viable choices side by side for the founder.
+2. For each choice show the strongest source, contradiction, unknown and cost of being wrong.
+3. Propose the smallest customer experiment that could distinguish the choices.
+Edge case Missing evidence remains an unknown and cannot be scored as favorable.
+Failure and recovery If sources disagree, preserve the conflict rather than resolving it with unsupported confidence.
+Acceptance A reviewer can trace each material option claim and understand what observation would change the recommendation.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Artifact to company knowledge review
+MOONFIND-F03 | Roadmap scope. Proposed extension after the owning baseline workflow and authority gates are qualified.
+1. Select the exact file and its independent review record.
+2. Transfer source provenance, digest and unresolved caveats to MoonBook.
+3. Request knowledge review without promoting buyer hypotheses to accepted facts.
+Edge case File acceptance does not automatically approve all embedded claims.
+Failure and recovery A stale digest or rejected review prevents promotion while preserving the submitted evidence.
+Acceptance MoonBook can recover the exact accepted artifact and distinguish verified import from reviewed claims.
+Evidence references Proposed from product gaps and OPC OS handoff assessment
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+General brief for literature  local corpus  comparison  evidence brief or experiment plan
+MOONFIND-B01 | Baseline | P0 | Source documented
+The product shall support this bounded outcome: Review the brief before any runtime submission and retain it with the job identity. It shall preserve the boundary: A broad question with no decision or output criterion needs narrowing rather than immediate execution.
+Evidence Brief declares objective, audience, source scope, requested outputs and acceptance; files are the delivery unit.; docs/PRODUCT_CONTRACT.md#Outcome; README.mbt.md#Start a general research job
+Test 1. Exercise the stated scenario from its named starting state. For each template, another reviewer can identify the decision and evaluate the promised files without inspecting agent internals.
+2. Inject the boundary or interruption case. An incomplete brief remains editable and cannot appear as a completed research answer.
+Dependencies moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind brief, files, evidence and checks.
+Source intake and provenance
+MOONFIND-B02 | Baseline | P0 | Source documented
+The product shall support this bounded outcome: Distinguish full text, metadata and abstract availability in the evidence view. It shall preserve the boundary: arXiv metadata and abstracts must not be presented as a licensed full-text review.
+Evidence Pasted text/CSV/JSON/BibTeX, local inputs, arXiv metadata/abstracts and public HTTPS/PDF snapshots have retrieval/digest records; licensed sources deny by default.; README.mbt.md#Start a general research job; docs/PRODUCT_CONTRACT.md#Evidence and document security
+Test 1. Exercise the stated scenario from its named starting state. A changed source produces a new snapshot identity; denied input cannot enter the evidence set as if read.
+2. Inject the boundary or interruption case. Denied licensed access or unavailable snapshots yield explicit gaps; no fallback should silently change the authorized source scope.
+Dependencies moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind brief, files, evidence and checks.
+MoonClaw plan run  pause resume and child revision
+MOONFIND-B03 | Baseline | P0 | Blocked
+The product shall support this bounded outcome: Pause, resume the same job or create a child revision that preserves earlier outputs. It shall preserve the boundary: A missing gateway or blank route must not show Ready or allow a misleading job start.
+Evidence Needs configured MoonClaw gateway; same job records session/proposal/run identities and resumes a paused run; revision preserves prior outputs and source snapshots.; README.mbt.md#Start a general research job; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Exercise the stated scenario from its named starting state. The blocked local path remains truthful; qualify a separate real configured run before marking this end-to-end path fulfilled.
+2. Inject the boundary or interruption case. After interruption recover the same run before starting another; uncertain provider outcome stays unresolved.
+Dependencies moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind brief, files, evidence and checks.
+Files  preview  complete ZIP and delivery manifest
+MOONFIND-B04 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Download the complete ZIP and leave missing or stale artifacts visible. It shall preserve the boundary: A valid digest proves byte identity, not scientific truth or satisfaction of a subjective criterion.
+Evidence Actual bytes, SHA-256, missing filenames and submitted criterion receipts are shown; host-issued manifest detects stale output but does not validate scientific truth.; README.mbt.md#Start a general research job; docs/PRODUCT_CONTRACT.md#Outcome
+Test 1. Exercise the stated scenario from its named starting state. An intentionally removed file and a modified file are both detected; a reviewer can open all files from the final manifest.
+2. Inject the boundary or interruption case. A missing file or changed digest blocks complete delivery status and allows a revision without overwriting the previous manifest.
+Dependencies moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind brief, files, evidence and checks.
+Humanoid arXiv specialization and MoonTown challenge
+MOONFIND-B05 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Send a scoped challenge to MoonTown when the required participating services exist. It shall preserve the boundary: A fixture-only robotics graph is not an installed catalog of runnable capabilities.
+Evidence Research organizes papers, counter-hypotheses and falsification; exact robotics graph has fixture-only catalog, not blanket installed capability.; README.mbt.md#Specialized evidence and learning loop; docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Exercise the stated scenario from its named starting state. The report distinguishes evidence, interpretation and experimental prediction; every executable claim cites installed capability evidence.
+2. Inject the boundary or interruption case. Unavailable specialization nodes are identified before execution and the user can continue a simpler file-based brief.
+Dependencies moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind brief, files, evidence and checks.
+Lunar Habitat Decision Series
+MOONFIND-B06 | Baseline | P1 | Source documented
+The product shall support this bounded outcome: Advance only after the stage decision is recorded, carrying unresolved assumptions forward. It shall preserve the boundary: Later-stage artifacts cannot retroactively make an earlier human gate pass.
+Evidence Series operator API supports staged research with explicit human decisions; source-described, not executed in this PRD pass.; docs/SERIES_USE_CASES.md#Lunar Habitat Decision Series
+Test 1. Exercise the stated scenario from its named starting state. A series replay demonstrates a blocked human gate, a revision and explicit stage advancement.
+2. Inject the boundary or interruption case. Rejected findings create a revision of the stage and retain its prior sources and decision history.
+Dependencies moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind brief, files, evidence and checks.
+Decision linked research brief
+MOONFIND-R01 | Roadmap | P1 | Proposed
+A MoonProj commitment passes one question, audience, source constraints and deadline into a MoonFind brief with stable identity and no credentials in payload. Credential fields are rejected and only necessary customer context is transferred.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. Round-trip the commitment link without exposing secrets or creating a company decision.
+2. Incompatible payload version returns a repairable error, preserving the original decision link.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Evidence to choice comparison
+MOONFIND-R02 | Roadmap | P1 | Proposed
+Founder can inspect strongest source, contradiction, unknown and smallest falsifying customer experiment beside each option. Missing evidence remains an unknown and cannot be scored as favorable.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. A reviewer can trace each material option claim and understand what observation would change the recommendation.
+2. If sources disagree, preserve the conflict rather than resolving it with unsupported confidence.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Artifact to company knowledge review
+MOONFIND-R03 | Roadmap | P2 | Proposed
+Accepted file and review record reach MoonBook with exact provenance, while unverified buyer claims remain hypotheses. File acceptance does not automatically approve all embedded claims.
+Evidence Future recommendation in the 30 September 2026 evidence dossier; no implementation completion claimed.
+Test 1. MoonBook can recover the exact accepted artifact and distinguish verified import from reviewed claims.
+2. A stale digest or rejected review prevents promotion while preserving the submitted evidence.
+Dependencies Explicit compatible identity and authority agreement with each peer product named in the scenario
+Data state and authority
+Research brief and job
+Owner MoonFind domain owner
+State model Draft, reviewed brief, submitted, running, paused, delivered, revision requested
+Write authority Researcher chooses question and source scope; runtime authority remains separately bounded
+Retention and recovery Preserve parent-child revision identity and previous output manifests
+Source snapshot and evidence record
+Owner MoonFind source-intake layer
+State model Requested, retrieved or denied, snapshot retained, cited, superseded
+Write authority Source rights and reviewer interpretation are distinct from import mechanics
+Retention and recovery Retain origin, retrieval time, digest and metadata/full-text distinction; record unavailable material
+Delivery manifest and criteria review
+Owner MoonFind host with named researcher review
+State model Incomplete, submitted, inspected, accepted or revision needed
+Write authority Host attests bytes; reviewer judges adequacy; neither proves market demand
+Retention and recovery Keep digest-bound versions and review reasons so a later file cannot inherit old acceptance
+Interfaces and handoffs
+MoonClaw
+Payload Reviewed research job and runtime configuration reference
+Contract Sole model runtime; MoonFind must not bypass its authority by direct provider calls
+Failure behavior Blank or unhealthy route blocks execution and preserves the brief
+MoonTown and MoonFlow
+Payload Scoped challenges and explicitly activated work
+Contract Town contributes review-pending challenges; Flow owns activation and work lifecycle
+Failure behavior Missing adapters remain unavailable rather than simulated installed capability
+MoonBook and MoonProj
+Payload Files, provenance, review receipts and proposed commitment link
+Contract moonfind.research-job.v1 and moonfind.delivery-manifest.v1 bind the research objects
+Failure behavior Reject unknown schema or digest mismatch; preserve hypotheses and explicit review status
+Nonfunctional requirements
+Source and output security
+MOONFIND-N01
+Treat retrieved documents as evidence, not executable instructions. Keep source access within rights and do not send credentials in briefs or exported manifests.
+Acceptance test Use hostile embedded instructions, a denied licensed source and a token-like field; show rejection or safe evidence handling without changing execution scope.
+Evidence status Proposed
+Truthful readiness
+MOONFIND-N02
+The UI must distinguish not started, configured, running and complete; blank model route and absent gateway block execution.
+Acceptance test Start with no route and missing gateway and confirm no Ready state or runnable command; then qualify configured readiness separately.
+Evidence status Verified contract
+Artifact integrity
+MOONFIND-N03
+Manifest digest and filename checks must prevent stale or missing files from being called a complete delivery.
+Acceptance test Modify bytes, remove a requested file and substitute a stale manifest; each case remains incomplete or requests revision.
+Evidence status Source documented
+Pause and revision recovery
+MOONFIND-N04
+Resume must preserve job/run identity and child revisions must retain prior sources and output lineage.
+Acceptance test Interrupt during a run and revise after delivery; recover the correct parent and prevent duplicate submission under uncertain provider state.
+Evidence status Source documented
+Research economics
+MOONFIND-N05
+Measure time to accepted answer, human review effort and runtime consumption without rewarding job counts.
+Acceptance test Collect a bounded cohort with comparable manual questions and include failed runs, revisions and reviewer minutes.
+Evidence status Proposed
+Delivery roadmap
+Phase 1 Qualify the baseline
+Reproduce the product's critical local, contract and configured paths with exact versions and observable receipts. Close missing prerequisites without widening authority.
+Requirements MOONFIND-B01, MOONFIND-B02, MOONFIND-B03, MOONFIND-B04, MOONFIND-B05, MOONFIND-B06
+Exit gate Every P0 baseline acceptance has an explicit result and evidence locator; unresolved dependency and integration states remain visible.
+Phase 2 Complete one connected outcome
+Implement the smallest useful cross-product scenario and test review, interruption and recovery with real authorized inputs.
+Requirements MOONFIND-R01, MOONFIND-R02
+Exit gate A named user accepts the exact output and can recover its evidence chain without reconstructing identities manually.
+Phase 3 Expand only after measured value
+Add remaining proposed workflows where observed use demonstrates reduced coordination cost or a distinct required capability.
+Requirements MOONFIND-R03
+Exit gate Measure the outcome against the simpler alternative, include review overhead, and retain the ability to stop or narrow low-value scope.
+Outcome measurement
+Decision answerability
+Accepted briefs whose delivered files directly answer the named decision
+Measurement Named reviewer scores against the pre-run criteria; retain rejection reasons
+Target Measure first real cohort before setting a rate target
+Evidence inspectability
+Material claims with openable source and explicit uncertainty status
+Measurement Sample final artifacts and record broken or inaccessible source links
+Target All acceptance-critical claims must have evidence or be marked unresolved
+Revision and review cost
+Human minutes and revisions needed before an answer is usable
+Measurement Measure researcher review effort as well as runtime cost
+Target Improve over the same manual research task; no baseline claimed
+Non goals
+Direct provider invocation outside MoonClaw
+Automatically validating scientific truth through file hashes
+Treating user-supplied offline thesis findings as a new provenance-audit task
+Proving demand from literature, agent completion or a research template
+Alternatives and optimality
+Manual literature search and an editable memo
+Advantage Low setup burden for a one-off narrow question
+Cost Source snapshots and revision lineage are manually maintained
+When to choose Use when a short search solves the decision more quickly than configuring a gateway
+A graph first specialist research environment
+Advantage Expresses complex technical dependencies for expert users
+Cost Large stage inventories can obscure answer quality and installed readiness
+When to choose Use only after the generic file outcome is reliable and the specialization needs the graph
+The strongest PRD keeps a general file-delivery surface and makes decision relevance observable. The specialized graphs are useful only where they change the quality of the answer. Promoting them into default navigation would increase founder coordination without demonstrated benefit.
+The baseline evidence currently supports honest startup and blocked-state handling, not a completed provider research job. The next qualification should take one real permitted brief through gateway execution, file inspection, revision and acceptance.
+The proposed decision-linked handoff should carry minimal context and a stable identity. It should not copy company authority into a research tool or let citation-rich prose masquerade as a confirmed customer need.
+Open product decisions
+Decision Which research output should qualify the first configured journey?
+Recommendation Use a narrow comparison with a falsifiable decision and a small inspectable file set.
+Consequence A sprawling topic would make failure attribution and acceptance ambiguous.
+Decision What does accepted research mean?
+Recommendation Require a named reviewer against the original criteria; keep truth gaps separately visible.
+Consequence A valid manifest alone cannot establish scientific or commercial validity.
+Sources and coverage
+Repository paths below are relative to moonfind. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/SERIES_USE_CASES.md (headings and scoped use case)
+docs/TEMPLATE_CATALOG.md (index)
+Moon Luna investigation ledger dated 30 September 2026 version 3
+OPC OS consolidated product evidence and source index dated 30 September 2026
+Coverage remains partial. Areas not exhaustively inspected include all twelve docs in full; all research host route implementations; real provider delivery records. Current acceptance statements define what must be demonstrated and do not upgrade source-only claims. No commercial, provider or physical outcome is inferred from local tests.

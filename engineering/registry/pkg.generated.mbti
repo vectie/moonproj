@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/engineering/registry"
+
+// Values
+pub fn parse(String) -> Catalog raise CatalogError
+
+pub fn valid_id(String) -> Bool
+
+pub fn valid_relative_path(String) -> Bool
+
+// Errors
+pub suberror CatalogError {
+  Invalid(String)
+}
+
+// Types and methods
+pub(all) struct Catalog {
+  products : Array[Product]
+}
+pub fn Catalog::engineering_repository(Self, String) -> String?
+pub fn Catalog::find(Self, String) -> Product?
+
+pub(all) struct Document {
+  id : String
+  path : String
+  source_kind : String
+  file_name : String
+  metadata : Map[String, Json]
+}
+
+pub(all) struct Product {
+  id : String
+  metadata : Map[String, Json]
+  repository : Repository?
+  engineering_target : String?
+  documents : Array[Document]
+}
+
+pub(all) struct Repository {
+  path : String
+  metadata : Map[String, Json]
+}
+
+// Type aliases
+
+// Traits

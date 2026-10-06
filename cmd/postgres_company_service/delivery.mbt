@@ -20,30 +20,58 @@ fn delivery_source_table(family : String) -> String {
 }
 
 ///|
-async fn delivery_projection_rows(
+fn delivery_projection_sql(
   family : String,
   include_deleted : Bool,
-) -> Array[SourceRow] raise CompanyServiceError {
+  task_id : String?,
+  report_id : String?,
+) -> String raise CompanyServiceError {
   let aggregate_type = delivery_aggregate(family)
   if aggregate_type.is_empty() {
     raise fail("unsupported delivery projection family")
   }
-  let deleted_clause = if include_deleted {
+  let predicates : Array[String] = []
+  if !include_deleted {
+    predicates.push("coalesce(payload->>'state', '') <> 'deleted'")
+  }
+  match task_id {
+    Some(id) =>
+      predicates.push(
+        "coalesce(payload->>'task_id', payload->>'task_guid', '') = " +
+        @postgres.sql_literal(id),
+      )
+    None => ()
+  }
+  match report_id {
+    Some(id) => predicates.push("aggregate_id = " + @postgres.sql_literal(id))
+    None => ()
+  }
+  let filter = if predicates.is_empty() {
     ""
   } else {
-    " WHERE coalesce(payload->>'state', '') <> 'deleted'"
+    " WHERE " + predicates.join(" AND ")
   }
+  "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), " +
+  "encode(convert_to(payload::text, 'UTF8'), 'hex'), " +
+  "encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text " +
+  "FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, " +
+  "source_event_id, revision FROM company_aggregate_projection " +
+  "WHERE aggregate_type = " +
+  @postgres.sql_literal(aggregate_type) +
+  " ORDER BY aggregate_id, revision DESC) latest" +
+  filter +
+  " ORDER BY aggregate_id LIMIT 500"
+}
+
+///|
+async fn delivery_projection_rows(
+  family : String,
+  include_deleted : Bool,
+  task_id? : String,
+  report_id? : String,
+) -> Array[SourceRow] raise CompanyServiceError {
   let output = run_sql(
-    "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), " +
-    "encode(convert_to(payload::text, 'UTF8'), 'hex'), " +
-    "encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text " +
-    "FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, " +
-    "source_event_id, revision FROM company_aggregate_projection " +
-    "WHERE aggregate_type = " +
-    @postgres.sql_literal(aggregate_type) +
-    " ORDER BY aggregate_id, revision DESC) latest" +
-    deleted_clause +
-    " ORDER BY aggregate_id LIMIT 500",
+    delivery_projection_sql(family, include_deleted, task_id, report_id),
   )
   let result : Array[SourceRow] = []
   for line_view in output.split("\n") {
@@ -425,6 +453,13 @@ fn delivery_report_item(row : SourceRow, command : Bool) -> Json {
     "report_id": Json::string(id),
     "task_id": Json::string(task_id),
     "project_id": Json::string(project_id),
+    "product_id": plan_task_product_public(payload),
+    "delivery_source": json_field(payload, "delivery_source").unwrap_or(
+      Json::null(),
+    ),
+    "delivery_source_snapshot": json_field(payload, "delivery_source_snapshot").unwrap_or(
+      Json::null(),
+    ),
     "progress_pct": Json::string(
       if command {
         delivery_percent_text(progress_bps)
@@ -622,41 +657,48 @@ async fn delivery_task_items(
 }
 
 ///|
+fn delivery_select_task_reports(
+  rows : Array[SourceRow],
+  command : Bool,
+  report_id : String?,
+  task_id : String?,
+) -> Array[Json] {
+  let result : Array[Json] = []
+  for row in rows {
+    let item = delivery_report_item(row, command)
+    let report_ok = match report_id {
+      Some(value) => json_text(item, "report_id", "") == value
+      None => true
+    }
+    let task_ok = match task_id {
+      Some(value) => json_text(item, "task_id", "") == value
+      None => true
+    }
+    if report_ok && task_ok {
+      result.push(item)
+    }
+  }
+  result
+}
+
+///|
 async fn delivery_task_report_items(
   report_id : String?,
   task_id : String?,
 ) -> Array[Json] raise CompanyServiceError {
-  let raw = raw_source_rows("jd_task_report", 500)
-  let result : Array[Json] = []
-  for row in raw {
-    let item = delivery_report_item(row, false)
-    let report_ok = match report_id {
-      Some(value) => json_text(item, "report_id", "") == value
-      None => true
-    }
-    let task_ok = match task_id {
-      Some(value) => json_text(item, "task_id", "") == value
-      None => true
-    }
-    if report_ok && task_ok {
-      result.push(item)
-    }
-  }
-  let commands = delivery_projection_rows("task_report", false)
-  for row in commands {
-    let item = delivery_report_item(row, true)
-    let report_ok = match report_id {
-      Some(value) => json_text(item, "report_id", "") == value
-      None => true
-    }
-    let task_ok = match task_id {
-      Some(value) => json_text(item, "task_id", "") == value
-      None => true
-    }
-    if report_ok && task_ok {
-      result.push(item)
-    }
-  }
+  let raw = product_work_source_rows(
+    delivery_source_report_sql(report_id, task_id),
+  )
+  let result = delivery_select_task_reports(raw, false, report_id, task_id)
+  let commands = delivery_projection_rows(
+    "task_report",
+    false,
+    task_id?,
+    report_id?,
+  )
+  result.append(
+    delivery_select_task_reports(commands, true, report_id, task_id),
+  )
   result.sort_by(fn(left, right) {
     json_text(right, "report_date", "").lexical_compare(
       json_text(left, "report_date", ""),
@@ -1005,31 +1047,16 @@ fn delivery_amount_minor(
 }
 
 ///|
-async fn delivery_task_exists(
-  task_id : String,
-  project_id : String,
-) -> Bool raise CompanyServiceError {
-  let tasks = delivery_task_items(Some(project_id), Some(task_id))
-  if !tasks.is_empty() {
-    return true
-  }
-  for row in plan_task_projection_rows(false) {
-    let payload = row.payload
-    if row.record_id == task_id &&
-      json_text(payload, "project_id", "") == project_id {
-      return true
-    }
-  }
-  false
-}
-
-///|
 async fn delivery_imported_exists(
   family : String,
   id : String,
 ) -> Bool raise CompanyServiceError {
   let table = delivery_source_table(family)
-  let rows = raw_source_rows(table, 500)
+  let rows = if family == "task_report" {
+    product_work_source_rows(delivery_source_report_sql(Some(id), None))
+  } else {
+    raw_source_rows(table, 500)
+  }
   for row in rows {
     let key = if family == "progress" {
       json_text(
@@ -1089,6 +1116,7 @@ async fn delivery_command_request(
   aggregate_id : String?,
   body : Json,
   actor_id : String,
+  replay_request : Json?,
 ) -> (String, Json, Bool, String?, String) raise CompanyServiceError {
   let aggregate_type = delivery_aggregate(family)
   if aggregate_type.is_empty() {
@@ -1098,30 +1126,20 @@ async fn delivery_command_request(
     let report_id = delivery_required_text(body, "report_id", "", true)
     let task_id = delivery_required_text(body, "task_id", "", true)
     let project_id = delivery_required_text(body, "project_id", "", true)
-    if !delivery_task_exists(task_id, project_id) {
-      raise reject(
-        404, "task report target task was not found in the source projection",
-      )
+    let product_snapshot = match replay_request {
+      // Replay uses the historical canonical request, not today's task tag.
+      Some(stored) => stored
+      None =>
+        match delivery_report_task_payload(task_id, project_id) {
+          Some(task) => task
+          None =>
+            raise reject(
+              404, "task report target task was not found in the source projection",
+            )
+        }
     }
-    let request = Json::object({
-      "command_type": Json::string("report"),
-      "report_id": Json::string(report_id),
-      "task_id": Json::string(task_id),
-      "project_id": Json::string(project_id),
-      "progress_bps": Json::number(
-        delivery_progress_bps(body, "progress_pct").to_double(),
-      ),
-      "report_date": Json::string(
-        delivery_required_text(body, "report_date", "", false),
-      ),
-      "summary": Json::string(
-        delivery_required_text(body, "summary", "", false),
-      ),
-      "evidence_ids": delivery_evidence(body, "evidence_ids"),
-      "actor_id": Json::string(actor_id),
-      "state": Json::string("observed"),
-    })
-    if delivery_imported_exists(family, report_id) {
+    let request = delivery_task_report_request(body, actor_id, product_snapshot)
+    if replay_request is None && delivery_imported_exists(family, report_id) {
       raise reject(
         409, "imported task report ids are read-only; use a new local report id",
       )
@@ -1346,10 +1364,14 @@ async fn delivery_command(
     Some(id) => delivery_latest_payload(family, id)
     None => None
   }
+  let existing = existing_company_command(idempotency_key)
+  let replay_request = existing.map(command => {
+    json_field(command, "request").unwrap_or(Json::null())
+  })
   let (id, request, create_mode, expected_state, next_state) = delivery_command_request(
-    family, command_type, aggregate_id, body, actor_id,
+    family, command_type, aggregate_id, body, actor_id, replay_request,
   )
-  match existing_company_command(idempotency_key) {
+  match existing {
     Some(existing) => {
       let stored = json_field(existing, "request").unwrap_or(Json::null())
       if !json_equal(stored, request) {
@@ -1476,7 +1498,7 @@ async fn delivery_command(
         "state": Json::string(next_state),
         "revision": Json::number(next_revision.to_double()),
       })
-      let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
+      let command_sql = "INSERT INTO company_record(record_type, record_id, schema_version, payload, source_id) VALUES ('company_command', " +
         @postgres.sql_literal(event_id) +
         ", 4, " +
         @postgres.sql_literal(command_payload.stringify()) +
@@ -1502,8 +1524,25 @@ async fn delivery_command(
         @postgres.sql_literal(result.stringify()) +
         "::jsonb) WHERE source_id = " +
         @postgres.sql_literal(command_source) +
-        "; COMMIT;"
+        ";"
+      let sql = if family == "task_report" &&
+        json_field(request, "delivery_source") is Some(Object(_)) {
+        delivery_task_source_atomic_sql(request, command_source, command_sql)
+      } else {
+        "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; " +
+        command_sql +
+        " COMMIT;"
+      }
       let _ = run_sql(sql)
+      if family == "task_report" &&
+        json_field(request, "delivery_source") is Some(Object(_)) {
+        ignore(
+          plan_task_applied_command(
+            existing_company_command(idempotency_key),
+            request,
+          ),
+        )
+      }
       let response = Json::object({
         "command": command_payload,
         "idempotent_replay": Json::boolean(false),

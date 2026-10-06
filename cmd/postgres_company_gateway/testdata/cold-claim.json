@@ -1,0 +1,486 @@
+{
+  "kind": "mooncode-runtime-claim-state",
+  "protocol": "mooncode.v1",
+  "owner": "moonclaw",
+  "session_id": "moonproj-native-capture",
+  "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+  "journal_path": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z/.moonsuite/products/moonclaw/mooncode/sessions/moonproj-native-capture/journal.jsonl",
+  "command_count": 2,
+  "receipt_count": 4,
+  "claimable_command_count": 0,
+  "claimed_command_count": 0,
+  "delivered_command_count": 2,
+  "invalid_command_count": 0,
+  "order_blocked_command_count": 0,
+  "claim_ready": false,
+  "claim_endpoint": "/v1/code/sessions/moonproj-native-capture/runtime-claim?book_root=<path>",
+  "ordering_rule": "MoonClaw claims the next unresolved command from the session journal's total order; active claims and invalid commands block later commands until a runtime-receipt record resolves the blocker.",
+  "claimable_commands": [],
+  "claimed_commands": [],
+  "delivered_commands": [
+    {
+      "kind": "mooncode-runtime-claim-item",
+      "protocol": "mooncode.v1",
+      "index": 0,
+      "command_id": "moonproj-native-command-1",
+      "action": "prompt",
+      "session_id": "moonproj-native-capture",
+      "claim_status": "delivered",
+      "order_blocked_by": "",
+      "command": {
+        "protocol": "mooncode.v1",
+        "session_id": "moonproj-native-capture",
+        "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+        "command": "prompt",
+        "model": "fixture/mooncode",
+        "text": "Research and report the supplied finding",
+        "packet": {
+          "command_id": "moonproj-native-command-1"
+        },
+        "payload": {
+          "task_intent": "read_only",
+          "approval_wait_ms": 0
+        },
+        "runtime_tool_calls": [
+          {
+            "tool": "write",
+            "arguments": {
+              "path": "finding.txt",
+              "content": "NATIVE_FINDING_42"
+            }
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "NATIVE_ANSWER_42"
+            }
+          }
+        ]
+      },
+      "command_entry": {
+        "kind": "mooncode-command",
+        "protocol": "mooncode.v1",
+        "session_id": "moonproj-native-capture",
+        "command_id": "moonproj-native-command-1",
+        "created_at": 1790924685880,
+        "web_search": false,
+        "planner_mode": "explicit-tool-calls",
+        "command": {
+          "protocol": "mooncode.v1",
+          "session_id": "moonproj-native-capture",
+          "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+          "command": "prompt",
+          "model": "fixture/mooncode",
+          "text": "Research and report the supplied finding",
+          "packet": {
+            "command_id": "moonproj-native-command-1"
+          },
+          "payload": {
+            "task_intent": "read_only",
+            "approval_wait_ms": 0
+          },
+          "runtime_tool_calls": [
+            {
+              "tool": "write",
+              "arguments": {
+                "path": "finding.txt",
+                "content": "NATIVE_FINDING_42"
+              }
+            },
+            {
+              "tool": "finish",
+              "arguments": {
+                "answer": "NATIVE_ANSWER_42"
+              }
+            }
+          ]
+        },
+        "journal_sequence": "1"
+      },
+      "receipt": {
+        "kind": "mooncode.runtime-receipt",
+        "protocol": "mooncode.v1",
+        "owner": "moonclaw",
+        "session_id": "moonproj-native-capture",
+        "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+        "command_id": "moonproj-native-command-1",
+        "web_search": false,
+        "status": "runtime-completed",
+        "runtime_mode": "moonclaw-native-runtime-turn",
+        "claim_id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-1790924685893",
+        "consumer_id": "moonclaw-native-runtime-service",
+        "completed_at": 1790924685925,
+        "control": "prompt",
+        "message": "MoonClaw native runtime turn completed `prompt`",
+        "command": {
+          "protocol": "mooncode.v1",
+          "session_id": "moonproj-native-capture",
+          "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+          "command": "prompt",
+          "model": "fixture/mooncode",
+          "text": "Research and report the supplied finding",
+          "packet": {
+            "command_id": "moonproj-native-command-1"
+          },
+          "payload": {
+            "task_intent": "read_only",
+            "approval_wait_ms": 0
+          },
+          "runtime_tool_calls": [
+            {
+              "tool": "write",
+              "arguments": {
+                "path": "finding.txt",
+                "content": "NATIVE_FINDING_42"
+              }
+            },
+            {
+              "tool": "finish",
+              "arguments": {
+                "answer": "NATIVE_ANSWER_42"
+              }
+            }
+          ]
+        },
+        "command_entry": {
+          "kind": "mooncode-command",
+          "protocol": "mooncode.v1",
+          "session_id": "moonproj-native-capture",
+          "command_id": "moonproj-native-command-1",
+          "created_at": 1790924685880,
+          "web_search": false,
+          "planner_mode": "explicit-tool-calls",
+          "command": {
+            "protocol": "mooncode.v1",
+            "session_id": "moonproj-native-capture",
+            "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+            "command": "prompt",
+            "model": "fixture/mooncode",
+            "text": "Research and report the supplied finding",
+            "packet": {
+              "command_id": "moonproj-native-command-1"
+            },
+            "payload": {
+              "task_intent": "read_only",
+              "approval_wait_ms": 0
+            },
+            "runtime_tool_calls": [
+              {
+                "tool": "write",
+                "arguments": {
+                  "path": "finding.txt",
+                  "content": "NATIVE_FINDING_42"
+                }
+              },
+              {
+                "tool": "finish",
+                "arguments": {
+                  "answer": "NATIVE_ANSWER_42"
+                }
+              }
+            ]
+          },
+          "journal_sequence": "1"
+        },
+        "execution": {
+          "accepted": true,
+          "control": "prompt",
+          "message": "MoonClaw native runtime turn completed `prompt`",
+          "planner_mode": "explicit-tool-calls",
+          "completion_verdict": {
+            "kind": "mooncode-coding-completion-verdict",
+            "accepted": true,
+            "reason": "the final finish follows accepted non-verification work"
+          },
+          "tool_results": [
+            {
+              "accepted": true,
+              "kind": "mooncode-tool-execution",
+              "protocol": "mooncode.v1",
+              "owner": "moonclaw",
+              "session_id": "moonproj-native-capture",
+              "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+              "command_id": "moonproj-native-command-1",
+              "tool": "finish",
+              "arguments": {
+                "answer": "NATIVE_ANSWER_42"
+              },
+              "result": {
+                "tool": "finish",
+                "ok": true,
+                "is_error": false,
+                "message": "finished",
+                "output": "NATIVE_ANSWER_42",
+                "metadata": {
+                  "answer": "NATIVE_ANSWER_42"
+                }
+              },
+              "event": {
+                "id": "moonclaw-moonproj-native-capture-moonproj-native-command-1-tool-finish-1790924685915",
+                "protocol": "mooncode.v1",
+                "session_id": "moonproj-native-capture",
+                "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+                "command_id": "moonproj-native-command-1",
+                "lane": "review",
+                "kind": "finish",
+                "event": "finish",
+                "title": "MoonCode tool `finish` completed",
+                "status": "done",
+                "detail": "finished",
+                "path": "",
+                "changed_paths": [],
+                "diff": "",
+                "tool": "finish",
+                "tool_result": {
+                  "tool": "finish",
+                  "ok": true,
+                  "is_error": false,
+                  "message": "finished",
+                  "output": "NATIVE_ANSWER_42",
+                  "metadata": {
+                    "answer": "NATIVE_ANSWER_42"
+                  }
+                },
+                "created_at": 1790924685915,
+                "source": "moonclaw-native-tool-exec"
+              }
+            }
+          ]
+        },
+        "events": [],
+        "journal_sequence": "12"
+      }
+    },
+    {
+      "kind": "mooncode-runtime-claim-item",
+      "protocol": "mooncode.v1",
+      "index": 1,
+      "command_id": "moonproj-native-command-2",
+      "action": "prompt",
+      "session_id": "moonproj-native-capture",
+      "claim_status": "delivered",
+      "order_blocked_by": "",
+      "command": {
+        "protocol": "mooncode.v1",
+        "session_id": "moonproj-native-capture",
+        "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+        "command": "prompt",
+        "model": "fixture/mooncode",
+        "text": "Report an unrelated later finding",
+        "packet": {
+          "command_id": "moonproj-native-command-2"
+        },
+        "payload": {
+          "task_intent": "read_only"
+        },
+        "runtime_tool_calls": [
+          {
+            "tool": "write",
+            "arguments": {
+              "path": "unrelated.txt",
+              "content": "WRONG_LATER_ARTIFACT"
+            }
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "WRONG_LATER_ANSWER"
+            }
+          }
+        ]
+      },
+      "command_entry": {
+        "kind": "mooncode-command",
+        "protocol": "mooncode.v1",
+        "session_id": "moonproj-native-capture",
+        "command_id": "moonproj-native-command-2",
+        "created_at": 1790924685994,
+        "web_search": false,
+        "planner_mode": "explicit-tool-calls",
+        "command": {
+          "protocol": "mooncode.v1",
+          "session_id": "moonproj-native-capture",
+          "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+          "command": "prompt",
+          "model": "fixture/mooncode",
+          "text": "Report an unrelated later finding",
+          "packet": {
+            "command_id": "moonproj-native-command-2"
+          },
+          "payload": {
+            "task_intent": "read_only"
+          },
+          "runtime_tool_calls": [
+            {
+              "tool": "write",
+              "arguments": {
+                "path": "unrelated.txt",
+                "content": "WRONG_LATER_ARTIFACT"
+              }
+            },
+            {
+              "tool": "finish",
+              "arguments": {
+                "answer": "WRONG_LATER_ANSWER"
+              }
+            }
+          ]
+        },
+        "journal_sequence": "14"
+      },
+      "receipt": {
+        "kind": "mooncode.runtime-receipt",
+        "protocol": "mooncode.v1",
+        "owner": "moonclaw",
+        "session_id": "moonproj-native-capture",
+        "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+        "command_id": "moonproj-native-command-2",
+        "web_search": false,
+        "status": "runtime-completed",
+        "runtime_mode": "moonclaw-native-runtime-turn",
+        "claim_id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-1790924686018",
+        "consumer_id": "moonclaw-native-runtime-service",
+        "completed_at": 1790924686078,
+        "control": "prompt",
+        "message": "MoonClaw native runtime turn completed `prompt`",
+        "command": {
+          "protocol": "mooncode.v1",
+          "session_id": "moonproj-native-capture",
+          "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+          "command": "prompt",
+          "model": "fixture/mooncode",
+          "text": "Report an unrelated later finding",
+          "packet": {
+            "command_id": "moonproj-native-command-2"
+          },
+          "payload": {
+            "task_intent": "read_only"
+          },
+          "runtime_tool_calls": [
+            {
+              "tool": "write",
+              "arguments": {
+                "path": "unrelated.txt",
+                "content": "WRONG_LATER_ARTIFACT"
+              }
+            },
+            {
+              "tool": "finish",
+              "arguments": {
+                "answer": "WRONG_LATER_ANSWER"
+              }
+            }
+          ]
+        },
+        "command_entry": {
+          "kind": "mooncode-command",
+          "protocol": "mooncode.v1",
+          "session_id": "moonproj-native-capture",
+          "command_id": "moonproj-native-command-2",
+          "created_at": 1790924685994,
+          "web_search": false,
+          "planner_mode": "explicit-tool-calls",
+          "command": {
+            "protocol": "mooncode.v1",
+            "session_id": "moonproj-native-capture",
+            "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+            "command": "prompt",
+            "model": "fixture/mooncode",
+            "text": "Report an unrelated later finding",
+            "packet": {
+              "command_id": "moonproj-native-command-2"
+            },
+            "payload": {
+              "task_intent": "read_only"
+            },
+            "runtime_tool_calls": [
+              {
+                "tool": "write",
+                "arguments": {
+                  "path": "unrelated.txt",
+                  "content": "WRONG_LATER_ARTIFACT"
+                }
+              },
+              {
+                "tool": "finish",
+                "arguments": {
+                  "answer": "WRONG_LATER_ANSWER"
+                }
+              }
+            ]
+          },
+          "journal_sequence": "14"
+        },
+        "execution": {
+          "accepted": true,
+          "control": "prompt",
+          "message": "MoonClaw native runtime turn completed `prompt`",
+          "planner_mode": "explicit-tool-calls",
+          "completion_verdict": {
+            "kind": "mooncode-coding-completion-verdict",
+            "accepted": true,
+            "reason": "the final finish follows accepted non-verification work"
+          },
+          "tool_results": [
+            {
+              "accepted": true,
+              "kind": "mooncode-tool-execution",
+              "protocol": "mooncode.v1",
+              "owner": "moonclaw",
+              "session_id": "moonproj-native-capture",
+              "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+              "command_id": "moonproj-native-command-2",
+              "tool": "finish",
+              "arguments": {
+                "answer": "WRONG_LATER_ANSWER"
+              },
+              "result": {
+                "tool": "finish",
+                "ok": true,
+                "is_error": false,
+                "message": "finished",
+                "output": "WRONG_LATER_ANSWER",
+                "metadata": {
+                  "answer": "WRONG_LATER_ANSWER"
+                }
+              },
+              "event": {
+                "id": "moonclaw-moonproj-native-capture-moonproj-native-command-2-tool-finish-1790924686063",
+                "protocol": "mooncode.v1",
+                "session_id": "moonproj-native-capture",
+                "book_root": "/workspace/scratch/665adc5202cf/feature-audit/native-dispatch-backend/native-fixture/captures/book-XN963z",
+                "command_id": "moonproj-native-command-2",
+                "lane": "review",
+                "kind": "finish",
+                "event": "finish",
+                "title": "MoonCode tool `finish` completed",
+                "status": "done",
+                "detail": "finished",
+                "path": "",
+                "changed_paths": [],
+                "diff": "",
+                "tool": "finish",
+                "tool_result": {
+                  "tool": "finish",
+                  "ok": true,
+                  "is_error": false,
+                  "message": "finished",
+                  "output": "WRONG_LATER_ANSWER",
+                  "metadata": {
+                    "answer": "WRONG_LATER_ANSWER"
+                  }
+                },
+                "created_at": 1790924686063,
+                "source": "moonclaw-native-tool-exec"
+              }
+            }
+          ]
+        },
+        "events": [],
+        "journal_sequence": "25"
+      }
+    }
+  ],
+  "invalid_commands": [],
+  "order_blocked_commands": []
+}

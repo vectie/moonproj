@@ -1,5 +1,5 @@
 {
-  "schema": "moonsuite.engineering-portfolio.v1",
+  "schema": "moonsuite.product-portfolio.v2",
   "workspace_root": "..",
   "policy": {
     "unknown_is_pass": false,
@@ -8,69 +8,847 @@
     "progress_percent_requires_declared_milestones": true,
     "release_candidate_requires_digest": true
   },
-  "projects": [
+  "products": [
     {
       "id": "moonproj",
-      "repository": "../moonproj",
-      "lifecycle": "software",
-      "role": "engineering governance and company operating system",
-      "tier": "control-plane"
+      "name": "MoonProj",
+      "product_kind": "platform",
+      "purpose": "Top-down management of the product landscape, turning product philosophy and PRDs into bounded work and concrete working results.",
+      "philosophy": {
+        "excerpt": "Top-down management",
+        "paragraphs": [
+          "Product philosophy and PRDs guide goals, bounded work, decisions, and concrete working results across the product landscape. Management can run autonomously; human inspection and intervention remain available when wanted. Existing task acceptance semantics remain separate."
+        ],
+        "source_kind": "founder_intent",
+        "source": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moonproj",
+        "version": "2026-10-02 founder direction",
+        "sha256": "3693bd6422feafcf56372ef1b5c11fc267c9c3b0203f3bbd3953de580eafa51c"
+      },
+      "repository": {
+        "path": "moonproj",
+        "url": "https://github.com/vectie/moonproj.git",
+        "revision": "903a790654d09966b4eb63d4323938074d9298ae",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moonproj",
+        "lifecycle": "software",
+        "role": "engineering governance and company operating system",
+        "tier": "control-plane"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonProj authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonProj_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonProj_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "b8bbc571f18e532287c121b9d0c2e2eae6ae7b449b8e0e9af84bcf6e952ce65a",
+          "size_bytes": 48647,
+          "library_file_id": "libfile_7fdb4b44fc088191a3c5dbb915694c0b",
+          "file_name": "MoonProj_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moonbook",
-      "repository": "../moonbook",
-      "lifecycle": "software",
-      "role": "durable knowledge and executable-book workspace",
-      "tier": "core"
+      "name": "MoonBook",
+      "product_kind": "platform",
+      "purpose": "An experienced agent and durable memory: accumulated experience supports continuity and better future work.",
+      "philosophy": {
+        "excerpt": "Experienced agent and memory",
+        "paragraphs": [
+          "Accumulated experience and durable memory support continuity and better future work."
+        ],
+        "source_kind": "founder_intent",
+        "source": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moonbook",
+        "version": "2026-10-02 founder direction",
+        "sha256": "3693bd6422feafcf56372ef1b5c11fc267c9c3b0203f3bbd3953de580eafa51c"
+      },
+      "repository": {
+        "path": "moonbook",
+        "url": "https://github.com/vectie/moonbook.git",
+        "revision": "d75aaaa6a3f3c7aba71df68007436d54fc2ded59",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moonbook",
+        "lifecycle": "software",
+        "role": "durable knowledge and executable-book workspace",
+        "tier": "core"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonBook authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonBook_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonBook_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "70e75d5956710d003d0f9a507c7b1cb9abfca27c859750a6bf22b4b83dd7f5fb",
+          "size_bytes": 47014,
+          "library_file_id": "libfile_d803cc803a5c8191becff73d61d479cd",
+          "file_name": "MoonBook_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moonclaw",
-      "repository": "../moonclaw",
-      "lifecycle": "software",
-      "role": "agent execution, jobs, sessions and proof runtime",
-      "tier": "core"
+      "name": "MoonClaw",
+      "product_kind": "platform",
+      "purpose": "Shared execution runtime for application hosts and operators, with bounded jobs, sessions, and execution records.",
+      "philosophy": {
+        "excerpt": "A useful run begins with a comprehensible objective, permitted sources, named authority and a stop condition.",
+        "paragraphs": [
+          "A useful run begins with a comprehensible objective, permitted sources, named authority and a stop condition. The runtime should make those constraints enforceable at the moment of execution, rather than treating an earlier conversation as unlimited permission. Each model or tool action must remain attributable to a job and reviewable afterward. More actions, longer sessions and autonomous continuations are not success measures.",
+          "MoonClaw occupies the approved-execution and inspected-artifact part of an accountable work cycle. MoonProj retains company commitments, MoonFlow retains declared dependencies, MoonGate retains provider policy, and MoonBook retains reviewed knowledge. A runtime memory entry or successful execution receipt cannot silently cross these ownership boundaries. The best integration returns enough evidence for a human to decide whether the intended result was delivered."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonclaw.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "513fd4e440a2de7d74cdbe7f927fb4350e9fd5ee92231f0b50f90be6df16e262"
+      },
+      "repository": {
+        "path": "moonclaw",
+        "url": "https://github.com/vectie/moonclaw.git",
+        "revision": "c5b6d5232169167ac51084413efea34f2157855b",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moonclaw",
+        "lifecycle": "software",
+        "role": "agent execution, jobs, sessions and proof runtime",
+        "tier": "core"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonClaw authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonClaw_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonClaw_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "06b45aee82d4f16452a3b7b47741511230e70ea5cc34dafd4dac074580bb1d46",
+          "size_bytes": 47517,
+          "library_file_id": "libfile_9edc55d740108191b97ea9bd1d5ee682",
+          "file_name": "MoonClaw_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moontown",
-      "repository": "../moontown",
-      "lifecycle": "software",
-      "role": "standing-goal orchestration and continuity",
-      "tier": "core"
+      "name": "MoonTown",
+      "product_kind": "platform",
+      "purpose": "Bottom-up reuse and emergence: repeated local work can reveal reusable patterns and broader coordination opportunities.",
+      "philosophy": {
+        "excerpt": "Bottom-up reuse and emergence",
+        "paragraphs": [
+          "Repeated local work can reveal reusable patterns and broader coordination opportunities."
+        ],
+        "source_kind": "founder_intent",
+        "source": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moontown",
+        "version": "2026-10-02 founder direction",
+        "sha256": "3693bd6422feafcf56372ef1b5c11fc267c9c3b0203f3bbd3953de580eafa51c"
+      },
+      "repository": {
+        "path": "moontown",
+        "url": "https://github.com/vectie/moontown.git",
+        "revision": "56a44f231c8140a74a3e252de8575461b5f1a4ee",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moontown",
+        "lifecycle": "software",
+        "role": "standing-goal orchestration and continuity",
+        "tier": "core"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonTown authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonTown_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonTown_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "7fbba12c2524f265670e309d36d38c5b6c353d356743a54093f30728851f2c86",
+          "size_bytes": 46261,
+          "library_file_id": "libfile_1ad3fc600a5c8191bac5d7a6977e95aa",
+          "file_name": "MoonTown_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moondesk",
-      "repository": "../moondesk",
-      "lifecycle": "software",
-      "role": "human desktop and review surface",
-      "tier": "core"
+      "name": "MoonDesk",
+      "product_kind": "desktop",
+      "purpose": "Quick prototyping and human interleaving: a person can inspect, intervene, and iteratively shape work and prototypes.",
+      "philosophy": {
+        "excerpt": "Quick prototyping and human interleaving",
+        "paragraphs": [
+          "A place for a person to inspect, intervene, and iteratively shape work and prototypes."
+        ],
+        "source_kind": "founder_intent",
+        "source": "recovery/product-data-reconstruction/founder-intent-2026-10-02.json#directions/moondesk",
+        "version": "2026-10-02 founder direction",
+        "sha256": "3693bd6422feafcf56372ef1b5c11fc267c9c3b0203f3bbd3953de580eafa51c"
+      },
+      "repository": {
+        "path": "moondesk",
+        "url": "https://github.com/vectie/moondesk.git",
+        "revision": "e22ea828d613d246edb33a08e5cb37d5f42536aa",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moondesk",
+        "lifecycle": "software",
+        "role": "human desktop and review surface",
+        "tier": "core"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonDesk authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonDesk_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonDesk_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "3c407a8174eda99f2cabd7e089a6110979df6e8f7c8187b8fd43dbcb1a030616",
+          "size_bytes": 46764,
+          "library_file_id": "libfile_c3c23fffd2a881919f679966abf1b9f9",
+          "file_name": "MoonDesk_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moongate",
-      "repository": "../moongate",
-      "lifecycle": "software",
-      "role": "provider access, usage, metrics and suite discovery",
-      "tier": "core"
+      "name": "MoonGate",
+      "product_kind": "platform",
+      "purpose": "Local model access, provider routing policy, request inspection, usage evidence, and exact capability resolution.",
+      "philosophy": {
+        "excerpt": "A client should know what it can call, under whose authority, and with what observable cost without obtaining provider credentials.",
+        "paragraphs": [
+          "A client should know what it can call, under whose authority, and with what observable cost without obtaining provider credentials. MoonGate owns model access and provider/model selection. It does not decide the company objective, grant arbitrary tool authority or declare a generated answer correct. A route advertised in an inventory is a possibility; an accepted exact resolution and valid execution authority are prerequisites for dispatch.",
+          "Within the OPC operating sequence, an approved commitment may consume a model through MoonGate and return a usage receipt for later review. The request result is an intermediate artifact: another product or person inspects its quality, records customer acceptance and reconciles actual cash separately. MoonGate can improve accountability through bounded consumption and truthful blockers, but no present evidence establishes reduced founder coordination time or a completed commercial loop."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moongate.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "fd90cb30a06fead59fb99c7bd4f439916150634226d2203cd272f34477ee5503"
+      },
+      "repository": {
+        "path": "moongate",
+        "url": "https://github.com/vectie/moongate.git",
+        "revision": "b728e1877a18cc254da4e78e215e4a3a28ef452b",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moongate",
+        "lifecycle": "software",
+        "role": "provider access, usage, metrics and suite discovery",
+        "tier": "core"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonGate authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonGate_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonGate_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "67a7cd8e83da12bdeabf4078f5221f02b43653a9b682eb57a9a5a4815a870a7a",
+          "size_bytes": 47688,
+          "library_file_id": "libfile_156f976a94708191b0e0696ac9560514",
+          "file_name": "MoonGate_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moonrobo",
-      "repository": "../moonrobo",
-      "lifecycle": "hardware-software",
-      "role": "robot safety, proof and physical execution boundary",
-      "tier": "field"
+      "name": "MoonRobo",
+      "product_kind": "specialist",
+      "purpose": "Robotics safety and bridge contracts for named operators qualifying a bounded action on a specific robot.",
+      "philosophy": {
+        "excerpt": "Physical work requires an authority chain that survives uncertainty.",
+        "paragraphs": [
+          "Physical work requires an authority chain that survives uncertainty. A model intention, digital design validation or lunar simulation result can inform a proposal but cannot establish current hardware readiness. The robot product owns command and interlock policy. Before dispatch, a named operator must see the bounded action, current calibration and safety evidence, and a valid separate grant. Human stop and takeover remain available.",
+          "For a robotics service founder, the company commitment is a clearly scoped service or trial with inspected proof. The operational chain should connect approved work to the exact robot, command attempt, telemetry and reviewed outcome. A completed queue item is not physical success, customer acceptance or received payment. The first defensible product is one qualified hardware profile and bounded trial; most founders should never need this specialist surface."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonrobo.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "c4e7a20acdf645d073459e080dd1d398349752766d91a525fe575baa9c399e50"
+      },
+      "repository": {
+        "path": "moonrobo",
+        "url": "https://github.com/vectie/moonrobo.git",
+        "revision": "cee4280c32d9a9a8617186544bd6531024d80b86",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moonrobo",
+        "lifecycle": "hardware-software",
+        "role": "robot safety, proof and physical execution boundary",
+        "tier": "field"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonRobo authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonRobo_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonRobo_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "4be381c1f03ed9fea4e795498101ec306c5a2795ad03137cb44223607fecfcd5",
+          "size_bytes": 46754,
+          "library_file_id": "libfile_6330cbe2473081918d64ae770c05b7c5",
+          "file_name": "MoonRobo_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moonmoon",
-      "repository": "../moonmoon",
-      "lifecycle": "software",
-      "role": "lunar terrain and mission world model",
-      "tier": "field"
+      "name": "MoonMoon",
+      "product_kind": "specialist",
+      "purpose": "Lunar terrain and mission digital simulation for specialists preparing inspectable mission recommendations.",
+      "philosophy": {
+        "excerpt": "A lunar scene is a view of declared inputs, not proof of the terrain.",
+        "paragraphs": [
+          "A lunar scene is a view of declared inputs, not proof of the terrain. A useful mission recommendation binds coverage, coordinate frame, units, digests and uncertainty to hazard, route and energy calculations. Missing coverage should remain visible because a smooth render or a plausible route can otherwise imply confidence that the source data does not support.",
+          "This pack serves a narrow lunar or robotics offer rather than a general founder workspace. An accountable operator approves a digital study, inspects the resulting mission dossier and records a reviewed recommendation. MoonRobo must independently evaluate any later physical test using current hardware and safety evidence. Digital completion, customer acceptance and cash receipt are separate facts, and none grants physical authority."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonmoon.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "f63649ff1bd8cf7131bae208fd90f0a7b6ca0399157f3be5de2f128f7cc6a2c6"
+      },
+      "repository": {
+        "path": "moonmoon",
+        "url": "https://github.com/vectie/moonmoon.git",
+        "revision": "7ac7e6d93dd98a1539b41a3972b0a27fe9af7d7a",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": {
+        "id": "moonmoon",
+        "lifecycle": "software",
+        "role": "lunar terrain and mission world model",
+        "tier": "field"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonMoon authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonMoon_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonMoon_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "a583d0fbd21bc6bf384acbbbef1c53cbedbba4280d7630b7c94619d757cd0471",
+          "size_bytes": 46549,
+          "library_file_id": "libfile_077a1856f1cc81919a21a9ec80d7a3d4",
+          "file_name": "MoonMoon_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     },
     {
       "id": "moonfish",
-      "repository": "../moonfish",
-      "lifecycle": "software",
-      "role": "investment analysis Agent extension",
-      "tier": "extension"
+      "name": "MoonFish",
+      "product_kind": "specialist",
+      "purpose": "Governed, shadow-only financial research for A-shares and exchangeable bonds, with independent challenge and attributable paper outcomes.",
+      "philosophy": {
+        "excerpt": "A useful research product makes the chain from market observation to paper decision inspectable.",
+        "paragraphs": [
+          "A useful research product makes the chain from market observation to paper decision inspectable. Price policy, data cutoff, factor evidence, contradictions and invalidation belong beside the conclusion. A model may explain or challenge a deterministic result but may not quietly change scores, weights, exits or the governing 40–65-session policy. A 10× outcome is an extreme bull scenario, never an expected return or default sales claim.",
+          "For a one-person company, this pack belongs only in a legitimate financial research offer or a separately governed research activity. A founder can commit to producing an inspected research packet and learn from paper results; that commitment is distinct from investment execution, client acceptance and cash receipt. MoonProj remains responsible for business accounting. The first product should be a repeatable shadow research service rather than a broad autonomous investing workspace."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonfish.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "b12412bf58afa21f3c574c798a1277b40e156821c917dd1b3fb4266c1e335074"
+      },
+      "repository": {
+        "path": "moonfish",
+        "url": null,
+        "revision": null,
+        "source_kind": "configured"
+      },
+      "engineering_target": {
+        "id": "moonfish",
+        "lifecycle": "software",
+        "role": "investment analysis Agent extension",
+        "tier": "extension"
+      },
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonFish authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonFish_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonFish_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "bdf65d9b48a33139353ff2f095922ed95b780e2a7cc0752b147ae745cae2f5ea",
+          "size_bytes": 46930,
+          "library_file_id": "libfile_bfdfcfec443c8191907ad3c5fcc32204",
+          "file_name": "MoonFish_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "mooncast",
+      "name": "MoonCast",
+      "product_kind": "specialist",
+      "purpose": "Rights-aware media production from qualified lead and quote through bounded production, reviewed master, and client delivery.",
+      "philosophy": {
+        "excerpt": "A studio creates value when a client can inspect and accept a promised media deliverable.",
+        "paragraphs": [
+          "A studio creates value when a client can inspect and accept a promised media deliverable. Graph nodes, completed provider jobs and an internal on-track indicator are intermediate evidence. The product should preserve one commercial commitment from sourced needs through approved production and an inspected artifact, then record client acceptance and cash receipt as independent facts.",
+          "Rights and cost authority must precede generation rather than be reconstructed after a master exists. A named producer owns scope and editorial quality; a commercial approver owns the quote; the client owns acceptance. Provider cost, labor, revenue and founder hours remain unknown when evidence is absent. This lets the studio learn from an actual episode without turning fixture output or forecast margin into business performance."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/mooncast.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "a556b754a758c726e3be9e8add70dcb3e6f51635c9cc55952db9f406fd7ebb69"
+      },
+      "repository": {
+        "path": "mooncast",
+        "url": "https://github.com/vectie/mooncast.git",
+        "revision": "561479f745cf55fb6259f4bae061ba5768dd38d0",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonCast authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonCast_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonCast_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "5df2e07542062d4f27efb9d82bc45ddc2e77544d656b59211a9f71628922ec2d",
+          "size_bytes": 47570,
+          "library_file_id": "libfile_de80a23a69008191840c44a213674929",
+          "file_name": "MoonCast_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonchat",
+      "name": "MoonChat",
+      "product_kind": "library",
+      "purpose": "Portable, revision-bound review contracts for artifact-producing applications, preserving questions, objections, proposals, and decisions.",
+      "philosophy": {
+        "excerpt": "Accountability requires knowing what was reviewed, who decided and which uncertainty remains.",
+        "paragraphs": [
+          "Accountability requires knowing what was reviewed, who decided and which uncertainty remains. A conversational transcript is useful evidence, but the volume or fluency of its turns cannot establish approval. MoonChat should make the distinction between a question, an objection, a proposal and an authorized decision machine-readable while retaining the original source binding. A later artifact revision must require an explicit new review scope rather than inheriting the approval of older bytes.",
+          "The primary customer is a pack or host developer. A founder encounters MoonChat through the artifact they are already considering, not through another destination or inbox. In the operating sequence from source to understanding, commitment, execution and inspected artifact, MoonChat supports the review step. MoonProj owns commitments, MoonClaw owns live conversations and execution, and MoonBook independently owns knowledge acceptance. Customer acceptance and cash receipt are outside this review contract."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonchat.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "00e11fdf99588e81cd94ee9b04dc29443e70036d227749378ae93bd662245d76"
+      },
+      "repository": {
+        "path": "moonchat",
+        "url": "https://github.com/vectie/moonchat.git",
+        "revision": "d567f1d23c1d2bf128e99d094f857d4e6ff5061f",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonChat authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonChat_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonChat_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "ecb953d5c60f52165572ea5bd3a5f60b4c2612c281c03cce884929fcdc3f3165",
+          "size_bytes": 46501,
+          "library_file_id": "libfile_b1d46948af7481919d80a431184321c4",
+          "file_name": "MoonChat_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonedit",
+      "name": "MoonEdit",
+      "product_kind": "library",
+      "purpose": "Host-independent text and code editing with deterministic state, revisions, selections, undo, and host effects.",
+      "philosophy": {
+        "excerpt": "An editor should protect the difference between a user’s working text, an external file version and a suggestion that has not been accepted.",
+        "paragraphs": [
+          "An editor should protect the difference between a user’s working text, an external file version and a suggestion that has not been accepted. MoonEdit makes those distinctions explicit in its state and effects. Determinism allows the same edit history to be explained and tested; revision binding prevents a delayed host response from silently changing a newer document. A successful core transition does not mean bytes reached durable storage.",
+          "The library contributes to the inspected-artifact part of accountable work. MoonDesk owns the user’s file picker, filesystem access, save destination, persistence and visible conflict choices. Other systems own agent execution and knowledge acceptance. MoonEdit should allow a founder to refine a deliverable through the host without granting an agent ownership of the document or treating saved prose as verified company truth."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonedit.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "d8328d89a834eafe761c4c5db40a9935e8e8606546ef7ae2c8366c28d8154e49"
+      },
+      "repository": null,
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonEdit authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonEdit_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonEdit_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "462892a541703ca9df303f67b426368643873ff9290e20a7cfabfff01273a6f4",
+          "size_bytes": 47265,
+          "library_file_id": "libfile_19283a2a4098819184ca85a070821047",
+          "file_name": "MoonEdit_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonfind",
+      "name": "MoonFind",
+      "product_kind": "platform",
+      "purpose": "Inspectable answers to bounded decision questions, with openable files, source provenance, contradictions, and verification gaps.",
+      "philosophy": {
+        "excerpt": "A researcher buys a usable answer and evidence, not an impressive agent graph.",
+        "paragraphs": [
+          "A researcher buys a usable answer and evidence, not an impressive agent graph. Every job begins with audience, decision, source limits, desired files and acceptance criteria. The researcher must be able to reject an answer, inspect the source and revise the brief while preserving what was previously delivered.",
+          "Research can reduce uncertainty but cannot establish that a customer will buy. For the OPC spine, MoonFind explains what is known and what would falsify a belief. MoonProj retains the decision and commitment; MoonBook retains reviewed learning. Specialized robotics or lunar series remain optional templates behind this general file-delivery contract."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonfind.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "38efaaf181589ddfbc2d92a621050b37867c449c693108f4f860b82da4482790"
+      },
+      "repository": {
+        "path": "moonfind",
+        "url": "https://github.com/vectie/moonfind.git",
+        "revision": "ee3439c962f7d21dee44b87d1e029ae536070327",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonFind authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonFind_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonFind_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "9c842e94af55ff3357fea2b460cf4300ab877b37eb2fce6cdf2900fb074c6ec5",
+          "size_bytes": 46852,
+          "library_file_id": "libfile_6572e50315e08191b865cf6b8c4455ee",
+          "file_name": "MoonFind_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonflow",
+      "name": "MoonFlow",
+      "product_kind": "platform",
+      "purpose": "Durable, non-agent orchestration of declared work, dependencies, bounded authority, attempts, and reviewable evidence.",
+      "philosophy": {
+        "excerpt": "Declared work should be understandable before it can execute.",
+        "paragraphs": [
+          "Declared work should be understandable before it can execute. A graph names operations, dependencies, allowed authority and evidence expectations; the engine advances only what those declarations permit. An installed product or a visible graph node is insufficient proof of capability. Exact manifests, adapter declarations and current health must agree before work becomes executable.",
+          "The engine converts approved execution into inspectable attempts and reviewable outputs. It owns neither the intent behind a source nor the external effect of an adapter. Keeping those distinctions explicit permits a founder or operator to see what actually happened while retaining separate authority over artifact acceptance, customer acceptance and payment. Durable bookkeeping is useful only if it lowers the effort needed to close that handoff."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonflow.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "9b5f0ef5ad7dc507b076628a23465a3f86c47e291887e75688d0f350a5421a21"
+      },
+      "repository": {
+        "path": "moonflow",
+        "url": "https://github.com/vectie/moonflow.git",
+        "revision": "b335ac48e2c4577daac310bb61c416099610b4e7",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonFlow authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonFlow_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonFlow_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "0704e23539a07493aac9a9cbacbe00750cb6c11021efc55267f098f0a3466de6",
+          "size_bytes": 47060,
+          "library_file_id": "libfile_3a6cc26fc1b08191ac6ac2219dad2ecc",
+          "file_name": "MoonFlow_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonfort",
+      "name": "MoonFort",
+      "product_kind": "platform",
+      "purpose": "An execution authority boundary for operators and MoonClaw hosts, with bounded approval, enforced constraints, and reviewed artifact promotion.",
+      "philosophy": {
+        "excerpt": "Approval must identify the actual authority being granted: readable and writable locations, executable tools, network scope and resource limits.",
+        "paragraphs": [
+          "Approval must identify the actual authority being granted: readable and writable locations, executable tools, network scope and resource limits. A caller should not be able to turn approval for one bounded action into a weaker backend or broader profile. Refusal is a legitimate outcome when the required enforcement is unavailable. An apparently successful process is not a safe result if the system cannot say which restrictions were enforced and which were degraded.",
+          "MoonFort supports the approved-execution step of accountable work. MoonClaw owns task execution coordination; MoonDesk owns workspace presentation; domain products own commitments and durable knowledge. MoonFort contributes constrained process execution and evidence. Scratch output is not automatically an accepted artifact, and a retained receipt is not customer acceptance. The human should see intelligible authority, results and promotion choices without needing to operate sandbox internals every day."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonfort.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "b881b91eb7711b597ef4cf9a97cfe871f841a18513b2e5e7770a9c2e70044d5e"
+      },
+      "repository": {
+        "path": "moonfort",
+        "url": "https://github.com/vectie/moonfort.git",
+        "revision": "76dc827a846fdd07ed445f2e98184e0c45ddef73",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonFort authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonFort_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonFort_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "e1ab15ea9512e4fe7bb8d792e8c142fd7dd57579eb6c136769d1b0e3276ae067",
+          "size_bytes": 47777,
+          "library_file_id": "libfile_80e522df962c8191be69320981da3fa4",
+          "file_name": "MoonFort_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonleaf",
+      "name": "MoonLeaf",
+      "product_kind": "library",
+      "purpose": "Conservative preview and narrowly bounded editing of DOCX, XLSX, PPTX, CSV, and TSV through a document host.",
+      "philosophy": {
+        "excerpt": "A preview is a useful representation of a file, not proof that every feature survived or that the user may edit everything visible.",
+        "paragraphs": [
+          "A preview is a useful representation of a file, not proof that every feature survived or that the user may edit everything visible. MoonLeaf should state what it understands, what it preserves without interpreting and what it cannot safely change. When the requested operation exceeds those capabilities, refusal with a precise diagnostic is preferable to plausible-looking output that loses formulas, layout or package relationships.",
+          "The library serves document-host developers. MoonDesk owns file access, user confirmation, destinations and conflict handling; MoonLeaf owns its declared parsing, transformation and evidence contract. In an accountable business workflow, intake produces a source reference, bounded edits produce an inspectable artifact, and MoonProj or another domain owner records delivery and customer acceptance separately. A rendered page is not proof that its claims are true, and a successful save is not evidence of customer approval."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonleaf.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "02e8d911a589091309c2ca7c456f26f839d2cfed6a6da1db4fc5e63fa8359552"
+      },
+      "repository": null,
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonLeaf authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonLeaf_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonLeaf_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "5230f13b33c6faa712ca137b0c59ffc2670a0395c144d7ec4f40ffa57ca5ec36",
+          "size_bytes": 47443,
+          "library_file_id": "libfile_7929c739f1a881918af40160e8023a40",
+          "file_name": "MoonLeaf_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonlib",
+      "name": "MoonLib",
+      "product_kind": "library",
+      "purpose": "Shared, policy-free types, wire contracts, path rules, and low-level helpers for MoonSuite package authors.",
+      "philosophy": {
+        "excerpt": "Shared types are valuable when they let independently owned products exchange evidence without changing its identity or meaning.",
+        "paragraphs": [
+          "Shared types are valuable when they let independently owned products exchange evidence without changing its identity or meaning. They are harmful when a convenient utility silently chooses company policy, discovers a service, infers approval or erases distinctions between a source, a task and an accepted artifact. MoonLib should offer deterministic building blocks whose effects and authority remain visible to the importing product.",
+          "The primary user is an integration developer rather than a founder operating a daily application. In the source-to-learning sequence, MoonLib provides reference and wire continuity. It cannot decide whether a source is credible, a commitment approved, a process authorized, an artifact inspected, a customer satisfied or cash received. Each domain owner must retain those decisions even when it uses a common record shape. A library dependency is not evidence that a complete business workflow interoperates."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonlib.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "a51ffd40df3f75d00ea76f1164ae685b5d38e3bab20ed4c698b642d17dfab658"
+      },
+      "repository": {
+        "path": "moonlib",
+        "url": "https://github.com/vectie/moonlib.git",
+        "revision": "ede9b6bcaf11b3228e35048c6b5cff0489f636df",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonLib authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonLib_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonLib_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "3c579e13260b2a0d50895e28364bf561bef1503525b562c3cf5ab97ea32f1327",
+          "size_bytes": 47011,
+          "library_file_id": "libfile_160dd14b9a388191944d0e8e79bedee5",
+          "file_name": "MoonLib_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonmold",
+      "name": "MoonMold",
+      "product_kind": "specialist",
+      "purpose": "Bounded digital spatial modeling from constrained intent into editable source and derived representations with validation and lineage.",
+      "philosophy": {
+        "excerpt": "A visually convincing model does not establish dimensional accuracy, engineering fitness or manufacturing safety.",
+        "paragraphs": [
+          "A visually convincing model does not establish dimensional accuracy, engineering fitness or manufacturing safety. The editable source and its frame, units, digest and constraints are the reference. Presentation, simulation and manufacturing-candidate siblings must declare their relationships and known losses so a client can understand what each representation supports.",
+          "For a digital-modeling founder, the accountable loop begins with a sourced brief and a bounded promise: deliver a specific inspectable digital artifact. Approved execution produces receipts and files; a named reviewer evaluates them; the client separately accepts the agreed package. Payment and any later fabrication require their own evidence and authority. The pack should make this narrow loop reliable before adding a general-purpose modeling studio."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonmold.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "9197ef199fcb3f2bb432d4fd67bae7a7288f1243756e3475a432dad26b136ea0"
+      },
+      "repository": {
+        "path": "moonmold",
+        "url": "https://github.com/vectie/moonmold.git",
+        "revision": "5dfac89b7bfd13f1281378aefe11d0f23123b1da",
+        "source_kind": "source_manifest"
+      },
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonMold authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonMold_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonMold_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "7ad895d93d5671719fa2f1c72942959684ae2c58cc51dc5f115ee9f4dd8b4af8",
+          "size_bytes": 46733,
+          "library_file_id": "libfile_5f02bc60c05c819189f8d4a2458aed0c",
+          "file_name": "MoonMold_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonpoly",
+      "name": "MoonPoly",
+      "product_kind": "specialist",
+      "purpose": "Policy understanding, option appraisal, forecasting, and advisory delivery while named public bodies retain official decision authority.",
+      "philosophy": {
+        "excerpt": "Policy analysis should make the path from official text and evidence to interpretation and alternatives visible.",
+        "paragraphs": [
+          "Policy analysis should make the path from official text and evidence to interpretation and alternatives visible. A resident asking what a policy means, an analyst appraising options and an authorized official deciding what to adopt have different jobs. The product should preserve these three modes rather than presenting a draft, a readiness score or a generated forecast as an official act.",
+          "For an independent policy consultant or founder affected by regulation, the useful company loop is a sourced question, a bounded advisory commitment, an inspected brief and separate client review. Knowledge retention can support future work, but acceptance of an imported source does not certify its truth. Policy adoption belongs outside the company operating system, and customer payment is not inferred from completion of an advisory document."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonpoly.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "5b8bead6c1e308b78a24e3440decb9b1103312bcb88822c4ab1dacc7efc73002"
+      },
+      "repository": null,
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonPoly authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonPoly_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonPoly_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "9b99833b0e475dacf60e807d5b450fc4db24f33c0609c5054f2daaf65cbeda94",
+          "size_bytes": 47177,
+          "library_file_id": "libfile_688f7d02f3ac819191bce8d9e821697d",
+          "file_name": "MoonPoly_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
+    },
+    {
+      "id": "moonvis",
+      "name": "MoonVis",
+      "product_kind": "library",
+      "purpose": "Internal design tokens, asset lineage, and visual guidance for consistent, truthful controls and evidence states across products.",
+      "philosophy": {
+        "excerpt": "Visual consistency should help users recognize an action or state correctly.",
+        "paragraphs": [
+          "Visual consistency should help users recognize an action or state correctly. A familiar color or mark is harmful if it makes a draft look approved, an internal success look customer accepted or an unavailable route look ready. MoonVis should give products stable visual vocabulary, explicit usage limits and provenance, while leaving the product owner responsible for whether a particular state is true. A design system can communicate evidence quality; it cannot create that evidence.",
+          "The customer is a designer, UI engineer or asset reviewer integrating a product. A founder benefits through clearer controls in MoonProj, MoonDesk or MoonFind and should not need another daily visual-management application. In the operating sequence, MoonVis helps people inspect source, decision and execution states without confusing them. It does not own commitments, runtime authority, artifact acceptance, cash receipt or reviewed learning. The consuming product’s named acceptance is the final usability gate."
+        ],
+        "source_kind": "authored_prd",
+        "source": "prd_work/content/moonvis.json#philosophy",
+        "version": "2026-09-30 authored PRD snapshot",
+        "sha256": "0def548abdbc8a1bb5fc684d847da61c53cc7ed1f56c7f8638257ac61f400300"
+      },
+      "repository": null,
+      "engineering_target": null,
+      "documents": [
+        {
+          "id": "prd",
+          "title": "MoonVis authored PRD snapshot",
+          "type": "prd",
+          "source_kind": "packaged",
+          "path": "MoonVis_PRD.docx",
+          "version": "2026-09-30 authored snapshot",
+          "provenance": "prd_work/output/MoonVis_PRD.docx; prd_work/delivery_manifest.json",
+          "sha256": "cd41d85807b431880db61994d2c6f481fa55e7b9473fe375324d5e430029331b",
+          "size_bytes": 46710,
+          "library_file_id": "libfile_5ec42590c67081918d27fb94c6d75657",
+          "file_name": "MoonVis_PRD.docx",
+          "library_captured_version_number": 0
+        }
+      ],
+      "company_project_id": null
     }
   ]
 }

@@ -1,0 +1,327 @@
+MoonMoon product requirements
+OPC OS portfolio  |  30 September 2026  |  Version 1 for product review
+MoonMoon is a lunar terrain and mission digital simulator for specialists preparing an inspectable mission recommendation. Its baseline covers data-root cataloging, terrain and route analysis, typed robot-mission simulation and read-only 3D/CLI inspection. Native 208/208 and the supported read-only browser path passed locally. The inspected mission remains blocked by negative energy, and the optional E1 archive is unavailable. No physical mission readiness or external dataset truth was established.
+Repository maturity claim digital simulation alpha
+This document defines the product baseline and a separately proposed roadmap. Acceptance tests below are release criteria unless a cited observation explicitly says they passed. Current source coverage does not establish production deployment or customer value.
+Product philosophy and scope
+A lunar scene is a view of declared inputs, not proof of the terrain. A useful mission recommendation binds coverage, coordinate frame, units, digests and uncertainty to hazard, route and energy calculations. Missing coverage should remain visible because a smooth render or a plausible route can otherwise imply confidence that the source data does not support.
+This pack serves a narrow lunar or robotics offer rather than a general founder workspace. An accountable operator approves a digital study, inspects the resulting mission dossier and records a reviewed recommendation. MoonRobo must independently evaluate any later physical test using current hardware and safety evidence. Digital completion, customer acceptance and cash receipt are separate facts, and none grants physical authority.
+Users and jobs
+Mission designer
+Compare a feasible digital mission concept
+Trigger A site and robot design are proposed
+Successful outcome Can explain route, energy assumptions and unresolved hazards
+Terrain analyst
+Prepare source-bound terrain evidence
+Trigger A dataset or coverage revision becomes available
+Successful outcome Can trace slope and roughness results to frame, units and source
+Robotics reviewer
+Assess simulation relevance to a robot design
+Trigger A mission requests a bound robot profile
+Successful outcome Sees exact design identity and limits without mistaking simulation for physical readiness
+Operator
+Run and inspect a reproducible digital study
+Trigger A mission brief is approved
+Successful outcome Can recover session context and identify unavailable inputs or blocked execution
+Baseline and evidence assessment
+Scope	Requirement count	Evidence distribution
+Baseline	9	Source documented: 4; Verified local: 2; Verified contract: 1; Partial: 1; Unknown: 1
+Roadmap	3	Proposed: 3
+
+Verified local means a bounded behavior was directly exercised. Verified contract means the stated test or fixture behavior passed. Source documented means implementation is described but its acceptance has not been re-executed. Partial covers broader requirements with only some evidence. Blocked requires a missing dependency or decision. Proposed is future work. Unknown has insufficient evidence. None of these labels alone is a production maturity score.
+Evidence Prior native 208/208 and read-only UI passed; optional archive unavailable but supported paths worked.
+Open gap External lunar datasets/license and physical-world validation unproven.
+Open gap Session restart/replay, MoonRobo handoff stability and signed app distribution remain release gates.
+User scenarios
+Lunar data root and first site catalog
+MN-W01 | Baseline scope. An analyst registers a site for digital study
+1. Select the declared data root and supported source
+2. Record frame, units, coverage, digest and uncertainty
+3. Create the first-site catalog entry
+4. Expose available fixture and optional archive capabilities separately
+Edge case An optional archive may be absent while supported read-only fixture paths remain usable.
+Failure and recovery Unknown frame, incompatible units or inaccessible source prevents qualified analysis rather than triggering an invented substitute.
+Acceptance The catalog shows which data is present and why an unavailable archive blocks only the dependent capability.
+Evidence references README.mbt.md#Shape; docs/PRODUCT_CONTRACT.md#Evidence and claims
+Terrain hazards route and energy assessment
+MN-W02 | Baseline scope. A designer proposes a mission corridor
+1. Compute slope, roughness and declared hazard measures
+2. Assess route, horizon and energy using explicit assumptions
+3. Identify missing coverage and remediation choices
+4. Inspect the resulting digital feasibility decision
+Edge case A route may be geometrically plausible but energetically infeasible; negative energy must remain a blocker.
+Failure and recovery An invalid or incomplete corridor stops affected calculations and preserves diagnostic inputs.
+Acceptance A reviewer can trace each decision-driving constraint to data and assumptions; the current blocked mission is never labeled physically ready.
+Evidence references docs/PRODUCT_CONTRACT.md#Capability status; README.mbt.md#Run
+Typed robot mission simulation
+MN-W03 | Baseline scope. A validated digital robot design is supplied
+1. Read the moonsuite.robot-design.v1 payload
+2. Bind profile, URDF and validation identities from MoonRobo
+3. Validate relative artifact paths and simulation-only authority
+4. Run the supported digital mission and retain exact receipts
+Edge case Structural robot design validation is not mission suitability or hardware readiness; each remains a distinct claim.
+Failure and recovery Mismatched design identities, unsupported paths or expanded authority are rejected before simulation.
+Acceptance The receipt names the exact design and mission revision and carries no physical dispatch grant.
+Evidence references README.mbt.md#Bound robot mission simulation; docs/CAPABILITY_PACK.md
+Read only 3D and CLI inspection
+MN-W04 | Baseline scope. An operator opens the terrain guide or mission result
+1. Use the supported Rabbita 3D or CLI inspection route
+2. Read source and mission status alongside the visualization
+3. Inspect the negative-energy blocker or missing optional E1 archive
+4. Keep read-only navigation available for supported inputs
+Edge case A visual model can load even when a mission cannot run; those states must not collapse into a generic ready badge.
+Failure and recovery Missing archive reports bridge unavailable; the application does not fabricate or download an unapproved archive.
+Acceptance The latest local guide path remains readable, the mission blocker is visible and no device action occurs.
+Evidence references README.mbt.md#Run; docs/PRODUCT_CONTRACT.md#Capability status
+Mission alternative review
+MN-W05 | Roadmap scope. A designer needs to choose between proposed digital routes
+1. Freeze common site and robot input identities
+2. Compare route, energy, hazard and missing coverage
+3. Present sensitivity to decision-driving assumptions
+4. Record a named approval of only the digital recommendation
+Edge case A safer route with poor coverage may remain incomparable rather than receive a false composite ranking.
+Failure and recovery Changed source data invalidates affected comparisons and requires a new reviewed revision.
+Acceptance The operator can explain why one alternative was selected or why none is supported.
+Evidence references docs/PRODUCT_CONTRACT.md#Evidence and claims; docs/PRODUCT_CONTRACT.md#Capability status
+Simulation to robot evidence bridge
+MN-W06 | Roadmap scope. A robotics operator requests evidence for a separate trial
+1. Export the exact versioned mission and simulation receipts
+2. Deliver through the declared MoonFlow adapter contract
+3. Have MoonRobo verify identity and current hardware evidence independently
+4. Record refusal or separate physical authorization without changing simulation history
+Edge case A successful digital simulation can still lead to refusal because calibration or safety evidence is stale.
+Failure and recovery An incompatible receipt or missing handoff acknowledgement leaves the bridge pending and prevents implied authorization.
+Acceptance The receiving system can cite the simulation but cannot derive physical permission from it.
+Evidence references README.mbt.md#Bound robot mission simulation; docs/CAPABILITY_PACK.md
+Functional requirements
+P0 protects the core outcome or authority boundary. P1 enables the next complete workflow. P2 improves an established workflow. Priorities are recommendations. Baseline status and future ambition remain separate.
+Source bound site catalog
+MOONMOON-B01 | Baseline | P0 | Source documented
+Record data source, root, frame, units, coverage, digest and uncertainty for each site before deriving mission evidence.
+Evidence README.mbt.md#Shape; docs/PRODUCT_CONTRACT.md#Evidence and claims
+Test 1. Register a supported site with complete metadata
+2. Reject missing frame or ambiguous units
+3. Update the source as a new catalog revision and retain previous receipts
+Dependencies Lawfully available lunar inputs
+Capability dependent data availability
+MOONMOON-B02 | Baseline | P0 | Verified local
+Separate supported read-only fixtures from optional archive-dependent capabilities and show an actionable missing-input state.
+Evidence Ledger: optional E1 archive absent; read-only guide passed; README.mbt.md#Run
+Test 1. Open supported read-only data without the optional archive
+2. Select the dependent bridge and observe unavailable state
+3. Verify no archive or physical capability is fabricated to satisfy the request
+Dependencies Capability inventory; Optional E1 archive for dependent path
+Declared terrain and route calculations
+MOONMOON-B03 | Baseline | P0 | Source documented
+Compute slope, roughness, hazards, route, horizon and energy only over declared inputs, carrying assumptions and coverage gaps to results.
+Evidence docs/PRODUCT_CONTRACT.md#Capability status
+Test 1. Inspect each derived measure and its source revision
+2. Introduce a corridor with missing coverage and flag affected results
+3. Recompute with revised assumptions and preserve the former result
+Dependencies B01 site metadata; Versioned analysis parameters
+Visible negative energy blocker
+MOONMOON-B04 | Baseline | P0 | Verified local
+Keep the currently inspected negative-energy mission blocked and distinguish blocked mission feasibility from available read-only inspection.
+Evidence Ledger: browser read-only guide and blocked mission path; README.mbt.md#Run
+Test 1. Open the documented negative-energy mission
+2. Confirm the blocker persists while terrain inspection works
+3. Ensure the view makes no physical readiness claim
+Dependencies Mission energy assessment; Operator UI
+Exact robot design contract
+MOONMOON-B05 | Baseline | P0 | Verified contract
+Validate moonsuite.robot-design.v1 identity, profile/URDF/validation binding, relative paths and simulation-only authority before accepting a design.
+Evidence README.mbt.md#Bound robot mission simulation; docs/CAPABILITY_PACK.md
+Test 1. Accept a matching typed design fixture
+2. Reject a mismatched profile or validation identity
+3. Reject unsafe paths and any requested physical authority
+Dependencies MoonRobo digital design exporter
+Deterministic digital simulation receipt
+MOONMOON-B06 | Baseline | P0 | Source documented
+Bind every mission result to site, route, robot design, assumptions and simulation revision with explicit digital-only status.
+Evidence docs/CAPABILITY_PACK.md; docs/PRODUCT_CONTRACT.md
+Test 1. Replay a supported frozen mission and compare canonical outputs
+2. Change a robot parameter and require a distinct result identity
+3. Withhold a success receipt when inputs or runtime fail
+Dependencies B03 analysis; B05 design contract
+3D and CLI evidence inspection
+MOONMOON-B07 | Baseline | P1 | Partial
+Expose source, uncertainty, capability status and mission blockers alongside supported visual and CLI outputs.
+Evidence Ledger: native 208/208 and read-only browser passed; README.mbt.md#Run
+Test 1. Inspect a supported scene and the corresponding CLI evidence
+2. Identify absent archive and blocked mission from both views
+3. Verify rendering success never substitutes for data validation
+Dependencies Qualified host and supported renderer
+Digital authority boundary
+MOONMOON-B08 | Baseline | P0 | Source documented
+Limit the capability pack to digital mission evidence; no route or simulation result may command a device or imply field validation.
+Evidence docs/CAPABILITY_PACK.md; docs/PRODUCT_CONTRACT.md#Evidence and claims
+Test 1. Inspect exported capabilities for only digital operations
+2. Attempt physical dispatch from a simulation and refuse it
+3. Export the result with clear physical-validation limitation
+Dependencies MoonFlow authority envelope
+Versioned dossier and restart context
+MOONMOON-B09 | Baseline | P1 | Unknown
+Preserve mission inputs, results and reviewed context across supported session restart and replay; expose unresolved recovery explicitly.
+Evidence Dossier: session restart/replay remains a release gate
+Test 1. Save a mission and restart the supported host
+2. Reopen exact input and result identities
+3. Interrupt result persistence and reconcile before accepting another result
+Dependencies Durable session implementation; Recovery qualification
+Comparable mission alternatives
+MOONMOON-R01 | Roadmap | P1 | Proposed
+Compare route, energy, hazard and missing coverage against common source and robot identities, with named digital recommendation review.
+Evidence docs/PRODUCT_CONTRACT.md
+Test 1. Compare two alternatives with matching baselines
+2. Label missing coverage rather than assigning invented certainty
+3. Revise assumptions and reopen review of the selected alternative
+Dependencies B03 derived analysis; B09 dossier
+Versioned evidence bridge
+MOONMOON-R02 | Roadmap | P0 | Proposed
+Deliver exact simulation receipts through MoonFlow to MoonRobo; require receiver acknowledgement without transferring physical authority.
+Evidence docs/CAPABILITY_PACK.md; Dossier: cross-product handoff unverified
+Test 1. Send a typed result and match receiver acknowledgement
+2. Reject incompatible schema or changed artifact digest
+3. Retry by stable receipt identity without duplicate trial requests
+Dependencies MoonFlow adapter; MoonRobo receiver
+External data and distribution qualification
+MOONMOON-R03 | Roadmap | P1 | Proposed
+Qualify one external lunar dataset and supported signed application distribution before making deployment-ready claims.
+Evidence Dossier known gaps; docs/PRODUCT_CONTRACT.md#Evidence and claims
+Test 1. Record dataset terms and source-quality limits
+2. Install the signed supported build and repeat the reference study
+3. Keep unqualified data or distribution variants outside release claims
+Dependencies Dataset provenance review; Supported signing and distribution
+Data state and authority
+Site and dataset manifest
+Owner Terrain analyst
+State model registered, qualified, incomplete, superseded
+Write authority Source availability permits analysis, not a claim of terrain truth
+Retention and recovery Retain lawful source metadata and all result-bound digests
+Mission and route study
+Owner Mission designer
+State model draft, analyzed, blocked, simulation complete, reviewed
+Write authority Approval applies to a digital recommendation
+Retention and recovery Preserve assumptions, alternatives and rejected routes
+Robot design reference
+Owner MoonRobo owns design; MoonMoon binds it
+State model received, validated for simulation, rejected, superseded
+Write authority Design identity does not confer hardware readiness
+Retention and recovery Keep exact profile, URDF and validation references
+Simulation receipt and bridge
+Owner MoonMoon produces; MoonRobo receives
+State model created, exported, acknowledged, refused
+Write authority Receiver independently decides any physical trial
+Retention and recovery Retain immutable simulation evidence and separate receiver decision
+Interfaces and handoffs
+MoonRobo design exporter
+Payload moonsuite.robot-design.v1
+Contract Profile, URDF and validation identity must match and stay simulation-only
+Failure behavior Reject mismatches or unsafe relative paths
+MoonFlow
+Payload Digital mission dispatch and versioned receipts
+Contract Cross-product execution uses adapter contracts rather than sibling source imports
+Failure behavior Missing adapter leaves a manual digital artifact, not a complete live bridge
+MoonRobo trial gate
+Payload Mission, route and simulation evidence
+Contract Current hardware readiness and physical authorization are independently required
+Failure behavior Receiver refusal is valid and cannot be overridden by simulation success
+MoonBook
+Payload Reviewed mission dossier
+Contract Retention and reviewed knowledge need matching host evidence
+Failure behavior Do not turn successful import labels into factual verification
+Nonfunctional requirements
+Scientific traceability
+MOONMOON-N01
+Every decision-driving derived result must retain source, assumptions, units and frame.
+Acceptance test Proposed release gate: reconstruct slope, route and energy outputs from the stored dossier.
+Evidence status Proposed
+Deterministic replay
+MOONMOON-N02
+Supported frozen digital studies must replay consistently under the qualified environment.
+Acceptance test Compare canonical outputs before and after restart and record environment differences.
+Evidence status Proposed
+Uncertainty visibility
+MOONMOON-N03
+Missing coverage and unsupported truth claims must remain visible in rendered and exported evidence.
+Acceptance test Test incomplete terrain and ambiguous input fixtures; require no fabricated confidence score.
+Evidence status Proposed
+Boundary enforcement
+MOONMOON-N04
+Malformed design references and physical authority escalation must be rejected.
+Acceptance test Extend typed-contract tests across the host, adapter and exported bridge surfaces.
+Evidence status Partial
+Operational recovery
+MOONMOON-N05
+Missing optional assets and interrupted saves must not destroy supported read-only access or prior study evidence.
+Acceptance test Remove the optional archive and interrupt persistence; verify bounded availability and honest recovery state.
+Evidence status Proposed
+Delivery roadmap
+Inspectable digital study
+Source-bound terrain and truthful mission states
+Requirements MOONMOON-B01, MOONMOON-B02, MOONMOON-B03, MOONMOON-B04
+Exit gate Supported reference site and blocked cases are inspectable with explicit uncertainty
+Reproducible operator release
+Restart, replay and deployment qualification
+Requirements MOONMOON-B09, MOONMOON-R03
+Exit gate One supported dataset and signed build pass reproducibility and interruption checks
+Reviewed cross product dossier
+Alternative selection and typed evidence delivery
+Requirements MOONMOON-R01, MOONMOON-R02
+Exit gate One digital recommendation reaches MoonRobo with matching receipt; receiver retains independent physical decision
+Outcome measurement
+Traceable derived outputs
+Derived outputs with exact source and parameter references
+Measurement Dossier manifest audit
+Target Proposed target: every decision-driving result
+Unexplained replay differences
+Frozen studies whose canonical result changes without an identified environment/input change
+Measurement Replay comparison log
+Target Proposed release target: zero
+Hidden feasibility blockers
+Reviewable recommendations that omit known energy or coverage blockers
+Measurement UI and export audit
+Target Proposed release target: zero
+Bridge acknowledgement integrity
+Exports acknowledged for the exact simulation receipt
+Measurement Sender/receiver identity join
+Target Measure during first qualified bridge; current live rate unknown
+Non goals
+Autonomous lunar operations or device control
+Physical mission readiness inferred from terrain render or simulation
+Universal coverage or validated truth for external lunar datasets
+General robotics fleet management or a general OPC front door
+Alternatives and optimality
+GIS tools and a mission spreadsheet
+Advantage Mature geospatial inspection with transparent manual assumptions
+Cost Manual binding to robot design and simulation receipts
+When to choose Prefer when the decision is primarily terrain analysis and the mission is simple
+Existing robotics simulator
+Advantage Richer established dynamics or robot support
+Cost May require custom lunar provenance and hazard integration
+When to choose Prefer when simulation fidelity dominates the workflow
+Narrow MoonMoon dossier
+Advantage Integrated source, route, energy and design evidence
+Cost Needs data, replay and host qualification
+When to choose Use when repeated cross-domain dossier assembly is a demonstrated burden
+MoonMoon should optimize for one defensible digital mission decision. The visual environment helps people inspect a corridor, but its value depends on keeping evidence and uncertainty close enough that a rendered surface cannot be mistaken for validated terrain.
+The negative-energy blocker and unavailable optional archive are honest product states. Hiding them to create a smoother demo would undermine the purpose of the tool. Native 208/208 and read-only browser success support bounded local maturity without proving external source quality, deployment or a live robotics loop.
+A narrower first release could offer one site, one robot design contract and one repeatable mission dossier with manual review. Multi-site expansion, new robot classes and broad autonomy should wait until restart, replay and source qualification are dependable.
+A GIS tool or established simulator is preferable when it already answers the specialist question with less integration. MoonMoon earns its place when source-bound terrain, mission constraints and robot evidence need a shared, reviewable identity. That tradeoff is conditional and cannot establish universal optimality.
+Open product decisions
+Decision Which site and external dataset define the qualified release
+Recommendation Choose one source with documented terms, coverage and uncertainty
+Consequence Other sites remain exploratory or unsupported
+Decision What decision requires simulation rather than read only inspection
+Recommendation Specify route and energy review criteria before expanding the UI
+Consequence Avoids building visual complexity without a decision benefit
+Decision What makes a bridge result usable
+Recommendation Require exact identity acknowledgement and independent receiver readiness
+Consequence Digital success alone never authorizes a physical trial
+Sources and coverage
+Repository paths below are relative to moonmoon. Named portfolio dossiers, the consolidated source index and the investigation ledger are collection-level evidence dated 30 September 2026. The references identify reviewed material and prior bounded observations.
+README.mbt.md
+docs/PRODUCT_CONTRACT.md
+docs/CAPABILITY_PACK.md
+AGENTS.md
+moon-luna-investigation-ledger-20260930.md
+The dossier covers selected source sections rather than all 19 documents, dataset provenance or physical qualification. The 30 September ledger reports native 208/208, nested UI check/build and read-only browser success after local x 0.4.50 pins. The mission remained blocked by negative energy and the optional E1 archive was absent. Session restart, external data qualification, signed distribution and the full MoonRobo handoff remain unverified release gates.

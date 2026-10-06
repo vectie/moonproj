@@ -608,3 +608,85 @@ body { color: var(--ink); background: var(--canvas); font-feature-settings: "tnu
   .extension-boundary { flex-direction: column; gap: 6px; }
   .stage-legend { grid-template-columns: 1fr; }
 }
+
+/* Product identity is stable across search and ordering; authored intent precedes execution. */
+.products-layout { display:grid; grid-template-columns:minmax(260px, .8fr) minmax(0, 1.8fr); gap:24px; align-items:start; }
+.product-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:16px; margin:20px 0; }
+.product-toolbar .field { flex:1; min-width:220px; }
+.product-catalog-state { padding:16px; border:1px solid var(--line, #d8dce3); border-radius:12px; }
+.product-list-item { display:block; width:100%; padding:18px; margin-bottom:12px; border:1px solid var(--line, #d8dce3); border-radius:12px; background:var(--surface, #fff); color:inherit; text-align:left; cursor:pointer; }
+.product-list-item strong, .product-list-item small { display:block; }
+.product-list-item p { margin:8px 0; }
+.product-list-item.is-selected { border:2px solid var(--accent, #465be5); padding:17px; }
+.product-list-item:focus-visible { outline:3px solid var(--accent, #465be5); outline-offset:3px; }
+.product-detail { min-width:0; padding:24px; background:var(--surface, #fff); border:1px solid var(--line, #d8dce3); border-radius:16px; overflow-wrap:anywhere; }
+.product-detail > small, .product-document small { display:block; margin:8px 0; }
+.product-detail h3 { margin-top:24px; }
+.product-document { margin:16px 0; }
+.product-project-picker { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.product-task-list { display:grid; gap:12px; }
+.product-work .button:disabled { opacity:.5; cursor:not-allowed; }
+@media (max-width:850px) { .products-layout { grid-template-columns:1fr; } .product-detail { padding:18px; } }
+
+.product-list { max-height:75vh; overflow-y:auto; padding:3px; }
+@media (max-width:850px) { .product-list { max-height:45vh; } }
+
+
+/* Guided work: one primary journey, with inspectable technical details. */
+.nav-more { margin-top: 18px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 8px; }
+.nav-more > summary { padding: 12px 10px; color: #bbc4d6; cursor: pointer; font-weight: 650; }
+.nav-more .nav-item { min-height: 44px; }
+.primary-nav > .nav-item { min-height: 56px; }
+.primary-nav > .nav-item .nav-copy small { display: block; }
+.journey-details { min-width: 0; margin: 14px 0; padding: 0 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.journey-details > summary { min-height: 46px; padding: 13px 0; cursor: pointer; font-weight: 650; color: var(--ink-soft); overflow-wrap: anywhere; }
+.journey-details[open] { padding-bottom: 14px; }
+.journey-details > summary:focus-visible, .nav-more > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 5px; }
+.journey-details > .section-block { margin-bottom: 0; }
+.focused-workspace { width: 100%; }
+.focused-work { padding: 24px; min-width: 0; border-radius: 12px; }
+.focused-work .loop-head > strong { font-size: 20px; line-height: 1.4; }
+.journey-section { min-width: 0; padding: 22px 0; border-top: 1px solid var(--line); scroll-margin-top: 92px; }
+.journey-section h3 { margin-top: 0; font-size: 17px; }
+.focused-work .inline-form { padding: 14px; box-shadow: none; }
+.task-next-action { padding: 22px; margin-top: 8px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--accent-soft); }
+.task-next-action .inline-form { margin-bottom: 0; }
+.goal-rail { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.goal-step { min-width: 0; }
+.goal-flow, #dispatch-draft, #dispatch-task-workspace { scroll-margin-top: 92px; }
+.goal-next .button { white-space: normal; text-align: center; }
+.journey-instructions { padding-left: 24px; line-height: 1.8; }
+.journey-instructions > li { padding: 6px 0 12px 4px; }
+.journey-instructions p { margin: 6px 0 0; }
+.product-work > h3 { margin-top: 0; }
+.product-work { padding: 18px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--accent-soft); }
+.product-detail .product-work { margin-top: 22px; }
+.product-list-item { min-height: 88px; }
+.product-list-item p { margin-bottom: 0; }
+.product-inventory { margin: 24px 0; }
+.inventory-provenance { font-size: .9rem; font-weight: 600; }
+.product-work-groups { display: grid; gap: 12px; margin: 16px 0; }
+.product-work-group, .product-requirement { border: 1px solid var(--line, #d8dce3); border-radius: 8px; padding: 12px; margin: 8px 0; }
+.product-work-group summary, .product-requirement summary { cursor: pointer; line-height: 1.5; }
+.product-work-group summary small, .product-requirement summary small { display: block; margin-top: 4px; }
+.product-work-group > .button { margin-top: 12px; }
+.inventory-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.inventory-filters [aria-pressed="true"] { outline: 2px solid var(--accent, #465be5); outline-offset: 1px; }
+.product-list-item > small { margin-top: 10px; line-height: 1.5; }
+.focused-work, .goal-result, .journey-details, .product-project-picker, .task-history { overflow-wrap: anywhere; }
+.focused-work .button, .product-work .button, .task-history .button { max-width: 100%; min-height: 44px; height: auto; padding-top: 10px; padding-bottom: 10px; white-space: normal; text-align: left; }
+.result-choice > div > p, .learning-next p { max-width: 80ch; }
+@media (max-width: 1000px) {
+  .goal-rail { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 650px) {
+  .goal-rail { grid-template-columns: 1fr; }
+  .goal-step { min-height: 48px; padding: 9px 12px; }
+  .goal-step > div { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 10px; }
+  .focused-work { padding: 16px; }
+  .task-next-action { padding: 16px; }
+  .journey-details { padding-left: 12px; padding-right: 12px; }
+  .product-work { padding: 14px; }
+  .goal-flow-head { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

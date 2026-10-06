@@ -255,22 +255,6 @@ fn moonclaw_task_status(value : Json) -> String? {
 }
 
 ///|
-fn moonsuite_project_path(workspace_root : String, project : String) -> String? {
-  match project {
-    "moonproj" => Some(workspace_root + "/moonproj")
-    "moonclaw" => Some(workspace_root + "/moonclaw")
-    "moonbook" => Some(workspace_root + "/moonbook")
-    "moontown" => Some(workspace_root + "/moontown")
-    "moondesk" => Some(workspace_root + "/moondesk")
-    "moongate" => Some(workspace_root + "/moongate")
-    "moonrobo" => Some(workspace_root + "/moonrobo")
-    "moonmoon" => Some(workspace_root + "/moonmoon")
-    "moonfish" => Some(workspace_root + "/moonfish")
-    _ => None
-  }
-}
-
-///|
 fn path_with_identifier(prefix : String, path : String) -> Bool {
   path.has_prefix(prefix) && valid_identifier(path[prefix.length():].to_owned())
 }
@@ -513,6 +497,7 @@ fn command_path_allowed(
       ) ||
       path == "/api/company/cost/dynamic-cost" ||
       path == "/api/company/source/mdm/projects" ||
+      path == "/api/company/profile" ||
       path == "/api/company/import/project" ||
       path == "/api/company/source/import/project" ||
       path == "/api/company/import/contract" ||
@@ -632,10 +617,11 @@ fn command_path_allowed(
 async fn read_body(
   body : &@io.Reader,
   request : @http.Request,
+  limit? : Int = MAX_BODY_BYTES,
 ) -> Bytes raise GatewayError {
   let declared = header(request, "Content-Length")
   match parse_uint(declared) {
-    Some(length) if length > MAX_BODY_BYTES.to_uint64() =>
+    Some(length) if length > limit.to_uint64() =>
       raise fail("request body is too large")
     _ => ()
   }
@@ -643,7 +629,7 @@ async fn read_body(
     _ => raise fail("unable to read request body")
   }
   let data = data.binary()
-  if data.length() > MAX_BODY_BYTES {
+  if data.length() > limit {
     raise fail("request body is too large")
   }
   data
@@ -781,6 +767,7 @@ fn valid_release_candidate_identifier(value : String) -> Bool {
 
 ///|
 async fn submit_moonsuite_audit(
+  catalog : @registry.Catalog,
   moonclaw_uri : String,
   workspace_root : String,
   project : String,
@@ -794,7 +781,7 @@ async fn submit_moonsuite_audit(
       raise fail("release candidate identifiers are invalid")
     }
   }
-  let target = match moonsuite_project_path(workspace_root, project) {
+  let target = match moonsuite_project_path(catalog, workspace_root, project) {
     Some(value) => value
     None => raise fail("project is not registered for engineering audit")
   }
@@ -987,6 +974,7 @@ async fn start_moonclaw_audit_task(
 
 ///|
 async fn poll_moonsuite_audit(
+  catalog : @registry.Catalog,
   moonclaw_uri : String,
   workspace_root : String,
   service_uri : String,
@@ -1001,7 +989,7 @@ async fn poll_moonsuite_audit(
   if !valid_identifier(audit_id) ||
     !valid_identifier(project) ||
     !valid_identifier(task_id) ||
-    moonsuite_project_path(workspace_root, project) is None {
+    moonsuite_project_path(catalog, workspace_root, project) is None {
     raise fail("invalid engineering audit polling identifiers")
   }
   let task_payload = try {
@@ -1323,7 +1311,10 @@ async fn handle(
   conn : @http.ServerConnection,
   service_uri : String,
   moonclaw_uri : String,
+  native_moonclaw_uri : String,
+  moondesk_origin : String,
   moonsuite_workspace_root : String,
+  product_resources : ProductResources,
   service_token : String,
   actor_signing_secret : String,
   session_secret : String,
@@ -1347,6 +1338,11 @@ async fn handle(
       ", " +
       TRUSTED_IDENTITY_SIGNATURE_HEADER,
     })
+    return
+  }
+  if path == "/ready" &&
+    (request.meth is @http.Get || request.meth is @http.Head) {
+    send_json(conn, request.meth, 200, { "ready": true, "scope": "gateway" })
     return
   }
   if path == "/health" &&
@@ -1639,6 +1635,184 @@ async fn handle(
         return
       }
       Some(actor) => {
+        if path == "/api/moonsuite/products" ||
+          path.has_prefix("/api/moonsuite/products/") {
+          serve_product_resources(product_resources, request, conn)
+          return
+        }
+        // Internal execution observations are never browser-supplied commands.
+        if path.has_prefix("/api/company/internal/") {
+          send_json(
+            conn,
+            request.meth,
+            404,
+            Json::object({ "error": "not found" }),
+          )
+          return
+        }
+        let bridge : NativeBridge = {
+          service_uri,
+          service_token,
+          actor_signing_secret,
+          actor,
+        }
+        if request.meth is @http.Get &&
+          native_continuation_task_id(path, false) is Some(task_id) {
+          let result = native_list_continuations(
+            bridge,
+            native_moonclaw_uri,
+            task_id,
+            query_value(request.path, "command_id").unwrap_or(""),
+            human_revision_id=query_value(request.path, "human_revision_id").unwrap_or(
+              "",
+            ),
+          ) catch {
+            error => {
+              let (status, message) = native_continuation_error(error)
+              native_json_result(status, {
+                "error": message,
+                "task_id": task_id,
+              })
+            }
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Post &&
+          native_continuation_task_id(path, true) is Some(task_id) {
+          let result = try {
+            let bytes = read_body(body_reader, request)
+            let (normalized, key) = normalized_command_body(
+              bytes, request, true,
+            )
+            let body = @json.parse(@encoding/utf8.decode(normalized))
+            native_import_continuation(
+              bridge,
+              native_moonclaw_uri,
+              task_id,
+              body,
+              key.unwrap(),
+            )
+          } catch {
+            error => {
+              let (status, message) = native_continuation_error(error)
+              native_json_result(status, {
+                "error": message,
+                "task_id": task_id,
+              })
+            }
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Post &&
+          book_outcome_export_task_id(path) is Some(task_id) {
+          let result = try {
+            let bytes = read_body(body_reader, request, limit=2 * 1024 * 1024)
+            let payload = @json.parse(@encoding/utf8.decode(bytes)) catch {
+              _ => raise fail("Outcome export request must be valid JSON")
+            }
+            book_outcome_export_task(bridge, task_id, payload)
+          } catch {
+            error =>
+              native_json_result(422, {
+                "error": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Get &&
+          book_guidance_query_task_id(path) is Some(task_id) {
+          let result = book_guidance_query_task(bridge, task_id) catch {
+            error =>
+              native_json_result(422, {
+                "error": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Get &&
+          accepted_human_result_task_id(path) is Some(task_id) {
+          let result = accepted_human_result_task(bridge, task_id) catch {
+            error => {
+              let (status, message) = native_continuation_error(error)
+              native_json_result(status, {
+                "error": message,
+                "task_id": task_id,
+              })
+            }
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Get &&
+          book_lesson_handoff_task_id(path) is Some(task_id) {
+          let result = book_lesson_handoff_task(bridge, task_id) catch {
+            error =>
+              native_json_result(422, {
+                "error": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Get &&
+          desk_handoff_task_id(path) is Some(task_id) {
+          let result = desk_handoff_task(
+            bridge,
+            task_id,
+            moondesk_origin,
+            requested_mode=query_value(request.path, "mode").unwrap_or(
+              "inspect",
+            ),
+          ) catch {
+            error =>
+              native_json_result(503, {
+                "schema": "moonproj.desk-handoff.v1",
+                "state": "upstream_unavailable",
+                "message": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Post &&
+          native_dispatch_id(path) is Some(task_id) {
+          let result = try {
+            let bytes = read_body(body_reader, request)
+            let body = @json.parse(@encoding/utf8.decode(bytes)) catch {
+              _ => raise fail("invalid dispatch JSON")
+            }
+            native_dispatch_task(
+              bridge, product_resources, native_moonclaw_uri, task_id, body,
+            )
+          } catch {
+            error =>
+              native_json_result(503, {
+                "error": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Get && native_detail_id(path) is Some(task_id) {
+          let result = native_refresh_task(bridge, native_moonclaw_uri, task_id) catch {
+            error =>
+              native_json_result(503, {
+                "error": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
         let engineering_audit_prefix = "/api/moonsuite/engineering/audits/"
         if path.has_prefix(engineering_audit_prefix) &&
           request.meth is @http.Get {
@@ -1646,8 +1820,17 @@ async fn handle(
           let project = query_value(request.path, "project").unwrap_or("")
           let task_id = query_value(request.path, "task_id").unwrap_or("")
           let result = poll_moonsuite_audit(
-            moonclaw_uri, moonsuite_workspace_root, service_uri, service_token, actor_signing_secret,
-            request, actor, audit_id, project, task_id,
+            audit_product_catalog(product_resources),
+            moonclaw_uri,
+            moonsuite_workspace_root,
+            service_uri,
+            service_token,
+            actor_signing_secret,
+            request,
+            actor,
+            audit_id,
+            project,
+            task_id,
           ) catch {
             error => {
               let status = match error {
@@ -1693,7 +1876,13 @@ async fn handle(
           let audit_sequence = sequence.val
           sequence.val += 1
           let result = submit_moonsuite_audit(
-            moonclaw_uri, moonsuite_workspace_root, project, branch, version, tag,
+            audit_product_catalog(product_resources),
+            moonclaw_uri,
+            moonsuite_workspace_root,
+            project,
+            branch,
+            version,
+            tag,
             audit_sequence,
           ) catch {
             error => {
@@ -1956,9 +2145,20 @@ async fn main {
     Some(value) => Some(value)
     None => @env.get_env_var("COMPANY_GATEWAY_PUBLIC_DIR")
   }
-  let moonclaw_uri = option(args, "--moonclaw-uri").unwrap_or(
-    @env.get_env_var("MOONCLAW_DAEMON_URI").unwrap_or("http://localhost:18123"),
+  // Preserve the existing audit default, while native dispatch discovers the
+  // configured daemon port unless the operator supplied an explicit override.
+  let native_moonclaw_uri = option(args, "--moonclaw-uri").unwrap_or(
+    @env.get_env_var("MOONCLAW_DAEMON_URI").unwrap_or(""),
   )
+  let moondesk_origin = desk_handoff_config(
+    option(args, "--moondesk-origin"),
+    @env.get_env_var("MOONDESK_ORIGIN"),
+  )
+  let moonclaw_uri = if native_moonclaw_uri.is_empty() {
+    "http://localhost:18123"
+  } else {
+    native_moonclaw_uri
+  }
   let moonsuite_workspace_root = option(args, "--moonsuite-workspace-root").unwrap_or(
     @env.get_env_var("MOONSUITE_WORKSPACE_ROOT").unwrap_or(
       @fs.realpath("..") catch {
@@ -1966,6 +2166,19 @@ async fn main {
       },
     ),
   )
+  let product_resources : ProductResources = {
+    catalog_path: option(args, "--product-catalog").unwrap_or(
+      @env.get_env_var("MOONPROJ_PRODUCT_CATALOG").unwrap_or(
+        "config/moonsuite-engineering.json",
+      ),
+    ),
+    document_root: option(args, "--product-document-root").unwrap_or(
+      @env.get_env_var("MOONPROJ_PRODUCT_DOCUMENT_ROOT").unwrap_or(
+        "resources/product-documents",
+      ),
+    ),
+    workspace_root: moonsuite_workspace_root,
+  }
   let desktop_actor = match @env.get_env_var("MOONPROJ_DESKTOP_ACTOR") {
     Some(value) if !value.is_empty() => {
       if !valid_identifier(value) {
@@ -2003,9 +2216,10 @@ async fn main {
   server.run_forever(
     (request, body, conn) => {
       handle(
-        request, body, conn, service_uri, moonclaw_uri, moonsuite_workspace_root,
-        service_token, actor_signing_secret, session_secret, dev_user, dev_password,
-        actor_id, trusted_identity_secret, desktop_actor, public_dir, sessions, sequence,
+        request, body, conn, service_uri, moonclaw_uri, native_moonclaw_uri, moondesk_origin,
+        moonsuite_workspace_root, product_resources, service_token, actor_signing_secret,
+        session_secret, dev_user, dev_password, actor_id, trusted_identity_secret,
+        desktop_actor, public_dir, sessions, sequence,
       )
     },
     allow_failure=true,
