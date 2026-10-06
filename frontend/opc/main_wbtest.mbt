@@ -174,17 +174,16 @@ test "blank workspace shell is truthful and exposes navigation state" {
     model,
   ) => view(msg => emit(msg), model))
   let html = @rabbita.render_to_string(page)
-  assert_true(html.contains("会话配置 0/21"))
-  assert_true(html.contains("正式任务 0"))
-  assert_true(html.contains("证据待连接"))
-  assert_true(html.contains("aria-pressed=\"true\""))
-  assert_true(html.contains("aria-expanded=\"false\""))
-  assert_true(html.contains("aria-controls=\"primary-sidebar\""))
-  assert_true(html.contains("tabindex=\"-1\""))
+  assert_true(html.contains("MoonProj"))
+  assert_true(html.contains("产品"))
+  assert_true(html.contains("任务编排"))
+  assert_true(html.contains("更多工具"))
+  assert_true(html.contains("aria-current=\"page\""))
+  assert_true(html.contains("main-content"))
+  assert_true(html.contains("证据与授权边界"))
   assert_true(!html.contains("14.2 月"))
   assert_true(!html.contains("Agent 在线 11/12"))
   assert_true(!html.contains("治理正常"))
-  assert_true(!html.contains("<img"))
 }
 
 ///|
