@@ -26,6 +26,7 @@ extern "js" fn dispatch_lesson_connect_book_on(
   #|   try {
   #|     url=new URL(origin);if(!['https:','http:'].includes(url.protocol)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error();
   #|     nonce=browser.crypto.randomUUID();if(typeof nonce!=='string'||!nonce)throw Error();selectedLesson=JSON.parse(selected);
+  #|     url.pathname='/apps/moonbook/';
   #|     url.search=new URLSearchParams({proj_lesson_source:browser.location.origin,proj_lesson_nonce:nonce}).toString();url.hash='task-lesson-handoff';
   #|     child=browser.open(url.href,'_blank');if(!child)throw Error();
   #|   } catch(_){sourceDone('{}');if(receiptMode)closed('unavailable');return;}

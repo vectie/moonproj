@@ -27,6 +27,7 @@ extern "js" fn dispatch_guidance_connect_book_on(
   #|     url=new URL(origin);if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error();
   #|     nonce=browser.crypto.randomUUID();if(typeof nonce!=='string'||!nonce)throw Error();
   #|     const source=new URL(browser.location.origin);if(!['http:','https:'].includes(source.protocol)||source.origin!==browser.location.origin)throw Error();
+  #|     url.pathname='/apps/moonbook/';
   #|     url.search=new URLSearchParams({proj_guidance_source:source.origin,proj_guidance_nonce:nonce}).toString();url.hash='task-guidance-query';
   #|     child=browser.open(url.href,'_blank');if(!child)throw Error();
   #|     browser.addEventListener('message',receive);timer=browser.setTimeout(()=>finish(child.closed?'closed':'timeout'),120000);

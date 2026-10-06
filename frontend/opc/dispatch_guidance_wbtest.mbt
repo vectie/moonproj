@@ -426,6 +426,7 @@ test "guidance browser isolates kinds origin source nonce and ACK waits for curr
   )
   let initial = @json.parse(lesson_sender_test_state(browser))
   let url = dispatch_json_text(initial, "url")
+  assert_true(url.starts_with("https://book.example/apps/moonbook/?"))
   assert_true(url.contains("proj_guidance_source="))
   assert_true(url.contains("proj_guidance_nonce="))
   assert_true(url.contains("#task-guidance-query"))
@@ -501,6 +502,25 @@ test "guidance browser isolates kinds origin source nonce and ACK waits for curr
     guidance_test_selection().stringify(),
   )
   assert_eq(ended, ["received"])
+  for
+    invalid in [
+      "https://book.example/apps/moonbook/", "https://book.example/?query=1", "https://user:secret@book.example",
+    ] {
+    let rejected = lesson_sender_test_browser()
+    let reasons : Array[String] = []
+    let _ = dispatch_guidance_connect_book_on(
+      rejected,
+      invalid,
+      "private query",
+      (_, _) => (),
+      reason => reasons.push(reason),
+    )
+    assert_eq(
+      dispatch_json_text(@json.parse(lesson_sender_test_state(rejected)), "url"),
+      "",
+    )
+    assert_eq(reasons, ["unavailable"])
+  }
 }
 
 ///|

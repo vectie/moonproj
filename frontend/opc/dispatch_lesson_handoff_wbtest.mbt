@@ -217,6 +217,11 @@ test "direct lesson sender uses explicit origin no URL payload and exact browser
   assert_eq(dispatch_continuation_array(before, "calls").length(), 0)
   assert_false(dispatch_json_text(before, "url").contains("private"))
   assert_false(dispatch_json_text(before, "url").contains("report"))
+  assert_true(
+    dispatch_json_text(before, "url").starts_with(
+      "https://book.example/apps/moonbook/?",
+    ),
+  )
   assert_true(dispatch_json_text(before, "url").contains("proj_lesson_source="))
   lesson_sender_test_event(
     browser, "https://book.example", true, "test-nonce", "moonbook.lesson-ready.v1",
