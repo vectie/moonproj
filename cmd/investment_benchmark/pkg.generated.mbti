@@ -21,4 +21,3 @@ pub(all) suberror InvestmentBenchmarkError {
 // Type aliases
 
 // Traits
-

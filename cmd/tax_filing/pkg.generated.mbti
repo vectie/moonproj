@@ -23,4 +23,3 @@ pub(all) suberror TaxFilingPromotionError {
 // Type aliases
 
 // Traits
-

@@ -26,16 +26,23 @@ struct TodayState {
   work_state : String
   work_request : Int
   observed_at : String
+  scope : String
+  project_reads : Array[TodayProjectRead]
+  filters : TodayFilters
 } derive(Debug, Eq)
 
 ///|
 enum TodayMsg {
   Refresh
+  ChooseAll
+  RetryFailed
+  RetryProject(String)
   ChooseProject(String)
   RefreshTasks
   ProjectListRead(String, Int, Int, Int, String)
   TasksRead(String, Int, String, Int, Int, String, String)
   OpenTask(String)
+  Filter(String, Int, Int, String, String)
 } derive(Debug, Eq)
 
 ///|
@@ -52,6 +59,9 @@ fn today_initial() -> TodayState {
     work_state: "idle",
     work_request: 0,
     observed_at: "",
+    scope: "project",
+    project_reads: [],
+    filters: today_filters_initial(),
   }
 }
 

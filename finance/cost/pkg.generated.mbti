@@ -60,4 +60,3 @@ pub fn DynamicCost::append_projection(Self, @store.AggregateProjection) -> @stor
 // Type aliases
 
 // Traits
-

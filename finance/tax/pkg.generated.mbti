@@ -102,4 +102,3 @@ pub(all) enum TaxObligationState {
 // Type aliases
 
 // Traits
-

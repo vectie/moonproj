@@ -107,10 +107,45 @@ fn policy_json_array(value : Json, key : String) -> Array[Json] {
 }
 
 ///|
+fn policy_json_has_string(value : Json, key : String) -> Bool {
+  match value {
+    Object(fields) => fields.get(key) is Some(String(_))
+    _ => false
+  }
+}
+
+///|
+fn policy_json_has_bool(value : Json, key : String) -> Bool {
+  match value {
+    Object(fields) =>
+      match fields.get(key) {
+        Some(True) | Some(False) => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn policy_source_from_json(value : Json) -> PolicySourceView? {
+  for
+    key in [
+      "source_id", "name", "publisher", "format", "cadence", "url", "verification_state",
+      "reviewed_by", "reviewed_at", "audit_id",
+    ] {
+    if !policy_json_has_string(value, key) {
+      return None
+    }
+  }
+  if !policy_json_has_bool(value, "active") {
+    return None
+  }
   let source_id = policy_json_text(value, "source_id", "")
   let name = policy_json_text(value, "name", "")
-  if source_id.is_empty() || name.is_empty() {
+  let verification_state = policy_json_text(value, "verification_state", "")
+  if source_id.is_empty() ||
+    name.is_empty() ||
+    !["pending", "verified", "rejected"].contains(verification_state) {
     return None
   }
   Some({
@@ -120,7 +155,7 @@ fn policy_source_from_json(value : Json) -> PolicySourceView? {
     format: policy_json_text(value, "format", ""),
     cadence: policy_json_text(value, "cadence", ""),
     url: policy_json_text(value, "url", ""),
-    verification_state: policy_json_text(value, "verification_state", "pending"),
+    verification_state,
     reviewed_by: policy_json_text(value, "reviewed_by", ""),
     reviewed_at: policy_json_text(value, "reviewed_at", ""),
     audit_id: policy_json_text(value, "audit_id", ""),
@@ -130,9 +165,23 @@ fn policy_source_from_json(value : Json) -> PolicySourceView? {
 
 ///|
 fn policy_change_from_json(value : Json) -> PolicyChangeView? {
+  for
+    key in [
+      "change_id", "source_id", "impact", "title", "evidence", "location", "review_state",
+      "reviewed_by", "reviewed_at", "audit_id", "notification_state",
+    ] {
+    if !policy_json_has_string(value, key) {
+      return None
+    }
+  }
   let change_id = policy_json_text(value, "change_id", "")
   let source_id = policy_json_text(value, "source_id", "")
-  if change_id.is_empty() || source_id.is_empty() {
+  let review_state = policy_json_text(value, "review_state", "")
+  let notification_state = policy_json_text(value, "notification_state", "")
+  if change_id.is_empty() ||
+    source_id.is_empty() ||
+    !["pending", "confirmed", "rejected"].contains(review_state) ||
+    !["none", "draft"].contains(notification_state) {
     return None
   }
   Some({
@@ -142,63 +191,140 @@ fn policy_change_from_json(value : Json) -> PolicyChangeView? {
     title: policy_json_text(value, "title", "未命名变化"),
     evidence: policy_json_text(value, "evidence", ""),
     location: policy_json_text(value, "location", ""),
-    review_state: policy_json_text(value, "review_state", "pending"),
+    review_state,
     reviewed_by: policy_json_text(value, "reviewed_by", ""),
     reviewed_at: policy_json_text(value, "reviewed_at", ""),
     audit_id: policy_json_text(value, "audit_id", ""),
-    notification_state: policy_json_text(value, "notification_state", "none"),
+    notification_state,
   })
 }
 
 ///|
 fn policy_opportunity_from_json(value : Json) -> PolicyOpportunityView? {
+  for
+    key in [
+      "opportunity_id", "lane", "title", "why_now", "next_validation", "gate", "source_change_id",
+    ] {
+    if !policy_json_has_string(value, key) {
+      return None
+    }
+  }
   let opportunity_id = policy_json_text(value, "opportunity_id", "")
-  if opportunity_id.is_empty() {
+  let source_change_id = policy_json_text(value, "source_change_id", "")
+  let lane = policy_json_text(value, "lane", "")
+  if opportunity_id.is_empty() ||
+    source_change_id.is_empty() ||
+    !["B2B", "B2G", "B2B+B2G"].contains(lane) {
     return None
   }
   Some({
     opportunity_id,
-    lane: policy_json_text(value, "lane", "B2B+B2G"),
+    lane,
     title: policy_json_text(value, "title", "未命名假设"),
     why_now: policy_json_text(value, "why_now", ""),
     next_validation: policy_json_text(value, "next_validation", ""),
     gate: policy_json_text(value, "gate", "验证未知"),
-    source_change_id: policy_json_text(value, "source_change_id", ""),
+    source_change_id,
   })
 }
 
 ///|
+fn policy_review_audit_from_json(value : Json) -> String? {
+  for key in ["audit_id", "target_id", "decision", "reviewed_by", "reviewed_at"] {
+    if !policy_json_has_string(value, key) {
+      return None
+    }
+  }
+  let audit_id = policy_json_text(value, "audit_id", "")
+  if audit_id.is_empty() {
+    None
+  } else {
+    Some(audit_id)
+  }
+}
+
+///|
 fn policy_projection_from_json(value : Json) -> PolicyRadarProjection? {
+  for key in ["schema", "freshness", "capture_state", "boundary"] {
+    if !policy_json_has_string(value, key) {
+      return None
+    }
+  }
+  let freshness = policy_json_text(value, "freshness", "")
+  let capture_state = policy_json_text(value, "capture_state", "")
+  let boundary = policy_json_text(value, "boundary", "")
   if policy_json_text(value, "schema", "") !=
-    "moonproj.policy-radar-projection.v1" {
+    "moonproj.policy-radar-projection.v1" ||
+    !["fresh", "stale", "missing"].contains(freshness) ||
+    !["automatic", "manual_refresh", "disabled"].contains(capture_state) ||
+    boundary.is_empty() {
     return None
   }
-  let sources = policy_json_array(value, "sources").filter_map(
-    policy_source_from_json,
-  )
-  let changes = policy_json_array(value, "changes").filter_map(
-    policy_change_from_json,
-  )
-  let opportunities = policy_json_array(value, "opportunities").filter_map(
+  let source_values = policy_json_array(value, "sources")
+  let change_values = policy_json_array(value, "changes")
+  let opportunity_values = policy_json_array(value, "opportunities")
+  let receipt_values = policy_json_array(value, "review_receipts")
+  match value {
+    Object(fields) =>
+      for key in ["sources", "changes", "opportunities", "review_receipts"] {
+        if !(fields.get(key) is Some(Array(_))) {
+          return None
+        }
+      }
+    _ => return None
+  }
+  let sources = source_values.filter_map(policy_source_from_json)
+  let changes = change_values.filter_map(policy_change_from_json)
+  let opportunities = opportunity_values.filter_map(
     policy_opportunity_from_json,
   )
-  let review_audit_ids = policy_json_array(value, "review_receipts").filter_map(receipt => {
-      let audit_id = policy_json_text(receipt, "audit_id", "")
-      if audit_id.is_empty() {
-        None
-      } else {
-        Some(audit_id)
-      }
-    },
+  let review_audit_ids = receipt_values.filter_map(
+    policy_review_audit_from_json,
   )
+  if sources.length() != source_values.length() ||
+    changes.length() != change_values.length() ||
+    opportunities.length() != opportunity_values.length() ||
+    review_audit_ids.length() != receipt_values.length() {
+    return None
+  }
+  let source_ids : Array[String] = []
+  for source in sources {
+    if source_ids.contains(source.source_id) {
+      return None
+    }
+    source_ids.push(source.source_id)
+  }
+  let change_ids : Array[String] = []
+  for change in changes {
+    if change_ids.contains(change.change_id) ||
+      !source_ids.contains(change.source_id) {
+      return None
+    }
+    change_ids.push(change.change_id)
+  }
+  let opportunity_ids : Array[String] = []
+  for opportunity in opportunities {
+    if opportunity_ids.contains(opportunity.opportunity_id) ||
+      !change_ids.contains(opportunity.source_change_id) {
+      return None
+    }
+    opportunity_ids.push(opportunity.opportunity_id)
+  }
+  let seen_audits : Array[String] = []
+  for audit_id in review_audit_ids {
+    if seen_audits.contains(audit_id) {
+      return None
+    }
+    seen_audits.push(audit_id)
+  }
   Some({
-    freshness: policy_json_text(value, "freshness", "missing"),
-    capture_state: policy_json_text(value, "capture_state", "unknown"),
+    freshness,
+    capture_state,
     sources,
     changes,
     opportunities,
     review_audit_ids,
-    boundary: policy_json_text(value, "boundary", ""),
+    boundary,
   })
 }
 
@@ -235,22 +361,20 @@ fn policy_source_verified(
 }
 
 ///|
-fn policy_change_confirmed(
-  projection : PolicyRadarProjection,
-  change_id : String,
-) -> Bool {
-  projection.changes.any(change => {
-    change.change_id == change_id && change.review_state == "confirmed"
-  })
-}
-
-///|
 fn policy_opportunity_actionable(
   projection : PolicyRadarProjection?,
   opportunity : PolicyOpportunityView,
 ) -> Bool {
   match projection {
-    Some(value) => policy_change_confirmed(value, opportunity.source_change_id)
+    Some(value) => {
+      for change in value.changes {
+        if change.change_id == opportunity.source_change_id &&
+          change.review_state == "confirmed" {
+          return policy_source_verified(value, change.source_id)
+        }
+      }
+      false
+    }
     None => false
   }
 }
@@ -809,9 +933,9 @@ fn policy_ready_view(
               ],
             ],
             tbody <| projection.opportunities.map(opportunity => {
-              let ready = policy_change_confirmed(
-                projection,
-                opportunity.source_change_id,
+              let ready = policy_opportunity_actionable(
+                Some(projection),
+                opportunity,
               )
               tr <| [
                 td <| [

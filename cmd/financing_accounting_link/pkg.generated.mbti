@@ -23,4 +23,3 @@ pub(all) suberror FinancingAccountingLinkError {
 // Type aliases
 
 // Traits
-

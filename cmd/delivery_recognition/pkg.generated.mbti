@@ -25,4 +25,3 @@ pub(all) suberror RecognitionPromotionError {
 // Type aliases
 
 // Traits
-

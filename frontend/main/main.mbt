@@ -1172,6 +1172,7 @@ struct ImportCsvData {
   rows_json : String
   row_count : String
   within_limit : Bool
+  error : String
 }
 
 ///|
@@ -12085,51 +12086,45 @@ fn import_input_id(biz_type : String) -> String {
 
 ///|
 fn parse_import_csv(text : String) -> ImportCsvData {
-  let normalized = if text.has_prefix("\u{FEFF}") {
-    text[1:].to_owned()
-  } else {
-    text
+  let invalid : ImportCsvData = {
+    headers: [],
+    preview_rows: [],
+    rows_json: "[]",
+    row_count: "0",
+    within_limit: false,
+    error: "CSV 解析失败 · 请检查文件格式后重新选择",
   }
-  let lines = normalized.split("\n").to_array()
-  if lines.length() == 0 {
-    return {
-      headers: [],
-      preview_rows: [],
-      rows_json: "[]",
-      row_count: "0",
-      within_limit: false,
+  match try? @json.parse(parse_import_csv_json(text)) {
+    Ok(Json::Object(fields)) => {
+      let headers = json_array_field(fields, "headers").filter_map(value => {
+        match value {
+          Json::String(text) => Some(text)
+          _ => None
+        }
+      })
+      let preview_rows = json_array_field(fields, "preview_rows")
+        .filter_map(value => {
+          match value {
+            Json::Array(values) =>
+              Some(values.filter_map(value => {
+                match value {
+                  Json::String(text) => Some(text)
+                  _ => None
+                }
+              }))
+            _ => None
+          }
+        })
+      {
+        headers,
+        preview_rows,
+        rows_json: json_object_text(fields, "rows_json", "[]"),
+        row_count: json_object_text(fields, "row_count", "0"),
+        within_limit: fields.get("within_limit") is Some(Json::True),
+        error: json_object_text(fields, "error", invalid.error),
+      }
     }
-  }
-  let headers : Array[String] = []
-  for header in lines[0].split(",") {
-    headers.push(header.trim().to_owned())
-  }
-  let json_rows : Array[Json] = []
-  let preview_rows : Array[Array[String]] = []
-  for index in 1..<lines.length() {
-    let line = lines[index].trim()
-    if line.is_empty() {
-      continue
-    }
-    let values = line.split(",").to_array()
-    let fields : Map[String, Json] = {}
-    let preview : Array[String] = []
-    for column in 0..<headers.length() {
-      let value = values.get(column).unwrap_or("").trim().to_owned()
-      fields.set(headers[column], Json::string(value))
-      preview.push(value)
-    }
-    json_rows.push(Json::object(fields))
-    if preview_rows.length() < 5 {
-      preview_rows.push(preview)
-    }
-  }
-  {
-    headers,
-    preview_rows,
-    rows_json: Json::array(json_rows).stringify(),
-    row_count: json_rows.length().to_string(),
-    within_limit: json_rows.length() <= 500,
+    _ => invalid
   }
 }
 
@@ -22641,7 +22636,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       let parsed = parse_import_csv(text)
       let has_rows = parsed.headers.length() > 0 &&
         parsed.row_count != "0" &&
-        parsed.within_limit
+        parsed.within_limit &&
+        parsed.error.is_empty()
       (
         none,
         {
@@ -22661,7 +22657,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           } else {
             "idle"
           },
-          import_note: if has_rows {
+          import_note: if !parsed.error.is_empty() {
+            parsed.error
+          } else if has_rows {
             "已解析 " + parsed.row_count + " 行 · 请先试运行校验"
           } else if parsed.row_count != "0" && !parsed.within_limit {
             "CSV 超过 500 行上限 · 请拆分批次"

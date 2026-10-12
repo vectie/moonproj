@@ -47,7 +47,7 @@ struct FlowRequest {
   input_artifacts : Array[String]
   timeout_ms : Int
   created_at : String
-} derive(Debug, Eq)
+} derive(Debug, Eq, ToJson)
 
 ///|
 fn json_object(value : Json, label : String) -> Map[String, Json] raise {

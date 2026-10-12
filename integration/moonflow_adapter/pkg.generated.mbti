@@ -12,24 +12,46 @@ pub async fn bind_company_task(String, String) -> Json
 
 pub fn capability_json(healthy? : Bool) -> Json
 
+pub async fn company_task_binding_proposal(String, String) -> Json
+
 pub async fn company_task_report_status(String, String, String) -> Json
 
 pub async fn execute(String, String, String) -> Json
 
+pub async fn execute_approved_company_task(String, String, String, service_uri~ : String, service_token~ : String, actor_id~ : String, actor_signature~ : String) -> Json
+
+pub async fn list_workbench(String, String, String) -> Json
+
 pub async fn prepare_company_task_report(String, String, String, String, String, String, Array[String], progress_pct? : Int) -> Json
+
+pub async fn prepare_workbench(String, String, Json, Json) -> Json
 
 pub fn protocol() -> String
 
 pub async fn publish_health(String, String, String, String) -> Json
 
+pub async fn read_workbench(String, String, String, String) -> Json
+
 pub async fn reconcile(String, String, String) -> Json
+
+pub async fn record_company_task_approval(String, String, Json) -> Json
 
 pub async fn record_company_task_report_receipt(String, String, String, String) -> Json
 
+pub async fn record_company_task_report_response(String, String, String, Json) -> Json
+
+pub async fn saved_company_task_approval(String, String) -> Json
+
+pub async fn saved_company_task_report(String, String, String) -> Json
+
 // Errors
+pub(all) suberror CompanyApprovalError {
+  ServiceRejected(Int)
+  ServiceUnavailable
+} derive(@debug.Debug)
 
 // Types and methods
-type FlowRequest derive(Eq, @debug.Debug)
+type FlowRequest derive(Eq, ToJson, @debug.Debug)
 
 // Type aliases
 

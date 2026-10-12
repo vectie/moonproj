@@ -107,4 +107,3 @@ pub(all) enum TaskState {
 // Type aliases
 
 // Traits
-

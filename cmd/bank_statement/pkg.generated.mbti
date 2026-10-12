@@ -23,4 +23,3 @@ pub(all) suberror BankStatementPromotionError {
 // Type aliases
 
 // Traits
-

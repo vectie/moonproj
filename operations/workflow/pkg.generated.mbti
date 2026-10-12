@@ -150,4 +150,3 @@ pub(all) enum WorkflowSlaState {
 // Type aliases
 
 // Traits
-

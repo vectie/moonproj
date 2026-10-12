@@ -33,7 +33,17 @@ fn today_reconcile(
   model : Model,
 ) -> (Cmd, Model) {
   if model.today.actor == model.dispatch_task_actor_id {
-    return (command, model)
+    return (
+      command,
+      if model.page != Overview {
+        {
+          ..model,
+          today: { ..model.today, filters: today_filters_initial(), },
+        }
+      } else {
+        model
+      },
+    )
   }
   let next = {
     ..model,
@@ -64,6 +74,22 @@ fn today_update(
 ) -> (Cmd, Model) {
   let state = model.today
   match action {
+    Filter(actor, epoch, request, field, value) => {
+      if model.page != Overview ||
+        state.scope != "all" ||
+        actor.is_empty() ||
+        actor != state.actor ||
+        actor != model.dispatch_task_actor_id ||
+        epoch != state.epoch ||
+        request != state.work_request {
+        return (none, model)
+      }
+      let filters = today_filters_change(state, field, value)
+      (none, { ..model, today: { ..state, filters, }, })
+    }
+    ChooseAll => today_portfolio_start(emit, model, false)
+    RetryFailed => today_portfolio_start(emit, model, true)
+    RetryProject(id) => today_portfolio_retry(emit, model, id)
     Refresh => {
       if state.actor.is_empty() || state.actor != model.dispatch_task_actor_id {
         return (
@@ -78,6 +104,7 @@ fn today_update(
               project_id: "",
               work_state: "idle",
               observed_at: "",
+              project_reads: [],
               project_request: state.project_request + 1,
               work_request: state.work_request + 1,
             },
@@ -94,6 +121,7 @@ fn today_update(
         tasks: [],
         work_state: "idle",
         observed_at: "",
+        project_reads: [],
       }
       (
         company_setup_get("/api/company/projects", (status, body) => {
@@ -140,6 +168,7 @@ fn today_update(
                 tasks: [],
                 project_id: "",
                 observed_at: "",
+                project_reads: [],
                 work_state: "idle",
                 project_state: if read_state == "ready" {
                   "invalid"
@@ -168,7 +197,9 @@ fn today_update(
             },
           }
           let loaded = { ..model, today: next, }
-          if next.project_id.is_empty() {
+          if next.scope == "all" {
+            today_portfolio_start(emit, loaded, false)
+          } else if next.project_id.is_empty() {
             (none, loaded)
           } else {
             today_update(emit, RefreshTasks, loaded)
@@ -183,10 +214,20 @@ fn today_update(
       }
       today_update(emit, RefreshTasks, {
         ..model,
-        today: { ..state, project_id: id, observed_at: "", },
+        today: {
+          ..state,
+          scope: "project",
+          filters: today_filters_initial(),
+          project_reads: [],
+          project_id: id,
+          observed_at: "",
+        },
       })
     }
     RefreshTasks => {
+      if state.scope == "all" {
+        return today_portfolio_start(emit, model, false)
+      }
       if state.actor.is_empty() ||
         state.actor != model.dispatch_task_actor_id ||
         state.project_state != "ready" ||
@@ -202,6 +243,11 @@ fn today_update(
       (today_load_tasks(emit, next), { ..model, today: next, })
     }
     TasksRead(actor, epoch, project, request, status, body, observed_at) => {
+      if state.scope == "all" {
+        return today_portfolio_read(
+          emit, model, actor, epoch, project, request, status, body, observed_at,
+        )
+      }
       if actor != state.actor ||
         actor != model.dispatch_task_actor_id ||
         epoch != state.epoch ||
@@ -254,6 +300,15 @@ fn today_update(
       }
     }
     OpenTask(id) => {
+      if state.scope == "all" {
+        if state.actor != model.dispatch_task_actor_id ||
+          !["ready", "empty"].contains(state.project_state) ||
+          today_portfolio_tasks(state).filter(task => task.id == id).length() !=
+          1 {
+          return (none, model)
+        }
+        return open_dispatch_task(emit, { ..model, dispatch_task_open_id: id, })
+      }
       if state.work_state != "ready" ||
         state.actor != model.dispatch_task_actor_id ||
         !state.tasks.any(task => {

@@ -291,7 +291,8 @@ fn agent_card(
 ///|
 fn fleet_view(_emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
   section(class="page") <| [
-    page_intro(Fleet, status_badge("12 个在编", tone="accent")),
+    page_intro(Fleet, status_badge("只读演练", tone="warning")),
+    sample_data_boundary(),
     section_title(
       "自治分级制度", "授权不是信任问题，是预算与证据问题；升级必须经过独立审计。",
       "L4 暂停开放",
@@ -333,6 +334,7 @@ fn fleet_view(_emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
         18, "运行中",
       ),
     ],
+    @execution_cockpit.view(),
   ]
 }
 
@@ -384,7 +386,7 @@ fn dispatch_task_stage_label(stage : String) -> String {
     "pending" => "待启动"
     "in_progress" => "执行中"
     "submitted" => "待验收"
-    "accepted" => "已接受"
+    "accepted" => "内部任务已接受"
     "loading" => "读取中"
     "blocked" => "任务阻塞"
     _ => "尚未创建"
@@ -454,6 +456,8 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
     ),
     p(class="boundary-note", source.dispatch_draft_storage),
     dispatch_source_context_form(emit, source, frozen),
+    research_draft_context(emit, source),
+    work_packet_view(emit, source),
     dispatch_offer_local_view(emit, source, frozen),
     div(class="form-grid") <| [
       dispatch_task_input(
@@ -552,6 +556,7 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
     ],
     div(class="form-actions") <| [
       dispatch_draft_create_button(emit, source),
+      secondary_button(emit, ExportFounderPacket, "下载工作包 Markdown"),
       secondary_button(emit, DraftAction(Park), "暂存并关闭草稿"),
       secondary_button(emit, DraftAction(New), "另建草稿"),
       if !model.products.prepared_product_id.is_empty() {
@@ -669,14 +674,17 @@ fn dispatch_durable_task_card(
         tone=dispatch_task_stage_tone(model.dispatch_task_stage),
       ),
     ],
-    p("验收标准 · " + model.dispatch_task_acceptance),
-    dispatch_source_context_view(model.dispatch_task_source_context),
+    dispatch_journey_view(model),
+    div(id="dispatch-source-context") <| [
+      p("验收标准 · " + model.dispatch_task_acceptance),
+      dispatch_source_context_view(model.dispatch_task_source_context),
+    ],
     dispatch_offer_view(emit, model),
     p(
       "产品 · " +
       dispatch_product_label(model, model.dispatch_task_product_id),
     ),
-    details(class="journey-details") <| [
+    details(class="journey-details", id="dispatch-task-receipts") <| [
       summary("任务身份与收据"),
       p("任务 · " + model.dispatch_task_id),
       p("公司项目 · " + model.dispatch_task_project_id),
@@ -705,7 +713,7 @@ fn dispatch_durable_task_card(
       dispatch_task_receipts(model),
       dispatch_commitment_receipts_view(model.dispatch_task_commitment),
     ],
-    section(class="journey-section") <| [
+    section(class="journey-section", id="dispatch-execution") <| [
       h3("执行与结果"),
       dispatch_execution_settings(emit, model),
       dispatch_guidance_view(emit, model),
@@ -752,6 +760,7 @@ fn dispatch_durable_task_card(
       ),
       dispatch_task_action(emit, model),
     ],
+    secondary_button(emit, ExportFounderPacket, "下载工作包 Markdown"),
     dispatch_learning_next(emit, model),
   ]
 }
@@ -774,6 +783,7 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       secondary_button(emit, Navigate(Products), "选择产品与目标"),
     ),
     dispatch_goal_flow(emit, model),
+    research_import_view(emit, model),
     if model.dispatch_task_form_open {
       dispatch_task_form(emit, model)
     } else {

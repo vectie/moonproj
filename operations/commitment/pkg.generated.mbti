@@ -84,4 +84,3 @@ pub(all) enum CommitmentState {
 // Type aliases
 
 // Traits
-

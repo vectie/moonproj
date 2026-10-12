@@ -24,6 +24,10 @@ async fn main {
   let args = @env.args()[1:].to_owned()
   let output = match args {
     [] | ["capability"] => @moonflow_adapter.capability_json()
+    [action, .. rest] if [
+        "gateway-snapshot", "gateway-approve", "gateway-execute", "gateway-return",
+        "gateway-status",
+      ].contains(action) => company_gateway(action, rest)
     ["execute", .. rest] =>
       @moonflow_adapter.execute(
         option(rest, "--workspace"),
@@ -73,7 +77,7 @@ async fn main {
       )
     _ =>
       fail(
-        "usage: moonflow_project_plan_adapter <capability|execute|reconcile|health|bind-company-task|prepare-company-report|company-report-status|record-company-report> [options]",
+        "usage: moonflow_project_plan_adapter <capability|execute|reconcile|health|bind-company-task|prepare-company-report|company-report-status|record-company-report|gateway-snapshot|gateway-approve|gateway-execute|gateway-return|gateway-status> [options]",
       )
   }
   println(output.stringify(indent=2))

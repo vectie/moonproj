@@ -107,10 +107,10 @@ fn today_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     section(class="product-section") <| [
       h2("今日工作"),
       p(
-        "1. 选择公司项目 → 2. 查看现有工作 → 3. 打开任务详情",
+        "1. 跨项目查看或选择一个项目 → 2. 查看现有工作 → 3. 打开任务详情",
       ),
       p(
-        "仅覆盖所选公司项目；先处理阻塞，再看到期工作。打开详情不会启动执行、提交报告或接受交付。",
+        "先处理阻塞，再看到期工作。打开详情不会启动执行、提交报告或接受交付。",
       ),
       secondary_button(emit, TodayAction(Refresh), "刷新公司项目"),
       p("公司项目 · " + products_state_label(state.project_state)),
@@ -118,6 +118,23 @@ fn today_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         @html.nothing
       } else {
         p(state.project_note)
+      },
+      if ["ready", "empty"].contains(state.project_state) {
+        button(
+          type_="button",
+          class=if state.scope == "all" {
+            "button button-primary"
+          } else {
+            "button button-secondary"
+          },
+          attrs=@html.Attrs::build()
+            .aria_pressed(if state.scope == "all" { "true" } else { "false" })
+            .disabled(state.scope == "all" && today_portfolio_busy(state)),
+          on_click=emit(TodayAction(ChooseAll)),
+          "跨项目查看",
+        )
+      } else {
+        @html.nothing
       },
       if state.project_state == "ready" {
         div(
@@ -145,81 +162,85 @@ fn today_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       } else {
         @html.nothing
       },
-      match selected {
-        None =>
-          p(
-            if state.project_state == "empty" {
-              "当前账号没有可选择的公司项目；尚未读取任何项目的任务。"
-            } else {
-              "请选择一个实际公司项目；未选择前不显示任务统计。"
-            },
-          )
-        Some(project) =>
-          div <| [
-            h3("当前范围 · " + project.name + " (" + project.id + ")"),
-            secondary_button(
-              emit,
-              TodayAction(RefreshTasks),
-              "刷新所选项目任务",
-            ),
-            p("任务读取 · " + products_state_label(state.work_state)),
+      if state.scope == "all" {
+        today_portfolio_view(emit, model)
+      } else {
+        match selected {
+          None =>
             p(
-              if state.observed_at.is_empty() {
-                "尚无成功的任务读取"
+              if state.project_state == "empty" {
+                "当前账号没有可选择的公司项目；尚未读取任何项目的任务。"
               } else {
-                "此项目上次成功读取 · " +
-                state.observed_at +
-                "（浏览器观察时间，UTC）"
+                "请选择一个实际公司项目；未选择前不显示任务统计。"
               },
-            ),
-            p(
-              "按成功读取当天的 UTC 日期判断到期，与任务表单一致。日期没有具体时刻；缺失或无法识别的日期保持未知。需要最新情况时请刷新。",
-            ),
-            if ready {
-              div <| [
-                div(class="kpi-grid") <| [
-                  compact_kpi(
-                    "本项目已读取",
-                    state.tasks.length().to_string(),
-                    "正式任务；不含浏览器草稿",
-                    "info",
-                  ),
-                  compact_kpi(
-                    "未结束工作",
-                    queue.length().to_string(),
-                    "按正式任务状态；陌生状态保留检查",
-                    "info",
-                  ),
-                  compact_kpi(
-                    "需要留意",
-                    attention.length().to_string(),
-                    "已观察到到期或阻塞",
-                    "warn",
-                  ),
-                  compact_kpi(
-                    "未分配负责人",
-                    queue
-                    .filter(task => task.owner_id.is_empty())
-                    .length()
-                    .to_string(),
-                    "仅未结束工作",
-                    "info",
-                  ),
-                ],
-                if state.work_state == "empty" {
-                  p("本次成功读取：此项目没有正式任务")
-                } else if queue.is_empty() {
-                  p("本次读取没有未结束工作")
-                } else {
-                  div <| queue.map(task => today_task_row(emit, task, day))
-                },
-              ]
-            } else {
+            )
+          Some(project) =>
+            div <| [
+              h3("当前范围 · " + project.name + " (" + project.id + ")"),
+              secondary_button(
+                emit,
+                TodayAction(RefreshTasks),
+                "刷新所选项目任务",
+              ),
+              p("任务读取 · " + products_state_label(state.work_state)),
               p(
-                "任务数量与队列当前未知；读取失败或进行中不代表没有任务。",
-              )
-            },
-          ]
+                if state.observed_at.is_empty() {
+                  "尚无成功的任务读取"
+                } else {
+                  "此项目上次成功读取 · " +
+                  state.observed_at +
+                  "（浏览器观察时间，UTC）"
+                },
+              ),
+              p(
+                "按成功读取当天的 UTC 日期判断到期，与任务表单一致。日期没有具体时刻；缺失或无法识别的日期保持未知。需要最新情况时请刷新。",
+              ),
+              if ready {
+                div <| [
+                  div(class="kpi-grid") <| [
+                    compact_kpi(
+                      "本项目已读取",
+                      state.tasks.length().to_string(),
+                      "正式任务；不含浏览器草稿",
+                      "info",
+                    ),
+                    compact_kpi(
+                      "未结束工作",
+                      queue.length().to_string(),
+                      "按正式任务状态；陌生状态保留检查",
+                      "info",
+                    ),
+                    compact_kpi(
+                      "需要留意",
+                      attention.length().to_string(),
+                      "已观察到到期或阻塞",
+                      "warn",
+                    ),
+                    compact_kpi(
+                      "未分配负责人",
+                      queue
+                      .filter(task => task.owner_id.is_empty())
+                      .length()
+                      .to_string(),
+                      "仅未结束工作",
+                      "info",
+                    ),
+                  ],
+                  if state.work_state == "empty" {
+                    p("本次成功读取：此项目没有正式任务")
+                  } else if queue.is_empty() {
+                    p("本次读取没有未结束工作")
+                  } else {
+                    div <| queue.map(task => today_task_row(emit, task, day))
+                  },
+                ]
+              } else {
+                p(
+                  "任务数量与队列当前未知；读取失败或进行中不代表没有任务。",
+                )
+              },
+            ]
+        }
       },
     ],
     today_drafts_view(emit, model),

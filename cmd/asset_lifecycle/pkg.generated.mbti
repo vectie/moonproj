@@ -23,4 +23,3 @@ pub(all) suberror AssetPromotionError {
 // Type aliases
 
 // Traits
-

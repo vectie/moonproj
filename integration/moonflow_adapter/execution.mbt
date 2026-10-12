@@ -49,7 +49,10 @@ fn intent_json(
   request_ref : String,
   result_ref : String,
   flow : FlowRequest,
-) -> Json {
+  request : @project_plan.ProjectPlanRequest,
+) -> Json raise {
+  let execution_request = agent_request(flow, request)
+  let execution_attempt = admitted_attempt(flow, request)
   {
     "contract_id": "moonproj.project-plan-attempt-intent.v1",
     "adapter_id": adapter_id(),
@@ -71,6 +74,20 @@ fn intent_json(
     "authority": "workspace-mutation",
     "claim_ceiling": "digital-artifact",
     "recorded_at": flow.created_at,
+    "execution_protocol": execution_request.protocol_version,
+    "execution_mode": "moonflow-single-agent",
+    "company_principal_id": execution_request.principal_id,
+    "company_scope": execution_request.scope,
+    "company_authority_ceiling_minor": execution_request.authority_ceiling_minor,
+    "runtime_permission_observed": true,
+    "company_authority_granted": false,
+    "prohibited_company_effects": execution_request.prohibited_effects,
+    "ledger_contracts": ["company", "execution", "evidence"],
+    "execution_attempt_revision": execution_attempt.revision,
+    "execution_attempt_number": execution_attempt.attempt_number,
+    "runtime_claim_owner": "moonflow:\{flow.run_id}",
+    "runtime_claim_lease_seconds": 300,
+    "recovery_mode": "durable-intent-reconcile",
   }
 }
 
@@ -80,6 +97,7 @@ async fn begin_attempt(
   request_ref : String,
   result_ref : String,
   flow : FlowRequest,
+  request : @project_plan.ProjectPlanRequest,
 ) -> Unit {
   ignore(
     immutable_json_ref(root, idempotency_ref(flow), {
@@ -97,7 +115,7 @@ async fn begin_attempt(
       "intent_ref": intent_ref(flow),
     }),
   )
-  let intent = intent_json(request_ref, result_ref, flow)
+  let intent = intent_json(request_ref, result_ref, flow, request)
   ignore(immutable_json_ref(root, intent_ref(flow), intent))
 }
 
@@ -159,6 +177,7 @@ async fn build_artifact(
 ///|
 fn result_json(flow : FlowRequest, output_text : String) -> Json {
   {
+    "protocol_version": @agent_port.protocol_version(),
     "result_id": "result-\{flow.attempt_id}-succeeded",
     "request_id": flow.request_id,
     "attempt_id": flow.attempt_id,
@@ -166,6 +185,7 @@ fn result_json(flow : FlowRequest, output_text : String) -> Json {
     "product_id": "moonproj",
     "external_job_id": "moonproj-project-plan-\{flow.attempt_id}",
     "status": "succeeded",
+    "execution_phase": "succeeded",
     "output_digest": sha256_text(output_text),
     "output_artifacts": [artifact_ref(flow)],
     "error_kind": "",
@@ -246,7 +266,8 @@ pub async fn execute(
 ) -> Json {
   let root = resolve_workspace(workspace)
   let (flow, request) = load_bound_inputs(root, request_ref)
-  begin_attempt(root, request_ref, result_ref, flow)
+  require_revised_company_binding(root, flow, request)
+  begin_attempt(root, request_ref, result_ref, flow, request)
   complete_attempt(root, result_ref, flow, request)
 }
 
@@ -258,13 +279,14 @@ pub async fn reconcile(
 ) -> Json {
   let root = resolve_workspace(workspace)
   let (flow, request) = load_bound_inputs(root, request_ref)
-  let expected_intent = intent_json(request_ref, result_ref, flow)
+  require_revised_company_binding(root, flow, request)
+  let expected_intent = intent_json(request_ref, result_ref, flow, request)
   guard read_optional_json_ref(root, intent_ref(flow)) is Some(actual_intent) else {
     fail("MoonProj cannot reconcile an attempt without durable intent")
   }
   if actual_intent != expected_intent {
     fail("MoonProj durable intent does not match the reconciliation request")
   }
-  begin_attempt(root, request_ref, result_ref, flow)
+  begin_attempt(root, request_ref, result_ref, flow, request)
   complete_attempt(root, result_ref, flow, request)
 }

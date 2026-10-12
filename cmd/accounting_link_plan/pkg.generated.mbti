@@ -19,4 +19,3 @@ pub(all) suberror AccountingLinkPlanError {
 // Type aliases
 
 // Traits
-

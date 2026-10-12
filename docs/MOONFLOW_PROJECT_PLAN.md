@@ -100,10 +100,12 @@ validity window may not exceed one hour.
 
 The existing Rabbita `/projects` route remains the only project-planning
 surface. `pack.json` points to that route rather than creating another app.
-This slice deliberately does not add fixture-backed “live” adapter state or a
-second HTTP service. A later read-model projection can render the durable
-artifact and named review receipt on `/projects` without copying project rules
-into frontend code.
+The Projects workbench now edits ordinary planning rows for a service-selected
+company project and calls the existing native preparation implementation through
+the authenticated company gateway. It saves/reopens exact immutable planning
+artifacts and exports readable and typed results. It adds no second HTTP service
+or fixture-backed live state. See [the workbench contract](PROJECT_PLAN_WORKBENCH.md).
+Named-human acceptance and subsequent business authorization remain separate.
 
 ## Non-goals
 

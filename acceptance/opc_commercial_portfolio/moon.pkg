@@ -1,0 +1,16 @@
+import {
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/payable",
+  "vectie/moonproj/finance/receivable",
+  "vectie/moonproj/finance/tax",
+  "vectie/moonproj/finance/treasury",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/integration/customer_channel",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/marketing",
+  "vectie/moonproj/operations/procurement",
+  "vectie/moonproj/operations/sales",
+  "vectie/moonproj/product",
+} for "test"
+
+supported_targets = "native"

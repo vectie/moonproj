@@ -56,4 +56,3 @@ pub fn OrganizationUnit::suspend(Self, actor_id~ : String, grant~ : @foundation.
 // Type aliases
 
 // Traits
-

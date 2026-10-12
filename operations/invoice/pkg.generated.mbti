@@ -60,4 +60,3 @@ pub(all) enum InvoiceState {
 // Type aliases
 
 // Traits
-

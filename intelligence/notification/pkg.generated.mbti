@@ -80,4 +80,3 @@ pub(all) enum NotificationState {
 // Type aliases
 
 // Traits
-

@@ -183,6 +183,7 @@ fn validate_budget(
   let budget = request.budget_envelope
   if budget.currency.length() != 3 ||
     budget.currency != budget.currency.to_upper() ||
+    !budget.currency.iter().all(c => c >= 'A' && c <= 'Z') ||
     budget.limit_minor < 0L ||
     budget.contingency_minor < 0L ||
     budget.contingency_minor > budget.limit_minor {
@@ -194,7 +195,11 @@ fn validate_budget(
   for task in request.tasks {
     if task.planned_cost_minor < 0L ||
       task.planned_cost_minor > budget.limit_minor - total {
-      raise invalid("planned task costs exceed the budget envelope")
+      raise invalid(
+        "task '" +
+        task.name +
+        "': planned cost is negative or exceeds the remaining budget envelope",
+      )
     }
     total += task.planned_cost_minor
   }
@@ -228,12 +233,22 @@ fn validate_tasks(
       task.source_evidence_refs.is_empty() ||
       !unique_non_blank(task.source_evidence_refs) {
       raise invalid(
-        "task ownership, milestone, dependency, gate or evidence binding is invalid",
+        "task '" +
+        task.name +
+        "' (" +
+        task.task_id +
+        "): check name, owner, milestone, duplicate dependencies, gate and evidence bindings",
       )
     }
     for dependency in task.dependencies {
       if !tasks.contains(dependency) {
-        raise invalid("task dependency does not name a declared task")
+        raise invalid(
+          "task '" +
+          task.name +
+          "': dependency '" +
+          dependency +
+          "' does not name a declared task",
+        )
       }
     }
     for gate in task.acceptance_gate_ids {
@@ -269,7 +284,9 @@ fn validate_milestones(
       milestone.acceptance_gate_ids.is_empty() ||
       !unique_non_blank(milestone.acceptance_gate_ids) {
       raise invalid(
-        "milestone identity, owner, date, task or gate binding is invalid",
+        "milestone '" +
+        milestone.name +
+        "': check name, owner, calendar date (YYYY-MM-DD), assigned tasks and gate bindings",
       )
     }
     for task_id in milestone.task_ids {
@@ -315,7 +332,9 @@ fn validate_gates(
       gate.required_evidence.is_empty() ||
       !unique_non_blank(gate.required_evidence) {
       raise invalid(
-        "acceptance gate ownership, criteria or evidence requirement is invalid",
+        "acceptance gate '" +
+        gate.name +
+        "': check owner, non-empty unique criteria and required evidence",
       )
     }
     match gate.scope_type {
@@ -356,7 +375,9 @@ fn validate_risks(
       risk.source_evidence_refs.is_empty() ||
       !unique_non_blank(risk.source_evidence_refs) {
       raise invalid(
-        "risk identity, owner, severity, mitigation or bindings are invalid",
+        "risk '" +
+        risk.summary +
+        "': check owner, severity, mitigation and task/evidence bindings",
       )
     }
     for task in risk.related_task_ids {

@@ -23,4 +23,3 @@ pub(all) suberror FinancingPromotionError {
 // Type aliases
 
 // Traits
-

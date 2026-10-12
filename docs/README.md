@@ -1,5 +1,9 @@
 # MoonProj documentation
 
+- [Visual dependency map](DEPENDENCY_MAP.md) — preview and export a self-contained SVG of planned tasks, precedence and selected-task impact.
+
+- [Portable task brief](PORTABLE_TASK_BRIEF.md) — export task text and source context, preview a JSON file, and reuse it as a fresh editable draft.
+
 - [Product contract](PRODUCT_CONTRACT.md) — current maturity, accounting
   authority and release gates.
 - [Product charter](PRODUCT_CHARTER.md) — institutional scope and non-goals.

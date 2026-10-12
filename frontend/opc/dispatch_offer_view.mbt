@@ -238,7 +238,7 @@ fn dispatch_offer_canonical_view(model : Model) -> @html.Html {
 ///|
 fn dispatch_offer_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let eligible = dispatch_offer_eligible(model)
-  section(class="journey-section") <| [
+  section(class="journey-section", id="dispatch-offer") <| [
     h3("报价方案草稿"),
     dispatch_offer_canonical_view(model),
     dispatch_reply_view(emit, model),

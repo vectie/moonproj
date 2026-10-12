@@ -78,4 +78,3 @@ pub(all) enum MilestoneTrigger {
 // Type aliases
 
 // Traits
-

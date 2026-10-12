@@ -1,0 +1,5 @@
+id,title,cost,dependencies
+DESIGN,Design release scope,120,
+DOCS,Write launch guide,80,DESIGN
+TEST,Verify release candidate,150,DESIGN
+SHIP,Publish reviewed release,50,DOCS;TEST

@@ -33,4 +33,3 @@ pub fn Connection::with_overrides(Self, psql~ : String?, host~ : String?, port~ 
 // Type aliases
 
 // Traits
-

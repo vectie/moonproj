@@ -110,4 +110,3 @@ pub(all) enum ProposalState {
 // Type aliases
 
 // Traits
-

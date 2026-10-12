@@ -1,0 +1,11 @@
+import {
+  "moonbit-community/rabbita/html",
+  "vectie/moonproj/intelligence/agent_port",
+  "vectie/moonproj/intelligence/attention",
+}
+
+import {
+  "moonbit-community/rabbita",
+} for "test"
+
+supported_targets = "js"

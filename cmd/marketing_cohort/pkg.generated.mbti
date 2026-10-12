@@ -23,4 +23,3 @@ pub(all) suberror MarketingCohortError {
 // Type aliases
 
 // Traits
-

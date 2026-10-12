@@ -225,13 +225,7 @@ fn products_update(
           products_text(audit, "freshness"),
         )
       } else {
-        let admission = product_in_gate_root(payload)
-        admission is Object(_) &&
-        products_text(admission, "product") == id &&
-        (
-          products_field(admission, "persisted") is True ||
-          products_field(admission, "persisted") is False
-        )
+        product_in_gate_response_valid(payload, id)
       }
       let result_state = if read_state == "ready" && !valid {
         "invalid"

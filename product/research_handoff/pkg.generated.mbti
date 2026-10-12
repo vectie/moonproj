@@ -1,0 +1,113 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/product/research_handoff"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn decode(String) -> Result[Brief, String]
+
+// Errors
+
+// Types and methods
+pub(all) struct Archive {
+  revision : Int
+  next_option : Int
+  evidence : Evidence
+  question : String
+  audience : String
+  commitment_ref : String
+  criteria : Array[String]
+  options : Array[OptionEntry]
+  chosen_option_id : String
+  reasoning : String
+  next_action : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct Brief {
+  contract_id : String
+  boundary : String
+  evidence_status : String
+  company_decision_recorded : Bool
+  worksheet : Worksheet
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Brief::chosen(Self) -> OptionEntry?
+pub fn Brief::markdown(Self) -> String
+pub fn Brief::preparation_blocker(Self) -> String
+
+pub(all) struct Claim {
+  claim_id : String
+  statement : String
+  paper_ids : Array[String]
+  evidence_location : String
+  confidence : String
+  counterevidence : String
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct Evidence {
+  run_id : String
+  question : String
+  papers : Array[Paper]
+  summaries : Array[Summary]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct OptionEntry {
+  id : String
+  name : String
+  assessments : Array[String]
+  source_id : String
+  claim_id : String
+  contradiction : String
+  unknowns : String
+  cost_of_error : String
+  experiment : String
+  retained_source : Paper?
+  retained_claim : Claim?
+  evidence_review_note : String?
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct Paper {
+  paper_id : String
+  versioned_id : String
+  title : String
+  abstract_text : String
+  abs_url : String
+  pdf_url : String
+  source_digest : String
+  published_at : String?
+  updated_at : String?
+  retrieved_at : Int64?
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct Summary {
+  paper_id : String
+  one_sentence : String
+  problem : String
+  method : String
+  evidence : String
+  limitations : Array[String]
+  claims : Array[Claim]
+  open_questions : Array[String]
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+pub(all) struct Worksheet {
+  contract_id : String
+  revision : Int
+  next_option : Int
+  evidence : Evidence
+  question : String
+  audience : String
+  commitment_ref : String
+  criteria : Array[String]
+  options : Array[OptionEntry]
+  chosen_option_id : String
+  reasoning : String
+  next_action : String
+  history : Array[Archive]?
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+
+// Type aliases
+
+// Traits

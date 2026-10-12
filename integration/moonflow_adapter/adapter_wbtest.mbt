@@ -186,14 +186,46 @@ async test "MoonProj reconciliation resumes safely from durable intent" {
   let (root, request_ref, result_ref, flow) = adapter_fixture(
     attempt_id="attempt-plan-restart",
   )
-  let (decoded, _) = load_bound_inputs(root, request_ref)
-  begin_attempt(root, request_ref, result_ref, decoded)
+  let (decoded, plan_request) = load_bound_inputs(root, request_ref)
+  begin_attempt(root, request_ref, result_ref, decoded, plan_request)
   assert_true(!@fs.exists(scoped_path(root, artifact_ref(flow))))
   let result = reconcile(root, request_ref, result_ref)
   let fields = json_object(result, "result")
   assert_eq(json_string_field(fields, "status"), "succeeded")
   assert_true(@fs.exists(scoped_path(root, artifact_ref(flow))))
   assert_true(@fs.exists(scoped_path(root, internal_result_ref(flow))))
+}
+
+///|
+async test "MoonFlow intent preserves both authorization planes and three ledgers" {
+  let (root, request_ref, result_ref, flow) = adapter_fixture(
+    attempt_id="attempt-protocol-boundary",
+  )
+  ignore(execute(root, request_ref, result_ref))
+  let intent = json_object(read_json_ref(root, intent_ref(flow)), "intent")
+  assert_eq(
+    json_string_field(intent, "execution_protocol"),
+    @agent_port.protocol_version(),
+  )
+  guard intent.get("runtime_permission_observed") is Some(True) &&
+    intent.get("company_authority_granted") is Some(False) else {
+    fail("runtime permission must never be promoted to company authority")
+  }
+  guard intent.get("ledger_contracts")
+    is Some(Array([String("company"), String("execution"), String("evidence")])) else {
+    fail("intent must bind company, execution, and evidence ledgers")
+  }
+  guard intent.get("prohibited_company_effects") is Some(Array(effects)) &&
+    effects.length() == @agent_port.reserved_company_effects().length() else {
+    fail("intent must retain the reserved company-effect prohibitions")
+  }
+  guard intent.get("execution_attempt_revision") is Some(Number(3, ..)) &&
+    intent.get("execution_attempt_number") is Some(Number(1, ..)) &&
+    intent.get("recovery_mode") is Some(String("durable-intent-reconcile")) else {
+    fail(
+      "intent must preserve the claimed/running CAS attempt and recovery mode",
+    )
+  }
 }
 
 ///|

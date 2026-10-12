@@ -162,6 +162,7 @@ fn open_dispatch_task(
       dispatch_task_source_context: Json::null(),
       dispatch_offer_task: Json::null(),
       dispatch_task_commitment: Json::null(),
+      dispatch_journey_read_state: "loading",
       dispatch_task_form_open: false,
       dispatch_task_blocked: false,
       dispatch_task_note: "正在恢复正式任务和原生执行记录。",

@@ -574,4 +574,3 @@ pub(all) enum SnapshotTableDisposition {
 // Type aliases
 
 // Traits
-

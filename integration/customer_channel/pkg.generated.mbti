@@ -1,0 +1,70 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/integration/customer_channel"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn canonical_payload(SignedCustomerEnvelope) -> String
+
+pub fn sign_envelope(SignedCustomerEnvelope, secret~ : String) -> String raise CustomerChannelError
+
+pub fn verify_inbound(VerifiedWebhookChannel, ChannelReplayRegistry, SignedCustomerEnvelope, secret~ : String, now_epoch~ : Int64) -> (VerifiedCustomerReceipt, ChannelReplayRegistry) raise CustomerChannelError
+
+// Errors
+pub(all) suberror CustomerChannelError {
+  Invalid(String)
+  InactiveChannel
+  ChannelMismatch
+  CustomerMismatch
+  StaleMessage
+  ReplayDetected
+  SignatureMismatch
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ChannelReplayRegistry {
+  message_ids : Array[String]
+  nonces : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn ChannelReplayRegistry::new() -> Self
+
+pub(all) struct SignedCustomerEnvelope {
+  message_id : String
+  channel_id : String
+  customer_id : String
+  sent_at_epoch : Int64
+  nonce : String
+  content_type : String
+  body : String
+  signature : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct VerifiedCustomerReceipt {
+  receipt_id : String
+  principal_id : String
+  customer_id : String
+  channel_id : String
+  message_id : String
+  body_digest : String
+  signing_key_id : String
+  sent_at_epoch : Int64
+  verified_at_epoch : Int64
+  signature_verified : Bool
+  replay_checked : Bool
+  company_authority_granted : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct VerifiedWebhookChannel {
+  channel_id : String
+  principal_id : String
+  customer_id : String
+  signing_key_id : String
+  allowed_clock_skew_seconds : Int64
+  active : Bool
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

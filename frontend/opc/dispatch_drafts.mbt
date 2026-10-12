@@ -13,6 +13,7 @@ struct DispatchDraft {
   source_reference : String?
   observed_problem : String?
   offer_draft : Json?
+  research_brief : @research_handoff.Brief?
   owner_id : String
   begin_date : String
   end_date : String
@@ -131,6 +132,7 @@ fn dispatch_prepare_draft(
         source_reference: None,
         observed_problem: None,
         offer_draft: None,
+        research_brief: None,
         owner_id: "",
         begin_date: "",
         end_date: "",
@@ -510,9 +512,15 @@ fn dispatch_draft_update(
         _ => None
       }
       let mut next = model
+      let mut invalid_research = false
       match saved {
         Some(saved) if saved.version == 1 => {
           for draft in saved.drafts {
+            if draft.research_brief is Some(brief) &&
+              @research_handoff.decode(brief.to_json().stringify()) is Err(_) {
+              invalid_research = true
+              continue
+            }
             if dispatch_draft_by_id(next, draft.id) is None &&
               !draft.id.is_empty() &&
               !draft.task_id.is_empty() &&
@@ -541,7 +549,9 @@ fn dispatch_draft_update(
       }
       next = {
         ..next,
-        dispatch_draft_storage: if text.is_empty() || saved is Some(_) {
+        dispatch_draft_storage: if invalid_research {
+          "部分草稿的研究来源版本或引用损坏，未载入这些草稿；原始浏览器记录未被改写。"
+        } else if text.is_empty() || saved is Some(_) {
           "已读取此浏览器草稿"
         } else {
           "草稿记录无法读取；当前页面仍可使用正式任务链接"

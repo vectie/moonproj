@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/product/client_delivery"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn archive(String, Note, include_source? : Bool) -> Bytes raise InvalidPacket
+
+pub fn body(String) -> Bytes raise InvalidPacket
+
+pub fn body_text(String) -> String raise InvalidPacket
+
+pub fn default_filename(String) -> String
+
+pub fn filename_valid(String) -> Bool
+
+pub fn readme(Note) -> String
+
+pub fn validate_note(Note) -> String
+
+// Errors
+pub suberror InvalidPacket {
+  Invalid(String)
+} derive(@debug.Debug)
+pub fn InvalidPacket::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) struct Note {
+  title : String
+  summary : String
+  review_request : String
+  filename : String
+} derive(Eq, @debug.Debug)
+pub fn Note::equal(Self, Self) -> Bool
+pub fn Note::not_equal(Self, Self) -> Bool
+pub fn Note::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

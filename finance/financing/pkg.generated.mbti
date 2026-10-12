@@ -72,4 +72,3 @@ pub fn FinancingFacility::to_repayment_event(Self, repayment_id~ : String, event
 // Type aliases
 
 // Traits
-

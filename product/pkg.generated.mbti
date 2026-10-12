@@ -6,8 +6,21 @@ import {
 }
 
 // Values
+pub fn authorize_autonomous_expansion(WorkflowAdoptionEvidence, AutonomousExpansionReview) -> AutonomousExpansionGateReceipt raise ProductAdoptionError
 
 // Errors
+pub(all) suberror ProductAdoptionError {
+  Invalid(String)
+  ProductInGatePassRequired
+  FirstWorkflowAdoptionRequired
+  SuccessfulCompletionRequired
+  CustomerEvidenceRequired
+  PaymentReceiptRequired
+  IndependentReviewRequired
+  ExpansionReviewRejected
+  Catalog(ProductCatalogError)
+} derive(Eq, @debug.Debug)
+
 pub(all) suberror ProductCatalogError {
   EmptyIdentifier
   DuplicateCapability(String)
@@ -16,6 +29,35 @@ pub(all) suberror ProductCatalogError {
 } derive(Eq, @debug.Debug)
 
 // Types and methods
+pub(all) enum AutonomousExpansion {
+  AutonomousStaffing
+  AgentMarketplace
+} derive(Eq, @debug.Debug)
+
+pub(all) struct AutonomousExpansionGateReceipt {
+  receipt_id : String
+  feature : AutonomousExpansion
+  principal_id : String
+  product_id : String
+  workflow_id : String
+  review_id : String
+  enabled : Bool
+  company_authority_granted : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct AutonomousExpansionReview {
+  review_id : String
+  principal_id : String
+  product_id : String
+  feature : AutonomousExpansion
+  requested_by : String
+  reviewed_by : String
+  scope : String
+  risk_evidence : Array[String]
+  approved : Bool
+  reviewed_at_epoch : Int64
+} derive(Eq, @debug.Debug)
+
 pub(all) struct Capability {
   id : String
   label : String
@@ -49,6 +91,13 @@ pub(all) enum OperatingCircuit {
   Governance
 } derive(Eq, @debug.Debug)
 
+pub(all) enum ProductInGateDecision {
+  Unknown
+  Experiment
+  Pass
+  Park
+} derive(Eq, @debug.Debug)
+
 pub(all) struct ProductProfile {
   profile_id : String
   name : String
@@ -56,11 +105,44 @@ pub(all) struct ProductProfile {
   active_extensions : Array[String]
 } derive(Eq, @debug.Debug)
 pub fn ProductProfile::activate(Self, ExtensionPack) -> Self raise ProductCatalogError
+pub fn ProductProfile::activate_transactional(Self, TransactionalPack, WorkflowAdoptionEvidence, payment_receipt~ : String, activated_by~ : String, activated_at_epoch~ : Int64) -> (Self, TransactionalPackActivationReceipt) raise ProductAdoptionError
 pub fn ProductProfile::has_extension(Self, String) -> Bool
 pub fn ProductProfile::includes(Self, String) -> Bool
 pub fn ProductProfile::new(profile_id~ : String, name~ : String, capabilities~ : Array[Capability]) -> Self raise ProductCatalogError
 
+pub(all) struct TransactionalPack {
+  pack : ExtensionPack
+  price_currency : String
+  price_minor : Int64
+  transaction_provider : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct TransactionalPackActivationReceipt {
+  receipt_id : String
+  principal_id : String
+  product_id : String
+  workflow_id : String
+  extension_id : String
+  product_in_gate_receipt : String
+  payment_receipt : String
+  activated_by : String
+  activated_at_epoch : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) struct WorkflowAdoptionEvidence {
+  principal_id : String
+  product_id : String
+  workflow_id : String
+  decision : ProductInGateDecision
+  product_in_gate_receipt : String
+  accepted_customer_evidence : Array[String]
+  owner_id : String
+  adoption_count : Int
+  successful_completions : Int
+  reviewed_at_epoch : Int64
+} derive(Eq, @debug.Debug)
+pub fn WorkflowAdoptionEvidence::qualifies(Self) -> Bool
+
 // Type aliases
 
 // Traits
-

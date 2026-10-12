@@ -20,4 +20,3 @@ pub(all) suberror NotificationPromotionError {
 // Type aliases
 
 // Traits
-

@@ -1,5 +1,7 @@
 import {
   "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/fs",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "vectie/moonproj/integration/moonflow_adapter",
@@ -8,3 +10,7 @@ import {
 supported_targets = "native"
 
 pkgtype(kind: "executable")
+
+import {
+  "moonbitlang/async/socket",
+} for "wbtest"

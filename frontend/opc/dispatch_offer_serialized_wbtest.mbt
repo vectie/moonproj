@@ -80,6 +80,7 @@ test "offer actual ordinary create without proposal supplies empty-detail qualif
     task_id: "offer-empty-task",
     idempotency_key: "offer-empty-create-serialized",
     offer_draft: None,
+    research_brief: None,
   }
   let captured : Array[String] = []
   let emitted : Array[Msg] = []

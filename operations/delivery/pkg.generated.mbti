@@ -104,4 +104,3 @@ pub(all) enum ProgressState {
 // Type aliases
 
 // Traits
-

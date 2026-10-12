@@ -1,0 +1,24 @@
+.portfolio-home { color: #e7eaf4; }
+.portfolio-hero { display: flex; justify-content: space-between; gap: 2rem; align-items: flex-start; padding: 1.4rem; border: 1px solid #53679e; border-radius: 14px; background: linear-gradient(125deg,#182448,#172036); margin-bottom: 1rem; }
+.portfolio-hero h2 { margin: .2rem 0 .6rem; font-size: 1.65rem; }
+.portfolio-hero p { max-width: 70ch; }
+.portfolio-hero strong { white-space: nowrap; color: #99e9c4; }
+.portfolio-eyebrow { color: #92b6ff; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.portfolio-layout { display: grid; grid-template-columns: minmax(220px,280px) minmax(0,1fr); gap: 1rem; }
+.portfolio-list,.portfolio-detail { padding: 1rem; border: 1px solid #374365; border-radius: 12px; background: #151e34; }
+.portfolio-list { max-height: 74vh; overflow: auto; }
+.portfolio-list label { display: block; margin-bottom: .8rem; }
+.portfolio-list input,.portfolio-list select,.portfolio-actions select { width: 100%; margin-top: .3rem; padding: .6rem; background: #101827; color: #f1f5ff; border: 1px solid #58698d; border-radius: 6px; }
+.portfolio-product { display: flex; flex-direction: column; text-align: left; width: 100%; margin-top: .35rem; padding: .65rem; border: 1px solid #33435f; background: #1b2943; color: #f4f7ff; border-radius: 8px; cursor: pointer; }
+.portfolio-product:hover,.portfolio-product.active { border-color: #7fa5ff; background: #263e69; }
+.portfolio-product small { color: #bccce9; }
+.portfolio-detail h2 { margin-top: .25rem; }
+.portfolio-philosophy,.portfolio-actions,.portfolio-activity,.portfolio-output { padding: 1rem; border: 1px solid #435171; background: #1d2942; border-radius: 9px; margin: 1rem 0; }
+.portfolio-philosophy h3,.portfolio-actions h3,.portfolio-activity h3 { margin-top: 0; }
+.portfolio-philosophy small { color: #f5cb77; }
+.portfolio-actions label { display: block; }
+.portfolio-actions button { padding: .65rem .85rem; margin: .5rem .4rem .5rem 0; background: #3d6db6; color: #fff; border: 1px solid #83aaff; border-radius: 7px; cursor: pointer; }
+.portfolio-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.portfolio-output a { color: #94c7ff; }
+.portfolio-run { color: #b3d1ff; }
+@media(max-width:800px) { .portfolio-layout { grid-template-columns: 1fr; } .portfolio-list { max-height: 18rem; } .portfolio-hero { display: block; } }

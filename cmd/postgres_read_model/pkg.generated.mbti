@@ -18,4 +18,3 @@ pub(all) suberror PostgresReadModelError {
 // Type aliases
 
 // Traits
-

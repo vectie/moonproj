@@ -1,0 +1,91 @@
+{
+  "format": "moonproj-plan-template/v1",
+  "notes": "Synthetic two-stage delivery template.\nProduce a source-backed brief and independent review; external delivery is a separate action. 🌓",
+  "currency": "USD",
+  "limit": "1000.00",
+  "contingency": "100.00",
+  "owners": [
+    {
+      "id": "owner-1",
+      "name": "Alex",
+      "role": "Research and delivery"
+    },
+    {
+      "id": "owner-2",
+      "name": "Sam",
+      "role": "Independent reviewer"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "name": "Collect examples",
+      "owner": "owner-1",
+      "milestone": "milestone-1",
+      "cost": "125.40",
+      "dependencies": []
+    },
+    {
+      "id": "task-2",
+      "name": "Draft brief",
+      "owner": "owner-1",
+      "milestone": "milestone-1",
+      "cost": "350.50",
+      "dependencies": [
+        "task-1"
+      ]
+    },
+    {
+      "id": "task-3",
+      "name": "Review brief",
+      "owner": "owner-2",
+      "milestone": "milestone-2",
+      "cost": "100.00",
+      "dependencies": [
+        "task-1",
+        "task-2"
+      ]
+    },
+    {
+      "id": "task-4",
+      "name": "Prepare delivery",
+      "owner": "owner-1",
+      "milestone": "milestone-2",
+      "cost": "25.00",
+      "dependencies": [
+        "task-3"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "milestone-1",
+      "name": "Discovery brief",
+      "owner": "owner-1",
+      "date": "2026-11-06",
+      "criteria": "Three concrete examples\nSource references retained",
+      "evidence": "Source-backed brief\nReview notes"
+    },
+    {
+      "id": "milestone-2",
+      "name": "Delivery package",
+      "owner": "owner-2",
+      "date": "2026-11-13",
+      "criteria": "Readable final artifact\nScope checklist",
+      "evidence": "Artifact link\nReviewer comments"
+    }
+  ],
+  "risks": [
+    {
+      "id": "risk-1",
+      "summary": "Examples arrive late",
+      "severity": "medium",
+      "owner": "owner-1",
+      "mitigation": "Use named alternate sources\nKeep unresolved gaps explicit",
+      "tasks": [
+        "task-1",
+        "task-2"
+      ]
+    }
+  ]
+}

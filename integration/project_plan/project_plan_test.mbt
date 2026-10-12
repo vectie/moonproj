@@ -140,7 +140,7 @@ test "project plan preparation reuses domain dependencies and remains pending re
 test "project plan rejects dependency order that the domain plan cannot satisfy" {
   let request = valid_request()
   let tasks = request.tasks.copy()
-  tasks[0] = { ..tasks[0], dependencies: ["task-simulate"] }
+  tasks[0] = { ..tasks[0], dependencies: ["task-simulate"], }
   try
     @project_plan.prepare(
       { ..request, tasks, },

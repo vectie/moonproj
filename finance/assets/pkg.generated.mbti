@@ -89,4 +89,3 @@ pub fn DisposalEntry::to_journal(Self, cash_or_receivable_account~ : String, ass
 // Type aliases
 
 // Traits
-

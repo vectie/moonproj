@@ -19,4 +19,3 @@ pub(all) suberror SqliteBackupRestoreError {
 // Type aliases
 
 // Traits
-

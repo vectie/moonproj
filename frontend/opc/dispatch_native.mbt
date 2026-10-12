@@ -473,6 +473,7 @@ fn apply_dispatch_snapshot(model : Model, snapshot : DispatchSnapshot) -> Model 
     dispatch_task_acceptance: snapshot.acceptance,
     dispatch_task_source_context: snapshot.source_context,
     dispatch_task_commitment: snapshot.commitment,
+    dispatch_journey_read_state: "loaded",
     dispatch_task_project_id: snapshot.project_id,
     dispatch_task_owner_id: snapshot.owner_id,
     dispatch_task_begin_date: snapshot.begin_date,

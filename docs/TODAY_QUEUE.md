@@ -1,5 +1,64 @@
 # Selected-project Today queue
 
+## Filter the observed cross-project queue
+
+Open Today → **跨项目查看**, then use **筛选已观察队列**. Choose an
+observed owner by the displayed exact ID, or Unassigned; combine a due/attention
+choice, blocker choice and title substring. Duplicate owner names remain separate
+identities. The title search trims surrounding whitespace and ignores ASCII case;
+other characters match literally. **清除筛选** restores the observed outstanding
+queue without another request.
+
+Match count is separate from successful-project coverage and the unfiltered
+observed KPIs. Zero matches never means zero company work. Failed/queued projects
+remain visible in the coverage explanation. Due filters use each project's
+successful observed UTC day and the existing Gregorian date validation. Overdue
+also includes the reported canonical `overdue` state; unknown dates may therefore
+also be overdue. Needs attention and blockers use the existing canonical reasons.
+
+Filters are presentation-only and are cleared on actor change, leaving Today or
+choosing a single project. They are not persisted, shared or sent to a second
+backend query. Refresh keeps the selected filter; an owner no longer observed
+stays explicitly selected with a missing-observation label instead of silently
+widening the scope. Read/actor identities fence stale filter callbacks. Selecting
+a match opens the unchanged exact task route and preserves local drafts.
+
+The controls use native labelled inputs/selects and a live match-count status.
+Compiled reducer/render tests are not mounted keyboard or screen-reader acceptance.
+
+## Across projects
+
+Choose **跨项目查看** (Across projects) to combine the current returned company
+project list. This is an explicit scope choice; the page still does not select
+the first project or read an unscoped task catalog. It reuses one existing
+project-scoped task read per listed project, with at most three active reads
+in the current batch. Invalidated older transport requests may still finish
+within the existing timeout; their replies cannot update the new scope.
+
+Successful project reads remain visible while other projects are loading or
+failed. Counts always describe only those successful reads, and the coverage
+line states how many listed projects contributed. The project list can omit
+problematic identities and its legacy source read is bounded, so even a
+completed batch is not claimed to be a complete company ledger. Existing
+project diagnostics remain visible. A successful empty project read differs
+from unavailable, unauthorized, offline and malformed reads.
+
+Each project has its own successful browser observation and UTC due-date
+interpretation. **重试此项目** retries a failed project in place, with a new
+request identity, through the same bounded queue. **重试失败项目** retries all
+failed reads after the batch settles while retaining successful scopes.
+Refreshing the entire task batch clears its old rows first. Refreshing the
+project list rebuilds membership and removes projects no longer returned.
+
+The combined queue keeps the existing blocker, overdue, due-today ordering.
+Every row names its company project and opens only the existing exact task
+detail. Duplicate canonical task IDs across projects invalidate all affected
+scopes until reread; they are neither double-counted nor opened ambiguously.
+Project scope, actor epochs and per-project request identities fence late or
+duplicate replies. Switching back to a single project preserves ordinary
+draft and task navigation. No task, proposal, execution, report or acceptance
+mutation is added.
+
 Overview now shows an observed daily work queue for one explicitly selected actual company project. Products remains the boot default. The previous fixed cockpit cash, agent, decision and health figures are removed from Overview.
 
 ## Use

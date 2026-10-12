@@ -1,4 +1,6 @@
 import {
+  "moonbitlang/async",
+  "moonbitlang/async/http",
   "moonbitlang/async/fs",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
@@ -8,12 +10,13 @@ import {
   "vectie/moonlib/pathx",
   "vectie/moonproj/intelligence/agent_port",
   "vectie/moonproj/integration/project_plan",
+  "vectie/moonproj/integration/company_flow",
+  "vectie/moonproj/product/plan_workbench",
 }
 
 supported_targets = "native"
 
 import {
-  "moonbitlang/async",
   "moonbitlang/core/test",
   "moonbitlang/core/env",
 } for "wbtest"

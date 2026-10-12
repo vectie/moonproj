@@ -26,4 +26,3 @@ pub(all) suberror ProcurementCohortError {
 // Type aliases
 
 // Traits
-

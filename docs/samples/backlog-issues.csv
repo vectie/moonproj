@@ -1,0 +1,4 @@
+Issue key,Summary,Assignee,cost,Depends on,Status
+APP-1,"Design, including empty states",,120.50,,To Do
+APP-2,"Build ""ready"" screen",,250.00,APP-1,In Progress
+APP-3,Review and test,,40.25,APP-1;APP-2,To Do

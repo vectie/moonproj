@@ -49,4 +49,3 @@ pub fn EmployeeAdvance::to_offset_accounting_event(Self, offset_id~ : String, am
 // Type aliases
 
 // Traits
-

@@ -49,4 +49,3 @@ pub fn ShadowPlan::new(run_id~ : String, source_snapshot_id~ : String) -> Self r
 // Type aliases
 
 // Traits
-

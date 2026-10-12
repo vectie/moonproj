@@ -1,0 +1,101 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/operations/professional_services"
+
+import {
+  "moonbitlang/core/debug",
+  "vectie/moonproj/intelligence/agent_port",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ProfessionalServiceError {
+  Invalid(String)
+  InvalidStage(ShadowStage)
+  DuplicateWork(String)
+  UnknownDependency(String)
+  DependencyCycle
+  DependencyIncomplete(String)
+  MissingRole(ServiceRole)
+  ResultMismatch
+  ReviewIndependenceRequired
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct ProfessionalServiceShadow {
+  engagement_id : String
+  principal_id : String
+  customer_id : String
+  owner_id : String
+  title : String
+  currency : String
+  proposed_fee_minor : Int64
+  source_evidence : Array[String]
+  stage : ShadowStage
+  revision : Int
+  work : Array[ShadowWorkContract]
+  activities : Array[ShadowActivity]
+  accepted_evidence : Array[String]
+  invoice_proposal : @agent_port.ProposedCommand?
+  external_delivery_sent : Bool
+  contract_signed : Bool
+  accounting_posted : Bool
+  payment_collected : Bool
+} derive(Eq, @debug.Debug)
+pub fn ProfessionalServiceShadow::accept_shadow_delivery(Self, reviewer_id~ : String, acceptance_evidence~ : Array[String], proposal_id~ : String) -> Self raise ProfessionalServiceError
+pub fn ProfessionalServiceShadow::add_work(Self, work_id~ : String, title~ : String, role~ : ServiceRole, assigned_actor_id~ : String, dependencies~ : Array[String], acceptance_criteria~ : Array[String], expected_result_schema~ : String) -> Self raise ProfessionalServiceError
+pub fn ProfessionalServiceShadow::new(engagement_id~ : String, principal_id~ : String, customer_id~ : String, owner_id~ : String, title~ : String, currency~ : String, proposed_fee_minor~ : Int64, source_evidence~ : Array[String]) -> Self raise ProfessionalServiceError
+pub fn ProfessionalServiceShadow::record_result(Self, @agent_port.AgentResult, activity_id~ : String, at_epoch~ : Int64) -> Self raise ProfessionalServiceError
+pub fn ProfessionalServiceShadow::release(Self) -> Self raise ProfessionalServiceError
+pub fn ProfessionalServiceShadow::request_work(Self, work_id~ : String, request_id~ : String, attempt_id~ : String, input_digest~ : String) -> (@agent_port.AgentRequest, Self) raise
+
+pub(all) enum ServiceRole {
+  EngagementLead
+  Researcher
+  Producer
+  IndependentReviewer
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ShadowActivity {
+  activity_id : String
+  work_id : String
+  actor_id : String
+  kind : String
+  evidence : Array[String]
+  at_epoch : Int64
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ShadowStage {
+  Draft
+  Ready
+  InExecution
+  WaitingForReview
+  ShadowAccepted
+  Archived
+} derive(Eq, @debug.Debug)
+
+pub(all) struct ShadowWorkContract {
+  work_id : String
+  title : String
+  role : ServiceRole
+  assigned_actor_id : String
+  dependencies : Array[String]
+  acceptance_criteria : Array[String]
+  expected_result_schema : String
+  state : ShadowWorkState
+  request_id : String
+  attempt_id : String
+  output_evidence : Array[String]
+  findings : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ShadowWorkState {
+  Planned
+  Released
+  Complete
+  ReworkRequired
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

@@ -20,4 +20,3 @@ pub(all) suberror WarningPromotionError {
 // Type aliases
 
 // Traits
-

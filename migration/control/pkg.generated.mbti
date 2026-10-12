@@ -37,4 +37,3 @@ pub fn OpeningControlSet::to_shadow_plan(Self, run_id~ : String) -> @shadow.Shad
 // Type aliases
 
 // Traits
-

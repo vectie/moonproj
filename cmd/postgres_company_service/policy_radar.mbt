@@ -67,11 +67,14 @@ fn policy_source_known(source_id : String) -> Bool {
 }
 
 ///|
-fn normalize_policy_review(
+fn normalize_policy_review_fields(
   kind : String,
   id : String,
   body : Json,
 ) -> Json raise CompanyServiceError {
+  if kind != "source" && kind != "change" {
+    raise reject(422, "unsupported policy review kind")
+  }
   if (kind == "source" && !policy_source_known(id)) ||
     (kind == "change" && policy_change_source(id) is None) {
     raise reject(404, "policy review target was not found")
@@ -113,6 +116,18 @@ fn normalize_policy_review(
     "evidence": Json::string(evidence),
     "reviewed_at": Json::string(reviewed_at),
   })
+}
+
+///|
+fn normalize_policy_review(
+  kind : String,
+  id : String,
+  body : Json,
+) -> Json raise CompanyServiceError {
+  normalize_policy_review_fields(kind, id, body) catch {
+    CompanyServiceError::InvalidInput(message) => raise reject(422, message)
+    error => raise error
+  }
 }
 
 ///|

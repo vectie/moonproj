@@ -1,7 +1,8 @@
 ///|
 fn observe_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
   section(class="page") <| [
-    page_intro(Observe, status_badge("1 项已升级", tone="warning")),
+    page_intro(Observe, status_badge("只读演练", tone="warning")),
+    sample_data_boundary(),
     section_title(
       "SLO 面板", "错误预算驱动发布节奏；预算烧尽即自动冻结。",
       "3/4 健康",
@@ -56,6 +57,7 @@ fn operate_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
       Operate,
       primary_button(emit, RecordDecision("启动事件响应"), "启动响应"),
     ),
+    sample_data_boundary(),
     div(class="kpi-grid") <| [
       compact_kpi("开放事件", "2", "SEV2 ×1 · SEV3 ×1", "warn"),
       compact_kpi("MTTR", "18 分", "近 30 天 ↓ 11%", "ok"),
@@ -215,7 +217,8 @@ fn company_domain_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 ///|
 fn evidence_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
-    page_intro(Evidence, status_badge("今日 363 条", tone="accent")),
+    page_intro(Evidence, status_badge("只读演练", tone="warning")),
+    sample_data_boundary(),
     div(class="evidence-summary") <| [
       compact_kpi("授权放行", "312", "范围与预算内", "ok"),
       compact_kpi("越权拦截", "4", "未产生业务影响", "warn"),
@@ -226,8 +229,8 @@ fn evidence_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     section(class="section-block") <| [
       section_title(
-        "今日证据流", "时间倒序；主体、授权、输入、动作、输出与结果不可分割。",
-        "实时",
+        "证据流布局", "正式接线后按时间倒序显示主体、授权、输入、动作、输出与结果。",
+        "布局样例",
       ),
       div(class="table-scroll") <| [
         table(class="data-table evidence-table") <| [

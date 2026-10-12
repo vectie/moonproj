@@ -14,6 +14,7 @@ SMOKE_SUFFIX=$(/bin/date +%s)
 PRODUCT="moonproj-smoke-$SMOKE_SUFFIX"
 MARK_KEY="product-in-gate-mark-$SMOKE_SUFFIX"
 INVALID_KEY="product-in-gate-invalid-$SMOKE_SUFFIX"
+MALFORMED_KEY="product-in-gate-malformed-$SMOKE_SUFFIX"
 EVENT_ID="product-in-gate:mark:$MARK_KEY"
 
 terminate_service() {
@@ -82,6 +83,8 @@ stop_service() {
 signature=$(/usr/bin/printf '%s' "$ACTOR" | /usr/bin/openssl dgst -sha256 -hmac "$ACTOR_SIGNING_SECRET" -hex | /usr/bin/sed 's/^.*= //')
 experiment_body='{"decision":"experiment","primary_value":"solution","segment":"owner-operated software company","workflow":"weekly release decision","decided_at":"2026-08-04","problem_evidence":["problem-1"],"commitment_evidence":[],"current_behavior_cost":"manual review consumes two owner-days","outcome_metric":"reduce review time from two days to two hours","adoption_path":"owner introduces and repeats the workflow weekly","unresolved_risks":"pilot retention is not yet observed","next_experiment":"run with two owners for four weeks","review_by":"2026-11-02"}'
 invalid_pass_body='{"decision":"pass","primary_value":"solution","segment":"owner-operated software company","workflow":"weekly release decision","decided_at":"2026-08-04","problem_evidence":[],"commitment_evidence":[],"current_behavior_cost":"manual review consumes two owner-days","outcome_metric":"reduce review time","adoption_path":"owner repeats weekly","unresolved_risks":"commitment evidence is missing","next_experiment":"collect evidence","review_by":"2026-11-02"}'
+forged_pass_body='{"decision":"pass","primary_value":"solution","segment":"owner-operated software company","workflow":"weekly release decision","decided_at":"2026-08-04","problem_evidence":["problem-1","problem-2","problem-3"],"commitment_evidence":["level5:"],"current_behavior_cost":"manual review consumes two owner-days","outcome_metric":"reduce review time","adoption_path":"owner repeats weekly","unresolved_risks":"commitment evidence is forged","next_experiment":"collect evidence","review_by":"2026-11-02"}'
+malformed_body='{"decision":"experiment","primary_value":"solution","unexpected":"contract drift"}'
 
 start_service
 
@@ -144,5 +147,62 @@ status_code=$(/usr/bin/curl -sS -o "$TMP_DIR/invalid-pass.json" -w '%{http_code}
   "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate")
 test "$status_code" = 422
 /usr/bin/jq -e '.error | contains("three problem receipts")' "$TMP_DIR/invalid-pass.json" >/dev/null
+
+status_code=$(/usr/bin/curl -sS -o "$TMP_DIR/forged-pass.json" -w '%{http_code}' \
+  -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $INVALID_KEY-forged" \
+  --data "$forged_pass_body" \
+  "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate")
+test "$status_code" = 422
+/usr/bin/jq -e '.error | contains("level4: or level5:")' "$TMP_DIR/forged-pass.json" >/dev/null
+
+status_code=$(/usr/bin/curl -sS -o "$TMP_DIR/malformed.json" -w '%{http_code}' \
+  -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $MALFORMED_KEY" \
+  --data "$malformed_body" \
+  "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate")
+test "$status_code" = 422
+
+conflict_body=$(/usr/bin/printf '%s' "$experiment_body" | /usr/bin/sed 's/four weeks/five weeks/')
+status_code=$(/usr/bin/curl -sS -o "$TMP_DIR/conflict.json" -w '%{http_code}' \
+  -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H "X-Moonproj-Actor-Signature: $signature" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $MARK_KEY" \
+  --data "$conflict_body" \
+  "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate")
+test "$status_code" = 409
+/usr/bin/jq -e '.error | contains("another request")' "$TMP_DIR/conflict.json" >/dev/null
+
+status_code=$(/usr/bin/curl -sS -o "$TMP_DIR/bad-signature.json" -w '%{http_code}' \
+  -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H 'X-Moonproj-Actor-Signature: invalid' \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $INVALID_KEY-signature" \
+  --data "$experiment_body" \
+  "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate")
+test "$status_code" = 401
+
+/usr/bin/curl -fsS \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate" >"$TMP_DIR/final-read.json"
+/usr/bin/jq -e '.revision == 1 and .product_in_gate.decision == "experiment"' "$TMP_DIR/final-read.json" >/dev/null
 
 /usr/bin/printf '%s\n' "PostgreSQL product In-Gate persistence smoke passed"

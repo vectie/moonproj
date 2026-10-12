@@ -1,0 +1,47 @@
+{
+  "key": "plan-fixture",
+  "project_id": "company-actual",
+  "prepared_at": "2026-10-07T04:00:00Z",
+  "notes": "Synthetic UI fixture, not company evidence",
+  "currency": "USD",
+  "limit": "2000.00",
+  "contingency": "100.00",
+  "owners": [
+    {
+      "id": "owner-test",
+      "name": "Test owner",
+      "role": "Plan preparer"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-design",
+      "name": "Design",
+      "owner": "owner-test",
+      "milestone": "milestone-one",
+      "cost": "200.25",
+      "dependencies": []
+    },
+    {
+      "id": "task-review",
+      "name": "Review",
+      "owner": "owner-test",
+      "milestone": "milestone-one",
+      "cost": "300.00",
+      "dependencies": [
+        "task-design"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "milestone-one",
+      "name": "Reviewable result",
+      "owner": "owner-test",
+      "date": "2026-10-31",
+      "criteria": "Traceable requirements\nReviewable deliverable",
+      "evidence": "Named reviewer receipt"
+    }
+  ],
+  "risks": []
+}

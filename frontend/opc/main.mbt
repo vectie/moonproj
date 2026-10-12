@@ -10,7 +10,6 @@ using @html {
   h2,
   h3,
   header,
-  img,
   input,
   label,
   li,
@@ -72,6 +71,7 @@ struct Model {
   moon_mode : Bool
   products : ProductsState
   today : TodayState
+  plan : PlanWorkbench
   engineering_project : String
   engineering_audit_state : String
   engineering_audit_id : String
@@ -115,6 +115,8 @@ struct Model {
   policy_last_review_target : String
   mobile_nav : Bool
   dispatch_drafts : Array[DispatchDraft]
+  work_packet : WorkPacketState
+  research_import : ResearchImportState
   dispatch_offer_drafts : Array[DispatchOfferDraft]
   dispatch_offer_task : Json
   dispatch_offer_storage : String
@@ -133,6 +135,7 @@ struct Model {
   dispatch_outcome_drafts : Array[DispatchOutcomeDraft]
   dispatch_outcome_sequence : Int
   dispatch_accepted_human_export : DispatchAcceptedHumanExport
+  dispatch_client_delivery : DispatchClientDelivery
   dispatch_continuation : DispatchContinuationState
   dispatch_task_open_id : String
   dispatch_task_workspace : String
@@ -143,6 +146,7 @@ struct Model {
   dispatch_task_acceptance : String
   dispatch_task_source_context : Json
   dispatch_task_commitment : Json
+  dispatch_journey_read_state : String
   dispatch_task_project_id : String
   dispatch_task_owner_id : String
   dispatch_task_actor_id : String
@@ -199,6 +203,7 @@ struct Model {
 ///|
 enum Msg {
   AcceptedHumanExportAction(DispatchAcceptedHumanExportMsg)
+  ClientDeliveryAction(DispatchClientDeliveryMsg)
   OutcomeAction(Json, DispatchOutcomeMsg)
   LessonHandoffAction(DispatchLessonHandoffMsg)
   GuidanceAction(DispatchGuidanceMsg)
@@ -206,6 +211,7 @@ enum Msg {
   SetMoonMode(Bool)
   ProductsAction(ProductsMsg)
   TodayAction(TodayMsg)
+  PlanAction(PlanMsg)
   SelectEngineeringProject(String)
   InputEngineeringBranch(String)
   InputEngineeringVersion(String)
@@ -278,6 +284,10 @@ enum Msg {
   ToggleMobileNav
   OpenDispatchTaskForm
   DraftAction(DispatchDraftMsg)
+  ExportFounderPacket
+  FounderPacketDownloaded(String, Int, Int, Page, String, Bool)
+  WorkPacketAction(WorkPacketMsg)
+  ResearchImportAction(ResearchImportMsg)
   OfferAction(DispatchOfferMsg)
   ReplyAction(DispatchReplyMsg)
   SelectDispatchTask(String)
@@ -355,6 +365,7 @@ fn initial_model() -> Model {
     moon_mode: false,
     products: products_initial(),
     today: today_initial(),
+    plan: plan_initial(),
     engineering_project: "",
     engineering_audit_state: "idle",
     engineering_audit_id: "",
@@ -401,6 +412,8 @@ fn initial_model() -> Model {
     policy_last_review_target: "",
     mobile_nav: false,
     dispatch_drafts: [],
+    work_packet: empty_work_packet(0),
+    research_import: empty_research_import(0),
     dispatch_offer_drafts: [],
     dispatch_offer_task: Json::null(),
     dispatch_offer_storage: "未保存到此浏览器",
@@ -419,6 +432,7 @@ fn initial_model() -> Model {
     dispatch_outcome_drafts: [],
     dispatch_outcome_sequence: 0,
     dispatch_accepted_human_export: empty_dispatch_accepted_human_export(),
+    dispatch_client_delivery: empty_dispatch_client_delivery(),
     dispatch_continuation: empty_dispatch_continuation(),
     dispatch_task_open_id: "",
     dispatch_task_workspace: "",
@@ -429,6 +443,7 @@ fn initial_model() -> Model {
     dispatch_task_acceptance: "",
     dispatch_task_source_context: Json::null(),
     dispatch_task_commitment: Json::null(),
+    dispatch_journey_read_state: "",
     dispatch_task_project_id: "",
     dispatch_task_owner_id: "",
     dispatch_task_actor_id: "",
@@ -803,9 +818,24 @@ fn can_recognize_commitment(model : Model) -> Bool {
 ///|
 fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
   let (command, next) = update_model(emit, msg, model)
+  let next = work_packet_reconcile(next)
+  let command = if model.work_packet.loading &&
+    model.work_packet.generation != next.work_packet.generation {
+    @cmd.batch([@cmd.custom_cmd(_ => work_packet_cancel_file()), command])
+  } else {
+    command
+  }
+  let next = research_import_reconcile(model, next)
+  let command = if model.research_import.open && !next.research_import.open {
+    @cmd.batch([@cmd.custom_cmd(_ => research_cancel_file()), command])
+  } else {
+    command
+  }
   let (command, next) = today_reconcile(emit, command, next)
+  let next = plan_reconcile(next)
   let next = dispatch_guidance_reconcile(next)
   let next = dispatch_accepted_human_export_reconcile(next)
+  let next = dispatch_client_delivery_reconcile(next)
   let command = dispatch_guidance_transition(model, next, command)
   // Only an explicit product choice pushes history. Catalog reads and route
   // restoration use the same read-only selection reducer without adding entries.
@@ -838,7 +868,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       | CancelPreparation
       | OpenEngineering(_)
     )
-    | DraftAction(New | Resume(_) | Revise(_)) => true
+    | DraftAction(New | Resume(_) | Revise(_))
+    | PlanAction(Handoff(CreateDraft)) => true
     _ => false
   }
   if navigation &&
@@ -865,9 +896,14 @@ fn update_model(
   match msg {
     AcceptedHumanExportAction(action) =>
       dispatch_accepted_human_export_update(emit, model, action)
+    ClientDeliveryAction(action) =>
+      dispatch_client_delivery_update(emit, model, action)
     CompanySetupAction(action) => company_setup_update(emit, action, model)
     ProductsAction(action) => products_update(emit, action, model)
     TodayAction(action) => today_update(emit, action, model)
+    PlanAction(action) => plan_update(emit, action, model)
+    Navigate(Projects) =>
+      plan_update(emit, Refresh, { ..model, page: Projects, mobile_nav: false, })
     Navigate(Overview) =>
       today_update(emit, Refresh, {
         ..model,
@@ -1375,6 +1411,10 @@ fn update_model(
               dispatch_save_draft(emit, prepared, {
                 ..draft,
                 title: "政策验证 · " + opportunity.title,
+                source_reference: Some(
+                  "policy-change:" + opportunity.source_change_id,
+                ),
+                observed_problem: Some(opportunity.title),
                 acceptance: opportunity.next_validation +
                 "；记录反证、责任主体和是否继续。",
                 begin_date: policy_today(),
@@ -1452,7 +1492,43 @@ fn update_model(
         },
       )
     ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav, })
-    DraftAction(action) => dispatch_draft_update(emit, action, model)
+    DraftAction(action) => {
+      let (command, next) = dispatch_draft_update(emit, action, model)
+      match action {
+        Restored(actor, text) => {
+          let (compatibility, imported) = founder_after_draft_restore(
+            emit, next, actor, text,
+          )
+          (@cmd.batch([command, compatibility]), imported)
+        }
+        _ => (command, next)
+      }
+    }
+    ExportFounderPacket => founder_export_packet(emit, model)
+    FounderPacketDownloaded(actor, epoch, selection, page, draft_id, ok) =>
+      if actor != model.dispatch_task_actor_id ||
+        actor != model.company_setup.actor ||
+        epoch != model.company_setup.epoch ||
+        model.company_setup.session_state != "ready" ||
+        selection != model.dispatch_task_selection ||
+        page != model.page ||
+        draft_id != model.dispatch_draft_id {
+        (none, model)
+      } else {
+        (
+          none,
+          {
+            ..model,
+            notice: if ok {
+              "已下载 Markdown 工作包；可手动带入 MoonBook、MoonDesk 或 MoonFind。下载不等于自动同步、客户接受、发票或到账。"
+            } else {
+              "浏览器未完成 Markdown 工作包下载；当前草稿和正式记录未改写。"
+            },
+          },
+        )
+      }
+    WorkPacketAction(action) => work_packet_update(emit, action, model)
+    ResearchImportAction(action) => research_import_update(emit, action, model)
     OfferAction(action) => dispatch_offer_update(emit, model, action)
     ReplyAction(action) => dispatch_reply_update(emit, model, action)
     SelectDispatchTask(id) =>
@@ -1604,6 +1680,7 @@ fn update_model(
             ..model,
             dispatch_task_pending_action: "",
             dispatch_task_blocked: true,
+            dispatch_journey_read_state: "unconfirmed",
             dispatch_task_note: action + "失败：" + detail,
             notice: "未确认新的任务状态；可以刷新正式记录后重试。",
           },
@@ -1663,7 +1740,11 @@ fn update_model(
       } else {
         (
           load_dispatch_task(emit, task_id, selection),
-          { ..model, dispatch_task_pending_action: "load", },
+          {
+            ..model,
+            dispatch_task_pending_action: "load",
+            dispatch_journey_read_state: "loading",
+          },
         )
       }
     DispatchTaskLoaded(task_id, selection, snapshot) =>
@@ -1675,7 +1756,11 @@ fn update_model(
         if model.dispatch_task_pending_action == "load" {
           (
             @cmd.delay(emit(RefreshDispatchTask(task_id, selection)), 200),
-            { ..model, dispatch_task_pending_action: "", },
+            {
+              ..model,
+              dispatch_task_pending_action: "",
+              dispatch_journey_read_state: "older",
+            },
           )
         } else {
           (none, model)
@@ -2076,6 +2161,16 @@ fn status_badge(label : String, tone? : String = "neutral") -> @html.Html {
 }
 
 ///|
+fn sample_data_boundary() -> @html.Html {
+  div(class="sample-data-boundary", attrs=@html.Attrs::build().role("note")) <| [
+    strong("只读演练投影"),
+    p(
+      "以下内容只用于验证信息架构与响应式布局，不是 PostgreSQL 公司事实，也不会产生经营、审批或审计效果。",
+    ),
+  ]
+}
+
+///|
 fn primary_button(
   emit : @rabbita.Emit[Msg],
   message : Msg,
@@ -2131,6 +2226,7 @@ fn nav_item_view(
     .aria_current(if selected { "page" } else { "false" })
     .aria_label("\{label_text}：\{item.description}")
   button(
+    type_="button",
     class=if selected { "nav-item is-active" } else { "nav-item" },
     attrs~,
     on_click=emit(Navigate(item.page)),
@@ -2174,9 +2270,14 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       div <| more,
     ],
   )
-  div(class=if model.mobile_nav { "sidebar is-open" } else { "sidebar" }) <| [
+  div(
+    class=if model.mobile_nav { "sidebar is-open" } else { "sidebar" },
+    attrs=@html.Attrs::build().id("primary-sidebar"),
+  ) <| [
     div(class="brand") <| [
-      img(class="brand-mark", src="/moonproj.svg", alt="MoonProj"),
+      span(class="brand-mark", attrs=@html.Attrs::build().aria_hidden("true"), [
+        opc_glyph("overview"),
+      ]),
       div(class="brand-copy") <| [
         strong("MoonProj"),
         small("Basic OPC"),
@@ -2190,6 +2291,13 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         } else {
           "mode-option"
         },
+        attrs=@html.Attrs::build().aria_pressed(
+          if !model.moon_mode {
+            "true"
+          } else {
+            "false"
+          },
+        ),
         on_click=emit(SetMoonMode(false)),
         "通用模式",
       ),
@@ -2200,6 +2308,13 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         } else {
           "mode-option"
         },
+        attrs=@html.Attrs::build().aria_pressed(
+          if model.moon_mode {
+            "true"
+          } else {
+            "false"
+          },
+        ),
         on_click=emit(SetMoonMode(true)),
         "Moon 专案",
       ),
@@ -2217,11 +2332,20 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn topbar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
+  let menu_label = if model.mobile_nav {
+    "关闭主导航"
+  } else {
+    "打开主导航"
+  }
   header(class="topbar") <| [
     button(
+      type_="button",
       class="mobile-menu",
-      title="打开主导航",
-      attrs=@html.Attrs::build().aria_label("打开主导航"),
+      title=menu_label,
+      attrs=@html.Attrs::build()
+        .aria_label(menu_label)
+        .aria_controls("primary-sidebar")
+        .aria_expanded(if model.mobile_nav { "true" } else { "false" }),
       on_click=emit(ToggleMobileNav),
       [opc_glyph("menu"), span(class="visually-hidden", "菜单")],
     ),
@@ -2243,9 +2367,17 @@ fn notice_view(emit : @rabbita.Emit[Msg], notice : String) -> @html.Html {
   if notice.is_empty() {
     @html.nothing
   } else {
-    div(class="notice", attrs=@html.Attrs::build().aria_label("操作结果")) <| [
+    div(
+      class="notice",
+      attrs=@html.Attrs::build()
+        .role("status")
+        .aria_label("操作结果")
+        .aria_live("polite")
+        .aria_atomic("true"),
+    ) <| [
       p(notice),
       button(
+        type_="button",
         class="notice-close",
         attrs=@html.Attrs::build().aria_label("关闭提示"),
         on_click=emit(DismissNotice),
@@ -2314,7 +2446,13 @@ fn system_setup(
     if complete {
       status_badge("空台账已启用", tone="accent")
     } else {
-      secondary_button(emit, message, "建立台账")
+      button(
+        type_="button",
+        class="button button-secondary",
+        attrs=@html.Attrs::build().aria_label("建立\{title}台账"),
+        on_click=emit(message),
+        "建立台账",
+      )
     },
   ]
 }
@@ -4014,6 +4152,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     a(href="#main-content", class="skip-link", "跳到主要内容"),
     if model.mobile_nav {
       button(
+        type_="button",
         class="nav-scrim",
         attrs=@html.Attrs::build().aria_label("关闭主导航"),
         on_click=emit(ToggleMobileNav),
@@ -4025,7 +4164,10 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     sidebar(emit, model),
     div(class="app-shell") <| [
       topbar(emit, model),
-      main_(class="main-content", attrs=@html.Attrs::build().id("main-content")) <| [
+      main_(
+        class="main-content",
+        attrs=@html.Attrs::build().id("main-content").tabindex(-1),
+      ) <| [
         notice_view(emit, model.notice),
         page_view(emit, model),
       ],

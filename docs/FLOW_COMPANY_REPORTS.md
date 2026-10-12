@@ -1,5 +1,9 @@
 # Company task reports from the existing Flow plan adapter
 
+For explicitly approved revised tasks and authenticated saved-report return, see
+[Revised tasks](FLOW_REVISED_TASKS.md). The v1/manual compatibility path below is
+unchanged; it does not implicitly inherit approval for revisions.
+
 The existing project-plan adapter can now correlate a scoped company task with
 its exact plan attempt and prepare a report for that task. This is an opt-in
 producer bridge. MoonFlow remains domain-neutral. No scheduler, model loop,

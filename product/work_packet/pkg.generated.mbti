@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/product/work_packet"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn decode(String) -> Packet raise PacketError
+
+// Errors
+pub(all) suberror PacketError {
+  Invalid(String)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) struct Packet {
+  title : String
+  acceptance : String
+  source_reference : String
+  observed_problem : String
+  begin_date : String
+  end_date : String
+} derive(Eq, @debug.Debug)
+pub fn Packet::encode(Self) -> String raise PacketError
+
+// Type aliases
+
+// Traits

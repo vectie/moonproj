@@ -1138,7 +1138,12 @@ async fn delivery_command_request(
             )
         }
     }
-    let request = delivery_task_report_request(body, actor_id, product_snapshot)
+    let request = authorize_flow_report(
+      body,
+      delivery_task_report_request(body, actor_id, product_snapshot),
+      actor_id,
+      replay_request,
+    )
     if replay_request is None && delivery_imported_exists(family, report_id) {
       raise reject(
         409, "imported task report ids are read-only; use a new local report id",
@@ -1526,6 +1531,9 @@ async fn delivery_command(
         @postgres.sql_literal(command_source) +
         ";"
       let sql = if family == "task_report" &&
+        json_field(request, "flow_binding") is Some(Object(_)) {
+        flow_report_atomic_sql(request, command_source, command_sql)
+      } else if family == "task_report" &&
         json_field(request, "delivery_source") is Some(Object(_)) {
         delivery_task_source_atomic_sql(request, command_source, command_sql)
       } else {
@@ -1535,7 +1543,10 @@ async fn delivery_command(
       }
       let _ = run_sql(sql)
       if family == "task_report" &&
-        json_field(request, "delivery_source") is Some(Object(_)) {
+        (
+          json_field(request, "delivery_source") is Some(Object(_)) ||
+          json_field(request, "flow_binding") is Some(Object(_))
+        ) {
         ignore(
           plan_task_applied_command(
             existing_company_command(idempotency_key),

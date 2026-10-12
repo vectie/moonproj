@@ -19,4 +19,3 @@ pub(all) suberror TaxFilingPlanError {
 // Type aliases
 
 // Traits
-

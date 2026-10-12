@@ -58,6 +58,8 @@ The selected formal task and its native execution/report state are separate from
 
 Drafts and recent task IDs are saved in a versioned browser-local record scoped to the authenticated actor. This contains ordinary draft fields and IDs, not credentials, cookies, headers, signing authority or provider secrets. Storage failure is visible; the first Create POST is withheld until its identity/request fields have been saved. Pre-POST failures remain editable. Browser storage is not a server backup and is not synchronized between devices; clearing it can remove unsent drafts. Concurrent editing from several tabs is not a supported draft merge workflow.
 
+For reusable task text, [download and import a portable task brief](PORTABLE_TASK_BRIEF.md) from the draft editor. Preview its source, acceptance and dates, then create a fresh ordinary local draft while retaining the original. This six-field JSON excludes assignments, execution settings, receipts and attached research/proposals; it is not a complete draft-store backup.
+
 Each draft gets a unique task ID and idempotency key before Create; the ordinary request fields freeze when sending. Lost, malformed, conflicting or unavailable responses remain uncertain. Restore performs an exact GET for the retained task ID before any retry. Only an exact404 enables the user's explicit same-ID, same-key, same-body retry; authentication failures do not trigger Create. Reloaded in-flight drafts always recover first. Known noncommitting400/422 responses and the exact active-project409 validation can be revised explicitly into a new draft identity, preserving the original ID. If an earlier attempt was ambiguous, later validation failures do not erase that uncertainty. A matching receipt or canonical exact record confirms the created task; no draft creates a completion fact.
 
 Task rows and recent IDs have canonical `?task=` links. Explicit task selection pushes browser history; reload and Back/Forward read exact records without starting execution. The URL takes precedence over the pre-existing single-ID browser breadcrumb, which remains only a navigation hint for old tasks. The task's current product association and the report's product-at-creation snapshot are displayed separately; absent or removed catalog definitions use the raw recorded ID. Legacy missing product identity remains unassigned.
@@ -108,3 +110,11 @@ kept under `LEPUSA_APP_DATA_DIR`; the signed app bundle must remain unchanged.
 - MoonClaw and local sibling repositories are external prerequisites for live
   engineering audits.
 - The real-estate ERP extension remains a separately enabled pack.
+
+## Risk impact explorer
+
+Projects → 风险与缓解（可选） → **Risk impact explorer / 风险影响分析**
+traces a selected draft risk through its linked tasks and downstream dependencies.
+Preview or download the source-backed UTF-8 brief with deduplicated task costs and
+affected owners/milestones. Incomplete estimates and broken references remain
+explicit; the brief has no company-state effect. See [Risk impact](RISK_IMPACT.md).

@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "vectie/moonproj/integration/company_flow"
+
+// Values
+pub fn binding(Json, Json, String, String) -> Json raise
+
+pub fn field(Json, String) -> Json
+
+pub fn require_current(Json, Json) -> Unit raise
+
+pub fn revision(Json) -> Int raise
+
+pub fn snapshot(Json, Int) -> Json raise
+
+pub fn text(Json, String) -> String
+
+pub fn validate_approval(Json, Json) -> Unit raise
+
+pub fn validate_binding(Json) -> Unit raise
+
+pub fn validate_snapshot(Json) -> Unit raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

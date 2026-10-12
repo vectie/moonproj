@@ -1,0 +1,3 @@
+Identifier	Title	cost	Dependencies
+DOC-1	Draft help text	20.00	
+DOC-2	Review help text	10.00	DOC-1

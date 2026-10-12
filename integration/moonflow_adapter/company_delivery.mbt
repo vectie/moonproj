@@ -42,6 +42,27 @@ async fn company_binding(
   for reference in flow.input_artifacts {
     let bytes = read_text_ref(root, reference)
     let value = @json.parse(bytes) catch { _ => continue }
+    if company_text(value, "contract_id") == "moonproj.company-task-snapshot.v1" {
+      if found is Some(_) ||
+        company_text(value, "project_id") != plan.project.project_id ||
+        !plan.source_evidence.any(evidence => {
+          evidence.artifact_ref == reference &&
+          evidence.digest == sha256_text(bytes)
+        }) {
+        fail(
+          "MoonProj revised task snapshot must be the single exact project source",
+        )
+      }
+      found = Some(
+        @company_flow.binding(
+          value,
+          flow.to_json(),
+          reference,
+          sha256_text(bytes),
+        ),
+      )
+      continue
+    }
     if company_text(value, "kind") != "company_command" ||
       company_text(value, "command_family") != "plan_task" {
       continue
@@ -116,6 +137,7 @@ pub async fn bind_company_task(
   guard company_binding(root, flow, plan) is Some(binding) else {
     fail("MoonProj Flow attempt has no company task input")
   }
+  require_company_approval(root, flow, binding)
   ignore(immutable_json_ref(root, company_binding_ref(flow), binding))
   binding
 }
@@ -140,6 +162,7 @@ async fn bound_company_input(
   if read_json_ref(root, company_binding_ref(flow)) != expected {
     fail("MoonProj Flow company binding changed")
   }
+  require_company_approval(root, flow, expected)
   expected
 }
 
@@ -187,7 +210,7 @@ async fn make_company_task_report(
   progress_pct : Int,
 ) -> Json {
   if read_json_ref(root, intent_ref(flow)) !=
-    intent_json(request_ref, result_ref, flow) {
+    intent_json(request_ref, result_ref, flow, plan) {
     fail("MoonProj Flow report must use the original attempt intent")
   }
   let result = read_json_ref(root, result_ref)
@@ -229,6 +252,12 @@ async fn make_company_task_report(
     "report_date": report_date,
     "summary": summary.trim().to_owned(),
     "evidence_ids": identities,
+  }
+  if company_text(binding, "contract_id") == "moonproj.flow-task-binding.v2" {
+    let approval = read_json_ref(root, company_approval_ref(flow))
+    let fields = json_object(body, "report body")
+    fields["flow_binding"] = binding
+    fields["flow_approval_key"] = company_field(approval, "idempotency_key")
   }
   let envelope : Json = {
     "contract_id": "moonproj.flow-task-report.v1",
@@ -315,12 +344,27 @@ pub async fn record_company_task_report_receipt(
   response_ref : String,
 ) -> Json {
   let root = resolve_workspace(workspace)
+  let response = read_json_ref(root, response_ref)
+  record_company_task_report_response(
+    workspace, request_ref, report_key, response,
+  )
+}
+
+///|
+/// Gateway return records the actual signed-service response without a mutable
+/// scratch response file. Recovery still reconstructs the saved report first.
+pub async fn record_company_task_report_response(
+  workspace : String,
+  request_ref : String,
+  report_key : String,
+  response : Json,
+) -> Json {
+  let root = resolve_workspace(workspace)
   let (flow, plan) = load_bound_inputs(root, request_ref)
   let base = company_report_base(flow, report_key)
   let envelope = load_company_task_report(
     root, flow, plan, request_ref, report_key,
   )
-  let response = read_json_ref(root, response_ref)
   let command = company_field(response, "command")
   validate_company_report_command(envelope, command)
   match read_optional_json_ref(root, base + "/receipt.json") {
@@ -374,6 +418,27 @@ fn validate_company_report_command(
       fail("MoonProj Flow report response changed " + field)
     }
   }
+  for field in ["flow_binding", "flow_approval_key"] {
+    if company_field(request, field) != company_field(body, field) {
+      fail("MoonProj Flow report response changed " + field)
+    }
+  }
+  if company_field(body, "flow_binding") is Object(_) &&
+    company_text(command, "actor_id") !=
+    company_text(
+      company_field(
+        company_field(company_field(body, "flow_binding"), "snapshot"),
+        "task",
+      ),
+      "created_by",
+    ) {
+    fail("MoonProj Flow report actor differs from its approved owner")
+  }
+  if company_field(body, "flow_binding") is Object(_) &&
+    company_field(request, "flow_source_revision") !=
+    company_field(company_field(body, "flow_binding"), "source_revision") {
+    fail("MoonProj Flow report response changed the exact source revision")
+  }
   let expected_bps = json_int_field(
       json_object(body, "report body"),
       "progress_pct",
@@ -399,6 +464,8 @@ pub async fn company_task_report_status(
     root, flow, plan, request_ref, report_key,
   )
   let receipt = read_optional_json_ref(root, base + "/receipt.json")
+  let revised = company_text(company_field(envelope, "binding"), "contract_id") ==
+    "moonproj.flow-task-binding.v2"
   match receipt {
     Some(command) => validate_company_report_command(envelope, command)
     None => ()
@@ -411,12 +478,20 @@ pub async fn company_task_report_status(
       "report_id",
     ),
     "state": if receipt is Some(_) {
-      "reported"
+      if revised {
+        "reported_local_cache"
+      } else {
+        "reported"
+      }
     } else {
       "pending_report"
     },
     "next_action": if receipt is Some(_) {
-      "inspect_report"
+      if revised {
+        "verify_company_service_receipt"
+      } else {
+        "inspect_report"
+      }
     } else {
       "submit_saved_report"
     },
@@ -427,6 +502,11 @@ pub async fn company_task_report_status(
       Json::null()
     },
     "receipt": receipt.unwrap_or(Json::null()),
+    "acknowledgement": if receipt is Some(_) {
+      "local_cached_command_not_independently_verified"
+    } else {
+      "not_observed"
+    },
     "task_acceptance": "unchanged",
   }
 }

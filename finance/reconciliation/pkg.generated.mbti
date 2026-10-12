@@ -44,4 +44,3 @@ pub fn ReconciliationReport::require_balanced(Self) -> Unit raise Reconciliation
 // Type aliases
 
 // Traits
-

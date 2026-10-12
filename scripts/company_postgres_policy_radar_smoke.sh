@@ -118,4 +118,40 @@ status=$(request -o "$TMP_DIR/replay.json" -w '%{http_code}' \
 test "$status" = 200
 /usr/bin/jq -e '.idempotent_replay == true' "$TMP_DIR/replay.json" >/dev/null
 
+conflict_body='{"decision":"verified","evidence":"different evidence under a reused command key","reviewed_at":"2026-08-10"}'
+status=$(request -o "$TMP_DIR/conflict.json" -w '%{http_code}' \
+  -X POST -H "Idempotency-Key: $SOURCE_KEY" --data "$conflict_body" \
+  "http://127.0.0.1:$PORT/api/company/policy/sources/$SOURCE_ID/reviews")
+test "$status" = 409
+/usr/bin/jq -e '.error | contains("another request")' "$TMP_DIR/conflict.json" >/dev/null
+
+malformed_body='{"decision":"verified","evidence":"missing reviewed_at","unexpected":"contract drift"}'
+status=$(request -o "$TMP_DIR/malformed.json" -w '%{http_code}' \
+  -X POST -H "Idempotency-Key: policy-malformed-$SUFFIX" --data "$malformed_body" \
+  "http://127.0.0.1:$PORT/api/company/policy/sources/$SOURCE_ID/reviews")
+test "$status" = 422
+
+invalid_date_body='{"decision":"verified","evidence":"date fuzz","reviewed_at":"2026-02-29"}'
+status=$(request -o "$TMP_DIR/invalid-date.json" -w '%{http_code}' \
+  -X POST -H "Idempotency-Key: policy-date-$SUFFIX" --data "$invalid_date_body" \
+  "http://127.0.0.1:$PORT/api/company/policy/sources/$SOURCE_ID/reviews")
+test "$status" = 422
+
+status=$(request -o "$TMP_DIR/unknown-target.json" -w '%{http_code}' \
+  -X POST -H "Idempotency-Key: policy-unknown-$SUFFIX" --data "$source_body" \
+  "http://127.0.0.1:$PORT/api/company/policy/sources/unknown-source/reviews")
+test "$status" = 404
+
+status=$(/usr/bin/curl -sS -o "$TMP_DIR/bad-signature.json" -w '%{http_code}' \
+  -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'X-Forwarded-Proto: https' \
+  -H "X-Moonproj-Actor: $ACTOR" \
+  -H 'X-Moonproj-Actor-Signature: invalid' \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: policy-signature-$SUFFIX" \
+  --data "$source_body" \
+  "http://127.0.0.1:$PORT/api/company/policy/sources/$SOURCE_ID/reviews")
+test "$status" = 401
+
 /usr/bin/printf '%s\n' "PostgreSQL Policy Radar persistence smoke passed"

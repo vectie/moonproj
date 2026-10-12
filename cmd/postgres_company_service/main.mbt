@@ -19022,6 +19022,59 @@ async fn handle(
     }
     None => ()
   }
+  if flow_report_read_route(path) is Some((task, key)) {
+    let result = try {
+      let actor = command_actor(request, actor_signing_secret)
+      if request.meth is @http.Get {
+        (200, flow_report_read(task, key, actor))
+      } else {
+        (405, { "error": "use GET for persisted report inspection" })
+      }
+    } catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
+  }
+  if flow_approval_read_route(path) is Some((task, key)) {
+    let result = try {
+      let actor = command_actor(request, actor_signing_secret)
+      if request.meth is @http.Get {
+        (200, flow_approval_read(task, key, actor))
+      } else {
+        (405, { "error": "use GET for persisted approval inspection" })
+      }
+    } catch {
+      error => service_error_response(error)
+    }
+    send_json(conn, request.meth, result.0, result.1, false)
+    return
+  }
+  match flow_task_route(path) {
+    Some((task_id, action)) => {
+      let result = try {
+        let actor = command_actor(request, actor_signing_secret)
+        if action == "flow-snapshot" && request.meth is @http.Get {
+          flow_task_handle(task_id, action, Json::null(), actor, "")
+        } else if action == "flow-bindings" && request.meth is @http.Post {
+          flow_task_handle(
+            task_id,
+            action,
+            read_json_body(body_reader),
+            actor,
+            header(request, "Idempotency-Key"),
+          )
+        } else {
+          (405, { "error": "use GET snapshot or POST approval" })
+        }
+      } catch {
+        error => service_error_response(error)
+      }
+      send_json(conn, request.meth, result.0, result.1, false)
+      return
+    }
+    None => ()
+  }
   match delivery_command_spec(request.meth, path) {
     Some((family, command_type, aggregate_id)) => {
       let idempotency_key = header(request, "Idempotency-Key")

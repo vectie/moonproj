@@ -1,15 +1,14 @@
 # Basic OPC UI Acceptance
 
-Recorded: 2026-07-20
+Recorded: 2026-08-12
 
 ## Product boundary
 
 `frontend/opc` is the standalone, industry-neutral Basic OPC browser product.
 
 The current decision-first redesign and its traceability matrix are documented in
-`docs/KIMI_OPC_REDESIGN.md`. Acceptance now covers ten Owner-oriented surfaces,
-the optional Moon product-line mode, and the retained detailed company-domain
-workflows.
+`docs/KIMI_OPC_REDESIGN.md`. Acceptance covers 12 primary navigation surfaces,
+the optional Moon product-line mode, and six detailed company-domain workflows.
 It does not import or embed the designer real-estate ERP surface. The latter
 remains in `frontend/main` as the UI of the `real-estate-erp` extension pack.
 
@@ -21,8 +20,18 @@ Moonfish investment agents are presented as a native absorption direction.
 
 | Route | Operating responsibility |
 |---|---|
-| `/overview` | Setup progress, operating circuits, and truthful blank state |
+| `/` | Setup progress, operating circuits, and truthful blank state |
+| `/fleet` | Read-only Agent-organization layout projection |
+| `/dispatch` | Receipt-gated formal task lifecycle |
+| `/projects` | Read-only software/hardware stage layout projection |
+| `/quality` | Evidence-backed product quality and release rehearsal |
+| `/observe` | Read-only SLO and alert layout projection |
+| `/operate` | Read-only incident and runbook layout projection |
 | `/company` | Company identity, owned resources, roles, and rights |
+| `/policy-radar` | Authenticated policy projection and review boundary |
+| `/evidence` | Evidence layout plus any real receipt loaded in-session |
+| `/guide` | Operating and evidence guidance |
+| `/moon` | Optional Moon product-line projection |
 | `/market` | Customers, demand, and market evidence |
 | `/delivery` | Work, ownership, acceptance, and delivery evidence |
 | `/commerce` | Commitments, counterparties, and exchanges |
@@ -74,17 +83,39 @@ viewport sizes:
 
 | Viewport | Result |
 |---|---|
-| 1440 × 900 | All eight routes render; 13/13 system-map rows become ready; no horizontal overflow |
-| 768 × 1024 | System map and responsive shell render without horizontal overflow |
-| 375 × 812 | All eight routes render; drawer opens, navigates, and closes |
-| 320 × 700 | Finance and guarded-workflow screens remain within the viewport; controls are at least 44px high |
+| 1440 × 900 | All 12 primary pages render; truthful blank overview and company KPIs verified |
+| 375 × 812 | Drawer label and `aria-expanded` state update; navigation closes the drawer |
+| 320 × 700 | All 12 primary pages render with zero document-level horizontal overflow |
 
-The browser flow exercised all 21 setup boundaries and both lifecycles through
-their success paths. It also proved blank-company validation and a rejected
-work transition before workflow setup. Controls use explicit button types so
-actions do not accidentally submit or reload enclosing forms. Every editable
-field is programmatically associated with its visible label and marked
-required, and browser role queries resolve each label exactly once.
+A production-style static bundle was also served without the Warren overlay. It
+reported no browser warnings or errors. The Warren-only `MutationObserver`
+console error is therefore development-overlay noise, not application code.
+
+The browser flow exercised company creation, customer-signal creation, and the
+session-local work lifecycle through defined → executing → submitted →
+accepted. It also submitted a complete formal task request without a gateway:
+the UI kept the task count at zero and displayed the receipt failure instead of
+creating a browser-only success record. Controls have explicit button types,
+44px minimum targets, unique accessible setup names, focus styling, truthful
+pressed/current/expanded state, a working skip target, and polite result
+announcements.
+
+## Current sellability boundary
+
+The UI is smooth enough for onboarding, customer-problem capture, a clearly
+marked session-local delivery rehearsal, formal task dispatch, policy review,
+and evidence-backed quality rehearsal. It is not yet a complete sellable OPC
+product surface:
+
+- Agent, project, monitoring, operations, and most evidence dashboards are
+  read-only layout projections; they are now visibly marked as such.
+- Durable customer, order, contract, artifact-delivery, invoice, payment, tax,
+  and reconciliation lifecycles are not connected end to end in this browser
+  product.
+- Company onboarding and the generic work/commitment lifecycle still reset on
+  reload; only signed gateway responses may claim PostgreSQL durability.
+- Policy, engineering, and formal task actions require the authenticated
+  MoonProj gateway and their backing services.
 
 ## Run and verify
 

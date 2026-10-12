@@ -210,6 +210,7 @@ fn dispatch_report_selection_view(
   let state = model.dispatch_continuation
   div <| [
     strong("已保存报告 · 选择准确报告后接受"),
+    dispatch_client_delivery_view(emit, model),
     dispatch_accepted_human_export_view(emit, model),
     if state.accepted_report_id != "" {
       strong(

@@ -62,4 +62,3 @@ pub(all) enum PayableState {
 // Type aliases
 
 // Traits
-

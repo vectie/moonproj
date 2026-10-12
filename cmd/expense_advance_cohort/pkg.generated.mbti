@@ -25,4 +25,3 @@ pub(all) suberror ExpenseAdvanceCohortError {
 // Type aliases
 
 // Traits
-

@@ -25,7 +25,10 @@ fn project_row(
 }
 
 ///|
-fn projects_view(emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
+fn projects_sample_view(
+  emit : @rabbita.Emit[Msg],
+  _model : Model,
+) -> @html.Html {
   section(class="page") <| [
     page_intro(
       Projects,
@@ -233,6 +236,95 @@ fn product_in_gate_response_persisted(value : Json) -> Bool {
 }
 
 ///|
+fn product_in_gate_string_array_field(
+  fields : Map[String, Json],
+  key : String,
+) -> Bool {
+  match fields.get(key) {
+    Some(Array(values)) =>
+      values.all(value => {
+        match value {
+          String(text) => !text.trim().is_empty()
+          _ => false
+        }
+      })
+    _ => false
+  }
+}
+
+///|
+fn product_in_gate_response_valid(
+  value : Json,
+  expected_product : String,
+) -> Bool {
+  match product_in_gate_root(value) {
+    Object(fields) => {
+      for
+        key in [
+          "schema", "product", "decision", "primary_value", "segment", "workflow",
+          "decided_at", "current_behavior_cost", "outcome_metric", "adoption_path",
+          "unresolved_risks", "next_experiment", "review_by", "owner", "event_id",
+        ] {
+        if !(fields.get(key) is Some(String(_))) {
+          return false
+        }
+      }
+      if !(fields.get("revision") is Some(Number(_, ..))) ||
+        !(fields.get("updated_at_ms") is Some(Number(_, ..))) ||
+        !product_in_gate_string_array_field(fields, "problem_evidence") ||
+        !product_in_gate_string_array_field(fields, "commitment_evidence") ||
+        !(fields.get("exit_gate_effect") is Some(False)) {
+        return false
+      }
+      let schema = projection_item_text(
+        product_in_gate_root(value),
+        "schema",
+        "",
+      )
+      let product = projection_item_text(
+        product_in_gate_root(value),
+        "product",
+        "",
+      )
+      let decision = projection_item_text(
+        product_in_gate_root(value),
+        "decision",
+        "",
+      )
+      let primary_value = projection_item_text(
+        product_in_gate_root(value),
+        "primary_value",
+        "",
+      )
+      if schema != "moonproj.product-in-gate-projection.v2" ||
+        product != expected_product ||
+        !["unknown", "pass", "experiment", "park"].contains(decision) ||
+        !["unknown", "solution", "convenience", "experience"].contains(
+          primary_value,
+        ) {
+        return false
+      }
+      match fields.get("persisted") {
+        Some(True) =>
+          decision != "unknown" &&
+          primary_value != "unknown" &&
+          !projection_item_text(product_in_gate_root(value), "owner", "").is_empty() &&
+          projection_item_text(product_in_gate_root(value), "decided_at", "").length() ==
+          10 &&
+          projection_item_text(product_in_gate_root(value), "review_by", "").length() ==
+          10
+        Some(False) =>
+          decision == "unknown" &&
+          primary_value == "unknown" &&
+          projection_item_text(product_in_gate_root(value), "owner", "").is_empty()
+        _ => false
+      }
+    }
+    _ => false
+  }
+}
+
+///|
 fn load_product_in_gate(
   emit : @rabbita.Emit[Msg],
   project : String,
@@ -285,7 +377,7 @@ fn request_product_in_gate_mark(
     match result {
       Ok(response) => {
         let payload = @json.parse(response) catch { _ => Json::null() }
-        if product_in_gate_response_text(payload, "decision", "").is_empty() {
+        if !product_in_gate_response_valid(payload, project) {
           emit(ProductInGateFailed(project))
         } else {
           emit(ProductInGateSaved(project))

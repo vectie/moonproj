@@ -298,3 +298,12 @@ or production owner approval is complete.
 The UI intentionally stays within the source product’s Element Plus visual
 language: system Chinese fonts, `#1e293b` navigation, `#f1f5f9` work canvas,
 compact KPI cards, dense data tables, and the source login gradient.
+
+## Project and contract CSV intake
+
+The existing ERP Projects and Contracts import picker supports quoted commas,
+escaped quotes, and multiline UTF-8 values. Invalid rows produce repairable
+errors before dry-run; the five-row preview and full request share the same
+parsed data. See [quoted CSV import](../docs/QUOTED_CSV_IMPORT.md) for the
+workflow, limits, and focused test command. Signed native dry-run/commit and
+production acceptance remain separate.

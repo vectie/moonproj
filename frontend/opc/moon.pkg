@@ -1,11 +1,17 @@
 import {
+  "vectie/moonproj/product/work_packet",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/http",
   "moonbitlang/core/json",
   "vectie/moonproj/product/work_inventory",
+  "vectie/moonproj/product/research_handoff",
+  "vectie/moonproj/product/client_delivery",
+  "moonbitlang/core/encoding/base64",
   "vectie/moonproj/operations/task_evidence",
+  "vectie/moonproj/product/plan_workbench",
+  "vectie/moonproj/frontend/execution_cockpit",
 }
 
 supported_targets = "js"

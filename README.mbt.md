@@ -19,6 +19,18 @@ default product.
 
 ## Documentation
 
+- [Top-down company execution ADR](docs/ADR_TOP_DOWN_COMPANY_EXECUTION.md) —
+  the two authorization planes, three ledgers, recoverable multi-Agent work,
+  and the explicit complement to MoonFlow and MoonTown.
+- [Sellable-product use-case test](docs/OPC_SELLABLE_PRODUCT_USE_CASE.md) —
+  one fixed-price customer engagement from signed order through governed work,
+  accepted delivery, invoice, accounting, collected cash, and readiness verdict.
+- [Commercial portfolio use-case results](docs/OPC_COMMERCIAL_PORTFOLIO_USE_CASES.md)
+  — ten executable sales, repeat-revenue, supplier, refund, cancellation, tax,
+  cash-reconciliation, security, and governance scenarios with a launch decision.
+- [Edge-bypass smoke test](docs/OPC_EDGE_BYPASS_SMOKE.md) — sandbox substitutes
+  for persistence, artifacts, providers, runtime, retainer, adjustments,
+  collection, quote gates, and cross-transition actor separation.
 - [Desktop UI guide](docs/UI_GUIDE.md) — every Basic OPC page, the unified
   nine-Gate release model, PostgreSQL boundary, and LEPUSA preview recovery.
 - [0.1.0 preview release notes](docs/releases/v0.1.0-preview.1.md) — packaged
@@ -139,3 +151,6 @@ The optional suite projection now also publishes
 dependency and fixed-point cost invariants, persists restart-safe MoonFlow
 intent and receipts, and emits only a review-pending digital planning artifact.
 It cannot spend, post, pay, sign, or execute work.
+
+- [Offline plan-review worksheet](docs/PLAN_REVIEW_WORKSHEET.md) — review the current
+  planning template, save row-level feedback and resume against its exact snapshot.

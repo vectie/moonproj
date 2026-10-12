@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x/crypto",
+  "vectie/moonproj/finance",
+  "vectie/moonproj/finance/accounting",
+  "vectie/moonproj/finance/tax",
+  "vectie/moonproj/finance/treasury",
+  "vectie/moonproj/foundation",
+  "vectie/moonproj/intelligence/agent_port",
+  "vectie/moonproj/operations/commitment",
+  "vectie/moonproj/operations/sales",
+  "vectie/moonproj/persistence/schema",
+  "vectie/moonproj/persistence/store",
+} for "test"
+
+supported_targets = "native"

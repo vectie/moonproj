@@ -100,4 +100,3 @@ pub fn StoredRecord::new(record_type~ : String, record_id~ : String, schema_vers
 // Type aliases
 
 // Traits
-

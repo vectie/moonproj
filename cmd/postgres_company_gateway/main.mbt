@@ -1656,6 +1656,57 @@ async fn handle(
           actor_signing_secret,
           actor,
         }
+        if flow_gateway_route(path) is Some((task_id, action, report_key)) {
+          let result = try {
+            let payload = if request.meth is @http.Post {
+              @json.parse(
+                @encoding/utf8.decode(read_body(body_reader, request)),
+              ) catch {
+                _ => raise fail("Flow operation body must be valid JSON")
+              }
+            } else {
+              Json::null()
+            }
+            flow_gateway_handle(
+              bridge,
+              moonsuite_workspace_root + "/moonproj",
+              task_id,
+              action,
+              report_key,
+              request.meth,
+              payload,
+            )
+          } catch {
+            error => flow_gateway_error(error)
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if workbench_route(path) is Some((project_id, plan_key)) {
+          let result = try {
+            let payload = if request.meth == @http.Post {
+              @json.parse(
+                @encoding/utf8.decode(read_body(body_reader, request)),
+              ) catch {
+                _ => raise fail("Plan request must be valid JSON")
+              }
+            } else {
+              Json::null()
+            }
+            workbench_handle(
+              bridge,
+              moonsuite_workspace_root + "/moonproj",
+              project_id,
+              plan_key,
+              request.meth,
+              payload,
+            )
+          } catch {
+            error => workbench_error(error)
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
         if request.meth is @http.Get &&
           native_continuation_task_id(path, false) is Some(task_id) {
           let result = native_list_continuations(

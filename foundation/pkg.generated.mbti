@@ -106,4 +106,3 @@ pub fn UserDirectory::empty() -> Self
 // Type aliases
 
 // Traits
-

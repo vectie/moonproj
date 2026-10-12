@@ -70,7 +70,7 @@ fn product_in_gate_evidence(
 }
 
 ///|
-fn normalize_product_in_gate_request(
+fn normalize_product_in_gate_request_fields(
   body : Json,
 ) -> Json raise CompanyServiceError {
   let fields = engineering_object(body, "product in-gate")
@@ -130,9 +130,10 @@ fn normalize_product_in_gate_request(
     let mut level4 = 0
     let mut level5 = 0
     for receipt in commitment_evidence {
-      if receipt.has_prefix("level4:") {
+      if receipt.has_prefix("level4:") && receipt.length() > "level4:".length() {
         level4 += 1
-      } else if receipt.has_prefix("level5:") {
+      } else if receipt.has_prefix("level5:") &&
+        receipt.length() > "level5:".length() {
         level5 += 1
       } else {
         raise reject(
@@ -168,6 +169,20 @@ fn normalize_product_in_gate_request(
 }
 
 ///|
+/// Translate all malformed client contracts into a stable 422 response. The
+/// shared engineering validators intentionally use InvalidInput because they
+/// also validate trusted internal evidence; this public command must not turn
+/// client shape errors into service failures.
+fn normalize_product_in_gate_request(
+  body : Json,
+) -> Json raise CompanyServiceError {
+  normalize_product_in_gate_request_fields(body) catch {
+    CompanyServiceError::InvalidInput(message) => raise reject(422, message)
+    error => raise error
+  }
+}
+
+///|
 fn product_in_gate_projection(
   product : String,
   normalized : Json,
@@ -175,68 +190,19 @@ fn product_in_gate_projection(
   revision : Int,
   event_id : String,
 ) -> Json {
-  Json::object({
-    "schema": Json::string("moonproj.product-in-gate-projection.v2"),
-    "product": Json::string(product),
-    "decision": Json::string(json_text(normalized, "decision", "unknown")),
-    "primary_value": Json::string(
-      json_text(normalized, "primary_value", "unknown"),
-    ),
-    "segment": Json::string(json_text(normalized, "segment", "")),
-    "workflow": Json::string(json_text(normalized, "workflow", "")),
-    "decided_at": Json::string(json_text(normalized, "decided_at", "")),
-    "problem_evidence": json_field(normalized, "problem_evidence").unwrap_or(
-      Json::array([]),
-    ),
-    "commitment_evidence": json_field(normalized, "commitment_evidence").unwrap_or(
-      Json::array([]),
-    ),
-    "current_behavior_cost": Json::string(
-      json_text(normalized, "current_behavior_cost", ""),
-    ),
-    "outcome_metric": Json::string(json_text(normalized, "outcome_metric", "")),
-    "adoption_path": Json::string(json_text(normalized, "adoption_path", "")),
-    "unresolved_risks": Json::string(
-      json_text(normalized, "unresolved_risks", ""),
-    ),
-    "next_experiment": Json::string(
-      json_text(normalized, "next_experiment", ""),
-    ),
-    "review_by": Json::string(json_text(normalized, "review_by", "")),
-    "owner": Json::string(owner),
-    "revision": Json::number(revision.to_double()),
-    "event_id": Json::string(event_id),
-    "updated_at_ms": Json::number(@env.now().to_double()),
-    "persisted": Json::boolean(true),
-    "exit_gate_effect": Json::boolean(false),
-  })
+  @product_in_gate_projection.persisted(
+    product~,
+    normalized~,
+    owner~,
+    revision~,
+    event_id~,
+    updated_at_ms=@env.now(),
+  )
 }
 
 ///|
 fn product_in_gate_unknown_projection(product : String) -> Json {
-  Json::object({
-    "schema": Json::string("moonproj.product-in-gate-projection.v2"),
-    "product": Json::string(product),
-    "decision": Json::string("unknown"),
-    "primary_value": Json::string("unknown"),
-    "segment": Json::string(""),
-    "workflow": Json::string(""),
-    "decided_at": Json::string(""),
-    "problem_evidence": Json::array([]),
-    "commitment_evidence": Json::array([]),
-    "current_behavior_cost": Json::string(""),
-    "outcome_metric": Json::string(""),
-    "adoption_path": Json::string(""),
-    "unresolved_risks": Json::string(""),
-    "next_experiment": Json::string(""),
-    "review_by": Json::string(""),
-    "owner": Json::string(""),
-    "revision": Json::number(0),
-    "event_id": Json::string(""),
-    "updated_at_ms": Json::number(0),
-    "persisted": Json::boolean(false),
-    "exit_gate_effect": Json::boolean(false),
-  })
+  @product_in_gate_projection.unknown(product~)
 }
 
 ///|

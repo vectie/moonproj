@@ -26,7 +26,9 @@ actor; the trusted gateway smoke covers template download, project dry-run,
 and project commit. Rabbita Projects and Contracts now provide the CSV picker,
 five-row preview, dry-run step, and commit step against the same signed
 endpoints. The remaining acceptance work is production identity and owner
-review; browser CSV parsing intentionally remains the source dialog's simple
-comma-separated contract.
+review; the existing picker now supports [quoted and multiline CSV](QUOTED_CSV_IMPORT.md)
+with a five-row preview, strict column/header checks, and repairable parser
+errors. This local intake extension is qualified by focused Node execution of
+the production JS parser only; it does not add native or browser qualification.
 Neither import path posts accounting, releases
 cash, invokes providers, or calculates tax.
