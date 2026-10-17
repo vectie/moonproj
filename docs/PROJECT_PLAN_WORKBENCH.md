@@ -15,7 +15,8 @@ proposal, dispatch, acceptance and finance flows are unchanged.
    two-decimal scale; results and exports label the underlying minor units.
 3. Add named owners and roles, or [import and edit an owner roster](OWNER_ROSTER_TABLE.md)
    by stable ID with a CSV/TSV preview. Then add milestone dates, acceptance criteria and required
-   evidence (one per line). Use the [owner planning brief](OWNER_PLANNING_BRIEF.md)
+   evidence (one per line), or [import a new milestone roadmap](MILESTONE_ROADMAP_IMPORT.md)
+   with source IDs that your later task CSV can reference. Use the [owner planning brief](OWNER_PLANNING_BRIEF.md)
    to inspect one owner's assigned work and cross-owner handoffs, and download
    the current draft context. Add tasks, their owners, milestone, costs and
    dependencies. Move tasks up/down so predecessors come first. Add risk rows

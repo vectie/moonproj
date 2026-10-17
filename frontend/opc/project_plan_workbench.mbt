@@ -245,6 +245,7 @@ fn plan_save_edit(
       ..state.milestone_table,
       base: None,
       preview: None,
+      import_preview: None,
       note: "",
     },
     template: { ..state.template, append_before: None, append_after: None, },

@@ -12094,7 +12094,7 @@ fn parse_import_csv(text : String) -> ImportCsvData {
     within_limit: false,
     error: "CSV 解析失败 · 请检查文件格式后重新选择",
   }
-  match try? @json.parse(parse_import_csv_json(text)) {
+  match (try? @json.parse(parse_import_csv_json(text))) {
     Ok(Json::Object(fields)) => {
       let headers = json_array_field(fields, "headers").filter_map(value => {
         match value {

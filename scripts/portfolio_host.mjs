@@ -5,6 +5,7 @@ import { spawn, execFile } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import { promisify } from 'node:util';
+import { createDeliverableHost } from './deliverable_host.mjs';
 import { createExecutionHandoff, createCapabilityInvocation, projectExecution, verifyPlanReview } from './portfolio_execution.mjs';
 
 const repo = path.resolve(import.meta.dirname, '..');
@@ -173,13 +174,19 @@ async function start(job, retry = false) {
     job.updatedAt = cleanTime(); await save();
   });
 }
-function readBody(req) { return new Promise((resolve, reject) => { let raw = ''; req.on('data', chunk => { raw += chunk; if (raw.length > 10000) { reject(Error('Body too large')); req.destroy(); } }); req.on('end', () => { try { resolve(JSON.parse(raw)); } catch { reject(Error('Invalid JSON')); } }); req.on('error', reject); }); }
+const deliverables = createDeliverableHost({ data, config: executionConfig, readOperatorJson, runMoonflow });
+function readBody(req, limit = 10000) { return new Promise((resolve, reject) => { let raw = ''; req.on('data', chunk => { raw += chunk; if (raw.length > limit) { reject(Error('Body too large')); req.destroy(); } }); req.on('end', () => { try { resolve(JSON.parse(raw)); } catch { reject(Error('Invalid JSON')); } }); req.on('error', reject); }); }
 const server = http.createServer(async (req, res) => {
   try {
     const host = req.headers.host || '';
     if (![ `127.0.0.1:${port}`, `localhost:${port}` ].includes(host)) return send(res, 403, { error: 'Loopback host required' });
     if (req.method !== 'GET' && req.headers.origin && ![`http://127.0.0.1:${port}`, `http://localhost:${port}`].includes(req.headers.origin)) return send(res, 403, { error: 'Cross-origin write denied' });
     const url = new URL(req.url, `http://${host}`);
+    if (url.pathname === '/api/deliverables' && req.method === 'GET') return send(res, 200, { deliverables: await deliverables.list() });
+    if (/^\/api\/deliverables\/(create|preview|inspect-evidence|delegation-brief|prepare|dispatch|assemble|rework|capacity|specialists|owner-handoff-preview|owner-handoff|prerequisites-preview|prerequisites|source-assignment-preview|source-assignment)$/.test(url.pathname) && req.method === 'POST') {
+      const body = await readBody(req, 1000000);
+      return send(res, 200, await deliverables.act(url.pathname.split('/').at(-1), body));
+    }
     if (url.pathname === '/api/portfolio/state' && req.method === 'GET') return send(res, 200, await portfolioState());
     if (url.pathname === '/api/portfolio/handoff' && req.method === 'POST') {
       const body = await readBody(req);

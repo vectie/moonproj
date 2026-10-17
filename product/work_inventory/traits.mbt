@@ -48,3 +48,15 @@ pub extend Milestone with ToJson::{to_json}
 
 ///|
 pub extend Milestone with @json.FromJson::{from_json}
+
+///|
+pub extend EffortItem with Debug::{to_repr}
+
+///|
+pub extend EffortItem with Eq::{equal, not_equal}
+
+///|
+pub extend EffortItem with ToJson::{to_json}
+
+///|
+pub extend EffortItem with @json.FromJson::{from_json}

@@ -2,8 +2,10 @@
 struct PlanMilestoneTableState {
   text : String
   tsv : Bool
+  import_new : Bool
   base : @plan_workbench.Draft?
   preview : @plan_workbench.MilestoneTableUpdate?
+  import_preview : @plan_workbench.MilestoneTableImport?
   note : String
 } derive(Debug, Eq)
 
@@ -11,6 +13,7 @@ struct PlanMilestoneTableState {
 enum PlanMilestoneTableMsg {
   Text(String)
   Format(Bool)
+  ImportMode(Bool)
   Preview
   Apply
   Close
@@ -19,7 +22,15 @@ enum PlanMilestoneTableMsg {
 
 ///|
 fn plan_milestone_table_initial() -> PlanMilestoneTableState {
-  { text: "", tsv: false, base: None, preview: None, note: "", }
+  {
+    text: "",
+    tsv: false,
+    import_new: false,
+    base: None,
+    preview: None,
+    import_preview: None,
+    note: "",
+  }
 }
 
 ///|
@@ -35,15 +46,58 @@ fn plan_milestone_table_update(
   }
   let t = s.milestone_table
   let next = match action {
-    Text(text) => { ..t, text, base: None, preview: None, note: "", }
-    Format(tsv) => { ..t, tsv, base: None, preview: None, note: "", }
-    Close => { ..t, base: None, preview: None, note: "", }
+    Text(text) =>
+      { ..t, text, base: None, preview: None, import_preview: None, note: "", }
+    Format(tsv) =>
+      { ..t, tsv, base: None, preview: None, import_preview: None, note: "", }
+    ImportMode(import_new) =>
+      {
+        ..t,
+        import_new,
+        base: None,
+        preview: None,
+        import_preview: None,
+        note: "",
+      }
+    Close => { ..t, base: None, preview: None, import_preview: None, note: "", }
     Export => {
       let csv = @plan_workbench.export_milestone_table(d)
       return (
         @cmd.custom_cmd(_ => plan_download(csv, "plan-milestones.csv", false)),
         model,
       )
+    }
+    Preview if t.import_new => {
+      let preview = @plan_workbench.preview_milestone_table_import(
+        d,
+        t.text,
+        t.tsv,
+      ) catch {
+        @plan_workbench.Invalid(note) =>
+          return (
+            none,
+            {
+              ..model,
+              plan: {
+                ..s,
+                milestone_table: {
+                  ..t,
+                  base: None,
+                  preview: None,
+                  import_preview: None,
+                  note,
+                },
+              },
+            },
+          )
+      }
+      {
+        ..t,
+        base: Some(d),
+        preview: None,
+        import_preview: Some(preview),
+        note: "Preview only. Apply to add these milestones to the local draft.",
+      }
     }
     Preview => {
       let preview = @plan_workbench.preview_milestone_table_updates(
@@ -58,7 +112,13 @@ fn plan_milestone_table_update(
               ..model,
               plan: {
                 ..s,
-                milestone_table: { ..t, base: None, preview: None, note, },
+                milestone_table: {
+                  ..t,
+                  base: None,
+                  preview: None,
+                  import_preview: None,
+                  note,
+                },
               },
             },
           )
@@ -67,8 +127,49 @@ fn plan_milestone_table_update(
         ..t,
         base: Some(d),
         preview: Some(preview),
+        import_preview: None,
         note: "Preview only. Apply edits to update the local draft.",
       }
+    }
+    Apply if t.import_new => {
+      guard t.base is Some(base) && t.import_preview is Some(preview) else {
+        return (none, model)
+      }
+      if base != d {
+        return (
+          none,
+          {
+            ..model,
+            plan: {
+              ..s,
+              milestone_table: {
+                ..t,
+                base: None,
+                preview: None,
+                import_preview: None,
+                note: "The draft changed. Preview the milestone import again.",
+              },
+            },
+          },
+        )
+      }
+      if preview.additions.is_empty() {
+        return (none, model)
+      }
+      let edited = plan_save_edit(s, preview.draft)
+      return (
+        none,
+        {
+          ..model,
+          plan: {
+            ..edited,
+            note: edited.note +
+            " Added " +
+            preview.additions.length().to_string() +
+            " milestones with their source IDs; existing rows and task links retained.",
+          },
+        },
+      )
     }
     Apply => {
       guard t.base is Some(base) && t.preview is Some(preview) else {
@@ -85,6 +186,7 @@ fn plan_milestone_table_update(
                 ..t,
                 base: None,
                 preview: None,
+                import_preview: None,
                 note: "The draft changed. Preview the milestone table again.",
               },
             },
@@ -123,8 +225,33 @@ fn plan_milestone_table_view(
   @html.details <| [
     @html.summary("编辑里程碑表 / Edit milestone table"),
     p(
-      "下载 CSV，在表格中编辑后粘贴回来。按现有 id 更新；未列出的行或列保持不变。独立修改日期不会平移其他里程碑，关联任务保持原样。",
+      if t.import_new {
+        "将已有路线图导入草稿，包括空的里程碑列表。先检查预览，再应用新增；不会自动准备、保存原生计划或创建任务。"
+      } else {
+        "下载 CSV，在表格中编辑后粘贴回来。按现有 id 更新；未列出的行或列保持不变。独立修改日期不会平移其他里程碑，关联任务保持原样。"
+      },
     ),
+    div(class="tag-row") <| [
+      plan_button(
+        emit,
+        MilestoneTable(ImportMode(false)),
+        "编辑现有里程碑 / Edit existing milestones",
+        selected=!t.import_new,
+      ),
+      plan_button(
+        emit,
+        MilestoneTable(ImportMode(true)),
+        "导入新里程碑 / Import new milestones",
+        selected=t.import_new,
+      ),
+    ],
+    if t.import_new {
+      p(
+        "新导入需要 id、title、owner 列；保留来源 ID，方便后续任务 CSV 引用。date、criteria、evidence 可省略并留空。已有且所有字段相同的 ID 跳过；不同则拒绝，请切换现有编辑。新增行按输入顺序追加，合计最多 40 个里程碑。",
+      )
+    } else {
+      @html.nothing
+    },
     plan_button(
       emit,
       MilestoneTable(Export),
@@ -156,7 +283,11 @@ fn plan_milestone_table_view(
     plan_button(
       emit,
       MilestoneTable(Preview),
-      "预览里程碑修改 / Preview milestone edits",
+      if t.import_new {
+        "预览新里程碑 / Preview new milestones"
+      } else {
+        "预览里程碑修改 / Preview milestone edits"
+      },
       disabled=t.text.trim().is_empty(),
     ),
     plan_button(
@@ -165,8 +296,49 @@ fn plan_milestone_table_view(
       "关闭修改预览 / Close preview",
     ),
     p(attrs=@html.Attrs::build().role("status").aria_live("polite"), t.note),
+    match (t.base, t.import_preview) {
+      (Some(base), Some(preview)) if t.import_new && base == d =>
+        div <| [
+          h3("新里程碑预览 / New milestone preview"),
+          p(
+            preview.additions.length().to_string() +
+            " new milestones; " +
+            preview.unchanged.length().to_string() +
+            " identical existing rows skipped.",
+          ),
+          p(
+            "Ignored columns: " +
+            (if preview.ignored.is_empty() {
+              "None"
+            } else {
+              preview.ignored.join(", ")
+            }),
+          ),
+          p(
+            "Unchanged existing IDs: " +
+            (if preview.unchanged.is_empty() {
+              "None"
+            } else {
+              preview.unchanged.join(", ")
+            }),
+          ),
+          div <| preview.additions.map(m => {
+            @html.details <| [
+              @html.summary(m.id + " · " + m.name),
+              @html.pre(m.to_json().stringify(indent=2)),
+            ]
+          }),
+          plan_button(
+            emit,
+            MilestoneTable(Apply),
+            "应用新增里程碑 / Apply new milestones",
+            disabled=preview.additions.is_empty(),
+          ),
+        ]
+      _ => @html.nothing
+    },
     match (t.base, t.preview) {
-      (Some(base), Some(preview)) if base == d =>
+      (Some(base), Some(preview)) if !t.import_new && base == d =>
         div <| [
           h3("里程碑修改预览 / Milestone edit preview"),
           p(

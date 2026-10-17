@@ -59,6 +59,8 @@ pub fn owner_brief(Draft, String, String) -> String raise InputError
 
 pub fn preview_markdown_checklist(Draft, String, String, String, String, Bool) -> ChecklistImport raise InputError
 
+pub fn preview_milestone_table_import(Draft, String, Bool) -> MilestoneTableImport raise InputError
+
 pub fn preview_milestone_table_updates(Draft, String, Bool) -> MilestoneTableUpdate raise InputError
 
 pub fn preview_owner_table(Draft, String, Bool) -> OwnerTableUpdate raise InputError
@@ -166,6 +168,13 @@ pub(all) struct MilestoneTableChange {
   after : Milestone
   fields : Array[String]
 } derive(Eq, ToJson, @debug.Debug)
+
+pub(all) struct MilestoneTableImport {
+  draft : Draft
+  additions : Array[Milestone]
+  unchanged : Array[String]
+  ignored : Array[String]
+} derive(Eq, @debug.Debug)
 
 pub(all) struct MilestoneTableUpdate {
   draft : Draft

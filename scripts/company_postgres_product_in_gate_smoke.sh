@@ -197,7 +197,8 @@ status_code=$(/usr/bin/curl -sS -o "$TMP_DIR/bad-signature.json" -w '%{http_code
   -H "Idempotency-Key: $INVALID_KEY-signature" \
   --data "$experiment_body" \
   "http://127.0.0.1:$PORT/api/company/products/$PRODUCT/in-gate")
-test "$status_code" = 401
+test "$status_code" = 403
+/usr/bin/jq -e '.error == "signed actor assertion is required"' "$TMP_DIR/bad-signature.json" >/dev/null
 
 /usr/bin/curl -fsS \
   -H "Authorization: Bearer $TOKEN" \

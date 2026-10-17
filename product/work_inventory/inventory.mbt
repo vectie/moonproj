@@ -46,6 +46,13 @@ pub(all) struct Requirement {
 } derive(Debug, Eq, ToJson, FromJson)
 
 ///|
+pub(all) struct EffortItem {
+  task : String
+  estimate_low_days : Int
+  estimate_high_days : Int
+} derive(Debug, Eq, ToJson, FromJson)
+
+///|
 pub(all) struct WorkGroup {
   id : String
   title : String
@@ -57,6 +64,7 @@ pub(all) struct WorkGroup {
   estimate_low_days : Int?
   estimate_high_days : Int?
   estimate_scope : String
+  effort_breakdown : Array[EffortItem]?
   confidence : String
   assumptions : Array[String]
   evidence : Array[String]
