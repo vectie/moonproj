@@ -63,3 +63,10 @@ history navigation and failed storage using synthetic browser adapters. They do
 not qualify graphical-browser ergonomics, keyboard/screen-reader behavior, a live
 signed gateway or dependency completion. No formal execution dependency is
 installed by copying a planning prerequisite into the brief.
+
+## Owned deliverables
+
+For a reviewed multi-task execution graph, use the portfolio operator page's
+[Delegate a deliverable](DELEGATE_DELIVERABLE.md) workflow. It explicitly adapts
+per-task acceptance and installs dependencies only through native Flow import.
+This single-row local Dispatch handoff retains the limits described above.

@@ -1,0 +1,3 @@
+option,synthetic_setup_assumption,source_context,unverified_tradeoff
+Shared document,One owner maintains links,All source links in one document,Lower setup but manual task-specific context
+Explicit task source mapping,Owner assigns saved files to tasks,Each task names its selected input files,More upfront review with potentially fewer clarification requests

@@ -62,3 +62,7 @@ HTML, local storage/reload, CSV round trip, full prepare payload, repeated actio
 validation, cancellation and context changes. Browser APIs and saved responses use
 synthetic Node adapters. These results do not establish graphical-browser,
 keyboard/screen-reader ergonomics, native gateway or live PostgreSQL acceptance.
+
+After saving the native plan, [Delegate a deliverable](DELEGATE_DELIVERABLE.md)
+can turn its owned tasks and prerequisites into a reviewed Flow execution graph.
+Breakdown itself still edits only the plan and starts no work.

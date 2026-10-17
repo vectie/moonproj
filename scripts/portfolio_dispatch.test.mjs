@@ -115,3 +115,33 @@ test('native client sends the bare invocation to exact MoonClaw capability route
     assert.deepEqual(calls.map(call => call.body), [authorized, authorized]);
   } finally { globalThis.fetch = original; }
 });
+
+test('first-submit freshness may change only evaluation metadata and never the approved payload', () => fixture(async files => {
+  let submits = 0;
+  const result = await dispatchCapability({ invocation, ...files,
+    gateway: async action => { if (action === 'submit') submits++; return null; }, reconcileFlow: async () => ({}),
+    beforeSubmit: async old => ({ ...old, request: { ...old.request, operation: 'another-operation' } }),
+  });
+  assert.equal(result.status, 'blocked'); assert.equal(submits, 0);
+  assert.match(result.blocker, /changed the approved invocation payload/);
+  assert.equal(JSON.parse(await readFile(files.journalPath, 'utf8')).phase, 'prepared');
+}));
+
+test('prepared journal recovers an interrupted timestamp-only refresh but uncertain journal never refreshes or resubmits', () => fixture(async files => {
+  let refreshed;
+  const first = await dispatchCapability({ invocation, ...files, gateway: async () => null, reconcileFlow: async () => ({}),
+    beforeSubmit: async old => { refreshed = { ...old, evaluated_at: '2026-10-12T11:00:00Z', recorded_at: '2026-10-12T11:00:00Z' }; throw Error('fixture stopped after refreshed packet persistence'); },
+  });
+  assert.equal(first.status, 'blocked');
+  let submits = 0, refreshes = 0;
+  const unknown = await dispatchCapability({ invocation: refreshed, ...files,
+    gateway: async action => { if (action === 'submit') { submits++; throw Error('fixture lost response after submit'); } return null; },
+    beforeSubmit: async old => { refreshes++; return old; }, reconcileFlow: async () => ({}),
+  });
+  assert.equal(unknown.status, 'unknown'); assert.equal(submits, 1);
+  const retry = await dispatchCapability({ invocation: refreshed, ...files,
+    gateway: async action => { if (action === 'submit') submits++; return action === 'reconcile' ? receipt('succeeded') : null; },
+    beforeSubmit: async old => { refreshes++; return { ...old, evaluated_at: '2026-10-12T12:00:00Z' }; }, reconcileFlow: async () => ({}),
+  });
+  assert.equal(retry.status, 'succeeded'); assert.equal(submits, 1); assert.equal(refreshes, 1);
+}));

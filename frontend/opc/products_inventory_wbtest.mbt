@@ -50,6 +50,7 @@ fn products_inventory_fixture() -> @work_inventory.Inventory {
         estimate_low_days: Some(2),
         estimate_high_days: Some(5),
         estimate_scope: "Only verification, not full product",
+        effort_breakdown: None,
         confidence: "low",
         assumptions: ["One engineer with prepared host"],
         evidence: ["source/file.mbt"],

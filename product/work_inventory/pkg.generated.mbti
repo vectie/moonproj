@@ -18,6 +18,17 @@ pub suberror InventoryError {
 pub fn InventoryError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub(all) struct EffortItem {
+  task : String
+  estimate_low_days : Int
+  estimate_high_days : Int
+} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn EffortItem::equal(Self, Self) -> Bool
+pub fn EffortItem::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn EffortItem::not_equal(Self, Self) -> Bool
+pub fn EffortItem::to_json(Self) -> Json
+pub fn EffortItem::to_repr(Self) -> @debug.Repr
+
 pub(all) struct Inventory {
   schema : String
   product_id : String
@@ -89,6 +100,7 @@ pub(all) struct WorkGroup {
   estimate_low_days : Int?
   estimate_high_days : Int?
   estimate_scope : String
+  effort_breakdown : Array[EffortItem]?
   confidence : String
   assumptions : Array[String]
   evidence : Array[String]

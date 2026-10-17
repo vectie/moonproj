@@ -119,3 +119,13 @@ This capability does not:
 - release payment;
 - alter tax, treasury or investment records;
 - authorize an external or physical effect.
+
+## Separate operator execution workflow
+
+[Delegate a deliverable](DELEGATE_DELIVERABLE.md) consumes a saved proposal and
+requires exact operator review before native graph import. It retains task owners,
+installs declared dependencies through Flow, dispatches prepared work through the
+existing Claw capability route, verifies reviewed artifact bytes for assembly and
+proposes targeted rework. These are separate explicit operations; plan preparation
+still has no execution effect. [Wire references](DELIVERABLE_WIRE_REFERENCES.md)
+distinguish source inspection and fixture rehearsal from live runtime acceptance.

@@ -3,6 +3,7 @@ import { readFile, writeFile, rename } from 'node:fs/promises';
 
 const digest = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
 const json = value => JSON.stringify(value, null, 2) + '\n';
+const payloadDigest = invocation => digest(json({ ...invocation, evaluated_at: null, recorded_at: null }));
 const terminal = new Set(['succeeded', 'failed', 'cancelled']);
 
 export function assertCapabilityReceipt(invocation, receipt) {
@@ -27,30 +28,47 @@ async function atomicJson(file, value) {
   await rename(temporary, file);
 }
 
-export async function dispatchCapability({ invocation, journalPath, receiptPath, gateway, reconcileFlow }) {
+export async function dispatchCapability({ invocation, journalPath, receiptPath, gateway, reconcileFlow, reconcileOnly = false, beforeSubmit }) {
   const invocationDigest = digest(json(invocation));
   let journal;
   try { journal = JSON.parse(await readFile(journalPath, 'utf8')); }
   catch (error) {
     if (error.code !== 'ENOENT') throw error;
-    journal = { contract_id: 'moonproj.capability-dispatch-journal.v1', invocation_digest: invocationDigest,
+    journal = { contract_id: 'moonproj.capability-dispatch-journal.v1', invocation_digest: invocationDigest, invocation_payload_digest: payloadDigest(invocation),
       request_id: invocation.request.request_id, attempt_id: invocation.request.attempt_id,
       idempotency_key: invocation.request.idempotency_key, phase: 'prepared' };
     try { await writeFile(journalPath, json(journal), { flag: 'wx', mode: 0o600 }); }
     catch (writeError) { if (writeError.code !== 'EEXIST') throw writeError; journal = JSON.parse(await readFile(journalPath, 'utf8')); }
   }
-  if (journal.contract_id !== 'moonproj.capability-dispatch-journal.v1' || journal.invocation_digest !== invocationDigest ||
+  if (journal.contract_id !== 'moonproj.capability-dispatch-journal.v1' ||
       journal.request_id !== invocation.request.request_id || journal.attempt_id !== invocation.request.attempt_id ||
       journal.idempotency_key !== invocation.request.idempotency_key) throw Error('Dispatch journal belongs to another invocation');
   let receipt;
   try { receipt = assertCapabilityReceipt(invocation, JSON.parse(await readFile(receiptPath, 'utf8'))); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (journal.invocation_digest !== invocationDigest && !(beforeSubmit && !receipt && journal.phase === 'prepared' &&
+      journal.invocation_payload_digest === payloadDigest(invocation))) throw Error('Dispatch journal belongs to another invocation');
+  // Only an unquestionably unsent prepared checkpoint may repair a local crash
+  // between refreshed timestamp/catalog persistence and the submit checkpoint.
+  journal.invocation_payload_digest ||= payloadDigest(invocation);
   if (!receipt || !terminal.has(receipt.status)) {
     try {
       receipt = await gateway('status', invocation);
       if (receipt) receipt = assertCapabilityReceipt(invocation, receipt);
       if (!receipt) {
-        if (journal.phase === 'prepared') {
+        if (journal.phase === 'prepared' && !reconcileOnly) {
+          if (beforeSubmit) {
+            try {
+              const refreshed = await beforeSubmit(invocation);
+              if (payloadDigest(refreshed) !== journal.invocation_payload_digest) throw Error('Pre-submit refresh changed the approved invocation payload');
+              invocation = refreshed;
+            } catch (error) {
+              // No submit has happened. Preserve Prepared so a fresh catalog can
+              // repair the blocker without pretending the remote effect is unknown.
+              return { status: 'blocked', blocker: error.message, requestId: journal.request_id, attemptId: journal.attempt_id };
+            }
+          }
+          journal.invocation_digest = digest(json(invocation));
           journal.phase = 'submitting';
           await atomicJson(journalPath, journal);
           receipt = assertCapabilityReceipt(invocation, await gateway('submit', invocation));

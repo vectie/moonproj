@@ -2,8 +2,10 @@
 
 In **Projects**, open an existing project draft, then expand **Edit milestone
 table / 编辑里程碑表** in **Milestones and acceptance criteria**. This adds a
-spreadsheet round trip to the ordinary milestone editor. It edits existing rows;
-use **Add milestone** first for a new milestone.
+spreadsheet round trip to the ordinary milestone editor. Its default **Edit
+existing milestones** mode edits existing rows. To bring in a new roadmap,
+choose **Import new milestones**, including when the draft has no milestones.
+See [Import a milestone roadmap](MILESTONE_ROADMAP_IMPORT.md).
 
 1. Choose **Download milestone CSV**. Keep the `id` column unchanged.
 2. Edit names, owners, individual target dates, acceptance criteria or required

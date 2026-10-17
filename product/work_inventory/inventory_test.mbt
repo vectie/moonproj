@@ -50,6 +50,7 @@ fn fixture() -> @work_inventory.Inventory {
         estimate_low_days: Some(2),
         estimate_high_days: Some(5),
         estimate_scope: "Verification only; not full implementation",
+        effort_breakdown: None,
         confidence: "low",
         assumptions: ["One engineer and a prepared host"],
         evidence: ["source/file.mbt"],
@@ -180,4 +181,40 @@ test "portfolio matches exact catalog membership and does not invent missing pro
     }
     assert_true(failed)
   }
+}
+
+///|
+test "optional group effort breakdown survives exact wire round trip" {
+  let base = fixture()
+  let value = {
+    ..base,
+    groups: [
+      {
+        ..base.groups[0],
+        effort_breakdown: Some([
+          {
+            task: "Preserve detailed planning estimate",
+            estimate_low_days: 1,
+            estimate_high_days: 2,
+          },
+          {
+            task: "Verify restart evidence",
+            estimate_low_days: 2,
+            estimate_high_days: 3,
+          },
+        ]),
+      },
+    ],
+  }
+  let parsed = @work_inventory.parse(value.projection(), "moonbook")
+  assert_eq(parsed, value)
+  assert_eq(parsed.projection(), value.projection())
+  assert_true(
+    parsed.projection()
+    is { "groups": Array([{ "effort_breakdown": Array([_, _]), .. }]), .. },
+  )
+  assert_false(
+    base.projection()
+    is { "groups": Array([{ "effort_breakdown": _, .. }]), .. },
+  )
 }

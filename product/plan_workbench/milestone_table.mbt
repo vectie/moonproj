@@ -187,3 +187,106 @@ pub fn export_milestone_table(draft : Draft) -> String {
   }
   rows.join("\r\n") + "\r\n"
 }
+
+///|
+pub(all) struct MilestoneTableImport {
+  draft : Draft
+  additions : Array[Milestone]
+  unchanged : Array[String]
+  ignored : Array[String]
+} derive(Debug, Eq)
+
+///|
+/// Preview new roadmap rows, preserving supplied IDs for later task imports.
+/// Existing identical rows are harmless replays; changed existing IDs are
+/// rejected and must use the separate update-only editor. Missing optional
+/// columns describe blank draft fields, never defaults taken from an old row.
+pub fn preview_milestone_table_import(
+  draft : Draft,
+  source : String,
+  tsv : Bool,
+) -> MilestoneTableImport raise InputError {
+  if source.length() > 1000000 {
+    raise Invalid("Milestone table exceeds 1,000,000 text units")
+  }
+  let rows = task_records(source, if tsv { '\t' } else { ',' })
+  if rows.length() < 2 || rows.length() > 41 {
+    raise Invalid("Provide a header and 1–40 milestone rows")
+  }
+  let headers = rows[0].map(milestone_column)
+  for key in ["id", "name", "owner"] {
+    if !headers.contains(key) {
+      raise Invalid("New milestone import requires column: " + key)
+    }
+  }
+  let originals : Map[String, Milestone] = {}
+  for milestone in draft.milestones {
+    if milestone.id.trim().is_empty() ||
+      milestone.id != milestone.id.trim().to_owned() ||
+      originals.contains(milestone.id) {
+      raise Invalid(
+        "Current draft has blank, padded or duplicate milestone IDs",
+      )
+    }
+    originals[milestone.id] = milestone
+  }
+  if draft.milestones.length() > 40 {
+    raise Invalid("A plan supports at most 40 milestones")
+  }
+  // Validate every supplied cell with the existing table parser. Detached blank
+  // rows mean omissions stay blank and cannot inherit values from existing IDs.
+  let candidates : Array[Milestone] = []
+  let mut id_column = 0
+  for i, header in headers {
+    if header == "id" {
+      id_column = i
+    }
+  }
+  for index = 1; index < rows.length(); index = index + 1 {
+    let row = rows[index]
+    let label = "Record " + (index + 1).to_string()
+    if row.length() != headers.length() {
+      raise Invalid(label + ": column count differs from header")
+    }
+    let id = row[id_column].trim().to_owned()
+    if id.is_empty() || candidates.any(m => m.id == id) {
+      raise Invalid(label + ": blank or duplicate milestone ID " + id)
+    }
+    candidates.push({
+      id,
+      name: "",
+      owner: "",
+      date: "",
+      criteria: "",
+      evidence: "",
+    })
+  }
+  let parsed = preview_milestone_table_updates(
+    { ..draft, milestones: candidates, },
+    source,
+    tsv,
+  )
+  let additions : Array[Milestone] = []
+  let unchanged : Array[String] = []
+  for milestone in parsed.draft.milestones {
+    match originals.get(milestone.id) {
+      None => additions.push(milestone)
+      Some(before) if before == milestone => unchanged.push(milestone.id)
+      Some(_) =>
+        raise Invalid(
+          "Milestone ID " +
+          milestone.id +
+          " already exists with different fields. Use Edit existing milestones to update it.",
+        )
+    }
+  }
+  if draft.milestones.length() + additions.length() > 40 {
+    raise Invalid("A plan supports at most 40 milestones")
+  }
+  {
+    draft: { ..draft, milestones: [..draft.milestones, ..additions], },
+    additions,
+    unchanged,
+    ignored: parsed.ignored,
+  }
+}
