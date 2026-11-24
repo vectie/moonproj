@@ -127,7 +127,13 @@ test "output buttons render for original and precise continuation" {
   let continuation = @rabbita.render_to_string(
     @rabbita.static_cell(dispatch_continuation_view(_ => none, model)),
   )
-  assert_true(original.contains("在 MoonDesk 打开此输出"))
-  assert_true(continuation.contains("在 MoonDesk 打开此输出"))
+  assert_true(original.contains("在 MoonDesk 编辑"))
+  assert_true(continuation.contains("在 MoonDesk 编辑"))
   assert_true(original.contains("当前文件"))
+  let accepted = { ..model, dispatch_task_stage: "accepted", }
+  let accepted_html = @rabbita.render_to_string(
+    @rabbita.static_cell(dispatch_native_result(accepted)),
+  )
+  assert_true(accepted_html.contains("在 MoonDesk 打开"))
+  assert_false(accepted_html.contains("在 MoonDesk 编辑"))
 }

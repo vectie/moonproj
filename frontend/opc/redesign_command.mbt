@@ -754,16 +754,42 @@ fn dispatch_durable_board(
 
 ///|
 fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  section(class="page") <| [
-    page_intro(
-      Dispatch,
+  if model.dispatch_task_stage == "loading" && !model.dispatch_task_blocked {
+    return section(class="page") <| [
+      h1("交付任务"),
+      p(
+        attrs=@html.Attrs::build().role("status"),
+        "正在读取这项工作的交付与进展…",
+      ),
       secondary_button(emit, Navigate(Objectives), "返回目标"),
-    ),
-    dispatch_goal_flow(emit, model),
-    details(class="journey-details") <| [
-      summary("从研究导入工作（可选）"),
-      research_import_view(emit, model),
-    ],
+    ]
+  }
+  let coordinated = delivery_coordinated(model)
+  section(class="page") <| [
+    if coordinated {
+      div(class="page-intro") <| [
+        h1("交付任务"),
+        secondary_button(emit, Navigate(Objectives), "返回目标"),
+      ]
+    } else {
+      page_intro(
+        Dispatch,
+        secondary_button(emit, Navigate(Objectives), "返回目标"),
+      )
+    },
+    if coordinated {
+      @html.nothing
+    } else {
+      dispatch_goal_flow(emit, model)
+    },
+    if coordinated {
+      @html.nothing
+    } else {
+      details(class="journey-details") <| [
+        summary("从研究导入工作（可选）"),
+        research_import_view(emit, model),
+      ]
+    },
     if model.dispatch_task_form_open {
       dispatch_task_form(emit, model)
     } else {
@@ -774,19 +800,25 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         status_badge("操作未完成", tone="warning"),
         p(model.dispatch_task_note),
       ]
-    } else {
+    } else if !coordinated {
       p(class="boundary-note", model.dispatch_task_note)
+    } else {
+      @html.nothing
     },
     section(id="dispatch-task-workspace", class="section-block") <| [
-      section_title(
-        "当前正式任务",
-        "执行 → 查看输出 → 按需人工调整 → 提交报告 → 接受结果",
-        if model.dispatch_task_id.is_empty() {
-          "0 个"
-        } else {
-          "1 个"
-        },
-      ),
+      if coordinated {
+        @html.nothing
+      } else {
+        section_title(
+          "当前正式任务",
+          "执行 → 查看输出 → 按需人工调整 → 提交报告 → 接受结果",
+          if model.dispatch_task_id.is_empty() {
+            "0 个"
+          } else {
+            "1 个"
+          },
+        )
+      },
       if model.dispatch_task_id.is_empty() {
         div(class="empty-panel") <| [
           strong("还没有正式任务"),
@@ -812,6 +844,14 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         }),
     ) <| [
       summary("其他任务 · 草稿、恢复与手动打开"),
+      if coordinated {
+        details(class="journey-details") <| [
+          summary("从研究导入工作（可选）"),
+          research_import_view(emit, model),
+        ]
+      } else {
+        @html.nothing
+      },
       dispatch_open_form(emit, model),
       dispatch_draft_list(emit, model),
       secondary_button(emit, OpenDispatchTaskForm, "创建独立任务草稿"),

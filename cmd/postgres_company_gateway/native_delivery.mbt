@@ -192,16 +192,26 @@ async fn native_delivery_finish_detail(
         fields["delivery_report_error"] = Json::string(
           gateway_error_text(error),
         )
+        fields["delivery_progress"] = native_delivery_progress(task)
       }
       return native_json_result(200, payload)
     }
   }
-  native_company_request(
+  let refreshed = native_company_request(
     bridge,
     @http.Get,
     "/api/company/tasks/" + native_text(task, "taskGuid"),
     Json::null(),
   )
+  if refreshed.status != 200 {
+    return refreshed
+  }
+  let payload = native_result_json(refreshed)
+  let task = native_field(native_field(payload, "data"), "task")
+  if task is Object(fields) {
+    fields["delivery_progress"] = native_delivery_progress(task)
+  }
+  native_json_result(200, payload)
 }
 
 ///|

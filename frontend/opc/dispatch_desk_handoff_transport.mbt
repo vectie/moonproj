@@ -67,6 +67,14 @@ extern "js" fn dispatch_build_desk_url(
 
 ///|
 #cfg(target="js")
+extern "js" fn dispatch_desk_title_url(
+  value : String,
+  title : String,
+) -> String =
+  #| (value, title) => { const url = new URL(value); if (title) url.searchParams.set('work_title', title); return url.href; }
+
+///|
+#cfg(target="js")
 extern "js" fn dispatch_navigate_desk(expected_page : String, url : String) =
   #| (expectedPage, url) => {
   #|   if (globalThis.location && globalThis.location.href.split('#', 1)[0] === expectedPage.split('#', 1)[0]) globalThis.location.assign(url);

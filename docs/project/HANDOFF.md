@@ -1,5 +1,62 @@
 # MoonProj project handoff
 
+## Deliverable clarity and MoonDesk context — 2026-11-24
+
+Coordinated work leads with the promised deliverable, Now / Next / Needs you,
+real contribution rows, and the marked integrated draft. Each contribution
+opens its substantive saved answer and artifact references. Office uses the
+same recorded responsibility and contribution link. Missing legacy information
+stays unknown; worker completion never means integration, review or acceptance.
+The redundant Dispatch journey/header no longer contradicts stopped work.
+Task loading has its own surface rather than flashing unrelated task controls.
+
+New initial and coordinated revision prompts request a per-command
+`.moonproj-progress-<command>.json` note in the captured coordinator workspace.
+It describes the deliverable, current work, next step, requested owner input,
+and each exact worker ID's responsibility/contribution target. The gateway
+reads at most 64 KiB through the existing confined file reader, checks task /
+command identity and projects only explanatory fields. No second task store,
+poller, approval system or completion gate was added. The note is agent-authored
+intent, not terminal evidence; its path is excluded from deliverable artifacts.
+An integrated draft needs both the note's output path and an attributed artifact
+from that exact command. Old notes cannot describe a successor's result.
+
+Worker readback now preserves the native bounded answer, truncation indicator
+and child Book root, rather than discarding the actual contribution when saving
+status. It cannot reconstruct answers that older stopped records already lost.
+The latest coordinated revision's outcome overrides the original command's
+outcome in the user-facing status. Human-selected revisions retain their exact
+immutable identity; accepted work shows the accepted report rather than calling
+mutable workspace bytes the accepted version.
+
+MoonDesk links carry an escaped display-only task title; the canonical task /
+run / command / Book checks remain unchanged. Desk displays the title, an editing
+purpose, and a direct return to MoonProj. Exiting clears the title hint too.
+Editing/returning does not submit, accept, resume or start an agent. The existing
+cross-product revision editor supports UTF-8 text up to 256 KiB, not an arbitrary
+Office/PDF round trip. Non-text/accepted outputs are labeled Open, not Edit.
+
+Real browser testing found a remaining integration blocker: the smoke task's
+generated nested coordinator Book is not in the installed MoonDesk host's active
+library. Navigation carries the exact task and returns correctly, but resolution
+stops at unknown_workspace. Do not weaken library/Book scope checks or claim an
+end-to-end edit/save round trip passed. Workspace ownership/discovery needs a
+separate root fix. Both SSH attempts to cluster Mac 192.168.2.195 timed out; the
+user's latest Downloads dissertation folder was not opened or modified.
+
+Validation: 571 frontend JS tests, 270 native service/gateway tests and 840
+MoonDesk main UI tests pass; locale checks and release builds pass. No public
+interface changes. The isolated index snapshot excludes unrelated user work and
+passes 570 frontend tests. Browser checks cover the real stopped smoke record, same-task
+Desk navigation/return and a clearly labeled illustrative contribution fixture
+at 375px without horizontal overflow. No provider run, dissertation review,
+packaged-app installation or cluster deployment is qualified. Screenshot:
+`/tmp/moonproj-delivery-clarity-verified.jpg`. Unrelated plan/GitHub-import edits
+and MoonDesk's pre-existing HANDOFF changes remain excluded.
+The temporary test services and disposable database are stopped. MoonDesk's
+generated dist changes were restored after archiving the verified build at
+`/tmp/moondesk-clarity-dist-verified.tgz`; source-only changes are committed.
+
 ## One task per office — 2026-11-24
 
 Office and fleet now show only one selected task's team. A native, labeled 任务

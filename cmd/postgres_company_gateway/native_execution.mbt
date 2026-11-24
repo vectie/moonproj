@@ -384,6 +384,7 @@ fn native_execution_snapshot(
   }
   let prompt = prompt +
     native_delivery_prompt(task) +
+    native_delivery_progress_prompt(task, command_id) +
     native_objective_delivery_prompt(task) +
     @task_evidence.source_prompt(task) +
     @task_evidence.guidance_prompt(book_guidance.unwrap_or(Json::null()))
@@ -554,6 +555,7 @@ fn native_output_paths(event : Json) -> Array[String] {
   let result : Array[String] = []
   for path in paths {
     if path.is_empty() ||
+      path.has_prefix(".moonproj-progress-") ||
       path.has_prefix("/") ||
       path.split("/").any(piece => piece == "..") ||
       result.contains(path) {
@@ -871,21 +873,9 @@ async fn native_poll_task(
           "Worker observation returned a different delivery",
         )
       }
-      let workers = native_array(panel, "workers").map(w => {
-        let fields : Map[String, Json] = Map([])
-        for
-          key in [
-            "worker_id", "child_session_id", "child_command_id", "status", "terminal",
-            "successful", "terminal_evidence",
-          ] {
-          fields[key] = native_field(w, key)
-        }
-        fields["artifact_references"] = native_field(
-          native_field(w, "result"),
-          "artifact_references",
-        )
-        Json::object(fields)
-      })
+      let workers = native_array(panel, "workers").map(
+        native_delivery_worker_projection,
+      )
       if observation is Object(fields) {
         fields["workers"] = workers.to_json()
         fields["worker_error"] = Json::string("")

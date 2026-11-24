@@ -191,7 +191,7 @@ test "guided task is full width and output precedes human revision and submissio
     guided_index(html, "Submit · 提交验收"),
   )
   assert_eq(guided_count(html, "Submit · 提交验收"), 1)
-  assert_true(guided_disclosure_visible(html, "在 MoonDesk 打开此输出"))
+  assert_true(guided_disclosure_visible(html, "在 MoonDesk 编辑"))
   assert_false(guided_disclosure_visible(html, "会话 · session-1"))
 }
 

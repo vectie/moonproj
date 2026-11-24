@@ -52,7 +52,7 @@ test "coordinated work shows artifacts and real controls without Submit ceremony
   let html = delivery_test_html(model)
   assert_true(html.contains("停止待确认"))
   assert_true(html.contains("Disconnected"))
-  assert_true(html.contains("实际专员与复核记录"))
+  assert_true(html.contains("谁在为交付做什么"))
   assert_false(html.contains("Submit ·"))
   assert_false(dispatch_can_start(model))
   assert_true(delivery_pollable(model))

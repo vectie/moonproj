@@ -25,7 +25,8 @@ fn native_delivery_revision_snapshot(
     "\n" +
     native_text(request, "prior_summary") +
     "\n\n" +
-    native_delivery_prompt(task)
+    native_delivery_prompt(task) +
+    native_delivery_progress_prompt(task, command_id)
   let input : Json = {
     "path": native_continuation_directory(id) + "/input.md",
     "sha256": native_context_hash(@encoding/utf8.encode(input_text)),

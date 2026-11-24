@@ -164,54 +164,50 @@ fn delivery_work_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   article(class="work-card focused-work") <| [
     div(class="loop-head") <| [
       strong(model.dispatch_task_title),
-      status_badge(
-        match control {
-          "stopping" => "停止待确认"
-          "stopped" => "已停止"
-          "revising" => "修改中"
-          _ => dispatch_task_stage_label(model.dispatch_task_stage)
-        },
-        tone="info",
-      ),
+      status_badge(delivery_stage_label(model), tone="info"),
     ],
-    if revision is Some(record) {
-      div(class="delivery-output") <| [
-        p(dispatch_json_text(record, "summary")),
-        div <| dispatch_continuation_array(record, "artifact_refs").map(item => {
-          div <| [
-            strong(dispatch_json_text(item, "path")),
-            dispatch_output_button(
-              emit,
-              model,
-              dispatch_json_text(record, "command_id"),
-              dispatch_json_text(item, "path"),
-              dispatch_json_text(item, "evidence_id"),
-            ),
-          ]
-        }),
-      ]
-    } else if control == "stopped" &&
-      model.dispatch_run.map(r => r.state != "completed").unwrap_or(false) {
-      div <| [
-        p(
-          model.dispatch_run
-          .map(r => {
-            if r.summary.is_empty() {
-              "尚无完整交付产物。"
-            } else {
-              r.summary
-            }
-          })
-          .unwrap_or("尚无完整交付产物。"),
-        ),
-        details(class="journey-details") <| [
-          summary("停止前的执行记录"),
-          dispatch_native_result(model, emit~),
-        ],
-      ]
-    } else {
-      dispatch_native_result(model, emit~)
-    },
+    delivery_overview_view(emit, model),
+    details(class="journey-details") <| [
+      summary("执行记录"),
+      if revision is Some(record) {
+        div(class="delivery-output") <| [
+          p(dispatch_json_text(record, "summary")),
+          div <| dispatch_continuation_array(record, "artifact_refs").map(item => {
+            div <| [
+              strong(dispatch_json_text(item, "path")),
+              dispatch_output_button(
+                emit,
+                model,
+                dispatch_json_text(record, "command_id"),
+                dispatch_json_text(item, "path"),
+                dispatch_json_text(item, "evidence_id"),
+              ),
+            ]
+          }),
+        ]
+      } else if control == "stopped" &&
+        model.dispatch_run.map(r => r.state != "completed").unwrap_or(false) {
+        div <| [
+          p(
+            model.dispatch_run
+            .map(r => {
+              if r.summary.is_empty() {
+                "尚无完整交付产物。"
+              } else {
+                r.summary
+              }
+            })
+            .unwrap_or("尚无完整交付产物。"),
+          ),
+          details(class="journey-details") <| [
+            summary("停止前的执行记录"),
+            dispatch_native_result(model, emit~),
+          ],
+        ]
+      } else {
+        dispatch_native_result(model, emit~)
+      },
+    ],
     if !dispatch_json_text(model.dispatch_offer_task, "delivery_report_error").is_empty() {
       p(
         class="boundary-note",
@@ -305,7 +301,6 @@ fn delivery_work_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
     details(class="journey-details", open=model.dispatch_run is None) <| [
       summary("交付条件"),
-      p("验收标准 · " + model.dispatch_task_acceptance),
       p(dispatch_json_text(model.dispatch_offer_task, "delivery_limits")),
       dispatch_execution_settings(emit, model),
     ],
@@ -318,44 +313,23 @@ fn delivery_work_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     } else {
       @html.nothing
     },
-    if !dispatch_continuation_array(execution, "workers").is_empty() {
-      details(class="journey-details") <| [
-        summary("实际专员与复核记录"),
-        div <| dispatch_continuation_array(execution, "workers").map(w => {
-          p(
-            dispatch_json_text(w, "worker_id") +
-            " · " +
-            delivery_worker_label(dispatch_json_text(w, "status")),
-          )
-        }),
-      ]
-    } else {
-      @html.nothing
-    },
     small(
       "执行成本 · 尚无可核实的金额；不按完成任务数推算。",
     ),
+    details(
+      class="journey-details",
+      open=model.dispatch_continuation.preview_revision != "" ||
+        model.dispatch_continuation.preview_command != "" ||
+        !model.dispatch_continuation.error.is_empty(),
+    ) <| [
+      summary("版本与修改"),
+      dispatch_continuation_view(emit, model),
+    ],
     details(class="journey-details") <| [
       summary("执行记录与其他工具"),
       p(model.dispatch_task_id),
       dispatch_task_receipts(model),
-      dispatch_continuation_view(emit, model),
-      dispatch_desk_handoff_view(emit, model),
       secondary_button(emit, ExportFounderPacket, "下载交付工作包"),
     ],
   ]
-}
-
-///|
-fn delivery_worker_label(state : String) -> String {
-  match state {
-    "done" => "已完成"
-    "failed" => "失败"
-    "cancelled" => "已取消"
-    "waiting" => "等待中"
-    "paused" | "interrupted" => "已暂停"
-    "running" => "执行中"
-    "pending" | "queued" => "排队中"
-    _ => "状态未确认"
-  }
 }

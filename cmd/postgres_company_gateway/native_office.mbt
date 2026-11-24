@@ -26,6 +26,7 @@ async fn native_office_observation(
     "workers": native_field(execution, "workers"),
     "observed_at": Json::number(@env.now().to_double()),
     "error": "",
+    "progress": native_delivery_progress(task),
   }
   if native_text(execution, "session_id").is_empty() {
     return result
@@ -47,23 +48,9 @@ async fn native_office_observation(
       !(native_field(panel, "workers") is Array(_)) {
       raise fail("Office observation does not match this task's session")
     }
-    let workers = native_array(panel, "workers").map(worker => {
-      let fields : Map[String, Json] = Map([])
-      for
-        key in [
-          "worker_id", "child_session_id", "child_command_id", "child_book_root",
-          "status", "terminal", "successful", "terminal_evidence",
-        ] {
-        fields[key] = native_field(worker, key)
-      }
-      let output = native_field(worker, "result")
-      fields["summary"] = native_field(output, "answer")
-      fields["summary_truncated"] = native_field(output, "answer_truncated")
-      fields["artifact_references"] = native_field(
-        output, "artifact_references",
-      )
-      Json::object(fields)
-    })
+    let workers = native_array(panel, "workers").map(
+      native_delivery_worker_projection,
+    )
     if result is Object(fields) {
       fields["workers"] = workers.to_json()
       fields["state"] = Json::string("observed")

@@ -191,7 +191,12 @@ fn dispatch_desk_handoff_update(
             dispatch_desk_output_url(url, state.output)
           }
           (
-            @cmd.custom_cmd(_ => dispatch_navigate_desk(expected_page, url)),
+            @cmd.custom_cmd(_ => {
+              dispatch_navigate_desk(
+                expected_page,
+                dispatch_desk_title_url(url, model.dispatch_task_title),
+              )
+            }),
             {
               ..model,
               dispatch_desk_handoff: { ..state, pending: false, error: "", },
@@ -281,7 +286,14 @@ fn dispatch_output_button(
     secondary_button(
       emit,
       DeskHandoffAction(Output(command, path, evidence)),
-      "在 MoonDesk 打开此输出 · 当前文件",
+      if !dispatch_task_inspection_only(model) &&
+        [".md", ".markdown", ".txt", ".tex", ".json", ".csv"].any(suffix => {
+          path.to_lower().has_suffix(suffix)
+        }) {
+        "在 MoonDesk 编辑 · 当前文件"
+      } else {
+        "在 MoonDesk 打开 · 当前文件"
+      },
     )
   } else {
     @html.nothing
@@ -304,19 +316,17 @@ fn dispatch_desk_handoff_view(
       emit,
       DeskHandoffAction(Open),
       if current && state.pending {
-        "正在读取准确执行…"
+        "正在打开工作区…"
       } else {
-        "在 MoonDesk 打开准确执行"
+        "在 MoonDesk 查看工作区"
       },
     ),
-    small(
-      "只读查看已捕获的会话、命令和文件；不会发起后续执行。",
-    ),
+    small("查看记录不会启动 Agent；编辑会保存为单独修订。"),
     if !dispatch_task_inspection_only(model) {
       secondary_button(
         emit,
         DeskHandoffAction(Continue),
-        "在 MoonDesk 继续此工作 · 新的人工指令",
+        "在 MoonDesk 发起后续工作",
       )
     } else {
       @html.nothing

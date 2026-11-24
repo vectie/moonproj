@@ -20,6 +20,8 @@ struct OfficeAssignment {
   command : String
   stage : String
   summary : String
+  responsibility : String
+  contributes_to : String
   artifacts : Array[Json]
   source : String
 }
@@ -188,6 +190,11 @@ fn office_agents(model : Model) -> Array[OfficeAgent] {
     let workspace = products_text(execution, "workspace")
     let root_key = task.id + "|" + office_agent_key(session, workspace)
     let control = products_text(execution, "control_state")
+    let progress = if products_field(record, "progress") is Object(_) {
+      products_field(record, "progress")
+    } else {
+      products_field(raw, "delivery_progress")
+    }
     let assignment : OfficeAssignment = {
       task,
       command: products_text(execution, "command_id"),
@@ -199,6 +206,8 @@ fn office_agents(model : Model) -> Array[OfficeAgent] {
         office_stage(products_text(execution, "state"), control, false)
       },
       summary: products_text(execution, "summary"),
+      responsibility: "整合交付",
+      contributes_to: "将专员成果整合为符合交付要求的结果，并检查缺口。",
       artifacts: dispatch_continuation_array(execution, "artifact_refs"),
       source: "公司执行记录",
     }
@@ -256,6 +265,10 @@ fn office_agents(model : Model) -> Array[OfficeAgent] {
         .unwrap_or("")
       }
       let key = task.id + "|" + office_agent_key(child, workspace)
+      let contribution = delivery_contribution(
+        progress,
+        products_text(worker, "worker_id"),
+      )
       let assignment : OfficeAssignment = {
         task,
         command: products_text(worker, "child_command_id"),
@@ -265,6 +278,8 @@ fn office_agents(model : Model) -> Array[OfficeAgent] {
           products_field(worker, "terminal") is True,
         ),
         summary: products_text(worker, "summary"),
+        responsibility: products_text(contribution, "responsibility"),
+        contributes_to: products_text(contribution, "contributes_to"),
         artifacts: dispatch_continuation_array(worker, "artifact_references"),
         source: if products_text(record, "state") == "observed" {
           "MoonClaw 专员观察"

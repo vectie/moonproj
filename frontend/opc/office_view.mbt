@@ -3,6 +3,9 @@ fn office_member_label(
   agent : OfficeAgent,
   agents : Array[OfficeAgent],
 ) -> String {
+  if !agent.assignments[0].responsibility.is_empty() && !agent.parent.is_empty() {
+    return agent.assignments[0].responsibility
+  }
   if agent.parent.is_empty() {
     return "负责人"
   }
@@ -136,6 +139,20 @@ fn office_inspector(
       section <| [
         h3(assignment.task.title),
         status_badge(office_status_label(assignment.stage), tone="info"),
+        p(
+          if assignment.responsibility.is_empty() {
+            "具体分工尚未记录。"
+          } else {
+            "负责 · " + assignment.responsibility
+          },
+        ),
+        p(
+          if assignment.contributes_to.is_empty() {
+            "对最终交付的具体贡献尚未说明。"
+          } else {
+            "用于交付 · " + assignment.contributes_to
+          },
+        ),
         if office_next_step(assignment).is_empty() {
           @html.nothing
         } else {
