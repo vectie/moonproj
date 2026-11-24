@@ -449,6 +449,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   --shadow: none;
 }
 body { color: var(--ink); background: var(--canvas); font-feature-settings: "tnum" 1, "cv03" 1; }
+.inline-form { color: var(--ink); background: var(--surface); border-color: var(--line-strong); }
 ::selection { background: rgba(139,124,246,.28); }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #2b3243; border-radius: 8px; }

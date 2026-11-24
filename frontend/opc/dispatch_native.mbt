@@ -325,6 +325,11 @@ fn dispatch_response_matches(
 }
 
 ///|
+fn dispatch_work_page(model : Model) -> Bool {
+  [Dispatch, Objectives].contains(model.page)
+}
+
+///|
 fn dispatch_run_pollable(run : DispatchRun?) -> Bool {
   match run {
     Some(run) =>

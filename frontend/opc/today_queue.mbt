@@ -36,7 +36,8 @@ struct TodayState {
 enum TodayMsg {
   NewObjective
   DelegateObjective(String)
-  AcceptObjective(String)
+  ReviseObjective(String, String)
+  AcceptObjective(String, String)
   ObjectiveAccepted(String, Int32, String, String, Int32, String)
   Refresh
   ChooseAll

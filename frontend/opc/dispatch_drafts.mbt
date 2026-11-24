@@ -336,7 +336,11 @@ fn dispatch_draft_update(
     }
     Resume(id) =>
       match dispatch_draft_by_id(model, id) {
-        Some(draft) if draft.task_type == Some("key_node") =>
+        Some(draft) if draft.state != "created" &&
+          (
+            draft.task_type == Some("key_node") ||
+            !draft.parent_task_id.unwrap_or("").is_empty()
+          ) =>
           update_model(emit, Navigate(Objectives), {
             ..model,
             dispatch_draft_id: id,
@@ -364,10 +368,16 @@ fn dispatch_draft_update(
             },
           )
         Some(draft) =>
-          open_dispatch_task(emit, {
-            ..model,
-            dispatch_task_open_id: draft.task_id,
-          })
+          open_dispatch_task(
+            emit,
+            { ..model, dispatch_task_open_id: draft.task_id, },
+            page=if draft.task_type == Some("key_node") ||
+              !draft.parent_task_id.unwrap_or("").is_empty() {
+              Objectives
+            } else {
+              Dispatch
+            },
+          )
         None => (none, model)
       }
     Park =>
@@ -417,7 +427,12 @@ fn dispatch_draft_update(
           ..model,
           dispatch_draft_id: draft.id,
           dispatch_task_form_open: true,
-          page: Dispatch,
+          page: if old.task_type == Some("key_node") ||
+            !old.parent_task_id.unwrap_or("").is_empty() {
+            Objectives
+          } else {
+            Dispatch
+          },
         },
         draft,
       )
@@ -677,22 +692,29 @@ fn dispatch_confirm_draft(
   if [Dispatch, Objectives].contains(model.page) &&
     model.dispatch_task_form_open &&
     model.dispatch_draft_id == draft.id {
-    if draft.task_type == Some("key_node") {
-      let (read, selected) = update_model(emit, Navigate(Objectives), {
-        ..next,
-        dispatch_task_form_open: false,
-        today: { ..next.today, project_id: draft.project_id, scope: "project", },
+    let objective = draft.task_type == Some("key_node") ||
+      !draft.parent_task_id.unwrap_or("").is_empty()
+    let (open, selected) = open_dispatch_task(
+      emit,
+      { ..next, dispatch_task_open_id: draft.task_id, },
+      page=if objective { Objectives } else { Dispatch },
+    )
+    let (read, selected) = if objective {
+      today_update(emit, Refresh, {
+        ..selected,
+        today: {
+          ..selected.today,
+          project_id: draft.project_id,
+          scope: "project",
+        },
       })
-      return (
-        @cmd.batch([dispatch_persist_drafts(emit, selected, ""), read]),
-        selected,
-      )
+    } else {
+      (none, selected)
     }
-    let (open, selected) = open_dispatch_task(emit, {
-      ..next,
-      dispatch_task_open_id: draft.task_id,
-    })
-    (@cmd.batch([dispatch_persist_drafts(emit, selected, ""), open]), selected)
+    (
+      @cmd.batch([dispatch_persist_drafts(emit, selected, ""), open, read]),
+      selected,
+    )
   } else {
     (
       dispatch_persist_drafts(emit, next, ""),

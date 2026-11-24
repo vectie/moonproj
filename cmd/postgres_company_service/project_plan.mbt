@@ -44,7 +44,7 @@ async fn plan_task_projection_rows(
 
 ///|
 async fn project_import_projection_rows(
-  include_deleted? : Bool = false,
+  include_deleted~ : Bool = false,
 ) -> Array[SourceRow] raise CompanyServiceError {
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, source_event_id, revision FROM company_aggregate_projection WHERE aggregate_type = 'project_import' ORDER BY aggregate_id, revision DESC) latest" +
@@ -102,7 +102,7 @@ fn project_plan_task_item(
   row : SourceRow,
   command : Bool,
   users : Array[SourceRow],
-  include_offer? : Bool = false,
+  include_offer~ : Bool = false,
 ) -> Json {
   let payload = row.payload
   let task_id = if command {
@@ -178,6 +178,9 @@ fn project_plan_task_item(
       Json::null(),
     ),
     "accepted_delivery_source": json_field(payload, "accepted_delivery_source").unwrap_or(
+      Json::null(),
+    ),
+    "objective_result": json_field(payload, "objective_result").unwrap_or(
       Json::null(),
     ),
     "sortOrder": Json::number(json_int(payload, "sort_order", 0).to_double()),
@@ -290,7 +293,7 @@ async fn project_plan_project_item(
       reports.push(report)
     }
   }
-  let status_counts : Map[String, Int] = {}
+  let status_counts : Map[String, Int32] = {}
   for task in tasks {
     let status = json_text(task, "status", "pending")
     status_counts.set(status, status_counts.get(status).unwrap_or(0) + 1)
@@ -513,7 +516,7 @@ async fn project_runtime_response(
 ///|
 async fn project_task_detail_response(
   task_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(task_id) {
     return (400, Json::object({ "error": Json::string("invalid task_id") }))
   }
@@ -609,7 +612,7 @@ async fn project_task_detail_response(
 ///|
 async fn project_lifecycle_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let projects = project_plan_project_items(Some(project_id), None, None)
   if projects.is_empty() {
     return (404, Json::object({ "error": Json::string("project not found") }))
@@ -673,7 +676,7 @@ async fn project_lifecycle_response(
 ///|
 async fn project_plan_summary_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let tasks = project_plan_tasks(project_id, Some("key_node"))
   let mut done = 0
   let mut in_progress = 0
@@ -754,12 +757,12 @@ async fn project_plan_summary_response(
 }
 
 ///|
-fn plan_is_leap_year(year : Int) -> Bool {
+fn plan_is_leap_year(year : Int32) -> Bool {
   year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)
 }
 
 ///|
-fn plan_days_in_month(year : Int, month : Int) -> Int {
+fn plan_days_in_month(year : Int32, month : Int32) -> Int32 {
   if month == 2 {
     if plan_is_leap_year(year) {
       29
@@ -774,7 +777,7 @@ fn plan_days_in_month(year : Int, month : Int) -> Int {
 }
 
 ///|
-fn plan_two_digits(value : Int) -> String {
+fn plan_two_digits(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {
@@ -785,7 +788,7 @@ fn plan_two_digits(value : Int) -> String {
 ///|
 fn plan_shift_date(
   value : String,
-  delay_days : Int,
+  delay_days : Int32,
 ) -> String raise CompanyServiceError {
   if value.length() != 10 || value[4:5] != "-" || value[7:8] != "-" {
     return value
@@ -837,8 +840,8 @@ fn plan_shift_date(
 ///|
 async fn project_delay_impact_response(
   task_id : String,
-  delay_days : Int,
-) -> (Int, Json) raise CompanyServiceError {
+  delay_days : Int32,
+) -> (Int32, Json) raise CompanyServiceError {
   if delay_days < -3650 || delay_days > 3650 {
     return (
       422,
@@ -1056,7 +1059,7 @@ async fn plan_task_imported_exists(
 ///|
 async fn plan_task_latest(
   task_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'plan_task' AND aggregate_id = " +
     @postgres.sql_literal(task_id) +
@@ -1080,7 +1083,7 @@ async fn plan_task_command_request(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (String, Json, Bool, (Json, Int)?) raise CompanyServiceError {
+) -> (String, Json, Bool, (Json, Int32)?) raise CompanyServiceError {
   if command_type == "create" {
     let requested = plan_task_optional(
       body,
@@ -1214,6 +1217,29 @@ async fn plan_task_command_request(
     Object(fields) => fields
     _ => Map::new()
   }
+  if json_field(body, "objective_result") is Some(selection) {
+    if json_text(body, "status", "") != "done" {
+      raise reject(422, "objective result acceptance requires status done")
+    }
+    let work_id = json_text(selection, "task_id", "")
+    let work = if valid_identifier(work_id) {
+      plan_task_latest(work_id).map(pair => pair.0).unwrap_or(Json::null())
+    } else {
+      Json::null()
+    }
+    let report_id = json_text(selection, "report_id", "")
+    let report = if valid_identifier(report_id) {
+      delivery_latest_payload("task_report", report_id)
+      .map(pair => pair.0)
+      .unwrap_or(Json::null())
+    } else {
+      Json::null()
+    }
+    changes.set(
+      "objective_result",
+      objective_result_binding(current, selection, work, report),
+    )
+  }
   for field in ["execution_workspace", "execution_model"] {
     if json_field(body, field) is Some(_) {
       changes.set(
@@ -1333,7 +1359,7 @@ async fn plan_task_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["create", "update", "delete"].contains(command_type) {
     raise reject(404, "unsupported project-plan task command")
   }

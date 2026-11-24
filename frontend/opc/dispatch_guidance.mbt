@@ -6,7 +6,7 @@ struct DispatchGuidanceContext {
   task : String
   project : String
   product : String
-  selection : Int
+  selection : Int32
   revision : Double
   page : String
 } derive(Debug, Eq)
@@ -14,7 +14,7 @@ struct DispatchGuidanceContext {
 ///|
 struct DispatchGuidanceState {
   context : DispatchGuidanceContext?
-  request : Int
+  request : Int32
   phase : String
   handoff : Json?
   selected : Json?
@@ -28,12 +28,12 @@ struct DispatchGuidanceState {
 ///|
 enum DispatchGuidanceMsg {
   Prepare
-  Loaded(DispatchGuidanceContext, Int, Result[String, String])
+  Loaded(DispatchGuidanceContext, Int32, Result[String, String])
   Origin(String)
   OpenBook
-  Connected(DispatchGuidanceContext, Int, () -> Unit)
-  Returned(DispatchGuidanceContext, Int, String, String, (Bool) -> Unit)
-  Ended(DispatchGuidanceContext, Int, String)
+  Connected(DispatchGuidanceContext, Int32, () -> Unit)
+  Returned(DispatchGuidanceContext, Int32, String, String, (Bool) -> Unit)
+  Ended(DispatchGuidanceContext, Int32, String)
   Clear
 }
 
@@ -79,13 +79,13 @@ fn dispatch_guidance_identity(model : Model) -> Bool {
 
 ///|
 fn dispatch_guidance_current(model : Model) -> Bool {
-  model.page == Dispatch &&
+  dispatch_work_page(model) &&
   model.dispatch_guidance.context == Some(dispatch_guidance_context(model))
 }
 
 ///|
 fn dispatch_guidance_editable(model : Model) -> Bool {
-  model.page == Dispatch &&
+  dispatch_work_page(model) &&
   !model.dispatch_task_id.is_empty() &&
   !model.dispatch_task_actor_id.is_empty() &&
   !model.dispatch_task_project_id.is_empty() &&
@@ -117,7 +117,7 @@ fn dispatch_guidance_reconcile(model : Model) -> Model {
     { ..model, dispatch_guidance: dispatch_guidance_reset(state), }
   } else if !dispatch_guidance_current(model) && state.start_body is None {
     let current = dispatch_guidance_context(model)
-    let same_page = model.page == Dispatch &&
+    let same_page = dispatch_work_page(model) &&
       state.context
       .map(context => context.page == current.page)
       .unwrap_or(false)

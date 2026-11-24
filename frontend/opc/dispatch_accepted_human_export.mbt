@@ -1,6 +1,6 @@
 ///|
 struct DispatchAcceptedHumanExport {
-  request : Int
+  request : Int32
   pending : Bool
   expected : Json
   page : String
@@ -10,7 +10,7 @@ struct DispatchAcceptedHumanExport {
 ///|
 enum DispatchAcceptedHumanExportMsg {
   Download
-  Loaded(Int, Json, String, Result[String, String])
+  Loaded(Int32, Json, String, Result[String, String])
 }
 
 ///|
@@ -21,7 +21,7 @@ fn empty_dispatch_accepted_human_export() -> DispatchAcceptedHumanExport {
 ///|
 fn dispatch_accepted_human_record(model : Model) -> Json? {
   let state = model.dispatch_continuation
-  guard model.page == Dispatch &&
+  guard dispatch_work_page(model) &&
     dispatch_task_inspection_only(model) &&
     model.dispatch_task_pending_action.is_empty() &&
     dispatch_accepted_human_task_id_valid(model.dispatch_task_id) &&

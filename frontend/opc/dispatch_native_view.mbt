@@ -216,7 +216,7 @@ fn dispatch_product_context_view(
 ///|
 fn dispatch_native_result(
   model : Model,
-  emit? : @rabbita.Emit[Msg] = _ => none,
+  emit~ : @rabbita.Emit[Msg] = _ => none,
 ) -> @html.Html {
   div(class="inline-form") <| [
     match model.dispatch_run {
@@ -310,7 +310,8 @@ fn dispatch_execution_settings(
   } else {
     details(
       class="journey-details",
-      open=model.dispatch_task_workspace.is_empty(),
+      open=model.dispatch_task_workspace.is_empty() &&
+        model.dispatch_task_report_id.is_empty(),
     ) <| [
       summary("执行工作区与模型"),
       p(

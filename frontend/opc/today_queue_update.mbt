@@ -77,7 +77,9 @@ fn today_update(
   match action {
     NewObjective => objective_prepare(emit, model, None)
     DelegateObjective(id) => objective_prepare(emit, model, Some(id))
-    AcceptObjective(id) => objective_accept(emit, model, id)
+    ReviseObjective(id, work) =>
+      objective_request_changes(emit, model, id, work)
+    AcceptObjective(id, work) => objective_accept(emit, model, id, work)
     ObjectiveAccepted(actor, epoch, project, id, status, body) => {
       if actor != state.actor ||
         actor != model.dispatch_task_actor_id ||
@@ -213,6 +215,11 @@ fn today_update(
           let next = {
             ..state,
             projects,
+            scope: if model.page == Objectives {
+              "project"
+            } else {
+              state.scope
+            },
             project_state: if projects.is_empty() {
               "empty"
             } else {
@@ -223,6 +230,8 @@ fn today_update(
                 project.id == state.project_id
               }) {
               state.project_id
+            } else if model.page == Objectives && projects.length() == 1 {
+              projects[0].id
             } else {
               ""
             },
@@ -348,7 +357,11 @@ fn today_update(
         }) {
         return (none, model)
       }
-      open_dispatch_task(emit, { ..model, dispatch_task_open_id: id, })
+      open_dispatch_task(
+        emit,
+        { ..model, dispatch_task_open_id: id, },
+        page=if model.page == Objectives { Objectives } else { Dispatch },
+      )
     }
   }
 }

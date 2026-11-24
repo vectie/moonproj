@@ -34,7 +34,7 @@ fn native_bool(value : Json, key : String) -> Bool {
 }
 
 ///|
-fn native_hex(value : String, length : Int) -> Bool {
+fn native_hex(value : String, length : Int32) -> Bool {
   value.length() == length &&
   value.iter().all(c => c.is_ascii_digit() || (c >= 'a' && c <= 'f'))
 }
@@ -178,7 +178,7 @@ async fn native_load_control(uri : String) -> NativeControl raise GatewayError {
 
 ///|
 fn native_response_status_allowed(
-  status : Int,
+  status : Int32,
   method : @http.RequestMethod,
   path : String,
   body : String,
@@ -219,7 +219,7 @@ fn native_validate_response(
   method : @http.RequestMethod,
   path : String,
   body : String,
-  status : Int,
+  status : Int32,
   instance : String,
   data : Bytes,
 ) -> Json raise {
@@ -388,6 +388,7 @@ fn native_execution_snapshot(
     "\nExecute this task in the selected workspace. Return the concrete result, evidence and any remaining limits. Execution completion is separate from founder/customer acceptance."
   }
   let prompt = prompt +
+    native_objective_delivery_prompt(task) +
     @task_evidence.source_prompt(task) +
     @task_evidence.guidance_prompt(book_guidance.unwrap_or(Json::null()))
   let request : Json = {
@@ -444,6 +445,16 @@ fn native_execution_snapshot(
     }
     _ => snapshot
   }
+}
+
+///|
+fn native_objective_delivery_prompt(task : Json) -> String {
+  if native_text(task, "parentTaskGuid").is_empty() {
+    return ""
+  }
+  "\nDelivery responsibility: this work contributes to objective " +
+  native_text(task, "parentTaskGuid") +
+  ". Own one integrated deliverable, not just a task list. Use available specialist capabilities when useful, and integrate their contributions. Do not invent specialist work or independent review that did not happen. Return the artifact, checks against acceptance criteria, unresolved gaps, and actual cost when available. Continue routine preparation, checks and recovery within the existing brief and permissions; surface material scope or budget changes and consequential decisions. The parent link is context, not an execution dependency or additional authority.\n"
 }
 
 ///|
@@ -730,7 +741,7 @@ struct NativeBridge {
 }
 
 ///|
-fn native_json_result(status : Int, value : Json) -> ProxyResult {
+fn native_json_result(status : Int32, value : Json) -> ProxyResult {
   {
     status,
     content_type: "application/json; charset=utf-8",

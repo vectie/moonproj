@@ -1746,7 +1746,7 @@ fn update_model(
       if task_id.is_empty() ||
         !dispatch_response_matches(model, task_id, selection) ||
         !model.dispatch_task_pending_action.is_empty() ||
-        model.page != Dispatch {
+        !dispatch_work_page(model) {
         (none, model)
       } else {
         (
@@ -1777,13 +1777,37 @@ fn update_model(
           (none, model)
         }
       } else {
-        let next = dispatch_guidance_after_read(
+        let loaded = dispatch_guidance_after_read(
           apply_dispatch_snapshot(model, snapshot),
         )
+        let (read, next) = if loaded.page == Objectives &&
+          (
+            loaded.today.project_id != snapshot.project_id ||
+            loaded.today.scope != "project"
+          ) {
+          today_update(emit, Refresh, {
+            ..loaded,
+            today: {
+              ..loaded.today,
+              project_id: snapshot.project_id,
+              scope: "project",
+            },
+          })
+        } else if loaded.page == Objectives &&
+          loaded.today.work_state == "ready" &&
+          loaded.today.tasks.any(t => {
+            t.id == snapshot.task_id && t.status != snapshot.state
+          }) {
+          today_update(emit, RefreshTasks, loaded)
+        } else {
+          (none, loaded)
+        }
         (
           @cmd.batch([
+            read,
             emit(ContinuationAction(Refresh)),
-            if dispatch_run_pollable(next.dispatch_run) && next.page == Dispatch {
+            if dispatch_run_pollable(next.dispatch_run) &&
+              dispatch_work_page(next) {
               @cmd.delay(emit(RefreshDispatchTask(task_id, selection)), 2000)
             } else {
               none

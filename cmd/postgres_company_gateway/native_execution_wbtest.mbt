@@ -292,6 +292,25 @@ test "native dispatch discovers configured dynamic port rather than generic audi
 }
 
 ///|
+test "objective delivery instructions use the existing native run without inventing a workforce" {
+  assert_eq(native_objective_delivery_prompt(native_test_task()), "")
+  let fields = match native_test_task() {
+    Object(fields) => fields.copy()
+    _ => Map::new()
+  }
+  fields["parentTaskGuid"] = Json::string("objective-1")
+  let task = Json::object(fields)
+  let snapshot = native_execution_snapshot(task, "moongate/test", "founder")
+  let request = @json.parse(native_text(snapshot, "request_body"))
+  let prompt = native_text(request, "text")
+  // Inspect the captured command, not a UI-only instruction.
+  assert_true(prompt.contains("objective-1"))
+  assert_true(prompt.contains("one integrated deliverable"))
+  assert_true(prompt.contains("Do not invent specialist work"))
+  assert_eq(native_text(snapshot, "task_id"), native_text(task, "taskGuid"))
+}
+
+///|
 test "native output references exclude read inputs and include changed files and package manifests" {
   assert_eq(
     native_output_paths({

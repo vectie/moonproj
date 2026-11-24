@@ -1,5 +1,55 @@
 # MoonProj project handoff
 
+## One objective working home — 2026-11-24
+
+The goal workspace now shows one selected objective, its delegated work and the
+selected task's real execution/report controls together. Creating, resuming and
+revising linked drafts stays here. New work inherits the objective's criteria
+without duplicating the stored acceptance prefix. A sole company project is
+selected automatically; multiple projects still require a choice. Creating a
+record must refresh the task list as well as opening its canonical detail,
+otherwise the new work is saved but invisible in the objective workspace.
+
+Owner acceptance now supplies `objective_result` with an exact delegated task
+and saved report. The existing signed task update checks report/task/project/
+parent identity and records the selected report and its delivery source on the
+objective. The owner need not accept the child record first: that was a redundant
+review gate. Acceptance leaves child execution/task states alone and does not
+create business effects. A legacy closed key node without this link is labeled
+as an ended record, not verified delivery. Request changes prepares an editable
+child draft with the original report reference; it does not silently rerun or
+overwrite the report.
+
+Dispatch's screen-only restrictions now also allow the objective workspace;
+actor, task-selection, source, unknown-outcome and command protections remain.
+No approval/policy framework or new task store was introduced. Native commands
+for parent-linked work capture integrated-delivery instructions in the existing
+prompt, including honest specialist/review attribution and reporting gaps/cost.
+This is not proof that a specialist team actually ran. There is still no native
+cancel command exposed by this gateway: do not add a cosmetic Stop button or
+claim that closing an objective stops its running work.
+
+Duplicate task IDs/status text, exports and setup warnings are removed from the
+main path; sources, receipts and optional tools stay in disclosures. The shared
+`.inline-form` surface now uses theme variables: the forced dark theme previously
+left pale result panels with low-contrast text when the OS theme was light.
+
+Validation: 547 frontend JS tests, 155 native company-service tests and 98 native
+gateway tests pass. Release frontend build, `moon info`, scoped formatting and
+diff checks pass; no generated public-interface changes.
+The isolated commit-only snapshot also passes 546 frontend and 253 native tests
+and its release frontend build; it excludes the unrelated GitHub-import test.
+Browser smoke used
+the real signed gateway/service and disposable PostgreSQL. Goal creation, inline
+work creation, report inspection, request-changes preparation, exact-report
+objective acceptance and reload were checked. An unrelated/missing report was
+rejected. At 390px, document width was 382px and controls remained usable.
+The smoke report was deliberately submitted as a manual test report; no provider
+or specialist output was fabricated. Screenshot:
+`/tmp/moonproj-objectives-round2-verified.jpg`. No autonomous-team production,
+customer sale, packaged-app installation or cluster deployment is qualified by
+this round. Test services and database are stopped; fixtures are retained.
+
 ## Objective-first cleanup — 2026-11-24
 
 Today is the default route; Today, Objectives and Company are the primary

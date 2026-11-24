@@ -1,8 +1,8 @@
 ///|
 struct DispatchDeskHandoff {
   task_id : String
-  selection : Int
-  request : Int
+  selection : Int32
+  request : Int32
   pending : Bool
   error : String
   follow_up : Bool
@@ -27,7 +27,7 @@ enum DispatchDeskHandoffMsg {
   Open
   Continue
   Output(String, String, String)
-  Loaded(String, Int, Int, String, String, Result[String, String])
+  Loaded(String, Int32, Int32, String, String, Result[String, String])
 }
 
 ///|
@@ -35,7 +35,7 @@ fn dispatch_desk_handoff_url(
   response : String,
   task_id : String,
   return_to : String,
-  follow_up? : Bool = false,
+  follow_up~ : Bool = false,
 ) -> Result[String, String] {
   let json = @json.parse(response) catch { _ => Json::null() }
   if dispatch_json_text(json, "schema") != "moonproj.desk-handoff.v1" {
@@ -119,7 +119,7 @@ fn dispatch_desk_handoff_update(
         return (none, model)
       }
       let state = model.dispatch_desk_handoff
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         model.dispatch_task_id.is_empty() ||
         (
           state.pending &&
@@ -144,7 +144,7 @@ fn dispatch_desk_handoff_update(
     }
     Loaded(task, selection, request, expected_page, return_to, result) => {
       let state = model.dispatch_desk_handoff
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         !dispatch_response_matches(model, task, selection) ||
         !state.pending ||
         state.request != request ||

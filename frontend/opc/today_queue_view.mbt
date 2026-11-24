@@ -3,6 +3,7 @@ fn today_task_row(
   emit : @rabbita.Emit[Msg],
   task : TodayTask,
   day : String,
+  compact~ : Bool = false,
 ) -> @html.Html {
   let attention = today_attention(task, day)
   article(class="attention-item") <| [
@@ -17,6 +18,8 @@ fn today_task_row(
           "未分配"
         } else if task.owner_name.is_empty() {
           task.owner_id
+        } else if compact {
+          task.owner_name
         } else {
           task.owner_name + " (" + task.owner_id + ")"
         }),
@@ -24,26 +27,38 @@ fn today_task_row(
       p(
         "到期日期 · " +
         (if today_date_valid(task.due) {
-          task.due + "（UTC 日期；具体时刻未知）"
+          if compact {
+            task.due
+          } else {
+            task.due + "（UTC 日期；具体时刻未知）"
+          }
         } else if task.due.is_empty() {
           "未知"
         } else {
           "未知（原始值：" + task.due + "）"
         }),
       ),
-      p(
-        if attention.is_empty() {
-          "本次读取未观察到到期或执行阻塞提醒"
-        } else {
-          attention
-        },
-      ),
+      if compact && attention.is_empty() {
+        @html.nothing
+      } else {
+        p(
+          if attention.is_empty() {
+            "本次读取未观察到到期或执行阻塞提醒"
+          } else {
+            attention
+          },
+        )
+      },
       if !today_blocker(task).is_empty() && !task.execution_error.is_empty() {
         p("执行返回 · " + task.execution_error)
       } else {
         @html.nothing
       },
-      small("正式任务 · " + task.id + " / 状态 · " + task.status),
+      if compact {
+        @html.nothing
+      } else {
+        small("正式任务 · " + task.id + " / 状态 · " + task.status)
+      },
     ],
     secondary_button(emit, TodayAction(OpenTask(task.id)), "打开任务详情"),
   ]

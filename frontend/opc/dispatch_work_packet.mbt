@@ -1,6 +1,6 @@
 ///|
 struct WorkPacketState {
-  generation : Int
+  generation : Int32
   open : Bool
   loading : Bool
   actor : String
@@ -15,7 +15,7 @@ struct WorkPacketState {
 enum WorkPacketMsg {
   Export
   Choose
-  Loaded(Int, String, String)
+  Loaded(Int32, String, String)
   Source(String)
   Preview
   Apply
@@ -23,7 +23,7 @@ enum WorkPacketMsg {
 }
 
 ///|
-fn empty_work_packet(generation : Int) -> WorkPacketState {
+fn empty_work_packet(generation : Int32) -> WorkPacketState {
   {
     generation,
     open: false,
@@ -40,7 +40,7 @@ fn empty_work_packet(generation : Int) -> WorkPacketState {
 ///|
 fn work_packet_scope(model : Model) -> Bool {
   let s = model.work_packet
-  model.page == Dispatch &&
+  dispatch_work_page(model) &&
   model.dispatch_task_form_open &&
   s.actor == model.dispatch_task_actor_id &&
   dispatch_active_draft(model)
@@ -96,7 +96,7 @@ fn work_packet_update(
   action : WorkPacketMsg,
   model : Model,
 ) -> (Cmd, Model) {
-  guard model.page == Dispatch &&
+  guard dispatch_work_page(model) &&
     model.dispatch_task_form_open &&
     dispatch_active_draft(model) is Some(draft) else {
     return (none, model)

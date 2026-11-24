@@ -7,7 +7,7 @@ fn dispatch_guidance_view(
   let current = dispatch_guidance_current(model)
   let locked = dispatch_guidance_identity(model) && state.start_body is Some(_)
   if model.dispatch_task_id.is_empty() ||
-    model.page != Dispatch ||
+    !dispatch_work_page(model) ||
     (model.dispatch_run is Some(_) && !(locked && state.selected is Some(_))) {
     return @html.nothing
   }
@@ -19,9 +19,6 @@ fn dispatch_guidance_view(
     summary("可选：复用 Book 已审核经验"),
     p(
       "在第一次 Start 前，按当前任务的项目和产品查找经验。未选择经验或 Book 不可用时，仍可照常 Start。",
-    ),
-    p(
-      "建议只在当前标签页保留；不会写入草稿、网址或浏览器存储。你仍需判断本次适用性；建议不会扩大执行授权。",
     ),
     if editable {
       secondary_button(

@@ -1,8 +1,8 @@
 ///|
 struct DispatchLessonHandoff {
   task_id : String
-  selection : Int
-  request : Int
+  selection : Int32
+  request : Int32
   pending : Bool
   payload : Json?
   origin : String
@@ -35,16 +35,16 @@ fn empty_dispatch_lesson_handoff() -> DispatchLessonHandoff {
 ///|
 enum DispatchLessonHandoffMsg {
   Prepare
-  Loaded(String, Int, Int, Result[String, String])
+  Loaded(String, Int32, Int32, Result[String, String])
   Export
   Origin(String)
   OpenBook
-  Readback(String, Int, Int, String)
+  Readback(String, Int32, Int32, String)
   ReopenLesson
   ImportReceipt
-  ReceiptImported(String, Int, Int, String)
-  ReceiptReturned(String, Int, Int, String, String, (Bool) -> Unit)
-  ReceiptEnded(String, Int, Int, String)
+  ReceiptImported(String, Int32, Int32, String)
+  ReceiptReturned(String, Int32, Int32, String, String, (Bool) -> Unit)
+  ReceiptEnded(String, Int32, Int32, String)
 }
 
 ///|
@@ -94,7 +94,7 @@ fn dispatch_lesson_current(model : Model) -> Bool {
       model.dispatch_task_report_id
     None => true
   }
-  model.page == Dispatch &&
+  dispatch_work_page(model) &&
   state.task_id == model.dispatch_task_id &&
   state.selection == model.dispatch_task_selection &&
   model.dispatch_task_stage == "accepted" &&
@@ -161,7 +161,7 @@ fn dispatch_lesson_handoff_update(
         )
       }
     Prepare => {
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         model.dispatch_task_stage != "accepted" ||
         !model.dispatch_task_pending_action.is_empty() ||
         (dispatch_lesson_current(model) && state.pending) {

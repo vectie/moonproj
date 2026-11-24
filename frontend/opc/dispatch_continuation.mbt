@@ -1,8 +1,8 @@
 ///|
 struct DispatchContinuationState {
   task_id : String
-  selection : Int
-  request : Int
+  selection : Int32
+  request : Int32
   phase : String
   preview_command : String
   preview_revision : String
@@ -32,13 +32,13 @@ enum DispatchContinuationMsg {
   Refresh
   Preview(String)
   PreviewHumanRevision(String)
-  Loaded(String, Int, Int, String, String, Result[String, String])
+  Loaded(String, Int32, Int32, String, String, Result[String, String])
   Select
   SelectHumanRevision
   SelectOriginal
   SelectReport(String)
-  Attached(String, Int, Int, String, Result[String, String])
-  SelectionStored(String, Int, Int, String, Bool)
+  Attached(String, Int32, Int32, String, Result[String, String])
+  SelectionStored(String, Int32, Int32, String, Bool)
 }
 
 ///|
@@ -328,7 +328,7 @@ fn dispatch_continuation_update(
       }
     }
     Refresh | Preview(_) | PreviewHumanRevision(_) => {
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         model.dispatch_run is None ||
         model.dispatch_task_id == "" ||
         state.phase == "attaching" {
@@ -403,7 +403,7 @@ fn dispatch_continuation_update(
       )
     }
     Loaded(task, selection, request, page, command, result) => {
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         state.actor != model.dispatch_task_actor_id ||
         !dispatch_response_matches(model, task, selection) ||
         state.request != request ||
@@ -446,7 +446,7 @@ fn dispatch_continuation_update(
     }
     Select | SelectOriginal | SelectHumanRevision => {
       if state.actor != model.dispatch_task_actor_id ||
-        model.page != Dispatch ||
+        !dispatch_work_page(model) ||
         state.phase != "ready" ||
         dispatch_task_inspection_only(model) ||
         state.accepted ||
@@ -540,7 +540,7 @@ fn dispatch_continuation_update(
       )
     }
     SelectionStored(task, selection, request, page, stored) => {
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         state.actor != model.dispatch_task_actor_id ||
         !dispatch_response_matches(model, task, selection) ||
         state.request != request ||
@@ -568,7 +568,7 @@ fn dispatch_continuation_update(
       }
     }
     Attached(task, selection, request, page, result) => {
-      if model.page != Dispatch ||
+      if !dispatch_work_page(model) ||
         state.actor != model.dispatch_task_actor_id ||
         !dispatch_response_matches(model, task, selection) ||
         state.request != request ||

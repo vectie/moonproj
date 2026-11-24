@@ -360,7 +360,13 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
         )
       _ => @html.nothing
     },
-    research_draft_context(emit, source),
+    if dispatch_active_draft(source)
+      .map(d => d.research_brief is Some(_))
+      .unwrap_or(false) {
+      research_draft_context(emit, source)
+    } else {
+      @html.nothing
+    },
     if objective {
       @html.nothing
     } else {
@@ -475,15 +481,22 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
     ],
     div(class="form-actions") <| [
       dispatch_draft_create_button(emit, source),
-      secondary_button(emit, ExportFounderPacket, "下载工作包 Markdown"),
       secondary_button(emit, DraftAction(Park), "暂存并关闭草稿"),
-      secondary_button(emit, DraftAction(New), "另建草稿"),
       if !model.products.prepared_product_id.is_empty() {
         secondary_button(
           emit,
           ProductsAction(CancelPreparation),
           "暂存草稿，返回产品",
         )
+      } else {
+        @html.nothing
+      },
+    ],
+    details(class="journey-details") <| [
+      summary("导出或另建草稿"),
+      secondary_button(emit, ExportFounderPacket, "下载工作包 Markdown"),
+      if source.page != Objectives {
+        secondary_button(emit, DraftAction(New), "另建草稿")
       } else {
         @html.nothing
       },
@@ -593,10 +606,21 @@ fn dispatch_durable_task_card(
         tone=dispatch_task_stage_tone(model.dispatch_task_stage),
       ),
     ],
-    dispatch_journey_view(model),
+    if model.page == Objectives {
+      @html.nothing
+    } else {
+      dispatch_journey_view(model)
+    },
     div(id="dispatch-source-context") <| [
       p("验收标准 · " + model.dispatch_task_acceptance),
-      dispatch_source_context_view(model.dispatch_task_source_context),
+      if model.page == Objectives {
+        details([
+          summary("工作来源"),
+          dispatch_source_context_view(model.dispatch_task_source_context),
+        ])
+      } else {
+        dispatch_source_context_view(model.dispatch_task_source_context)
+      },
     ],
     details(
       class="journey-details",
@@ -606,10 +630,14 @@ fn dispatch_durable_task_card(
       summary("客户方案与回复（可选）"),
       dispatch_offer_view(emit, model),
     ],
-    p(
-      "产品 · " +
-      dispatch_product_label(model, model.dispatch_task_product_id),
-    ),
+    if model.dispatch_task_product_id.is_empty() {
+      @html.nothing
+    } else {
+      p(
+        "产品 · " +
+        dispatch_product_label(model, model.dispatch_task_product_id),
+      )
+    },
     details(class="journey-details", id="dispatch-task-receipts") <| [
       summary("任务身份与收据"),
       p("任务 · " + model.dispatch_task_id),
@@ -641,6 +669,7 @@ fn dispatch_durable_task_card(
     ],
     section(class="journey-section", id="dispatch-execution") <| [
       h3("执行与结果"),
+      dispatch_native_result(model, emit~),
       dispatch_execution_settings(emit, model),
       dispatch_guidance_view(emit, model),
       secondary_button(
@@ -651,7 +680,6 @@ fn dispatch_durable_task_card(
         ),
         "刷新状态",
       ),
-      dispatch_native_result(model, emit~),
     ],
     if model.dispatch_run is Some(_) {
       section(class="journey-section") <| [
@@ -675,17 +703,24 @@ fn dispatch_durable_task_card(
       @html.nothing
     },
     dispatch_continuation_view(emit, model),
-    section(id="dispatch-task-action", class="journey-section task-next-action") <| [
-      h3(
-        match model.dispatch_task_stage {
-          "pending" => "准备好后开始执行"
-          "submitted" => "检查报告并接受结果"
-          "accepted" => "任务已接受"
-          _ => "查看结果后提交报告"
-        },
-      ),
-      dispatch_task_action(emit, model),
-    ],
+    if model.page == Objectives && dispatch_can_accept_report(model) {
+      @html.nothing
+    } else {
+      section(
+        id="dispatch-task-action",
+        class="journey-section task-next-action",
+      ) <| [
+        h3(
+          match model.dispatch_task_stage {
+            "pending" => "准备好后开始执行"
+            "submitted" => "检查报告并接受结果"
+            "accepted" => "任务已接受"
+            _ => "查看结果后提交报告"
+          },
+        ),
+        dispatch_task_action(emit, model),
+      ]
+    },
     secondary_button(emit, ExportFounderPacket, "下载工作包 Markdown"),
     dispatch_learning_next(emit, model),
   ]
