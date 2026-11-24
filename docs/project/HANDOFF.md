@@ -422,3 +422,27 @@ the exact selected job, unstarted reviewers and no fabricated output. The dock,
 read embedded controls but could not pointer-click them; keyboard traversal and
 editing worked. Native remote-window pointer QA and an actual running/accepted
 handoff remain unqualified. No paid agent execution was started for this UI pass.
+
+## Windowed Mac startup repair (2026-11-25)
+
+The native app must open as an ordinary resizable window. The flow/dock occupy
+the window content, not the macOS screen. Default content size is now 1040x680
+with an explicit native title bar; do not add automatic fullscreen/maximize.
+
+On the cluster Mac, the apparent crash reproduced as a normal launcher exit
+with `readiness endpoint is already active; close the other app instance`.
+An orphaned test-only `moonproj-desktop-service` and its two children owned
+4173/4174 while no native MoonProj app was running. The exact processes were
+checked and stopped; the dedicated persistent PostgreSQL and Book files were
+not removed or changed. Do not bypass Lepusa's refusal to adopt an unrelated
+server, kill arbitrary port owners, or leave manually launched smoke servers
+running when handing off the packaged app.
+
+The installed runtime manifest was backed up outside the app, resized, signed
+and verified. LaunchServices then started the native MoonProj process and its
+own service/gateway; readiness returns 200 and repeated LaunchServices opening
+keeps the same instance. No new crash report appeared. Four focused config/
+workspace runtime tests pass. No MoonBit production source or execution authority
+changed. Direct remote window controls are unavailable through the current
+viewer; red-button close/relaunch and visual window acceptance require the
+user's confirmation. Signal termination was not a substitute for that UI check.

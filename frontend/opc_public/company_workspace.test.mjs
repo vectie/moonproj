@@ -3,6 +3,16 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { jobAppURL, newDeliveryReceipts } from './company_workspace.js'
 
+test('desktop opens in an ordinary resizable window, not a screen-sized surface', () => {
+  const { window } = JSON.parse(readFileSync(new URL('../../lepusa.json', import.meta.url), 'utf8'))
+  assert.equal(window.titleBar, 'native')
+  assert.equal(window.resizable, true)
+  assert.equal(window.width, 1040)
+  assert.equal(window.height, 680)
+  assert.notEqual(window.fullscreen, true)
+  assert.notEqual(window.maximized, true)
+})
+
 test('job apps keep exact Book/path and follow the local shell hostname', () => {
   const reference = 'http://127.0.0.1:4201/?activity=wiki&workspace=book-research&path=wiki%2Fproposal.md'
   const url = new URL(jobAppURL(reference, 'http://localhost:4283/?page=workspace&task=T'))

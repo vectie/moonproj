@@ -47,9 +47,10 @@
   "window": {
     "label": "main",
     "title": "MoonProj",
-    "width": 1280,
-    "height": 820,
+    "width": 1040,
+    "height": 680,
     "resizable": true,
+    "titleBar": "native",
     "source": {
       "localhost": {
         "port": 4173,
