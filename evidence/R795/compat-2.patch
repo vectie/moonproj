@@ -1,0 +1,11 @@
+--- .mooncakes/moonbit-community/rabbita/http/http.mbt
++++ .mooncakes/moonbit-community/rabbita/http/http.mbt
+@@ -298,7 +298,7 @@
+   self.send_response(
+     response_kind="text",
+     on_text=body => {
+-      let result : Result[T, Error] = try? @json.from_json(@json.parse(body))
++      let result : Result[T, Error] = try Ok(@json.from_json(@json.parse(body))) catch { e => Err(e) }
+       msg(result)
+     },
+     on_blob=_ => @cmd.none,

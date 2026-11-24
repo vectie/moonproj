@@ -1,0 +1,1257 @@
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/company_setup_transport.mbt:119:3 ]
+     │
+ 119 │   method : String,
+     │   ───┬──  
+     │      ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/company_setup_wbtest.mbt:385:7 ]
+     │
+ 385 │   let local = company_setup_store(checking.company_setup)
+     │       ──┬──  
+     │         ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/company_setup_wbtest.mbt:389:68 ]
+     │
+ 389 │     Restored(fresh.company_setup.actor, fresh.company_setup.epoch, local),
+     │                                                                    ──┬──  
+     │                                                                      ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_accepted_human_export.mbt:67:44 ]
+    │
+ 67 │     "report_records": state.report_records.to_json(),
+    │                                            ───┬───  
+    │                                               ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_accepted_human_export_wbtest.mbt:310:34 ]
+     │
+ 310 │             "receipts": receipts.to_json(),
+     │                                  ───┬───  
+     │                                     ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_anchor_navigation_wbtest.mbt:63:60 ]
+    │
+ 63 │       "continuations": model.dispatch_continuation.records.to_json(),
+    │                                                            ───┬───  
+    │                                                               ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_continuation_recovery.mbt:109:4 ]
+     │
+ 109 │   .to_json()
+     │    ───┬───  
+     │       ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_continuation_wbtest.mbt:96:60 ]
+    │
+ 96 │       "continuations": model.dispatch_continuation.records.to_json(),
+    │                                                            ───┬───  
+    │                                                               ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_continuation_wbtest.mbt:290:58 ]
+     │
+ 290 │     "continuations": model.dispatch_continuation.records.to_json(),
+     │                                                          ───┬───  
+     │                                                             ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_guidance.mbt:295:60 ]
+     │
+ 295 │     dispatch_json_field(value, "conditions") == conditions.to_json() else {
+     │                                                            ───┬───  
+     │                                                               ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_guidance_wbtest.mbt:429:19 ]
+     │
+ 429 │   assert_true(url.starts_with("https://book.example/apps/moonbook/?"))
+     │                   ─────┬─────  
+     │                        ╰─────── Warning (deprecated): `starts_with` is deprecated, use `has_prefix` instead
+─────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_human_revision_wbtest.mbt:64:77 ]
+    │
+ 64 │     fields["human_revisions"] = model.dispatch_continuation.human_revisions.to_json()
+    │                                                                             ───┬───  
+    │                                                                                ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0001]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_lesson_handoff.mbt:475:4 ]
+     │
+ 475 │ fn dispatch_lesson_open_book_on(
+     │    ──────────────┬─────────────  
+     │                  ╰─────────────── Warning (unused_value): Unused function 'dispatch_lesson_open_book_on'
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_lesson_handoff_wbtest.mbt:221:39 ]
+     │
+ 221 │     dispatch_json_text(before, "url").starts_with(
+     │                                       ─────┬─────  
+     │                                            ╰─────── Warning (deprecated): `starts_with` is deprecated, use `has_prefix` instead
+─────╯
+Warning: [0001]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_native_transport.mbt:2:4 ]
+   │
+ 2 │ fn load_dispatch_session(emit : @rabbita.Emit[Msg]) -> Cmd {
+   │    ──────────┬──────────  
+   │              ╰──────────── Warning (unused_value): Unused function 'load_dispatch_session'
+───╯
+Warning: [0007]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_offer.mbt:37:35 ]
+    │
+ 37 │   Written(String, String, String, Int, String)
+    │                                   ─┬─  
+    │                                    ╰─── Warning (unused_field): The 4th positional argument of constructor 'Written' is unused.
+────╯
+Warning: [0007]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_offer.mbt:37:40 ]
+    │
+ 37 │   Written(String, String, String, Int, String)
+    │                                        ───┬──  
+    │                                           ╰──── Warning (unused_field): The 5th positional argument of constructor 'Written' is unused.
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_offer_wbtest.mbt:636:6 ]
+     │
+ 636 │     .to_json()
+     │      ───┬───  
+     │         ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0014]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_outcome_composer_wbtest.mbt:79:16 ]
+    │
+ 79 │     let html = @rabbita.render_to_string(
+    │                ────────────┬────────────  
+    │                            ╰────────────── Warning (alert_unstable): Experimental API
+────╯
+Warning: [0014]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_outcome_composer_wbtest.mbt:226:14 ]
+     │
+ 226 │   let html = @rabbita.render_to_string(
+     │              ────────────┬────────────  
+     │                          ╰────────────── Warning (alert_unstable): Experimental API
+─────╯
+Warning: [0014]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_outcome_composer_wbtest.mbt:402:21 ]
+     │
+ 402 │   let failed_html = @rabbita.render_to_string(
+     │                     ────────────┬────────────  
+     │                                 ╰────────────── Warning (alert_unstable): Experimental API
+─────╯
+Warning: [0014]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_outcome_composer_wbtest.mbt:486:14 ]
+     │
+ 486 │   let html = @rabbita.render_to_string(
+     │              ────────────┬────────────  
+     │                          ╰────────────── Warning (alert_unstable): Experimental API
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_outcome_export.mbt:143:72 ]
+     │
+ 143 │   if dispatch_json_field(submission, "evidence_refs") != expected_refs.to_json() {
+     │                                                                        ───┬───  
+     │                                                                           ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0014]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_outcome_serialized_wbtest.mbt:205:14 ]
+     │
+ 205 │   let html = @rabbita.render_to_string(
+     │              ────────────┬────────────  
+     │                          ╰────────────── Warning (alert_unstable): Experimental API
+─────╯
+Warning: [0020]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:7:45 ]
+   │
+ 7 │     "schema": "moonproj.product-context.v1".to_json(),
+   │                                             ───┬───  
+   │                                                ╰───── Warning (deprecated): Use `Json(value)` instead
+───╯
+Warning: [0020]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:8:31 ]
+   │
+ 8 │     "product_id": "product-a".to_json(),
+   │                               ───┬───  
+   │                                  ╰───── Warning (deprecated): Use `Json(value)` instead
+───╯
+Warning: [0020]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:9:42 ]
+   │
+ 9 │     "product_name": "Captured product A".to_json(),
+   │                                          ───┬───  
+   │                                             ╰───── Warning (deprecated): Use `Json(value)` instead
+───╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:10:26 ]
+    │
+ 10 │     "coverage": coverage.to_json(),
+    │                          ───┬───  
+    │                             ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:11:45 ]
+    │
+ 11 │     "issues": ["Declared extraction scope"].to_json(),
+    │                                             ───┬───  
+    │                                                ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:12:66 ]
+    │
+ 12 │     "context_path": ".moonproj/input/run-1/product-context.json".to_json(),
+    │                                                                  ───┬───  
+    │                                                                     ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:13:39 ]
+    │
+ 13 │     "sha256": "captured-context-hash".to_json(),
+    │                                       ───┬───  
+    │                                          ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:14:26 ]
+    │
+ 14 │     "size_bytes": (4096).to_json(),
+    │                          ───┬───  
+    │                             ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:16:30 ]
+    │
+ 16 │       "document_id": "prd-a".to_json(),
+    │                              ───┬───  
+    │                                 ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:17:47 ]
+    │
+ 17 │       "source_sha256": "captured-source-hash".to_json(),
+    │                                               ───┬───  
+    │                                                  ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:18:35 ]
+    │
+ 18 │       "source_size_bytes": (8192).to_json(),
+    │                                   ───┬───  
+    │                                      ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:19:35 ]
+    │
+ 19 │       "version": "v-before-retag".to_json(),
+    │                                   ───┬───  
+    │                                      ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:20:28 ]
+    │
+ 20 │       "coverage": coverage.to_json(),
+    │                            ───┬───  
+    │                               ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:21:43 ]
+    │
+ 21 │       "text_sha256": "captured-text-hash".to_json(),
+    │                                           ───┬───  
+    │                                              ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:22:33 ]
+    │
+ 22 │       "text_size_bytes": (1024).to_json(),
+    │                                 ───┬───  
+    │                                    ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:23:47 ]
+    │
+ 23 │       "extraction_version": "visible-body-v1".to_json(),
+    │                                               ───┬───  
+    │                                                  ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:24:50 ]
+    │
+ 24 │       "limitations": ["Tables retain text only"].to_json(),
+    │                                                  ───┬───  
+    │                                                     ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:25:50 ]
+    │
+ 25 │       "text": "PRIVATE_PRD_TEXT_MUST_NOT_RENDER".to_json(),
+    │                                                  ───┬───  
+    │                                                     ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:27:38 ]
+    │
+ 27 │     "artifact_state": artifact_state.to_json(),
+    │                                      ───┬───  
+    │                                         ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:28:26 ]
+    │
+ 28 │     "artifact_error": "".to_json(),
+    │                          ───┬───  
+    │                             ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:46:23 ]
+    │
+ 46 │     "run_id": "run-1".to_json(),
+    │                       ───┬───  
+    │                          ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:47:25 ]
+    │
+ 47 │     "task_id": "task-1".to_json(),
+    │                         ───┬───  
+    │                            ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:48:31 ]
+    │
+ 48 │     "session_id": "session-1".to_json(),
+    │                               ───┬───  
+    │                                  ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:49:31 ]
+    │
+ 49 │     "command_id": "command-1".to_json(),
+    │                               ───┬───  
+    │                                  ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:50:40 ]
+    │
+ 50 │     "workspace": "/workspace/captured".to_json(),
+    │                                        ───┬───  
+    │                                           ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:51:26 ]
+    │
+ 51 │     "state": "completed".to_json(),
+    │                          ───┬───  
+    │                             ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:52:38 ]
+    │
+ 52 │     "summary": "Exact native answer".to_json(),
+    │                                      ───┬───  
+    │                                         ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:53:59 ]
+    │
+ 53 │     "output_urls": ["https://example.test/actual-output"].to_json(),
+    │                                                           ───┬───  
+    │                                                              ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:61:30 ]
+    │
+ 61 │         "taskGuid": "task-1".to_json(),
+    │                              ───┬───  
+    │                                 ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:62:35 ]
+    │
+ 62 │         "product_id": "product-b".to_json(),
+    │                                   ───┬───  
+    │                                      ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:63:33 ]
+    │
+ 63 │         "status": "in_progress".to_json(),
+    │                                 ───┬───  
+    │                                    ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:133:21 ]
+     │
+ 133 │       "wrong shape".to_json(),
+     │                     ───┬───  
+     │                        ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:139:13 ]
+     │
+ 139 │         (3).to_json(),
+     │             ───┬───  
+     │                ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:144:24 ]
+     │
+ 144 │         "not an array".to_json(),
+     │                        ───┬───  
+     │                           ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:149:14 ]
+     │
+ 149 │         true.to_json(),
+     │              ───┬───  
+     │                 ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:174:35 ]
+     │
+ 174 │     "moonproj.product-context.v2".to_json(),
+     │                                   ───┬───  
+     │                                      ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:203:13 ]
+     │
+ 203 │       value.to_json(),
+     │             ───┬───  
+     │                ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:206:55 ]
+     │
+ 206 │     let prd = Json::object({ "text_size_bytes": value.to_json() })
+     │                                                       ───┬───  
+     │                                                          ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:220:26 ]
+     │
+ 220 │           "future-value".to_json(),
+     │                          ───┬───  
+     │                             ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:233:50 ]
+     │
+ 233 │       Json::object({ "document_id": "sparse-prd".to_json() }),
+     │                                                  ───┬───  
+     │                                                     ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_product_context_wbtest.mbt:333:33 ]
+     │
+ 333 │     "<script>conflict</script>".to_json(),
+     │                                 ───┬───  
+     │                                    ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0007]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_reply.mbt:36:35 ]
+    │
+ 36 │   Written(String, String, String, Int, String)
+    │                                   ─┬─  
+    │                                    ╰─── Warning (unused_field): The 4th positional argument of constructor 'Written' is unused.
+────╯
+Warning: [0007]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_reply.mbt:36:40 ]
+    │
+ 36 │   Written(String, String, String, Int, String)
+    │                                        ───┬──  
+    │                                           ╰──── Warning (unused_field): The 5th positional argument of constructor 'Written' is unused.
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_work_packet_wbtest.mbt:157:11 ]
+     │
+ 157 │       old.to_json().stringify(),
+     │           ───┬───  
+     │              ╰───── Warning (deprecated): The method `to_json` is implicitly promoted from `impl ToJson for DispatchDraft`. This behavior is deprecated, either use `ToJson::to_json` instead or add a `extend DispatchDraft with ToJson::{to_json, ..}` declaration.
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/dispatch_work_packet_wbtest.mbt:163:13 ]
+     │
+ 163 │       fresh.to_json().stringify(),
+     │             ───┬───  
+     │                ╰───── Warning (deprecated): The method `to_json` is implicitly promoted from `impl ToJson for DispatchDraft`. This behavior is deprecated, either use `ToJson::to_json` instead or add a `extend DispatchDraft with ToJson::{to_json, ..}` declaration.
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/guided_work_view_wbtest.mbt:380:37 ]
+     │
+ 380 │         Json::object({ "name": name.to_json(), "html": html.to_json() }).stringify(),
+     │                                     ───┬───  
+     │                                        ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/guided_work_view_wbtest.mbt:380:61 ]
+     │
+ 380 │         Json::object({ "name": name.to_json(), "html": html.to_json() }).stringify(),
+     │                                                             ───┬───  
+     │                                                                ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0014]
+      ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/main.mbt:4186:11 ]
+      │
+ 4186 │   runtime.with_init(
+      │           ────┬────  
+      │               ╰────── Warning (alert_unstable): Experimental API
+──────╯
+Warning: [0014]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/policy_radar_wbtest.mbt:93:3 ]
+    │
+ 93 │   @rabbita.render_to_string(page)
+    │   ────────────┬────────────  
+    │               ╰────────────── Warning (alert_unstable): Experimental API
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/products_inventory_wbtest.mbt:115:44 ]
+     │
+ 115 │   fields["work_inventory_state"] = "ready".to_json()
+     │                                            ───┬───  
+     │                                               ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/products_inventory_wbtest.mbt:200:28 ]
+     │
+ 200 │     draft.product_snapshot.to_json().stringify().contains("work_inventory"),
+     │                            ───┬───  
+     │                               ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/products_route_wbtest.mbt:33:28 ]
+    │
+ 33 │       "products": selected.to_json(),
+    │                            ───┬───  
+    │                               ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_checklist_wbtest.mbt:71:49 ]
+    │
+ 71 │   assert_eq(after.tasks[:before.tasks.length()].to_array(), before.tasks)
+    │                                                 ────┬───  
+    │                                                     ╰───── Warning (deprecated): `to_array` is deprecated, use `to_owned` instead
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_comparison_wbtest.mbt:31:6 ]
+    │
+ 31 │     .to_json(),
+    │      ───┬───  
+    │         ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_comparison_wbtest.mbt:271:7 ]
+     │
+ 271 │   let local = plan_restore(edited.plan.actor, edited.plan.selected)
+     │       ──┬──  
+     │         ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_comparison_wbtest.mbt:284:68 ]
+     │
+ 284 │   assert_eq(plan_restore(edited.plan.actor, edited.plan.selected), local)
+     │                                                                    ──┬──  
+     │                                                                      ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0060]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_consolidation.mbt:57:7 ]
+    │
+ 57 │ ╭─▶       {
+    ┆ ┆   
+ 69 │ ├─▶       }
+    │ │             
+    │ ╰───────────── Warning (unused_struct_update): The spread '..s' has no effect: all fields are explicitly overwritten.
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_handoff.mbt:27:34 ]
+    │
+ 27 │   let seen : Map[String, Bool] = Map::new()
+    │                                  ────┬───  
+    │                                      ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_handoff_wbtest.mbt:137:44 ]
+     │
+ 137 │     fresh.observed_problem.unwrap().trim().to_string(),
+     │                                            ────┬────  
+     │                                                ╰────── Warning (deprecated): Use `to_owned` to allocate an owned String from a StringView; use `Show::to_string` or format strings for display
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_handoff_wbtest.mbt:148:13 ]
+     │
+ 148 │       fresh.to_json().stringify(indent=2),
+     │             ───┬───  
+     │                ╰───── Warning (deprecated): The method `to_json` is implicitly promoted from `impl ToJson for DispatchDraft`. This behavior is deprecated, either use `ToJson::to_json` instead or add a `extend DispatchDraft with ToJson::{to_json, ..}` declaration.
+─────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_milestone_import_wbtest.mbt:82:8 ]
+    │
+ 82 │   let (export, _) = plan_update(_ => none, MilestoneTable(Export), tasks)
+    │        ───┬──  
+    │           ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_milestone_import_wbtest.mbt:83:23 ]
+    │
+ 83 │   drafts_test_execute(export)
+    │                       ───┬──  
+    │                          ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_milestone_table_wbtest.mbt:88:8 ]
+    │
+ 88 │   let (export, exported) = plan_update(
+    │        ───┬──  
+    │           ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_milestone_table_wbtest.mbt:93:23 ]
+    │
+ 93 │   drafts_test_execute(export)
+    │                       ───┬──  
+    │                          ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_owner_table_wbtest.mbt:71:8 ]
+    │
+ 71 │   let (export, exported) = plan_update(_ => none, OwnerTable(Export), edited)
+    │        ───┬──  
+    │           ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_owner_table_wbtest.mbt:72:23 ]
+    │
+ 72 │   drafts_test_execute(export)
+    │                       ───┬──  
+    │                          ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_risk_table_wbtest.mbt:105:8 ]
+     │
+ 105 │   let (export, exported) = plan_update(_ => none, RiskTable(Export), edited)
+     │        ───┬──  
+     │           ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_risk_table_wbtest.mbt:106:23 ]
+     │
+ 106 │   drafts_test_execute(export)
+     │                       ───┬──  
+     │                          ╰──── Warning (reserved_keyword): The word `export` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_workbench.mbt:145:3 ]
+     │
+ 145 │   method : String,
+     │   ───┬──  
+     │      ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_workbench.mbt:836:17 ]
+     │
+ 836 │       let (key, method, url, phase) = match action {
+     │                 ───┬──  
+     │                    ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_workbench.mbt:846:21 ]
+     │
+ 846 │       let sent = if method == "POST" { d.to_json().stringify() } else { "" }
+     │                     ───┬──  
+     │                        ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/project_plan_workbench.mbt:848:25 ]
+     │
+ 848 │         plan_fetch(url, method, sent, (status, body) => {
+     │                         ───┬──  
+     │                            ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0001]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/redesign_delivery.mbt:28:4 ]
+    │
+ 28 │ fn projects_sample_view(
+    │    ──────────┬─────────  
+    │              ╰─────────── Warning (unused_value): Unused function 'projects_sample_view'
+────╯
+Warning: [0014]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/frontend/opc/research_import_wbtest.mbt:165:14 ]
+     │
+ 165 │   let html = @rabbita.render_to_string(
+     │              ────────────┬────────────  
+     │                          ╰────────────── Warning (alert_unstable): Experimental API
+─────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:17:10 ]
+    │
+ 17 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionPhase` are implicit promoted as regular method for `ExecutionPhase`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionPhase with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionPhase` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:17:17 ]
+    │
+ 17 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionPhase` are implicit promoted as regular method for `ExecutionPhase`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionPhase with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionPhase` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:24:10 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionClaim` are implicit promoted as regular method for `ExecutionClaim`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionClaim with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionClaim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:24:17 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionClaim` are implicit promoted as regular method for `ExecutionClaim`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionClaim with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionClaim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:34:10 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionAttemptEvent` are implicit promoted as regular method for `ExecutionAttemptEvent`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttemptEvent with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionAttemptEvent` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:34:17 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionAttemptEvent` are implicit promoted as regular method for `ExecutionAttemptEvent`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttemptEvent with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionAttemptEvent` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:57:10 ]
+    │
+ 57 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionAttempt` are implicit promoted as regular method for `ExecutionAttempt`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttempt with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionAttempt` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:57:17 ]
+    │
+ 57 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionAttempt` are implicit promoted as regular method for `ExecutionAttempt`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttempt with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionAttempt` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:7:10 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ProposedCommandState` are implicit promoted as regular method for `ProposedCommandState`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommandState with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ProposedCommandState` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:7:17 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ProposedCommandState` are implicit promoted as regular method for `ProposedCommandState`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommandState with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ProposedCommandState` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:30:10 ]
+    │
+ 30 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ProposedCommand` are implicit promoted as regular method for `ProposedCommand`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommand with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ProposedCommand` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:30:17 ]
+    │
+ 30 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ProposedCommand` are implicit promoted as regular method for `ProposedCommand`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommand with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ProposedCommand` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:72:10 ]
+    │
+ 72 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AgentResult` are implicit promoted as regular method for `AgentResult`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentResult with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AgentResult` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:72:17 ]
+    │
+ 72 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AgentResult` are implicit promoted as regular method for `AgentResult`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentResult with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AgentResult` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:15:10 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for CoordinationMode` are implicit promoted as regular method for `CoordinationMode`. This behavior is deprecated and will be removed in the future. Add a `pub extend CoordinationMode with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `CoordinationMode` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:15:17 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for CoordinationMode` are implicit promoted as regular method for `CoordinationMode`. This behavior is deprecated and will be removed in the future. Add a `pub extend CoordinationMode with Eq::{not_equal, equal}` declaration or manually define regular methods for type `CoordinationMode` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:24:10 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AuthorizationPlane` are implicit promoted as regular method for `AuthorizationPlane`. This behavior is deprecated and will be removed in the future. Add a `pub extend AuthorizationPlane with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AuthorizationPlane` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:24:17 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AuthorizationPlane` are implicit promoted as regular method for `AuthorizationPlane`. This behavior is deprecated and will be removed in the future. Add a `pub extend AuthorizationPlane with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AuthorizationPlane` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:48:10 ]
+    │
+ 48 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AgentRequest` are implicit promoted as regular method for `AgentRequest`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentRequest with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AgentRequest` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:48:17 ]
+    │
+ 48 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AgentRequest` are implicit promoted as regular method for `AgentRequest`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentRequest with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AgentRequest` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:60:10 ]
+    │
+ 60 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AgentPortError` are implicit promoted as regular method for `AgentPortError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentPortError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AgentPortError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:60:17 ]
+    │
+ 60 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AgentPortError` are implicit promoted as regular method for `AgentPortError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentPortError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AgentPortError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:7:10 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionSeverity` are implicit promoted as regular method for `AttentionSeverity`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionSeverity with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionSeverity` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:7:17 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionSeverity` are implicit promoted as regular method for `AttentionSeverity`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionSeverity with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionSeverity` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:14:10 ]
+    │
+ 14 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionStatus` are implicit promoted as regular method for `AttentionStatus`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionStatus with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionStatus` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:14:17 ]
+    │
+ 14 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionStatus` are implicit promoted as regular method for `AttentionStatus`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionStatus with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionStatus` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:34:10 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionItem` are implicit promoted as regular method for `AttentionItem`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionItem with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionItem` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:34:17 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionItem` are implicit promoted as regular method for `AttentionItem`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionItem with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionItem` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:40:10 ]
+    │
+ 40 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionInbox` are implicit promoted as regular method for `AttentionInbox`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionInbox with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionInbox` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:40:17 ]
+    │
+ 40 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionInbox` are implicit promoted as regular method for `AttentionInbox`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionInbox with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionInbox` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:47:10 ]
+    │
+ 47 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionError` are implicit promoted as regular method for `AttentionError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:47:17 ]
+    │
+ 47 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionError` are implicit promoted as regular method for `AttentionError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:15:10 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionActivityRow` are implicit promoted as regular method for `ExecutionActivityRow`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityRow with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionActivityRow` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:15:17 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionActivityRow` are implicit promoted as regular method for `ExecutionActivityRow`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityRow with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionActivityRow` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:28:10 ]
+    │
+ 28 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionActivityProjection` are implicit promoted as regular method for `ExecutionActivityProjection`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityProjection with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionActivityProjection` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:28:17 ]
+    │
+ 28 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionActivityProjection` are implicit promoted as regular method for `ExecutionActivityProjection`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityProjection with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionActivityProjection` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_draft.mbt:4:10 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OfferDraftError` are implicit promoted as regular method for `OfferDraftError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferDraftError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OfferDraftError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_draft.mbt:4:17 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OfferDraftError` are implicit promoted as regular method for `OfferDraftError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferDraftError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OfferDraftError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_reply.mbt:4:10 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OfferReplyError` are implicit promoted as regular method for `OfferReplyError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferReplyError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OfferReplyError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_reply.mbt:4:17 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OfferReplyError` are implicit promoted as regular method for `OfferReplyError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferReplyError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OfferReplyError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/receipt_history.mbt:98:38 ]
+    │
+ 98 │     fields["offer_history"] = offers.to_json()
+    │                                      ───┬───  
+    │                                         ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/receipt_history.mbt:102:45 ]
+     │
+ 102 │     fields["offer_reply_history"] = replies.to_json()
+     │                                             ───┬───  
+     │                                                ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/source_context.mbt:4:10 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for SourceContextError` are implicit promoted as regular method for `SourceContextError`. This behavior is deprecated and will be removed in the future. Add a `pub extend SourceContextError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `SourceContextError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/source_context.mbt:4:17 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for SourceContextError` are implicit promoted as regular method for `SourceContextError`. This behavior is deprecated and will be removed in the future. Add a `pub extend SourceContextError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `SourceContextError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:10 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:17 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:21 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with ToJson::{to_json}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:29 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:10 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:17 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:21 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with ToJson::{to_json}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:29 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:31:3 ]
+    │
+ 31 │   method : String
+    │   ───┬──  
+    │      ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:10 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:17 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:21 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with ToJson::{to_json}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:29 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:10 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:17 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:21 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with ToJson::{to_json}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:29 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:10 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:17 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:21 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with ToJson::{to_json}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:29 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:10 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:17 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:21 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with ToJson::{to_json}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:29 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:10 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:17 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:21 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with ToJson::{to_json}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:29 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:10 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │          ──┬──  
+     │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:17 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │                 ─┬  
+     │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:21 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │                     ───┬──  
+     │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with ToJson::{to_json}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:29 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │                             ────┬───  
+     │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:10:10 ]
+    │
+ 10 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Packet` are implicit promoted as regular method for `Packet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Packet with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Packet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:10:17 ]
+    │
+ 10 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Packet` are implicit promoted as regular method for `Packet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Packet with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Packet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:15:10 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PacketError` are implicit promoted as regular method for `PacketError`. This behavior is deprecated and will be removed in the future. Add a `pub extend PacketError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PacketError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:15:17 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PacketError` are implicit promoted as regular method for `PacketError`. This behavior is deprecated and will be removed in the future. Add a `pub extend PacketError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PacketError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+[vectie/moonproj] test frontend/opc/project_plan_github_wbtest.mbt:2 ("GitHub issue import reaches editable template replacement and phase append") failed: vectie/moonproj/product/plan_workbench.InputError.Invalid
+Total tests: 1, passed: 0, failed: 1.

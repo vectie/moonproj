@@ -1,0 +1,325 @@
+--- /dev/null
++++ b/frontend/opc/project_plan_github.mbt
+@@ -0,0 +1,51 @@
++///|
++// Local saved issue export conversion; no GitHub network access.
++extern "js" fn plan_github_convert_json(source : String) -> String =
++  #| source => {
++  #|   try {
++  #|     if (source.length > 1000000) throw Error("Split exports larger than 1,000,000 characters");
++  #|     const issues = JSON.parse(source.replace(/^\uFEFF/, ""));
++  #|     if (!Array.isArray(issues)) throw Error("Expected a gh issue list JSON array");
++  #|     const notes = ["GitHub issue planning snapshot", "Only open issues become planning tasks. Assignees, labels, milestones and closed state are source context, not MoonProj assignments or completion evidence. Set owners, milestones, dependencies and budget explicitly. Keep the original export."];
++  #|     const tasks = [], seen = new Set(); let excluded = 0;
++  #|     for (const issue of issues) {
++  #|       if (!issue || typeof issue !== "object" || Array.isArray(issue)) throw Error("Expected issue objects");
++  #|       if (!Number.isSafeInteger(issue.number) || issue.number < 1 || typeof issue.title !== "string" || !issue.title.trim()) throw Error("Each issue needs a positive number and title");
++  #|       if (typeof issue.url !== "string") throw Error("Each issue needs its GitHub issue URL");
++  #|       const match = /^https:\/\/([^/]+)\/([^/]+)\/([^/]+)\/issues\/([1-9][0-9]*)$/.exec(issue.url);
++  #|       if (!match || Number(match[4]) !== issue.number) throw Error("Issue URL and number must match");
++  #|       const id = "gh-" + [match[1],match[2],match[3],match[4]].map(encodeURIComponent).join("-");
++  #|       if (seen.has(issue.url)) throw Error("Duplicate issue URL: " + issue.url);
++  #|       seen.add(issue.url);
++  #|       if (issue.state !== "OPEN" && issue.state !== "CLOSED") throw Error("Issue state must be OPEN or CLOSED");
++  #|       if (issue.state === "CLOSED") { excluded++; continue; }
++  #|       if (issue.body != null && typeof issue.body !== "string") throw Error("Issue body must be text");
++  #|       if (issue.assignees != null && !Array.isArray(issue.assignees)) throw Error("Issue assignees must be an array");
++  #|       if (issue.labels != null && !Array.isArray(issue.labels)) throw Error("Issue labels must be an array");
++  #|       notes.push("Source issue (preview task ID: " + id + ")", JSON.stringify({number:issue.number,title:issue.title,url:issue.url,body:issue.body || "",assignees:issue.assignees || [],milestone:issue.milestone || null,labels:issue.labels || []},null,2));
++  #|       tasks.push({id,name:issue.title,owner:"",milestone:"",cost:"",dependencies:[]});
++  #|     }
++  #|     if (!tasks.length || tasks.length > 100) throw Error("Choose between 1 and 100 open issues");
++  #|     if (new Set(tasks.map(t => t.id)).size !== tasks.length) throw Error("Issue identity collision; split exports by repository");
++  #|     notes.push(tasks.length + " open issues imported; " + excluded + " closed issues excluded.");
++  #|     const template = JSON.stringify({format:"moonproj-plan-template/v1",notes:notes.join("\n"),currency:"",limit:"",contingency:"",owners:[{id:"planning-owner",name:"Planning preparer",role:"Assign imported work explicitly"}],tasks,milestones:[],risks:[]});
++  #|     if (template.length > 1000000) throw Error("Converted plan is too large; split the export");
++  #|     return JSON.stringify({error:"",template});
++  #|   } catch (error) { return JSON.stringify({error:"GitHub import: " + error.message,template:""}); }
++  #| }
++
++///|
++fn plan_github_read_template(
++  source : String,
++) -> @plan_workbench.Template raise @plan_workbench.InputError {
++  let result = @json.parse(plan_github_convert_json(source)) catch {
++    _ => raise @plan_workbench.Invalid("GitHub import returned invalid JSON")
++  }
++  guard result is { "error": String(error), "template": String(template), .. } else {
++    raise @plan_workbench.Invalid("GitHub import returned an invalid result")
++  }
++  if !error.is_empty() {
++    raise @plan_workbench.Invalid(error)
++  }
++  @plan_workbench.read_template(template)
++}
+--- a/frontend/opc/project_plan_template.mbt
++++ b/frontend/opc/project_plan_template.mbt
+@@ -15,6 +15,7 @@
+   Source(String)
+   Preview
+   PreviewTrello
++  PreviewGithub
+   Owner(String)
+   Name(String)
+   Apply
+@@ -56,9 +57,11 @@
+     Owner(owner) => { ..t, owner, append_before: None, append_after: None, }
+     Name(name) => { ..t, name, append_before: None, append_after: None, }
+     Close => plan_template_initial()
+-    Preview | PreviewTrello => {
++    Preview | PreviewTrello | PreviewGithub => {
+       let preview = try {
+-        if action == PreviewTrello {
++        if action == PreviewGithub {
++          plan_github_read_template(t.source)
++        } else if action == PreviewTrello {
+           plan_trello_read_template(t.source)
+         } else {
+           @plan_workbench.read_template(t.source)
+@@ -86,7 +89,7 @@
+       {
+         ..t,
+         preview: Some(preview),
+-        trello: action == PreviewTrello,
++        trello: action == PreviewTrello || action == PreviewGithub,
+         owner: "",
+         name: d.owners
+         .filter(o => o.id == s.actor)
+@@ -100,8 +103,13 @@
+     }
+     PreviewAppend => {
+       guard t.preview is Some(preview) else { return (none, model) }
++      let phase = if t.trello {
++        plan_source_template_for_append(preview, d.currency)
++      } else {
++        preview
++      }
+       let after = @plan_workbench.append_template(
+-        preview,
++        phase,
+         d,
+         s.actor,
+         t.owner,
+@@ -275,6 +283,15 @@
+     ),
+     p(
+       "也可粘贴本地 Trello 看板导出 JSON，再选择预览 Trello。仅导入未归档列表中的未归档卡片；原负责人、截止日期和完成标记只保留为来源说明。请明确填写规划负责人、里程碑和预算。追加 Trello 工作时，来源说明会附加到当前范围说明。",
++    ),
++    plan_button(
++      emit,
++      Template(PreviewGithub),
++      "预览 GitHub Issues JSON",
++      disabled=t.source.trim().is_empty(),
++    ),
++    p(
++      "粘贴 gh issue list JSON 导出（number,title,body,url,state,assignees,milestone,labels）。仅开放的问题进入规划；来源说明在追加阶段时保留。关闭状态不代表 MoonProj 验收。",
+     ),
+     plan_button(emit, Template(Close), "清空模板输入"),
+     p(attrs=@html.Attrs::build().role("status").aria_live("polite"), t.note),
+@@ -376,3 +393,13 @@
+     },
+   ]
+ }
++
++///|
++// Source issue/card snapshots have no money values. Use the destination
++// currency when appending their uncosted tasks, without converting money.
++fn plan_source_template_for_append(
++  template : @plan_workbench.Template,
++  currency : String,
++) -> @plan_workbench.Template {
++  { ..template, currency, }
++}
+--- /dev/null
++++ b/frontend/opc/project_plan_github_wbtest.mbt
+@@ -0,0 +1,37 @@
++///|
++test "GitHub issue import reaches editable template replacement and phase append" {
++  let template = plan_github_read_template(
++    (
++      #|[{"number":7,"title":"Implement customer idea","body":"Source need\nAcceptance: usable","url":"https://github.com/team/demo/issues/7","state":"OPEN","assignees":[{"login":"sam"}],"milestone":{"title":"Launch"},"labels":[{"name":"customer"}]}]
++    ),
++  )
++  let target : @plan_workbench.Draft = {
++    key: "plan",
++    project_id: "project",
++    prepared_at: "2026-10-20T00:00:00Z",
++    notes: "Existing scope",
++    currency: "USD",
++    limit: "0",
++    contingency: "0",
++    owners: [{ id: "lead", name: "Lead", role: "Planning", }],
++    tasks: [],
++    milestones: [],
++    risks: [],
++  }
++  let replaced = @plan_workbench.apply_template(
++    template, target, "lead", "planning-owner", "Lead", "github",
++  )
++  assert_eq(replaced.tasks.length(), 1)
++  assert_eq(replaced.tasks[0].name, "Implement customer idea")
++  assert_eq(replaced.tasks[0].owner, "")
++  assert_true(replaced.notes.contains("https://github.com/team/demo/issues/7"))
++  let appended = @plan_workbench.append_template(
++    plan_source_template_for_append(template, target.currency),
++    target,
++    "lead",
++    "planning-owner",
++    "phase",
++  )
++  assert_eq(appended.tasks.length(), 1)
++  assert_eq(appended.project_id, target.project_id)
++}
+--- /dev/null
++++ b/scripts/test_github_plan.mjs
+@@ -0,0 +1,26 @@
++import assert from 'node:assert/strict';
++import {readFileSync} from 'node:fs';
++import test from 'node:test';
++import vm from 'node:vm';
++const read = p => readFileSync(new URL('../'+p,import.meta.url),'utf8');
++const body=read('frontend/opc/project_plan_github.mbt').split('\n///|')[0].split('\n').filter(l=>/^\s*#\|/.test(l)).map(l=>l.replace(/^\s*#\| ?/,'')).join('\n');
++const convert=vm.runInNewContext(`(${body})`);
++const issue=(number=7,repo='demo')=>({number,title:'Build a useful thing, 中文',body:'First line\n- [ ] Deliver it',url:`https://github.com/team/${repo}/issues/${number}`,state:'OPEN',assignees:[{login:'lee'}],labels:[{name:'customer'}],milestone:{title:'Launch'}});
++function parse(rows){return JSON.parse(convert(JSON.stringify(rows)));}
++function success(rows){const r=parse(rows);assert.equal(r.error,'');return JSON.parse(r.template);}
++test('open issues become editable template tasks with source context',()=>{
++ const t=success([issue(),{...issue(8),state:'CLOSED'}]);assert.equal(t.format,'moonproj-plan-template/v1');assert.equal(t.tasks.length,1);assert.equal(t.tasks[0].name,issue().title);
++ assert.deepEqual(t.tasks[0],{id:'gh-github.com-team-demo-7',name:issue().title,owner:'',milestone:'',cost:'',dependencies:[]});
++ for(const s of ['First line','Deliver it','https://github.com/team/demo/issues/7','lee','customer','Launch','1 closed issues excluded']) assert.ok(t.notes.includes(s),s);
++ assert.equal(t.currency,'');assert.deepEqual(t.milestones,[]);
++});
++test('same issue number in different repositories stays distinct and deterministic',()=>{
++ const rows=[issue(),issue(7,'another')];const t=success(rows);assert.notEqual(t.tasks[0].id,t.tasks[1].id);assert.equal(convert(JSON.stringify(rows)),convert(JSON.stringify(rows)));
++});
++test('ordinary malformed or unusable input reports an error without a partial template',()=>{
++ for(const rows of [[],[{...issue(),state:'CLOSED'}],[issue(),issue()],[{...issue(),url:'https://github.com/team/demo/issues/9'}],[{...issue(),state:'done'}]]) {const r=parse(rows);assert.ok(r.error);assert.equal(r.template,'');}
++ assert.ok(JSON.parse(convert('{')).error);
++});
++test('existing preview replacement and append paths retain GitHub source notes',()=>{
++ const ui=read('frontend/opc/project_plan_template.mbt');assert.match(ui,/PreviewGithub/);assert.match(ui,/plan_github_read_template\(t.source\)/);assert.match(ui,/trello: action == PreviewTrello \|\| action == PreviewGithub/);assert.match(ui,/notes: d.notes \+ "\\n\\n" \+ preview.notes/);assert.match(ui,/Template\(PreviewGithub\)/);
++});
+--- a/scripts/test_trello_plan.mjs
++++ b/scripts/test_trello_plan.mjs
+@@ -89,7 +89,7 @@
+   assert.match(converter, /raise @plan_workbench\.Invalid\(error\)/);
+   const ui = read('frontend/opc/project_plan_template.mbt');
+   assert.match(ui, /Template\(PreviewTrello\)/);
+-  assert.match(ui, /Preview \| PreviewTrello =>/);
++  assert.match(ui, /Preview \| PreviewTrello \| PreviewGithub =>/);
+   assert.match(ui, /plan_trello_read_template\(t\.source\)/);
+   assert.match(ui, /trello: action == PreviewTrello/);
+   assert.match(ui, /if t\.trello \{\s*\{ \.\.after, notes: d\.notes \+ "\\n\\n" \+ preview\.notes/);
+--- /dev/null
++++ b/docs/GITHUB_ISSUE_PLAN_IMPORT.md
+@@ -0,0 +1,52 @@
++# GitHub issue export to an editable plan
++
++In Projects, select a project and open the plan template panel. Paste a saved
++JSON issue export and choose **预览 GitHub Issues JSON**. Choose the planning
++preparer and use the existing template replacement or phase-append controls.
++Then edit task owners, dependencies, milestones and budgets and save through
++the existing project plan workflow.
++
++A standard export can be prepared separately with:
++
++```sh
++gh issue list --state all --limit 100 --json number,title,body,url,state,assignees,milestone,labels > issues.json
++```
++
++The importer itself is offline and does not invoke this command or contact
++GitHub. An array of these issue objects also works for GitHub Enterprise issue
++URLs and combined exports from several repositories. The URL's issue number
++must match `number`. Open issues become tasks in input order. Closed issues
++are counted and excluded. Between one and 100 open issues can be imported.
++
++Title is the editable task name. Issue URL, body, assignees, labels and source
++milestone are retained in plan notes, including when appending a phase. Task
++IDs in the preview distinguish repository and host; the existing apply/append
++workflow remaps task IDs. Source assignees and milestones are context only:
++assign real plan owners and milestones using existing controls. No completion,
++acceptance, execution or engineering release state is inferred from GitHub.
++Comments, attachments, reactions and other export fields are not imported.
++Keep the original export if those fields are needed.
++
++## Focused verification
++
++```sh
++node --test scripts/test_github_plan.mjs scripts/test_trello_plan.mjs
++```
++
++These tests execute the production JS converter and check the UI wiring. They
++cover multiline/Unicode issue bodies, distinct repository identities, closed
++issue exclusion, deterministic conversion and repairable malformed input.
++They are not a browser session or signed gateway persistence qualification.
++
++Current cloud validation also executed the actual MoonBit converter/template
++reader and replacement/phase-append against a USD plan (1/1 passed). Unpriced
++source imports adopt the destination currency on append without introducing
++costs or changing the existing budget. The production batch task-table importer
++ran separately (1/1 passed), retaining an editable Draft, not service tasks.
++
++With moonc 0.10.16 the restored source contained removed `try?` syntax. Three
++existing product files received equivalent `try Ok(...) catch { e => Err(e) }`
++replacements. A separate private Rabbita 0.12.4 overlay makes the same single
++syntax substitution; original bytes, hashes and patches are in evidence/R795.
++Frontend check passed with pre-existing warnings. Browser interaction, signed
++service persistence and release gates were not exercised.
+--- a/product/plan_workbench/budget_breakdown.mbt
++++ b/product/plan_workbench/budget_breakdown.mbt
+@@ -25,7 +25,7 @@
+   let mut overflow = false
+   let mut invalid = 0
+   for t in tasks {
+-    match (try? minor(t.cost, "Task cost")) {
++    match (try Ok(minor(t.cost, "Task cost")) catch { e => Err(e) }) {
+       Err(_) => invalid += 1
+       Ok(amount) =>
+         if amount > 9223372036854775807L - sum {
+@@ -74,8 +74,8 @@
+ /// Read-only allocation of authored task costs. Incomplete totals never yield headroom.
+ pub fn budget_breakdown(d : Draft) -> BudgetBreakdown {
+   let (known_minor, invalid_tasks) = cost_sum(d.tasks)
+-  let limit_minor = (try? minor(d.limit, "Budget limit")).to_option()
+-  let contingency_minor = (try? minor(d.contingency, "Contingency")).to_option()
++  let limit_minor = (try Ok(minor(d.limit, "Budget limit")) catch { e => Err(e) }).to_option()
++  let contingency_minor = (try Ok(minor(d.contingency, "Contingency")) catch { e => Err(e) }).to_option()
+   let remaining_minor = match (known_minor, limit_minor, contingency_minor) {
+     (Some(cost), Some(limit), Some(contingency)) =>
+       if invalid_tasks == 0 && contingency <= 9223372036854775807L - cost {
+@@ -154,7 +154,7 @@
+   out.push("")
+   out.push("Task source amounts (authored; invalid entries are not zero)")
+   for t in d.tasks {
+-    let amount = (try? minor(t.cost, "Cost")).to_option()
++    let amount = (try Ok(minor(t.cost, "Cost")) catch { e => Err(e) }).to_option()
+     out.push(
+       t.name +
+       " [" +
+--- a/product/plan_workbench/risk_impact.mbt
++++ b/product/plan_workbench/risk_impact.mbt
+@@ -123,7 +123,7 @@
+   " " +
+   d.currency +
+   "; minor units: " +
+-  cost_text((try? minor(task.cost, "Cost")).to_option()) +
++  cost_text((try Ok(minor(task.cost, "Cost")) catch { e => Err(e) }).to_option()) +
+   "\n  Prerequisites: " +
+   (if task.dependencies.is_empty() {
+     "None"
+--- a/frontend/opc/project_plan_risk_impact.mbt
++++ b/frontend/opc/project_plan_risk_impact.mbt
+@@ -27,11 +27,11 @@
+     s.projects.filter(p => p.id == s.selected).get(0) is Some(project) else {
+     return @html.nothing
+   }
+-  let report = try? @plan_workbench.risk_impact_report(
++  let report = try Ok(@plan_workbench.risk_impact_report(
+     d,
+     s.risk_focus,
+     project.name,
+-  )
++  )) catch { e => Err(e) }
+   @html.details <| [
+     @html.summary("Risk impact explorer / 风险影响分析"),
+     p(

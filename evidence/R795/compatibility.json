@@ -1,0 +1,22 @@
+[
+  {
+    "path": "product/plan_workbench/budget_breakdown.mbt",
+    "original_sha256": "ade8566fa57a93b6536c9028c5e53bb9b57e4db8c5ba81bdaf059b36c342c7fc",
+    "new_sha256": "b5236f1dad2ef9a39c4918ffbc3128715a313e686eb4a364d0b1a1d8fc090fff"
+  },
+  {
+    "path": "product/plan_workbench/risk_impact.mbt",
+    "original_sha256": "b01dacda635f47e8752203ee9b0d4c46e2e560ce3159bc97052d0c2af4068708",
+    "new_sha256": "a7842d366df3f2b38da99e97058a9beb13e6890ea7fe44f763737adb3a5dbd51"
+  },
+  {
+    "path": ".mooncakes/moonbit-community/rabbita/http/http.mbt",
+    "original_sha256": "de02a7e7b30513c49300ebdffaf95a1d07e21feeb776b88d60c649eefdfe0bcd",
+    "new_sha256": "755e4e8e2c820405801fb3e505202fffae5012b6dec18f806c4a7e29773b7c82"
+  },
+  {
+    "path": "frontend/opc/project_plan_risk_impact.mbt",
+    "original_sha256": "796cda4766c203ddf609aa43bf219ede0301437a30d2914daf26ba5ab50fd292",
+    "new_sha256": "b84b6bfcb7d1f44e22f3fe891d306fcb551c213609e139df590a3c3e560db1ee"
+  }
+]

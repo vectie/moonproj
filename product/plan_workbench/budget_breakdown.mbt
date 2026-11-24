@@ -4,14 +4,14 @@ pub(all) struct CostBucket {
   label : String
   task_ids : Array[String]
   known_minor : Int64?
-  invalid_tasks : Int
+  invalid_tasks : Int32
 } derive(Debug, Eq, ToJson)
 
 ///|
 pub(all) struct BudgetBreakdown {
   currency : String
   known_minor : Int64?
-  invalid_tasks : Int
+  invalid_tasks : Int32
   limit_minor : Int64?
   contingency_minor : Int64?
   remaining_minor : Int64?
@@ -20,12 +20,12 @@ pub(all) struct BudgetBreakdown {
 } derive(Debug, Eq, ToJson)
 
 ///|
-fn cost_sum(tasks : Array[Task]) -> (Int64?, Int) {
+fn cost_sum(tasks : Array[Task]) -> (Int64?, Int32) {
   let mut sum = 0L
   let mut overflow = false
   let mut invalid = 0
   for t in tasks {
-    match (try? minor(t.cost, "Task cost")) {
+    match (Ok(minor(t.cost, "Task cost")) catch { e => Err(e) }) {
       Err(_) => invalid += 1
       Ok(amount) =>
         if amount > 9223372036854775807L - sum {
@@ -74,8 +74,10 @@ fn cost_buckets(d : Draft, owner : Bool) -> Array[CostBucket] {
 /// Read-only allocation of authored task costs. Incomplete totals never yield headroom.
 pub fn budget_breakdown(d : Draft) -> BudgetBreakdown {
   let (known_minor, invalid_tasks) = cost_sum(d.tasks)
-  let limit_minor = (try? minor(d.limit, "Budget limit")).to_option()
-  let contingency_minor = (try? minor(d.contingency, "Contingency")).to_option()
+  let limit_minor = (Ok(minor(d.limit, "Budget limit")) catch { e => Err(e) }).to_option()
+  let contingency_minor = (Ok(minor(d.contingency, "Contingency")) catch {
+    e => Err(e)
+  }).to_option()
   let remaining_minor = match (known_minor, limit_minor, contingency_minor) {
     (Some(cost), Some(limit), Some(contingency)) =>
       if invalid_tasks == 0 && contingency <= 9223372036854775807L - cost {
@@ -154,7 +156,7 @@ pub fn budget_report(d : Draft, project_name : String) -> String {
   out.push("")
   out.push("Task source amounts (authored; invalid entries are not zero)")
   for t in d.tasks {
-    let amount = (try? minor(t.cost, "Cost")).to_option()
+    let amount = (Ok(minor(t.cost, "Cost")) catch { e => Err(e) }).to_option()
     out.push(
       t.name +
       " [" +

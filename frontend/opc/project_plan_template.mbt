@@ -15,6 +15,7 @@ enum PlanTemplateMsg {
   Source(String)
   Preview
   PreviewTrello
+  PreviewGithub
   Owner(String)
   Name(String)
   Apply
@@ -56,9 +57,11 @@ fn plan_template_update(
     Owner(owner) => { ..t, owner, append_before: None, append_after: None, }
     Name(name) => { ..t, name, append_before: None, append_after: None, }
     Close => plan_template_initial()
-    Preview | PreviewTrello => {
+    Preview | PreviewTrello | PreviewGithub => {
       let preview = try {
-        if action == PreviewTrello {
+        if action == PreviewGithub {
+          plan_github_read_template(t.source)
+        } else if action == PreviewTrello {
           plan_trello_read_template(t.source)
         } else {
           @plan_workbench.read_template(t.source)
@@ -86,7 +89,7 @@ fn plan_template_update(
       {
         ..t,
         preview: Some(preview),
-        trello: action == PreviewTrello,
+        trello: action == PreviewTrello || action == PreviewGithub,
         owner: "",
         name: d.owners
         .filter(o => o.id == s.actor)
@@ -100,8 +103,13 @@ fn plan_template_update(
     }
     PreviewAppend => {
       guard t.preview is Some(preview) else { return (none, model) }
+      let phase = if t.trello {
+        plan_source_template_for_append(preview, d.currency)
+      } else {
+        preview
+      }
       let after = @plan_workbench.append_template(
-        preview,
+        phase,
         d,
         s.actor,
         t.owner,
@@ -276,6 +284,15 @@ fn plan_template_view(
     p(
       "也可粘贴本地 Trello 看板导出 JSON，再选择预览 Trello。仅导入未归档列表中的未归档卡片；原负责人、截止日期和完成标记只保留为来源说明。请明确填写规划负责人、里程碑和预算。追加 Trello 工作时，来源说明会附加到当前范围说明。",
     ),
+    plan_button(
+      emit,
+      Template(PreviewGithub),
+      "预览 GitHub Issues JSON",
+      disabled=t.source.trim().is_empty(),
+    ),
+    p(
+      "粘贴 gh issue list JSON 导出（number,title,body,url,state,assignees,milestone,labels）。仅开放的问题进入规划；来源说明在追加阶段时保留。关闭状态不代表 MoonProj 验收。",
+    ),
     plan_button(emit, Template(Close), "清空模板输入"),
     p(attrs=@html.Attrs::build().role("status").aria_live("polite"), t.note),
     match t.preview {
@@ -375,4 +392,14 @@ fn plan_template_view(
         ]
     },
   ]
+}
+
+///|
+// Source issue/card snapshots have no money values. Use the destination
+// currency when appending their uncosted tasks, without converting money.
+fn plan_source_template_for_append(
+  template : @plan_workbench.Template,
+  currency : String,
+) -> @plan_workbench.Template {
+  { ..template, currency, }
 }

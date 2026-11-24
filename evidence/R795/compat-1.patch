@@ -1,0 +1,11 @@
+--- product/plan_workbench/risk_impact.mbt
++++ product/plan_workbench/risk_impact.mbt
+@@ -123,7 +123,7 @@
+   " " +
+   d.currency +
+   "; minor units: " +
+-  cost_text((try? minor(task.cost, "Cost")).to_option()) +
++  cost_text((try Ok(minor(task.cost, "Cost")) catch { e => Err(e) }).to_option()) +
+   "\n  Prerequisites: " +
+   (if task.dependencies.is_empty() {
+     "None"

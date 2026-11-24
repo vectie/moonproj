@@ -27,11 +27,11 @@ fn plan_risk_impact_view(
     s.projects.filter(p => p.id == s.selected).get(0) is Some(project) else {
     return @html.nothing
   }
-  let report = try? @plan_workbench.risk_impact_report(
-    d,
-    s.risk_focus,
-    project.name,
-  )
+  let report = Ok(
+    @plan_workbench.risk_impact_report(d, s.risk_focus, project.name),
+  ) catch {
+    e => Err(e)
+  }
   @html.details <| [
     @html.summary("Risk impact explorer / 风险影响分析"),
     p(

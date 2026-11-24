@@ -89,7 +89,7 @@ test('source wiring only: adapter calls template validation and explicit local p
   assert.match(converter, /raise @plan_workbench\.Invalid\(error\)/);
   const ui = read('frontend/opc/project_plan_template.mbt');
   assert.match(ui, /Template\(PreviewTrello\)/);
-  assert.match(ui, /Preview \| PreviewTrello =>/);
+  assert.match(ui, /Preview \| PreviewTrello \| PreviewGithub =>/);
   assert.match(ui, /plan_trello_read_template\(t\.source\)/);
   assert.match(ui, /trello: action == PreviewTrello/);
   assert.match(ui, /if t\.trello \{\s*\{ \.\.after, notes: d\.notes \+ "\\n\\n" \+ preview\.notes/);

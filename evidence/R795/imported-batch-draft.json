@@ -1,0 +1,69 @@
+{
+  "key": "R793-R797",
+  "project_id": "moonsuite-cloud",
+  "prepared_at": "2026-10-20T03:57:00Z",
+  "notes": "Planning-only batch import. Signed service persistence and release gates are unrun.",
+  "currency": "USD",
+  "limit": "0",
+  "contingency": "0",
+  "owners": [
+    {
+      "id": "cloud",
+      "name": "Cloud feature team",
+      "role": "Development"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "R793",
+      "name": "MoonDesk staged creator handoff",
+      "owner": "cloud",
+      "milestone": "feature-batch",
+      "cost": "0",
+      "dependencies": []
+    },
+    {
+      "id": "R794",
+      "name": "MoonBook CSL-JSON reference import",
+      "owner": "cloud",
+      "milestone": "feature-batch",
+      "cost": "0",
+      "dependencies": []
+    },
+    {
+      "id": "R795",
+      "name": "MoonProj saved GitHub issue plan import",
+      "owner": "cloud",
+      "milestone": "feature-batch",
+      "cost": "0",
+      "dependencies": []
+    },
+    {
+      "id": "R796",
+      "name": "MoonTown cross-dossier inquiry",
+      "owner": "cloud",
+      "milestone": "feature-batch",
+      "cost": "0",
+      "dependencies": []
+    },
+    {
+      "id": "R797",
+      "name": "MoonFind saved Atom feed intake",
+      "owner": "cloud",
+      "milestone": "feature-batch",
+      "cost": "0",
+      "dependencies": []
+    }
+  ],
+  "milestones": [
+    {
+      "id": "feature-batch",
+      "name": "Five useful feature rounds",
+      "owner": "cloud",
+      "date": "2026-10-20",
+      "criteria": "Focused feature tests and independent review; release gates reported honestly",
+      "evidence": "Per-round source and test receipts"
+    }
+  ],
+  "risks": []
+}

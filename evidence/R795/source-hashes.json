@@ -1,0 +1,47 @@
+[
+  {
+    "path": "frontend/opc/project_plan_github.mbt",
+    "sha256": "1dc26139c605bdcfe796cf7b725f6433cfed2a2751809104e28bd58782c7be36",
+    "bytes": 3995
+  },
+  {
+    "path": "frontend/opc/project_plan_template.mbt",
+    "sha256": "50e1727bd6b15cf469b9533d614f29a038a02fbee316d9725929ef13729ef7b4",
+    "bytes": 13213
+  },
+  {
+    "path": "frontend/opc/project_plan_github_wbtest.mbt",
+    "sha256": "a838de39c31565d462e34f3427be56310c67137ab0f989b7fe5cc9b54feec8a7",
+    "bytes": 1346
+  },
+  {
+    "path": "scripts/test_github_plan.mjs",
+    "sha256": "49eded16a353106d002bf679ce7a0f27aead0c790bdf579a2d1896dfb67795a3",
+    "bytes": 2562
+  },
+  {
+    "path": "scripts/test_trello_plan.mjs",
+    "sha256": "f88e21af790e45906f7692386cd832dacba7821fba1ded431637f1b04dfd1626",
+    "bytes": 8234
+  },
+  {
+    "path": "docs/GITHUB_ISSUE_PLAN_IMPORT.md",
+    "sha256": "6e6f3727a3aafd982aee47cd6248bce3162ac5f99cfeedfd7ca5e0fd42c68032",
+    "bytes": 2795
+  },
+  {
+    "path": "product/plan_workbench/budget_breakdown.mbt",
+    "sha256": "b5236f1dad2ef9a39c4918ffbc3128715a313e686eb4a364d0b1a1d8fc090fff",
+    "bytes": 4824
+  },
+  {
+    "path": "product/plan_workbench/risk_impact.mbt",
+    "sha256": "a7842d366df3f2b38da99e97058a9beb13e6890ea7fe44f763737adb3a5dbd51",
+    "bytes": 7352
+  },
+  {
+    "path": "frontend/opc/project_plan_risk_impact.mbt",
+    "sha256": "b84b6bfcb7d1f44e22f3fe891d306fcb551c213609e139df590a3c3e560db1ee",
+    "bytes": 2219
+  }
+]

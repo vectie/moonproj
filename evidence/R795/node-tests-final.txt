@@ -1,0 +1,26 @@
+✔ open issues become editable template tasks with source context (3.388781ms)
+✔ same issue number in different repositories stays distinct and deterministic (0.801252ms)
+✔ ordinary malformed or unusable input reports an error without a partial template (0.930666ms)
+✔ existing preview replacement and append paths retain GitHub source notes (0.878537ms)
+✔ board converts to existing editable template with list/card order and exact source IDs (7.321964ms)
+✔ details survive in source notes without inferred assignment or execution facts (2.175079ms)
+✔ unsupported sensitive export details are not imported and omissions are explicit (4.523602ms)
+✔ conversion is deterministic and source object is unchanged (1.772686ms)
+✔ BOM and Unicode JSON paste are accepted (0.626381ms)
+✔ empty/open and archived boards are repairable failures (2.306236ms)
+✔ incomplete board references fail with no partial template (2.307971ms)
+✔ duplicate identities and foreign-board cards require correction (1.417202ms)
+✔ wrong types and malformed JSON yield repairable errors (0.631452ms)
+✔ 100-card bound produces a usable template; 101-card board cannot partially import (3.292836ms)
+✔ input size and expanded output have bounded failure (30.002241ms)
+✔ missing positions retain export order within each list (0.512101ms)
+✔ source wiring only: adapter calls template validation and explicit local preview/apply paths (0.762262ms)
+✔ invalid and unusual due text stays exact source context without generated milestones (0.690774ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 280.465291

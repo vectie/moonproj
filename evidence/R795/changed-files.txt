@@ -1,0 +1,9 @@
+frontend/opc/project_plan_github.mbt
+frontend/opc/project_plan_template.mbt
+frontend/opc/project_plan_github_wbtest.mbt
+scripts/test_github_plan.mjs
+scripts/test_trello_plan.mjs
+docs/GITHUB_ISSUE_PLAN_IMPORT.md
+product/plan_workbench/budget_breakdown.mbt
+product/plan_workbench/risk_impact.mbt
+frontend/opc/project_plan_risk_impact.mbt

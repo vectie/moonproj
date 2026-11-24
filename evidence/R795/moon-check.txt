@@ -1,0 +1,1538 @@
+Using cached moonbit-community/rabbita@0.12.4
+Downloading moonbitlang/async@0.19.4
+Downloading moonbitlang/x@0.4.50
+Downloading vectie/moonlib@0.1.19
+Downloading vectie/lepusa@0.1.4
+Error: [3002]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/.mooncakes/moonbit-community/rabbita/http/http.mbt:301:39 ]
+     │
+ 301 │       let result : Result[T, Error] = try? @json.from_json(@json.parse(body))
+     │                                       ──┬─  
+     │                                         ╰─── `try?` has been removed. Replace `try? expr` with `try Ok(expr) catch { e => Err(e) }`, or with `try Some(expr) catch { _ => None }` if the error value is not needed.
+─────╯
+Error: [4018]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/.mooncakes/moonbit-community/rabbita/http/http.mbt:301:44 ]
+     │
+ 301 │       let result : Result[T, Error] = try? @json.from_json(@json.parse(body))
+     │                                            ───────┬───────  
+     │                                                   ╰───────── Type Error does not implement trait @moonbitlang/core/json.FromJson: no `impl` is defined
+  note: this constraint is required by `impl` of @moonbitlang/core/json.FromJson for type Result at moonbitlang/core/json/from_json.mbt:267:1
+─────╯
+Error: [4122]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/.mooncakes/moonbit-community/rabbita/http/http.mbt:301:44 ]
+     │
+ 301 │       let result : Result[T, Error] = try? @json.from_json(@json.parse(body))
+     │                                            ─────────────────┬────────────────  
+     │                                                             ╰────────────────── Function with error can only be used inside a function with error types in its signature. For anonymous functions, use `fn () raise { ... }` instead of `fn` to declare the function with an error type.
+─────╯
+Error: [4122]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/.mooncakes/moonbit-community/rabbita/http/http.mbt:301:60 ]
+     │
+ 301 │       let result : Result[T, Error] = try? @json.from_json(@json.parse(body))
+     │                                                            ────────┬────────  
+     │                                                                    ╰────────── Function with error can only be used inside a function with error types in its signature. For anonymous functions, use `fn () raise { ... }` instead of `fn` to declare the function with an error type.
+─────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:17:10 ]
+    │
+ 17 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionPhase` are implicit promoted as regular method for `ExecutionPhase`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionPhase with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionPhase` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:17:17 ]
+    │
+ 17 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionPhase` are implicit promoted as regular method for `ExecutionPhase`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionPhase with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionPhase` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:24:10 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionClaim` are implicit promoted as regular method for `ExecutionClaim`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionClaim with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionClaim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:24:17 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionClaim` are implicit promoted as regular method for `ExecutionClaim`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionClaim with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionClaim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:34:10 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionAttemptEvent` are implicit promoted as regular method for `ExecutionAttemptEvent`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttemptEvent with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionAttemptEvent` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:34:17 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionAttemptEvent` are implicit promoted as regular method for `ExecutionAttemptEvent`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttemptEvent with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionAttemptEvent` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:57:10 ]
+    │
+ 57 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionAttempt` are implicit promoted as regular method for `ExecutionAttempt`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttempt with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionAttempt` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/attempt.mbt:57:17 ]
+    │
+ 57 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionAttempt` are implicit promoted as regular method for `ExecutionAttempt`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionAttempt with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionAttempt` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:7:10 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ProposedCommandState` are implicit promoted as regular method for `ProposedCommandState`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommandState with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ProposedCommandState` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:7:17 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ProposedCommandState` are implicit promoted as regular method for `ProposedCommandState`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommandState with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ProposedCommandState` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:30:10 ]
+    │
+ 30 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ProposedCommand` are implicit promoted as regular method for `ProposedCommand`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommand with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ProposedCommand` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:30:17 ]
+    │
+ 30 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ProposedCommand` are implicit promoted as regular method for `ProposedCommand`. This behavior is deprecated and will be removed in the future. Add a `pub extend ProposedCommand with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ProposedCommand` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:72:10 ]
+    │
+ 72 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AgentResult` are implicit promoted as regular method for `AgentResult`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentResult with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AgentResult` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/command.mbt:72:17 ]
+    │
+ 72 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AgentResult` are implicit promoted as regular method for `AgentResult`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentResult with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AgentResult` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:15:10 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for CoordinationMode` are implicit promoted as regular method for `CoordinationMode`. This behavior is deprecated and will be removed in the future. Add a `pub extend CoordinationMode with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `CoordinationMode` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:15:17 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for CoordinationMode` are implicit promoted as regular method for `CoordinationMode`. This behavior is deprecated and will be removed in the future. Add a `pub extend CoordinationMode with Eq::{not_equal, equal}` declaration or manually define regular methods for type `CoordinationMode` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:24:10 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AuthorizationPlane` are implicit promoted as regular method for `AuthorizationPlane`. This behavior is deprecated and will be removed in the future. Add a `pub extend AuthorizationPlane with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AuthorizationPlane` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:24:17 ]
+    │
+ 24 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AuthorizationPlane` are implicit promoted as regular method for `AuthorizationPlane`. This behavior is deprecated and will be removed in the future. Add a `pub extend AuthorizationPlane with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AuthorizationPlane` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:48:10 ]
+    │
+ 48 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AgentRequest` are implicit promoted as regular method for `AgentRequest`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentRequest with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AgentRequest` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:48:17 ]
+    │
+ 48 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AgentRequest` are implicit promoted as regular method for `AgentRequest`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentRequest with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AgentRequest` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:60:10 ]
+    │
+ 60 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AgentPortError` are implicit promoted as regular method for `AgentPortError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentPortError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AgentPortError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/agent_port/protocol.mbt:60:17 ]
+    │
+ 60 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AgentPortError` are implicit promoted as regular method for `AgentPortError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AgentPortError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AgentPortError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:7:10 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionSeverity` are implicit promoted as regular method for `AttentionSeverity`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionSeverity with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionSeverity` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:7:17 ]
+   │
+ 7 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionSeverity` are implicit promoted as regular method for `AttentionSeverity`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionSeverity with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionSeverity` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:14:10 ]
+    │
+ 14 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionStatus` are implicit promoted as regular method for `AttentionStatus`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionStatus with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionStatus` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:14:17 ]
+    │
+ 14 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionStatus` are implicit promoted as regular method for `AttentionStatus`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionStatus with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionStatus` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:34:10 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionItem` are implicit promoted as regular method for `AttentionItem`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionItem with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionItem` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:34:17 ]
+    │
+ 34 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionItem` are implicit promoted as regular method for `AttentionItem`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionItem with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionItem` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:40:10 ]
+    │
+ 40 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionInbox` are implicit promoted as regular method for `AttentionInbox`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionInbox with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionInbox` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:40:17 ]
+    │
+ 40 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionInbox` are implicit promoted as regular method for `AttentionInbox`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionInbox with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionInbox` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:47:10 ]
+    │
+ 47 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for AttentionError` are implicit promoted as regular method for `AttentionError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `AttentionError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/attention.mbt:47:17 ]
+    │
+ 47 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for AttentionError` are implicit promoted as regular method for `AttentionError`. This behavior is deprecated and will be removed in the future. Add a `pub extend AttentionError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `AttentionError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:15:10 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionActivityRow` are implicit promoted as regular method for `ExecutionActivityRow`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityRow with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionActivityRow` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:15:17 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionActivityRow` are implicit promoted as regular method for `ExecutionActivityRow`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityRow with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionActivityRow` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:28:10 ]
+    │
+ 28 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ExecutionActivityProjection` are implicit promoted as regular method for `ExecutionActivityProjection`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityProjection with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ExecutionActivityProjection` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/intelligence/attention/projection.mbt:28:17 ]
+    │
+ 28 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ExecutionActivityProjection` are implicit promoted as regular method for `ExecutionActivityProjection`. This behavior is deprecated and will be removed in the future. Add a `pub extend ExecutionActivityProjection with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ExecutionActivityProjection` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_draft.mbt:4:10 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OfferDraftError` are implicit promoted as regular method for `OfferDraftError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferDraftError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OfferDraftError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_draft.mbt:4:17 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OfferDraftError` are implicit promoted as regular method for `OfferDraftError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferDraftError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OfferDraftError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_reply.mbt:4:10 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OfferReplyError` are implicit promoted as regular method for `OfferReplyError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferReplyError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OfferReplyError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/offer_reply.mbt:4:17 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OfferReplyError` are implicit promoted as regular method for `OfferReplyError`. This behavior is deprecated and will be removed in the future. Add a `pub extend OfferReplyError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OfferReplyError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/receipt_history.mbt:98:38 ]
+    │
+ 98 │     fields["offer_history"] = offers.to_json()
+    │                                      ───┬───  
+    │                                         ╰───── Warning (deprecated): Use `Json(value)` instead
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/receipt_history.mbt:102:45 ]
+     │
+ 102 │     fields["offer_reply_history"] = replies.to_json()
+     │                                             ───┬───  
+     │                                                ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/source_context.mbt:4:10 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for SourceContextError` are implicit promoted as regular method for `SourceContextError`. This behavior is deprecated and will be removed in the future. Add a `pub extend SourceContextError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `SourceContextError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/operations/task_evidence/source_context.mbt:4:17 ]
+   │
+ 4 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for SourceContextError` are implicit promoted as regular method for `SourceContextError`. This behavior is deprecated and will be removed in the future. Add a `pub extend SourceContextError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `SourceContextError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:8:10 ]
+   │
+ 8 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for CostBucket` are implicit promoted as regular method for `CostBucket`. This behavior is deprecated and will be removed in the future. Add a `pub extend CostBucket with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `CostBucket` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:8:17 ]
+   │
+ 8 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for CostBucket` are implicit promoted as regular method for `CostBucket`. This behavior is deprecated and will be removed in the future. Add a `pub extend CostBucket with Eq::{not_equal, equal}` declaration or manually define regular methods for type `CostBucket` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:8:21 ]
+   │
+ 8 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for CostBucket` are implicit promoted as regular method for `CostBucket`. This behavior is deprecated and will be removed in the future. Add a `pub extend CostBucket with ToJson::{to_json}` declaration or manually define regular methods for type `CostBucket` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:20:10 ]
+    │
+ 20 │ } derive(Debug, Eq, ToJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for BudgetBreakdown` are implicit promoted as regular method for `BudgetBreakdown`. This behavior is deprecated and will be removed in the future. Add a `pub extend BudgetBreakdown with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `BudgetBreakdown` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:20:17 ]
+    │
+ 20 │ } derive(Debug, Eq, ToJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for BudgetBreakdown` are implicit promoted as regular method for `BudgetBreakdown`. This behavior is deprecated and will be removed in the future. Add a `pub extend BudgetBreakdown with Eq::{not_equal, equal}` declaration or manually define regular methods for type `BudgetBreakdown` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:20:21 ]
+    │
+ 20 │ } derive(Debug, Eq, ToJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for BudgetBreakdown` are implicit promoted as regular method for `BudgetBreakdown`. This behavior is deprecated and will be removed in the future. Add a `pub extend BudgetBreakdown with ToJson::{to_json}` declaration or manually define regular methods for type `BudgetBreakdown` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Error: [3002]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:28:12 ]
+    │
+ 28 │     match (try? minor(t.cost, "Task cost")) {
+    │            ──┬─  
+    │              ╰─── `try?` has been removed. Replace `try? expr` with `try Ok(expr) catch { e => Err(e) }`, or with `try Some(expr) catch { _ => None }` if the error value is not needed.
+────╯
+Error: [4122]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:28:17 ]
+    │
+ 28 │     match (try? minor(t.cost, "Task cost")) {
+    │                 ─────────────┬────────────  
+    │                              ╰────────────── Function with error can only be used inside a function with error types in its signature. Please fix the return type of this function.
+────╯
+Error: [4014]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:29:7 ]
+    │
+ 29 │       Err(_) => invalid += 1
+    │       ───┬──  
+    │          ╰──── Constr Type Mismatch(constructor Err)
+        has type : Result[_/0, _/1]
+        wanted   : Int64
+────╯
+Error: [4014]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:30:7 ]
+    │
+ 30 │       Ok(amount) =>
+    │       ─────┬────  
+    │            ╰────── Constr Type Mismatch(constructor Ok)
+        has type : Result[_/0, _/1]
+        wanted   : Int64
+────╯
+Error: [3002]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:77:22 ]
+    │
+ 77 │   let limit_minor = (try? minor(d.limit, "Budget limit")).to_option()
+    │                      ──┬─  
+    │                        ╰─── `try?` has been removed. Replace `try? expr` with `try Ok(expr) catch { e => Err(e) }`, or with `try Some(expr) catch { _ => None }` if the error value is not needed.
+────╯
+Error: [4122]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:77:27 ]
+    │
+ 77 │   let limit_minor = (try? minor(d.limit, "Budget limit")).to_option()
+    │                           ───────────────┬──────────────  
+    │                                          ╰──────────────── Function with error can only be used inside a function with error types in its signature. Please fix the return type of this function.
+────╯
+Error: [4015]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:77:59 ]
+    │
+ 77 │   let limit_minor = (try? minor(d.limit, "Budget limit")).to_option()
+    │                                                           ────┬────  
+    │                                                               ╰────── Type Int64 has no method to_option.
+────╯
+Error: [3002]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:78:28 ]
+    │
+ 78 │   let contingency_minor = (try? minor(d.contingency, "Contingency")).to_option()
+    │                            ──┬─  
+    │                              ╰─── `try?` has been removed. Replace `try? expr` with `try Ok(expr) catch { e => Err(e) }`, or with `try Some(expr) catch { _ => None }` if the error value is not needed.
+────╯
+Error: [4122]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:78:33 ]
+    │
+ 78 │   let contingency_minor = (try? minor(d.contingency, "Contingency")).to_option()
+    │                                 ─────────────────┬─────────────────  
+    │                                                  ╰─────────────────── Function with error can only be used inside a function with error types in its signature. Please fix the return type of this function.
+────╯
+Error: [4015]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:78:70 ]
+    │
+ 78 │   let contingency_minor = (try? minor(d.contingency, "Contingency")).to_option()
+    │                                                                      ────┬────  
+    │                                                                          ╰────── Type Int64 has no method to_option.
+────╯
+Error: [3002]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:157:19 ]
+     │
+ 157 │     let amount = (try? minor(t.cost, "Cost")).to_option()
+     │                   ──┬─  
+     │                     ╰─── `try?` has been removed. Replace `try? expr` with `try Ok(expr) catch { e => Err(e) }`, or with `try Some(expr) catch { _ => None }` if the error value is not needed.
+─────╯
+Error: [4122]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:157:24 ]
+     │
+ 157 │     let amount = (try? minor(t.cost, "Cost")).to_option()
+     │                        ──────────┬──────────  
+     │                                  ╰──────────── Function with error can only be used inside a function with error types in its signature. Please fix the return type of this function.
+─────╯
+Error: [4015]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/budget_breakdown.mbt:157:47 ]
+     │
+ 157 │     let amount = (try? minor(t.cost, "Cost")).to_option()
+     │                                               ────┬────  
+     │                                                   ╰────── Type Int64 has no method to_option.
+─────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/comparison.mbt:11:10 ]
+    │
+ 11 │ } derive(Debug, Eq, ToJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PlanChange` are implicit promoted as regular method for `PlanChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanChange with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PlanChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/comparison.mbt:11:17 ]
+    │
+ 11 │ } derive(Debug, Eq, ToJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PlanChange` are implicit promoted as regular method for `PlanChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanChange with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PlanChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/comparison.mbt:11:21 ]
+    │
+ 11 │ } derive(Debug, Eq, ToJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for PlanChange` are implicit promoted as regular method for `PlanChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanChange with ToJson::{to_json}` declaration or manually define regular methods for type `PlanChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/comparison.mbt:18:10 ]
+    │
+ 18 │ } derive(Debug, Eq, ToJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PlanComparison` are implicit promoted as regular method for `PlanComparison`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanComparison with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PlanComparison` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/comparison.mbt:18:17 ]
+    │
+ 18 │ } derive(Debug, Eq, ToJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PlanComparison` are implicit promoted as regular method for `PlanComparison`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanComparison with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PlanComparison` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/comparison.mbt:18:21 ]
+    │
+ 18 │ } derive(Debug, Eq, ToJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for PlanComparison` are implicit promoted as regular method for `PlanComparison`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanComparison with ToJson::{to_json}` declaration or manually define regular methods for type `PlanComparison` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:6:10 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson, FromJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Owner` are implicit promoted as regular method for `Owner`. This behavior is deprecated and will be removed in the future. Add a `pub extend Owner with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Owner` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:6:17 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson, FromJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Owner` are implicit promoted as regular method for `Owner`. This behavior is deprecated and will be removed in the future. Add a `pub extend Owner with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Owner` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:6:21 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson, FromJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Owner` are implicit promoted as regular method for `Owner`. This behavior is deprecated and will be removed in the future. Add a `pub extend Owner with ToJson::{to_json}` declaration or manually define regular methods for type `Owner` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:6:29 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson, FromJson)
+   │                             ────┬───  
+   │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Owner` are implicit promoted as regular method for `Owner`. This behavior is deprecated and will be removed in the future. Add a `pub extend Owner with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Owner` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:16:10 ]
+    │
+ 16 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Task` are implicit promoted as regular method for `Task`. This behavior is deprecated and will be removed in the future. Add a `pub extend Task with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Task` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:16:17 ]
+    │
+ 16 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Task` are implicit promoted as regular method for `Task`. This behavior is deprecated and will be removed in the future. Add a `pub extend Task with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Task` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:16:21 ]
+    │
+ 16 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Task` are implicit promoted as regular method for `Task`. This behavior is deprecated and will be removed in the future. Add a `pub extend Task with ToJson::{to_json}` declaration or manually define regular methods for type `Task` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:16:29 ]
+    │
+ 16 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Task` are implicit promoted as regular method for `Task`. This behavior is deprecated and will be removed in the future. Add a `pub extend Task with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Task` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:26:10 ]
+    │
+ 26 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Milestone` are implicit promoted as regular method for `Milestone`. This behavior is deprecated and will be removed in the future. Add a `pub extend Milestone with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Milestone` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:26:17 ]
+    │
+ 26 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Milestone` are implicit promoted as regular method for `Milestone`. This behavior is deprecated and will be removed in the future. Add a `pub extend Milestone with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Milestone` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:26:21 ]
+    │
+ 26 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Milestone` are implicit promoted as regular method for `Milestone`. This behavior is deprecated and will be removed in the future. Add a `pub extend Milestone with ToJson::{to_json}` declaration or manually define regular methods for type `Milestone` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:26:29 ]
+    │
+ 26 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Milestone` are implicit promoted as regular method for `Milestone`. This behavior is deprecated and will be removed in the future. Add a `pub extend Milestone with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Milestone` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:36:10 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Risk` are implicit promoted as regular method for `Risk`. This behavior is deprecated and will be removed in the future. Add a `pub extend Risk with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Risk` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:36:17 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Risk` are implicit promoted as regular method for `Risk`. This behavior is deprecated and will be removed in the future. Add a `pub extend Risk with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Risk` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:36:21 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Risk` are implicit promoted as regular method for `Risk`. This behavior is deprecated and will be removed in the future. Add a `pub extend Risk with ToJson::{to_json}` declaration or manually define regular methods for type `Risk` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:36:29 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Risk` are implicit promoted as regular method for `Risk`. This behavior is deprecated and will be removed in the future. Add a `pub extend Risk with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Risk` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:51:10 ]
+    │
+ 51 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Draft` are implicit promoted as regular method for `Draft`. This behavior is deprecated and will be removed in the future. Add a `pub extend Draft with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Draft` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:51:17 ]
+    │
+ 51 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Draft` are implicit promoted as regular method for `Draft`. This behavior is deprecated and will be removed in the future. Add a `pub extend Draft with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Draft` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:51:21 ]
+    │
+ 51 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Draft` are implicit promoted as regular method for `Draft`. This behavior is deprecated and will be removed in the future. Add a `pub extend Draft with ToJson::{to_json}` declaration or manually define regular methods for type `Draft` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:51:29 ]
+    │
+ 51 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Draft` are implicit promoted as regular method for `Draft`. This behavior is deprecated and will be removed in the future. Add a `pub extend Draft with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Draft` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:56:10 ]
+    │
+ 56 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for InputError` are implicit promoted as regular method for `InputError`. This behavior is deprecated and will be removed in the future. Add a `pub extend InputError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `InputError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:56:17 ]
+    │
+ 56 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for InputError` are implicit promoted as regular method for `InputError`. This behavior is deprecated and will be removed in the future. Add a `pub extend InputError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `InputError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:140:10 ]
+     │
+ 140 │         .to_json(),
+     │          ───┬───  
+     │             ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:154:9 ]
+     │
+ 154 │       ).to_json(),
+     │         ───┬───  
+     │            ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:155:38 ]
+     │
+ 155 │       "dependencies": t.dependencies.to_json(),
+     │                                      ───┬───  
+     │                                         ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:171:6 ]
+     │
+ 171 │     .to_json(),
+     │      ───┬───  
+     │         ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:174:57 ]
+     │
+ 174 │       "limit_minor": minor(draft.limit, "Budget limit").to_json(),
+     │                                                         ───┬───  
+     │                                                            ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:175:68 ]
+     │
+ 175 │       "contingency_minor": minor(draft.contingency, "Contingency").to_json(),
+     │                                                                    ───┬───  
+     │                                                                       ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:177:20 ]
+     │
+ 177 │     "tasks": tasks.to_json(),
+     │                    ───┬───  
+     │                       ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:178:30 ]
+     │
+ 178 │     "milestones": milestones.to_json(),
+     │                              ───┬───  
+     │                                 ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:188:39 ]
+     │
+ 188 │           "related_task_ids": r.tasks.to_json(),
+     │                                       ───┬───  
+     │                                          ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:192:6 ]
+     │
+ 192 │     .to_json(),
+     │      ───┬───  
+     │         ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:202:41 ]
+     │
+ 202 │           "criteria": lines(m.criteria).to_json(),
+     │                                         ───┬───  
+     │                                            ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:203:50 ]
+     │
+ 203 │           "required_evidence": lines(m.evidence).to_json(),
+     │                                                  ───┬───  
+     │                                                     ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/contracts.mbt:206:6 ]
+     │
+ 206 │     .to_json(),
+     │      ───┬───  
+     │         ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/dependency_explorer.mbt:7:10 ]
+   │
+ 7 │ } derive(Eq, Debug)
+   │          ─┬  
+   │           ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for DependencyPlan` are implicit promoted as regular method for `DependencyPlan`. This behavior is deprecated and will be removed in the future. Add a `pub extend DependencyPlan with Eq::{not_equal, equal}` declaration or manually define regular methods for type `DependencyPlan` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/dependency_explorer.mbt:7:14 ]
+   │
+ 7 │ } derive(Eq, Debug)
+   │              ──┬──  
+   │                ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for DependencyPlan` are implicit promoted as regular method for `DependencyPlan`. This behavior is deprecated and will be removed in the future. Add a `pub extend DependencyPlan with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `DependencyPlan` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/markdown_checklist.mbt:8:10 ]
+   │
+ 8 │ } derive(Eq, ToJson, Debug)
+   │          ─┬  
+   │           ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ChecklistTask` are implicit promoted as regular method for `ChecklistTask`. This behavior is deprecated and will be removed in the future. Add a `pub extend ChecklistTask with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ChecklistTask` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/markdown_checklist.mbt:8:14 ]
+   │
+ 8 │ } derive(Eq, ToJson, Debug)
+   │              ───┬──  
+   │                 ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for ChecklistTask` are implicit promoted as regular method for `ChecklistTask`. This behavior is deprecated and will be removed in the future. Add a `pub extend ChecklistTask with ToJson::{to_json}` declaration or manually define regular methods for type `ChecklistTask` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/markdown_checklist.mbt:8:22 ]
+   │
+ 8 │ } derive(Eq, ToJson, Debug)
+   │                      ──┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ChecklistTask` are implicit promoted as regular method for `ChecklistTask`. This behavior is deprecated and will be removed in the future. Add a `pub extend ChecklistTask with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ChecklistTask` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/markdown_checklist.mbt:15:10 ]
+    │
+ 15 │ } derive(Eq, Debug)
+    │          ─┬  
+    │           ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for ChecklistImport` are implicit promoted as regular method for `ChecklistImport`. This behavior is deprecated and will be removed in the future. Add a `pub extend ChecklistImport with Eq::{not_equal, equal}` declaration or manually define regular methods for type `ChecklistImport` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/markdown_checklist.mbt:15:14 ]
+    │
+ 15 │ } derive(Eq, Debug)
+    │              ──┬──  
+    │                ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for ChecklistImport` are implicit promoted as regular method for `ChecklistImport`. This behavior is deprecated and will be removed in the future. Add a `pub extend ChecklistImport with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `ChecklistImport` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0020]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/markdown_checklist.mbt:67:38 ]
+    │
+ 67 │   let reserved : Map[String, Bool] = Map::new()
+    │                                      ────┬───  
+    │                                          ╰───── Warning (deprecated): Use `Map([], capacity=...)` instead
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_rebase.mbt:5:10 ]
+   │
+ 5 │ } derive(Debug, Eq)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for MilestoneRebase` are implicit promoted as regular method for `MilestoneRebase`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneRebase with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `MilestoneRebase` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_rebase.mbt:5:17 ]
+   │
+ 5 │ } derive(Debug, Eq)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for MilestoneRebase` are implicit promoted as regular method for `MilestoneRebase`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneRebase with Eq::{not_equal, equal}` declaration or manually define regular methods for type `MilestoneRebase` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:6:10 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for MilestoneTableChange` are implicit promoted as regular method for `MilestoneTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableChange with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `MilestoneTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:6:17 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for MilestoneTableChange` are implicit promoted as regular method for `MilestoneTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableChange with Eq::{not_equal, equal}` declaration or manually define regular methods for type `MilestoneTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:6:21 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for MilestoneTableChange` are implicit promoted as regular method for `MilestoneTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableChange with ToJson::{to_json}` declaration or manually define regular methods for type `MilestoneTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:13:10 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for MilestoneTableUpdate` are implicit promoted as regular method for `MilestoneTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableUpdate with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `MilestoneTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:13:17 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for MilestoneTableUpdate` are implicit promoted as regular method for `MilestoneTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableUpdate with Eq::{not_equal, equal}` declaration or manually define regular methods for type `MilestoneTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:66:44 ]
+    │
+ 66 │   let originals : Map[String, Milestone] = {}
+    │                                            ─┬  
+    │                                             ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:73:47 ]
+    │
+ 73 │   let replacements : Map[String, Milestone] = {}
+    │                                               ─┬  
+    │                                                ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:81:40 ]
+    │
+ 81 │     let values : Map[String, String] = {}
+    │                                        ─┬  
+    │                                         ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:197:10 ]
+     │
+ 197 │ } derive(Debug, Eq)
+     │          ──┬──  
+     │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for MilestoneTableImport` are implicit promoted as regular method for `MilestoneTableImport`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableImport with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `MilestoneTableImport` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:197:17 ]
+     │
+ 197 │ } derive(Debug, Eq)
+     │                 ─┬  
+     │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for MilestoneTableImport` are implicit promoted as regular method for `MilestoneTableImport`. This behavior is deprecated and will be removed in the future. Add a `pub extend MilestoneTableImport with Eq::{not_equal, equal}` declaration or manually define regular methods for type `MilestoneTableImport` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0082]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/milestone_table.mbt:222:44 ]
+     │
+ 222 │   let originals : Map[String, Milestone] = {}
+     │                                            ─┬  
+     │                                             ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:6:10 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OwnerTableChange` are implicit promoted as regular method for `OwnerTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend OwnerTableChange with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OwnerTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:6:17 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OwnerTableChange` are implicit promoted as regular method for `OwnerTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend OwnerTableChange with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OwnerTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:6:21 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for OwnerTableChange` are implicit promoted as regular method for `OwnerTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend OwnerTableChange with ToJson::{to_json}` declaration or manually define regular methods for type `OwnerTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:13:10 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OwnerTableUpdate` are implicit promoted as regular method for `OwnerTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend OwnerTableUpdate with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OwnerTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:13:17 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OwnerTableUpdate` are implicit promoted as regular method for `OwnerTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend OwnerTableUpdate with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OwnerTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:60:40 ]
+    │
+ 60 │   let originals : Map[String, Owner] = {}
+    │                                        ─┬  
+    │                                         ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:69:43 ]
+    │
+ 69 │   let replacements : Map[String, Owner] = {}
+    │                                           ─┬  
+    │                                            ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/owner_table.mbt:77:40 ]
+    │
+ 77 │     let values : Map[String, String] = {}
+    │                                        ─┬  
+    │                                         ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/phase_extract.mbt:13:10 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PhaseExtraction` are implicit promoted as regular method for `PhaseExtraction`. This behavior is deprecated and will be removed in the future. Add a `pub extend PhaseExtraction with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PhaseExtraction` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/phase_extract.mbt:13:17 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PhaseExtraction` are implicit promoted as regular method for `PhaseExtraction`. This behavior is deprecated and will be removed in the future. Add a `pub extend PhaseExtraction with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PhaseExtraction` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/phase_extract.mbt:13:21 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for PhaseExtraction` are implicit promoted as regular method for `PhaseExtraction`. This behavior is deprecated and will be removed in the future. Add a `pub extend PhaseExtraction with ToJson::{to_json}` declaration or manually define regular methods for type `PhaseExtraction` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/phase_extract.mbt:41:38 ]
+    │
+ 41 │   let included : Map[String, Bool] = {}
+    │                                      ─┬  
+    │                                       ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_impact.mbt:9:10 ]
+   │
+ 9 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for RiskImpact` are implicit promoted as regular method for `RiskImpact`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskImpact with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `RiskImpact` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_impact.mbt:9:17 ]
+   │
+ 9 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for RiskImpact` are implicit promoted as regular method for `RiskImpact`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskImpact with Eq::{not_equal, equal}` declaration or manually define regular methods for type `RiskImpact` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_impact.mbt:9:21 ]
+   │
+ 9 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for RiskImpact` are implicit promoted as regular method for `RiskImpact`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskImpact with ToJson::{to_json}` declaration or manually define regular methods for type `RiskImpact` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Error: [3002]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_impact.mbt:126:14 ]
+     │
+ 126 │   cost_text((try? minor(task.cost, "Cost")).to_option()) +
+     │              ──┬─  
+     │                ╰─── `try?` has been removed. Replace `try? expr` with `try Ok(expr) catch { e => Err(e) }`, or with `try Some(expr) catch { _ => None }` if the error value is not needed.
+─────╯
+Error: [4122]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_impact.mbt:126:19 ]
+     │
+ 126 │   cost_text((try? minor(task.cost, "Cost")).to_option()) +
+     │                   ────────────┬───────────  
+     │                               ╰───────────── Function with error can only be used inside a function with error types in its signature. Please fix the return type of this function.
+─────╯
+Error: [4015]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_impact.mbt:126:45 ]
+     │
+ 126 │   cost_text((try? minor(task.cost, "Cost")).to_option()) +
+     │                                             ────┬────  
+     │                                                 ╰────── Type Int64 has no method to_option.
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:6:10 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for RiskTableChange` are implicit promoted as regular method for `RiskTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskTableChange with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `RiskTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:6:17 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for RiskTableChange` are implicit promoted as regular method for `RiskTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskTableChange with Eq::{not_equal, equal}` declaration or manually define regular methods for type `RiskTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:6:21 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for RiskTableChange` are implicit promoted as regular method for `RiskTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskTableChange with ToJson::{to_json}` declaration or manually define regular methods for type `RiskTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:13:10 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for RiskTableUpdate` are implicit promoted as regular method for `RiskTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskTableUpdate with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `RiskTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:13:17 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for RiskTableUpdate` are implicit promoted as regular method for `RiskTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend RiskTableUpdate with Eq::{not_equal, equal}` declaration or manually define regular methods for type `RiskTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:95:39 ]
+    │
+ 95 │   let originals : Map[String, Risk] = {}
+    │                                       ─┬  
+    │                                        ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:104:42 ]
+     │
+ 104 │   let replacements : Map[String, Risk] = {}
+     │                                          ─┬  
+     │                                           ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+─────╯
+Warning: [0082]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:113:40 ]
+     │
+ 113 │     let values : Map[String, String] = {}
+     │                                        ─┬  
+     │                                         ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+─────╯
+Warning: [0020]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/risk_table.mbt:246:20 ]
+     │
+ 246 │         risk.tasks.to_json().stringify(),
+     │                    ───┬───  
+     │                       ╰───── Warning (deprecated): Use `Json(value)` instead
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_breakdown.mbt:6:10 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for TaskStep` are implicit promoted as regular method for `TaskStep`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskStep with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `TaskStep` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_breakdown.mbt:6:17 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for TaskStep` are implicit promoted as regular method for `TaskStep`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskStep with Eq::{not_equal, equal}` declaration or manually define regular methods for type `TaskStep` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_breakdown.mbt:6:21 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for TaskStep` are implicit promoted as regular method for `TaskStep`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskStep with ToJson::{to_json}` declaration or manually define regular methods for type `TaskStep` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_handoff.mbt:8:10 ]
+   │
+ 8 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for TaskHandoff` are implicit promoted as regular method for `TaskHandoff`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskHandoff with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `TaskHandoff` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_handoff.mbt:8:17 ]
+   │
+ 8 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for TaskHandoff` are implicit promoted as regular method for `TaskHandoff`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskHandoff with Eq::{not_equal, equal}` declaration or manually define regular methods for type `TaskHandoff` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_handoff.mbt:8:21 ]
+   │
+ 8 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for TaskHandoff` are implicit promoted as regular method for `TaskHandoff`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskHandoff with ToJson::{to_json}` declaration or manually define regular methods for type `TaskHandoff` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0082]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table.mbt:131:40 ]
+     │
+ 131 │     let values : Map[String, String] = {}
+     │                                        ─┬  
+     │                                         ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+─────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:6:10 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for TaskTableChange` are implicit promoted as regular method for `TaskTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskTableChange with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `TaskTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:6:17 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for TaskTableChange` are implicit promoted as regular method for `TaskTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskTableChange with Eq::{not_equal, equal}` declaration or manually define regular methods for type `TaskTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:6:21 ]
+   │
+ 6 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for TaskTableChange` are implicit promoted as regular method for `TaskTableChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskTableChange with ToJson::{to_json}` declaration or manually define regular methods for type `TaskTableChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:13:10 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for TaskTableUpdate` are implicit promoted as regular method for `TaskTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskTableUpdate with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `TaskTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:13:17 ]
+    │
+ 13 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for TaskTableUpdate` are implicit promoted as regular method for `TaskTableUpdate`. This behavior is deprecated and will be removed in the future. Add a `pub extend TaskTableUpdate with Eq::{not_equal, equal}` declaration or manually define regular methods for type `TaskTableUpdate` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:53:39 ]
+    │
+ 53 │   let originals : Map[String, Task] = {}
+    │                                       ─┬  
+    │                                        ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:60:42 ]
+    │
+ 60 │   let replacements : Map[String, Task] = {}
+    │                                          ─┬  
+    │                                           ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/task_table_updates.mbt:69:40 ]
+    │
+ 69 │     let values : Map[String, String] = {}
+    │                                        ─┬  
+    │                                         ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/template.mbt:13:10 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Template` are implicit promoted as regular method for `Template`. This behavior is deprecated and will be removed in the future. Add a `pub extend Template with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Template` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/template.mbt:13:17 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Template` are implicit promoted as regular method for `Template`. This behavior is deprecated and will be removed in the future. Add a `pub extend Template with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Template` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/template.mbt:13:21 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Template` are implicit promoted as regular method for `Template`. This behavior is deprecated and will be removed in the future. Add a `pub extend Template with ToJson::{to_json}` declaration or manually define regular methods for type `Template` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/template.mbt:13:29 ]
+    │
+ 13 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Template` are implicit promoted as regular method for `Template`. This behavior is deprecated and will be removed in the future. Add a `pub extend Template with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Template` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0082]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/template.mbt:17:34 ]
+    │
+ 17 │   let seen : Map[String, Bool] = {}
+    │                                  ─┬  
+    │                                   ╰── Warning (ambiguous_braces): The `{}` is ambiguous among empty map literal, block expression, empty struct literal and empty JSON object. Use `Map([])` for an empty map, `TypeName::{}` for an empty struct literal, `Json::empty_object()` for an empty JSON object, or `{ () }` for an empty block.
+────╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/text_replace.mbt:9:10 ]
+   │
+ 9 │ } derive(Debug, Eq, ToJson)
+   │          ──┬──  
+   │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PlanTextChange` are implicit promoted as regular method for `PlanTextChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanTextChange with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PlanTextChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/text_replace.mbt:9:17 ]
+   │
+ 9 │ } derive(Debug, Eq, ToJson)
+   │                 ─┬  
+   │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PlanTextChange` are implicit promoted as regular method for `PlanTextChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanTextChange with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PlanTextChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+   ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/text_replace.mbt:9:21 ]
+   │
+ 9 │ } derive(Debug, Eq, ToJson)
+   │                     ───┬──  
+   │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for PlanTextChange` are implicit promoted as regular method for `PlanTextChange`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanTextChange with ToJson::{to_json}` declaration or manually define regular methods for type `PlanTextChange` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+───╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/text_replace.mbt:16:10 ]
+    │
+ 16 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PlanTextReplacement` are implicit promoted as regular method for `PlanTextReplacement`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanTextReplacement with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PlanTextReplacement` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/plan_workbench/text_replace.mbt:16:17 ]
+    │
+ 16 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PlanTextReplacement` are implicit promoted as regular method for `PlanTextReplacement`. This behavior is deprecated and will be removed in the future. Add a `pub extend PlanTextReplacement with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PlanTextReplacement` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:10 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:17 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:21 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with ToJson::{to_json}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:14:29 ]
+    │
+ 14 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Paper` are implicit promoted as regular method for `Paper`. This behavior is deprecated and will be removed in the future. Add a `pub extend Paper with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Paper` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:10 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:17 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:21 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with ToJson::{to_json}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:24:29 ]
+    │
+ 24 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Claim` are implicit promoted as regular method for `Claim`. This behavior is deprecated and will be removed in the future. Add a `pub extend Claim with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Claim` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0035]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:31:3 ]
+    │
+ 31 │   method : String
+    │   ───┬──  
+    │      ╰──── Warning (reserved_keyword): The word `method` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:10 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:17 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:21 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with ToJson::{to_json}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:36:29 ]
+    │
+ 36 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Summary` are implicit promoted as regular method for `Summary`. This behavior is deprecated and will be removed in the future. Add a `pub extend Summary with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Summary` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:10 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:17 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:21 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with ToJson::{to_json}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:44:29 ]
+    │
+ 44 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Evidence` are implicit promoted as regular method for `Evidence`. This behavior is deprecated and will be removed in the future. Add a `pub extend Evidence with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Evidence` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:10 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:17 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with Eq::{not_equal, equal}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:21 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with ToJson::{to_json}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:60:29 ]
+    │
+ 60 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for OptionEntry` are implicit promoted as regular method for `OptionEntry`. This behavior is deprecated and will be removed in the future. Add a `pub extend OptionEntry with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `OptionEntry` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:10 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:17 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:21 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with ToJson::{to_json}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:77:29 ]
+    │
+ 77 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Worksheet` are implicit promoted as regular method for `Worksheet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Worksheet with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Worksheet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:10 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:17 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:21 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                     ───┬──  
+    │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with ToJson::{to_json}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:93:29 ]
+    │
+ 93 │ } derive(Debug, Eq, ToJson, FromJson)
+    │                             ────┬───  
+    │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Archive` are implicit promoted as regular method for `Archive`. This behavior is deprecated and will be removed in the future. Add a `pub extend Archive with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Archive` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:10 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │          ──┬──  
+     │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:17 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │                 ─┬  
+     │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:21 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │                     ───┬──  
+     │                        ╰──── Warning (implicit_impl_as_method): The methods to_json from `impl ToJson for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with ToJson::{to_json}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+     ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/research_handoff/brief.mbt:102:29 ]
+     │
+ 102 │ } derive(Debug, Eq, ToJson, FromJson)
+     │                             ────┬───  
+     │                                 ╰───── Warning (implicit_impl_as_method): The methods from_json from `impl @moonbitlang/core/json.FromJson for Brief` are implicit promoted as regular method for `Brief`. This behavior is deprecated and will be removed in the future. Add a `pub extend Brief with @moonbitlang/core/json.FromJson::{from_json}` declaration or manually define regular methods for type `Brief` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+─────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:10:10 ]
+    │
+ 10 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for Packet` are implicit promoted as regular method for `Packet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Packet with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `Packet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:10:17 ]
+    │
+ 10 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for Packet` are implicit promoted as regular method for `Packet`. This behavior is deprecated and will be removed in the future. Add a `pub extend Packet with Eq::{not_equal, equal}` declaration or manually define regular methods for type `Packet` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:15:10 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │          ──┬──  
+    │            ╰──── Warning (implicit_impl_as_method): The methods to_repr from `impl @moonbitlang/core/debug.Debug for PacketError` are implicit promoted as regular method for `PacketError`. This behavior is deprecated and will be removed in the future. Add a `pub extend PacketError with @moonbitlang/core/debug.Debug::{to_repr}` declaration or manually define regular methods for type `PacketError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Warning: [0079]
+    ╭─[ /workspace/scratch/665adc5202cf/work/R795/moonproj/product/work_packet/packet.mbt:15:17 ]
+    │
+ 15 │ } derive(Debug, Eq)
+    │                 ─┬  
+    │                  ╰── Warning (implicit_impl_as_method): The methods not_equal, equal from `impl Eq for PacketError` are implicit promoted as regular method for `PacketError`. This behavior is deprecated and will be removed in the future. Add a `pub extend PacketError with Eq::{not_equal, equal}` declaration or manually define regular methods for type `PacketError` instead. If the promotion is not desirable, add `#deprecated` on the `extend` declaration.
+────╯
+Failed with 198 warnings, 20 errors.
+Error: failed when checking project

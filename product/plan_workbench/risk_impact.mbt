@@ -3,7 +3,7 @@ pub(all) struct RiskImpact {
   direct_tasks : Array[String]
   downstream_tasks : Array[String]
   known_minor : Int64?
-  invalid_tasks : Int
+  invalid_tasks : Int32
   owners : Array[CostBucket]
   milestones : Array[CostBucket]
 } derive(Debug, Eq, ToJson)
@@ -123,7 +123,7 @@ fn risk_impact_task(d : Draft, task : Task) -> String {
   " " +
   d.currency +
   "; minor units: " +
-  cost_text((try? minor(task.cost, "Cost")).to_option()) +
+  cost_text((Ok(minor(task.cost, "Cost")) catch { e => Err(e) }).to_option()) +
   "\n  Prerequisites: " +
   (if task.dependencies.is_empty() {
     "None"
