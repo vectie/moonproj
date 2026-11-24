@@ -58,7 +58,7 @@ fn today_reconcile(
       },
     },
   }
-  if [Overview, Objectives, Fleet].contains(next.page) &&
+  if [Workspace, Overview, Objectives, Fleet].contains(next.page) &&
     !next.today.actor.is_empty() {
     let (read, refreshed) = today_update(emit, Refresh, next)
     (@cmd.batch([command, read]), refreshed)
@@ -215,7 +215,7 @@ fn today_update(
           let next = {
             ..state,
             projects,
-            scope: if model.page == Objectives {
+            scope: if [Workspace, Objectives].contains(model.page) {
               "project"
             } else {
               state.scope
@@ -230,7 +230,7 @@ fn today_update(
                 project.id == state.project_id
               }) {
               state.project_id
-            } else if [Objectives, Fleet].contains(model.page) &&
+            } else if [Workspace, Objectives, Fleet].contains(model.page) &&
               projects.length() == 1 {
               projects[0].id
             } else {
@@ -314,7 +314,7 @@ fn today_update(
               ..model,
               today: {
                 ..state,
-                tasks: [],
+                tasks: if model.page == Workspace { state.tasks } else { [] },
                 work_state: if read_state == "ready" {
                   "invalid"
                 } else {

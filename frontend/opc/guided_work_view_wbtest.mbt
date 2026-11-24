@@ -72,7 +72,7 @@ fn guided_work_model() -> Model {
 
 ///|
 test "guided navigation keeps primary destinations and expands active secondary route" {
-  let home = guided_page(initial_model())
+  let home = guided_page({ ..initial_model(), page: Overview, })
   assert_false(guided_disclosure_open(home, "更多工具"))
   assert_true(guided_disclosure_visible(home, "今日："))
   assert_true(guided_disclosure_visible(home, "目标："))

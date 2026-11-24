@@ -326,7 +326,7 @@ fn dispatch_response_matches(
 
 ///|
 fn dispatch_work_page(model : Model) -> Bool {
-  [Dispatch, Objectives].contains(model.page)
+  [Workspace, Dispatch, Objectives].contains(model.page)
 }
 
 ///|

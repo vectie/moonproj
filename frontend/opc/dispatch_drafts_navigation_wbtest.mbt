@@ -366,7 +366,7 @@ test "Back to product route parks draft without creating or starting and Forward
     ready,
   )
   drafts_test_execute(boot)
-  assert_eq(product_route.page, Overview)
+  assert_eq(product_route.page, Workspace)
   assert_eq(drafts_navigation_requests(), "")
   let (select, a) = update(
     _ => none,
@@ -378,7 +378,7 @@ test "Back to product route parks draft without creating or starting and Forward
   assert_true(emitted[0] is RestoreDispatchTask(""))
   let (back, products) = update(_ => none, emitted[0], a)
   drafts_test_execute(back)
-  assert_eq(products.page, Overview)
+  assert_eq(products.page, Workspace)
   assert_eq(products.dispatch_task_id, "")
   assert_eq(products.dispatch_task_pending_action, "")
   assert_eq(products.dispatch_run, None)

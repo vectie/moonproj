@@ -1,7 +1,7 @@
 ///|
 test "basic OPC navigation is industry-neutral and complete" {
   let items = nav_items()
-  assert_eq(items.length(), 15)
+  assert_eq(items.length(), 16)
   assert_eq(page_path(Overview), "/")
   assert_eq(page_path(Evidence), "/evidence")
   assert_eq(page_path(Guide), "/guide")

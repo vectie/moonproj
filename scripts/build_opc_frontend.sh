@@ -15,5 +15,7 @@ cp "$ROOT/frontend/opc_public/deliverable_acceptance.js" "$DIST/deliverable_acce
 cp "$ROOT/frontend/opc_public/portfolio_home.css" "$DIST/portfolio_home.css"
 cp "$ROOT/frontend/opc_public/portfolio_catalog.json" "$DIST/portfolio_catalog.json"
 cp "$ROOT/frontend/opc_public/moonproj.svg" "$DIST/moonproj.svg"
+cp "$ROOT/frontend/opc_public/company_workspace.css" "$DIST/company_workspace.css"
+cp "$ROOT/frontend/opc_public/company_workspace.js" "$DIST/company_workspace.js"
 
 printf 'Basic OPC frontend built at %s\n' "$DIST"

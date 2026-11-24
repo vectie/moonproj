@@ -35,6 +35,7 @@ using @rabbita {new, none, type Cmd}
 
 ///|
 enum Page {
+  Workspace
   Overview
   Fleet
   Dispatch
@@ -69,6 +70,7 @@ struct NavItem {
 ///|
 struct Model {
   page : Page
+  workspace : CompanyWorkspace
   moon_mode : Bool
   products : ProductsState
   today : TodayState
@@ -205,6 +207,7 @@ struct Model {
 
 ///|
 enum Msg {
+  WorkspaceAction(WorkspaceMsg)
   AcceptedHumanExportAction(DispatchAcceptedHumanExportMsg)
   ClientDeliveryAction(DispatchClientDeliveryMsg)
   OutcomeAction(Json, DispatchOutcomeMsg)
@@ -366,7 +369,8 @@ enum Msg {
 ///|
 fn initial_model() -> Model {
   {
-    page: Overview,
+    page: Workspace,
+    workspace: workspace_initial(),
     moon_mode: false,
     products: products_initial(),
     today: today_initial(),
@@ -508,6 +512,7 @@ fn initial_model() -> Model {
 ///|
 fn nav_items() -> Array[NavItem] {
   [
+    { page: Workspace, group: "指挥", label: "工作空间", short_label: "工", description: "工作关系、任务应用与交付", },
     {
       page: Products,
       group: "指挥",
@@ -619,6 +624,7 @@ fn nav_items() -> Array[NavItem] {
 ///|
 fn page_path(page : Page) -> String {
   match page {
+    Workspace => "/workspace"
     Objectives => "/objectives"
     Overview => "/"
     Fleet => "/fleet"
@@ -645,6 +651,7 @@ fn page_path(page : Page) -> String {
 ///|
 fn page_title(page : Page) -> String {
   match page {
+    Workspace => "工作空间"
     Overview => "今日"
     Objectives => "目标"
     Fleet => "Agent 编队"
@@ -671,6 +678,7 @@ fn page_title(page : Page) -> String {
 ///|
 fn page_question(page : Page) -> String {
   match page {
+    Workspace => "每项工作如何汇成交付？"
     Objectives => "公司要达成什么结果，哪些工作需要委派？"
     Overview => "公司今天需要你做出什么决定？"
     Fleet => "我的 Agent 劳动力正在做什么？"
@@ -849,6 +857,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     command
   }
   let (command, next) = today_reconcile(emit, command, next)
+  let command = workspace_observe(emit, model, next, msg, command)
   let next = plan_reconcile(next)
   let next = dispatch_guidance_reconcile(next)
   let next = dispatch_accepted_human_export_reconcile(next)
@@ -894,7 +903,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     next.dispatch_task_selection == model.dispatch_task_selection {
     (
       @cmd.batch([
-        remember_page_route(next.page, next.dispatch_task_id, push=true),
+        remember_page_route(next.page, if next.page == Workspace { next.workspace.job } else { next.dispatch_task_id }, push=true),
         command,
       ]),
       next,
@@ -911,6 +920,7 @@ fn update_model(
   model : Model,
 ) -> (Cmd, Model) {
   match msg {
+    WorkspaceAction(action) => workspace_update(emit, model, action)
     DeliveryAction(action) => delivery_update(emit, model, action)
     OfficeAction(action) => office_update(emit, model, action)
     AcceptedHumanExportAction(action) =>
@@ -923,7 +933,7 @@ fn update_model(
     PlanAction(action) => plan_update(emit, action, model)
     Navigate(Projects) =>
       plan_update(emit, Refresh, { ..model, page: Projects, mobile_nav: false, })
-    Navigate(page) if [Overview, Objectives, Fleet].contains(page) =>
+    Navigate(page) if [Workspace, Overview, Objectives, Fleet].contains(page) =>
       today_update(emit, Refresh, {
         ..model,
         page,
@@ -1719,7 +1729,8 @@ fn update_model(
           none,
           {
             ..model,
-            page: Overview,
+            page: Workspace,
+            workspace: { ..model.workspace, job: "", },
             dispatch_task_form_open: false,
             dispatch_task_selection: model.dispatch_task_selection + 1,
             dispatch_task_id: "",
@@ -2307,7 +2318,7 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let demonstrations : Array[@html.Html] = []
   let mut current_group = ""
   for item in nav_items() {
-    if [Overview, Objectives, Company].contains(item.page) {
+    if [Workspace, Overview, Objectives, Company].contains(item.page) {
       items.push(nav_item_view(emit, item, model.page))
     } else if [Observe, Operate, Evidence, Delivery].contains(item.page) {
       demonstrations.push(nav_item_view(emit, item, model.page))
@@ -4193,6 +4204,7 @@ fn extensions_view(_emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
 ///|
 fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   match model.page {
+    Workspace => @html.nothing
     Overview => cockpit_view(emit, model)
     Fleet => fleet_view(emit, model)
     Dispatch => dispatch_view(emit, model)
@@ -4220,6 +4232,7 @@ fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   div(class="opc-app") <| [
     a(href="#main-content", class="skip-link", "跳到主要内容"),
+    div(class="legacy-shell", hidden=model.page == Workspace) <| [
     if model.mobile_nav {
       button(
         type_="button",
@@ -4236,12 +4249,14 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       topbar(emit, model),
       main_(
         class="main-content",
-        attrs=@html.Attrs::build().id("main-content").tabindex(-1),
+        attrs=@html.Attrs::build().id(if model.page == Workspace { "legacy-main-content" } else { "main-content" }).tabindex(-1),
       ) <| [
         notice_view(emit, model.notice),
         page_view(emit, model),
       ],
     ],
+    ],
+    workspace_shell_view(emit, model),
   ]
 }
 

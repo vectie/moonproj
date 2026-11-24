@@ -389,3 +389,36 @@ large extracted editor value back into fill(). Verify lengths/digests and edit
 in place instead. Originals and working copies were restored byte-for-byte
 after the smoke edits. UI resources were tested against installed app services
 through a cluster tunnel; direct remote native-window visual QA remains unverified.
+
+## Docked company workspace (2026-11-24)
+
+The default route is now Workspace: a full-height job-to-goal contribution map,
+with one dock app per real regular task. Goal nodes are deliverables, not agents;
+ordering does not invent execution dependencies. Existing explicit routes remain
+available under Tools. Each focused job has MoonDesk materials and the existing
+team/delivery controls; opening or minimizing an app only reads/selects work.
+
+The stable app host lazily retains local MoonDesk iframes across job, pane,
+overview and legacy-route changes. Actor changes clear the frame cache. External
+sources remain explicit links, not arbitrary embedded apps. These are in-product
+job apps, not separate macOS applications or a general-purpose window manager.
+Unsaved editor state survives in-session switching, not a browser reload/quit.
+
+The presentation adapter draws contribution wires and short app-opening motion.
+Only an observed new exact goal/report receipt animates a handoff; initial reads
+do not replay delivery. Only actual running work pulses. Pausing and reduced-motion
+preferences retain readable static relationships. Completed execution is labeled
+for review, never accepted automatically. Active work quietly refreshes the real
+task collection; the selected native execution keeps its existing polling chain.
+Newer collection revisions take precedence over older selected snapshots. Failed
+refreshes preserve scoped last-read jobs with an explicit warning.
+
+Installed services on the cluster Mac were tested through a local tunnel using
+the three real dissertation stages. Keyboard editing, an unsaved temporary index
+draft, switching jobs, overview, Guide and status refresh preserved the draft;
+the marker was removed and editing cancelled without saving. Team/delivery showed
+the exact selected job, unstarted reviewers and no fabricated output. The dock,
+375px flow layout and motion pause/resume were checked. Browser automation could
+read embedded controls but could not pointer-click them; keyboard traversal and
+editing worked. Native remote-window pointer QA and an actual running/accepted
+handoff remain unqualified. No paid agent execution was started for this UI pass.

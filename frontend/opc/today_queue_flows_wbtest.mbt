@@ -10,6 +10,7 @@ fn today_flows_update(model : Model, action : TodayMsg) -> Model {
 fn today_flows_initial(actor : String) -> Model {
   {
     ..initial_model(),
+    page: Overview,
     dispatch_task_actor_id: actor,
     today: { ..today_initial(), actor, },
   }

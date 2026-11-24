@@ -35,11 +35,11 @@ fn objectives_test_model() -> Model {
 }
 
 ///|
-test "Today is the default and objective routes remain reversible" {
-  assert_eq(initial_model().page, Overview)
+test "workspace is the default and objective routes remain reversible" {
+  assert_eq(initial_model().page, Workspace)
   assert_eq(page_route_parse(page_route_token(Objectives)), Some(Objectives))
   let html = products_test_html(initial_model())
-  assert_true(html.contains("定义或查看目标"))
+  assert_true(html.contains("工作如何汇成交付"))
   assert_false(html.contains("11/12 在线"))
 }
 
