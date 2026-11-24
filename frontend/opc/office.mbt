@@ -1,6 +1,9 @@
 ///|
 struct OfficeState {
   view : String
+  task_id : String
+  task_actor : String
+  task_epoch : Int32
   selected : String
   actor : String
   source_request : Int32
@@ -35,6 +38,7 @@ struct OfficeAgent {
 ///|
 enum OfficeMsg {
   View(String)
+  Task(String)
   Select(String)
   Close
   Refresh
@@ -45,6 +49,9 @@ enum OfficeMsg {
 fn office_initial() -> OfficeState {
   {
     view: "office",
+    task_id: "",
+    task_actor: "",
+    task_epoch: -1,
     selected: "",
     actor: "",
     source_request: -1,
@@ -64,13 +71,37 @@ fn office_tasks(model : Model) -> Array[TodayTask] {
     s.project_state != "ready" {
     return []
   }
-  if s.scope == "all" {
+  let tasks = (if s.scope == "all" {
     today_portfolio_tasks(s)
   } else if ["ready", "empty"].contains(s.work_state) {
     s.tasks.filter(t => t.project_id == s.project_id)
   } else {
     []
+  }).filter(task => !objective_is_node(s, task))
+  // Creation time comes from the first saved revision, not last activity.
+  tasks.sort_by((a, b) => {
+    let order = products_text(objective_metadata(s, b.id), "createdAt").compare(
+      products_text(objective_metadata(s, a.id), "createdAt"),
+    )
+    if order == 0 {
+      b.id.compare(a.id)
+    } else {
+      order
+    }
+  })
+  tasks
+}
+
+///|
+fn office_current_task(model : Model) -> TodayTask? {
+  let tasks = office_tasks(model)
+  if model.office.task_actor == model.today.actor &&
+    model.office.task_epoch == model.today.epoch {
+    if tasks.filter(t => t.id == model.office.task_id).get(0) is Some(task) {
+      return Some(task)
+    }
   }
+  tasks.get(0)
 }
 
 ///|
@@ -123,7 +154,11 @@ fn office_agent_key(session : String, workspace : String) -> String {
 ///|
 fn office_agents(model : Model) -> Array[OfficeAgent] {
   let agents : Map[String, OfficeAgent] = Map([])
-  for task in office_tasks(model) {
+  let tasks = match office_current_task(model) {
+    Some(task) => [task]
+    None => []
+  }
+  for task in tasks {
     let saved = objective_metadata(model.today, task.id)
     let record = office_record(model, task)
     let detail = products_field(record, "task")
@@ -151,7 +186,7 @@ fn office_agents(model : Model) -> Array[OfficeAgent] {
       continue
     }
     let workspace = products_text(execution, "workspace")
-    let root_key = office_agent_key(session, workspace)
+    let root_key = task.id + "|" + office_agent_key(session, workspace)
     let control = products_text(execution, "control_state")
     let assignment : OfficeAssignment = {
       task,
@@ -220,7 +255,7 @@ fn office_agents(model : Model) -> Array[OfficeAgent] {
         .map(node => products_text(node, "book_root"))
         .unwrap_or("")
       }
-      let key = office_agent_key(child, workspace)
+      let key = task.id + "|" + office_agent_key(child, workspace)
       let assignment : OfficeAssignment = {
         task,
         command: products_text(worker, "child_command_id"),
@@ -265,6 +300,27 @@ fn office_update(
     return (none, model)
   }
   match action {
+    Task(id) => {
+      if !office_tasks(model).any(t => t.id == id) {
+        return (none, model)
+      }
+      (
+        none,
+        {
+          ..model,
+          office: {
+            ..model.office,
+            task_id: id,
+            task_actor: model.today.actor,
+            task_epoch: model.today.epoch,
+            selected: "",
+            request: model.office.request + 1,
+            pending_task: "",
+            error: "",
+          },
+        },
+      )
+    }
     View(view) =>
       if ["office", "fleet"].contains(view) {
         (none, { ..model, office: { ..model.office, view, }, })

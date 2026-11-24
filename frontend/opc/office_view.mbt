@@ -82,11 +82,6 @@ fn office_agent_button(
     ),
     span(class="office-agent-copy") <| [
       strong(name),
-      if desk {
-        @html.nothing
-      } else {
-        span(assignment.task.title)
-      },
     ],
     status_badge(
       stage,
@@ -209,6 +204,8 @@ extern "js" fn office_observed_time(stamp : Double) -> String =
 ///|
 fn office_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let state = model.today
+  let tasks = office_tasks(model)
+  let current_task = office_current_task(model)
   let agents = office_agents(model)
   let ready = state.project_state == "ready" &&
     (if state.scope == "all" {
@@ -285,6 +282,25 @@ fn office_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     } else {
       @html.nothing
     },
+    if tasks.is_empty() {
+      @html.nothing
+    } else {
+      div(class="field office-task-picker") <| [
+        label(attrs=@html.Attrs::build().for_("office-task-select"), "任务"),
+        @html.select(
+          id="office-task-select",
+          on_change=emit.map(id => OfficeAction(Task(id))),
+        ) <| tasks.map(task => {
+          @html.option(
+            value=task.id,
+            selected=current_task
+              .map(current => current.id == task.id)
+              .unwrap_or(false),
+            task.title,
+          )
+        }),
+      ]
+    },
     if state.project_state != "ready" {
       @html.nothing
     } else if !ready && agents.is_empty() {
@@ -300,8 +316,22 @@ fn office_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       )
     } else if agents.is_empty() {
       div <| [
-        p("还没有成员开始工作。"),
-        secondary_button(emit, Navigate(Objectives), "安排工作"),
+        p(
+          if current_task is Some(_) {
+            "这个任务还没有成员开始工作。"
+          } else {
+            "还没有任务。"
+          },
+        ),
+        match current_task {
+          Some(task) =>
+            secondary_button(
+              emit,
+              TodayAction(OpenTask(task.id)),
+              "查看任务",
+            )
+          None => secondary_button(emit, Navigate(Objectives), "安排工作")
+        },
       ]
     } else {
       div(class="office-layout") <| [
@@ -323,7 +353,6 @@ fn office_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
             .filter(a => a.parent.is_empty())
             .map(lead => {
               section(class="office-team") <| [
-                h2(lead.assignments[0].task.title),
                 div(class="office-lead") <| [
                   office_agent_button(emit, model, lead, agents, true),
                 ],

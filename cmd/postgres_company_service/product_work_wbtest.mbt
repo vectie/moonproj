@@ -4,12 +4,17 @@ test "product association survives the public native task projection" {
     {
       record_id: "PT-book",
       source_id: "create-book",
-      payload: { "project_id": "shared-project", "product_id": "moonbook" },
+      payload: {
+        "project_id": "shared-project",
+        "product_id": "moonbook",
+        "__created_at": "2026-11-24T10:00:00.000000",
+      },
     },
     true,
     [],
   )
   assert_eq(json_field(item, "product_id"), Some(Json::string("moonbook")))
+  assert_eq(json_text(item, "createdAt", ""), "2026-11-24T10:00:00.000000")
 }
 
 ///|
@@ -365,6 +370,12 @@ test "native SQL selects latest revision before deleted project type and product
   assert_true(sql.find("'product_id'").unwrap() > latest)
   assert_true(sql.contains("ORDER BY aggregate_id, revision DESC"))
   assert_false(sql.contains("LIMIT"))
+  assert_true(
+    sql.contains(
+      "min(created_at) OVER (PARTITION BY aggregate_id) AS first_created_at",
+    ),
+  )
+  assert_true(sql.contains("to_char(first_created_at"))
   assert_false(
     plan_task_projection_sql(true, None, None, None, None).contains("'deleted'"),
   )

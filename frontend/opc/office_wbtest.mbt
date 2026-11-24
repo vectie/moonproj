@@ -367,5 +367,133 @@ test "office company scope keeps exact execution metadata from each successful p
     200,
     ({ "items": [raw2] } : Json).stringify(),
   )
-  assert_eq(office_agents({ ..second, page: Fleet, }).length(), 2)
+  let office = { ..second, page: Fleet, }
+  assert_eq(office_tasks(office).length(), 2)
+  assert_eq(office_agents(office).length(), 1)
+  assert_eq(office_agents(office)[0].session, "session-b")
+  let (_, first_task) = office_update(_ => none, office, Task("a"))
+  assert_eq(office_agents(first_task)[0].session, "session-a")
+}
+
+///|
+fn office_two_tasks_model() -> Model {
+  let base = office_test_model()
+  let older = base.today.tasks[0]
+  // Newer ID sorts BEFORE the older ID; timestamps, not IDs, decide latest.
+  let newer = { ..older, id: "a-newer", title: "Newer job", }
+  let old_raw = objective_metadata(base.today, older.id)
+  if old_raw is Object(fields) {
+    fields["createdAt"] = Json::string("2026-11-23T10:00:00.000000")
+  }
+  let new_raw = try! @json.parse(old_raw.stringify())
+  if new_raw is Object(fields) {
+    fields["taskGuid"] = Json::string(newer.id)
+    fields["taskName"] = Json::string(newer.title)
+    fields["createdAt"] = Json::string("2026-11-24T10:00:00.000000")
+  }
+  {
+    ..base,
+    today: {
+      ..base.today,
+      tasks: [older, newer],
+      task_metadata: Map::from_array([(older.id, old_raw), (newer.id, new_raw)]),
+    },
+  }
+}
+
+///|
+test "office defaults to newest created task and never combines jobs sharing an agent session" {
+  let model = office_two_tasks_model()
+  assert_eq(office_tasks(model)[0].id, "a-newer")
+  assert_eq(office_current_task(model).unwrap().id, "a-newer")
+  for agent in office_agents(model) {
+    assert_eq(agent.assignments.length(), 1)
+    assert_eq(agent.assignments[0].task.id, "a-newer")
+  }
+  let html = products_test_html(model)
+  assert_true(html.contains("office-task-select"))
+  assert_true(html.contains("value=\"a-newer\" selected>Newer job"))
+  let (_, older) = office_update(_ => none, model, Task("work-1"))
+  assert_eq(office_current_task(older).unwrap().id, "work-1")
+  assert_false(office_agents(older)[0].key == office_agents(model)[0].key)
+  let (_, listed) = office_update(_ => none, older, View("fleet"))
+  assert_eq(office_current_task(listed).unwrap().id, "work-1")
+  for agent in office_agents(listed) {
+    assert_eq(agent.assignments.length(), 1)
+    assert_eq(agent.assignments[0].task.id, "work-1")
+  }
+}
+
+///|
+test "office task switch clears inspector and pending replies without starting work" {
+  let model = office_two_tasks_model()
+  let (_, pending) = office_update(
+    _ => none,
+    model,
+    Select(office_agents(model)[1].key),
+  )
+  assert_eq(pending.office.pending_task, "a-newer")
+  let (effect, older) = office_update(_ => none, pending, Task("work-1"))
+  setup_transport_start(false)
+  defer setup_transport_stop()
+  drafts_test_execute(effect)
+  assert_eq(setup_transport_events(), "")
+  assert_eq(older.office.selected, "")
+  assert_eq(older.office.pending_task, "")
+  let (_, unchanged) = office_update(
+    _ => none,
+    older,
+    Read(
+      pending.today.actor,
+      pending.today.epoch,
+      pending.today.work_request,
+      pending.office.request,
+      "a-newer",
+      503,
+      "{}",
+    ),
+  )
+  assert_eq(unchanged.office.error, "")
+  assert_eq(office_current_task(unchanged).unwrap().id, "work-1")
+  let (_, invalid) = office_update(_ => none, older, Task("unknown"))
+  assert_eq(invalid.office.task_id, "work-1")
+  assert_eq(
+    office_current_task({
+      ..older,
+      today: { ..older.today, work_request: older.today.work_request + 1, },
+    }).unwrap().id,
+    "work-1",
+  )
+  assert_eq(
+    office_current_task({
+      ..older,
+      today: { ..older.today, epoch: older.today.epoch + 1, },
+    }).unwrap().id,
+    "a-newer",
+  )
+  assert_eq(
+    office_current_task({
+      ..older,
+      today: { ..older.today, tasks: [model.today.tasks[1]], },
+    }).unwrap().id,
+    "a-newer",
+  )
+}
+
+///|
+test "latest task without an execution stays empty instead of showing another job team" {
+  let model = office_two_tasks_model()
+  if objective_metadata(model.today, "a-newer") is Object(fields) {
+    fields["execution"] = Json::null()
+  }
+  assert_eq(office_current_task(model).unwrap().id, "a-newer")
+  assert_eq(office_agents(model).length(), 0)
+  let html = products_test_html(model)
+  assert_true(html.contains("这个任务还没有成员开始工作。"))
+  assert_true(html.contains("查看任务"))
+  assert_false(html.contains("office-desk"))
+  if objective_metadata(model.today, "a-newer") is Object(fields) {
+    fields["taskType"] = Json::string("key_node")
+  }
+  assert_eq(office_current_task(model).unwrap().id, "work-1")
 }

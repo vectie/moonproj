@@ -144,6 +144,9 @@ fn project_plan_task_item(
     "taskGuid": Json::string(task_id),
     "taskCode": Json::string(json_text(payload, "task_code", "")),
     "taskName": Json::string(json_text(payload, "task_name", "")),
+    "createdAt": Json::string(
+      json_text(payload, "__created_at", json_text(payload, "created_at", "")),
+    ),
     "projGuid": Json::string(project_id),
     "product_id": plan_task_product_public(payload),
     "taskType": Json::string(task_type),

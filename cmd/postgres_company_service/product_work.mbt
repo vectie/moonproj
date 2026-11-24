@@ -130,10 +130,11 @@ fn plan_task_projection_sql(
   // Select the latest revision FIRST: filtering revisions by the old product or
   // state would resurrect retagged or deleted work. Return the complete scope.
   "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), " +
-  "encode(convert_to(payload::text, 'UTF8'), 'hex'), " +
+  "encode(convert_to((payload || jsonb_build_object('__created_at', " +
+  "to_char(first_created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.US')))::text, 'UTF8'), 'hex'), " +
   "encode(convert_to(source_event_id, 'UTF8'), 'hex'), revision::text " +
   "FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload, " +
-  "source_event_id, revision FROM company_aggregate_projection " +
+  "source_event_id, revision, min(created_at) OVER (PARTITION BY aggregate_id) AS first_created_at FROM company_aggregate_projection " +
   "WHERE aggregate_type = 'plan_task'" +
   exact +
   " ORDER BY aggregate_id, revision DESC) latest" +

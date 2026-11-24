@@ -1,5 +1,32 @@
 # MoonProj project handoff
 
+## One task per office — 2026-11-24
+
+Office and fleet now show only one selected task's team. A native, labeled 任务
+dropdown defaults to the newest created regular task; objectives are not jobs
+in this picker. Switching clears member selection/error/pending reads, keeps the
+chosen view and does not start work. Task-scoped desk keys prevent an inspector
+from following a reused session into a different job. Selection survives a work
+refresh while still valid; a missing selection falls back to the newest task.
+Reload starts at the newest task. A selected job without execution stays empty,
+with a direct 查看任务 action, rather than borrowing another job's agents.
+
+The task-list projection now exposes `createdAt` from the first saved projection
+timestamp, computed within the existing SQL read; status updates do not make old
+jobs newest. No schema migration, N+1 lookup, polling or execution authority is
+added. Tasks without a creation time sort after dated records, with IDs breaking
+ties deterministically. The dropdown, floor and inspector use one task filter.
+
+Validation: 563 frontend JS tests pass in the combined tree. The isolated staged
+snapshot excludes unrelated user work and passes 562 frontend plus 266 native
+tests and its release UI build. Native service release, `moon check`, `moon info`,
+scoped formatting and diff checks pass; no generated interface changes. Real
+PostgreSQL readback confirms creation times. Browser checks cover newest default
+and reload, older/unstarted task selection, cleared inspector, map/list isolation,
+keyboard dropdown and 375px layout without horizontal overflow. No agents were
+started or resumed. Screenshot: `/tmp/moonproj-office-one-task-verified.jpg`.
+No packaged-app update or cluster deployment is included.
+
 ## Office clarity pass — 2026-11-24
 
 The office now leads with simple role seats (负责人 / 专员 1, 2), one status
