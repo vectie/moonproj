@@ -58,7 +58,8 @@ fn today_reconcile(
       },
     },
   }
-  if next.page == Overview && !next.today.actor.is_empty() {
+  if [Overview, Objectives, Fleet].contains(next.page) &&
+    !next.today.actor.is_empty() {
     let (read, refreshed) = today_update(emit, Refresh, next)
     (@cmd.batch([command, read]), refreshed)
   } else {
@@ -74,6 +75,36 @@ fn today_update(
 ) -> (Cmd, Model) {
   let state = model.today
   match action {
+    NewObjective => objective_prepare(emit, model, None)
+    DelegateObjective(id) => objective_prepare(emit, model, Some(id))
+    AcceptObjective(id) => objective_accept(emit, model, id)
+    ObjectiveAccepted(actor, epoch, project, id, status, body) => {
+      if actor != state.actor ||
+        actor != model.dispatch_task_actor_id ||
+        epoch != state.epoch ||
+        project != state.project_id {
+        return (none, model)
+      }
+      let result = @json.parse(body) catch { _ => Json::null() }
+      if status >= 200 &&
+        status < 300 &&
+        products_text(products_field(result, "task"), "task_id") == id &&
+        products_text(products_field(result, "task"), "state") == "done" {
+        today_update(emit, RefreshTasks, {
+          ..model,
+          notice: "已记录你的目标接受决定。",
+        })
+      } else {
+        (
+          none,
+          {
+            ..model,
+            notice: "目标接受结果尚未确认，请刷新核对后重试。" +
+            products_text(result, "error"),
+          },
+        )
+      }
+    }
     Filter(actor, epoch, request, field, value) => {
       if model.page != Overview ||
         state.scope != "all" ||
@@ -288,6 +319,7 @@ fn today_update(
               today: {
                 ..state,
                 tasks,
+                task_metadata: objective_read_metadata(body),
                 work_state: if tasks.is_empty() {
                   "empty"
                 } else {

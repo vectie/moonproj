@@ -32,7 +32,15 @@ fn dispatch_draft_create_button(
     Some(draft) =>
       match draft.state {
         "editing" =>
-          primary_button(emit, CreateDispatchTask, "写入正式任务")
+          primary_button(
+            emit,
+            CreateDispatchTask,
+            if draft.task_type == Some("key_node") {
+              "保存目标"
+            } else {
+              "保存工作"
+            },
+          )
         "retryable" =>
           primary_button(emit, CreateDispatchTask, "重试同一创建请求")
         "rejected" =>

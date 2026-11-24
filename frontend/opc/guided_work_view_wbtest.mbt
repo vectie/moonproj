@@ -1,10 +1,10 @@
 ///|
 // Presentation checks: all mutation and transport semantics remain in existing reducers.
-extern "js" fn guided_index(html : String, text : String) -> Int =
+extern "js" fn guided_index(html : String, text : String) -> Int32 =
   #| (html, text) => html.indexOf(text)
 
 ///|
-extern "js" fn guided_count(html : String, text : String) -> Int =
+extern "js" fn guided_count(html : String, text : String) -> Int32 =
   #| (html, text) => html.split(text).length - 1
 
 ///|
@@ -72,11 +72,11 @@ fn guided_work_model() -> Model {
 
 ///|
 test "guided navigation keeps primary destinations and expands active secondary route" {
-  let home = guided_page(products_test_loaded())
+  let home = guided_page(initial_model())
   assert_false(guided_disclosure_open(home, "更多工具"))
-  assert_true(guided_disclosure_visible(home, "产品：产品意图"))
-  assert_true(guided_disclosure_visible(home, "任务编排："))
-  assert_true(guided_disclosure_visible(home, "使用指南："))
+  assert_true(guided_disclosure_visible(home, "今日："))
+  assert_true(guided_disclosure_visible(home, "目标："))
+  assert_true(guided_disclosure_visible(home, "公司域："))
   assert_false(
     guided_disclosure_visible(home, "交付演练（会话内）："),
   )
@@ -128,9 +128,7 @@ test "guided draft foregrounds goal acceptance workspace and keeps optional sett
     guided_index(html, "可选设置"),
   )
   assert_true(
-    guided_disclosure_visible(
-      html, "执行工作区（MoonBook / 本机目录）",
-    ),
+    guided_disclosure_visible(html, "执行工作区（执行前填写）"),
   )
   assert_false(
     guided_disclosure_open(html, "可选设置 · 模型与负责人"),

@@ -7,11 +7,15 @@ lifecycle.
 
 ## Start here
 
-1. **Products** is the default front door (Moon mode is not required). Read a product’s purpose, current authored intent, and PRD snapshot before entering its work.
-2. **Company domain** establishes the legal/operating subject, authority, and
-   owned resources.
-3. **Task dispatch** records work, acceptance criteria, Agent execution, and
-   Owner acceptance.
+1. **Today** is the default front door. Read company work and open blockers or
+   results that need your attention.
+2. **Objectives** defines the result and acceptance criteria in an actual company
+   project. Save a goal, then use **Delegate work** to create linked task drafts.
+   Each task uses the existing signed create, execution, report and acceptance
+   path. Review child outputs, then explicitly accept the overall objective.
+3. **Company** establishes the workspace, authority and resources. Products,
+   plans and task dispatch remain available under More tools. Workspace paths
+   are needed for execution, not for saving a brief.
 4. **Evidence and audit** shows who acted, under which authority, and what
    immutable receipt resulted.
 5. **Release quality** asks MoonClaw to inspect one exact repository, branch,
@@ -25,8 +29,9 @@ formal fact only after the PostgreSQL service accepts it.
 | Page | Question answered | First action | Empty/error meaning |
 | --- | --- | --- | --- |
 | Products | Why does each product exist, and where are its documents and work? | Select a product by stable ID | Catalog, repository, document and detail-read failures are separate |
+| Objectives | What result does the company need, and which work contributes? | Select a company project and define an objective | Failed reads never become an empty objective list |
 | Cockpit | What needs an Owner decision today? | Review pending decisions | Zero means no accepted fact currently requires action |
-| Agent fleet | What delegated labor exists? | Inspect Agent authority and budget | Offline Agents cannot create accepted company facts |
+| Agent fleet | Which work has recorded execution? | Select a company project | No fabricated workforce, online counts, autonomy levels or budgets |
 | Task dispatch | Where is work in its lifecycle? | Prepare a local draft or recover a formal task | Browser drafts are separate from server task records |
 | Project portfolio | Which delivery stage and Gate is current? | Select a project | Unknown means no accepted evidence |
 | Moon projects | How close are Moon Suite products to release? | Open engineering evidence from Products, or use Moon mode | Missing siblings do not block the basic OPC |

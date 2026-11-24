@@ -40,6 +40,7 @@ enum Page {
   Dispatch
   Projects
   Products
+  Objectives
   MoonSuite
   Quality
   Observe
@@ -361,7 +362,7 @@ enum Msg {
 ///|
 fn initial_model() -> Model {
   {
-    page: Products,
+    page: Overview,
     moon_mode: false,
     products: products_initial(),
     today: today_initial(),
@@ -511,9 +512,16 @@ fn nav_items() -> Array[NavItem] {
     {
       page: Overview,
       group: "指挥",
-      label: "驾驶舱",
+      label: "今日",
       short_label: "驾",
       description: "今天需要我决定什么",
+    },
+    {
+      page: Objectives,
+      group: "指挥",
+      label: "目标",
+      short_label: "目",
+      description: "明确结果，委派工作，核对交付",
     },
     {
       page: Fleet,
@@ -539,9 +547,9 @@ fn nav_items() -> Array[NavItem] {
     {
       page: Projects,
       group: "交付",
-      label: "项目组合",
+      label: "计划",
       short_label: "项",
-      description: "软件与硬件阶段 Gate",
+      description: "交付计划、依赖与预算",
     },
     {
       page: MoonSuite,
@@ -605,6 +613,7 @@ fn nav_items() -> Array[NavItem] {
 ///|
 fn page_path(page : Page) -> String {
   match page {
+    Objectives => "/objectives"
     Overview => "/"
     Fleet => "/fleet"
     Dispatch => "/dispatch"
@@ -630,11 +639,12 @@ fn page_path(page : Page) -> String {
 ///|
 fn page_title(page : Page) -> String {
   match page {
-    Overview => "驾驶舱"
+    Overview => "今日"
+    Objectives => "目标"
     Fleet => "Agent 编队"
     Dispatch => "任务编排"
     Products => "产品"
-    Projects => "项目组合"
+    Projects => "计划"
     MoonSuite => "Moon 专案"
     Quality => "出厂质检"
     Observe => "监测环"
@@ -655,6 +665,7 @@ fn page_title(page : Page) -> String {
 ///|
 fn page_question(page : Page) -> String {
   match page {
+    Objectives => "公司要达成什么结果，哪些工作需要委派？"
     Overview => "公司今天需要你做出什么决定？"
     Fleet => "我的 Agent 劳动力正在做什么？"
     Dispatch => "开发环转到哪里，什么需要我验收？"
@@ -904,10 +915,10 @@ fn update_model(
     PlanAction(action) => plan_update(emit, action, model)
     Navigate(Projects) =>
       plan_update(emit, Refresh, { ..model, page: Projects, mobile_nav: false, })
-    Navigate(Overview) =>
+    Navigate(page) if [Overview, Objectives, Fleet].contains(page) =>
       today_update(emit, Refresh, {
         ..model,
-        page: Overview,
+        page,
         mobile_nav: false,
         dispatch_desk_handoff: {
           ..model.dispatch_desk_handoff,
@@ -1700,7 +1711,7 @@ fn update_model(
           none,
           {
             ..model,
-            page: Products,
+            page: Overview,
             dispatch_task_form_open: false,
             dispatch_task_selection: model.dispatch_task_selection + 1,
             dispatch_task_id: "",
@@ -2250,7 +2261,7 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let more : Array[@html.Html] = []
   let mut current_group = ""
   for item in nav_items() {
-    if [Products, Dispatch, Guide].contains(item.page) {
+    if [Overview, Objectives, Company].contains(item.page) {
       items.push(nav_item_view(emit, item, model.page))
     } else if item.page != MoonSuite || model.moon_mode {
       if item.group != current_group {
@@ -2263,7 +2274,7 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   items.push(
     details(
       class="nav-more",
-      open=![Products, Dispatch, Guide].contains(model.page),
+      open=![Overview, Objectives, Company].contains(model.page),
     ) <| [
       summary("更多工具"),
       div <| more,
@@ -4129,6 +4140,7 @@ fn page_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     Fleet => fleet_view(emit, model)
     Dispatch => dispatch_view(emit, model)
     Products => products_view(emit, model)
+    Objectives => objectives_view(emit, model)
     Projects => projects_view(emit, model)
     MoonSuite => moon_suite_view(emit, model)
     Quality => quality_view(emit, model)

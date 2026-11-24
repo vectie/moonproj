@@ -1,6 +1,7 @@
 ///|
 fn page_glyph(page : Page) -> String {
   match page {
+    Objectives => "projects"
     Overview => "overview"
     Fleet => "agents"
     Dispatch => "tasks"
@@ -27,7 +28,7 @@ fn opc_glyph(name : String) -> @html.Html {
 }
 
 ///|
-fn dispatch_goal_stage(model : Model) -> Int {
+fn dispatch_goal_stage(model : Model) -> Int32 {
   match model.dispatch_task_stage {
     "pending" => 2
     "in_progress" => 3
@@ -39,10 +40,10 @@ fn dispatch_goal_stage(model : Model) -> Int {
 
 ///|
 fn dispatch_goal_step(
-  number : Int,
+  number : Int32,
   label : String,
   glyph : String,
-  current : Int,
+  current : Int32,
   blocked : Bool,
 ) -> @html.Html {
   let state = if number < current {

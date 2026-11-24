@@ -12,6 +12,8 @@ struct DispatchDraft {
   acceptance : String
   source_reference : String?
   observed_problem : String?
+  task_type : String?
+  parent_task_id : String?
   offer_draft : Json?
   research_brief : @research_handoff.Brief?
   owner_id : String
@@ -27,7 +29,7 @@ struct DispatchDraft {
 
 ///|
 struct DispatchDraftStore {
-  version : Int
+  version : Int32
   drafts : Array[DispatchDraft]
   recent_tasks : Array[String]
 } derive(Debug, Eq, ToJson, FromJson)
@@ -44,8 +46,8 @@ enum DispatchDraftMsg {
   Recover(String)
   Stored(String, String, Bool)
   Restored(String, String)
-  CreateRead(String, String, Int, String)
-  RecoveryRead(String, String, Int, String)
+  CreateRead(String, String, Int32, String)
+  RecoveryRead(String, String, Int32, String)
 } derive(Debug, Eq)
 
 ///|
@@ -131,6 +133,8 @@ fn dispatch_prepare_draft(
         acceptance: "",
         source_reference: None,
         observed_problem: None,
+        task_type: None,
+        parent_task_id: None,
         offer_draft: None,
         research_brief: None,
         owner_id: "",
@@ -200,8 +204,6 @@ fn dispatch_draft_validation(draft : DispatchDraft, actor : String) -> String {
     "任务名称和可检查的验收标准都是必填项。"
   } else if draft.project_id.trim().is_empty() || actor.trim().is_empty() {
     "项目范围和签名身份不能为空；网关会再次验证它们。"
-  } else if !draft.product_id.is_empty() && draft.workspace.trim().is_empty() {
-    "填写明确授权的实际执行工作区。产品仓库不等于执行工作区。"
   } else if draft.begin_date.is_empty() || draft.end_date.is_empty() {
     "计划开始和完成日期不能为空。"
   } else if draft.end_date < draft.begin_date {
@@ -317,7 +319,12 @@ fn dispatch_draft_update(
         "acceptance" => { ..draft, acceptance: value, }
         "source_reference" => { ..draft, source_reference: Some(value), }
         "observed_problem" => { ..draft, observed_problem: Some(value), }
-        "project_id" => { ..draft, project_id: value, }
+        "project_id" =>
+          if draft.parent_task_id.unwrap_or("").is_empty() {
+            { ..draft, project_id: value, }
+          } else {
+            draft
+          }
         "owner_id" => { ..draft, owner_id: value, }
         "workspace" => { ..draft, workspace: value, }
         "model" => { ..draft, model: value, }
@@ -329,6 +336,17 @@ fn dispatch_draft_update(
     }
     Resume(id) =>
       match dispatch_draft_by_id(model, id) {
+        Some(draft) if draft.task_type == Some("key_node") =>
+          update_model(emit, Navigate(Objectives), {
+            ..model,
+            dispatch_draft_id: id,
+            dispatch_task_form_open: draft.state != "created",
+            today: {
+              ..model.today,
+              project_id: draft.project_id,
+              scope: "project",
+            },
+          })
         Some(draft) if draft.state != "created" =>
           (
             none,
@@ -656,9 +674,20 @@ fn dispatch_confirm_draft(
     }),
     draft.task_id,
   )
-  if model.page == Dispatch &&
+  if [Dispatch, Objectives].contains(model.page) &&
     model.dispatch_task_form_open &&
     model.dispatch_draft_id == draft.id {
+    if draft.task_type == Some("key_node") {
+      let (read, selected) = update_model(emit, Navigate(Objectives), {
+        ..next,
+        dispatch_task_form_open: false,
+        today: { ..next.today, project_id: draft.project_id, scope: "project", },
+      })
+      return (
+        @cmd.batch([dispatch_persist_drafts(emit, selected, ""), read]),
+        selected,
+      )
+    }
     let (open, selected) = open_dispatch_task(emit, {
       ..next,
       dispatch_task_open_id: draft.task_id,
@@ -678,7 +707,7 @@ fn dispatch_confirm_draft(
 }
 
 ///|
-fn dispatch_create_definitively_rejected(status : Int, body : String) -> Bool {
+fn dispatch_create_definitively_rejected(status : Int32, body : String) -> Bool {
   // This exact service error occurs before a create transaction, unlike an
   // idempotency conflict. Earlier ambiguous attempts still require recovery.
   status == 400 ||
@@ -699,6 +728,8 @@ fn dispatch_prepared_draft(
   let matches = fn(draft : DispatchDraft) {
     draft.product_id == product_id &&
     draft.project_id == project_id &&
+    draft.task_type != Some("key_node") &&
+    draft.parent_task_id.unwrap_or("").is_empty() &&
     draft.state != "created"
   }
   match dispatch_active_draft(model) {

@@ -233,150 +233,28 @@ fn section_title(title : String, note : String, badge : String) -> @html.Html {
 }
 
 ///|
-fn meter(value : Int, tone : String) -> @html.Html {
-  div(class="meter") <| [
-    div(class="meter-value meter-\{tone} meter-w-\{value}", ""),
-  ]
-}
-
-///|
 fn cockpit_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   today_view(emit, model)
 }
 
 ///|
-fn autonomy_card(level : String, count : String, desc : String) -> @html.Html {
-  article(class="autonomy-card") <| [
-    div(class="loop-head") <| [
-      strong(level),
-      span(count),
-    ],
-    p(desc),
-  ]
-}
-
-///|
-fn agent_card(
-  name : String,
-  role : String,
-  level : String,
-  task : String,
-  budget : Int,
-  state : String,
-) -> @html.Html {
-  article(class="agent-card") <| [
-    div(class="loop-head") <| [
-      div <| [
-        strong(name),
-        small(role),
-      ],
-      status_badge(level, tone="violet"),
-    ],
-    div(class="agent-task") <| [
-      small("当前任务"),
-      strong(task),
-      status_badge(
-        state,
-        tone=if state == "运行中" { "accent" } else { "warning" },
-      ),
-    ],
-    div(class="budget-row") <| [
-      span("预算消耗 \{budget}%"),
-      span("今日留痕 26"),
-    ],
-    meter(budget, if budget > 70 { "warn" } else { "info" }),
-  ]
-}
-
-///|
-fn fleet_view(_emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
+fn fleet_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
-    page_intro(Fleet, status_badge("只读演练", tone="warning")),
-    sample_data_boundary(),
-    section_title(
-      "自治分级制度", "授权不是信任问题，是预算与证据问题；升级必须经过独立审计。",
-      "L4 暂停开放",
-    ),
-    div(class="autonomy-grid") <| [
-      autonomy_card("L0", "1 个", "仅建议，不执行"),
-      autonomy_card("L1", "3 个", "执行后必须报备"),
-      autonomy_card("L2", "4 个", "可执行，接受抽检"),
-      autonomy_card("L3", "2 个", "预算内完全自治"),
-      autonomy_card("L4", "0 个", "完全委托，暂不开放"),
-    ],
-    section_title(
-      "在编 Agent", "按角色、自治边界、预算和证据观察公司的数字劳动力。",
-      "11/12 在线",
-    ),
-    div(class="agent-grid") <| [
-      agent_card(
-        "Architect-01", "产品与架构 · 开发域", "L2", "设计 v0.9 权限边界",
-        46, "运行中",
-      ),
-      agent_card(
-        "Builder-02", "MoonBit 工程 · 开发域", "L2", "实现质量 Gate 证据包",
-        68, "运行中",
-      ),
-      agent_card(
-        "Test-01", "测试与验证 · 开发域", "L3", "执行全量回归", 31,
-        "运行中",
-      ),
-      agent_card(
-        "Sentinel-01", "SLO 巡检 · 监测域", "L3", "诊断 API 延迟突增",
-        74, "等待人类",
-      ),
-      agent_card(
-        "Finance-01", "账簿与税务 · 公司域", "L1", "核对本月申报证据",
-        52, "产出待审",
-      ),
-      agent_card(
-        "Gatekeeper-01", "独立质量审计 · 治理域", "L0", "抽检 L2 Agent 行为",
-        18, "运行中",
-      ),
-    ],
-    @execution_cockpit.view(),
-  ]
-}
-
-///|
-fn task_card(
-  id : String,
-  kind : String,
-  title : String,
-  agent : String,
-  progress : Int,
-  evidence : String,
-) -> @html.Html {
-  article(class="task-card") <| [
-    div(class="loop-head") <| [
-      small(id),
-      status_badge(kind, tone="muted"),
-    ],
-    strong(title),
-    p(agent),
-    meter(progress, if progress == 100 { "ok" } else { "violet" }),
-    small("\{progress}% · 证据 \{evidence} 条"),
-  ]
-}
-
-///|
-fn dispatch_lane(
-  title : String,
-  hint : String,
-  cards : Array[@html.Html],
-  gate : Bool,
-) -> @html.Html {
-  section(class=if gate { "dispatch-lane is-gate" } else { "dispatch-lane" }) <| [
-    div(class="lane-title") <| [
-      strong(title),
-      if gate {
-        status_badge("需裁决", tone="warning")
+    page_intro(Fleet, @html.nothing),
+    objective_project_picker(emit, model),
+    if model.today.scope != "project" ||
+      !["ready", "empty"].contains(model.today.work_state) {
+      p(
+        "选择项目后查看已记录的执行；这里不推断 Agent 在线状态。",
+      )
+    } else {
+      let work = model.today.tasks.filter(t => !t.execution_state.is_empty())
+      if work.is_empty() {
+        p("这个项目尚无已记录的 Agent 执行。")
       } else {
-        @html.nothing
-      },
-    ],
-    small(hint),
-    div(class="task-stack") <| cards,
+        div <| work.map(t => today_task_row(emit, t, dispatch_today()))
+      }
+    },
   ]
 }
 
@@ -410,7 +288,7 @@ fn dispatch_task_input(
   value : String,
   placeholder : String,
   on_input : @rabbita.Emit[String],
-  read_only? : Bool = false,
+  read_only~ : Bool = false,
 ) -> @html.Html {
   div(class="field") <| [
     label(attrs=@html.Attrs::build().for_(id), label_text),
@@ -428,6 +306,9 @@ fn dispatch_task_input(
 ///|
 fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
   let model = dispatch_draft_form_model(source)
+  let objective = dispatch_active_draft(source)
+    .map(d => d.task_type == Some("key_node"))
+    .unwrap_or(false)
   let frozen = match dispatch_active_draft(source) {
     Some(draft) => draft.state != "editing"
     None => true
@@ -440,12 +321,23 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
   ) <| [
     div(class="form-heading") <| [
       div <| [
-        h3("准备任务 · 写清想要的结果"),
+        h3(if objective { "定义目标" } else { "委派工作" }),
         p(
-          "先保存任务，再明确开始执行。你仍可以查看输出、补充人工指令，最后提交并接受结果。",
+          if objective {
+            "写下结果和验收标准，再为目标委派工作。"
+          } else {
+            "保存工作后开始执行，完成后核对结果。"
+          },
         ),
       ],
-      status_badge("任务准备", tone="muted"),
+      status_badge(
+        if objective {
+          "目标草稿"
+        } else {
+          "工作草稿"
+        },
+        tone="muted",
+      ),
     ],
     products_preparation_context(model),
     p(
@@ -455,14 +347,37 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
       },
     ),
     p(class="boundary-note", source.dispatch_draft_storage),
-    dispatch_source_context_form(emit, source, frozen),
+    if objective {
+      @html.nothing
+    } else {
+      dispatch_source_context_form(emit, source, frozen)
+    },
+    match dispatch_active_draft(source) {
+      Some(draft) if !draft.parent_task_id.unwrap_or("").is_empty() =>
+        p(
+          "归属目标 · " +
+          draft.observed_problem.unwrap_or(draft.parent_task_id.unwrap_or("")),
+        )
+      _ => @html.nothing
+    },
     research_draft_context(emit, source),
-    work_packet_view(emit, source),
-    dispatch_offer_local_view(emit, source, frozen),
+    if objective {
+      @html.nothing
+    } else {
+      details([
+        summary("工作包与报价（可选）"),
+        work_packet_view(emit, source),
+        dispatch_offer_local_view(emit, source, frozen),
+      ])
+    },
     div(class="form-grid") <| [
       dispatch_task_input(
         "dispatch-task-title",
-        "任务名称",
+        if objective {
+          "目标结果"
+        } else {
+          "工作结果"
+        },
         model.dispatch_task_title,
         "需要交付的结果",
         emit.map(value => DraftAction(Input("title", value))),
@@ -476,14 +391,18 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
         emit.map(value => DraftAction(Input("acceptance", value))),
         read_only=frozen,
       ),
-      dispatch_task_input(
-        "dispatch-task-workspace-input",
-        "执行工作区（MoonBook / 本机目录）",
-        model.dispatch_task_workspace,
-        "MoonClaw 可访问的实际工作区路径",
-        emit.map(value => DraftAction(Input("workspace", value))),
-        read_only=frozen,
-      ),
+      if objective {
+        @html.nothing
+      } else {
+        dispatch_task_input(
+          "dispatch-task-workspace-input",
+          "执行工作区（执行前填写）",
+          model.dispatch_task_workspace,
+          "MoonClaw 可访问的实际工作区路径",
+          emit.map(value => DraftAction(Input("workspace", value))),
+          read_only=frozen,
+        )
+      },
       dispatch_task_input(
         "dispatch-task-begin",
         "计划开始（必填）",
@@ -679,7 +598,14 @@ fn dispatch_durable_task_card(
       p("验收标准 · " + model.dispatch_task_acceptance),
       dispatch_source_context_view(model.dispatch_task_source_context),
     ],
-    dispatch_offer_view(emit, model),
+    details(
+      class="journey-details",
+      open=!(dispatch_json_field(model.dispatch_offer_task, "offer_draft")
+        is Null),
+    ) <| [
+      summary("客户方案与回复（可选）"),
+      dispatch_offer_view(emit, model),
+    ],
     p(
       "产品 · " +
       dispatch_product_label(model, model.dispatch_task_product_id),
@@ -780,10 +706,13 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   section(class="page") <| [
     page_intro(
       Dispatch,
-      secondary_button(emit, Navigate(Products), "选择产品与目标"),
+      secondary_button(emit, Navigate(Objectives), "返回目标"),
     ),
     dispatch_goal_flow(emit, model),
-    research_import_view(emit, model),
+    details(class="journey-details") <| [
+      summary("从研究导入工作（可选）"),
+      research_import_view(emit, model),
+    ],
     if model.dispatch_task_form_open {
       dispatch_task_form(emit, model)
     } else {
@@ -810,9 +739,7 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       if model.dispatch_task_id.is_empty() {
         div(class="empty-panel") <| [
           strong("还没有正式任务"),
-          p(
-            "先从产品选择本次目标并准备任务。已有工作可以在下方打开或恢复。",
-          ),
+          p("从目标委派工作，或在下方恢复已有任务。"),
         ]
       } else {
         dispatch_durable_board(emit, model)
@@ -837,72 +764,6 @@ fn dispatch_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       dispatch_open_form(emit, model),
       dispatch_draft_list(emit, model),
       secondary_button(emit, OpenDispatchTaskForm, "创建独立任务草稿"),
-    ],
-    details(class="reference-projection") <| [
-      summary <| [
-        div <| [
-          strong("编排参考投影"),
-          small("布局样例 · 不是当前 PostgreSQL 事实"),
-        ],
-        status_badge("只读样例", tone="muted"),
-      ],
-      div(class="dispatch-board") <| [
-        dispatch_lane(
-          "待分派 · 2",
-          "进入编队前的队列",
-          [
-            task_card(
-              "T-241", "软件", "统一发布证据格式", "待选择 Agent", 12,
-              "2",
-            ),
-            task_card(
-              "T-244", "公司", "更新季度现金计划", "待选择 Agent", 5,
-              "1",
-            ),
-          ],
-          false,
-        ),
-        dispatch_lane(
-          "Agent 执行中 · 3",
-          "自治执行 · 证据留痕",
-          [
-            task_card(
-              "T-238", "软件", "实现 SLO 错误预算冻结", "Builder-02", 72,
-              "18",
-            ),
-            task_card(
-              "T-239", "硬件", "DVT 热循环测试", "Hardware-01", 54, "32",
-            ),
-          ],
-          false,
-        ),
-        dispatch_lane(
-          "待你验收 · 2",
-          "Gate 制 · 人类过闸",
-          [
-            task_card(
-              "T-230", "软件", "v0.8 灰度发布包", "Release-01", 100, "47",
-            ),
-            task_card(
-              "T-236", "运维", "支付服务事故复盘", "Ops-01", 100, "21",
-            ),
-          ],
-          true,
-        ),
-        dispatch_lane(
-          "已交付 · 4",
-          "证据归档",
-          [
-            task_card(
-              "T-221", "软件", "授权撤销回归", "Test-01", 100, "63",
-            ),
-            task_card(
-              "T-226", "公司", "税务申报证据核对", "Finance-01", 100, "28",
-            ),
-          ],
-          false,
-        ),
-      ],
     ],
   ]
 }

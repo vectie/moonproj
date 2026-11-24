@@ -1,14 +1,38 @@
 # MoonProj product contract
 
 Class: domain pack
-Visible surface: project and program operator UI
+Visible surface: founder objectives, delegated work, results and owner decisions
 Maturity: migration and operator-preview alpha
-Last reviewed: 2026-07-30
+Last reviewed: 2026-11-24
 
 ## Outcome
 
-MoonProj gives a one-person company one governed operating system for projects,
-budget, accounting, procurement, sales, tax, treasury and management review.
+MoonProj is where one accountable founder directs a company of people and
+agents from objectives to accepted results. The founder sets priorities,
+success criteria and delegation limits; work retains its source, owner,
+execution, output and acceptance. Projects, budget, accounting, procurement,
+sales, tax and treasury support that operating loop rather than define the
+default navigation.
+
+The primary surfaces are Today, Objectives and Company. Objectives currently
+reuse PostgreSQL company `key_node` records; delegated tasks retain their
+`parent_task_id`. Existing key nodes are visible too, not silently migrated
+or certified as newly approved objectives. Parent links express accountability,
+not execution dependencies. Existing Flow graphs remain the dependency mechanism.
+
+The founder explicitly accepts an objective after reviewing its work. This
+records an owner decision, not automatic evidence of customer acceptance,
+financial effects or publication. Child completion never accepts the objective.
+
+## Bounded simplification
+
+Use existing authority and execution controls. Do not introduce another policy,
+approval, evidence or orchestration framework for ordinary internal work.
+Require execution configuration when executing, not when saving a brief.
+Keep signing, financial authority, destructive-action boundaries and uncertain
+request reconciliation. Put raw receipts and occasional operator utilities behind
+disclosures; keep actionable errors visible. Real autonomous multi-agent delivery
+still requires its configured executor and a live end-to-end acceptance run.
 
 ## Users and jobs
 

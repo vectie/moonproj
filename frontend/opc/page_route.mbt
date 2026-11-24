@@ -13,6 +13,7 @@ fn page_route_token(page : Page) -> String {
 fn page_route_parse(token : String) -> Page? {
   match token {
     "overview" => Some(Overview)
+    "objectives" => Some(Objectives)
     "fleet" => Some(Fleet)
     "dispatch" => Some(Dispatch)
     "projects" => Some(Projects)
@@ -97,7 +98,7 @@ extern "js" fn store_page_route(page : String, task_id : String, push : Bool) =
 fn remember_page_route(
   page : Page,
   task_id : String,
-  push? : Bool = false,
+  push~ : Bool = false,
 ) -> Cmd {
   @cmd.custom_cmd(_ => {
     if page == Dispatch {
@@ -114,7 +115,7 @@ fn restore_page_route(
   page : Page,
   task_id : String,
   model : Model,
-  product? : String = "",
+  product~ : String = "",
 ) -> (Cmd, Model) {
   let (page_command, next) = restore_page_task_route(emit, page, task_id, model)
   let (product_command, restored) = products_restore_route(emit, product, next)

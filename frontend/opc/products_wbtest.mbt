@@ -40,7 +40,7 @@ fn products_test_update(model : Model, action : ProductsMsg) -> Model {
 ///|
 fn products_test_loaded() -> Model {
   products_test_update(
-    initial_model(),
+    { ..initial_model(), page: Products, },
     CatalogRead(0, 200, products_test_catalog()),
   )
 }
@@ -78,7 +78,7 @@ fn products_test_html(model : Model) -> String {
 }
 
 ///|
-test "Products is the default visible front door without Moon mode or fake topbar facts" {
+test "Products remains available without Moon mode or fake topbar facts" {
   let model = products_test_loaded()
   assert_eq(model.page, Products)
   assert_false(model.moon_mode)
@@ -420,7 +420,7 @@ test "Prepare repeat cancel and back only save local drafts without fabricated w
 }
 
 ///|
-test "Product preparation requires explicit actual workspace before creating" {
+test "Product brief can be saved before execution workspace is configured" {
   let prepared = products_test_update(
     products_test_project(products_test_selected("moonbook")),
     Prepare,
@@ -436,12 +436,9 @@ test "Product preparation requires explicit actual workspace before creating" {
   )
   let (_, blocked) = update(_ => none, CreateDispatchTask, valid)
   assert_eq(blocked.dispatch_task_pending_action, "")
-  assert_eq(dispatch_active_draft(blocked).unwrap().state, "editing")
-  assert_true(
-    dispatch_active_draft(blocked).unwrap().note.contains(
-      "实际执行工作区",
-    ),
-  )
+  assert_eq(dispatch_active_draft(blocked).unwrap().state, "saving")
+  assert_eq(dispatch_active_draft(blocked).unwrap().workspace, "")
+  assert_eq(blocked.dispatch_run, None)
 }
 
 ///|

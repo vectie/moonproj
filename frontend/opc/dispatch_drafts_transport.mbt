@@ -50,7 +50,7 @@ fn dispatch_draft_create_body(draft : DispatchDraft, actor : String) -> Json {
     "task_code": Json::string(draft.task_id),
     "task_name": Json::string(draft.title.trim().to_owned()),
     "project_id": Json::string(draft.project_id.trim().to_owned()),
-    "task_type": Json::string("task"),
+    "task_type": Json::string(draft.task_type.unwrap_or("task")),
     "plan_begin_date": Json::string(draft.begin_date.trim().to_owned()),
     "plan_end_date": Json::string(draft.end_date.trim().to_owned()),
     "owner_id": Json::string(draft.owner_id.trim().to_owned()),
@@ -66,6 +66,9 @@ fn dispatch_draft_create_body(draft : DispatchDraft, actor : String) -> Json {
       "capability": Json::string("project:task:create"),
       "scope": Json::string("project:" + draft.project_id.trim().to_owned()),
     }),
+  }
+  if draft.parent_task_id is Some(id) && !id.is_empty() {
+    fields["parent_task_id"] = Json::string(id)
   }
   if !draft.product_id.is_empty() {
     fields["product_id"] = Json::string(draft.product_id)
@@ -102,7 +105,7 @@ fn dispatch_create_draft(
 ///|
 extern "js" fn dispatch_post_draft(
   body : String,
-  receive : (Int, String) -> Unit,
+  receive : (Int32, String) -> Unit,
 ) =
   #| (body, receive) => {
   #|   fetch("/api/company/plan/tasks", {method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json", Accept:"application/json"}, body})

@@ -152,7 +152,10 @@ test "explicit page overrides legacy breadcrumb and malformed pages fall back to
   assert_eq(restored.page, Products)
   assert_eq(restored.dispatch_task_id, "task-a")
   assert_eq(saved_page_token(), "products")
-  assert_eq(drafts_navigation_requests(), "GET /api/company/tasks/task-a")
+  assert_eq(
+    drafts_navigation_requests(),
+    "GET /api/company/tasks/task-a|GET /api/moonsuite/products",
+  )
   drafts_navigation_cleanup()
 }
 
@@ -160,6 +163,7 @@ test "explicit page overrides legacy breadcrumb and malformed pages fall back to
 test "every supported page has one bounded reversible token" {
   let pages = [
     Overview,
+    Objectives,
     Fleet,
     Dispatch,
     Projects,

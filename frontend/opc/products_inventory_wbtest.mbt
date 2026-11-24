@@ -79,7 +79,7 @@ fn products_inventory_test_body(
 fn products_inventory_test_model() -> Model {
   products_test_update(
     products_test_update(
-      initial_model(),
+      { ..initial_model(), page: Products, },
       CatalogRead(
         0,
         200,
@@ -114,7 +114,7 @@ test "all twenty packaged work inventories decode render and retain every requir
   }
   fields["work_inventory_state"] = "ready".to_json()
   let loaded = products_test_update(
-    initial_model(),
+    { ..initial_model(), page: Products, },
     CatalogRead(0, 200, root.stringify()),
   )
   assert_eq(loaded.products.inventories.length(), 20)

@@ -1,5 +1,39 @@
 # MoonProj project handoff
 
+## Objective-first cleanup — 2026-11-24
+
+Today is the default route; Today, Objectives and Company are the primary
+navigation. Objectives reuse company `key_node` records and tasks' native
+`parent_task_id`, not a new goal store. Imported key nodes remain visible.
+The parent link is accountability only, never an execution dependency.
+Owner acceptance is explicit and does not finish child tasks or create financial
+effects. Live autonomous multi-agent delivery is not established by this UI.
+
+Fleet no longer mounts sample agents or the sample execution-cockpit package;
+Dispatch's reference task board is removed. Plan bulk/reuse tools remain in a
+disclosure. Missing workspace no longer blocks saving a brief; execution still
+requires actual runtime configuration. Do not weaken signing, reserved business
+effects or ambiguous-create reconciliation while simplifying the journey.
+
+Tests that render Products must explicitly select Products; relying on the
+old initial page hides navigation regressions and can leak browser fixtures
+when assertions fail before cleanup.
+
+`moon fmt` with the current toolchain rewrites legacy syntax in unrelated
+packages. Keep its changes scoped; do not ship repository-wide formatter
+churn alongside a product change. No public interface change is expected here.
+
+Validation: 543/543 frontend JS tests pass in the combined working tree with a
+writable plan fixture directory. The isolated commit-only snapshot passes
+542/542; it excludes the unrelated uncommitted GitHub import and its test.
+Release frontend build passes, with no generated public-interface changes.
+An isolated PostgreSQL 18 instance plus the real native signed gateway/service
+was used for browser creation of an objective and parent-linked work, explicit
+objective acceptance, and reload. Child state remained pending after the owner
+accepted the objective, as declared. A 390px viewport had no horizontal overflow.
+The test services/database were stopped. No provider-backed agent production,
+new packaged-app installation or cluster deployment was performed in this slice.
+
 ## Cluster Mac installation and focused UI pass — 2026-11-24
 
 Installed MoonProj 0.1.0-preview.3, clean main `b422502` plus the focused UI

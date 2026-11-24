@@ -104,14 +104,13 @@ fn today_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     .get(0)
   section(class="page command-page") <| [
     page_intro(Overview, status_badge("今日工作", tone="info")),
+    div(class="form-actions") <| [
+      primary_button(emit, Navigate(Objectives), "定义或查看目标"),
+      secondary_button(emit, Navigate(Company), "公司设置"),
+    ],
     section(class="product-section") <| [
       h2("今日工作"),
-      p(
-        "1. 跨项目查看或选择一个项目 → 2. 查看现有工作 → 3. 打开任务详情",
-      ),
-      p(
-        "先处理阻塞，再看到期工作。打开详情不会启动执行、提交报告或接受交付。",
-      ),
+      p("先处理阻塞和待验收结果，再查看到期工作。"),
       secondary_button(emit, TodayAction(Refresh), "刷新公司项目"),
       p("公司项目 · " + products_state_label(state.project_state)),
       if state.project_note.is_empty() {

@@ -11,7 +11,6 @@ import {
   "moonbitlang/core/encoding/base64",
   "vectie/moonproj/operations/task_evidence",
   "vectie/moonproj/product/plan_workbench",
-  "vectie/moonproj/frontend/execution_cockpit",
 }
 
 supported_targets = "js"

@@ -3,8 +3,8 @@ fn plan_button(
   emit : @rabbita.Emit[Msg],
   action : PlanMsg,
   title : String,
-  disabled? : Bool = false,
-  selected? : Bool = false,
+  disabled~ : Bool = false,
+  selected~ : Bool = false,
 ) -> @html.Html {
   button(
     type_="button",
@@ -27,7 +27,7 @@ fn plan_field(
   field : String,
   title : String,
   value : String,
-  multiline? : Bool = false,
+  multiline~ : Bool = false,
 ) -> @html.Html {
   let dom_id = "plan-" + kind + "-" + id + "-" + field
   div(class="field") <| [
@@ -297,12 +297,15 @@ fn projects_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           (m.id, if m.name.is_empty() { "未命名里程碑" } else { m.name })
         })
         div <| [
-          plan_template_view(emit, s),
-          plan_extract_view(emit, s, d),
-          plan_owner_brief_view(emit, s, d),
-          plan_transfer_view(emit, s, d),
-          plan_budget_breakdown_view(emit, s, d),
-          plan_text_replace_view(emit, s),
+          details([
+            summary("导入、复用与批量编辑"),
+            plan_template_view(emit, s),
+            plan_extract_view(emit, s, d),
+            plan_owner_brief_view(emit, s, d),
+            plan_transfer_view(emit, s, d),
+            plan_budget_breakdown_view(emit, s, d),
+            plan_text_replace_view(emit, s),
+          ]),
           section(class="section-block") <| [
             h3("范围与预算"),
             plan_field(

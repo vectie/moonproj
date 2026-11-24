@@ -16,33 +16,38 @@ struct TodayTask {
 ///|
 struct TodayState {
   actor : String
-  epoch : Int
+  epoch : Int32
   projects : Array[ProductCompanyProject]
   project_state : String
-  project_request : Int
+  project_request : Int32
   project_note : String
   project_id : String
   tasks : Array[TodayTask]
   work_state : String
-  work_request : Int
+  work_request : Int32
   observed_at : String
   scope : String
   project_reads : Array[TodayProjectRead]
   filters : TodayFilters
+  task_metadata : Map[String, Json]
 } derive(Debug, Eq)
 
 ///|
 enum TodayMsg {
+  NewObjective
+  DelegateObjective(String)
+  AcceptObjective(String)
+  ObjectiveAccepted(String, Int32, String, String, Int32, String)
   Refresh
   ChooseAll
   RetryFailed
   RetryProject(String)
   ChooseProject(String)
   RefreshTasks
-  ProjectListRead(String, Int, Int, Int, String)
-  TasksRead(String, Int, String, Int, Int, String, String)
+  ProjectListRead(String, Int32, Int32, Int32, String)
+  TasksRead(String, Int32, String, Int32, Int32, String, String)
   OpenTask(String)
-  Filter(String, Int, Int, String, String)
+  Filter(String, Int32, Int32, String, String)
 } derive(Debug, Eq)
 
 ///|
@@ -62,6 +67,7 @@ fn today_initial() -> TodayState {
     scope: "project",
     project_reads: [],
     filters: today_filters_initial(),
+    task_metadata: Map([]),
   }
 }
 
@@ -201,7 +207,7 @@ fn today_attention(task : TodayTask, day : String) -> String {
 }
 
 ///|
-fn today_rank(task : TodayTask, day : String) -> Int {
+fn today_rank(task : TodayTask, day : String) -> Int32 {
   if !today_blocker(task).is_empty() || task.status == "blocked" {
     0
   } else if (

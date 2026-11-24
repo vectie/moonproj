@@ -318,7 +318,7 @@ fn dispatch_decode_snapshot(
 fn dispatch_response_matches(
   model : Model,
   task_id : String,
-  selection : Int,
+  selection : Int32,
 ) -> Bool {
   model.dispatch_task_id == task_id &&
   model.dispatch_task_selection == selection
@@ -339,6 +339,7 @@ fn dispatch_run_pollable(run : DispatchRun?) -> Bool {
 ///|
 fn dispatch_can_start(model : Model) -> Bool {
   !model.dispatch_task_id.is_empty() &&
+  dispatch_json_text(model.dispatch_offer_task, "taskType") != "key_node" &&
   model.dispatch_task_pending_action.is_empty() &&
   (
     model.dispatch_task_stage == "pending" ||

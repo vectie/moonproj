@@ -57,7 +57,7 @@ test "legacy founder context becomes a parked fresh actor scoped draft without f
     "",
     "",
   )
-  assert_eq(imported.page, Products)
+  assert_eq(imported.page, Overview)
   assert_eq(imported.products, model.products)
   assert_eq(imported.dispatch_task_selection, model.dispatch_task_selection)
   assert_eq(imported.dispatch_task_actor_id, "current-private-actor")
