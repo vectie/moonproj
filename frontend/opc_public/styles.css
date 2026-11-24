@@ -707,3 +707,44 @@ body { color: var(--ink); background: var(--canvas); font-feature-settings: "tnu
   .goal-flow-head { gap: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* One recorded workforce, two views. Desks are ordinary keyboard buttons. */
+.office-toolbar, .office-switch, .office-inspector-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.office-toolbar { justify-content: space-between; margin-bottom: 16px; }
+.office-switch [aria-pressed="true"] { color: var(--accent-dark); background: var(--accent-soft); border-color: var(--accent); }
+.office-layout { display: flex; align-items: flex-start; gap: 16px; margin-top: 16px; }
+.office-floor { flex: 1 1 0; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.office-owner { display: flex; justify-content: space-between; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.office-note { margin: 12px 0 20px; color: var(--ink-soft); font-size: 12px; }
+.office-team { position: relative; padding-block: 12px 24px; border-bottom: 1px solid var(--line); }
+.office-team:last-child { border-bottom: 0; padding-bottom: 0; }
+.office-team h2 { margin: 0 0 16px; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.office-lead { display: grid; grid-template-columns: minmax(0, 300px); justify-content: center; }
+.office-workers { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 20px; padding-top: 28px; margin-top: 16px; border-top: 1px solid var(--line-strong); }
+.office-workers:empty { display: none; }
+.office-workers:not(:empty)::before { content: ""; position: absolute; top: -17px; left: 50%; height: 17px; border-left: 1px solid var(--line-strong); }
+.office-desk, .office-agent-row { display: flex; gap: 12px; align-items: center; min-width: 0; width: 100%; min-height: 96px; padding: 16px; color: var(--ink); background: var(--paper); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; text-align: left; cursor: pointer; }
+.office-desk { position: relative; flex-wrap: wrap; border-bottom-width: 5px; }
+.office-desk .status-badge { margin-left: 40px; white-space: normal; }
+.office-desk:hover, .office-agent-row:hover { border-color: var(--accent); }
+.office-desk[aria-pressed="true"], .office-agent-row[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.office-avatar { position: relative; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--accent-soft); }
+.office-avatar::before { content: ""; position: absolute; left: 9px; top: 5px; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50%; }
+.office-avatar::after { content: ""; position: absolute; left: 6px; bottom: 4px; width: 14px; height: 7px; border: 1px solid currentColor; border-radius: 7px 7px 2px 2px; }
+.office-agent-copy { display: flex; flex: 1 1 110px; min-width: 0; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.office-agent-copy strong { font-size: 14px; font-weight: 500; }
+.office-agent-copy > span { font-size: 13px; }
+.office-agent-copy small, .office-owner small { font-size: 12px; color: var(--ink-soft); }
+.office-roster { display: grid; gap: 8px; }
+.office-agent-row { flex-wrap: wrap; min-height: 72px; }
+.office-inspector { position: sticky; top: 64px; flex: 0 0 min(360px, 40%); min-width: 0; padding: 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); overflow-wrap: anywhere; }
+.office-inspector-head { justify-content: space-between; }
+.office-inspector h2 { font-size: 17px; margin: 0; font-weight: 500; }
+.office-inspector:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.office-inspector h3 { font-size: 14px; font-weight: 500; margin-top: 20px; }
+.office-inspector .button { white-space: normal; min-height: 44px; }
+.office-assignments > section + section { border-top: 1px solid var(--line); margin-top: 20px; }
+.office-result { white-space: pre-wrap; }
+.office-file { font-family: var(--font-mono, monospace); font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 1000px) { .office-layout { flex-direction: column; } .office-floor, .office-inspector { width: 100%; } .office-inspector { position: static; flex-basis: auto; } }
+@media (max-width: 650px) { .office-floor { padding: 12px; } .office-toolbar > .button { width: 100%; } .office-switch { width: 100%; } .office-switch .button { flex: 1; padding-inline: 8px; } }

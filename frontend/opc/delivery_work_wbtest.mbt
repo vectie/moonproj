@@ -75,6 +75,15 @@ test "coordinated work shows artifacts and real controls without Submit ceremony
   assert_true(
     delivery_test_html(unfinished).contains("停止前的执行记录"),
   )
+  assert_eq(
+    dispatch_goal_copy({ ..unfinished, dispatch_task_stage: "in_progress", }),
+    "交付已停止；已有结果保留。",
+  )
+  assert_true(
+    dispatch_goal_copy({ ..model, dispatch_task_stage: "in_progress", }).contains(
+      "停止待确认",
+    ),
+  )
   let reading = { ..stopped, dispatch_task_pending_action: "load", }
   assert_true(delivery_test_html(reading).contains("继续交付"))
   let busy = { ..model, dispatch_task_pending_action: "delivery", }

@@ -230,7 +230,8 @@ fn today_update(
                 project.id == state.project_id
               }) {
               state.project_id
-            } else if model.page == Objectives && projects.length() == 1 {
+            } else if [Objectives, Fleet].contains(model.page) &&
+              projects.length() == 1 {
               projects[0].id
             } else {
               ""
@@ -238,6 +239,8 @@ fn today_update(
           }
           let loaded = { ..model, today: next, }
           if next.scope == "all" {
+            today_portfolio_start(emit, loaded, false)
+          } else if next.project_id.is_empty() && model.page == Fleet {
             today_portfolio_start(emit, loaded, false)
           } else if next.project_id.is_empty() {
             (none, loaded)

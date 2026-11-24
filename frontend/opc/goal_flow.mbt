@@ -127,7 +127,15 @@ fn dispatch_goal_copy(model : Model) -> String {
     match model.dispatch_task_stage {
       "pending" =>
         "任务与验收标准已持久化；下一步明确开始执行。"
-      "in_progress" => dispatch_native_label(model.dispatch_run)
+      "in_progress" =>
+        match delivery_control(model) {
+          "stopped" => "交付已停止；已有结果保留。"
+          "stopping" =>
+            "停止待确认；尚未确认全部执行与专员会话停止。"
+          "revising" => "正在继续同一交付，旧报告仍保留。"
+          "resuming" => "恢复交付待确认；尚未确认执行已继续。"
+          _ => dispatch_native_label(model.dispatch_run)
+        }
       "submitted" =>
         if dispatch_can_accept_report(model) {
           "证据已提交；只有具名验收才会关闭任务。"

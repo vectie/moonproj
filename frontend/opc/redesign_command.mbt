@@ -239,23 +239,7 @@ fn cockpit_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 
 ///|
 fn fleet_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
-  section(class="page") <| [
-    page_intro(Fleet, @html.nothing),
-    objective_project_picker(emit, model),
-    if model.today.scope != "project" ||
-      !["ready", "empty"].contains(model.today.work_state) {
-      p(
-        "选择项目后查看已记录的执行；这里不推断 Agent 在线状态。",
-      )
-    } else {
-      let work = model.today.tasks.filter(t => !t.execution_state.is_empty())
-      if work.is_empty() {
-        p("这个项目尚无已记录的 Agent 执行。")
-      } else {
-        div <| work.map(t => today_task_row(emit, t, dispatch_today()))
-      }
-    },
-  ]
+  office_view(emit, model)
 }
 
 ///|

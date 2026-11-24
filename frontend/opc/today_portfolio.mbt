@@ -5,7 +5,7 @@ struct TodayProjectRead {
   tasks : Array[TodayTask]
   observed_at : String
   note : String
-  request : Int
+  request : Int32
 } derive(Debug, Eq)
 
 ///|
@@ -146,6 +146,11 @@ fn today_portfolio_start(
       work_state: "idle",
       work_request: state.work_request + 1,
       project_reads: rows,
+      task_metadata: if retry {
+        state.task_metadata
+      } else {
+        Map([])
+      },
     },
   })
 }
@@ -198,10 +203,10 @@ fn today_portfolio_read(
   emit : @rabbita.Emit[Msg],
   model : Model,
   actor : String,
-  epoch : Int,
+  epoch : Int32,
   project : String,
-  request : Int,
-  status : Int,
+  request : Int32,
+  status : Int32,
   body : String,
   observed_at : String,
 ) -> (Cmd, Model) {
@@ -255,7 +260,7 @@ fn today_portfolio_read(
     }
   })
   // Duplicate canonical IDs across projects are ambiguous, not two countable tasks.
-  let counts : Map[String, Int] = Map([])
+  let counts : Map[String, Int32] = Map([])
   for row in rows {
     for task in row.tasks {
       counts[task.id] = counts.get(task.id).unwrap_or(0) + 1
@@ -275,6 +280,18 @@ fn today_portfolio_read(
   })
   today_portfolio_pump(emit, {
     ..model,
-    today: { ..state, project_reads: checked, },
+    today: {
+      ..state,
+      project_reads: checked,
+      task_metadata: {
+        let metadata = state.task_metadata.copy()
+        if decoded is Some(_) {
+          for key, value in objective_read_metadata(body) {
+            metadata[key] = value
+          }
+        }
+        metadata
+      },
+    },
   })
 }

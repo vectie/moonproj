@@ -139,6 +139,7 @@ struct Model {
   dispatch_client_delivery : DispatchClientDelivery
   dispatch_continuation : DispatchContinuationState
   delivery : DeliveryState
+  office : OfficeState
   dispatch_task_open_id : String
   dispatch_task_workspace : String
   dispatch_task_model : String
@@ -312,6 +313,7 @@ enum Msg {
   DispatchExecutionSettingsSaved(String, Int32)
   StartDispatchTask
   DeliveryAction(DeliveryMsg)
+  OfficeAction(OfficeMsg)
   SubmitDispatchTask
   DispatchTaskSubmitted(String, Int32, String, String, String)
   AcceptDispatchTask
@@ -438,6 +440,7 @@ fn initial_model() -> Model {
     dispatch_client_delivery: empty_dispatch_client_delivery(),
     dispatch_continuation: empty_dispatch_continuation(),
     delivery: delivery_initial(),
+    office: office_initial(),
     dispatch_task_open_id: "",
     dispatch_task_workspace: "",
     dispatch_task_model: "",
@@ -909,6 +912,7 @@ fn update_model(
 ) -> (Cmd, Model) {
   match msg {
     DeliveryAction(action) => delivery_update(emit, model, action)
+    OfficeAction(action) => office_update(emit, model, action)
     AcceptedHumanExportAction(action) =>
       dispatch_accepted_human_export_update(emit, model, action)
     ClientDeliveryAction(action) =>

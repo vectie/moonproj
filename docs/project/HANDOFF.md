@@ -1,5 +1,44 @@
 # MoonProj project handoff
 
+## Mini office, real run identities — 2026-11-24
+
+More tools → Agent 编队 now switches between 迷你办公室 and a compact fleet
+list. Both use the same company task/execution projection and preserve selection.
+Click a real coordinator or worker to see its linked tasks, execution stage,
+separate business task stage, recorded summary/output references and exact source;
+Open task uses the existing task workspace. These are per-run identities, not
+invented permanent employees or an online/idle roster. No animation, extra task
+store, orchestrator or provider invocation was added. Shared UI tokens, responsive
+stacking and keyboard focus/return keep the feature inside the existing UI.
+
+`GET /api/company/tasks/:id/office` reads the authenticated canonical task and,
+where available, the existing MoonClaw inspect-only task panel for that captured
+session/book. It does not call delivery reconciliation, start/resume a turn,
+submit a report or accept work. The projection excludes native personal memory
+and arbitrary result fields. Observations are demand-loaded per task; refreshing
+the company records invalidates the cache. Superseded actor/scope/read callbacks
+cannot replace current selection data; read failures keep saved records visible.
+Company-wide scope reuses the existing bounded project reader and explicitly
+marks partial results, rather than presenting an incomplete roster as complete.
+
+The local native task panel returns 404 for suspended chats. A confirmed stopped
+task therefore shows its saved canonical execution/worker records without trying
+to unseal it. Active-session inspect failures remain explicit. Stopped controls
+override stale running fields; completed workers do not imply accepted tasks.
+A planned child confirmed missing by the suspension receipt has no desk.
+The task drill-down headline now also respects stopped/pending control states.
+Read timestamps use JSON numbers, matching the frontend timestamp contract.
+
+Validation: 558 frontend JS and 266 native service/gateway tests pass in the
+combined tree; the exact staged snapshot excluding unrelated user work passes
+557 frontend plus 266 native tests and the release frontend build. Native release,
+`moon info`, scoped formatting and diff checks pass; no public-interface changes.
+Local browser checks used the two existing real smoke runs: five actual desks,
+individual task/stage/output drill-down, map/list selection preservation, correct
+task navigation, Enter/close focus and 390px layout. No agents were started or
+resumed to populate this view. No cluster deployment or packaged-app installation
+is included. User-owned plan/GitHub-import work remains excluded from the commit.
+
 ## Coordinated delivery, not another control plane — 2026-11-24
 
 Delegated objective work now explicitly uses coordinated delivery. The founder

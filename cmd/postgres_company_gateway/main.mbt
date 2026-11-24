@@ -1656,6 +1656,15 @@ async fn handle(
           actor_signing_secret,
           actor,
         }
+        if request.meth is @http.Get &&
+          native_office_task_id(path) is Some(task_id) {
+          let result = native_read_office(bridge, native_moonclaw_uri, task_id) catch {
+            error =>
+              native_json_result(503, { "error": gateway_error_text(error) })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
         if flow_gateway_route(path) is Some((task_id, action, report_key)) {
           let result = try {
             let payload = if request.meth is @http.Post {
