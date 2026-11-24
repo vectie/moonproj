@@ -30,7 +30,10 @@ fn dispatch_source_context_form(
 }
 
 ///|
-fn dispatch_source_context_view(source : Json) -> @html.Html {
+fn dispatch_source_context_view(
+  source : Json,
+  label~ : String = "",
+) -> @html.Html {
   let reference = dispatch_json_text(source, "reference")
   let problem = dispatch_json_text(source, "problem")
   if reference.is_empty() && problem.is_empty() {
@@ -42,7 +45,7 @@ fn dispatch_source_context_view(source : Json) -> @html.Html {
       } else {
         p <| [
           span("来源 · "),
-          dispatch_result_reference(reference),
+          dispatch_named_result_reference(reference, label),
         ]
       },
       if problem.is_empty() {

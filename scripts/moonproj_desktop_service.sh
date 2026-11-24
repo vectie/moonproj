@@ -27,7 +27,7 @@ if [ -z "${PSQL_BIN:-}" ]; then
   if command -v psql >/dev/null 2>&1; then
     PSQL_BIN=$(command -v psql)
   else
-    for candidate in /Library/PostgreSQL/*/bin/psql /opt/homebrew/bin/psql /usr/local/bin/psql; do
+    for candidate in /Library/PostgreSQL/*/bin/psql /opt/homebrew/bin/psql /usr/local/bin/psql /opt/homebrew/opt/postgresql@*/bin/psql /usr/local/opt/postgresql@*/bin/psql; do
       if [ -x "$candidate" ]; then
         PSQL_BIN=$candidate
       fi
@@ -38,6 +38,34 @@ fi
 if [ -n "${PSQL_BIN:-}" ]; then
   export PSQL_BIN
 fi
+# Use only an explicitly provisioned app-local cluster, never a system cluster.
+if [ -f "$APP_DATA_DIR/postgres/data/PG_VERSION" ]; then
+  PGHOST=${PGHOST:-"$APP_DATA_DIR/postgres"}
+  PGPORT=${PGPORT:-55433}
+  PGUSER=${PGUSER:-$(id -un)}
+  PGDATABASE=${PGDATABASE:-moonproj}
+  export PGHOST PGPORT PGUSER PGDATABASE
+fi
+
+MOONDESK_ORIGIN=${MOONDESK_ORIGIN:-http://127.0.0.1:4201}
+export MOONDESK_ORIGIN
+
+# Reuse a single existing Desk pairing; ambiguous installations stay explicit.
+if [ -z "${MOONDESK_EXECUTION_SANDBOX_CONFIG:-}" ]; then
+  pairing_file=
+  pairing_count=0
+  for candidate in "$HOME/Library/Application Support/app.vectie.moondesk.lepusa.live/control/execution-sandbox/"*.json; do
+    if [ -f "$candidate" ]; then
+      pairing_file=$candidate
+      pairing_count=$((pairing_count + 1))
+    fi
+  done
+  if [ "$pairing_count" -eq 1 ]; then
+    MOONDESK_EXECUTION_SANDBOX_CONFIG=$pairing_file
+    export MOONDESK_EXECUTION_SANDBOX_CONFIG
+  fi
+fi
+
 if [ -f "$APP_DATA_DIR/pgpass" ]; then
   PGPASSFILE="$APP_DATA_DIR/pgpass"
   export PGPASSFILE

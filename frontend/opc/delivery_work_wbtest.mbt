@@ -9,6 +9,25 @@ fn delivery_test_html(model : Model) -> String {
 }
 
 ///|
+test "imported materials can open before any agent execution" {
+  let model = {
+    ..objectives_test_model(),
+    dispatch_task_source_context: {
+      "reference": "http://127.0.0.1:4201/?activity=wiki&workspace=book-research&path=wiki/02-presentation/index.md",
+      "problem": "材料已载入，尚未审阅；先核对开题讲稿。",
+    },
+    dispatch_offer_task: { "delivery_mode": "coordinated" },
+    dispatch_run: None,
+  }
+  let html = delivery_test_html(model)
+  assert_true(html.contains("工作材料"))
+  assert_true(html.contains("打开工作材料"))
+  assert_true(html.contains("book-research"))
+  assert_true(html.contains("材料已载入，尚未审阅"))
+  assert_true(html.contains("尚未分配专员"))
+}
+
+///|
 test "coordinated delegation retains explicit mode and limits in the signed create body" {
   drafts_navigation_setup("https://example.test/?page=objectives", "delivery")
   defer drafts_navigation_cleanup()

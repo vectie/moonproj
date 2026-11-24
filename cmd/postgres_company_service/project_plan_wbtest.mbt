@@ -1,4 +1,30 @@
 ///|
+test "undated work remains undated while supplied dates are validated" {
+  assert_eq(plan_task_date({}, "plan_begin_date", "planBeginDate", false), "")
+  assert_eq(
+    plan_task_date(
+      { "planEndDate": "2026-12-01" },
+      "plan_end_date",
+      "planEndDate",
+      false,
+    ),
+    "2026-12-01",
+  )
+  try
+    plan_task_date(
+      { "plan_end_date": "tomorrow" },
+      "plan_end_date",
+      "planEndDate",
+      false,
+    )
+  catch {
+    _ => ()
+  } noraise {
+    _ => assert_true(false, msg="invalid supplied date must be rejected")
+  }
+}
+
+///|
 test "project plan lookup recognizes a native command project" {
   let rows : Array[SourceRow] = [
     {

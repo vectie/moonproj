@@ -1121,8 +1121,9 @@ async fn plan_task_command_request(
       ["parentTaskGuid", "parent_task_guid"],
       true,
     )
-    let begin = plan_task_date(body, "plan_begin_date", "planBeginDate", true)
-    let end = plan_task_date(body, "plan_end_date", "planEndDate", true)
+    // Importing work does not establish a deadline. Keep unknown dates blank.
+    let begin = plan_task_date(body, "plan_begin_date", "planBeginDate", false)
+    let end = plan_task_date(body, "plan_end_date", "planEndDate", false)
     if !end.is_empty() && end < begin {
       raise reject(422, "plan end date cannot precede plan begin date")
     }

@@ -95,10 +95,7 @@ test "coordinated delivery exposes actual worker tools in the captured native co
   let task = delivery_test_task()
   let run = native_execution_snapshot(task, "moongate/test", "founder")
   let command = @json.parse(native_text(run, "request_body"))
-  assert_eq(
-    native_text(run, "workspace"),
-    "/tmp/selected-book/.moonproj-deliveries/PT-native/coordinator",
-  )
+  assert_eq(native_text(run, "workspace"), "/tmp/selected-book")
   assert_eq(native_text(command, "book_root"), native_text(run, "workspace"))
   let tools = native_array(
     native_field(command, "payload"),
@@ -108,6 +105,11 @@ test "coordinated delivery exposes actual worker tools in the captured native co
   assert_true(tools.contains(Json::string("wait_workers")))
   assert_true(native_text(command, "text").contains("no publishing"))
   assert_true(native_text(command, "text").contains("independent reviewer"))
+  assert_true(
+    native_text(command, "text").contains(
+      ".moonproj-deliveries/PT-native/coordinator/",
+    ),
+  )
   let ordinary = native_execution_snapshot(
     native_test_task(),
     "moongate/test",

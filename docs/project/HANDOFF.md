@@ -362,3 +362,30 @@ restarted without a Launchpad reset. Launchpad bookmarks MoonProj's canonical
 app; direct visual acceptance still needs a screenshot from that Mac. Other
 products retained duplicate Launchpad rows after this non-destructive refresh;
 do not imply this procedure guarantees cache cleanup. All backups remain.
+
+## Three-stage MoonBook preparation (2026-11-24)
+
+New coordinated executions must capture the selected, registered MoonBook root,
+not its hidden coordinator subfolder. Keep worker isolation and final output
+folders per task, but retain that registered root for Desk handoff identity.
+Imported source links must be visible before an execution exists; importing
+documents is neither worker evidence nor owner acceptance. Unknown task dates
+remain blank rather than inventing a deadline during project setup.
+
+The macOS launcher detects keg-only Homebrew psql and an explicitly provisioned
+app-local PostgreSQL directory. It does not initialize or adopt a system/Homebrew
+cluster. The cluster Mac's dedicated database uses a private Unix socket and a
+user LaunchAgent with LC_ALL=C (PostgreSQL otherwise failed at startup there).
+Reuse an existing Desk pairing only when exactly one configuration exists.
+Native binaries installed on macOS 15 must be built with deployment target 15;
+the local default produced incompatible macOS 26 binaries.
+
+MoonDesk now resolves Book-relative document/figure references against their
+source file and opens direct code-file links after the exact Book is known.
+Long Markdown live previews wait for a brief typing pause. A >400k-character
+HTTP preview/save regression protects complete dissertation text. CUA string
+readback itself truncates at 200k characters with `[Truncated]`: never feed a
+large extracted editor value back into fill(). Verify lengths/digests and edit
+in place instead. Originals and working copies were restored byte-for-byte
+after the smoke edits. UI resources were tested against installed app services
+through a cluster tunnel; direct remote native-window visual QA remains unverified.

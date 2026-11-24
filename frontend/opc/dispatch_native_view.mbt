@@ -51,12 +51,24 @@ fn dispatch_safe_link(value : String) -> Bool {
 
 ///|
 fn dispatch_result_reference(value : String) -> @html.Html {
+  dispatch_named_result_reference(value, value)
+}
+
+///|
+fn dispatch_named_result_reference(
+  value : String,
+  label : String,
+) -> @html.Html {
   if dispatch_safe_link(value) {
     a(
       href=value,
       target=Blank,
       attrs=@html.Attrs::build().rel("noopener noreferrer"),
-      value,
+      if label.is_empty() {
+        value
+      } else {
+        label
+      },
     )
   } else {
     span(value)

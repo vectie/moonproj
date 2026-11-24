@@ -212,6 +212,18 @@ fn delivery_overview_view(
         ),
       ],
     ],
+    if dispatch_json_text(model.dispatch_task_source_context, "reference").is_empty() &&
+      dispatch_json_text(model.dispatch_task_source_context, "problem").is_empty() {
+      @html.nothing
+    } else {
+      section <| [
+        h3("工作材料"),
+        dispatch_source_context_view(
+          model.dispatch_task_source_context,
+          label="打开工作材料",
+        ),
+      ]
+    },
     delivery_contributions_view(model),
     delivery_current_output_view(emit, model),
   ]

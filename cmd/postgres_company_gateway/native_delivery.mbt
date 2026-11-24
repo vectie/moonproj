@@ -12,11 +12,9 @@ fn native_delivery_base(task : Json) -> String {
 
 ///|
 fn native_delivery_workspace(task : Json) -> String {
-  if native_coordinated(task) {
-    native_delivery_base(task) + "/coordinator"
-  } else {
-    native_text(task, "execution_workspace")
-  }
+  // Keep the captured root discoverable by MoonDesk. Output and worker folders
+  // remain isolated below this registered MoonBook.
+  native_text(task, "execution_workspace")
 }
 
 ///|
@@ -71,7 +69,9 @@ fn native_delivery_prompt(task : Json) -> String {
   native_delivery_base(task) +
   "/reviewer. Use these isolated books, not the coordinator book, for workers. Worker results are returned by wait_workers; ask workers to include their substantive contribution and limitations in their final answer. Preserve successful contributions on recovery; do not re-execute them merely to rebuild status. Have an independent reviewer examine the actual proposed artifact/criteria before final integration. Supply its exact content in the reviewer prompt when files cannot be read across books. Do not claim a review or a worker succeeded without its terminal evidence. Finish by writing the buyer-usable artifact(s) in this coordinator book and reporting acceptance checks, unresolved gaps and observed usage/cost (unknown when unavailable). A summary alone is not the requested artifact. Company signing, payments, posting, trades and external publishing remain outside this delivery permission.\nScope and limits supplied by the founder: " +
   Json::string(native_text(task, "delivery_limits")).stringify() +
-  "\n"
+  "\nThe selected parent MoonBook is the coordinator's workspace. Preserve its existing sources and working documents. Put final integrated artifacts under .moonproj-deliveries/" +
+  native_text(task, "taskGuid") +
+  "/coordinator/ relative to that root, not at the root or over existing material.\n"
 }
 
 ///|
