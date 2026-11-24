@@ -1,5 +1,26 @@
 # MoonProj project handoff
 
+## Office clarity pass — 2026-11-24
+
+The office now leads with simple role seats (负责人 / 专员 1, 2), one status
+per desk, and one task title per team. These are display labels for the same
+real session identities, not new employee records or inferred specialties.
+Original worker names, model, IDs, book paths, source and read timestamp remain
+available under 详细记录. The main inspector shows work, available results and
+one 查看任务 action. Completion explains that a worker's finished part is not
+whole-task acceptance; stopped work explains how to continue. Recovery remains
+visible on read failure; an empty office links to arranging work in Objectives.
+No backend behavior, polling, dependencies or execution authority changed.
+
+Validation: 560 frontend JS tests pass in the combined tree; the isolated
+commit-only snapshot excluding user changes passes 559 tests and the release
+frontend build. `moon check`, `moon info`, scoped formatting and diff checks pass,
+without public-interface changes. Real saved smoke records were checked in the
+browser: desk selection, list/map preservation, technical disclosure, task link,
+keyboard focus and 375px layout (367px content width). No agents were started or
+resumed. Screenshot: `/tmp/moonproj-office-simple-verified.jpg`. No packaged-app
+update or cluster deployment is included; unrelated user changes stay excluded.
+
 ## Mini office, real run identities — 2026-11-24
 
 More tools → Agent 编队 now switches between 迷你办公室 and a compact fleet

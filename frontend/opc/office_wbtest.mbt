@@ -88,7 +88,9 @@ test "office renders only real recorded execution identities and stopped state t
   assert_eq(agents[2].assignments[0].stage, "已停止")
   let html = products_test_html(model)
   assert_true(html.contains("迷你办公室地图"))
-  assert_true(html.contains("buyer-brief"))
+  assert_true(html.contains("专员 1"))
+  assert_false(html.contains("buyer-brief"))
+  assert_false(html.contains("configured-model"))
   assert_false(html.contains("Architect-01"))
   assert_false(html.contains("在线" + "率"))
   assert_eq(
@@ -152,8 +154,8 @@ test "office and fleet toggle preserve selected agent and inspection shows real 
   let html = products_test_html(listed)
   for
     text in [
-      "Agent 编队列表", "Agent 工作详情", "Actual buyer brief", "contribution.md",
-      "打开任务", "MoonClaw 专员观察",
+      "Agent 编队列表", "成员工作详情", "Actual buyer brief", "contribution.md",
+      "查看任务", "MoonClaw 专员观察", "详细记录", "这部分工作已完成，整个任务还未验收。",
     ] {
     assert_true(html.contains(text), msg=text)
   }
@@ -161,6 +163,47 @@ test "office and fleet toggle preserve selected agent and inspection shows real 
   assert_eq(back.office.selected, key)
   let (_, closed) = office_update(_ => none, back, Close)
   assert_eq(closed.office.selected, "")
+}
+
+///|
+test "office desks use plain role and status labels without changing actual identities" {
+  let agents = office_agents(office_test_model())
+  assert_eq(office_member_label(agents[0], agents), "负责人")
+  assert_eq(office_member_label(agents[1], agents), "专员 1")
+  assert_eq(office_member_label(agents[2], agents), "专员 2")
+  assert_eq(agents[1].name, "buyer-brief")
+  assert_eq(agents[1].session, "worker-1")
+  assert_eq(office_status_label("执行中"), "工作中")
+  assert_eq(office_status_label("执行完成"), "已完成")
+  assert_eq(office_status_label("执行失败"), "遇到问题")
+  assert_eq(office_status_label("已停止"), "已停止")
+  assert_eq(office_status_label("状态未确认"), "状态未确认")
+}
+
+///|
+test "office next step separates specialist completion from whole task acceptance" {
+  let assignments = office_agents(office_test_model()).map(a => a.assignments[0])
+  assert_eq(
+    office_next_step(assignments[0]),
+    "如需继续，请打开任务。",
+  )
+  assert_eq(
+    office_next_step(assignments[1]),
+    "这部分工作已完成，整个任务还未验收。",
+  )
+  let complete = assignments[1]
+  assert_eq(
+    office_next_step({
+      ..complete,
+      task: { ..complete.task, status: "submitted", },
+    }),
+    "整个任务等待你验收。",
+  )
+  assert_eq(
+    office_next_step({ ..complete, task: { ..complete.task, status: "done", }, }),
+    "整个任务已验收。",
+  )
+  assert_eq(office_next_step({ ..complete, stage: "执行中", }), "")
 }
 
 ///|
@@ -230,6 +273,11 @@ test "office stale account scope and superseded replies cannot replace current o
   )
   assert_eq(office_agents(failed).length(), 3)
   assert_false(failed.office.error.is_empty())
+  let html = products_test_html(failed)
+  assert_true(
+    html.contains("状态更新失败，正在显示已保存的记录。"),
+  )
+  assert_true(html.contains("重试"))
 }
 
 ///|
