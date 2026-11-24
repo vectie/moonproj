@@ -87,8 +87,8 @@ struct Model {
   engineering_health : String
   engineering_production : String
   engineering_freshness : String
-  engineering_findings : Int
-  engineering_poll_attempts : Int
+  engineering_findings : Int32
+  engineering_poll_attempts : Int32
   product_in_gate_decision : String
   product_in_gate_primary_value : String
   product_in_gate_segment : String
@@ -122,18 +122,18 @@ struct Model {
   dispatch_offer_storage : String
   dispatch_reply_drafts : Array[DispatchReplyDraft]
   dispatch_reply_storage : String
-  dispatch_reply_generation : Int
+  dispatch_reply_generation : Int32
   dispatch_draft_id : String
   dispatch_draft_storage : String
   dispatch_recent_tasks : Array[String]
   dispatch_task_product_id : String
   dispatch_report_product_id : String
-  dispatch_task_selection : Int
+  dispatch_task_selection : Int32
   dispatch_desk_handoff : DispatchDeskHandoff
   dispatch_lesson_handoff : DispatchLessonHandoff
   dispatch_guidance : DispatchGuidanceState
   dispatch_outcome_drafts : Array[DispatchOutcomeDraft]
-  dispatch_outcome_sequence : Int
+  dispatch_outcome_sequence : Int32
   dispatch_accepted_human_export : DispatchAcceptedHumanExport
   dispatch_client_delivery : DispatchClientDelivery
   dispatch_continuation : DispatchContinuationState
@@ -174,12 +174,12 @@ struct Model {
   work_title : String
   work_acceptance : String
   work_saved : Bool
-  work_stage : Int
+  work_stage : Int32
   commitment_form_open : Bool
   commitment_title : String
   commitment_counterparty : String
   commitment_saved : Bool
-  commitment_stage : Int
+  commitment_stage : Int32
   constitution_ready : Bool
   authority_ready : Bool
   resource_register_ready : Bool
@@ -217,8 +217,8 @@ enum Msg {
   InputEngineeringVersion(String)
   InputEngineeringTag(String)
   RequestEngineeringAudit
-  EngineeringAuditSubmitted(String, Int, String, String)
-  EngineeringAuditStatus(String, Int, String)
+  EngineeringAuditSubmitted(String, Int32, String, String)
+  EngineeringAuditStatus(String, Int32, String)
   EngineeringProjectionLoaded(
     String,
     String,
@@ -226,7 +226,7 @@ enum Msg {
     String,
     String,
     String,
-    Int,
+    Int32,
     String,
     String,
     String,
@@ -278,14 +278,14 @@ enum Msg {
   PreparePolicyValidationTask(String)
   OpenPolicyEvidence
   RequestEngineeringRemediation
-  EngineeringRemediationCreated(String, Int)
-  EngineeringAuditFailed(String, Int)
+  EngineeringRemediationCreated(String, Int32)
+  EngineeringAuditFailed(String, Int32)
   RecordDecision(String)
   ToggleMobileNav
   OpenDispatchTaskForm
   DraftAction(DispatchDraftMsg)
   ExportFounderPacket
-  FounderPacketDownloaded(String, Int, Int, Page, String, Bool)
+  FounderPacketDownloaded(String, Int32, Int32, Page, String, Bool)
   WorkPacketAction(WorkPacketMsg)
   ResearchImportAction(ResearchImportMsg)
   OfferAction(DispatchOfferMsg)
@@ -297,8 +297,8 @@ enum Msg {
   OpenDispatchTask
   DeskHandoffAction(DispatchDeskHandoffMsg)
   ContinuationAction(DispatchContinuationMsg)
-  RefreshDispatchTask(String, Int)
-  DispatchTaskLoaded(String, Int, DispatchSnapshot)
+  RefreshDispatchTask(String, Int32)
+  DispatchTaskLoaded(String, Int32, DispatchSnapshot)
   DispatchSessionLoaded(String)
   LoadDispatchSession
   RestoreDispatchTask(String)
@@ -307,13 +307,13 @@ enum Msg {
   InputDispatchTaskEvidenceId(String)
   CreateDispatchTask
   SaveDispatchExecutionSettings
-  DispatchExecutionSettingsSaved(String, Int)
+  DispatchExecutionSettingsSaved(String, Int32)
   StartDispatchTask
   SubmitDispatchTask
-  DispatchTaskSubmitted(String, Int, String, String, String)
+  DispatchTaskSubmitted(String, Int32, String, String, String)
   AcceptDispatchTask
-  DispatchTaskAccepted(String, Int, String, String)
-  DispatchTaskCommandFailed(String, Int, String, String)
+  DispatchTaskAccepted(String, Int32, String, String)
+  DispatchTaskCommandFailed(String, Int32, String, String)
   OpenCompanyForm
   InputCompanyName(String)
   SaveCompany
@@ -681,7 +681,7 @@ fn page_question(page : Page) -> String {
 }
 
 ///|
-fn setup_count(model : Model) -> Int {
+fn setup_count(model : Model) -> Int32 {
   let mut count = 0
   if model.company_saved {
     count += 1
@@ -705,7 +705,7 @@ fn setup_count(model : Model) -> Int {
 }
 
 ///|
-fn readiness_count(model : Model) -> Int {
+fn readiness_count(model : Model) -> Int32 {
   let mut count = setup_count(model)
   if model.constitution_ready {
     count += 1
@@ -756,12 +756,12 @@ fn readiness_count(model : Model) -> Int {
 }
 
 ///|
-fn readiness_total() -> Int {
+fn readiness_total() -> Int32 {
   21
 }
 
 ///|
-fn company_readiness_count(model : Model) -> Int {
+fn company_readiness_count(model : Model) -> Int32 {
   let mut count = 0
   if model.constitution_ready {
     count += 1
@@ -2156,7 +2156,7 @@ fn update_model(
 }
 
 ///|
-fn status_badge(label : String, tone? : String = "neutral") -> @html.Html {
+fn status_badge(label : String, tone~ : String = "neutral") -> @html.Html {
   span(class="status-badge status-\{tone}", label)
 }
 
@@ -2202,7 +2202,6 @@ fn secondary_button(
 fn page_intro(page : Page, action : @html.Html) -> @html.Html {
   header(class="page-intro") <| [
     div(class="page-intro-copy") <| [
-      p(class="page-kicker", "BASIC OPC · \{page_path(page)}"),
       h1(page_title(page)),
       p(class="page-question", page_question(page)),
     ],
@@ -2227,6 +2226,7 @@ fn nav_item_view(
     .aria_label("\{label_text}：\{item.description}")
   button(
     type_="button",
+    title=item.description,
     class=if selected { "nav-item is-active" } else { "nav-item" },
     attrs~,
     on_click=emit(Navigate(item.page)),
@@ -2240,7 +2240,6 @@ fn nav_item_view(
     ),
     span(class="nav-copy") <| [
       strong(label_text),
-      small(item.description),
     ],
   ]
 }
@@ -2275,12 +2274,15 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     attrs=@html.Attrs::build().id("primary-sidebar"),
   ) <| [
     div(class="brand") <| [
-      span(class="brand-mark", attrs=@html.Attrs::build().aria_hidden("true"), [
-        opc_glyph("overview"),
-      ]),
+      @html.img(
+        class="brand-mark",
+        src="./moonproj.svg",
+        alt="",
+        width=36,
+        height=36,
+      ),
       div(class="brand-copy") <| [
         strong("MoonProj"),
-        small("Basic OPC"),
       ],
     ],
     div(class="mode-switch") <| [
@@ -2323,10 +2325,6 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       class="primary-nav",
       attrs=@html.Attrs::build().aria_label("基础 OPC 主导航"),
     ) <| items,
-    div(class="sidebar-foot") <| [
-      span("证据与授权边界"),
-      status_badge("fail-closed", tone="accent"),
-    ],
   ]
 }
 
@@ -3178,7 +3176,7 @@ fn work_form(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn lane(title : String, count : Int, content : @html.Html) -> @html.Html {
+fn lane(title : String, count : Int32, content : @html.Html) -> @html.Html {
   article(class="work-lane") <| [
     div(class="lane-heading") <| [
       strong(title),
@@ -3421,7 +3419,7 @@ fn commitment_form(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 }
 
 ///|
-fn commitment_state(stage : Int) -> String {
+fn commitment_state(stage : Int32) -> String {
   match stage {
     0 => "草案"
     1 => "已批准"
@@ -3433,7 +3431,10 @@ fn commitment_state(stage : Int) -> String {
 }
 
 ///|
-fn commitment_next_action(emit : @rabbita.Emit[Msg], stage : Int) -> @html.Html {
+fn commitment_next_action(
+  emit : @rabbita.Emit[Msg],
+  stage : Int32,
+) -> @html.Html {
   match stage {
     0 => secondary_button(emit, ApproveCommitment, "记录批准")
     1 => secondary_button(emit, SignCommitment, "记录签署")

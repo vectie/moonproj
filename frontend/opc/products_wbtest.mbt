@@ -1,7 +1,7 @@
 ///|
 struct ProductsTestScheduler {
-  mut effects : Int
-  mut messages : Int
+  mut effects : Int32
+  mut messages : Int32
 }
 
 ///|
@@ -25,7 +25,7 @@ impl @cmd.Scheduler for ProductsTestScheduler with fn hooks(_) {
 }
 
 ///|
-fn products_test_effect_count(command : Cmd) -> Int {
+fn products_test_effect_count(command : Cmd) -> Int32 {
   let scheduler = { effects: 0, messages: 0, }
   @cmd.Scheduler::add(scheduler, command)
   scheduler.effects + scheduler.messages
@@ -89,6 +89,12 @@ test "Products is the default visible front door without Moon mode or fake topba
   assert_false(html.contains("待决 5"))
   assert_false(html.contains("Agent 在线 11/12"))
   assert_false(html.contains("治理正常"))
+  assert_true(html.contains("src=\"./moonproj.svg\""))
+  assert_true(html.contains("product-catalog-help"))
+  assert_false(html.contains("BASIC OPC ·"))
+  assert_false(html.contains("证据与授权边界"))
+  let loading = products_test_html(initial_model())
+  assert_false(loading.contains("id=\"product-search\""))
 }
 
 ///|

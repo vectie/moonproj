@@ -3,9 +3,8 @@ fn products_inventory_group_view(
   emit : @rabbita.Emit[Msg],
   row : ProductDefinition,
   group : @work_inventory.WorkGroup,
-  first : Bool,
 ) -> @html.Html {
-  details(class="product-work-group", open=first) <| [
+  details(class="product-work-group") <| [
     summary <| [
       strong(group.title),
       small(products_inventory_estimate(group)),
@@ -129,7 +128,10 @@ fn products_inventory_view(
           milestone.estimate_high_days,
         ),
       ),
-      p(milestone.scope),
+      details(class="journey-details") <| [
+        summary("交付范围与估算前提"),
+        p(milestone.scope),
+      ],
       small(
         "估算信心：" +
         (match milestone.confidence {
@@ -149,24 +151,22 @@ fn products_inventory_view(
         None => p("先完成上述证据审计，再估算实现范围。")
       },
     ],
-    p(products_inventory_summary(inventory)),
-    p(
-      "这些数量表示要求的证据状态，不是完成比例；部分实现不等于整项未做。",
-    ),
-    p("当前关键缺口：" + inventory.current_gap),
-    p(
-      "下面的范围估算是有前提的工程人日；共享依赖和验证可能重叠，不应直接相加为发布日期。",
-    ),
+    details(class="journey-details") <| [
+      summary("评估记录与当前缺口"),
+      p(products_inventory_summary(inventory)),
+      p(
+        "这些数量表示要求的证据状态，不是完成比例；部分实现不等于整项未做。",
+      ),
+      p("当前关键缺口：" + inventory.current_gap),
+      p(
+        "下面的范围估算是有前提的工程人日；共享依赖和验证可能重叠，不应直接相加为发布日期。",
+      ),
+    ],
     div(class="product-work-groups") <| inventory.groups.map(group => {
-      products_inventory_group_view(
-        emit,
-        row,
-        group,
-        milestone.linked_group_id == Some(group.id),
-      )
+      products_inventory_group_view(emit, row, group)
     }),
-    div(class="boundary-note") <| [
-      strong("完整目标与估算边界"),
+    details(class="journey-details") <| [
+      summary("完整目标与估算边界"),
       p(inventory.full_target_estimate),
       p(inventory.vision_scope),
     ],

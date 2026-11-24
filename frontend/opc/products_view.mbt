@@ -352,54 +352,65 @@ fn products_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       Products,
       secondary_button(emit, ProductsAction(Refresh), "刷新产品目录"),
     ),
-    p(
-      "从产品的目的与意图出发，查看 PRD，再进入明确归属的真实工作。",
-    ),
-    p(
-      "范围：20 个 Moon 产品。LunaNexa、LunaFlux、LunaFlex、LunaChip、LunaRein 是独立基础设施依赖；MoonStat 已退役，MoonProp 与 Mooncake 不在本轮范围。",
-    ),
-    div(
-      class="product-catalog-state",
-      attrs=@html.Attrs::build().aria_label("产品目录读取状态"),
-    ) <| [
-      strong("产品目录：" + products_state_label(state.state)),
+    details(class="journey-details product-catalog-help") <| [
+      summary("目录说明"),
+      p(
+        "范围：20 个 Moon 产品。LunaNexa、LunaFlux、LunaFlex、LunaChip、LunaRein 是独立基础设施依赖；MoonStat 已退役，MoonProp 与 Mooncake 不在本轮范围。",
+      ),
       if state.state == "ready" {
         p(
           state.rows.length().to_string() +
           " 个已配置的活跃产品定义；数量不代表已安装、已完成或可发布。",
         )
-      } else if state.state == "empty" {
-        p("服务返回空目录；没有使用演示产品填充。")
       } else {
-        p(
-          "目录读取独立于数据库与执行运行时；失败时不会显示虚构产品。",
-        )
+        @html.nothing
       },
     ],
-    div(class="product-toolbar") <| [
-      div(class="field") <| [
-        label(
-          attrs=@html.Attrs::build().for_("product-search"),
-          "搜索产品名称、ID 或目的",
-        ),
-        input(
-          input_type=Text,
-          attrs=@html.Attrs::build().id("product-search"),
-          value=state.search,
-          on_input=emit.map(value => ProductsAction(Search(value))),
-          placeholder="例如 MoonBook",
-        ),
-      ],
-      secondary_button(
-        emit,
-        ProductsAction(Reverse),
-        if state.reverse {
-          "名称排序：Z → A"
+    if state.state == "ready" {
+      @html.nothing
+    } else {
+      div(
+        class="product-catalog-state",
+        attrs=@html.Attrs::build().aria_label("产品目录读取状态"),
+      ) <| [
+        strong("产品目录：" + products_state_label(state.state)),
+        if state.state == "empty" {
+          p("服务返回空目录；没有使用演示产品填充。")
         } else {
-          "名称排序：A → Z"
+          p(
+            "目录读取独立于数据库与执行运行时；失败时不会显示虚构产品。",
+          )
         },
-      ),
-    ],
+      ]
+    },
+    if state.rows.is_empty() {
+      @html.nothing
+    } else {
+      div(class="product-toolbar") <| [
+        div(class="field") <| [
+          label(
+            attrs=@html.Attrs::build().for_("product-search"),
+            "搜索产品名称、ID 或目的",
+          ),
+          input(
+            input_type=Text,
+            attrs=@html.Attrs::build().id("product-search"),
+            value=state.search,
+            on_input=emit.map(value => ProductsAction(Search(value))),
+            placeholder="例如 MoonBook",
+          ),
+        ],
+        secondary_button(
+          emit,
+          ProductsAction(Reverse),
+          if state.reverse {
+            "名称排序：Z → A"
+          } else {
+            "名称排序：A → Z"
+          },
+        ),
+      ]
+    },
     div(class="products-layout") <| [
       div(
         class="product-list",
@@ -443,7 +454,6 @@ fn products_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
                         inventory.next_milestone.estimate_high_days,
                       ),
                     ),
-                    small(products_inventory_summary(inventory)),
                   ]
                 None => small("剩余工作：尚无可用评估")
               },
