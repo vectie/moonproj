@@ -231,11 +231,6 @@ fn native_validate_response(
       ")",
     )
   }
-  if data.length() > 2_000_000 {
-    raise GatewayError::Upstream(
-      "MoonClaw native response exceeded the result limit",
-    )
-  }
   let text = @encoding/utf8.decode(data)
   if text.contains(control.auth_token) {
     raise GatewayError::Upstream(
@@ -373,7 +368,7 @@ fn native_execution_snapshot(
     )
   let session_id = run_id
   let command_id = run_id + "-start"
-  let workspace = native_text(task, "execution_workspace")
+  let workspace = native_delivery_workspace(task)
   let prompt = if product_context is Some(context) {
     native_context_prompt(task, context)
   } else {
@@ -388,6 +383,7 @@ fn native_execution_snapshot(
     "\nExecute this task in the selected workspace. Return the concrete result, evidence and any remaining limits. Execution completion is separate from founder/customer acceptance."
   }
   let prompt = prompt +
+    native_delivery_prompt(task) +
     native_objective_delivery_prompt(task) +
     @task_evidence.source_prompt(task) +
     @task_evidence.guidance_prompt(book_guidance.unwrap_or(Json::null()))
@@ -404,6 +400,11 @@ fn native_execution_snapshot(
   let request = match request {
     Object(fields) => fields
     _ => Map::new()
+  }
+  if native_coordinated(task) {
+    request["payload"] = {
+      "planner_allowed_tools": native_delivery_tools().to_json(),
+    }
   }
   match product_context {
     Some(context) =>
@@ -426,6 +427,9 @@ fn native_execution_snapshot(
     "receipt": null,
     // JSONB must preserve bytes in this string, not reorder the native object.
     "request_body": Json::object(request).stringify(),
+  }
+  if snapshot is Object(fields) && native_coordinated(task) {
+    fields["delivery_mode"] = Json::string("coordinated")
   }
   if snapshot is Object(fields) && book_guidance is Some(selection) {
     fields.set("book_guidance", selection)
@@ -655,10 +659,18 @@ fn native_execution_readback(
       checkpoint_state = "after-decision"
     }
     let event_id = native_text(event, "id")
-    if !event_id.is_empty() {
+    let output_paths = native_output_paths(event)
+    if !event_id.is_empty() &&
+      (
+        !output_paths.is_empty() ||
+        [
+          "tool.approval_approved", "tool.approval_rejected", "runtime.turn_completed",
+          "runtime.turn_failed",
+        ].contains(native_text(event, "kind"))
+      ) {
       evidence.push(Json::string(event_id))
     }
-    for path in native_output_paths(event) {
+    for path in output_paths {
       artifacts.push(
         Json::object({
           "path": Json::string(path),
@@ -814,6 +826,7 @@ async fn native_poll_task(
   control : NativeControl,
   task_id : String,
   execution : Json,
+  coordinated~ : Bool = false,
 ) -> Unit raise GatewayError {
   let base = "/v1/code/sessions/" +
     native_component(native_text(execution, "session_id"))
@@ -840,6 +853,50 @@ async fn native_poll_task(
   let observation = native_execution_readback(
     execution, claims, events, service,
   )
+  if coordinated {
+    try {
+      let panel = native_request(
+        control,
+        @http.Post,
+        base + "/task-controls",
+        (
+          {
+            "action": "inspect",
+            "book_root": native_text(execution, "workspace"),
+          } : Json).stringify(),
+      )
+      if native_text(panel, "session_id") !=
+        native_text(execution, "session_id") {
+        raise GatewayError::Upstream(
+          "Worker observation returned a different delivery",
+        )
+      }
+      let workers = native_array(panel, "workers").map(w => {
+        let fields : Map[String, Json] = Map([])
+        for
+          key in [
+            "worker_id", "child_session_id", "child_command_id", "status", "terminal",
+            "successful", "terminal_evidence",
+          ] {
+          fields[key] = native_field(w, key)
+        }
+        fields["artifact_references"] = native_field(
+          native_field(w, "result"),
+          "artifact_references",
+        )
+        Json::object(fields)
+      })
+      if observation is Object(fields) {
+        fields["workers"] = workers.to_json()
+        fields["worker_error"] = Json::string("")
+      }
+    } catch {
+      error =>
+        if observation is Object(fields) {
+          fields["worker_error"] = Json::string(gateway_error_text(error))
+        }
+    }
+  }
   native_company_observe(bridge, task_id, observation)
 }
 
@@ -881,20 +938,50 @@ async fn native_refresh_task(
   }
   try {
     let control = native_load_control(moonclaw_uri)
-    native_poll_task(bridge, control, task_id, execution)
+    if native_text(execution, "control_state") == "stopping" {
+      native_delivery_settle_stop(bridge, control, task)
+    }
+    if native_text(execution, "control_state") == "revising" {
+      native_delivery_progress_revision(bridge, control, task)
+    }
+    if !["stopping", "stopped", "revising"].contains(
+        native_text(execution, "control_state"),
+      ) {
+      native_poll_task(
+        bridge,
+        control,
+        task_id,
+        execution,
+        coordinated=native_coordinated(task),
+      )
+    }
   } catch {
     error =>
       native_company_observe(
         bridge,
         task_id,
-        native_observation(
-          execution,
-          "runtime_unavailable",
-          gateway_error_text(error),
-        ),
+        if ["stopping", "revising"].contains(
+            native_text(execution, "control_state"),
+          ) {
+          native_delivery_control_observation(
+            execution,
+            native_text(execution, "control_state"),
+            gateway_error_text(error),
+            Json::null(),
+          )
+        } else {
+          native_observation(
+            execution,
+            "runtime_unavailable",
+            gateway_error_text(error),
+          )
+        },
       )
   }
-  native_company_request(bridge, @http.Get, path, Json::null())
+  native_delivery_finish_detail(
+    bridge,
+    native_company_request(bridge, @http.Get, path, Json::null()),
+  )
 }
 
 ///|
@@ -925,6 +1012,13 @@ async fn native_dispatch_task(
     )
   }
   let existing = native_field(task, "execution")
+  if ["stopping", "stopped", "resuming", "revising"].contains(
+      native_text(existing, "control_state"),
+    ) {
+    return native_json_result(409, {
+      "error": "This delivery is stopped or its control outcome is unknown; explicitly continue the existing delivery",
+    })
+  }
   let book_guidance = native_book_guidance(task, body)
   let snapshot = if existing is Object(_) {
     existing
@@ -946,6 +1040,7 @@ async fn native_dispatch_task(
       })
     }
     let control = native_load_control(moonclaw_uri)
+    native_prepare_delivery_workspace(task)
     let route = native_request(control, @http.Get, "/v1/moongate-route", "")
     native_propose_execution(
       task,
@@ -1050,7 +1145,13 @@ async fn native_dispatch_task(
       fields.set("dispatched", Json::boolean(true))
       native_company_observe(bridge, task_id, Json::object(fields))
     }
-    native_poll_task(bridge, control, task_id, execution)
+    native_poll_task(
+      bridge,
+      control,
+      task_id,
+      execution,
+      coordinated=native_coordinated(task),
+    )
   } catch {
     error =>
       native_company_observe(
@@ -1063,7 +1164,10 @@ async fn native_dispatch_task(
         ),
       )
   }
-  native_company_request(bridge, @http.Get, detail_path, Json::null())
+  native_delivery_finish_detail(
+    bridge,
+    native_company_request(bridge, @http.Get, detail_path, Json::null()),
+  )
 }
 
 ///|

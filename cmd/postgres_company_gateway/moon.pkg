@@ -17,6 +17,7 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/x/sys",
   "moonbitlang/x/crypto",
+  "moonbitlang/x/time",
 }
 
 supported_targets = "native"

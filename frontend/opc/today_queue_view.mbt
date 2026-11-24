@@ -10,7 +10,18 @@ fn today_task_row(
     div(class="attention-main") <| [
       div(class="attention-title") <| [
         strong(task.title),
-        status_badge(task.status, tone="info"),
+        status_badge(
+          if task.status == "done" {
+            "已完成"
+          } else if ["pending", "in_progress", "submitted", "accepted"].contains(
+              task.status,
+            ) {
+            dispatch_task_stage_label(task.status)
+          } else {
+            "状态未确认"
+          },
+          tone="info",
+        ),
       ],
       p(
         "负责人 · " +

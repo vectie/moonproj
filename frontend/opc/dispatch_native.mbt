@@ -343,6 +343,11 @@ fn dispatch_run_pollable(run : DispatchRun?) -> Bool {
 
 ///|
 fn dispatch_can_start(model : Model) -> Bool {
+  if ["stopping", "stopped", "revising", "resuming"].contains(
+      delivery_control(model),
+    ) {
+    return false
+  }
   !model.dispatch_task_id.is_empty() &&
   dispatch_json_text(model.dispatch_offer_task, "taskType") != "key_node" &&
   model.dispatch_task_pending_action.is_empty() &&
@@ -439,6 +444,25 @@ fn apply_dispatch_snapshot(model : Model, snapshot : DispatchSnapshot) -> Model 
   let selected_report_id = if snapshot.state == "done" &&
     snapshot.accepted_report_id != "" {
     snapshot.accepted_report_id
+  } else if dispatch_json_text(snapshot.offer_task, "delivery_mode") ==
+    "coordinated" {
+    reports
+    .filter(report => {
+      let source = dispatch_json_field(report, "delivery_source")
+      if !(snapshot.delivery_source is Null) {
+        source == snapshot.delivery_source
+      } else {
+        snapshot.run
+        .map(run => {
+          dispatch_json_text(source, "command_id") == run.command_id &&
+          dispatch_json_text(source, "type") == "original"
+        })
+        .unwrap_or(false)
+      }
+    })
+    .get(0)
+    .map(report => dispatch_json_text(report, "reportGuid"))
+    .unwrap_or(model.dispatch_task_report_id)
   } else {
     model.dispatch_task_report_id
   }

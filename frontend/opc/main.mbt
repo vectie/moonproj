@@ -138,6 +138,7 @@ struct Model {
   dispatch_accepted_human_export : DispatchAcceptedHumanExport
   dispatch_client_delivery : DispatchClientDelivery
   dispatch_continuation : DispatchContinuationState
+  delivery : DeliveryState
   dispatch_task_open_id : String
   dispatch_task_workspace : String
   dispatch_task_model : String
@@ -310,6 +311,7 @@ enum Msg {
   SaveDispatchExecutionSettings
   DispatchExecutionSettingsSaved(String, Int32)
   StartDispatchTask
+  DeliveryAction(DeliveryMsg)
   SubmitDispatchTask
   DispatchTaskSubmitted(String, Int32, String, String, String)
   AcceptDispatchTask
@@ -435,6 +437,7 @@ fn initial_model() -> Model {
     dispatch_accepted_human_export: empty_dispatch_accepted_human_export(),
     dispatch_client_delivery: empty_dispatch_client_delivery(),
     dispatch_continuation: empty_dispatch_continuation(),
+    delivery: delivery_initial(),
     dispatch_task_open_id: "",
     dispatch_task_workspace: "",
     dispatch_task_model: "",
@@ -905,6 +908,7 @@ fn update_model(
   model : Model,
 ) -> (Cmd, Model) {
   match msg {
+    DeliveryAction(action) => delivery_update(emit, model, action)
     AcceptedHumanExportAction(action) =>
       dispatch_accepted_human_export_update(emit, model, action)
     ClientDeliveryAction(action) =>
@@ -1805,10 +1809,23 @@ fn update_model(
         (
           @cmd.batch([
             read,
-            emit(ContinuationAction(Refresh)),
-            if dispatch_run_pollable(next.dispatch_run) &&
-              dispatch_work_page(next) {
-              @cmd.delay(emit(RefreshDispatchTask(task_id, selection)), 2000)
+            if delivery_coordinated(next) &&
+              ["stopping", "stopped", "revising"].contains(
+                delivery_control(next),
+              ) {
+              none
+            } else {
+              emit(ContinuationAction(Refresh))
+            },
+            if delivery_pollable(next) && dispatch_work_page(next) {
+              @cmd.delay(
+                emit(RefreshDispatchTask(task_id, selection)),
+                if delivery_coordinated(next) {
+                  5000
+                } else {
+                  2000
+                },
+              )
             } else {
               none
             },
@@ -2283,10 +2300,13 @@ fn nav_item_view(
 fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   let items : Array[@html.Html] = []
   let more : Array[@html.Html] = []
+  let demonstrations : Array[@html.Html] = []
   let mut current_group = ""
   for item in nav_items() {
     if [Overview, Objectives, Company].contains(item.page) {
       items.push(nav_item_view(emit, item, model.page))
+    } else if [Observe, Operate, Evidence, Delivery].contains(item.page) {
+      demonstrations.push(nav_item_view(emit, item, model.page))
     } else if item.page != MoonSuite || model.moon_mode {
       if item.group != current_group {
         current_group = item.group
@@ -2295,6 +2315,15 @@ fn sidebar(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
       more.push(nav_item_view(emit, item, model.page))
     }
   }
+  more.push(
+    details(
+      class="nav-more",
+      open=[Observe, Operate, Evidence, Delivery].contains(model.page),
+    ) <| [
+      summary("演练与开发"),
+      div <| demonstrations,
+    ],
+  )
   items.push(
     details(
       class="nav-more",

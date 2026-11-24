@@ -22,6 +22,14 @@ fn objective_is_node(state : TodayState, task : TodayTask) -> Bool {
 
 ///|
 fn objective_result_report(model : Model, work : String) -> String {
+  if model.dispatch_task_id == work &&
+    (
+      model.delivery.editing ||
+      model.delivery.busy ||
+      ["revising", "resuming"].contains(delivery_control(model))
+    ) {
+    return ""
+  }
   if model.dispatch_task_id == work && dispatch_can_accept_report(model) {
     model.dispatch_task_report_id
   } else {
@@ -136,6 +144,12 @@ fn objective_prepare(
     ..base,
     task_type: Some(if parent is None { "key_node" } else { "task" }),
     parent_task_id: parent,
+    delivery_mode: if parent is Some(_) {
+      Some("coordinated")
+    } else {
+      None
+    },
+    delivery_limits: Some(""),
     owner_id: s.actor,
     begin_date: dispatch_today(),
     end_date: objective.map(t => t.due).unwrap_or(dispatch_today()),
@@ -190,6 +204,17 @@ fn objective_request_changes(
     products_text(objective_metadata(model.today, work), "parentTaskGuid") !=
     goal {
     return (none, model)
+  }
+  if model.dispatch_task_id == work &&
+    delivery_coordinated(model) &&
+    model.dispatch_run is Some(_) {
+    return (
+      none,
+      {
+        ..model,
+        delivery: { ..model.delivery, editing: true, instruction: "", },
+      },
+    )
   }
   objective_prepare(
     emit,
@@ -396,6 +421,40 @@ fn objectives_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
                       "补充工作"
                     },
                   )
+                } else {
+                  @html.nothing
+                },
+                if products_field(
+                    objective_metadata(s, goal.id),
+                    "objective_result",
+                  )
+                  is Object(_) {
+                  div <| [
+                    p(
+                      products_text(
+                        products_field(
+                          objective_metadata(s, goal.id),
+                          "objective_result",
+                        ),
+                        "summary",
+                      ),
+                    ),
+                    secondary_button(
+                      emit,
+                      TodayAction(
+                        OpenTask(
+                          products_text(
+                            products_field(
+                              objective_metadata(s, goal.id),
+                              "objective_result",
+                            ),
+                            "task_id",
+                          ),
+                        ),
+                      ),
+                      "查看已接受交付",
+                    ),
+                  ]
                 } else {
                   @html.nothing
                 },

@@ -1,5 +1,92 @@
 # MoonProj project handoff
 
+## Coordinated delivery, not another control plane — 2026-11-24
+
+Delegated objective work now explicitly uses coordinated delivery. The founder
+sets the brief, criteria and limits; the existing MoonClaw worker tools handle
+specialist work and review in isolated sibling books inside the selected root.
+Artifacts and the selected result stay in the objective workspace. Reporting
+reconciles automatically once the exact native command has a completed result;
+owner acceptance remains explicit and captures the report summary/evidence/source.
+Feedback continues the same task through the existing continuation protocol,
+not another task store or a new approval/policy engine. Sample delivery,
+governance and monitoring surfaces remain available under development navigation.
+
+Stop uses MoonClaw's real session-tree suspension. An acknowledged request is
+not sufficient: the root must be suspended and every returned child must be
+suspended, archived, deleted or confirmed missing. A planned child that never
+became a session has nothing running. Unknown outcomes remain recoverable.
+Only explicit Continue/Revise may resume the root; background reconciliation
+must not unseal it. Suspension does not settle a paused native command. A
+successor for unfinished stopped work first settles it with one stable native
+cancel control, preserving retained files and the original outcome history.
+Retries reuse that control and successor identity. Completed work is not rerun.
+
+Live testing found that `SELECT revision::text ... ORDER BY revision` sorts by
+the textual output alias, returning revision 9 ahead of 10/11. The exact task
+lookup now qualifies the numeric table column. Control-only writes merge under
+the existing projection lock instead of replacing a concurrently updated result;
+their source-event suffix uses the revision actually inserted under that lock.
+Keep these properties when changing task persistence.
+
+Public task execution intentionally omits private command bytes. Revision
+capture reads C0 from the exact authenticated native claim instead.
+The native planner treats `context_path` as a reference, not automatic file
+contents. A coordinated successor therefore captures its complete composed
+brief as the wire instruction as well as its immutable input file; supplying
+only "continue" loses the acceptance/tool guidance even though the file exists.
+Worker inspection is ancillary: its failure is visible but cannot erase an otherwise
+valid execution readback. Background reads do not monopolize delivery controls.
+Stopped work does not poll; coordinated reconciliation avoids redundant native
+continuation reads while control is pending and uses a five-second interval.
+
+The old blanket 2 MB response rejection ran after allocation and rejected real
+journals; it is removed. Instance/status/credential checks, signed authority,
+exact task/command attribution and unknown-outcome handling remain. Native
+journal APIs still return full history, so long-running histories have a real
+read/parse cost; incremental native readback is a future performance task, not
+a reason to invent a second event store here. Brief limits are instructions,
+not an enforced provider-spend cap. Cost remains unknown without actual usage.
+
+Worker model selection must omit the optional field to inherit the actual
+selected model: the literal `default` is not a provider selector. Failed spawn
+IDs remain historical and require fresh IDs on recovery. For Markdown products,
+use native file tools rather than requiring shell; the live shell route has no
+configured ExecutionSandbox and was not bypassed. Async `mkdir(recursive=true)`
+still fails on an existing directory. Delivery creation/write recovery handles
+that explicitly and checks feature-owned parents before creating descendants.
+
+No cluster deployment or packaged-app installation is included in this slice.
+
+Validation: 550 frontend JS and 263 native service/gateway tests pass in the
+combined working tree. The exact staged snapshot excludes unrelated user work
+and passes 549 frontend plus 263 native tests and its release frontend build.
+Native release builds, `moon info`, scoped formatting and diff checks pass;
+no public-interface changes. User-owned plan/GitHub-import changes are excluded.
+
+The signed native gateway/service and disposable PostgreSQL were used for real
+browser work creation, provider-backed execution, Stop and same-task recovery.
+At 390px the document width is 382px. The first failed run is retained; numeric
+revision readback, confirmed session-tree suspension, stable successor admission
+and one actual cancellation of the paused original were observed. Recovery
+completion is not qualified by admission alone.
+
+The corrected fresh task is
+`OPC-TASK-1795515911752-5adba735-dc18-473f-aecd-0c91a77eee17`.
+Its two specialists have actual completed receipts and wrote
+`specialist-1/contribution-1.md` and `specialist-2/contribution-2.md` beneath the
+task's `.moonproj-deliveries` directory in the local `delivery-smoke-20261124`
+book. The coordinator made 102 `wait_workers` calls, continuing after both had completed.
+It did not produce an independently reviewed integrated `starter-kit.md`.
+The run was stopped; neither a report nor owner acceptance was fabricated.
+Consequently this smoke does NOT establish autonomous company delivery, a
+sellable finished product, demand or a sale. Automatic reporting and completed
+revision selection have unit coverage but still need a successful live final
+command to qualify end to end. Next necessary work is native coordinator
+progress after terminal worker results, not more policy/approval scaffolding.
+Screenshot: `/tmp/moonproj-round3-verified.jpg`. Test services/database were
+stopped after verification; fixtures and native worker outputs are retained.
+
 ## One objective working home — 2026-11-24
 
 The goal workspace now shows one selected objective, its delegated work and the

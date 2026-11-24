@@ -25,11 +25,11 @@ const TRUSTED_IDENTITY_TIMESTAMP_HEADER = "X-Moonproj-Identity-Timestamp"
 const TRUSTED_IDENTITY_SIGNATURE_HEADER = "X-Moonproj-Identity-Signature"
 
 ///|
-const MAX_BODY_BYTES : Int = 128 * 1024
+const MAX_BODY_BYTES : Int32 = 128 * 1024
 
 ///|
 struct ProxyResult {
-  status : Int
+  status : Int32
   content_type : String
   body : Bytes
   www_authenticate : String?
@@ -152,7 +152,7 @@ fn verify_trusted_identity(
 }
 
 ///|
-fn session_token(secret : String, actor : String, sequence : Int) -> String {
+fn session_token(secret : String, actor : String, sequence : Int32) -> String {
   let now = @env.now().to_string()
   hmac_hex(secret, actor + ":" + now + ":" + sequence.to_string())
 }
@@ -617,7 +617,7 @@ fn command_path_allowed(
 async fn read_body(
   body : &@io.Reader,
   request : @http.Request,
-  limit? : Int = MAX_BODY_BYTES,
+  limit~ : Int32 = MAX_BODY_BYTES,
 ) -> Bytes raise GatewayError {
   let declared = header(request, "Content-Length")
   match parse_uint(declared) {
@@ -774,7 +774,7 @@ async fn submit_moonsuite_audit(
   branch : String,
   version : String,
   tag : String,
-  audit_sequence : Int,
+  audit_sequence : Int32,
 ) -> ProxyResult raise GatewayError {
   for value in [branch, version, tag] {
     if !valid_release_candidate_identifier(value) {
@@ -1143,9 +1143,9 @@ async fn verify_trusted_profile(
 async fn send_json(
   conn : @http.ServerConnection,
   request_method : @http.RequestMethod,
-  status : Int,
+  status : Int32,
   payload : Json,
-  extra_headers? : Map[String, String] = {},
+  extra_headers~ : Map[String, String] = {},
 ) -> Unit {
   let headers : Map[String, String] = {
     "Content-Type": "application/json; charset=utf-8",
@@ -1166,7 +1166,7 @@ async fn send_bytes(
   conn : @http.ServerConnection,
   request_method : @http.RequestMethod,
   result : ProxyResult,
-  extra_headers? : Map[String, String] = {},
+  extra_headers~ : Map[String, String] = {},
 ) -> Unit {
   let headers : Map[String, String] = {
     "Content-Type": result.content_type,
@@ -1191,7 +1191,7 @@ async fn send_bytes(
 }
 
 ///|
-fn status_reason(status : Int) -> String {
+fn status_reason(status : Int32) -> String {
   match status {
     200 => "OK"
     201 => "Created"
@@ -1250,7 +1250,7 @@ async fn serve_static(
   path : String,
   request_method : @http.RequestMethod,
   conn : @http.ServerConnection,
-  extra_headers? : Map[String, String] = {},
+  extra_headers~ : Map[String, String] = {},
 ) -> Unit {
   let file_path : String? = match public_dir {
     None => None
@@ -1325,7 +1325,7 @@ async fn handle(
   desktop_actor : String?,
   public_dir : String?,
   sessions : Map[String, String],
-  sequence : Ref[Int],
+  sequence : Ref[Int32],
 ) -> Unit {
   let path = path_only(request.path)
   if request.meth is @http.Options {
@@ -1827,6 +1827,34 @@ async fn handle(
                 "schema": "moonproj.desk-handoff.v1",
                 "state": "upstream_unavailable",
                 "message": gateway_error_text(error),
+                "task_id": task_id,
+              })
+          }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if request.meth is @http.Post &&
+          native_delivery_route(path) is Some((task_id, action)) {
+          let result = try {
+            let bytes = read_body(body_reader, request)
+            let body = @json.parse(@encoding/utf8.decode(bytes)) catch {
+              _ => raise fail("Invalid delivery command JSON")
+            }
+            if action == "stop" {
+              native_stop_delivery(bridge, native_moonclaw_uri, task_id, body)
+            } else {
+              native_revise_delivery(
+                bridge,
+                native_moonclaw_uri,
+                task_id,
+                body,
+                action == "resume-delivery",
+              )
+            }
+          } catch {
+            error =>
+              native_json_result(503, {
+                "error": gateway_error_text(error),
                 "task_id": task_id,
               })
           }

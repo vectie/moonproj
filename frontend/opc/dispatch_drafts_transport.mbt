@@ -70,6 +70,12 @@ fn dispatch_draft_create_body(draft : DispatchDraft, actor : String) -> Json {
   if draft.parent_task_id is Some(id) && !id.is_empty() {
     fields["parent_task_id"] = Json::string(id)
   }
+  if draft.delivery_mode is Some(mode) {
+    fields["delivery_mode"] = Json::string(mode)
+    fields["delivery_limits"] = Json::string(
+      draft.delivery_limits.unwrap_or(""),
+    )
+  }
   if !draft.product_id.is_empty() {
     fields["product_id"] = Json::string(draft.product_id)
   }

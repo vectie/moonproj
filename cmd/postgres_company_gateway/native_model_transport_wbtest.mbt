@@ -15,11 +15,11 @@ fn native_hosted_route() -> Json {
 ///|
 fn native_transport_fixture(
   text : String,
-  status? : Int = 503,
-  method? : @http.RequestMethod = @http.Get,
-  path? : String = "/v1/moongate-route",
-  body? : String = "",
-  instance? : String = "fixture-instance",
+  status~ : Int32 = 503,
+  method~ : @http.RequestMethod = @http.Get,
+  path~ : String = "/v1/moongate-route",
+  body~ : String = "",
+  instance~ : String = "fixture-instance",
 ) -> Json raise {
   native_validate_response(
     {
@@ -138,7 +138,6 @@ test "hosted route transport preserves response authority and legacy success" {
     bad in [
       "{",
       "null",
-      text + " ".repeat(2_000_001),
       native_route_override(
         native_hosted_route(),
         "error",

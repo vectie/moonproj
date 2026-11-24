@@ -20,7 +20,7 @@ fn load_dispatch_session(emit : @rabbita.Emit[Msg]) -> Cmd {
 fn dispatch_decode_response(
   emit : @rabbita.Emit[Msg],
   task_id : String,
-  selection : Int,
+  selection : Int32,
   action : String,
   response : String,
 ) -> Cmd {
@@ -42,7 +42,7 @@ fn dispatch_decode_response(
 fn load_dispatch_task(
   emit : @rabbita.Emit[Msg],
   task_id : String,
-  selection : Int,
+  selection : Int32,
 ) -> Cmd {
   @http.get("/api/company/tasks/" + dispatch_url_encode(task_id)).expect_text(result => {
     match result {
@@ -123,8 +123,8 @@ fn request_dispatch_task_start(emit : @rabbita.Emit[Msg], model : Model) -> Cmd 
 fn open_dispatch_task(
   emit : @rabbita.Emit[Msg],
   model : Model,
-  push? : Bool = true,
-  page? : Page = Dispatch,
+  push~ : Bool = true,
+  page~ : Page = Dispatch,
 ) -> (Cmd, Model) {
   let id = model.dispatch_task_open_id.trim().to_owned()
   if id.is_empty() {
@@ -141,6 +141,7 @@ fn open_dispatch_task(
       dispatch_task_open_id: id,
       dispatch_task_pending_action: "load",
       dispatch_run: None,
+      delivery: delivery_initial(),
       dispatch_continuation: {
         ..empty_dispatch_continuation(),
         task_id: id,

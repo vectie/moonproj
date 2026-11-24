@@ -170,6 +170,8 @@ fn project_plan_task_item(
       json_text(payload, "execution_workspace", ""),
     ),
     "execution_model": Json::string(json_text(payload, "execution_model", "")),
+    "delivery_mode": Json::string(json_text(payload, "delivery_mode", "")),
+    "delivery_limits": Json::string(json_text(payload, "delivery_limits", "")),
     "execution": plan_task_execution_public(payload),
     "continuations": plan_task_continuations_public(payload),
     "human_revisions": plan_task_human_revisions(payload).to_json(),
@@ -1063,7 +1065,7 @@ async fn plan_task_latest(
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'plan_task' AND aggregate_id = " +
     @postgres.sql_literal(task_id) +
-    " ORDER BY revision DESC LIMIT 1",
+    " ORDER BY company_aggregate_projection.revision DESC LIMIT 1",
   )
   let value = output.trim().to_owned()
   if value.is_empty() {
@@ -1165,6 +1167,16 @@ async fn plan_task_command_request(
       "authority": authority,
     })
     let request = plan_task_with_product_metadata(request, body, true)
+    let request = match
+      (request, plan_task_delivery_changes(Json::null(), body)) {
+      (Object(fields), Object(changes)) => {
+        for key, value in changes {
+          fields[key] = value
+        }
+        Json::object(fields)
+      }
+      _ => request
+    }
     let request = @task_evidence.with_source_context(request, body) catch {
       @task_evidence.InvalidSourceContext(message) => raise reject(422, message)
     }
@@ -1216,6 +1228,11 @@ async fn plan_task_command_request(
   let changes = match plan_task_product_metadata(body, false) {
     Object(fields) => fields
     _ => Map::new()
+  }
+  if plan_task_delivery_changes(current, body) is Object(fields) {
+    for key, value in fields {
+      changes[key] = value
+    }
   }
   if json_field(body, "objective_result") is Some(selection) {
     if json_text(body, "status", "") != "done" {

@@ -8,7 +8,8 @@ fn plan_task_execution_public(task : Json) -> Json {
         key in [
           "run_id", "task_id", "session_id", "command_id", "state", "summary", "error",
           "evidence_ids", "output_urls", "receipt", "workspace", "model", "artifact_refs",
-          "dispatched",
+          "dispatched", "control_state", "control_error", "control_receipt", "workers",
+          "revision_request", "worker_error",
         ] {
         match fields.get(key) {
           Some(value) => public_fields.set(key, value)
@@ -72,7 +73,19 @@ fn plan_task_execution_merge(
   // A late admission/poll response cannot erase the settled command result.
   if plan_task_execution_terminal(json_text(current, "state", "")) &&
     json_text(current, "state", "") != state {
-    return current
+    let fields = match current {
+      Object(fields) => fields.copy()
+      _ => Map([])
+    }
+    for
+      key in [
+        "control_state", "control_error", "control_receipt", "revision_request",
+      ] {
+      if json_field(observation, key) is Some(value) {
+        fields[key] = value
+      }
+    }
+    return Json::object(fields)
   }
   if state == "queued" &&
     ["running", "waiting_approval", "interrupted"].contains(
@@ -84,7 +97,11 @@ fn plan_task_execution_merge(
     Object(values) => values.copy()
     _ => Map::new()
   }
-  for key in ["state", "error", "receipt", "dispatched"] {
+  for
+    key in [
+      "state", "error", "receipt", "dispatched", "control_state", "control_error",
+      "control_receipt", "workers", "revision_request", "worker_error",
+    ] {
     match json_field(observation, key) {
       Some(value) => fields.set(key, value)
       None => ()
@@ -143,7 +160,7 @@ fn plan_task_execution_route(path : String) -> (String, String)? {
   if pieces.length() == 3 &&
     valid_identifier(pieces[0].to_owned()) &&
     pieces[1] == "execution" &&
-    ["reserve", "observe"].contains(pieces[2].to_owned()) {
+    ["reserve", "observe", "control"].contains(pieces[2].to_owned()) {
     Some((pieces[0].to_owned(), pieces[2].to_owned()))
   } else {
     None
@@ -156,7 +173,7 @@ async fn plan_task_execution_command(
   action : String,
   body : Json,
   actor : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let (task, revision) = match plan_task_latest(task_id) {
     Some(value) => value
     None => raise reject(404, "native planning task not found")
@@ -165,6 +182,33 @@ async fn plan_task_execution_command(
     raise reject(409, "task is deleted")
   }
   let existing = json_field(task, "execution").unwrap_or(Json::null())
+  if action == "control" {
+    if json_text(task, "created_by", "") != actor {
+      raise reject(403, "only the task creator may control this delivery")
+    }
+    ignore(
+      plan_task_authority(
+        body,
+        actor,
+        json_text(task, "project_id", ""),
+        "project:task:update",
+      ),
+    )
+    let requested = json_field(body, "execution").unwrap_or(Json::null())
+    if json_text(requested, "control_state", "") == "revising" &&
+      json_text(existing, "control_state", "") == "revising" &&
+      json_field(requested, "revision_request") !=
+      json_field(existing, "revision_request") {
+      raise reject(
+        409, "recover the existing delivery revision before replacing its intent",
+      )
+    }
+    if !["stopping", "resuming", "revising"].contains(
+        json_text(requested, "control_state", ""),
+      ) {
+      raise reject(422, "explicit stop or resume intent is required")
+    }
+  }
   if action == "reserve" {
     if json_text(task, "created_by", "") != actor {
       raise reject(403, "only the task creator may dispatch this local task")
@@ -198,9 +242,8 @@ async fn plan_task_execution_command(
       json_text(execution, "command_id", "") !=
       json_text(packet, "command_id", "") ||
       json_text(execution, "workspace", "") !=
-      json_text(task, "execution_workspace", "") ||
-      json_text(native, "book_root", "") !=
-      json_text(task, "execution_workspace", "") ||
+      plan_task_execution_workspace(task) ||
+      json_text(native, "book_root", "") != plan_task_execution_workspace(task) ||
       json_text(native, "model", "") != json_text(execution, "model", "") ||
       (
         !json_text(task, "execution_model", "").is_empty() &&
@@ -237,6 +280,50 @@ async fn plan_task_execution_command(
     let observation = json_field(body, "execution").unwrap_or(Json::null())
     let merged = plan_task_execution_merge(existing, observation)
     if merged.stringify() != existing.stringify() {
+      let control_only = json_field(observation, "control_state") is Some(_)
+      let control_patch : Map[String, Json] = Map([])
+      for
+        key in [
+          "control_state", "control_error", "control_receipt", "revision_request",
+        ] {
+        if json_field(observation, key) is Some(value) {
+          control_patch[key] = value
+        }
+      }
+      let control_guard = (if action == "control" {
+          if json_text(observation, "control_state", "") == "revising" {
+            " AND (coalesce(payload->'execution'->>'control_state','') <> 'revising' OR payload->'execution'->'revision_request'=" +
+            @postgres.sql_literal(
+              json_field(observation, "revision_request")
+              .unwrap_or(Json::null())
+              .stringify(),
+            ) +
+            "::jsonb)"
+          } else {
+            ""
+          }
+        } else {
+          " AND payload->'execution'->>'control_state' IN (" +
+          (if json_text(observation, "control_state", "") == "stopped" {
+            "'stopping','stopped'"
+          } else if json_text(observation, "control_state", "") == "active" {
+            "'revising'"
+          } else {
+            @postgres.sql_literal(json_text(observation, "control_state", ""))
+          }) +
+          ")"
+        }) +
+        (if action != "control" &&
+          json_field(observation, "revision_request") is Some(request) &&
+          ["active", "revising"].contains(
+            json_text(observation, "control_state", ""),
+          ) {
+          " AND payload->'execution'->'revision_request'=" +
+          @postgres.sql_literal(request.stringify()) +
+          "::jsonb"
+        } else {
+          ""
+        })
       let state = json_text(merged, "state", "unknown")
       let task_state = if ["queued", "runtime_unavailable", "unknown"].contains(
           state,
@@ -251,22 +338,37 @@ async fn plan_task_execution_command(
       let sql = "BEGIN; LOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE; " +
         "INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) " +
         "SELECT 'plan_task', aggregate_id, revision + 1, payload || jsonb_build_object('execution', " +
-        @postgres.sql_literal(merged.stringify()) +
+        (if control_only {
+          "coalesce(payload->'execution','{}'::jsonb) || " +
+          @postgres.sql_literal(Json::object(control_patch).stringify())
+        } else {
+          @postgres.sql_literal(merged.stringify())
+        }) +
         "::jsonb, 'state', " +
-        @postgres.sql_literal(task_state) +
+        (if control_only {
+          "payload->>'state'"
+        } else {
+          @postgres.sql_literal(task_state)
+        }) +
         "), " +
         @postgres.sql_literal(
           "plan_task:execution:" +
           json_text(merged, "run_id", "") +
           ":" +
           state +
-          ":" +
-          (revision + 1).to_string(),
+          ":",
         ) +
+        " || (revision + 1)::text" +
         " FROM (SELECT * FROM company_aggregate_projection WHERE aggregate_type='plan_task' AND aggregate_id=" +
         @postgres.sql_literal(task_id) +
-        " ORDER BY revision DESC LIMIT 1) latest WHERE revision=" +
-        revision.to_string() +
+        " ORDER BY revision DESC LIMIT 1) latest WHERE " +
+        (if control_only {
+          "payload->'execution'->>'run_id'=" +
+          @postgres.sql_literal(json_text(existing, "run_id", "")) +
+          control_guard
+        } else {
+          "revision=" + revision.to_string()
+        }) +
         "; COMMIT;"
       ignore(run_sql(sql))
     }
@@ -286,7 +388,7 @@ async fn plan_task_execution_command(
 /// native observation must force a retry rather than be overwritten.
 fn plan_task_atomic_command_sql(
   task_id : String,
-  expected_revision : Int,
+  expected_revision : Int32,
   command_source : String,
   command_sql : String,
 ) -> String {

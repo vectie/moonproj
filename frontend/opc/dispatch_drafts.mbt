@@ -14,6 +14,8 @@ struct DispatchDraft {
   observed_problem : String?
   task_type : String?
   parent_task_id : String?
+  delivery_mode : String?
+  delivery_limits : String?
   offer_draft : Json?
   research_brief : @research_handoff.Brief?
   owner_id : String
@@ -135,6 +137,8 @@ fn dispatch_prepare_draft(
         observed_problem: None,
         task_type: None,
         parent_task_id: None,
+        delivery_mode: None,
+        delivery_limits: None,
         offer_draft: None,
         research_brief: None,
         owner_id: "",
@@ -328,6 +332,7 @@ fn dispatch_draft_update(
         "owner_id" => { ..draft, owner_id: value, }
         "workspace" => { ..draft, workspace: value, }
         "model" => { ..draft, model: value, }
+        "delivery_limits" => { ..draft, delivery_limits: Some(value), }
         "begin_date" => { ..draft, begin_date: value, }
         "end_date" => { ..draft, end_date: value, }
         _ => draft

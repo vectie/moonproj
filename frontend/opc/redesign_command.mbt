@@ -352,6 +352,35 @@ fn dispatch_task_form(emit : @rabbita.Emit[Msg], source : Model) -> @html.Html {
     } else {
       dispatch_source_context_form(emit, source, frozen)
     },
+    if dispatch_active_draft(source)
+      .map(d => d.delivery_mode == Some("coordinated"))
+      .unwrap_or(false) {
+      div <| [
+        p(
+          "交付负责人会安排专员、整合产物并登记报告；你只需检查结果或提出修改。",
+        ),
+        if frozen {
+          p(
+            "范围与约束 · " +
+            dispatch_active_draft(source)
+            .map(d => d.delivery_limits.unwrap_or(""))
+            .unwrap_or(""),
+          )
+        } else {
+          dispatch_outcome_textarea(
+            "delivery-limits",
+            "范围与约束",
+            dispatch_active_draft(source)
+            .map(d => d.delivery_limits.unwrap_or(""))
+            .unwrap_or(""),
+            "可做什么、不可做什么，以及时间或费用约束",
+            emit.map(v => DraftAction(Input("delivery_limits", v))),
+          )
+        },
+      ]
+    } else {
+      @html.nothing
+    },
     match dispatch_active_draft(source) {
       Some(draft) if !draft.parent_task_id.unwrap_or("").is_empty() =>
         p(
@@ -598,6 +627,9 @@ fn dispatch_durable_task_card(
   emit : @rabbita.Emit[Msg],
   model : Model,
 ) -> @html.Html {
+  if delivery_coordinated(model) {
+    return delivery_work_view(emit, model)
+  }
   article(class="work-card focused-work") <| [
     div(class="loop-head") <| [
       strong(model.dispatch_task_title),

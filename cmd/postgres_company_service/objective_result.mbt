@@ -27,6 +27,13 @@ fn objective_result_binding(
   {
     "task_id": task_id,
     "report_id": report_id,
+    "summary": json_text(report, "summary", ""),
+    "evidence_ids": json_field(report, "evidence_ids").unwrap_or(
+      Json::array([]),
+    ),
+    "delivery_source_snapshot": json_field(report, "delivery_source_snapshot").unwrap_or(
+      Json::null(),
+    ),
     "delivery_source": json_field(report, "delivery_source").unwrap_or(
       Json::null(),
     ),
